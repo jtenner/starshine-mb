@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
@@ -85,6 +86,7 @@ That is much closer to the real pass than “full simplify-locals, but smaller.�
   - it does not create new `local.tee` nodes in order to sink multi-use locals
   - it does not create new block / `if` / loop return values from local traffic
 - Starshine's active first slice now encodes those two policy gates directly in `src/passes/simplify_locals.mbt` rather than treating the pass as a no-op alias.
+- The 2026-05-06 refreshed harness revalidation recorded 6759 compared direct-pass cases with 6759 normalized matches and 0 semantic mismatches; the 20 command failures were Binaryen/tool failures outside the compared semantic lane.
 - Despite living right after `flatten`, it is **not** the same as `simplify-locals-nonesting`.
   - Because `allowNesting = true`, it may still sink a single-use local into an already-existing nested consumer position.
   - So the pass does **not** promise to preserve full Flat IR on its own.
@@ -108,13 +110,14 @@ That is much closer to the real pass than “full simplify-locals, but smaller.�
 
 - Treat this folder as the canonical home for future `simplify-locals-notee-nostructure` research and port planning.
 - Keep it explicitly marked as **active direct, preset deferred** until the surrounding aggressive `-O4z` neighborhood is schedulable.
-- Cite the raw primary-source manifest and `0333` follow-up for provenance or current Starshine status; keep `0129` as historical mechanics research rather than the current status source.
+- Cite `0544` for refreshed direct-pass parity evidence; cite the raw primary-source manifest and `0333` follow-up for provenance or current Starshine status; keep `0129` as historical mechanics research rather than the current status source.
 - Keep the strategy page, implementation/test map, Starshine page, and variant-surface page aligned whenever new evidence changes the answer to either:
   - “what exact rewrite families remain enabled in `SimplifyLocals<false, false, true>`?” or
   - “what does this aggressive post-`flatten` slot actually preserve versus only simplify a little?”
 
 ## Sources
 
+- [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)

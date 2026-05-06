@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
@@ -162,10 +163,11 @@ Full local cleanup may build block / `if` / loop result structure; this sibling 
 The direct-pass slice is green at the focused and oracle-comparison levels:
 
 1. focused local tests cover registry and exact upstream spelling, direct-pipeline acceptance, single-use sinking, no fresh tee for multi-use locals, and the Binaryen const+nop loop parity shape;
-2. `.tmp/pass-fuzz-slnns-smith-10000-after-local` reached `8983/8983` comparable `wasm-smith` matches with `0` mismatches and `0` validation failures;
-3. `.tmp/pass-fuzz-slnns-genvalid-1000-fixed` reached `1000/1000` comparable `gen-valid` matches with `0` mismatches, `0` validation failures, and `0` command failures;
-4. `.tmp/pass-fuzz-slnns-10000-after-genvalid-fix` reached `9496/9496` comparable mixed-generator matches with `0` mismatches and `0` validation failures;
-5. `.tmp/self-opt-slnns-after-local-bin128` passed normalized-WAT and canonical-function equality against Binaryen 128 for `tests/node/dist/starshine-debug-wasi.wasm`.
+2. `.tmp/pass-fuzz-simplify-locals-notee-nostructure` refreshed the mixed-generator direct lane on 2026-05-06 with `6759/10000` comparable cases, `6759` matches, `0` mismatches, `17` Binaryen empty-recursion-group parser command failures, and `3` other Binaryen/tool command failures;
+3. `.tmp/pass-fuzz-slnns-smith-10000-after-local` reached `8983/8983` comparable `wasm-smith` matches with `0` mismatches and `0` validation failures;
+4. `.tmp/pass-fuzz-slnns-genvalid-1000-fixed` reached `1000/1000` comparable `gen-valid` matches with `0` mismatches, `0` validation failures, and `0` command failures;
+5. `.tmp/pass-fuzz-slnns-10000-after-genvalid-fix` reached `9496/9496` comparable mixed-generator matches with `0` mismatches and `0` validation failures;
+6. `.tmp/self-opt-slnns-after-local-bin128` passed normalized-WAT and canonical-function equality against Binaryen 128 for `tests/node/dist/starshine-debug-wasi.wasm`.
 
 Remaining scope is preset-neighborhood validation after neighboring slots exist:
 
@@ -193,6 +195,7 @@ So the right mental model today is:
 
 ## Sources
 
+- [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)

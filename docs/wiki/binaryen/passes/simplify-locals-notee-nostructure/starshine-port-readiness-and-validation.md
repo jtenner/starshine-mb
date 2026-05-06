@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
@@ -129,7 +130,19 @@ The core rule is simple: if the expected output contains a new non-copy expressi
 
 ## Binaryen oracle evidence
 
-Direct-pass evidence collected on 2026-05-04:
+Direct-pass validation on the landed slice:
+
+1. 2026-05-06 refreshed standard signoff:
+   - `moon info`
+   - `moon fmt`
+   - `moon test`
+   - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals-notee-nostructure --out-dir .tmp/pass-fuzz-simplify-locals-notee-nostructure`
+     - `6759/10000` comparable mixed-generator cases
+     - `6759` normalized matches
+     - `0` mismatches, validation failures, or generator failures
+     - `20` Binaryen/tool command failures: `17` empty-recursion-group rejects plus one each of bad-section-size, table-index-out-of-range, and invalid-tag-index classes
+
+Earlier direct-pass evidence collected on 2026-05-04:
 
 - `.tmp/pass-fuzz-slnns-smith-10000-after-local`: `8983/8983` comparable `wasm-smith` cases matched Binaryen, with `0` mismatches and `0` validation failures. The `1017` command failures were parser/corpus coverage failures outside the compared semantic lane.
 - `.tmp/pass-fuzz-slnns-genvalid-1000-fixed`: `1000/1000` comparable `gen-valid` cases matched Binaryen, with `0` mismatches, `0` validation failures, and `0` command failures after the emitted batch profile was narrowed to Binaryen-oracle-safe scalar/function surfaces.
@@ -152,6 +165,7 @@ A faithful port should make that choice visible in tests.
 
 ## Sources
 
+- [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)

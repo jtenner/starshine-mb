@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `simplify-locals-notee-nostructure` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `simplify-locals-notee-nostructure`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals-notee-nostructure --out-dir .tmp/pass-fuzz-simplify-locals-notee-nostructure`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, 17 Binaryen empty-recursion-group parser command failures, and 3 other Binaryen/tool command failures; added `docs/wiki/raw/research/0544-2026-05-06-slnns-direct-revalidation.md` and refreshed the `simplify-locals-notee-nostructure` living pages.
+- Pruned `simplify-locals-notee-nostructure` from the AUD002 remaining revalidation list while keeping `[SLNNS]003` as the aggressive-neighborhood and preset-readiness blocker.
+
 ## [2026-05-06] validation | revalidate `simplify-locals-nostructure` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for canonical `simplify-locals-nostructure` and alias `simplify-locals-no-structure`: `moon info`, `moon fmt`, `moon test`, then `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <spelling> --out-dir .tmp/pass-fuzz-<spelling>`.
