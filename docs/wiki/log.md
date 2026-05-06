@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `global-struct-inference` current-main bridge and split Starshine status
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md` plus `docs/wiki/raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md` after rechecking current Binaryen `GlobalStructInference.cpp`, `pass.cpp`, `gsi.wast`, and `gsi-desc.wast` against the existing contract.
+- Added a dedicated `docs/wiki/binaryen/passes/global-struct-inference/starshine-strategy.md` page, refreshed the implementation/detail pages and code anchors, and updated the folder index, root wiki index, pass catalog, tracker, and changelog so the local status and implementation-detail split is explicit.
+- Recorded unchanged contract status: current `main` still teaches the same open-world-plus-closed-world `gsi` story, and Starshine still keeps the pass as a narrower closed-world direct-global fold.
+
 ## [2026-05-06] health | refresh `remove-unused-brs` current-main bridge and freshness layer
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md` plus `docs/wiki/raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md` after rechecking current Binaryen `RemoveUnusedBrs.cpp`, `pass.cpp`, and the representative `remove-unused-brs*` lit surfaces against the existing contract.

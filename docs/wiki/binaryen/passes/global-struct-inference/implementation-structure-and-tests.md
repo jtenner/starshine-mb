@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
   - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
@@ -16,6 +18,7 @@ related:
   - ./binaryen-strategy.md
   - ./closed-world-analysis-and-unnesting.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
 ---
@@ -29,12 +32,12 @@ This page maps the source-backed implementation and proof surface for `global-st
 Read it as a follow-along guide:
 
 - first for Binaryen's official owner file and lit contract
-- then for Starshine's current smaller MoonBit implementation
+- then for Starshine's current smaller MoonBit implementation and its separate strategy page
 - then for the gaps a parity-focused expansion must close
 
 ## Binaryen owner-file map
 
-Primary source: [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md), which points to the official `version_129` and current-main source URLs.
+Primary source: [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md), which points to the official `version_129` and current-main source URLs. Use [`../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md) as the freshness bridge above it.
 
 ### `src/passes/GlobalStructInference.cpp`
 
@@ -137,18 +140,18 @@ Current local implementation is intentionally smaller than Binaryen's full `gsi`
 
 ### `src/passes/optimize.mbt`
 
-- `src/passes/optimize.mbt:242`
+- `src/passes/optimize.mbt:280-281`
   - active module-pass registry entry for `global-struct-inference`.
-- `src/passes/optimize.mbt:251`
+- `src/passes/optimize.mbt:294-295`
   - local `optimize` preset placement after `global-refining`.
-- `src/passes/optimize.mbt:263`
+- `src/passes/optimize.mbt:307-308`
   - local `shrink` preset placement with the same early module cluster.
 - `src/passes/optimize.mbt:131`
   - keeps `global-struct-inference-desc-cast` boundary-only, which is the sibling pass, not the active plain local pass.
 
 ### `src/passes/pass_manager.mbt`
 
-- `src/passes/pass_manager.mbt:8644`
+- `src/passes/pass_manager.mbt:8935-8937`
   - dispatches the active module pass through `global_struct_inference_run_module_pass(mod_, options.closed_world)`.
 
 This line is the best quick proof that the current local pass is closed-world-gated at the dispatcher/API boundary.
@@ -164,9 +167,9 @@ This line is the best quick proof that the current local pass is closed-world-ga
 - `src/passes/global_struct_inference.mbt:85`
   - accepted field-value materialization, including simple constants, `global.get`, `ref.func`, `ref.null`, `string.const`, and packed-field constraints.
 - `src/passes/global_struct_inference.mbt:110`
-  - candidate field-value extraction from top-level constructor operands.
+  - candidate field-value harvesting from trusted global initializers.
 - `src/passes/global_struct_inference.mbt:151`
-  - accepted top-level global initializer constructors: `struct.new`, `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc`.
+  - accepted top-level global initializer constructors.
 - `src/passes/global_struct_inference.mbt:189`
   - packed unsigned value repair.
 - `src/passes/global_struct_inference.mbt:195`
@@ -177,7 +180,7 @@ This line is the best quick proof that the current local pass is closed-world-ga
   - recursive body rewrite; only immediate `global.get` + `struct.get`, `struct.get_s`, or `struct.get_u` pairs are replaced.
 - `src/passes/global_struct_inference.mbt:418`
   - cheap pre-scan to skip functions with no possible direct pair rewrite.
-- `src/passes/global_struct_inference.mbt:496`
+- `src/passes/global_struct_inference.mbt:496-498`
   - public pass entrypoint; exits when `closed_world` is false, builds candidate tables, rewrites changed functions, and returns the original module when no change is found.
 
 ## Starshine test surface
@@ -220,8 +223,9 @@ These tests are a good local floor, but they are far narrower than Binaryen `gsi
 2. [`./wat-shapes.md`](./wat-shapes.md) for before/after shapes and bailouts.
 3. [`./binaryen-strategy.md`](./binaryen-strategy.md) for the official algorithm.
 4. This page for owner files, helpers, and tests.
-5. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md) for current local code.
-6. [`./parity.md`](./parity.md) before making parity claims.
+5. [`./starshine-strategy.md`](./starshine-strategy.md) for the current local status and port map.
+6. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md) for current local code.
+7. [`./parity.md`](./parity.md) before making parity claims.
 
 ## Practical maintenance rule
 

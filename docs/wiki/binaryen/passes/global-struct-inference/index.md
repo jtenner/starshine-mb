@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
@@ -25,6 +27,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./closed-world-analysis-and-unnesting.md
+  - ./starshine-strategy.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
@@ -93,7 +96,7 @@ So this is **not** generic whole-program struct analysis and **not** just the re
   - and the sibling `gsi-desc-cast` variant can rewrite some `ref.cast` checks to descriptor-equality casts
 - Atomic gets are **not automatically excluded**.
   - if the field is immutable, Binaryen treats atomic reads as safe to optimize because there are no writes to synchronize with
-- A focused 2026-04-25 primary-source bridge found **no teaching-relevant post-`version_129` drift** in the reviewed owner, registration, helper, and dedicated-lit surfaces.
+- A focused 2026-05-06 current-main recheck found **no teaching-relevant post-`version_129` drift** in the reviewed owner, registration, helper, and dedicated-lit surfaces.
 
 ## Biggest beginner correction
 
@@ -135,14 +138,16 @@ What it actually is in `version_129`:
   - Focused guide to the hardest parts to misunderstand: the type-global map, subtype poisoning and upward propagation, the one-vs-two-unique-values rule, un-nesting into fresh globals, and the nearby descriptor-facing helper surface.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering open-world direct-global positives, one-global and two-value closed-world positives, subtype and anyref bailouts, un-nesting, packed and atomic gets, null-refinement, and the main non-goals.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and port map: the closed-world-only direct-global subset, the exact MoonBit code locations, and the concrete gaps from upstream Binaryen's broader origin-analysis pass.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current Starshine module-pass strategy: the closed-world-only direct-global subset, the exact MoonBit owner-file/code-location map, and the concrete gaps from upstream Binaryen's broader origin-analysis pass.
+  - Current Starshine module-pass implementation detail: the direct-global subset, rewrite shape, and the code-map-backed gap list.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, the green saved generated-artifact evidence, and the honest remaining gaps between the local MoonBit pass and the full official Binaryen contract.
 
 ## Freshness note
 
-A focused 2026-04-25 primary-source recheck found **no teaching-relevant post-`version_129` drift** in the owning official surfaces used for this dossier.
+A focused 2026-05-06 current-main recheck found **no teaching-relevant post-`version_129` drift** in the owning official surfaces used for this dossier.
 
 - current `main` still shows the same `run` mode split, open-world optimizer call, closed-world `typeGlobals` gate, un-nesting repair, and plain/sibling factory split
 - current `main` `test/lit/passes/gsi.wast` remains the relevant dedicated plain-pass proof surface in the reviewed source bridge

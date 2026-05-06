@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./closed-world-analysis-and-unnesting.md
+  - ./starshine-strategy.md
   - ./wat-shapes.md
   - ./parity.md
   - ../../no-dwarf-default-optimize-path.md
@@ -25,7 +28,7 @@ related:
 
 # Starshine `global-struct-inference` module-pass strategy
 
-This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `GlobalStructInference.cpp` contract. For the side-by-side owner-file, helper, test, and line-number map, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+This page describes the **current local MoonBit implementation detail**, not the full upstream Binaryen `GlobalStructInference.cpp` contract or the separate higher-level Starshine strategy page. For the side-by-side owner-file, helper, test, and line-number map, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md); for the current local status and port map, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Current local surface
 
@@ -63,12 +66,14 @@ The easiest way to follow the in-tree implementation is this file map:
   - `global_struct_inference_run_module_pass(...)`: hard closed-world gate, candidate-global table build, per-function rewrite loop, and final `with_code_sec(...)` replacement
 - `src/passes/global_struct_inference_test.mbt:2`
   - focused positive/negative local coverage
-- `src/passes/pass_manager.mbt:8645`
+- `src/passes/pass_manager.mbt:8935-8937`
   - active module-pass dispatch site
-- `src/passes/optimize.mbt:237`
+- `src/passes/optimize.mbt:280-281`
   - pass registry entry and summary wiring
-- `src/passes/optimize.mbt:245`
-  - preset cluster placement after `global-refining`
+- `src/passes/optimize.mbt:294-295`
+  - `optimize` preset cluster placement after `global-refining`
+- `src/passes/optimize.mbt:307-308`
+  - `shrink` preset cluster placement after `global-refining`
 
 ## How the local pass works today
 
@@ -220,7 +225,7 @@ The focused tests in `src/passes/global_struct_inference_test.mbt` currently pro
 That is a good local floor.
 It is much smaller than the official Binaryen `gsi.wast` proof surface, which is why the local parity page keeps the missing select/subtype/un-nesting/atomic/descriptor families explicit.
 
-The 2026-04-25 source ingest did not change the local status. It made the documentation healthier by anchoring the exact local subset to a raw Binaryen manifest and a durable implementation/test-map page.
+The 2026-05-06 source refresh did not change the local status. It made the documentation healthier by anchoring the exact local subset to a fresh current-main bridge, a raw Binaryen manifest, and a durable implementation/test-map page.
 
 ## Practical maintenance rule
 
