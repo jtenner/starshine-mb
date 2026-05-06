@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
@@ -209,6 +210,15 @@ Focused local pass tests live in `src/passes/duplicate_function_elimination_test
   - locks name stripping and annotation-map rewrite bookkeeping
 
 CLI coverage lives in `src/cmd/cmd_wbtest.mbt:4010-4036`, which proves the explicit `--duplicate-function-elimination` command-line surface.
+
+## 2026-05-06 direct validation refresh
+
+The refreshed direct explicit-pass lane is green after the fuzzer / compare harness changes:
+
+- `moon info`, `moon fmt`, and `moon test` passed.
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination` reported `6759 / 10000` compared cases, `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
+
+This proves the current direct module-pass surface under the refreshed harness. It does not change the current one-iteration boundary or add DFE to public presets.
 
 ## Practical validation rule
 

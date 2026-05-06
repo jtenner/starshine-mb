@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate duplicate-function-elimination
+
+- **refresh `duplicate-function-elimination` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md`](./docs/wiki/raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md), [`docs/wiki/binaryen/passes/duplicate-function-elimination/index.md`](./docs/wiki/binaryen/passes/duplicate-function-elimination/index.md), [`docs/wiki/binaryen/passes/duplicate-function-elimination/starshine-strategy.md`](./docs/wiki/binaryen/passes/duplicate-function-elimination/starshine-strategy.md), [`docs/wiki/binaryen/passes/duplicate-function-elimination/parity.md`](./docs/wiki/binaryen/passes/duplicate-function-elimination/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate untee
 
 - **refresh `untee` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0523-2026-05-06-untee-direct-revalidation.md`](./docs/wiki/raw/research/0523-2026-05-06-untee-direct-revalidation.md), [`docs/wiki/binaryen/passes/untee/index.md`](./docs/wiki/binaryen/passes/untee/index.md), [`docs/wiki/binaryen/passes/untee/starshine-strategy.md`](./docs/wiki/binaryen/passes/untee/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

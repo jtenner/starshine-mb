@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
@@ -48,6 +49,7 @@ For the actionable validation ladder and scheduler decision points, see [`schedu
 - For stronger optimize contexts, Binaryen also gives DFE a larger visible iteration budget than the current local one-round implementation.
 - The 2026-04-27 validation bridge records this as the remaining preset/scheduler signoff gap rather than a hidden failure of the explicit pass surface.
 - The 2026-05-04 current-main recheck kept that framing unchanged.
+- The 2026-05-06 direct revalidation reran the refreshed 10000-case compare lane and found no semantic mismatches.
 
 ## Current in-tree status
 
@@ -98,6 +100,19 @@ After the 2026-05-04 current-main recheck, the docs should no longer claim that 
 
 Those may still matter for local output comparison, but they are not the official DFE algorithm.
 
+## 2026-05-06 direct revalidation
+
+The AUD002 refresh lane is now current for `duplicate-function-elimination`:
+
+- `moon info`, `moon fmt`, and `moon test` passed.
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination`
+  - `6759 / 10000` compared cases
+  - `6759` normalized matches
+  - `0` mismatches
+  - `20` command failures, all in the already-known Binaryen empty-recursion-group parser/canonicalization family
+
+This closes the post-fuzzer-change direct-pass revalidation item for DFE. The scheduler page remains the owner for later Binaryen two-slot / multi-iteration preset proof.
+
 ## 2026-04-11 health rerun
 
 The saved focused fuzz evidence remains useful and was not invalidated by the source refresh.
@@ -129,6 +144,7 @@ But they do not answer the newly-clarified questions about:
 
 ## Sources
 
+- [`../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md`](../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md)
 - [`../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md`](../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md)
 - [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
 - [`../../../../../src/passes/duplicate_function_elimination.mbt`](../../../../../src/passes/duplicate_function_elimination.mbt)

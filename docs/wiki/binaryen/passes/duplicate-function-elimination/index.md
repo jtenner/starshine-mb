@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
@@ -145,6 +146,15 @@ So the durable rule is:
 - keep the current-main note explicit only to say that the checked core logic and tests still match semantically
 - use the raw primary-source manifest when future follow-ups need exact release/source/test provenance without re-deriving it from the living pages
 
+## 2026-05-06 direct revalidation
+
+The post-fuzzer-change direct signoff lane is green for the explicit pass surface:
+
+- `moon info`, `moon fmt`, and `moon test` passed.
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination` compared `6759 / 10000` cases with `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
+
+This refresh removes `duplicate-function-elimination` from the AUD002 direct-pass revalidation queue. It does not close the separate preset-scheduler / multi-iteration Binaryen gap.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future DFE parity and scheduler research.
@@ -157,6 +167,7 @@ So the durable rule is:
 
 ## Sources
 
+- [`../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md`](../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md)
 - [`../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md`](../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md)
 - [`../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md`](../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md)
