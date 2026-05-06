@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
+  - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
   - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
@@ -48,7 +50,7 @@ related:
 ## Role
 
 - `remove-unused-brs` is an active implemented **hot pass** in Starshine.
-- The folder now also has immutable raw primary-source capture plus a 2026-05-05 current-main bridge at [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md) and [`../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md), so the Binaryen release/source/test provenance for this dossier no longer lives only in interpreted pages.
+- The folder now also has immutable raw primary-source capture plus 2026-05-05 and 2026-05-06 current-main bridges at [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md), [`../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md), and [`../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md), so the Binaryen release/source/test provenance for this dossier no longer lives only in interpreted pages.
 - In upstream Binaryen `version_129`, it is a function-parallel structured-control cleanup pass.
 - The short public description in `pass.cpp` says it removes breaks that are not needed.
 - That description is true, but incomplete.
@@ -168,7 +170,7 @@ What it actually is in `version_129`:
 This refreshed landing page is anchored on Binaryen `version_129`.
 The reviewed official GitHub release page checked on 2026-04-22 showed publish date **2026-04-01**.
 
-A 2026-05-05 current-main recheck on `RemoveUnusedBrs.cpp`, `pass.cpp`, and the representative `remove-unused-brs*` lit surfaces stayed aligned with the upstream story already taught here.
+A 2026-05-06 current-main recheck on `RemoveUnusedBrs.cpp`, `pass.cpp`, and the representative `remove-unused-brs*` lit surfaces stayed aligned with the upstream story already taught here.
 The living dossier's already-tracked JumpThreader type-equality relaxation remains the only documented `main`-vs-`version_129` drift on the reviewed surface.
 
 That is still a narrow spot check, not a whole-file equivalence proof, so keep treating `version_129` as the explicit release oracle in this folder.
@@ -202,6 +204,8 @@ That is still a narrow spot check, not a whole-file equivalence proof, so keep t
 - [`../../../../../src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- [`../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md)
+- [`../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md)
 - [`../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md)
 - Binaryen `version_129` sources:

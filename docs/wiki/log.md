@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `remove-unused-brs` current-main bridge and freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md` plus `docs/wiki/raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md` after rechecking current Binaryen `RemoveUnusedBrs.cpp`, `pass.cpp`, and the representative `remove-unused-brs*` lit surfaces against the existing contract.
+- Refreshed the `remove-unused-brs` dossier, Binaryen strategy, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine HOT-IR map, wiki index, pass tracker, and changelog so the folder now has a 2026-05-06 freshness layer plus the unchanged structured-control / GC / EH / branch-hint split.
+- Recorded unchanged contract status: current `main` still teaches the same staged RUB story, the already-tracked JumpThreader type-equality relaxation remains the only reviewed drift, and Starshine still keeps the pass active but narrower than upstream.
+
 ## [2026-05-06] health | refresh `strip-toolchain-annotations` current-main bridge and annotation subset
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md` plus `docs/wiki/raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md` after rechecking current Binaryen `StripToolchainAnnotations.cpp`, `pass.cpp`, `strip-toolchain-annotations.wast`, and `CHANGELOG.md` against the existing contract.

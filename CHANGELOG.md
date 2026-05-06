@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Wiki: refresh `remove-unused-brs` current-main bridge
+
+- **add a 2026-05-06 current-main recheck manifest, matching research note, and freshness-layer refresh for the `remove-unused-brs` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md), [`docs/wiki/raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md`](./docs/wiki/raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md), [`docs/wiki/binaryen/passes/remove-unused-brs/`](./docs/wiki/binaryen/passes/remove-unused-brs/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Wiki: refresh `strip-toolchain-annotations` current-main bridge
 
 - **add a 2026-05-06 current-main recheck manifest, matching research note, and freshness-layer refresh for the `strip-toolchain-annotations` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md), [`docs/wiki/raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md`](./docs/wiki/raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md), [`docs/wiki/binaryen/passes/strip-toolchain-annotations/`](./docs/wiki/binaryen/passes/strip-toolchain-annotations/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

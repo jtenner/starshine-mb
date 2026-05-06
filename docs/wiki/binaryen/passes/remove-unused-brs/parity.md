@@ -1,8 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
+  - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../../raw/research/0094-2026-04-18-generated-o4z-rub-slot14-missing-i32-result.md

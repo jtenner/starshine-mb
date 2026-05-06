@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
+  - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
   - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
@@ -34,7 +36,7 @@ related:
 
 # Current Starshine `remove-unused-brs` strategy
 
-This page is the local strategy overview.
+This page is the local strategy overview. A 2026-05-06 current-main recheck stayed aligned on the reviewed surfaces, so the local gap story is unchanged.
 For the exact helper walk and finer-grained code map, use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 
 ## Short version

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
+  - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
   - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
@@ -124,7 +126,7 @@ RUB is structured-control-heavy, not generic-control-flow-heavy.
 
 ## Current-main freshness note
 
-A 2026-05-05 current-main recheck found:
+A 2026-05-06 current-main recheck found:
 
 - the `remove-unused-brs*` lit roster is unchanged between `version_129` and current `main`
 - the core implementation is still recognizably the same staged algorithm
