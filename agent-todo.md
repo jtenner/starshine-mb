@@ -52,6 +52,19 @@ Observed unique-pass order
   - Deliverables: preserve exact decode errors and offsets; add large-depth regressions that exercise native `run_cmd` without stack-limit hacks.
   - Relevant code: `src/binary/decode.mbt`.
 
+#### 2026-05-06 direct-pass audit follow-up
+
+- [AUD]001 - Fresh Direct-Pass Mismatch Triage
+  - Why: the 2026-05-06 full pass audit (`docs/wiki/raw/research/0513-2026-05-06-starshine-pass-audit.md`) reran the current `pass-fuzz-compare` harness after substantial fuzzer / harness changes and found fresh active-pass mismatches even on a 100-case smoke lane.
+  - Passes with active problems: `global-refining`, `memory-packing`, `optimize-instructions`, `precompute`, `remove-unused-brs`, `ssa-nomerge`.
+  - Deliverables: reduce and classify each fresh repro under `.tmp/pass-audit-20260506/`; promote durable failures into focused tests; fix the current mismatch families; rerun direct `--pass <name>` parity at `10000` cases before treating the pass as green again.
+  - Current mismatch families from the audit: `global-refining` nullability/type-tightening drift, `memory-packing` data-segment normalization drift, `optimize-instructions` signed-vs-unsigned constant-fold canonicalization drift, `precompute` dead `block` / `br_table` cleanup drift, `remove-unused-brs` shared dead branch-wrapper cleanup drift, and `ssa-nomerge` temp-local shaping drift.
+
+- [AUD]002 - Revalidate Smoke-Green Direct Passes After Fuzzer Changes
+  - Why: the same 2026-05-06 audit only smoke checked many direct passes at `--count 100`, and older parity evidence is now stale because the fuzzer / compare-pass harness changed a lot.
+  - Passes requiring full direct-pass revalidation: `avoid-reinterprets`, `coalesce-locals`, `code-folding`, `code-pushing`, `dead-code-elimination`, `directize`, `duplicate-function-elimination`, `duplicate-import-elimination`, `global-struct-inference`, `heap-store-optimization`, `heap2local`, `local-cse`, `local-subtyping`, `merge-blocks`, `merge-locals`, `once-reduction`, `optimize-casts`, `pick-load-signs`, `redundant-set-elimination`, `remove-unused-module-elements`, `remove-unused-names`, `remove-unused-nonfunction-module-elements`, `reorder-globals`, `reorder-locals`, `simplify-locals`, `simplify-locals-no-structure`, `simplify-locals-nostructure`, `simplify-locals-notee-nostructure`, `string-gathering`, `tuple-optimization`, `untee`, `vacuum`.
+  - Deliverables: rerun repo-standard direct signoff (`moon info`, `moon fmt`, `moon test`, then `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <name> --out-dir .tmp/pass-fuzz-<name>`) for each listed pass; refresh any artifact lanes that were previously signed off before the recent fuzzer / harness churn; update the relevant wiki parity pages and this backlog as passes are re-proven.
+
 #### DCE - Dead Code Elimination
 
 - [DCE]003 - Runtime Budget and Oracle Refresh

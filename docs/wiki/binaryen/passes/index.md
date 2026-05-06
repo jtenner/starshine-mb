@@ -308,6 +308,7 @@ related:
   - `binaryen-strategy.md`
   - a Starshine strategy page when the folder has a meaningful local status, implementation, or port-planning story (`starshine-strategy.md` or a similarly precise local-status page; older folders may still have historical names only until they are cleaned up)
   - pass-specific notes, decisions, or parity pages
+- Audit note (2026-05-06): some entries below still lag the live registry after recent activations. See [`../../raw/research/0513-2026-05-06-starshine-pass-audit.md`](../../raw/research/0513-2026-05-06-starshine-pass-audit.md) for the fresh registry-vs-wiki cross-check until this catalog is fully normalized.
 
 ## Active Module Passes
 

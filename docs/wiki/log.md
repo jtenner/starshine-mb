@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] audit | run full pass-surface smoke audit against registry and wiki
+
+- Added `docs/wiki/raw/research/0513-2026-05-06-starshine-pass-audit.md` after enumerating the current pass registry from `src/passes/optimize.mbt`, checking dispatcher surfaces in `src/passes/pass_manager.mbt`, confirming dossier coverage for every tracked pass spelling, cross-checking the top-level pass catalogs, and adding temporary audit-warning notes to `docs/wiki/binaryen/passes/tracker.md` and `docs/wiki/binaryen/passes/index.md`.
+- Ran `moon test src/passes` and `moon test src/cmd`, then ran `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0xA11D --max-failures 5 --pass <name>` for every `bun scripts/pass-fuzz-compare.ts --list-passes` entry, saving artifacts under `.tmp/pass-audit-20260506/`.
+- Recorded two durable findings: the direct-pass surface is broader than the current top-level wiki catalogs claim (`38` implemented spellings vs the tracker's stale `29`), and six active passes still show fresh smoke parity mismatches (`global-refining`, `memory-packing`, `optimize-instructions`, `precompute`, `remove-unused-brs`, `ssa-nomerge`).
+
 ## [2026-05-06] health | refresh `de-nan` line anchors and source bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md` after rechecking current Binaryen `DeNaN.cpp`, `pass.cpp`, `properties.h`, `names.h`, `wasm-builder.h`, `pass.h`, and `denan.wast` against the existing contract.

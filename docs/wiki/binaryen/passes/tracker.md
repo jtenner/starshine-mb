@@ -318,6 +318,8 @@ This page is the durable answer to two recurring questions:
 1. which Binaryen-adjacent passes are already **implemented** in Starshine?
 2. which passes have already been **wiki-ified** enough to guide more work?
 
+> Audit note (2026-05-06): this tracker is currently stale in a few active-pass rows and summary counts. The fresh cross-check is [`../../raw/research/0513-2026-05-06-starshine-pass-audit.md`](../../raw/research/0513-2026-05-06-starshine-pass-audit.md). Until this page is fully rewritten, treat `src/passes/optimize.mbt` as authoritative for active-vs-removed status.
+
 ## Source-of-truth rule
 
 Use these files in this order:
@@ -333,7 +335,7 @@ Use these files in this order:
 - `agent-todo.md`
   - source of truth for current backlog slice ids and implementation intent
 
-If these ever disagree, update this tracker in the same change.
+If these ever disagree, update this tracker in the same change. The 2026-05-06 audit note above records one such known temporary disagreement.
 
 ## Status vocabulary
 
