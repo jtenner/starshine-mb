@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
+  - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -45,45 +46,49 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 ## The honest current status
 
-`optimize-casts` is still **unimplemented** in Starshine.
-There is no `src/passes/optimize_casts.mbt` owner file today.
+`optimize-casts` now has an active narrow HOT implementation in Starshine.
+The current owner file is `src/passes/optimize_casts.mbt`, with dispatcher coverage in `src/passes/pass_manager.mbt`, registry coverage in `src/passes/optimize.mbt`, and focused tests in `src/passes/optimize_casts_test.mbt`.
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is registry and cluster planning:
+The current local strategy is direct-pass parity plus conservative cluster planning:
 
-- keep the pass spelling tracked in the registry surface
-- keep the canonical no-DWARF slot documented
-- keep the backlog slice focused on cast-family scope, trap timing, and artifact validation
-- teach the surrounding GC/local cleanup dossiers a future port would need to compose with
-- keep the upstream-vs-backlog scope mismatch explicit instead of silently broadening the planned work
+- keep the active pass spelling and category tracked in the registry surface
+- keep the canonical no-DWARF slot documented but out of public presets until the neighborhood is proven
+- keep the backlog slice focused on cast-family scope, trap timing, descriptor/branch-cast coverage, exact-ref reasoning, and artifact validation
+- teach the surrounding GC/local cleanup dossiers that the active pass still has to compose with `heap2local`, `local-subtyping`, `coalesce-locals`, and `local-cse`
+- keep the upstream-vs-local scope mismatch explicit instead of silently broadening the completed work
 
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+So this page is now a **status, parity, and remaining-neighborhood map** rather than a pre-port placeholder.
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
-- tracked but removed pass-name status
-  - `src/passes/optimize.mbt:143-149`
-    - `pass_registry_removed_names()` includes `"optimize-casts"`
-- no active dispatcher
+- active HOT implementation
+  - `src/passes/optimize_casts.mbt`
+    - removes provably redundant GC casts and folds statically known `ref.test` outcomes
+- active dispatcher
   - `src/passes/pass_manager.mbt`
-    - no `optimize-casts` case exists today
+    - routes `"optimize-casts"` to `optimize_casts_run(...)`
+- registry and category coverage
+  - `src/passes/optimize.mbt`
+    - tracks `"optimize-casts"` as an active pass name
+- focused behavior tests
+  - `src/passes/optimize_casts_test.mbt`
+    - covers redundant `ref.cast`, guaranteed-true `ref.test`, and nullable-to-nonnull trap preservation
 - backlog and delivery plan
-  - `agent-todo.md:355-364`
-    - `#### OC - Optimize Casts`
-    - `[OC]001 - Cast Tightening Rules`
-    - `[OC]002 - GC Regression Matrix and Artifact Compare`
+  - `agent-todo.md`
+    - `#### OC - Optimize Casts Follow-up`
+    - `[OC]003`, `[OC]004`, and `[OC]005` track descriptor/branch-cast expansion, exact-ref tightening, ordered-neighborhood proof, and preset readiness
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - the GC/local cleanup slot where `optimize-casts` belongs after `heap2local` and before `local-subtyping -> coalesce-locals -> local-cse`
-- surrounding living dossiers a future port must line up with
+- surrounding living dossiers future ordered proof must line up with
   - `docs/wiki/binaryen/passes/heap2local/index.md`
   - `docs/wiki/binaryen/passes/local-subtyping/index.md`
   - `docs/wiki/binaryen/passes/coalesce-locals/index.md`
   - `docs/wiki/binaryen/passes/local-cse/index.md`
 
-The implementation/test-map page adds the exact reusable local primitive map for a future port: `src/lib/types.mbt:723-764`, `src/lib/types.mbt:3995-3996`, `src/lib/types.mbt:4170-4171`, `src/wast/lower_to_lib.mbt:1297-1298`, `src/binary/encode.mbt:2580`, `src/binary/encode.mbt:2897-2912`, `src/binary/decode.mbt:3116-3124`, `src/validate/typecheck.mbt:3228`, `src/validate/typecheck.mbt:3265`, `src/ir/hot_core.mbt:70-73`, `src/ir/hot_flags.mbt:81`, `src/ir/hot_lift.mbt:612-625`, `src/ir/hot_lift.mbt:764-818`, and `src/ir/hot_lower.mbt:1080-1084`.
+The implementation/test-map page adds the exact reusable local primitive map for active and future `optimize-casts` work: `src/lib/types.mbt:723-764`, `src/lib/types.mbt:3995-3996`, `src/lib/types.mbt:4170-4171`, `src/wast/lower_to_lib.mbt:1297-1298`, `src/binary/encode.mbt:2580`, `src/binary/encode.mbt:2897-2912`, `src/binary/decode.mbt:3116-3124`, `src/validate/typecheck.mbt:3228`, `src/validate/typecheck.mbt:3265`, `src/ir/hot_core.mbt:70-73`, `src/ir/hot_flags.mbt:81`, `src/ir/hot_lift.mbt:612-625`, `src/ir/hot_lift.mbt:764-818`, and `src/ir/hot_lower.mbt:1080-1084`.
 
 The readiness bridge now owns the implementation ladder and validation order so this page can stay focused on current status, scope honesty, and exact local code-map pointers.
 
@@ -91,18 +96,13 @@ The readiness bridge now owns the implementation ladder and validation order so 
 
 Today Starshine's behavior for `optimize-casts` is deliberately limited.
 
-### 1. The name is tracked, not forgotten
+### 1. The active pass is narrow and direct-only
 
-`src/passes/optimize.mbt` keeps `optimize-casts` in `pass_registry_removed_names()`.
-That means:
+`src/passes/optimize_casts.mbt` currently owns a conservative HOT rewrite, not the whole upstream Binaryen strategy. It removes casts when the source reference type already satisfies the target, folds `ref.test` when the static source type guarantees success, and preserves nullable-to-nonnull `ref.cast` trap behavior.
 
-- the project still treats `optimize-casts` as a real known pass
-- the spelling is preserved in the registry-level compatibility surface
-- the pass remains visible in tracker and backlog work instead of silently falling out of planning
+The 2026-05-06 direct revalidation ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. This removes `optimize-casts` from the AUD002 stale-evidence lane, but it does not prove the public preset slot.
 
-That is the right current behavior for an unimplemented parity pass.
-
-### 2. The work is planned as a parity slice, not an orphan idea
+### 2. The remaining work is planned as parity follow-up, not an orphan idea
 
 `agent-todo.md` already gives `optimize-casts` a real backlog slice under `OC`.
 The current deliverables point in the right general direction:
@@ -128,18 +128,18 @@ The docs should not smooth that contradiction away.
 That matters because this pass is not meant to run in isolation.
 Upstream Binaryen expects `heap2local` to expose stronger local cast facts first, and then expects `local-subtyping`, `coalesce-locals`, and `local-cse` to exploit the cleaner refined-local traffic afterwards.
 
-That cluster story is part of the local strategy even before a MoonBit implementation exists.
+That cluster story remains part of the local strategy even though the direct pass is active.
 
 ## The right future Starshine implementation shape
 
-The current docs and neighboring passes strongly suggest that a future local `optimize-casts` port should be taught as a **mid-cluster HOT GC/local rewrite family**, not as an isolated generic cast optimizer.
+The current docs and neighboring passes strongly suggest that future `optimize-casts` widening should stay a **mid-cluster HOT GC/local rewrite family**, not become an isolated generic cast optimizer.
 
 Why:
 
 - Binaryen runs it immediately after `heap2local`
 - the strict earlier-motion half is useful only while subtype facts are strongest
 - the looser later-reuse half exists to expose cleaner refined-local traffic for `local-subtyping`, `coalesce-locals`, and `local-cse`
-- the current local dossiers for those neighboring passes already explain the pressures a future port would need to preserve
+- the current local dossiers for those neighboring passes already explain the pressures future ordered proof would need to preserve
 
 So the local strategy should be thought of as:
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate optimize-casts
+
+- **refresh `optimize-casts` direct parity evidence after fuzzer changes, correct stale docs to the active narrow HOT pass status, and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md`](./docs/wiki/raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md), [`docs/wiki/binaryen/passes/optimize-casts/index.md`](./docs/wiki/binaryen/passes/optimize-casts/index.md), [`docs/wiki/binaryen/passes/optimize-casts/starshine-strategy.md`](./docs/wiki/binaryen/passes/optimize-casts/starshine-strategy.md), [`docs/wiki/binaryen/passes/optimize-casts/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/optimize-casts/starshine-port-readiness-and-validation.md), [`docs/wiki/binaryen/passes/optimize-casts/implementation-structure-and-tests.md`](./docs/wiki/binaryen/passes/optimize-casts/implementation-structure-and-tests.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate once-reduction
 
 - **refresh `once-reduction` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md`](./docs/wiki/raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md), [`docs/wiki/binaryen/passes/once-reduction/index.md`](./docs/wiki/binaryen/passes/once-reduction/index.md), [`docs/wiki/binaryen/passes/once-reduction/parity.md`](./docs/wiki/binaryen/passes/once-reduction/parity.md), [`docs/wiki/binaryen/passes/once-reduction/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/once-reduction/starshine-hot-ir-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

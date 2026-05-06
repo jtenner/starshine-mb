@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
+  - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -203,17 +204,20 @@ See [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly before/after exam
 
 ## Current Starshine implementation map
 
-Starshine does **not** have an `optimize-casts` implementation file yet. The exact current local status is:
+Starshine has an active narrow HOT `optimize-casts` implementation. The exact current local status is:
 
-- `src/passes/optimize.mbt:143-149`
-  - `pass_registry_removed_names()` includes `"optimize-casts"`
-  - active requests are therefore rejected as a known removed pass rather than dispatched to a transform
+- `src/passes/optimize_casts.mbt`
+  - active owner file for redundant GC cast removal and statically known `ref.test` folds
+- `src/passes/optimize_casts_test.mbt`
+  - focused fixtures for redundant `ref.cast`, guaranteed-true `ref.test`, and nullable-to-nonnull trap preservation
+- `src/passes/optimize.mbt`
+  - active registry coverage for `"optimize-casts"`
 - `src/passes/pass_manager.mbt`
-  - there is no `optimize-casts` dispatcher case today
-- `agent-todo.md:355-364`
-  - backlog slice `OC` tracks the eventual port and the current broader-than-upstream `ref.test` planning caveat
+  - active dispatcher case routes to `optimize_casts_run(...)`
+- `agent-todo.md`
+  - `OC` follow-up slices track descriptor/branch casts, exact-ref tightening, ordered slot proof, and preset readiness
 
-The reusable local primitives a future port would build on are:
+The reusable local primitives and active pass surfaces are:
 
 | Local file | Current relevant surface |
 | --- | --- |

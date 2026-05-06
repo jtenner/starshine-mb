@@ -8,6 +8,7 @@ sources:
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0500-2026-05-06-optimize-casts-starshine-port-readiness.md
+  - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
@@ -42,19 +43,17 @@ Use this bridge with:
 
 ## Current local reality
 
-`optimize-casts` is still removed-registry only in Starshine.
-There is no implementation file, no dispatcher case, and no pass-specific rewrite code yet.
-So the first port should be a measured module-local implementation, not a HOT-only peephole.
+`optimize-casts` now has an active narrow HOT implementation in Starshine. The current pass removes provably redundant GC casts and folds statically known `ref.test` outcomes; it is direct-pass revalidated but remains out of public preset scheduling until the surrounding GC/local neighborhood is oracle-proven.
 
-## The narrow first slice
+## Remaining upstream-aligned widening
 
-Start with the upstream oracle exactly as it exists today:
+The active Starshine pass is direct-parity green for its current narrow rewrite. A future upstream-aligned widening should still start from the reviewed Binaryen oracle exactly as it exists today:
 
 1. `ref.cast`
 2. `ref.as_non_null`
 
-Keep the first slice small enough to prove the safety boundaries before widening anything else.
-That means the first landing should be able to answer these questions:
+Keep upstream-aligned widening small enough to prove the safety boundaries before widening anything else.
+That means the next upstream-aligned landing should be able to answer these questions:
 
 - Can a cast be duplicated earlier only inside a strict linear window?
 - Can a later get reuse an already-computed cast through a refined carrier local?
@@ -66,9 +65,11 @@ That means the first landing should be able to answer these questions:
 
 | Surface | Why it matters |
 | --- | --- |
-| `src/passes/optimize.mbt:143-149` | `optimize-casts` is still in `pass_registry_removed_names()`. |
-| `src/passes/pass_manager.mbt` | no `optimize-casts` dispatcher case exists today. |
-| `agent-todo.md:355-364` | backlog slice `OC` is the current planning anchor. |
+| `src/passes/optimize_casts.mbt` | active narrow HOT implementation for redundant GC casts and statically known `ref.test` outcomes. |
+| `src/passes/optimize_casts_test.mbt` | direct behavior coverage for redundant `ref.cast`, guaranteed-true `ref.test`, and nullable-to-nonnull trap preservation. |
+| `src/passes/optimize.mbt` | active registry coverage for `optimize-casts`. |
+| `src/passes/pass_manager.mbt` | dispatcher routes `optimize-casts` to `optimize_casts_run(...)`. |
+| `agent-todo.md` | backlog slice `OC` is the current follow-up planning anchor. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` | canonical scheduler slot: after `heap2local`, before `local-subtyping -> coalesce-locals -> local-cse`. |
 | `docs/wiki/binaryen/passes/heap2local/index.md` | upstream feeder for stronger local cast facts. |
 | `docs/wiki/binaryen/passes/local-subtyping/index.md` | immediate left neighbor and later type-narrowing consumer. |
@@ -91,7 +92,7 @@ That means the first landing should be able to answer these questions:
 
 ## Validation ladder
 
-A future port should validate in this order:
+Future widening should validate in this order:
 
 1. strict earlier-motion positives
    - `ref.cast` duplicated only when the path stays linear
@@ -115,7 +116,7 @@ A future port should validate in this order:
 
 ## Non-goals to preserve
 
-Do not widen the first port into a generic cast optimizer.
+Do not widen the active pass into a generic cast optimizer.
 The reviewed upstream oracle still does **not** own:
 
 - `ref.test`
@@ -134,4 +135,4 @@ Those may be future work, but they are not the reviewed contract.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - owner and test surface map
 - [`./two-phase-dataflow.md`](./two-phase-dataflow.md) - strict vs loose safety split
 - [`./wat-shapes.md`](./wat-shapes.md) - concrete shapes and bailouts
-- [`./starshine-strategy.md`](./starshine-strategy.md) - current removed-registry status and local port map
+- [`./starshine-strategy.md`](./starshine-strategy.md) - current active-pass status, direct parity evidence, and remaining neighborhood map
