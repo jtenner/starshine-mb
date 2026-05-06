@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
@@ -77,6 +78,8 @@ Binaryen's source-backed strategy is broader than the local subset:
 
 ## Validation ladder
 
+The 2026-05-06 direct revalidation for the current explicit HOT subset is green: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --out-dir .tmp/pass-fuzz-code-pushing` completed with 6759/10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. This closes the AUD002 direct revalidation item, but not the broader CP002 runtime / artifact / representation-drift backlog.
+
 For every mutating slice:
 
 1. Add or update focused tests in [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt).
@@ -103,6 +106,7 @@ Starshine is ready for a careful `code-pushing` parity campaign, but the next us
 
 ## Sources
 
+- [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)

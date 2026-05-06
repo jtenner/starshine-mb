@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `code-pushing` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `code-pushing`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --out-dir .tmp/pass-fuzz-code-pushing`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md` and refreshed the code-pushing living pages.
+- Pruned `code-pushing` from the AUD002 remaining revalidation list while keeping `[CP]002` as the runtime, representation-drift, and artifact validation blocker.
+
 ## [2026-05-06] validation | revalidate `string-gathering` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `string-gathering`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass string-gathering --out-dir .tmp/pass-fuzz-string-gathering`.
