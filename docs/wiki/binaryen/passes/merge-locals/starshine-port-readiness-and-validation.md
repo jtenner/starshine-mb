@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
@@ -10,8 +11,9 @@ sources:
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-merge-locals-primary-sources.md
+  - ../../../../../src/passes/merge_locals.mbt
+  - ../../../../../src/passes/merge_locals_test.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -30,7 +32,7 @@ related:
 
 # Starshine port readiness and validation for `merge-locals`
 
-This bridge is for the future Starshine port, not the upstream algorithm.
+This bridge tracks the gap between the active Starshine direct pass and a fuller Binaryen-equivalent `merge-locals` port.
 
 Use it with:
 
@@ -43,90 +45,52 @@ Use it with:
 
 ## Current local reality
 
-`merge-locals` is still removed-registry only in Starshine.
-There is no owner file, no active dispatcher case, and no dedicated backlog slice yet.
-So the first port should be a measured module-local implementation, not a quick HOT peephole.
+`merge-locals` has an active Starshine module-pass owner and direct explicit-pass parity under the refreshed 2026-05-06 harness. The current implementation covers a conservative same-typed linear copy-retargeting slice, guarded by write invalidation, and is wired through registry, dispatcher, tests, and compare-pass tooling.
 
-## The first safe slice
-
-Start with a no-rewrite analyzer that can answer these questions:
-
-1. Which local.set/local.get pairs are actually copy-shaped?
-2. What `LocalGraph`-style set-influence facts are needed to compare the source local and destination local?
-3. Which influenced gets would move to the source side, and which would move to the destination side?
-4. Which candidates fail the type check or post-graph validation?
-5. Does the pass still need DWARF invalidation after a successful rewrite?
-
-That slice should stay honest about the existing local model:
-
-- it should not claim generic slot coloring;
-- it should not claim full `coalesce-locals` parity;
-- it should not change function signatures or heap types;
-- it should preserve the pass's DWARF-invalidating nature.
+It is still not a full `LocalGraph`-equivalent port and should stay out of public presets until the broader local-cleanup neighborhood is oracle-proven.
 
 ## Exact Starshine code and proof surfaces
 
 | Surface | Why it matters |
 | --- | --- |
-| `src/passes/optimize.mbt:144-151` | `merge-locals` is still listed in `pass_registry_removed_names()`. |
-| `src/passes/optimize.mbt:455-473` | removed-pass requests fail explicitly instead of silently succeeding. |
-| `src/passes/registry_test.mbt:171-179` | generic removed-pass request behavior is already tested. |
-| `src/passes/pass_manager.mbt:8660-8694` | the active module-pass dispatcher has no `merge-locals` case. |
-| [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) | the graph/orientation proof surface is explained here because Starshine does not yet have a local graph helper. |
-| `src/lib/types.mbt:230-238` | local declarations are grouped, so any future rewrite must preserve local layout. |
-| `src/lib/types.mbt:416-420` | functions pair local declarations with the expression body. |
-| `src/lib/types.mbt:536-538` | `LocalGet`, `LocalSet`, and `LocalTee` are the relevant instruction nodes. |
-| `src/validate/typecheck.mbt:535-558` | local get/set/tee typing must stay sound after any rewrite. |
-| `src/validate/validate.mbt` | module-level declaration validity matters if local identity changes. |
-| `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | the late local-cleanup neighborhood is the right place to reason about future adjacency, even though `merge-locals` itself is not on the default path. |
-| `agent-todo.md` | there is still no dedicated `merge-locals` execution slice. |
+| [`src/passes/merge_locals.mbt`](../../../../../src/passes/merge_locals.mbt) | Active module-pass owner for same-typed copy-retargeting. |
+| [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Public spelling, same-typed retargeting, and destination-write invalidation tests. |
+| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | `merge-locals` is a module-pass registry entry. |
+| [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Active module-pass dispatcher invokes `merge_locals_run_module_pass`. |
+| [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) | Direct compare-pass harness exposes the `--merge-locals` spelling. |
+| [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) | Explains the graph/orientation proof still missing from the local subset. |
+| `src/lib/types.mbt` | Local declarations and instruction nodes define the validator-visible rewrite surface. |
+| `src/validate/typecheck.mbt` | Local get/set/tee typing must stay sound after any rewrite. |
+| `docs/wiki/raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md` | Current direct parity evidence: 6759/6759 normalized matches, 0 mismatches. |
 
-## Why this cannot be a HOT-only patch
+## Current validation evidence
 
-A faithful port has to touch module-local declaration state and validator-visible typing.
-That means the implementation shape is probably:
+The 2026-05-06 direct signoff ran:
 
-1. detect copy-shaped local traffic;
-2. compare source-side and destination-side ownership with `LocalGraph`-style influences;
-3. rewrite influenced gets only when the orientation is safe;
-4. verify the rewrite after mutation;
-5. keep DWARF invalidation explicit.
+- `moon info`
+- `moon fmt`
+- `moon test`
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`
 
-The graph helper itself is still a future addition; the current repo only proves the registry, dispatcher, validator, and local-declaration surfaces.
+The compare-pass run reported 6759 compared cases, 6759 normalized matches, 0 mismatches, 0 validation failures, 0 generator failures, and 20 known Binaryen empty-recursion-group parser/canonicalization command failures.
 
-If Starshine starts with HOT-only rewrite logic, it will miss the local-graph proof and the post-rewrite rollback behavior.
+## Next safe slices
 
-## Validation ladder
+The remaining work is to extend from the current linear same-typed copy slice toward Binaryen's graph-backed behavior:
 
-A future port should land tests in this order:
+1. add a `LocalGraph`-style set-influence representation;
+2. decide source-side versus destination-side ownership with graph evidence;
+3. reject or roll back candidates that fail post-rewrite graph validation;
+4. expand tests for type-mismatch negatives, rollback cases, and `between-unreachable` conservatism;
+5. rerun direct compare-pass parity after each semantic expansion;
+6. only then test the late local-cleanup neighborhood.
 
-1. analyzer-only copy-shape recognition;
-2. source-side ownership positives;
-3. destination-side ownership positives;
-4. type-mismatch negatives;
-5. post-graph rollback cases;
-6. conservative `between-unreachable` regression;
-7. Binaryen pass-targeted parity comparison at the repo standard scale.
-
-Then add the neighborhood tests once the surrounding local passes exist:
+Potential neighborhood lanes once surrounding passes are ready:
 
 - `heap2local -> merge-locals -> optimize-casts`
 - `optimize-casts -> local-subtyping`
 - `local-subtyping -> coalesce-locals -> local-cse`
 
-## Open question
+## Bottom line
 
-The only unresolved shape question here is whether Starshine should keep `merge-locals` as removed-registry-only until a real module owner lands, or first expose a boundary-only request spelling.
-The current wiki keeps the honest answer as removed-registry only.
-
-## Related pages
-
-- [`./index.md`](./index.md) - folder overview
-- [`./binaryen-strategy.md`](./binaryen-strategy.md) - upstream algorithm and correction history
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - owner and test surface map
-- [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) - graph/orientation guide
-- [`./wat-shapes.md`](./wat-shapes.md) - concrete shapes
-- [`./starshine-strategy.md`](./starshine-strategy.md) - current removed-registry / no-dispatcher status
-- [`../optimize-casts/index.md`](../optimize-casts/index.md) - left neighbor
-- [`../local-subtyping/index.md`](../local-subtyping/index.md) - later local-cleanup neighbor
-- [`../coalesce-locals/index.md`](../coalesce-locals/index.md) - later consumer
+The pass is active and direct-green for the landed conservative slice. The readiness question is now about **fuller LocalGraph parity and preset/neighborhood proof**, not about basic registry or dispatcher exposure.

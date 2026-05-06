@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `merge-locals` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `merge-locals`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md` and refreshed the merge-locals living pages.
+- Pruned `merge-locals` from the AUD002 remaining revalidation list while keeping the broader LocalGraph-equivalent retargeting and late-neighborhood proof blockers explicit.
+
 ## [2026-05-06] validation | revalidate `local-subtyping` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `local-subtyping`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`.

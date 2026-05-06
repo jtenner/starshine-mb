@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
@@ -95,10 +96,12 @@ It does **not** rewrite function signatures, heap types, globals, imports, expor
 
 Current Starshine has an active `src/passes/merge_locals.mbt` owner file and module-pass dispatcher arm. The pass is no longer a removed-name rejection: `src/passes/optimize.mbt` classifies `merge-locals` as a module pass, `src/passes/pass_manager.mbt` dispatches it, `src/passes/merge_locals_test.mbt` covers the public pipeline spelling plus same-typed copy retargeting and write invalidation, and `scripts/lib/pass-fuzz-compare-task.ts` exposes the direct oracle lane.
 
-Validation evidence from the 2026-05-05 landing slice:
+Validation evidence from the 2026-05-06 post-fuzzer-change direct revalidation:
 
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`: 6759 compared, 6759 normalized matches, 0 mismatches, 20 Binaryen command failures from unsupported zero-sized recursion groups.
-- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --merge-locals`: normalized WAT equal and canonical function compare equal; Starshine pass runtime 475.956 ms versus Binaryen pass runtime 2062.410 ms on that artifact.
+- `moon info`, `moon fmt`, and `moon test` passed.
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`: 6759 compared, 6759 normalized matches, 0 mismatches, 20 Binaryen command failures from the known empty-recursion-group parser/canonicalization class.
+
+Prior artifact evidence from the 2026-05-05 landing slice also had `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --merge-locals` normalized WAT equal and canonical function compare equal; Starshine pass runtime was 475.956 ms versus Binaryen pass runtime 2062.410 ms on that artifact.
 
 Remaining implementation debt is the broader LocalGraph-equivalent retargeting engine for control-flow-spanning copy traffic. Keep it out of public presets until that fuller rewrite is separately proven in the late local-cleanup neighborhood.
 
@@ -121,6 +124,7 @@ Remaining implementation debt is the broader LocalGraph-equivalent retargeting e
 
 ## Sources
 
+- [`../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md`](../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md)
 - [`../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md)
