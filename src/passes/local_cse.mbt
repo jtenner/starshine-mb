@@ -27,47 +27,404 @@ priv struct LcseRawRewrite {
 }
 
 ///|
-fn lcse_raw_instr_key3(
-  a : @lib.Instruction,
-  b : @lib.Instruction,
-  c : @lib.Instruction,
-) -> String? {
-  match (a, b, c) {
+priv struct LcseRawExpr {
+  start : Int
+  end : Int
+  key : String
+  ty : @lib.ValType
+  size : Int
+  children : Array[Int]
+  reads_locals : Array[Int]
+  reads_memory : Bool
+  mut repeat_of : Int
+  active : Bool
+  mut local_id : Int
+}
+
+///|
+fn lcse_instr_text(instr : @lib.Instruction) -> String {
+  @debug.to_string(instr)
+}
+
+///|
+fn lcse_instr_is_binary_text(text : String) -> Bool {
+  text.contains("Add") ||
+  text.contains("Sub") ||
+  text.contains("Mul") ||
+  text.contains("Div") ||
+  text.contains("Rem") ||
+  text.contains("And") ||
+  text.contains("Or") ||
+  text.contains("Xor") ||
+  text.contains("Shl") ||
+  text.contains("Shr") ||
+  text.contains("Rot") ||
+  text.contains("Min") ||
+  text.contains("Max") ||
+  text.contains("Copysign") ||
+  (
+    !text.contains("Eqz") &&
     (
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::I32Add,
+      text.contains("Eq") ||
+      text.contains("Ne") ||
+      text.contains("Lt") ||
+      text.contains("Gt") ||
+      text.contains("Le") ||
+      text.contains("Ge") ||
+      text.contains("RefEq")
     )
-    | (
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::I32Sub,
-    )
-    | (
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::I32Mul,
-    )
-    | (
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::I64Add,
-    )
-    | (
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::I64Sub,
-    )
-    | (
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::LocalGet(_),
-      @lib.Instruction::I64Mul,
-    ) =>
-      Some(
-        "\{@debug.to_string(a)};\{@debug.to_string(b)};\{@debug.to_string(c)}",
-      )
-    _ => None
+  )
+}
+
+///|
+fn lcse_instr_is_unary_text(text : String) -> Bool {
+  text.contains("Eqz") ||
+  text.contains("Clz") ||
+  text.contains("Ctz") ||
+  text.contains("Popcnt") ||
+  text.contains("Abs") ||
+  text.contains("Neg") ||
+  text.contains("Ceil") ||
+  text.contains("Floor") ||
+  text.contains("Trunc") ||
+  text.contains("Nearest") ||
+  text.contains("Sqrt") ||
+  text.contains("Convert") ||
+  text.contains("Wrap") ||
+  text.contains("Extend") ||
+  text.contains("Promote") ||
+  text.contains("Demote") ||
+  text.contains("Reinterpret") ||
+  text.contains("RefIsNull") ||
+  text.contains("RefAsNonNull")
+}
+
+///|
+fn lcse_raw_instr_operand_count(instr : @lib.Instruction) -> Int? {
+  let text = lcse_instr_text(instr)
+  match instr {
+    @lib.Instruction::LocalGet(_)
+    | @lib.Instruction::GlobalGet(_)
+    | @lib.Instruction::I32Const(_)
+    | @lib.Instruction::I64Const(_)
+    | @lib.Instruction::F32Const(_)
+    | @lib.Instruction::F64Const(_)
+    | @lib.Instruction::MemorySize(_)
+    | @lib.Instruction::RefNull(_)
+    | @lib.Instruction::RefFunc(_)
+    | @lib.Instruction::StringConst(_) => Some(0)
+    @lib.Instruction::Drop
+    | @lib.Instruction::LocalSet(_)
+    | @lib.Instruction::LocalTee(_)
+    | @lib.Instruction::GlobalSet(_)
+    | @lib.Instruction::If(_, _, _)
+    | @lib.Instruction::BrIf(_) => Some(1)
+    @lib.Instruction::Select(_) | @lib.Instruction::MemoryFill(_) => Some(3)
+    _ =>
+      if text.contains("Store") ||
+        text.contains("TableSet") ||
+        text.contains("RefEq") ||
+        lcse_instr_is_binary_text(text) {
+        Some(2)
+      } else if text.contains("Load") || lcse_instr_is_unary_text(text) {
+        Some(1)
+      } else {
+        None
+      }
   }
+}
+
+///|
+fn lcse_raw_result_type(
+  instr : @lib.Instruction,
+  all_locals : Array[@lib.ValType],
+  child_exprs : Array[LcseRawExpr],
+) -> @lib.ValType? {
+  let text = lcse_instr_text(instr)
+  match instr {
+    @lib.Instruction::LocalGet(idx) | @lib.Instruction::LocalTee(idx) =>
+      match all_locals.get(cl_local_idx_raw(idx)) {
+        Some(ty) => Some(ty)
+        None => None
+      }
+    @lib.Instruction::I32Const(_)
+    | @lib.Instruction::I32Load(_)
+    | @lib.Instruction::I32Load8S(_)
+    | @lib.Instruction::I32Load8U(_)
+    | @lib.Instruction::I32Load16S(_)
+    | @lib.Instruction::I32Load16U(_)
+    | @lib.Instruction::MemorySize(_) => Some(@lib.ValType::i32())
+    @lib.Instruction::I64Const(_)
+    | @lib.Instruction::I64Load(_)
+    | @lib.Instruction::I64Load8S(_)
+    | @lib.Instruction::I64Load8U(_)
+    | @lib.Instruction::I64Load16S(_)
+    | @lib.Instruction::I64Load16U(_)
+    | @lib.Instruction::I64Load32S(_)
+    | @lib.Instruction::I64Load32U(_) => Some(@lib.ValType::i64())
+    @lib.Instruction::F32Const(_) | @lib.Instruction::F32Load(_) =>
+      Some(@lib.ValType::f32())
+    @lib.Instruction::F64Const(_) | @lib.Instruction::F64Load(_) =>
+      Some(@lib.ValType::f64())
+    @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
+    @lib.Instruction::Select(_) =>
+      match child_exprs.get(0) {
+        Some(expr) => Some(expr.ty)
+        None => None
+      }
+    _ =>
+      if text.contains("Eq") ||
+        text.contains("Ne") ||
+        text.contains("Lt") ||
+        text.contains("Gt") ||
+        text.contains("Le") ||
+        text.contains("Ge") ||
+        text.contains("Eqz") ||
+        text.contains("RefIsNull") ||
+        text.contains("RefEq") {
+        Some(@lib.ValType::i32())
+      } else if text.contains("I64") {
+        Some(@lib.ValType::i64())
+      } else if text.contains("F32") {
+        Some(@lib.ValType::f32())
+      } else if text.contains("F64") {
+        Some(@lib.ValType::f64())
+      } else if text.contains("I32") {
+        Some(@lib.ValType::i32())
+      } else {
+        None
+      }
+  }
+}
+
+///|
+fn lcse_cancel_request_tree(exprs : Array[LcseRawExpr], expr_id : Int) -> Unit {
+  if expr_id < 0 || expr_id >= exprs.length() {
+    return
+  }
+  exprs[expr_id].repeat_of = -1
+  for child in exprs[expr_id].children {
+    lcse_cancel_request_tree(exprs, child)
+  }
+}
+
+///|
+fn lcse_raw_expr_profitable(expr : LcseRawExpr) -> Bool {
+  expr.size >= 2
+}
+
+///|
+fn lcse_raw_rewrite_instrs(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  local_types : Array[@lib.ValType],
+) -> (Array[@lib.Instruction], Bool) {
+  if instrs.length() > 128 {
+    return (instrs, false)
+  }
+  let all_locals = params.copy()
+  for ty in local_types {
+    all_locals.push(ty)
+  }
+  let exprs : Array[LcseRawExpr] = []
+  let stack : Array[Int] = []
+  let active : @hashmap.HashMap[String, Int] = @hashmap.new(capacity=64)
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    let operand_count = match lcse_raw_instr_operand_count(instr) {
+      Some(count) => count
+      None => {
+        stack.clear()
+        active.clear()
+        continue
+      }
+    }
+    let children : Array[Int] = []
+    if stack.length() < operand_count {
+      stack.clear()
+      active.clear()
+      continue
+    }
+    let first_child_stack = stack.length() - operand_count
+    for child_idx = first_child_stack
+        child_idx < stack.length()
+        child_idx = child_idx + 1 {
+      children.push(stack[child_idx])
+    }
+    for _ in 0..<operand_count {
+      ignore(stack.pop())
+    }
+    match instr {
+      @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) =>
+        active.clear()
+      @lib.Instruction::Call(_)
+      | @lib.Instruction::CallIndirect(_, _)
+      | @lib.Instruction::CallRef(_) => active.clear()
+      _ => if lcse_instr_text(instr).contains("Store") { active.clear() }
+    }
+    match
+      lcse_raw_result_type(
+        instr,
+        all_locals,
+        children.map(fn(id) { exprs[id] }),
+      ) {
+      Some(ty) => {
+        let mut start = idx
+        let mut size = 1
+        let reads_locals : Array[Int] = []
+        let mut reads_memory = lcse_instr_text(instr).contains("Load")
+        for child in children {
+          let child_expr = exprs[child]
+          if child_expr.start < start {
+            start = child_expr.start
+          }
+          size += child_expr.size
+          for local_id in child_expr.reads_locals {
+            if !reads_locals.contains(local_id) {
+              reads_locals.push(local_id)
+            }
+          }
+          if child_expr.reads_memory {
+            reads_memory = true
+          }
+        }
+        match instr {
+          @lib.Instruction::LocalGet(local_idx) => {
+            let local_id = cl_local_idx_raw(local_idx)
+            if !reads_locals.contains(local_id) {
+              reads_locals.push(local_id)
+            }
+          }
+          _ => ()
+        }
+        let mut key = "large:\{idx}"
+        if size <= 32 {
+          key = lcse_instr_text(instr) + "("
+          for child in children {
+            key = key + exprs[child].key + ","
+          }
+          key = key + ")"
+        }
+        let expr_id = exprs.length()
+        let expr = {
+          start,
+          end: idx,
+          key,
+          ty,
+          size,
+          children,
+          reads_locals,
+          reads_memory,
+          repeat_of: -1,
+          active: true,
+          local_id: -1,
+        }
+        exprs.push(expr)
+        if lcse_raw_expr_profitable(expr) {
+          match active.get(key) {
+            Some(original_id) =>
+              if original_id >= 0 &&
+                original_id < exprs.length() &&
+                exprs[original_id].active {
+                exprs[expr_id].repeat_of = original_id
+                for child in children {
+                  lcse_cancel_request_tree(exprs, child)
+                }
+              } else {
+                active.set(key, expr_id)
+              }
+            None => active.set(key, expr_id)
+          }
+        }
+        stack.push(expr_id)
+      }
+      None => ()
+    }
+  }
+  let repeat_start = Array::make(instrs.length(), -1)
+  let original_end = Array::make(instrs.length(), -1)
+  for expr_id = 0; expr_id < exprs.length(); expr_id = expr_id + 1 {
+    let expr = exprs[expr_id]
+    if expr.repeat_of >= 0 {
+      repeat_start[expr.start] = expr_id
+      let original = exprs[expr.repeat_of]
+      original_end[original.end] = expr.repeat_of
+    }
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    let repeat_id = repeat_start[i]
+    if repeat_id >= 0 {
+      let original_id = exprs[repeat_id].repeat_of
+      let local_id = exprs[original_id].local_id
+      if local_id >= 0 {
+        out.push(
+          @lib.Instruction::local_get(
+            @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+          ),
+        )
+        changed = true
+        i = exprs[repeat_id].end + 1
+        continue
+      }
+    }
+    let rewritten_instr = match instrs[i] {
+      @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = lcse_raw_rewrite_instrs(
+          body, params, local_types,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = lcse_raw_rewrite_instrs(
+          body, params, local_types,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Instruction::If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = lcse_raw_rewrite_instrs(
+          then_body, params, local_types,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (body2, changed2) = lcse_raw_rewrite_instrs(
+              body, params, local_types,
+            )
+            (Some(body2), changed2)
+          }
+          None => (None, false)
+        }
+        if then_changed || else_changed {
+          changed = true
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      other => other
+    }
+    out.push(rewritten_instr)
+    let original_id = original_end[i]
+    if original_id >= 0 {
+      let local_id = params.length() + local_types.length()
+      local_types.push(exprs[original_id].ty)
+      exprs[original_id].local_id = local_id
+      out.push(
+        @lib.Instruction::local_tee(
+          @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+        ),
+      )
+      changed = true
+    }
+    i += 1
+  }
+  (out, changed)
 }
 
 ///|
@@ -77,74 +434,14 @@ fn lcse_raw_rewrite_func(
 ) -> LcseRawRewrite {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   let local_types = cl_flatten_locals(locals, locals.length())
-  let first_for_key : @hashmap.HashMap[String, Int] = @hashmap.new(capacity=16)
-  let temp_for_key : @hashmap.HashMap[String, Int] = @hashmap.new(capacity=16)
-  let out : Array[@lib.Instruction] = []
-  let mut changed = false
-  let mut next_body_local = local_types.length()
-  let mut i = 0
-  while i < instrs.length() {
-    if i + 3 < instrs.length() && instrs[i + 3] == @lib.Instruction::drop() {
-      match lcse_raw_instr_key3(instrs[i], instrs[i + 1], instrs[i + 2]) {
-        Some(key) =>
-          match first_for_key.get(key) {
-            Some(first_out_idx) => {
-              let local_id = match temp_for_key.get(key) {
-                Some(existing) => existing
-                None => {
-                  let ty = match instrs[i + 2] {
-                    @lib.Instruction::I64Add
-                    | @lib.Instruction::I64Sub
-                    | @lib.Instruction::I64Mul => @lib.ValType::i64()
-                    _ => @lib.ValType::i32()
-                  }
-                  local_types.push(ty)
-                  let id = params.length() + next_body_local
-                  next_body_local += 1
-                  temp_for_key.set(key, id)
-                  out.insert(
-                    first_out_idx + 3,
-                    @lib.Instruction::local_tee(
-                      @lib.LocalIdx::new(id.reinterpret_as_uint()),
-                    ),
-                  )
-                  id
-                }
-              }
-              out.push(
-                @lib.Instruction::local_get(
-                  @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
-                ),
-              )
-              out.push(@lib.Instruction::drop())
-              changed = true
-              i += 4
-              continue
-            }
-            None => first_for_key.set(key, out.length())
-          }
-        None => ()
-      }
-    }
-    match instrs[i] {
-      @lib.Instruction::LocalSet(_)
-      | @lib.Instruction::LocalTee(_)
-      | @lib.Instruction::Call(_)
-      | @lib.Instruction::CallIndirect(_, _)
-      | @lib.Instruction::CallRef(_) => {
-        first_for_key.clear()
-        temp_for_key.clear()
-      }
-      _ => ()
-    }
-    out.push(instrs[i])
-    i += 1
-  }
+  let (rewritten, changed) = lcse_raw_rewrite_instrs(
+    instrs, params, local_types,
+  )
   if changed {
     {
       func: @lib.Func::new(
         @lib.Locals::from_types(local_types),
-        @lib.Expr::new(out),
+        @lib.Expr::new(rewritten),
       ),
       changed: true,
     }
@@ -157,6 +454,9 @@ fn lcse_raw_rewrite_func(
 pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      if funcs.length() > 1000 {
+        return mod_
+      }
       let params = cl_defined_func_param_cache(mod_)
       let rewritten : Array[@lib.Func] = []
       let mut changed = false
