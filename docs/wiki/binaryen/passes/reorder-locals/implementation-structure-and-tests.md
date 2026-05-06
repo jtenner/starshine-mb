@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
+  - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
   - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
@@ -32,7 +34,7 @@ For the immutable manifest of the reviewed official release, source, and test UR
 
 - [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md)
 
-A narrow 2026-04-22 current-`main` spot check on `ReorderLocals.cpp`, `pass.cpp`, and the dedicated pass tests found no teaching-relevant drift beyond the dossier's existing claims. A focused 2026-04-27 validation recheck refreshed the current-main owner/scheduler/test provenance and filed the Starshine signoff bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+A narrow 2026-05-05 current-`main` spot check on `ReorderLocals.cpp`, `pass.cpp`, and the dedicated pass tests found no teaching-relevant drift beyond the dossier's existing claims. The 2026-04-27 validation recheck still stands, and the new 2026-05-05 freshness layer simply refreshes the current-main owner/scheduler/test provenance and the Starshine signoff bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## One-table summary
 

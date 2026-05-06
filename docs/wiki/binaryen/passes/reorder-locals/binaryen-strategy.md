@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
+  - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
   - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
@@ -23,7 +25,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the primary source oracle for this pass.
-For the immutable manifest of the reviewed official release, source, and representative test URLs, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md). For the 2026-04-27 current-main validation and preset-readiness recheck, see [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+For the immutable manifest of the reviewed official release, source, and representative test URLs, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md). For the 2026-05-05 current-main recheck, see [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md) and [`../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md); the 2026-04-27 validation and preset-readiness recheck remains linked through [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 Primary files:
 
@@ -42,9 +44,10 @@ Supporting official files for the known remaining parity boundary:
 - `src/wasm/wasm-ir-builder.cpp`
 - `src/wasm/wasm-stack.cpp`
 
-I also did a narrow 2026-04-22 freshness check against current GitHub `main` for:
+I also did a narrow 2026-05-05 freshness check against current GitHub `main` for:
 
 - `ReorderLocals.cpp`
+- `pass.cpp`
 - both dedicated pass tests and their golden outputs
 
 Durable result:

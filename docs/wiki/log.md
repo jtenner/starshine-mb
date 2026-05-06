@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `reorder-locals` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md` after rechecking current `main` `ReorderLocals.cpp`, `pass.cpp`, and the dedicated `reorder-locals*` lit surfaces against the existing contract.
+- Refreshed the `reorder-locals` dossier, Binaryen strategy, implementation/test-map, parity bridge, Starshine readiness bridge, wiki index, pass catalog, tracker, and changelog so the 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same access-count plus first-use sort story, and Starshine still keeps the explicit module pass while preset scheduling remains gated on neighboring locals passes and ordered no-DWARF replay evidence.
+
 ## [2026-05-05] health | refresh `global-effects` line anchors and local code-map refs
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md` after rechecking the official Binaryen `main` `GlobalEffects.cpp`, `pass.cpp`, and `effects.h` anchors against the existing metadata-producing contract.

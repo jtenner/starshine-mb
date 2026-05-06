@@ -1,8 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
+  - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
   - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
@@ -30,7 +32,7 @@ related:
 - Zero-count ties preserve original order, and the final zero-count suffix is dropped.
 - `local.set` and `local.tee` count as accesses, so write-only locals survive this pass.
 - The clean Starshine port is a module pass, not a hot pass, because local-name metadata and raw name-section invalidation are boundary-owned.
-- The 2026-04-22 raw primary-source capture re-confirmed that the official Binaryen `version_129` release page showed publish date **2026-04-01**, and that the reviewed `version_129/src/passes/ReorderLocals.cpp` plus dedicated pass tests still match the dossier's access-count plus first-use sorter story on the checked current-`main` surfaces.
+- The 2026-05-05 raw primary-source capture re-confirmed that the official Binaryen `version_129` release page showed publish date **2026-04-01**, and that the reviewed `version_129/src/passes/ReorderLocals.cpp` plus dedicated pass tests still match the dossier's access-count plus first-use sorter story on the checked current-`main` surfaces.
 
 ## Current In-Tree Status
 
