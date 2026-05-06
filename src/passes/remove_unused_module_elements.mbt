@@ -1130,11 +1130,9 @@ fn rume_collect_liveness_with_import_parent_policy(
       mod_, table_imports, mem_imports, queue, used_elems, used_datas,
     )
   }
-  if keep_all_funcs {
-    rume_mark_nonfunction_active_offset_segments(
-      mod_, queue, used_elems, used_datas,
-    )
-  }
+  rume_mark_nonfunction_active_offset_segments(
+    mod_, queue, used_elems, used_datas,
+  )
 
   let mut cursor = 0
   while cursor < queue.length() {
@@ -3482,6 +3480,7 @@ pub fn rume_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     used_elems,
     used_datas,
   ) = rume_collect_liveness(mod_)
+  rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
   rume_apply_module_rewrite(
     mod_, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
     used_datas,

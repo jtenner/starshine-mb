@@ -848,6 +848,113 @@ test "remove-unused-nonfunction-module-elements keeps active segments with globa
 }
 
 ///|
+test "remove-unused-module-elements drops empty const-offset active elems on live tables" {
+  let input = @lib.Module::new()
+    .with_table_sec(
+      @lib.TableSec::new([@lib.Table::new(rume_test_table_type(), None)]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("table"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          @lib.ElemKind::funcs([]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-module-elements pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.table_sec {
+    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    None => fail("expected exported table to remain")
+  }
+  assert_eq(optimized.elem_sec, None)
+}
+
+///|
+test "remove-unused-module-elements keeps active elem segments with global offsets" {
+  let input = @lib.Module::new()
+    .with_table_sec(
+      @lib.TableSec::new([@lib.Table::new(rume_test_table_type(), None)]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+          @lib.ElemKind::typed_exprs(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            [
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::abs(@lib.AbsHeapType::func()),
+                ),
+              ]),
+            ],
+          ),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-module-elements pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    None => fail("expected active offset global to remain")
+  }
+  match optimized.table_sec {
+    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    None => fail("expected active elem table to remain")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 1)
+    None => fail("expected active elem segment to remain")
+  }
+}
+
+///|
 test "remove-unused-nonfunction-module-elements keeps out-of-bounds active data traps" {
   let input =
     #|(module

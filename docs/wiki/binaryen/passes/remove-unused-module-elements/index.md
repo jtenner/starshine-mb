@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
@@ -60,7 +61,8 @@ That is much closer to the official source than “remove dead functions.”
   - pre slot `6`
   - post slot `49`
 - The saved generated-artifact optimize log also shows real `remove-unused-module-elements` executions at lines `51`, `68`, and `994`, so this is not just a theoretical preset entry.
-- The repo backlog still treats RUME as active parity work in `agent-todo.md`, especially around direct-pass artifact replay and the already-landed imported-function / start-section fixes.
+- The 2026-05-06 direct-pass revalidation fixed the active-segment global-offset and empty active-element pruning drift, then reached `9972 / 10000` compared cases with `0` semantic mismatches.
+- Ordered-neighborhood and artifact proof remain separate optimize-path work because the canonical no-DWARF path runs RUME repeatedly.
 
 ## Most important durable takeaways
 

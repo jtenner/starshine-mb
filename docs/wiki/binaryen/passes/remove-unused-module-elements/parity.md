@@ -1,11 +1,12 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-06
 sources:
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
+  - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
   - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
   - ../../no-dwarf-default-optimize-path.md
 related:
@@ -20,11 +21,13 @@ related:
 ## Durable Conclusions
 
 - `remove-unused-module-elements` is an active module pass, not a HOT-IR pass.
-- The current Starshine slice is canonically correct on the debug artifact for the direct pass surface tracked in-tree.
+- The current Starshine slice is directly re-proven under the refreshed 2026-05-06 pass-fuzz harness.
 - The major previously known semantic gaps are closed:
   - unused imported module elements are now dropped and survivors remapped
   - empty active data on both defined and imported memories is now dropped
   - no-op active nullref elem segments on imported tables are now dropped
+  - non-constant active segment offsets are rooted in the full pass, not only the non-function variant
+  - empty const-offset active element segments are pruned after liveness propagation
 
 ## Current In-Tree Status
 
@@ -40,6 +43,14 @@ related:
 - empty active data drop on live and imported memories
 - no-op active nullref elem drop on imported tables
 - non-noop active `nullfuncref` elem retention on live defined tables
+- active element segments with global offsets in the full `remove-unused-module-elements` pass
+
+## Current Direct Signoff
+
+- Final 2026-05-06 command: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-module-elements --out-dir .tmp/pass-fuzz-remove-unused-module-elements-fix2 --keep-going-after-command-failures`.
+- Result: `9972 / 10000` compared cases, `9972` normalized matches, `0` semantic mismatches, `0` validation failures, `0` generator failures, and `28` command failures.
+- Command-failure classification: `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, `2` Binaryen invalid-tag-index parser failures, and `3` Starshine missing-output command failures.
+- See [`../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md`](../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md).
 
 ## Remaining Gap
 
@@ -52,6 +63,7 @@ related:
 - For future coverage-only RUME sweeps, `pass-fuzz-compare` now has `--keep-going-after-command-failures`, which records classified Binaryen parser/canonicalization failures without letting those known command-failure families consume the `--max-failures` cutoff.
 - A `2026-04-24` keep-going rerun exposed one more real semantic mismatch at `.tmp/pass-fuzz-rume-keep-going-2026-04-24/failures/case-000186-wasm-smith`: Binaryen keeps imported tables and nonempty active expression elem segments even when every initializer is `ref.null`; Starshine had treated null-only expression elems as effect-free and dropped them.
 - That mismatch is now fixed. The follow-up rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator wasm-smith --count 300 --seed 0x5eed --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-rume-keep-going-2026-04-24-fix` reported `298 / 300` compared, `298` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `2` command failures.
+- The 2026-05-06 refreshed full direct revalidation later exposed and fixed the non-constant active-segment rooting and empty active-elem pruning drift, then reached `9972 / 10000` compared cases with `0` semantic mismatches.
 
 ## Practical Rule
 

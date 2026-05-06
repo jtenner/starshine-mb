@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `remove-unused-module-elements` direct pass
+
+- Fixed direct RUME parity drift for non-constant active segment offsets and empty const-offset active element segments.
+- Ran the post-fuzzer-change direct signoff lane for `remove-unused-module-elements`: `moon test src/passes` and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-module-elements --out-dir .tmp/pass-fuzz-remove-unused-module-elements-fix2 --keep-going-after-command-failures`.
+- Recorded 9972 compared cases, 9972 normalized matches, 0 semantic mismatches, 22 Binaryen empty-recursion-group parser failures, 1 Binaryen bad-section-size parser failure, 2 Binaryen invalid-tag-index parser failures, and 3 Starshine missing-output command failures; added `docs/wiki/raw/research/0545-2026-05-06-rume-direct-revalidation.md` and refreshed the RUME living pages.
+- Pruned `remove-unused-module-elements` from the AUD001/AUD002 direct-pass follow-up lists while leaving ordered-neighborhood and artifact proof as separate optimize-path work.
+
 ## [2026-05-06] validation | revalidate `simplify-locals-notee-nostructure` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `simplify-locals-notee-nostructure`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals-notee-nostructure --out-dir .tmp/pass-fuzz-simplify-locals-notee-nostructure`.
