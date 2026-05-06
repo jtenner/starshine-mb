@@ -4,7 +4,9 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
@@ -35,6 +37,13 @@ related:
 | Binaryen Optimizer Cookbook | Maintainer-authored rule that effect-adding passes must say so because earlier global-effect analysis then has to be discarded | This is independent process evidence for the source-level lifecycle. |
 | `test/lit/passes/vacuum-global-effects.wast` | Producer/consumer behavior where generated summaries let `vacuum` remove more | This indirectly proves why clearing stale summaries matters. |
 | `test/lit/passes/global-effects_simplify-locals.wast` | Producer/consumer behavior where generated summaries affect `simplify-locals` | This gives a second consumer family without pretending `discard-global-effects` has its own WAT diff. |
+
+## Current-main source anchors
+
+- `GlobalEffects.cpp#L1520-L1530` - summary reset helper that clears or refreshes per-function stored effects
+- `GlobalEffects.cpp#L1555-L1562` - `DiscardGlobalEffects::run` loops over module functions and clears each `effects` field
+- `pass.cpp#L2475-L2479` - public registration for `discard-global-effects`
+- `pass.cpp#L3692-L3698` - lifecycle placement note that keeps the cleanup sibling tied to the function-pass scheduler
 
 ## `GlobalEffects.cpp`
 

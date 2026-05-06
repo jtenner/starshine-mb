@@ -4,7 +4,9 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
@@ -70,7 +72,7 @@ Outputs:
 - This is a **pass-state cleanup transformation**, not an instruction optimizer.
 - The dedicated source set did not reveal a standalone `discard-global-effects.wast` lit file; the pass is source-confirmed through `GlobalEffects.cpp` / `pass.cpp` / `pass.h` and lifecycle-confirmed through `generate-global-effects` consumers.
 - Starshine does **not** currently expose a `discard-global-effects` registry name. Its local `global-effects` entry is boundary-only and covers the producer-side compatibility name, not this cleanup sibling.
-- The 2026-05-05 current-main recheck left the cleanup contract unchanged.
+- The 2026-05-05 current-main recheck and line-anchor refresh left the cleanup contract unchanged.
 
 ## Validation guidance
 

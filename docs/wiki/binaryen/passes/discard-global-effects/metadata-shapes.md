@@ -4,7 +4,9 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
@@ -23,7 +25,7 @@ related:
 
 This page is the shape catalog for [`./index.md`](./index.md).
 
-Unlike ordinary pass shape pages, these examples use **metadata shapes** rather than instruction-only WAT shapes, because the reviewed Binaryen pass clears function effect summaries instead of rewriting Wasm bodies. The 2026-05-05 current-main recheck keeps that shape unchanged.
+Unlike ordinary pass shape pages, these examples use **metadata shapes** rather than instruction-only WAT shapes, because the reviewed Binaryen pass clears function effect summaries instead of rewriting Wasm bodies. The 2026-05-05 current-main recheck and line-anchor refresh keep that shape unchanged.
 
 ## Shape 1: no stored summaries
 

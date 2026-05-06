@@ -4,7 +4,9 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
@@ -36,6 +38,13 @@ The strategy is intentionally tiny:
 4. return without rewriting instruction bodies.
 
 `src/passes/pass.cpp` registers `discard-global-effects` as a public pass next to `generate-global-effects`, making the cleanup lifecycle explicit rather than hidden. The same pass-runner layer also clears stored global-effect summaries before a pass that reports it can add effects, using the `addsEffects()` capability surfaced from `src/passes/pass.h`.
+
+## Current-main line anchors
+
+- `GlobalEffects.cpp#L1520-L1530` - summary reset helper that clears or refreshes per-function stored effects
+- `GlobalEffects.cpp#L1555-L1562` - `DiscardGlobalEffects::run` loops over module functions and clears each `effects` field
+- `pass.cpp#L2475-L2479` - public `discard-global-effects` registration
+- `pass.cpp#L3692-L3698` - lifecycle placement note that keeps the function-pass relation explicit
 
 ## Why the pass exists
 

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `discard-global-effects` line anchors and cleanup bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md` after rechecking the official Binaryen `main` `GlobalEffects.cpp` and `pass.cpp` cleanup surfaces against the existing metadata-cleanup contract.
+- Refreshed the `discard-global-effects` index, Binaryen strategy, implementation/test-map, and top-level wiki index so the 2026-05-05 line-anchor refresh is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same metadata-only summary-clearing sibling, and Starshine still keeps `discard-global-effects` unimplemented until persistent module-level effect metadata exists.
+
 ## [2026-05-05] health | add `reorder-types` freshness layer and port-readiness bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md` plus `docs/wiki/raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md` after rechecking the official Binaryen `main` `ReorderTypes.cpp`, `pass.cpp`, and `reorder-types.wast` surfaces against the existing contract.
