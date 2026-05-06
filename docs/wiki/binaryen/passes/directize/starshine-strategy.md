@@ -1,8 +1,9 @@
 ---
 kind: concept
-status: supported
-last_reviewed: 2026-05-05
+status: current
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
@@ -203,16 +204,16 @@ So the current repo status is best summarized as:
 
 Current direct evidence:
 
-1. local build/test gate
+1. post-fuzzer-change local build/test gate from 2026-05-06
    - `moon info`
    - `moon fmt`
-   - `moon test src/passes`
-   - `moon test src/cmd`
    - `moon test`
-2. focused Binaryen oracle lanes
+2. post-fuzzer-change mixed-generator Binaryen oracle lane from 2026-05-06
+   - `.tmp/pass-fuzz-directize`: `6759/10000` compared, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures
+3. earlier focused Binaryen oracle lanes
    - `.tmp/pass-fuzz-directize-genvalid-10000-final2`: `10000/10000` compared, `10000` normalized matches, `0` mismatches/failures
    - `.tmp/pass-fuzz-directize-mixed-10000-final2`: `9975` comparable normalized matches, `0` mismatches, `25` Binaryen-side command failures
-3. debug artifact oracle lane
+4. debug artifact oracle lane
    - `.tmp/self-opt-directize-debug-final2`: canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm`
 
 Future changes should rerun those direct lanes when touching table facts, trap rewriting, select lowering, type matching, or local insertion. Preset scheduling should additionally replay the full late tail once `string-gathering` is active.

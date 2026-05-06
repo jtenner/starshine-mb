@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `directize` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `directize`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass directize --out-dir .tmp/pass-fuzz-directize`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0521-2026-05-06-directize-direct-revalidation.md` and refreshed the directize living pages.
+- Pruned `directize` from the AUD002 remaining revalidation list while keeping `[DIR]002` as the late-tail preset-neighborhood proof blocker.
+
 ## [2026-05-06] validation | revalidate `vacuum` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `vacuum`: `moon info`, `moon fmt`, `moon test`, `moon test src/passes`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum`.

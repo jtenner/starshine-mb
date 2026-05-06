@@ -1,8 +1,9 @@
 ---
 kind: entity
-status: supported
-last_reviewed: 2026-05-05
+status: current
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
@@ -109,7 +110,7 @@ That is much closer to the real pass than either:
 - It rewrites compatible constant-index `call_indirect` / `return_call_indirect` sites through non-imported, non-exported, non-mutated tables with known active `ref.func` / function-index elements.
 - It classifies known holes, out-of-range targets, and wrong-type targets as traps and rewrites them to `unreachable` when the table facts prove the trap.
 - It lowers the narrow known-target `select` shape to an `if` with direct-call arms and fresh locals for operands, matching Binaryen's default directize shape on reduced fixtures.
-- Direct oracle evidence is recorded in `.tmp/pass-fuzz-directize-genvalid-10000-final2`, `.tmp/pass-fuzz-directize-mixed-10000-final2`, and `.tmp/self-opt-directize-debug-final2`.
+- Direct oracle evidence now includes the post-fuzzer-change 2026-05-06 lane `.tmp/pass-fuzz-directize`: 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. Earlier implementation evidence remains recorded in `.tmp/pass-fuzz-directize-genvalid-10000-final2`, `.tmp/pass-fuzz-directize-mixed-10000-final2`, and `.tmp/self-opt-directize-debug-final2`.
 - The explicit remaining caveats are preset scheduling for the full `string-gathering -> reorder-globals -> directize` tail and the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet.
 
 ## Page map
@@ -137,6 +138,7 @@ That is much closer to the real pass than either:
 
 ## Sources
 
+- [`../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md`](../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)

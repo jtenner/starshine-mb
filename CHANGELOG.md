@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate directize
+
+- **refresh `directize` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0521-2026-05-06-directize-direct-revalidation.md`](./docs/wiki/raw/research/0521-2026-05-06-directize-direct-revalidation.md), [`docs/wiki/binaryen/passes/directize/index.md`](./docs/wiki/binaryen/passes/directize/index.md), [`docs/wiki/binaryen/passes/directize/starshine-strategy.md`](./docs/wiki/binaryen/passes/directize/starshine-strategy.md), [`docs/wiki/binaryen/passes/directize/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/directize/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate vacuum
 
 - **fix and refresh `vacuum` direct parity after fuzzer changes, including Binaryen-style empty-function single-`nop` canonicalization, and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`docs/wiki/raw/research/0520-2026-05-06-vacuum-direct-revalidation.md`](./docs/wiki/raw/research/0520-2026-05-06-vacuum-direct-revalidation.md), [`docs/wiki/binaryen/passes/vacuum/index.md`](./docs/wiki/binaryen/passes/vacuum/index.md), [`docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

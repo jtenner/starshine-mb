@@ -1,8 +1,9 @@
 ---
 kind: concept
-status: supported
-last_reviewed: 2026-05-05
+status: current
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
@@ -53,7 +54,7 @@ The goal here is narrower than either page:
 
 ## Current local status in one sentence
 
-Starshine now implements the default explicit `directize` module pass with Binaryen oracle evidence for direct calls, known traps, subtype-compatible checks, and narrow `select` lowering; remaining work is preset scheduling and optional `directize-initial-contents-immutable` pass-arg support.
+Starshine now implements the default explicit `directize` module pass with post-fuzzer-change Binaryen oracle evidence for direct calls, known traps, subtype-compatible checks, and narrow `select` lowering; remaining work is preset scheduling and optional `directize-initial-contents-immutable` pass-arg support.
 
 ## Why the first slice is not a peephole
 
@@ -149,11 +150,12 @@ The first pass tests should reuse validation aggressively. Known-trap rewrites a
 
 ### Slice 0: keep registry honesty green
 
-This slice is now landed for the explicit default pass:
+This slice is now landed and revalidated for the explicit default pass:
 
 - `directize` is an active module pass,
 - explicit requests run the module-pass path,
-- focused tests demonstrate constant known-target rewrites, mutable-table bailout, known-hole trap rewrite, and select lowering.
+- focused tests demonstrate constant known-target rewrites, mutable-table bailout, known-hole trap rewrite, and select lowering,
+- the 2026-05-06 mixed-generator lane `.tmp/pass-fuzz-directize` compared 6759 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 Future code changes should keep that active status honest by preserving Binaryen-matching behavior and not widening presets until the neighboring late tail is replayable.
 
