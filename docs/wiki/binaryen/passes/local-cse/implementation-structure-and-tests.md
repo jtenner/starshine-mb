@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
@@ -38,7 +40,7 @@ This page maps the Binaryen files and tests that define `local-cse`, then maps t
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle and [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md) as the latest freshness bridge. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces.
+Use Binaryen `version_129` as the tagged oracle and [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md) plus [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md) as the latest freshness bridges. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces, and the 2026-05-06 note only refreshed local line anchors.
 
 Primary upstream sources:
 
@@ -121,15 +123,15 @@ Starshine now implements `local-cse`. The relevant local files are implementatio
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/local_cse.mbt:2-7,217-...` | Active Starshine owner file for direct `local-cse` execution, including the summary, descriptor, and main rewrite pipeline. |
+| `src/passes/local_cse.mbt:1-18,543-559,809-816` | Active Starshine owner file for direct `local-cse` execution, including the summary, descriptor, module-pass entry, and main HotPass rewrite pipeline. |
 | `src/passes/local_cse_test.mbt:14-94` | Direct registry and behavior tests for repeated trees, parent-over-child cancellation, load barriers, and local-write window resets. |
-| `src/passes/optimize.mbt:253,437-448` | Registers `local-cse` as an active module pass and keeps the aggressive neighborhood gate closed. |
-| `src/passes/pass_manager.mbt:8941` | Module-pass dispatch routes `local-cse` to `local_cse_run_module_pass(...)`. |
-| `src/passes/optimize_test.mbt:510-512` | Confirms `local-cse` stays in the active module-pass category on the regression surface. |
+| `src/passes/optimize.mbt:253,437-449,456-472` | Registers `local-cse` as an active module pass and keeps the aggressive neighborhood gate closed. |
+| `src/passes/pass_manager.mbt:8939-8943` | Module-pass dispatch routes `local-cse` to `local_cse_run_module_pass(...)`. |
+| `src/passes/optimize_test.mbt:510-512,520-527,567-568` | Confirms `local-cse` stays in the active module-pass category on the regression surface, keeps the proven late preset order, and preserves the trace neighborhood proof. |
+| `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF path records the late `coalesce-locals -> local-cse -> simplify-locals` neighborhood. |
 | `src/passes/simplify_locals.mbt:70,176,4132` | Existing HOT local cleanup has sinkable/effect-conflict machinery and the full `simplify-locals` entry point, but it is the downstream cleanup neighbor rather than a CSE implementation. |
 | `src/passes/reorder_locals.mbt:118,183,544` | Existing module pass shows local-use scanning, in-place local-index rewrite, and module-pass entry logic a future temp-localizing port will need to compose with. |
 | `agent-todo.md` / `CHANGELOG.md` | The LCSE backlog slice has been pruned and the 2026-05-05 landing is recorded in the changelog. |
-| `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF path records the late `coalesce-locals -> local-cse -> simplify-locals` neighborhood. |
 
 ## What this page rules out
 

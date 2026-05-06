@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
+  - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
+  - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
@@ -38,7 +40,7 @@ related:
 
 # Starshine Port Readiness And Validation For `local-cse`
 
-This page is the bridge between the upstream source-backed `local-cse` contract and the remaining Starshine ordered-neighborhood claim.
+This page is the bridge between the upstream source-backed `local-cse` contract and the remaining Starshine ordered-neighborhood claim, now refreshed by the 2026-05-06 line-anchor note.
 It does **not** claim exact public preset parity.
 It says what is already in-tree, what the nearest landing zone is, and what still needs to be proven before the exact ordered slots are claimed.
 
@@ -62,14 +64,14 @@ The nearest local surfaces are:
 
 | Surface | Why it matters |
 | --- | --- |
-| `src/passes/local_cse.mbt:2-7,217-...` | Active owner file for the direct `local-cse` transform. |
+| `src/passes/local_cse.mbt:1-18,543-559,809-816` | Active owner file for the direct `local-cse` transform. |
 | `src/passes/local_cse_test.mbt:14-94` | Direct repeated-tree, parent-cancellation, barrier, and local-write tests. |
-| `src/passes/optimize.mbt:253,437-448` | Registers `local-cse` as an active module pass while keeping the exact preset neighborhood gated. |
-| `src/passes/pass_manager.mbt:8941` | Dispatches the active `local-cse` module pass. |
-| `src/passes/optimize_test.mbt:510-512` | Keeps `local-cse` classified as an active module pass in the regression surface. |
+| `src/passes/optimize.mbt:253,437-449,456-472` | Registers `local-cse` as an active module pass while keeping the exact preset neighborhood gated. |
+| `src/passes/pass_manager.mbt:8939-8943` | Dispatches the active `local-cse` module pass. |
+| `src/passes/optimize_test.mbt:510-512,520-527,567-568` | Keeps `local-cse` classified as an active module pass in the regression surface. |
 | `src/passes/simplify_locals.mbt` | Already models local effect/conflict checks and cleanup behavior close to the pass's safety questions. |
 | `src/passes/reorder_locals.mbt` | Already handles local-index rewriting and is the closest landed example of temp-local bookkeeping work. |
-| `src/cmd/cmd_wbtest.mbt:7564-...` | Carries the artifact replay lane that still matters for the neighborhood claim. |
+| `src/cmd/cmd_wbtest.mbt:7564-7619` | Carries the artifact replay lane that still matters for the neighborhood claim. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` | Documents the canonical late-cluster slot where the pass belongs. |
 | `agent-todo.md` | Holds the `LCSE` slice that tracks the remaining ordered-neighborhood work. |
 

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `local-cse` line anchors and freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md` after pinning the current Binaryen `local-cse` source URLs and refreshing the exact Starshine line anchors for the direct pass, registry, dispatcher, tests, and preset-neighborhood proof surfaces.
+- Refreshed the `local-cse` landing page, Binaryen strategy, implementation/test-map, window/barrier guide, WAT-shape catalog, Starshine strategy, Starshine readiness bridge, wiki index, pass catalog, and tracker so the dossier now has a 2026-05-06 freshness layer plus exact local code locations.
+- Recorded unchanged contract status: Binaryen still teaches the same scan/check/apply temp-local reuse story, and Starshine still keeps the exact ordered preset neighborhoods gated until the missing neighbors exist.
+
 ## [2026-05-06] health | refresh `remove-unused` lineage and shape catalog
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md` plus `docs/wiki/raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md` after rechecking current `main` `pass.cpp` and the historical `RemoveUnusedFunctions.cpp` / `RemoveUnusedModuleElements.cpp` supersession surfaces against the local alias dossier.

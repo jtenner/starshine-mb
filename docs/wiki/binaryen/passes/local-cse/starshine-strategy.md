@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
@@ -44,7 +46,7 @@ related:
 
 # Starshine Strategy For `local-cse`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the concrete neighboring implementation areas future preset-slot work will need.
 
 ## The honest current status
@@ -63,14 +65,14 @@ The active local strategy is still deliberately slot-honest:
 The fastest read-along path through the current Starshine status is:
 
 - active pass implementation and tests
-  - `src/passes/local_cse.mbt:2-7,217-...`
+  - `src/passes/local_cse.mbt:1-18,543-559,809-816`
   - `src/passes/local_cse_test.mbt:14-94`
 - active registry and dispatcher surface
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:253,437-449,456-472`
     - `local-cse` is registered as an active module pass and scheduled in the proven late local-cleanup preset neighborhood
-  - `src/passes/pass_manager.mbt:8941`
+  - `src/passes/pass_manager.mbt:8939-8943`
     - routes `local-cse` through `local_cse_run_module_pass(...)`
-  - `src/passes/optimize_test.mbt`
+  - `src/passes/optimize_test.mbt:510-512,520-527,567-568`
     - keeps `local-cse` in the active module-pass category, locks the late preset order, and keeps the aggressive neighborhood gated
 - completed backlog and release note
   - `agent-todo.md`
@@ -86,7 +88,7 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544`
     - local-use scanning, in-place local-index rewriting, and module-pass entry logic
 - exact current regression and replay surfaces worth following
-  - `src/cmd/cmd_wbtest.mbt:7564-...`
+  - `src/cmd/cmd_wbtest.mbt:7564-7619`
     - `test "run_cmd_with_adapter print-func sees simplify-locals remove debug artifact Func 71 const fanout webs"`
     - the `--dead-code-elimination --vacuum --optimize-instructions --simplify-locals` artifact replay lane
 - exact neighboring living dossiers that define the future slot and local landing zone

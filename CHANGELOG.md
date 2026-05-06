@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Wiki: refresh `local-cse` line anchors
+
+- **pin the current Binaryen `local-cse` source URLs and refresh the exact Starshine code anchors for the direct pass, registry, dispatcher, tests, and preset-neighborhood proof surfaces** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](./docs/wiki/raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md), [`docs/wiki/raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md`](./docs/wiki/raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md), [`docs/wiki/binaryen/passes/local-cse/`](./docs/wiki/binaryen/passes/local-cse/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-05 Passes: harden local-cse runtime
 
 - **reduce `local-cse` artifact runtime while preserving direct parity, complete the mixed-generator compare lane with `>=10000` successful comparisons, and schedule the proven `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` late local-cleanup neighborhood in public presets** by **@OpenAI**. Updated [`src/passes/local_cse.mbt`](./src/passes/local_cse.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
