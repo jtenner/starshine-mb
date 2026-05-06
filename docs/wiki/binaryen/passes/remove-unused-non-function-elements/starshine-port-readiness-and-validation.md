@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
@@ -29,7 +31,7 @@ related:
 ## Current local truth
 
 Starshine implements this sibling as an active module pass.
-The 2026-05-05 current-main recheck preserved that implementation story.
+The 2026-05-05 current-main recheck preserved that implementation story, and the 2026-05-06 line-anchor refresh just tightened the local code-map pointers.
 The upstream sibling strategy is summarized in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 
 The current in-tree facts are:
@@ -43,8 +45,9 @@ The current in-tree facts are:
 
 The exact current code anchors are in [`./starshine-strategy.md`](./starshine-strategy.md). The short version is:
 
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers `remove-unused-nonfunction-module-elements` as an active module pass beside full RUME.
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches active module passes around lines 8660-8680 and now has cases for both `remove-unused-module-elements` and this sibling.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers `remove-unused-nonfunction-module-elements` as an active module pass beside full RUME, with the registry entry at `:153-155` and the module-pass slot at `:271-275`.
+- [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt) accepts the module-pass category at `:1972-1975` and keeps help listing filtered to hot passes and presets at `:2962-2965`.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches active module passes at `:8929-8932` and now has cases for both `remove-unused-module-elements` and this sibling.
 - [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt) owns the local full-RUME liveness queue, section rewrite, type cleanup, public `rume_run_module_pass(...)`, and sibling `rume_run_nonfunction_module_pass(...)` entry point.
 
 ## Binaryen contract to preserve

@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
@@ -34,9 +36,9 @@ related:
 ## Current status
 
 Starshine now implements the Binaryen sibling pass as an active module pass.
-The 2026-05-05 current-main recheck did not change that implementation story; it only added a fresh upstream source bridge.
+The 2026-05-05 current-main recheck did not change that implementation story; the 2026-05-06 line-anchor refresh only tightened the local code-map pointers and the upstream source bridge.
 
-The local state on 2026-05-05 is:
+The local state on 2026-05-06 is:
 
 - active registry / CLI spelling: `remove-unused-nonfunction-module-elements`
 - historical dossier label: `remove-unused-non-function-elements`
@@ -55,19 +57,19 @@ The implementation is a small policy mode on the existing RUME liveness/rewrite 
 ### Registry and request gating
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - `pass_registry_entries()` registers `remove-unused-nonfunction-module-elements` as a `HotPassRegistryCategory::ModulePass` beside full `remove-unused-module-elements`.
+  - `pass_registry_entries()` at `:153-155` seeds the registry list, and the sibling module-pass entry at `:271-275` registers `remove-unused-nonfunction-module-elements` as a `HotPassRegistryCategory::ModulePass` beside full `remove-unused-module-elements`.
   - `pass_registry_boundary_only_names()` no longer carries the historical dashed sibling spelling.
   - preset expansion still omits this sibling because it is not part of the documented no-DWARF optimize path.
 - [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
-  - CLI pass resolution accepts the new module-pass category entry, so `--remove-unused-nonfunction-module-elements` runs through the normal module-pass pipeline.
-  - Help output still lists only hot passes and presets, matching the existing module-pass help policy.
+  - CLI pass resolution at `:1972-1975` accepts the module-pass category entry, so `--remove-unused-nonfunction-module-elements` runs through the normal module-pass pipeline.
+  - help listing at `:2962-2965` still filters to hot passes and presets, matching the existing module-pass help policy.
 - [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
-  - The registry tests now assert that `remove-unused-nonfunction-module-elements` is an active module pass.
+  - the registry tests at `:114-118` assert that `remove-unused-nonfunction-module-elements` is an active module pass.
 
 ### Module dispatcher gap
 
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-  - The module-pass dispatcher handles active module passes around lines 8660-8680.
+  - The module-pass dispatcher at `:8929-8932` handles active module passes.
   - It dispatches full [`remove-unused-module-elements`](../remove-unused-module-elements/index.md) to `rume_run_module_pass(mod_)`.
   - It dispatches `remove-unused-nonfunction-module-elements` to `rume_run_nonfunction_module_pass(mod_)`.
 
@@ -76,17 +78,19 @@ The implementation is a small policy mode on the existing RUME liveness/rewrite 
 The closest local implementation is full RUME:
 
 - [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
-  - `rume_summary()` describes the active full module pass.
-  - import counters and absolute-index helpers live near lines 17-118.
-  - `rume_defined_func_count(...)` and defined-function lookup surfaces live near lines 200-252.
-  - `rume_has_binaryen_noop_start_sec(...)` captures the Binaryen-compatible no-op-start cleanup around lines 264-270.
-  - `rume_mark_*` helpers and expression traversal cover function/global/table/memory/tag/elem/data roots around lines 276-573.
-  - `rume_mark_imported_parent_segments(...)` preserves visible active imported-parent element/data segments around lines 768-807.
-  - `rume_collect_liveness_with_import_parent_policy(...)` and `rume_collect_liveness(...)` seed roots and process the shared reachability queue around lines 820-949.
+  - `rume_nonfunction_summary()` at `:7-8` names the active sibling mode.
+  - `rume_collect_liveness_with_import_parent_policy(...)` accepts `keep_all_funcs?` at `:1056-1103`, and the sibling path roots defined functions when that flag is true.
+  - the imported-parent segment branch at `:1133-1135` still shares the ordinary cleanup pipeline.
+  - `rume_run_nonfunction_module_pass(...)` at `:3518-3532` wires the sibling policy into the shared rewrite path.
+  - full-RUME import counters and absolute-index helpers live near lines `17-118`.
+  - `rume_defined_func_count(...)` and defined-function lookup surfaces live near lines `200-252`.
+  - `rume_has_binaryen_noop_start_sec(...)` captures the Binaryen-compatible no-op-start cleanup around lines `264-270`.
+  - `rume_mark_*` helpers and expression traversal cover function/global/table/memory/tag/elem/data roots around lines `276-573`.
+  - `rume_mark_imported_parent_segments(...)` preserves visible active imported-parent element/data segments around lines `768-807`.
   - `rume_rewrite_*` helpers rewrite surviving module indices from roughly lines 1021 onward.
-  - `rume_collect_used_type_flags(...)` and type-section rebuild helpers begin around lines 2080-2227.
-  - `rume_apply_module_rewrite(...)` starts around line 2276 and applies section filtering/remapping.
-  - `rume_run_module_pass(...)` starts around line 3233 and wires collection into rewrite.
+  - `rume_collect_used_type_flags(...)` and type-section rebuild helpers begin around lines `2080-2227`.
+  - `rume_apply_module_rewrite(...)` starts around line `2276` and applies section filtering/remapping.
+  - `rume_run_module_pass(...)` starts around line `3233` and wires collection into rewrite.
 - [`src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)
   - existing tests cover full-RUME section deletion/remap, imported-parent segment retention, imported-function remap, no-op start behavior, active data/elem edge cases, and validation of rewritten modules.
   - these are reusable as sibling-test scaffolding, but a faithful sibling needs new expectations that dead defined functions survive.

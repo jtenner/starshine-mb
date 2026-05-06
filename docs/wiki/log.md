@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `remove-unused-non-function-elements` line anchors and source bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md` after rechecking current Binaryen `RemoveUnusedModuleElements.cpp`, `pass.cpp`, `passes.h`, `module-utils.h`, and `remove-unused-nonfunction-module-elements_all-features.wast` against the existing contract.
+- Refreshed the `remove-unused-non-function-elements` index, Binaryen strategy, implementation/test-map, Starshine strategy, and root wiki index so the folder now has exact 2026-05-06 current-main line anchors for `src/passes/optimize.mbt`, `src/cmd/cmd.mbt`, `src/passes/pass_manager.mbt`, and `src/passes/remove_unused_module_elements.mbt`.
+- Recorded unchanged contract status: current `main` still teaches the same shared-engine sibling split with defined-function rooting only, and Starshine still keeps the pass active as a module-pass policy mode rather than a new sweep.
+
 ## [2026-05-06] health | refresh `const-hoisting` current-main bridge and freshness layer
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md` plus `docs/wiki/raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md` after rechecking current Binaryen `ConstHoisting.cpp`, `pass.cpp`, `literal.h`, `wasm-binary.h`, and `const-hoisting.wast` against the existing contract.

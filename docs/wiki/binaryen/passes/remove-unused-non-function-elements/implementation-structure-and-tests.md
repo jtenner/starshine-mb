@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
@@ -36,15 +38,16 @@ The 2026-04-24 raw source manifest for this page is [`../../../raw/binaryen/2026
 This pass is tiny at the registration level, which makes it easy to hand-wave.
 That is exactly why it needs a compact file map.
 The real contract is a sibling-mode split inside a bigger shared file, not a standalone implementation from scratch.
+The 2026-05-06 line-anchor refresh tightened the current-main pointers without changing that source story.
 
 ## File map
 
 | File | Why it matters | Durable lesson |
 | --- | --- | --- |
-| `src/passes/RemoveUnusedModuleElements.cpp` | Shared core implementation for both public pass names | The sibling is the same analyzer/removal engine plus one `rootAllFunctions` policy toggle. |
-| `src/passes/pass.cpp` | Public registration surface | Binaryen publishes `remove-unused-nonfunction-module-elements` as its own real pass, not a hidden internal mode. |
+| `src/passes/RemoveUnusedModuleElements.cpp` | Shared core implementation for both public pass names | The sibling is the same analyzer/removal engine plus one `rootAllFunctions` policy toggle; the current-main refresh anchors that split at `:1056-1103`, `:1133-1135`, and `:3518-3532`. |
+| `src/passes/pass.cpp` | Public registration surface | Binaryen publishes `remove-unused-nonfunction-module-elements` as its own real pass, not a hidden internal mode; the current-main registration split sits at `:3014-3024`. |
 | `src/passes/passes.h` | Public constructor declaration surface | The sibling has its own factory symbol and is part of Binaryen's ordinary pass roster. |
-| `test/passes/remove-unused-nonfunction-module-elements_all-features.wast` | Dedicated upstream regression file for this exact sibling | The sibling is source-backed as a separate public contract, and its real behavior is “keep defined functions, still clean other module structure.” |
+| `test/passes/remove-unused-nonfunction-module-elements_all-features.wast` | Dedicated upstream regression file for this exact sibling | The sibling is source-backed as a separate public contract, and its real behavior is “keep defined functions, still clean other module structure.” The current-main refresh keeps that fixture as the sibling proof surface. |
 | shared `remove-unused-module-elements*` lit files | Shared engine coverage | Startup-trap, table, `configureAll`, and refs behavior still matter because the sibling reuses the same engine. |
 
 ## The implementation file is the contract

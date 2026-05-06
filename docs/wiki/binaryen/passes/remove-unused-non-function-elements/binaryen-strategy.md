@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
@@ -40,6 +42,21 @@ Primary source files:
 - `src/ir/module-utils.h`
 - the shipped `remove-unused-nonfunction-module-elements_all-features.wast` fixture
 - the shared `remove-unused-module-elements*` lit files that prove inherited behavior
+
+## Current-main line anchors
+
+The 2026-05-06 refresh tightened the current-main source anchors without changing the contract.
+
+- `src/passes/RemoveUnusedModuleElements.cpp:1056-1103`
+  - the sibling-mode `keep_all_funcs?` parameter and the defined-function root-seeding branch that applies only when it is true
+- `src/passes/RemoveUnusedModuleElements.cpp:1133-1135`
+  - the sibling-mode active imported-parent segment retention branch that still shares the ordinary cleanup pipeline
+- `src/passes/RemoveUnusedModuleElements.cpp:3518-3532`
+  - the public `rume_run_nonfunction_module_pass(...)` entrypoint that wires the sibling policy into the shared rewrite path
+- `src/passes/pass.cpp:3014-3024`
+  - the separate public registration split for `remove-unused-module-elements` and `remove-unused-nonfunction-module-elements`
+- `test/passes/remove-unused-nonfunction-module-elements_all-features.wast`
+  - the dedicated sibling proof surface that still distinguishes dead defined-function retention from dead imported-function removal
 
 This page is algorithm-oriented.
 Use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the exact file map and test inventory, and use [`./shared-engine-rooting-and-defined-vs-imported-functions.md`](./shared-engine-rooting-and-defined-vs-imported-functions.md) for the trickiest semantic split.
