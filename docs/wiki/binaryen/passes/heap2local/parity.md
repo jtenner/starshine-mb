@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
@@ -56,15 +57,21 @@ The current Starshine slice covers the full in-tree primary suite:
 
 ## Current Evidence
 
+- A `2026-05-06` refreshed direct lane (`bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local`) reports:
+  - `6759 / 10000` compared
+  - `6759` normalized matches
+  - `20` command failures in the known Binaryen empty-recursion-group parser/canonicalization class
+  - `0` mismatches
 - A `2026-04-11` `--pass heap2local` smoke rerun (200 mixed cases, `seed 0x5eed`) reports:
   - `199 / 200` compared
   - `199` normalized matches
   - `1` command failure (`binaryen-rec-group-zero`, `case-000029-wasm-smith`)
   - `0` mismatches
-- The `2026-04-03` `10000`-case `gen-valid` compare remains in `result` form as a historical full-lane benchmark (still valid but not yet refreshed this round).
+- The `2026-04-03` `10000`-case `gen-valid` compare remains in `result` form as a historical full-lane benchmark.
 
 ## Sources
 
+- Refreshed direct revalidation: [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md)
 - Current source/code-map manifest: [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
 - Current follow-up note: [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
 - Implementation/test-map page: [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)

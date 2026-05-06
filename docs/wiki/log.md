@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `heap2local` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `heap2local`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0531-2026-05-06-heap2local-direct-revalidation.md` and refreshed the heap2local living pages.
+- Pruned `heap2local` from the AUD002 remaining revalidation list while keeping `[H2L]002` as the non-nullable-local / refinalization and ordered-neighborhood parity blocker.
+
 ## [2026-05-06] validation | revalidate `heap-store-optimization` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `heap-store-optimization`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --out-dir .tmp/pass-fuzz-heap-store-optimization`.

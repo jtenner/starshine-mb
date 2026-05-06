@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
@@ -167,6 +168,8 @@ That includes:
 That is already a meaningful subset of the upstream pass.
 
 ## Local evidence surface
+
+A 2026-05-06 direct revalidation ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local`. The compare lane reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group parser/canonicalization command failures.
 
 The best local proof surface is spread across several files, not just one test file.
 

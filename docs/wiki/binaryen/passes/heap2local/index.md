@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
@@ -166,6 +167,7 @@ Current durable rule:
 
 ## Current maintenance rule
 
+- 2026-05-06 direct revalidation: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local` compared 6759/10000 cases with 6759 normalized matches, 0 mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. See [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md).
 - Treat this folder as the canonical home for future `heap2local` parity and scheduler research.
 - Keep the main correction explicit:
   - upstream `heap2local` is conservative GC scalarization, not generic stack allocation
@@ -175,6 +177,7 @@ Current durable rule:
 
 ## Sources
 
+- [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
 - [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
