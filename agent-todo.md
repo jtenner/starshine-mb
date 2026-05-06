@@ -112,9 +112,10 @@ Observed unique-pass order
 
 #### OC - Optimize Casts Follow-up
 
-- [OC]003 - Descriptor And Branch Cast Coverage
-  - Deliverables: extend the direct hot pass beyond plain `ref.cast` / `ref.test` to cover safe `ref.cast_desc_eq`, `ref.test_desc`, `br_on_cast`, and `br_on_cast_fail` rewrites; preserve descriptor-pair invariants, branch arity/payload semantics, exact refs, and all trap-vs-branch behavior.
-  - Tests: descriptor-cast GC regressions, branch-cast success/fail rewrites, nullable/exact negative cases, `moon test src/passes`, and direct `--optimize-casts` compare-pass replay.
+- [OC]003 - Branch Cast Coverage
+  - Deliverables: extend the direct hot pass beyond plain `ref.cast`, `ref.test`, and the landed descriptor `ref.cast_desc_eq` / `ref.test_desc` folds to cover safe `br_on_cast` and `br_on_cast_fail` rewrites; preserve branch arity/payload semantics, exact refs, and all trap-vs-branch behavior.
+  - Tests: branch-cast success/fail rewrites, nullable/exact negative cases, `moon test src/passes`, and direct `--optimize-casts` compare-pass replay.
+  - Landed: descriptor-cast guaranteed-success folds for `ref.cast_desc_eq` and `ref.test_desc` with focused GC regressions; `bun scripts/pass-fuzz-compare.ts --pass optimize-casts --count 10000 --seed 0x5eed --out-dir .tmp/pass-fuzz-optimize-casts-oc-desc` compared 6759 valid cases with 6759 normalized matches, 20 command failures, and 0 mismatches.
 
 - [OC]004 - Negative And Exact-Ref Tightening
   - Deliverables: add conservative guaranteed-false `ref.test` / cast-family folding where source and target heap hierarchies are provably disjoint; tighten exact-ref reasoning without invalidating subtype casts; keep impossible/null bottom cases validation-safe.

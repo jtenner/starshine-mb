@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: widen optimize-casts descriptor coverage
+
+- **fold redundant `ref.test_desc` / `ref.cast_desc_eq` in `optimize-casts` and keep the remaining branch-cast coverage explicit in the OC backlog** by **@OpenAI**. Updated [`src/passes/optimize_casts.mbt`](./src/passes/optimize_casts.mbt), [`src/passes/optimize_casts_test.mbt`](./src/passes/optimize_casts_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Backlog: complete AUD002 direct-pass revalidation queue
 
 - **close the AUD002 smoke-green direct-pass revalidation queue after all listed passes were re-proven and documented** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md) and [`CHANGELOG.md`](./CHANGELOG.md).

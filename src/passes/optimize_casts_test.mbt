@@ -80,6 +80,41 @@ test "optimize-casts folds ref.test that is guaranteed true" {
 }
 
 ///|
+test "optimize-casts removes ref.cast_desc_eq when source already has the target type" {
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_module(base_ref, base_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast_desc_eq(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "optimize-casts folds ref.test_desc that is guaranteed true" {
+  let child_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_module(child_ref, @lib.ValType::i32(), [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_test_desc(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("ref.test_desc"), msg=pretty)
+  assert_true(pretty.contains("i32.const"), msg=pretty)
+}
+
+///|
 test "optimize-casts preserves nullable-to-nonnull ref.cast trap" {
   let base_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),

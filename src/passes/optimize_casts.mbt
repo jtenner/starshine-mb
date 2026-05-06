@@ -225,7 +225,8 @@ fn oc_rewrite_node(
     return false
   }
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefCast(nullable, heap_type)) => {
+    Some(@lib.Instruction::RefCast(nullable, heap_type))
+    | Some(@lib.Instruction::RefCastDescEq(nullable, heap_type)) => {
       if @ir.hot_child_count(func, node_id) != 1 {
         return false
       }
@@ -242,7 +243,8 @@ fn oc_rewrite_node(
       }
       false
     }
-    Some(@lib.Instruction::RefTest(nullable, heap_type)) => {
+    Some(@lib.Instruction::RefTest(nullable, heap_type))
+    | Some(@lib.Instruction::RefTestDesc(nullable, heap_type)) => {
       if @ir.hot_child_count(func, node_id) != 1 {
         return false
       }
