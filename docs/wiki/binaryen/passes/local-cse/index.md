@@ -11,7 +11,13 @@ sources:
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
+  - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/local_cse.mbt
+  - ../../../../../src/passes/local_cse_test.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
@@ -73,6 +79,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 
 - The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and the dossier has an immutable raw primary-source manifest at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
 - A focused 2026-05-05 current-`main` recheck at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md) refreshed `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast`; it found no teaching-relevant drift and kept the upstream/test plus Starshine code map current.
+- A repo-authored 2026-05-05 correction note at [`../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md`](../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md) records that older Starshine-status wording in the raw upstream bridge is stale now that the direct Starshine pass has landed.
 - The pass really is a three-stage algorithm:
   - `scan`
   - `check`
@@ -104,7 +111,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for `local-cse` behavior, parity, and slot-planning notes.
-- Keep the active Starshine implementation status in sync with `src/passes/local_cse.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, and `agent-todo.md`.
+- Keep the active Starshine implementation status in sync with `src/passes/local_cse.mbt`, `src/passes/local_cse_test.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/cmd/cmd_wbtest.mbt`, and `agent-todo.md`.
 - New `local-cse` findings should update the strategy page, implementation/test-map page, and windows/barriers page together so the algorithm explanation, proof-surface map, and control-flow safety story stay aligned.
 
 ## Sources

@@ -9,10 +9,14 @@ sources:
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
+  - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/local_cse.mbt
+  - ../../../../../src/passes/local_cse_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/reorder_locals.mbt
 related:
@@ -117,12 +121,13 @@ Starshine now implements `local-cse`. The relevant local files are implementatio
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/local_cse.mbt` | Active Starshine implementation for direct `local-cse` execution. |
-| `src/passes/optimize.mbt` | Registry entry exposes `local-cse` as an active module pass. |
-| `src/passes/pass_manager.mbt` | Module-pass dispatch routes `local-cse` to `local_cse_run_module_pass(...)`. |
-| `src/passes/optimize_test.mbt` | The Starshine regression surface keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false while `flatten` remains removed. |
-| `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:176`, `src/passes/simplify_locals.mbt:4132` | Existing HOT local cleanup has sinkable/effect-conflict machinery and the full `simplify-locals` entry point, but it is the downstream cleanup neighbor rather than a CSE implementation. |
-| `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Existing module pass shows local-use scanning, in-place local-index rewrite, and module-pass entry logic a future temp-localizing port will need to compose with. |
+| `src/passes/local_cse.mbt:2-7,217-...` | Active Starshine owner file for direct `local-cse` execution, including the summary, descriptor, and main rewrite pipeline. |
+| `src/passes/local_cse_test.mbt:14-94` | Direct registry and behavior tests for repeated trees, parent-over-child cancellation, load barriers, and local-write window resets. |
+| `src/passes/optimize.mbt:253,437-448` | Registers `local-cse` as an active module pass and keeps the aggressive neighborhood gate closed. |
+| `src/passes/pass_manager.mbt:8941` | Module-pass dispatch routes `local-cse` to `local_cse_run_module_pass(...)`. |
+| `src/passes/optimize_test.mbt:510-512` | Confirms `local-cse` stays in the active module-pass category on the regression surface. |
+| `src/passes/simplify_locals.mbt:70,176,4132` | Existing HOT local cleanup has sinkable/effect-conflict machinery and the full `simplify-locals` entry point, but it is the downstream cleanup neighbor rather than a CSE implementation. |
+| `src/passes/reorder_locals.mbt:118,183,544` | Existing module pass shows local-use scanning, in-place local-index rewrite, and module-pass entry logic a future temp-localizing port will need to compose with. |
 | `agent-todo.md` / `CHANGELOG.md` | The LCSE backlog slice has been pruned and the 2026-05-05 landing is recorded in the changelog. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF path records the late `coalesce-locals -> local-cse -> simplify-locals` neighborhood. |
 
@@ -130,17 +135,17 @@ Starshine now implements `local-cse`. The relevant local files are implementatio
 
 - Do not cite `simplify_locals.mbt` as if it implements `local-cse`. It sinks and cleans local traffic; it does not collect repeated whole-tree candidates and materialize a first original with temp-local reuse.
 - Do not cite `reorder_locals.mbt` as if it implements `local-cse`. It rewrites local indices after sorting/removing unused locals; it does not do expression equality, effect validation, or temp-local insertion for repeated roots.
-- Do not claim Starshine preset parity for the exact Binaryen slot yet. The neighboring `flatten`, `simplify-locals-notee-nostructure`, `coalesce-locals`, and `local-cse` implementations are still missing locally.
+- Do not claim Starshine preset parity for the exact Binaryen slot yet. `flatten` and `simplify-locals-notee-nostructure` are still missing locally, so the exact ordered neighborhoods remain gated even though `local-cse` itself is implemented.
 
 ## Validation guidance for a future Starshine port
 
-A faithful local port should be signed off with:
+A faithful local port still needs neighborhood parity signoff with:
 
 - focused WAT tests for each fixture family above,
 - source-derived tests for idempotent direct calls and GC-generative allocation rejection,
-- registry and explicit-pass CLI tests proving `local-cse` moved from removed to active status,
+- registry and explicit-pass CLI tests keeping `local-cse` active,
 - repeated-pass/idempotence tests because Binaryen can rerun local cleanup,
 - pass-targeted fuzz compare against `wasm-opt --local-cse`, and
-- ordered no-DWARF artifact replay once `flatten`, `simplify-locals-notee-nostructure`, and `coalesce-locals` are also locally representable enough for the surrounding cluster.
+- ordered no-DWARF artifact replay once `flatten` and `simplify-locals-notee-nostructure` are also locally representable enough for the surrounding cluster.
 
-Until that evidence exists, keep the dossier explicit that `local-cse` is source-backed documentation plus port planning, not landed Starshine behavior.
+Until that evidence exists, keep the dossier explicit that `local-cse` is landed direct-pass behavior plus a still-gated ordered-neighborhood claim, not merely port planning.

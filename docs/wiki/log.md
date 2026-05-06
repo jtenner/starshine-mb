@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | correct `local-cse` Starshine status and catalog wording
+
+- Added `docs/wiki/raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md` to record that the older raw upstream bridge is still valid for Binaryen, but its Starshine-status sentence is stale now that the direct Starshine `local-cse` pass has landed.
+- Refreshed the `local-cse` implementation/test-map, Starshine strategy, Starshine readiness bridge, and both pass catalogs so they now distinguish the active direct pass from the still-gated ordered preset neighborhoods.
+- Recorded unchanged upstream contract status: Binaryen `local-cse` still uses the same whole-tree, window-local scan/check/apply story; the remaining gap is exact ordered-neighborhood parity, not a missing direct transform.
+
 ## [2026-05-05] health | refresh `reorder-locals` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md` after rechecking current `main` `ReorderLocals.cpp`, `pass.cpp`, and the dedicated `reorder-locals*` lit surfaces against the existing contract.

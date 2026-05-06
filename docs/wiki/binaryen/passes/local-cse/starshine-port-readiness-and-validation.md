@@ -4,14 +4,18 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
+  - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/local_cse.mbt
+  - ../../../../../src/passes/local_cse_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -34,9 +38,9 @@ related:
 
 # Starshine Port Readiness And Validation For `local-cse`
 
-This page is the bridge between the upstream source-backed `local-cse` contract and a future Starshine port.
-It does **not** claim an implementation.
-It says what is already in-tree, what the nearest landing zone is, and what should be proven first once work starts.
+This page is the bridge between the upstream source-backed `local-cse` contract and the remaining Starshine ordered-neighborhood claim.
+It does **not** claim exact public preset parity.
+It says what is already in-tree, what the nearest landing zone is, and what still needs to be proven before the exact ordered slots are claimed.
 
 For the exact upstream algorithm and source/test map, read:
 
@@ -48,9 +52,9 @@ For the exact upstream algorithm and source/test map, read:
 ## Current readiness status
 
 Starshine now treats `local-cse` as an active direct pass.
-The owner file, dispatcher case, direct tests, fuzz-harness support, and debug-artifact direct compare evidence have landed.
+The owner file, direct tests, registry entry, dispatcher route, and debug-artifact evidence have landed.
 
-The honest remaining state is preset-slot restraint until the missing neighbors and ordered neighborhoods are representable.
+The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable.
 
 ## What already exists locally
 
@@ -58,19 +62,20 @@ The nearest local surfaces are:
 
 | Surface | Why it matters |
 | --- | --- |
-| `src/passes/optimize.mbt` | Registers `local-cse` as an active direct pass surface while keeping preset scheduling gated. |
-| `src/passes/pass_manager.mbt` | Dispatches the active `local-cse` module pass. |
-| `src/passes/optimize_test.mbt` | Keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false while `flatten` remains removed. |
+| `src/passes/local_cse.mbt:2-7,217-...` | Active owner file for the direct `local-cse` transform. |
+| `src/passes/local_cse_test.mbt:14-94` | Direct repeated-tree, parent-cancellation, barrier, and local-write tests. |
+| `src/passes/optimize.mbt:253,437-448` | Registers `local-cse` as an active module pass while keeping the exact preset neighborhood gated. |
+| `src/passes/pass_manager.mbt:8941` | Dispatches the active `local-cse` module pass. |
+| `src/passes/optimize_test.mbt:510-512` | Keeps `local-cse` classified as an active module pass in the regression surface. |
 | `src/passes/simplify_locals.mbt` | Already models local effect/conflict checks and cleanup behavior close to the pass's safety questions. |
 | `src/passes/reorder_locals.mbt` | Already handles local-index rewriting and is the closest landed example of temp-local bookkeeping work. |
-| `src/passes/pass_manager_wbtest.mbt` | Already carries nearby replay tests for simplify-locals boundary behavior. |
-| `src/cmd/cmd_wbtest.mbt` | Already carries artifact replay lanes that a future `local-cse` port should extend. |
+| `src/cmd/cmd_wbtest.mbt:7564-...` | Carries the artifact replay lane that still matters for the neighborhood claim. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` | Documents the canonical late-cluster slot where the pass belongs. |
-| `agent-todo.md` | Holds the `LCSE` slice that should be filled before implementation starts. |
+| `agent-todo.md` | Holds the `LCSE` slice that tracks the remaining ordered-neighborhood work. |
 
 For the exact local code-map anchors, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
-## What a faithful port will need first
+## What the exact ordered-neighborhood claim still needs
 
 1. **Whole-tree candidate matching**
    - repeated whole expressions, not generic subtree CSE
@@ -90,11 +95,11 @@ For the exact local code-map anchors, see [`./starshine-strategy.md`](./starshin
 
 ## Validation ladder
 
-Start small and stay honest about the missing neighbors.
+Start small and stay honest about the remaining ordered neighborhoods.
 
-### 1. Shape tests first
+### 1. Shape tests stay green
 
-Add focused tests for the source-backed families in [`./wat-shapes.md`](./wat-shapes.md):
+The landed direct pass already covers the source-backed families in [`./wat-shapes.md`](./wat-shapes.md):
 
 - repeated arithmetic roots
 - repeated loads
@@ -106,26 +111,26 @@ Add focused tests for the source-backed families in [`./wat-shapes.md`](./wat-sh
 - generative GC-root negatives
 - tiny-root profitability no-ops
 
-### 2. Registry and CLI proof
+### 2. Registry and CLI proof stay green
 
-Before any optimizer-slot claim, prove that:
+Keep proving that:
 
 - the pass name is active for direct execution
 - explicit `--local-cse` requests execute cleanly
 - the current catalog text points at the active implementation and the remaining preset-neighborhood gap
 - the surrounding `flatten -> simplify-locals-notee-nostructure -> local-cse` gate stays false in the local regression surface
 
-### 3. Pass-targeted parity
+### 3. Pass-targeted parity stays green
 
-Once active code exists, sign off with pass-targeted fuzz compare against Binaryen on the canonical pass spelling.
+Keep signoff with pass-targeted fuzz compare against Binaryen on the canonical pass spelling.
 
-### 4. Neighborhood replay
+### 4. Neighborhood replay remains gated
 
 Only after the adjacent local cleanup neighbors are represented locally should the no-DWARF neighborhood replay claim be made.
 That means the validation story should stay conservative until the `flatten -> simplify-locals-notee-nostructure -> local-cse` and `coalesce-locals -> local-cse -> simplify-locals` slots are actually testable end to end.
 
 ## Bottom line
 
-`local-cse` is still documentation plus port planning.
-The current repo now has the direct pass plus nearby local machinery for future neighborhood/preset work.
-Keep this page as the implementation-readiness bridge until that changes.
+`local-cse` is an active direct pass plus an implementation-readiness bridge for the remaining ordered neighborhoods.
+The current repo now has the direct pass and nearby local machinery for future neighborhood/preset work.
+Keep this page as the implementation-readiness bridge until the exact ordered slots are proven.

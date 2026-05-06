@@ -6,13 +6,17 @@ sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
+  - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/local_cse.mbt
+  - ../../../../../src/passes/local_cse_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -59,22 +63,22 @@ The active local strategy is still deliberately slot-honest:
 The fastest read-along path through the current Starshine status is:
 
 - active pass implementation and tests
-  - `src/passes/local_cse.mbt`
-  - `src/passes/local_cse_test.mbt`
+  - `src/passes/local_cse.mbt:2-7,217-...`
+  - `src/passes/local_cse_test.mbt:14-94`
 - active registry and dispatcher surface
-  - `src/passes/optimize.mbt`
-    - `local-cse` is registered as an active module pass
-  - `src/passes/pass_manager.mbt`
+  - `src/passes/optimize.mbt:253,437-448`
+    - `local-cse` is registered as an active module pass and kept out of the exact preset neighborhood
+  - `src/passes/pass_manager.mbt:8941`
     - routes `local-cse` through `local_cse_run_module_pass(...)`
-  - `src/passes/optimize_test.mbt`
-    - keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false while `flatten` remains unavailable
+  - `src/passes/optimize_test.mbt:510-512`
+    - keeps `local-cse` in the active module-pass category while the aggressive neighborhood stays gated
 - completed backlog and release note
   - `agent-todo.md`
     - the LCSE implementation slice has been pruned
   - `CHANGELOG.md`
     - records the 2026-05-05 `local-cse` landing
 - canonical scheduler context
-  - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
+  - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33`
     - the late-cluster slot where `local-cse` belongs after `coalesce-locals` and before full `simplify-locals`
 - exact neighboring local implementation files already worth reading
   - `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:176`, `src/passes/simplify_locals.mbt:4132`
@@ -82,13 +86,7 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544`
     - local-use scanning, in-place local-index rewriting, and module-pass entry logic
 - exact current regression and replay surfaces worth following
-  - `src/passes/optimize_test.mbt`
-    - proves the `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate stays false while `flatten` remains removed
-  - `src/passes/pass_manager_wbtest.mbt`
-    - `test "raw simplify-locals adjacent local tees preserve writes read inside later if bodies"`
-    - `test "raw simplify-locals rewrites dupable copies into the next escaping if condition"`
-    - `test "raw simplify-locals pure suffix collapses terminal dupable local wrappers across safe middle statements"`
-  - `src/cmd/cmd_wbtest.mbt`
+  - `src/cmd/cmd_wbtest.mbt:7564-...`
     - `test "run_cmd_with_adapter print-func sees simplify-locals remove debug artifact Func 71 const fanout webs"`
     - the `--dead-code-elimination --vacuum --optimize-instructions --simplify-locals` artifact replay lane
 - exact neighboring living dossiers that define the future slot and local landing zone
@@ -136,7 +134,7 @@ Upstream Binaryen expects other passes to expose the right shapes first:
 - `coalesce-locals` simplifies later local traffic before the ordinary late run
 - full `simplify-locals` cleans up the temp-local traffic `local-cse` leaves behind
 
-Current Starshine already has the late consumer (`simplify-locals`) and a local-index rewrite neighbor (`reorder-locals`), but it does **not** yet have the missing early and late prerequisite neighbors.
+Current Starshine already has the direct `local-cse` transform, the late consumer (`simplify-locals`), and a local-index rewrite neighbor (`reorder-locals`), but it does **not** yet have the missing early and late prerequisite neighbors needed for exact public preset parity.
 That is why current preset placement should stay honest.
 
 ## The right future Starshine implementation shape
@@ -219,66 +217,66 @@ Why:
 
 That does not make `reorder-locals` an implementation of `local-cse`, but it does make it an important local read-along file.
 
-## What Starshine does **not** have yet
+## What Starshine still does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
 Starshine does **not** currently have:
 
-- a MoonBit implementation file for `local-cse`
-- a dispatcher entry for `local-cse` in `src/passes/pass_manager.mbt`
-- HOT candidate collection for repeated whole trees
-- a local expression hasher/equality engine for this pass
-- temp-local insertion and repeat-rewrite machinery specifically for this pass
-- pass-specific tests or CLI execution coverage beyond the tracked registry/backlog surfaces and neighboring simplify-locals replay lanes
+- exact public preset parity for the upstream `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood
+- exact public preset parity for the upstream `coalesce-locals -> local-cse -> simplify-locals` neighborhood
+- a locally representable version of every prerequisite neighboring slot needed to make those ordered claims oracle-proven end to end
 
 So the current repo status is best summarized as:
 
-- name tracked
-- backlog tracked
+- direct `local-cse` transform landed
+- direct tests and registry/dispatcher wiring landed
+- backlog tracked and pruned
 - scheduler slot documented
-- neighboring local cleanup and rewrite files implemented
-- public preset scheduling for the exact upstream neighborhoods
+- neighboring local cleanup and rewrite files already exist
+- public preset scheduling for the exact upstream neighborhoods remains gated
 
-## Validation plan for the eventual port
+## Validation plan for the ordered-neighborhood claim
 
-The existing backlog plus neighboring pass docs imply the right validation ladder.
-A future real implementation should validate in this order:
+The direct pass already exists, so the remaining validation ladder is about exact upstream neighborhood parity.
 
-1. reduced shape tests for the real upstream families
+1. Keep the landed direct tests green
    - same-block repeated arithmetic trees
    - repeated load positives
    - before-`if` / `then` positives
    - parent-over-child cancellation cases
-2. negative correctness tests
    - after-`if` window resets
    - local-write invalidation
    - nested call and generative GC negative roots
    - tiny-root profitability no-op cases
-3. cluster interaction tests
+2. Keep the registry and CLI proof honest
+   - `local-cse` stays an active module pass
+   - explicit `--local-cse` execution keeps working
+   - the surrounding aggressive neighborhood gate stays false while the prerequisite neighbors are incomplete
+3. Keep pass-targeted parity and replay evidence green
+   - `wasm-opt --local-cse` compare-pass replay
+   - direct artifact replay on the no-DWARF lane
+4. Only then claim exact ordered-neighborhood parity
    - `flatten -> simplify-locals-notee-nostructure -> local-cse`
    - `coalesce-locals -> local-cse -> simplify-locals`
-   - local-temp introduction plus later local-index stability checks
-4. artifact and oracle comparison
-   - the `LCSE` slice in `agent-todo.md`
-   - the canonical no-DWARF debug-artifact replay path once the exact slot becomes locally representable
 
 That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the in-repo workflow and the exact surrounding code surfaces.
 
 ## Bottom line
 
-Current Starshine `local-cse` strategy is honest boundary tracking plus port planning:
+Current Starshine `local-cse` strategy is an active direct pass plus a guarded neighborhood/preset parity bridge:
 
 - the upstream spelling is intentionally preserved in `src/passes/optimize.mbt`
-- the backlog already treats `local-cse` as a real missing parity slice under `LCSE`
+- the direct implementation, tests, and dispatcher wiring are already landed
+- the backlog already treats the remaining ordered-neighborhood work as the real parity slice under `LCSE`
 - the canonical early and late slots are already documented in the no-DWARF optimizer notes
 - the surrounding implementation files already exist and define the practical landing zone for future neighborhood work, especially `simplify_locals.mbt`, `reorder_locals.mbt`, `pass_manager_wbtest.mbt`, and `cmd_wbtest.mbt`
-- the docs now keep one important honesty rule explicit: no exact Starshine slot should be claimed before the missing upstream-neighbor equivalents land locally
+- the docs now keep one important honesty rule explicit: no exact preset-slot claim should be made before the missing upstream-neighbor equivalents land locally
 
 So the right mental model today is not “nothing exists locally.”
 It is:
 
-- **no transform yet**
-- **clear tracked status**
-- **clear slot in the pipeline**
-- **clear neighboring implementation map for the eventual port**
-- **clear warning not to over-claim preset parity before the prerequisite neighbors exist**
+- **direct transform landed**
+- **direct status clear**
+- **exact preset claim still gated**
+- **neighbor map clear**
+- **parity proof still pending for the ordered slots**
