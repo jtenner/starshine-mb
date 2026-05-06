@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `de-nan` line anchors and source bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md` after rechecking current Binaryen `DeNaN.cpp`, `pass.cpp`, `properties.h`, `names.h`, `wasm-builder.h`, `pass.h`, and `denan.wast` against the existing contract.
+- Refreshed the `de-nan` landing page, Binaryen strategy, implementation/test-map, helper-functions guide, WAT-shape catalog, Starshine strategy, Starshine port-readiness page, root wiki index, pass catalog, and tracker so the dossier now has a 2026-05-06 freshness layer alongside the earlier no-drift bridge.
+- Recorded unchanged contract status: Binaryen still teaches the same NaN-to-zero helper-instrumentation contract, and Starshine still keeps the pass removed while the future module-owned instrumentation choice remains open.
+
 ## [2026-05-06] health | add `heap-store-optimization` validation bridge and source spotcheck
 
 - Added `docs/wiki/raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md` plus `docs/wiki/binaryen/passes/heap-store-optimization/starshine-port-readiness-and-validation.md` after rechecking current Binaryen `HeapStoreOptimization.cpp`, `pass.cpp`, and `heap-store-optimization.wast` anchors against the existing contract.

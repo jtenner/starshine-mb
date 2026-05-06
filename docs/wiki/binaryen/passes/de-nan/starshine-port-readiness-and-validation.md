@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
   - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-de-nan-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md
   - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -93,7 +95,7 @@ The biggest boundaries to keep honest are:
 
 ## Source bridge
 
-The 2026-05-05 current-main recheck confirmed there is still no simpler function-only contract hiding behind the pass name.
+The 2026-05-06 line-anchor refresh confirmed there is still no simpler function-only contract hiding behind the pass name.
 That keeps the local strategy unchanged: `de-nan` stays a removed compatibility name until a real module pass lands.
 
 ## Cross-links
