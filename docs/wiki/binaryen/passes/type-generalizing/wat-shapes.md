@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
+  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
 related:
   - ./index.md
@@ -23,7 +25,7 @@ supersedes:
 
 ## How to read this page
 
-These shapes are sketches of the source-confirmed Binaryen `experimental-type-generalizing` contract. They do not try to reproduce exact printer output. A 2026-05-05 current-main recheck left the shape families unchanged on the reviewed surfaces. The durable idea is:
+These shapes are sketches of the source-confirmed Binaryen `experimental-type-generalizing` contract. They do not try to reproduce exact printer output. A 2026-05-06 current-main recheck left the shape families unchanged on the reviewed surfaces. The durable idea is:
 
 - uses impose type requirements;
 - the solver propagates requirements backward through a CFG;
@@ -241,7 +243,7 @@ Struct operations usually remain printed the same, but they constrain object and
 
 ### Why it matters
 
-Array element and aggregate requirements flow backward through locals and stack values. Some array atomic/load/store families are still unsupported hazards.
+Array element and aggregate requirements flow backward through locals and stack values. Some array atomic/load/store and constructor families are still unsupported hazards.
 
 ## Family 11: ref cast/test constraints
 
@@ -281,7 +283,7 @@ These operations constrain operand types. The pass is not primarily a cast inser
 
 ### Why it stays
 
-Upstream explicitly labels the pass not yet sound and has unsupported-family markers. Starshine should not invent optimistic rewrites for those families.
+Upstream explicitly labels the pass not yet sound and has unsupported-family markers. Starshine should not invent optimistic rewrites for those families or assume a nearby GC/control-flow opcode is covered just because a sibling shape is.
 
 ## Positive versus negative cheat sheet
 

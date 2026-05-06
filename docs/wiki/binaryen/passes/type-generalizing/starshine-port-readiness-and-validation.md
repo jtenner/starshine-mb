@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
+  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -25,7 +27,7 @@ related:
 
 ## Current decision
 
-Keep `type-generalizing` boundary-only until there is an explicit decision to support a developer/experimental pass. The 2026-05-05 current-main recheck did not alter that decision.
+Keep `type-generalizing` boundary-only until there is an explicit decision to support a developer/experimental pass. The 2026-05-06 current-main recheck did not alter that decision.
 
 Reasons:
 

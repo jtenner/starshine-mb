@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
+  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -36,6 +38,8 @@ Starshine does **not** implement `type-generalizing` today.
 
 The current local truth is:
 
+A 2026-05-06 current-main recheck did not change the reviewed upstream contract.
+
 - `src/passes/optimize.mbt` lists `type-generalizing` in `pass_registry_boundary_only_names()`.
 - The registry category is `BoundaryOnly`, not `HotPass` and not `ModulePass`.
 - `run_hot_pipeline_expand_passes(...)` rejects boundary-only requests with the standard boundary-only error.
@@ -44,7 +48,7 @@ The current local truth is:
 - No `src/passes/type_generalizing.mbt` owner file exists.
 - No active `agent-todo.md` slice currently tracks a `type-generalizing` implementation.
 
-So the correct Starshine strategy is a **boundary/status and future-port map**, not a code guide for an existing pass. A 2026-05-05 current-main recheck did not change that status; it only tightened the local code anchors below.
+So the correct Starshine strategy is a **boundary/status and future-port map**, not a code guide for an existing pass. A 2026-05-06 current-main recheck did not change that status; it only tightened the local code anchors below.
 
 ## Exact local code locations
 
@@ -96,7 +100,7 @@ Because Starshine has no implementation, current validation is status validation
 - direct requests for `type-generalizing` must fail as boundary-only;
 - presets must not expand to it;
 - no wiki page should imply a local owner file or active dispatcher exists;
-- future docs should cite the 2026-04-27 corrective manifest and the 2026-05-05 current-main recheck for mechanics.
+- future docs should cite the 2026-04-27 corrective manifest and the 2026-05-06 current-main recheck for mechanics.
 
 ## Relationship to neighboring Starshine code
 
@@ -117,6 +121,8 @@ Because Starshine has no implementation, current validation is status validation
 2. [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
 3. [`../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md)
 4. [`../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)
-5. [`./binaryen-strategy.md`](./binaryen-strategy.md)
+5. [`../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md)
+6. [`../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md`](../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md)
+7. [`./binaryen-strategy.md`](./binaryen-strategy.md)
 6. [`./type-requirements-cfg-and-unsupported-families.md`](./type-requirements-cfg-and-unsupported-families.md)
 7. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)

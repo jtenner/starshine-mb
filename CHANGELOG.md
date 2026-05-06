@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Wiki: refresh `type-generalizing` current-main bridge
+
+- **add a 2026-05-06 current-main recheck manifest, matching research note, and freshness-layer refresh for the `type-generalizing` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md), [`docs/wiki/raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md`](./docs/wiki/raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md), [`docs/wiki/binaryen/passes/type-generalizing/`](./docs/wiki/binaryen/passes/type-generalizing/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Wiki: refresh `alignment-lowering` current-main recheck
 
 - **pin current Binaryen `alignment-lowering` source anchors and refresh the exact Starshine status, implementation, shape, and readiness surfaces with a new 2026-05-06 freshness layer** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md), [`docs/wiki/raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md`](./docs/wiki/raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md), [`docs/wiki/binaryen/passes/alignment-lowering/`](./docs/wiki/binaryen/passes/alignment-lowering/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

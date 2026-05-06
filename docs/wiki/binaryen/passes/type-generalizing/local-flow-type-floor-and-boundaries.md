@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: superseded
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
+  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
 superseded_by:
   - ./type-requirements-cfg-and-unsupported-families.md
 related:
@@ -18,7 +20,7 @@ related:
 # Superseded: local-flow type floor and boundaries
 
 This page is retained as a stable link target, but its old 2026-04-24 model is superseded.
-The 2026-05-05 current-main recheck kept that supersession unchanged.
+The 2026-05-06 current-main recheck kept that supersession unchanged.
 
 The current source-correct focused guide is [`./type-requirements-cfg-and-unsupported-families.md`](./type-requirements-cfg-and-unsupported-families.md).
 

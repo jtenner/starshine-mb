@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `type-generalizing` current-main bridge and freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md` plus `docs/wiki/raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md` after rechecking current-main Binaryen `TypeGeneralizing.cpp`, `pass.cpp`, and `type-generalizing.wast` against the corrected hidden/test contract.
+- Refreshed the `type-generalizing` dossier, its superseded local-flow page, the pass catalog, tracker, root wiki index, and the living strategy / implementation / shape / port-readiness pages so the dossier now has a 2026-05-06 freshness layer plus a clearer unsupported-family map and exact local boundary-only code anchors.
+- Recorded unchanged contract status: Binaryen still teaches the same hidden not-yet-sound CFG/backward-analysis story, and Starshine still keeps `type-generalizing` boundary-only with no owner file, dispatcher case, preset slot, or backlog slice.
+
 ## [2026-05-06] health | refresh `alignment-lowering` current-main recheck
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md` plus `docs/wiki/raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md` after pinning current Binaryen `alignment-lowering` source anchors and refreshing the exact Starshine status, implementation, shape, and readiness surfaces for the pass.

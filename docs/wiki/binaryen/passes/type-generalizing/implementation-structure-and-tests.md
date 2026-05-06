@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
+  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
 related:
   - ./index.md
@@ -23,7 +25,7 @@ supersedes:
 
 ## Why this page exists
 
-This page maps the corrected source contract to concrete Binaryen files. A 2026-05-05 current-main recheck kept the same reviewed surface contract, and the map still intentionally calls out the 2026-04-24 miscorrection so future readers do not reintroduce either stale model.
+This page maps the corrected source contract to concrete Binaryen files. A 2026-05-06 current-main recheck kept the same reviewed surface contract, and the map still intentionally calls out the 2026-04-24 miscorrection so future readers do not reintroduce either stale model.
 
 ## Main upstream files
 

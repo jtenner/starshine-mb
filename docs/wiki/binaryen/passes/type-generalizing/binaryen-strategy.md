@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md
+  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
   - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
 related:
@@ -26,7 +28,7 @@ supersedes:
 
 ## Source rule
 
-Use the 2026-04-27 source correction as the corrected oracle for this folder, and the 2026-05-05 current-main recheck as the freshness layer:
+Use the 2026-04-27 source correction as the corrected oracle for this folder, and the 2026-05-06 current-main recheck as the freshness layer:
 
 - [`../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`](../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md)
 - [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
@@ -47,7 +49,7 @@ Specific current-main locations that teach the contract:
 - [`type-generalizing.wast#L3803-L3919`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/type-generalizing.wast#L3803-L3919) for the `call_ref` parameter/result/impossible families.
 - [`type-generalizing.wast#L3961-L4017`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/type-generalizing.wast#L3961-L4017) for struct constructor and struct-read coverage.
 
-A 2026-05-05 current-main recheck on the same reviewed surfaces found no teaching-relevant drift.
+A 2026-05-06 current-main recheck on the same reviewed surfaces found no teaching-relevant drift.
 
 The 2026-04-24 raw manifest is superseded for mechanics. It is still useful only as audit history for how the dossier got corrected twice.
 
@@ -161,7 +163,7 @@ For upstream comprehension:
 - `TypeGeneralizing.cpp` is the owner of the algorithm.
 - `pass.cpp` proves hidden/test and not-yet-sound status.
 - `type-generalizing.wast` is the official behavior catalog.
-- The 2026-05-05 current-main recheck kept the same reviewed surface contract.
+- The 2026-05-06 current-main recheck kept the same reviewed surface contract.
 
 For future Starshine implementation:
 
