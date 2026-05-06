@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md
   - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
   - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
@@ -46,6 +47,7 @@ related:
 ## Role
 
 - `simplify-locals` is an active implemented **hot pass** in Starshine.
+- Its refreshed 2026-05-06 direct explicit-pass parity lane is green: `.tmp/pass-fuzz-simplify-locals` reached `6759/10000` compared cases with `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
 - In upstream Binaryen `version_129`, `simplify-locals` is not one pass name with one behavior.
   It is a **family** of five public passes built from one templated implementation in `SimplifyLocals.cpp`.
 - The public `pass.cpp` summary is short:

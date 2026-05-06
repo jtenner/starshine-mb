@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-14
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
   - ../../../../../agent-todo.md
   - ../../../../../CHANGELOG.md
   - ../../../../../src/passes/simplify_locals_test.mbt
@@ -32,7 +33,9 @@ related:
   - [`src/passes/pass_manager_wbtest.mbt`](../../../../../src/passes/pass_manager_wbtest.mbt)
   - [`src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
   - [`src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt`](../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt)
-- The current 2026-04-14 native-binary fuzz lane is green:
+- The refreshed 2026-05-06 direct pass-fuzz lane is green after the fuzzer / harness audit:
+  - `.tmp/pass-fuzz-simplify-locals` reached `6759/10000` compared cases with `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures; see [`0541-2026-05-06-simplify-locals-direct-revalidation.md`](../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md).
+- The 2026-04-14 native-binary fuzz lane is historical green evidence:
   - `.tmp/pass-fuzz-sl-current-2026-04-14` finished at `10000/10000` compared cases with `10000` normalized matches and `0` mismatches.
 - The current 2026-04-14 debug-artifact self-opt compare is semantically green at the canonical level:
   - `.tmp/self-opt-sl-current-2026-04-14` reports `normalizedWatEqual=true`, `canonicalFuncPrettyEqual=true`, and no differing function indices.

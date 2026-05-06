@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate simplify-locals
+
+- **refresh `simplify-locals` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md`](./docs/wiki/raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md), [`docs/wiki/binaryen/passes/simplify-locals/index.md`](./docs/wiki/binaryen/passes/simplify-locals/index.md), [`docs/wiki/binaryen/passes/simplify-locals/parity.md`](./docs/wiki/binaryen/passes/simplify-locals/parity.md), [`docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md`](./docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate reorder-locals
 
 - **refresh `reorder-locals` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](./docs/wiki/raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md), [`docs/wiki/binaryen/passes/reorder-locals/index.md`](./docs/wiki/binaryen/passes/reorder-locals/index.md), [`docs/wiki/binaryen/passes/reorder-locals/parity.md`](./docs/wiki/binaryen/passes/reorder-locals/parity.md), [`docs/wiki/binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md), [`docs/wiki/binaryen/passes/reorder-locals/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/reorder-locals/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

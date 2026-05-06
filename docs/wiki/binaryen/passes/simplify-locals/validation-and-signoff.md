@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-14
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
@@ -80,7 +81,11 @@ related:
 
 ### Canonical Lane
 
-- Command family:
+- Current post-audit command:
+  - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals --out-dir .tmp/pass-fuzz-simplify-locals`
+- Current 2026-05-06 result:
+  - `6759/10000` compared cases, `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures; see [`0541-2026-05-06-simplify-locals-direct-revalidation.md`](../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md).
+- Historical gen-valid-only command family:
   - `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --generator gen-valid --count 10000 --min-compared 10000`
 
 ### What It Proves
