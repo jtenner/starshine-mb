@@ -30,7 +30,8 @@ priv struct LcseRawRewrite {
 priv struct LcseRawExpr {
   start : Int
   end : Int
-  key : String
+  instr : @lib.Instruction
+  key : Int
   ty : @lib.ValType
   size : Int
   children : Array[Int]
@@ -47,61 +48,106 @@ fn lcse_instr_text(instr : @lib.Instruction) -> String {
 }
 
 ///|
-fn lcse_instr_is_binary_text(text : String) -> Bool {
-  text.contains("Add") ||
-  text.contains("Sub") ||
-  text.contains("Mul") ||
-  text.contains("Div") ||
-  text.contains("Rem") ||
-  text.contains("And") ||
-  text.contains("Or") ||
-  text.contains("Xor") ||
-  text.contains("Shl") ||
-  text.contains("Shr") ||
-  text.contains("Rot") ||
-  text.contains("Min") ||
-  text.contains("Max") ||
-  text.contains("Copysign") ||
-  (
-    !text.contains("Eqz") &&
-    (
-      text.contains("Eq") ||
-      text.contains("Ne") ||
-      text.contains("Lt") ||
-      text.contains("Gt") ||
-      text.contains("Le") ||
-      text.contains("Ge") ||
-      text.contains("RefEq")
-    )
-  )
+fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
+  match instr {
+    @lib.Instruction::I32Add => 1
+    @lib.Instruction::I32Sub => 2
+    @lib.Instruction::I32Mul => 3
+    @lib.Instruction::I64Add => 4
+    @lib.Instruction::I64Sub => 5
+    @lib.Instruction::I64Mul => 6
+    @lib.Instruction::I32Eqz => 7
+    @lib.Instruction::I64Eqz => 8
+    @lib.Instruction::I32Eq => 9
+    @lib.Instruction::I32Ne => 10
+    @lib.Instruction::I64Eq => 11
+    @lib.Instruction::I64Ne => 12
+    @lib.Instruction::I32Load(_) => 13
+    @lib.Instruction::I64Load(_) => 14
+    @lib.Instruction::F32Load(_) => 15
+    @lib.Instruction::F64Load(_) => 16
+    @lib.Instruction::Select(_) => 17
+    _ => -1
+  }
 }
 
 ///|
-fn lcse_instr_is_unary_text(text : String) -> Bool {
-  text.contains("Eqz") ||
-  text.contains("Clz") ||
-  text.contains("Ctz") ||
-  text.contains("Popcnt") ||
-  text.contains("Abs") ||
-  text.contains("Neg") ||
-  text.contains("Ceil") ||
-  text.contains("Floor") ||
-  text.contains("Trunc") ||
-  text.contains("Nearest") ||
-  text.contains("Sqrt") ||
-  text.contains("Convert") ||
-  text.contains("Wrap") ||
-  text.contains("Extend") ||
-  text.contains("Promote") ||
-  text.contains("Demote") ||
-  text.contains("Reinterpret") ||
-  text.contains("RefIsNull") ||
-  text.contains("RefAsNonNull")
+fn lcse_instrs_may_have_repeated_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let seen = @bitset.BitSet::new(64)
+  for instr in instrs {
+    let id = lcse_candidate_op_id(instr)
+    if id >= 0 {
+      if seen[id] {
+        return true
+      }
+      seen[id] = true
+    }
+    match instr {
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        if lcse_instrs_may_have_repeated_candidate(body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, Some(else_body)) =>
+        if lcse_instrs_may_have_repeated_candidate(then_body) ||
+          lcse_instrs_may_have_repeated_candidate(else_body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, None) =>
+        if lcse_instrs_may_have_repeated_candidate(then_body) {
+          return true
+        }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        if lcse_instrs_may_have_repeated_candidate(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn lcse_instr_is_load(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::I32Load(_)
+    | @lib.Instruction::I32Load8S(_)
+    | @lib.Instruction::I32Load8U(_)
+    | @lib.Instruction::I32Load16S(_)
+    | @lib.Instruction::I32Load16U(_)
+    | @lib.Instruction::I64Load(_)
+    | @lib.Instruction::I64Load8S(_)
+    | @lib.Instruction::I64Load8U(_)
+    | @lib.Instruction::I64Load16S(_)
+    | @lib.Instruction::I64Load16U(_)
+    | @lib.Instruction::I64Load32S(_)
+    | @lib.Instruction::I64Load32U(_)
+    | @lib.Instruction::F32Load(_)
+    | @lib.Instruction::F64Load(_) => true
+    _ => false
+  }
+}
+
+///|
+fn lcse_instr_is_store(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::I32Store(_)
+    | @lib.Instruction::I32Store8(_)
+    | @lib.Instruction::I32Store16(_)
+    | @lib.Instruction::I64Store(_)
+    | @lib.Instruction::I64Store8(_)
+    | @lib.Instruction::I64Store16(_)
+    | @lib.Instruction::I64Store32(_)
+    | @lib.Instruction::F32Store(_)
+    | @lib.Instruction::F64Store(_) => true
+    _ => false
+  }
 }
 
 ///|
 fn lcse_raw_instr_operand_count(instr : @lib.Instruction) -> Int? {
-  let text = lcse_instr_text(instr)
   match instr {
     @lib.Instruction::LocalGet(_)
     | @lib.Instruction::GlobalGet(_)
@@ -119,14 +165,22 @@ fn lcse_raw_instr_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.Instruction::GlobalSet(_)
     | @lib.Instruction::If(_, _, _)
     | @lib.Instruction::BrIf(_) => Some(1)
-    @lib.Instruction::Select(_) | @lib.Instruction::MemoryFill(_) => Some(3)
+    @lib.Instruction::Select(_) => Some(3)
+    @lib.Instruction::I32Add
+    | @lib.Instruction::I32Sub
+    | @lib.Instruction::I32Mul
+    | @lib.Instruction::I64Add
+    | @lib.Instruction::I64Sub
+    | @lib.Instruction::I64Mul
+    | @lib.Instruction::I32Eq
+    | @lib.Instruction::I32Ne
+    | @lib.Instruction::I64Eq
+    | @lib.Instruction::I64Ne => Some(2)
+    @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => Some(1)
     _ =>
-      if text.contains("Store") ||
-        text.contains("TableSet") ||
-        text.contains("RefEq") ||
-        lcse_instr_is_binary_text(text) {
+      if lcse_instr_is_store(instr) {
         Some(2)
-      } else if text.contains("Load") || lcse_instr_is_unary_text(text) {
+      } else if lcse_instr_is_load(instr) {
         Some(1)
       } else {
         None
@@ -140,7 +194,6 @@ fn lcse_raw_result_type(
   all_locals : Array[@lib.ValType],
   child_exprs : Array[LcseRawExpr],
 ) -> @lib.ValType? {
-  let text = lcse_instr_text(instr)
   match instr {
     @lib.Instruction::LocalGet(idx) | @lib.Instruction::LocalTee(idx) =>
       match all_locals.get(cl_local_idx_raw(idx)) {
@@ -172,28 +225,19 @@ fn lcse_raw_result_type(
         Some(expr) => Some(expr.ty)
         None => None
       }
-    _ =>
-      if text.contains("Eq") ||
-        text.contains("Ne") ||
-        text.contains("Lt") ||
-        text.contains("Gt") ||
-        text.contains("Le") ||
-        text.contains("Ge") ||
-        text.contains("Eqz") ||
-        text.contains("RefIsNull") ||
-        text.contains("RefEq") {
-        Some(@lib.ValType::i32())
-      } else if text.contains("I64") {
-        Some(@lib.ValType::i64())
-      } else if text.contains("F32") {
-        Some(@lib.ValType::f32())
-      } else if text.contains("F64") {
-        Some(@lib.ValType::f64())
-      } else if text.contains("I32") {
-        Some(@lib.ValType::i32())
-      } else {
-        None
-      }
+    @lib.Instruction::I32Add
+    | @lib.Instruction::I32Sub
+    | @lib.Instruction::I32Mul => Some(@lib.ValType::i32())
+    @lib.Instruction::I64Add
+    | @lib.Instruction::I64Sub
+    | @lib.Instruction::I64Mul => Some(@lib.ValType::i64())
+    @lib.Instruction::I32Eq
+    | @lib.Instruction::I32Ne
+    | @lib.Instruction::I32Eqz
+    | @lib.Instruction::I64Eq
+    | @lib.Instruction::I64Ne
+    | @lib.Instruction::I64Eqz => Some(@lib.ValType::i32())
+    _ => None
   }
 }
 
@@ -214,12 +258,57 @@ fn lcse_raw_expr_profitable(expr : LcseRawExpr) -> Bool {
 }
 
 ///|
+fn lcse_raw_exprs_match(
+  exprs : Array[LcseRawExpr],
+  lhs_id : Int,
+  instr : @lib.Instruction,
+  children : Array[Int],
+) -> Bool {
+  if lhs_id < 0 || lhs_id >= exprs.length() {
+    return false
+  }
+  let lhs = exprs[lhs_id]
+  if lhs.instr != instr || lhs.children.length() != children.length() {
+    return false
+  }
+  for idx = 0; idx < children.length(); idx = idx + 1 {
+    let rhs_child = children[idx]
+    let lhs_child = lhs.children[idx]
+    if rhs_child < 0 ||
+      rhs_child >= exprs.length() ||
+      lhs_child < 0 ||
+      lhs_child >= exprs.length() {
+      return false
+    }
+    if exprs[rhs_child].key != exprs[lhs_child].key {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn lcse_raw_find_active_match(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+  instr : @lib.Instruction,
+  children : Array[Int],
+) -> Int {
+  for active_id in active {
+    if lcse_raw_exprs_match(exprs, active_id, instr, children) {
+      return active_id
+    }
+  }
+  -1
+}
+
+///|
 fn lcse_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
   local_types : Array[@lib.ValType],
 ) -> (Array[@lib.Instruction], Bool) {
-  if instrs.length() > 128 {
+  if instrs.length() > 16 {
     return (instrs, false)
   }
   let all_locals = params.copy()
@@ -228,7 +317,7 @@ fn lcse_raw_rewrite_instrs(
   }
   let exprs : Array[LcseRawExpr] = []
   let stack : Array[Int] = []
-  let active : @hashmap.HashMap[String, Int] = @hashmap.new(capacity=64)
+  let active : Array[Int] = []
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
     let operand_count = match lcse_raw_instr_operand_count(instr) {
@@ -260,7 +349,7 @@ fn lcse_raw_rewrite_instrs(
       @lib.Instruction::Call(_)
       | @lib.Instruction::CallIndirect(_, _)
       | @lib.Instruction::CallRef(_) => active.clear()
-      _ => if lcse_instr_text(instr).contains("Store") { active.clear() }
+      _ => if lcse_instr_is_store(instr) { active.clear() }
     }
     match
       lcse_raw_result_type(
@@ -272,7 +361,7 @@ fn lcse_raw_rewrite_instrs(
         let mut start = idx
         let mut size = 1
         let reads_locals : Array[Int] = []
-        let mut reads_memory = lcse_instr_text(instr).contains("Load")
+        let mut reads_memory = lcse_instr_is_load(instr)
         for child in children {
           let child_expr = exprs[child]
           if child_expr.start < start {
@@ -297,19 +386,22 @@ fn lcse_raw_rewrite_instrs(
           }
           _ => ()
         }
-        let mut key = "large:\{idx}"
-        if size <= 32 {
-          key = lcse_instr_text(instr) + "("
-          for child in children {
-            key = key + exprs[child].key + ","
-          }
-          key = key + ")"
-        }
         let expr_id = exprs.length()
+        let original_id = if size <= 32 {
+          lcse_raw_find_active_match(exprs, active, instr, children)
+        } else {
+          -1
+        }
+        let canonical_key = if original_id >= 0 {
+          exprs[original_id].key
+        } else {
+          expr_id
+        }
         let expr = {
           start,
           end: idx,
-          key,
+          instr,
+          key: canonical_key,
           ty,
           size,
           children,
@@ -320,21 +412,15 @@ fn lcse_raw_rewrite_instrs(
           local_id: -1,
         }
         exprs.push(expr)
-        if lcse_raw_expr_profitable(expr) {
-          match active.get(key) {
-            Some(original_id) =>
-              if original_id >= 0 &&
-                original_id < exprs.length() &&
-                exprs[original_id].active {
-                exprs[expr_id].repeat_of = original_id
-                for child in children {
-                  lcse_cancel_request_tree(exprs, child)
-                }
-              } else {
-                active.set(key, expr_id)
-              }
-            None => active.set(key, expr_id)
+        if original_id >= 0 {
+          if lcse_raw_expr_profitable(expr) {
+            exprs[expr_id].repeat_of = original_id
+            for child in children {
+              lcse_cancel_request_tree(exprs, child)
+            }
           }
+        } else {
+          active.push(expr_id)
         }
         stack.push(expr_id)
       }
@@ -433,6 +519,9 @@ fn lcse_raw_rewrite_func(
   params : Array[@lib.ValType],
 ) -> LcseRawRewrite {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if !lcse_instrs_may_have_repeated_candidate(instrs) {
+    return { func, changed: false }
+  }
   let local_types = cl_flatten_locals(locals, locals.length())
   let (rewritten, changed) = lcse_raw_rewrite_instrs(
     instrs, params, local_types,
@@ -454,9 +543,6 @@ fn lcse_raw_rewrite_func(
 pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      if funcs.length() > 1000 {
-        return mod_
-      }
       let params = cl_defined_func_param_cache(mod_)
       let rewritten : Array[@lib.Func] = []
       let mut changed = false

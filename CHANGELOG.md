@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Passes: harden local-cse runtime
+
+- **reduce `local-cse` artifact runtime while preserving direct parity by adding a cheap repeated-candidate prefilter, structural expression keys instead of string tree keys, and a bounded local window guard for large raw instruction regions** by **@OpenAI**. Updated [`src/passes/local_cse.mbt`](./src/passes/local_cse.mbt) and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-05 Wiki: refresh `reorder-locals` current-main bridge
 
 - **add a 2026-05-05 current-main recheck manifest, matching research note, and freshness-layer refresh for the `reorder-locals` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md), [`docs/wiki/raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md`](./docs/wiki/raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md), [`docs/wiki/binaryen/passes/reorder-locals/`](./docs/wiki/binaryen/passes/reorder-locals/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
