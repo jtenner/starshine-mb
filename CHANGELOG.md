@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Proofs: close PRV006 boundary audit
+
+- **audit and close the first-wave MoonBit validation proof boundary, record explicit deferrals for direct validator, recursive match, label-stack structural, and broader typechecker proofs, and prune the completed PRV006 backlog slice** by **@OpenAI**. Updated [`docs/wiki/raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](./docs/wiki/raw/research/0515-2026-05-06-validate-proof-boundary-audit.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate merge-blocks
 
 - **refresh `merge-blocks` direct parity evidence after fuzzer changes, prove debug-artifact normalized/function equality, and prune the completed backlog items** by **@OpenAI**. Updated [`docs/wiki/raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](./docs/wiki/raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md), [`docs/wiki/binaryen/passes/merge-blocks/index.md`](./docs/wiki/binaryen/passes/merge-blocks/index.md), [`docs/wiki/binaryen/passes/merge-blocks/starshine-strategy.md`](./docs/wiki/binaryen/passes/merge-blocks/starshine-strategy.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

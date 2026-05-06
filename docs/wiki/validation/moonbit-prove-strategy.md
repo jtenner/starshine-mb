@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../raw/research/0077-2026-04-10-moonbit-prove-strategy.md
+  - ../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md
   - ../../../src/validate/moon.pkg
   - ../../../src/validate_proof/moon.pkg
   - ../../../src/validate/env.mbt
@@ -29,13 +30,13 @@ related:
 - The current official proof model is strongest on small, model-based invariants over executable MoonBit code plus `.mbtp` predicates and lemmas.
 - The current proof model reasons over mathematical integers, so proofs do not replace runtime tests for overflow-sensitive, byte-precise, or bit-precise behavior.
 - Starshine should start in `src/validate`, not in `src/binary`, `src/bitset`, `src/diff`, or the pass pipeline.
-- The validator proof rollout should stay incremental: prove one file or helper slice first, then widen only after the slice is stable.
-- The current in-tree bootstrap landed first in `src/validate_proof`; `src/validate` now carries a narrow proof-enabled pilot for `match.mbt` algebra only, while historical prove-attempt output still records a broader `jtenner/starshine/lib` lowering risk: `unbound type symbol 'name'`.
+- The validator proof rollout should stay incremental: prove one helper package first, then widen only after each new boundary is stable.
+- The current in-tree bootstrap landed first in `src/validate_proof`; `src/validate` is proof-enabled, but targeted direct-validator commands still emit the whole validate package plus dependency proof artifacts, so the broad direct-validator gate remains deferred. Historical prove-attempt output also records a broader `jtenner/starshine/lib` lowering risk: `unbound type symbol 'name'`.
 - The active proof kernel currently proves `15` helper goals in `src/validate_proof` and already covers label-stack lookup, current-frame/group index arithmetic, defined-function body/index translation, declared-function bounds checks, suffix-base recovery used by validator diagnostics, rectype-suffix member-to-absolute index recovery, and typechecker stack push/pop/end-check length discipline.
 - `LabelStack` is a persistent branchable stack: `LabelStack::copy` shares backing storage, so proved reverse-index arithmetic can be reused in `LabelStack::get`, but logical lookup still has to walk `head` / `parents` instead of indexing `values` directly.
 - `proof_axiomatized` should not become a permanent escape hatch in validator-critical code. Every such assumption expands the trusted surface and must stay temporary and explicit.
-- As of 2026-05-05, the committed required proof gate is `moon prove src/validate_proof` only. The direct-validator pilot target is `moon prove src/validate/match.mbt`; it remains optional until broader `src/validate` proving is rechecked on a configured Why3/Z3 host.
-- As of 2026-05-05, no committed source uses `proof_axiomatized`; deferred recursive-match facts are tracked below as design debt, not trusted assumptions.
+- As of 2026-05-06, the committed required proof gate is `moon prove src/validate_proof` only. Direct-validator targets such as `moon prove src/validate/match.mbt` remain optional because they are not isolated from the whole validate package in this workspace.
+- As of 2026-05-06, no committed source uses `proof_axiomatized`; deferred recursive-match facts are tracked below as design debt, not trusted assumptions.
 
 ## Staged Rollout
 
@@ -44,7 +45,7 @@ related:
 2. Pilot in the validator helper boundary first.
    Keep the first machine-checked slices in [`../../../src/validate_proof/label_index.mbt`](../../../src/validate_proof/label_index.mbt), [`../../../src/validate_proof/stack_index.mbt`](../../../src/validate_proof/stack_index.mbt), [`../../../src/validate_proof/group_index.mbt`](../../../src/validate_proof/group_index.mbt), [`../../../src/validate_proof/func_index.mbt`](../../../src/validate_proof/func_index.mbt), [`../../../src/validate_proof/bounds_index.mbt`](../../../src/validate_proof/bounds_index.mbt), [`../../../src/validate_proof/suffix_index.mbt`](../../../src/validate_proof/suffix_index.mbt), and [`../../../src/validate_proof/stack_discipline.mbt`](../../../src/validate_proof/stack_discipline.mbt), then wire those helpers back into [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), and [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt).
 
-   Keep `src/validate` proof progression off by default until the package is explicitly proof-enabled and the Why3 `lib` lowering blocker is cleared.
+   Keep broad `src/validate` proof progression deferred until whole-package proof output and dependency proof obligations are acceptable for the required gate.
 3. Extend to [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt).
    The first pilot proves the Boolean algebra kernel behind `descriptor_compatible` symmetry in [`../../../src/validate/match_proof.mbtp`](../../../src/validate/match_proof.mbtp) and adds executable equal/unequal exact-struct shape regressions. Deeper recursive subtype/exactness proofs remain deferred.
 4. Move into the typechecker helper layer, not the whole instruction surface.
@@ -58,10 +59,8 @@ related:
 - Prefer named predicates like `*_wf`, `*_inv`, and `*_post` over large inline formulas.
 - Use targeted local proving during development:
   - `moon prove src/validate_proof`
-  - For `src/validate` slices, first enable proof by setting `"proof-enabled": true` in [`../../../src/validate/moon.pkg`](../../../src/validate/moon.pkg), then prove focused files such as:
-    - `moon prove src/validate/env.mbt`
-    - `moon prove src/validate/match.mbt`
-  - only later `moon prove src/validate`
+  - Optional direct-validator probes such as `moon prove src/validate/env.mbt` and `moon prove src/validate/match.mbt` are investigative only; current dry-run evidence shows they emit the whole proof-enabled `src/validate` package plus dependency proof artifacts.
+  - only later require `moon prove src/validate`
 - Keep CI proof gating opt-in until the direct `src/validate` blocker is cleared. Required CI/local proof checks should be limited to proof-enabled packages or files that are expected to prove cleanly on the documented Why3/Z3 setup; broad root-level `moon prove` remains a future policy decision, not a current release gate.
 - Treat `src/validate_proof` as the current committed proof boundary: it is intentionally proof-enabled, contains standalone arithmetic/index lemmas, and is safe to run in CI or local signoff with `moon prove src/validate_proof` when Why3/Z3 are available.
 - Treat direct `src/validate` proving as experimental except for focused `match.mbt` pilot work. Keep broad package-level proof expansion blocked until the historical `jtenner/starshine/lib` WhyML lowering failure is removed or documented as obsolete by a fresh successful targeted run.
@@ -83,9 +82,10 @@ related:
 
 | Surface | Status | Required follow-up |
 | --- | --- | --- |
-| Committed `proof_axiomatized` usage | none found on 2026-05-05 outside docs/backlog mentions | Keep this row current whenever an axiom is introduced or removed. |
-| Direct `src/validate` proving | pilot only | Keep `moon prove src/validate/match.mbt` focused; recheck broad proving only after the historical `jtenner/starshine/lib` WhyML lowering blocker is cleared or proven obsolete. |
+| Committed `proof_axiomatized` usage | none found on 2026-05-06 outside docs/backlog mentions | Keep this row current whenever an axiom is introduced or removed. |
+| Direct `src/validate` proving | deferred after PRV006 audit | Current targeted dry-runs emit the whole validate package plus dependency proof artifacts; recheck broad proving only after that surface is intended for a required gate. |
 | Recursive `match.mbt` subtype/exactness facts | deferred design debt | The Boolean `descriptor_compatible` symmetry kernel and equal-shape executable regressions are landed; do not replace hard recursive proof obligations with permanent axioms. |
+| `LabelStack` structural invariant | deferred second-wave data-structure proof | Arithmetic lookup helpers are proved; parent-chain/head/len invariants require a richer mutable-structure model and remain covered by `env_tests.mbt`. |
 | Typechecker stack-discipline facts | first helper-layer slice landed | `src/validate_proof/stack_discipline.mbt` proves push/pop/end-check length facts; value-type compatibility and branch-exit normalization remain future proof targets. |
 
 ## Current Kernel
@@ -123,6 +123,7 @@ related:
 ## Sources
 
 - Archived investigation: [`../raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](../raw/research/0077-2026-04-10-moonbit-prove-strategy.md)
+- PRV006 boundary audit: [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md)
 - Official MoonBit verification docs: <https://docs.moonbitlang.com/en/latest/language/verification.html>
 - Existing validator executable oracle:
   - [`../../../src/validate/env_tests.mbt`](../../../src/validate/env_tests.mbt)

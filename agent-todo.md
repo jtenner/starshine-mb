@@ -190,26 +190,6 @@ Observed unique-pass order
 - [DIR]002 - Late-Tail Slot Proof
   - Deliverables: keep `directize` preset scheduling deferred until the `string-gathering -> reorder-globals -> directize` slot can be replayed together; add `directize-initial-contents-immutable` support only if/when Starshine grows a pass-arg surface for it.
 
-### MoonBit formal verification rollout (`moon prove`)
-
-Goal
-- Add a keepable first wave of formal proofs through MoonBit's current `moon prove` workflow without destabilizing validator, codec, fuzz, or pass pipelines.
-
-Invariants
-- Keep proofs package-local and start from validator semantics; a sidecar proof-kernel package is acceptable when direct `src/validate` proving is blocked.
-- Do not leave permanent validator-critical assumptions behind `proof_axiomatized`; any temporary trusted surface must stay documented and easy to remove.
-- Proofs complement executable tests, fuzzing, binary roundtrip checks, and spec coverage; they do not replace them.
-
-Suggested Tests
-- `moon prove src/validate_proof`
-- `moon prove src/validate/env.mbt`
-- `moon prove src/validate/match.mbt`
-- `moon test`
-- `moon info && moon fmt`
-
-- [PRV]006 - Prove Everything In-Boundary That Should Be Proved
-  - Deliverables: audit active `env`, `match`, and typecheck-helper candidates; land remaining high-value proofs; record explicit deferrals for blocked, low-value, or out-of-scope candidates.
-
 ## v0.2.0 Backlog
 
 - [HOT]003 - Node-Package Worker Queue Port

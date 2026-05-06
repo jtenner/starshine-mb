@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] maintain | close PRV006 validate proof boundary audit
+
+- Added `docs/wiki/raw/research/0515-2026-05-06-validate-proof-boundary-audit.md` after auditing `src/validate_proof`, direct `env`, recursive `match`, and typechecker-helper proof candidates.
+- Recorded that the first-wave proof boundary is complete at the current `15`-goal `src/validate_proof` helper kernel; direct `src/validate`, `LabelStack` structural, recursive subtype, and broader typechecker proofs are explicit deferrals rather than trusted assumptions.
+- Refreshed `validation/moonbit-prove-strategy.md` and the wiki index with the PRV006 closure, current no-`proof_axiomatized` trust-surface audit, and the local MoonBit/Why3 harness limitation observed while rerunning `moon prove src/validate_proof`.
+
 ## [2026-05-06] health | revalidate `merge-blocks` direct parity after fuzzer changes
 
 - Added `docs/wiki/raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md` after rerunning `moon info`, `moon fmt`, `moon test`, mixed-generator direct `pass-fuzz-compare` for `--merge-blocks`, and debug-artifact `self-optimize-compare` for `--merge-blocks`.
