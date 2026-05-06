@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
+  - ../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
+  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -22,6 +24,7 @@ related:
 # `simplify-locals-notee-nostructure` Implementation Structure And Tests
 
 Use this page as the source-following map for Binaryen `version_129`.
+A 2026-05-05 current-main recheck left the reviewed owner-file and test-map surfaces unchanged, so the older source map still holds.
 The strategy page explains the algorithm; this page explains **where the contract lives** and which tests prove which part.
 
 ## Owner-file map
@@ -110,3 +113,5 @@ The companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
+- [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)

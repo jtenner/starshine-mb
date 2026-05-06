@@ -1,11 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
+  - ../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
+  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -35,7 +37,7 @@ related:
 - `simplify-locals-notee-nostructure` is an upstream Binaryen aggressive locals-cleanup pass.
 - It is now an **active direct** Starshine pass: the exact upstream spelling is registered as a HOT pass, dispatches through the existing `simplify_locals` policy engine with `allowStructure = false` and `allowTee = false`, and has green direct Binaryen parity evidence.
 - The old local removed-name placeholder spelling `simplify-locals-no-tee-no-structure` remains distinct from the upstream / saved-audit spelling `simplify-locals-notee-nostructure`; the newly active direct pass uses the upstream spelling.
-- The dossier is now anchored by the immutable primary-source manifest in [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md), the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md), and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+- The dossier is now anchored by the immutable primary-source manifest in [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md), the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md), and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - In Binaryen `version_129`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path.
 - Instead, `pass.cpp` inserts it only in the more aggressive `optimizeLevel >= 4` function prelude:
   - `flatten`
@@ -116,6 +118,8 @@ That is much closer to the real pass than â€œfull simplify-locals, but smaller.â
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
+- [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

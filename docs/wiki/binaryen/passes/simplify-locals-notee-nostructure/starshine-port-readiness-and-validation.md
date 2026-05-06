@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
+  - ../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
+  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -35,6 +37,7 @@ related:
 
 The main dossier already explains what Binaryen does.
 The Starshine strategy page already explains the current active direct-pass status.
+A 2026-05-05 current-main recheck left that status unchanged.
 This page tracks the remaining preset-neighborhood validation gap:
 
 - what is the smallest honest local slice?
@@ -152,6 +155,8 @@ A faithful port should make that choice visible in tests.
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
+- [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

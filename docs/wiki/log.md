@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `simplify-locals-notee-nostructure` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md` plus `docs/wiki/raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md` after rechecking current `main` `SimplifyLocals.cpp`, `pass.cpp`, and the dedicated `simplify-locals-notee-nostructure` test pair against the existing contract.
+- Refreshed the `simplify-locals-notee-nostructure` landing page, Binaryen strategy, implementation/test-map, variant-surface, WAT-shape catalog, Starshine strategy, Starshine readiness bridge, wiki index, pass catalog, and tracker so the 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same shared `SimplifyLocals<false, false, true>` engine plus the no-fresh-tee / no-structure aggressive-neighborhood split, and Starshine still keeps the pass active-direct but preset-deferred.
+
 ## [2026-05-05] health | refresh `global-struct-inference-desc-cast` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md` plus `docs/wiki/raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md` after rechecking current `main` `GlobalStructInference.cpp`, `pass.cpp`, `gsi-to-desc-cast.wast`, `gsi-desc.wast`, and `gsi.wast` against the corrected contract.

@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
+  - ../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
+  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -22,6 +24,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+A 2026-05-05 current-main recheck on `SimplifyLocals.cpp`, `pass.cpp`, and the dedicated test pair found no teaching-relevant drift on the reviewed surfaces.
 - Use the immutable raw source manifest in [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md) for provenance, current-main spot-check scope, and the exact reviewed source/test URL set.
 - The core implementation is the shared `src/passes/SimplifyLocals.cpp` template.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
@@ -437,6 +440,8 @@ A faithful port should preserve at least these facts:
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
+- [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
 - Binaryen `version_129` source files:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

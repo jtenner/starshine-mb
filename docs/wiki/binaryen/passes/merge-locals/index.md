@@ -39,7 +39,7 @@ supersedes:
 It rewrites copy-shaped local traffic (`local.set $x (local.get $y)`) by temporarily exposing a trivial `local.tee`, then retargeting influenced gets to either the source local or the destination local when the `LocalGraph` proof says the move is still single-set and type-safe.
 The pass is DWARF-sensitive: the reviewed source still reports `invalidatesDWARF() == true`.
 
-It now has an active conservative Starshine module-pass surface for direct `--merge-locals` execution. The first slice preserves module shape while wiring the O4z pass name through the registry, dispatcher, tests, compare harness, and artifact lane; the full LocalGraph-equivalent retargeting rewrite remains future work.
+It now has an active Starshine module-pass implementation for direct `--merge-locals` execution. The landed slice rewrites same-typed copy-shaped local traffic by retargeting later source-local gets to the destination local until either side is written, and wires the O4z pass name through the registry, dispatcher, tests, compare harness, and artifact lane. Broader LocalGraph-equivalent control-flow retargeting remains future work before preset scheduling.
 
 So the beginner mental model is **copy-shape local traffic balancing with graph-checked retargeting**, not generic local-slot coalescing and not the stale one-set/local-simple-value story.
 
@@ -93,14 +93,14 @@ It does **not** rewrite function signatures, heap types, globals, imports, expor
 
 ## Starshine status
 
-Current Starshine has an active conservative `src/passes/merge_locals.mbt` owner file and module-pass dispatcher arm. The pass is no longer a removed-name rejection: `src/passes/optimize.mbt` classifies `merge-locals` as a module pass, `src/passes/pass_manager.mbt` dispatches it, `src/passes/merge_locals_test.mbt` covers the public pipeline spelling, and `scripts/lib/pass-fuzz-compare-task.ts` exposes the direct oracle lane.
+Current Starshine has an active `src/passes/merge_locals.mbt` owner file and module-pass dispatcher arm. The pass is no longer a removed-name rejection: `src/passes/optimize.mbt` classifies `merge-locals` as a module pass, `src/passes/pass_manager.mbt` dispatches it, `src/passes/merge_locals_test.mbt` covers the public pipeline spelling plus same-typed copy retargeting and write invalidation, and `scripts/lib/pass-fuzz-compare-task.ts` exposes the direct oracle lane.
 
 Validation evidence from the 2026-05-05 landing slice:
 
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`: 6759 compared, 6759 normalized matches, 0 mismatches, 20 Binaryen command failures from unsupported zero-sized recursion groups.
-- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --merge-locals`: normalized WAT equal and canonical function compare equal; Starshine pass runtime 0.001 ms versus Binaryen pass runtime 2052.850 ms on that artifact.
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --merge-locals`: normalized WAT equal and canonical function compare equal; Starshine pass runtime 475.956 ms versus Binaryen pass runtime 2062.410 ms on that artifact.
 
-Remaining implementation debt is the real LocalGraph-equivalent retargeting engine for copy-shaped local traffic. Keep it out of public presets until that fuller rewrite is separately proven in the late local-cleanup neighborhood.
+Remaining implementation debt is the broader LocalGraph-equivalent retargeting engine for control-flow-spanning copy traffic. Keep it out of public presets until that fuller rewrite is separately proven in the late local-cleanup neighborhood.
 
 ## How to validate a future port
 

@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
+  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -34,6 +36,7 @@ related:
 # Starshine Strategy For `simplify-locals-notee-nostructure`
 
 Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md) and the companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) bridge.
+The 2026-05-05 current-main recheck left the Starshine status unchanged: active direct, preset deferred.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, the direct-pass validation evidence, and the neighboring implementation areas still needed for preset replay.
 
 ## The honest current status
@@ -192,6 +195,8 @@ So the right mental model today is:
 
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
+- [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

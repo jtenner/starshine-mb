@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
+  - ../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
+  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -19,6 +21,7 @@ related:
 # `simplify-locals-notee-nostructure` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen’s `simplify-locals-notee-nostructure` pass.
+A 2026-05-05 current-main recheck left these shapes unchanged.
 For provenance and the direct-vs-inferred test distinction, pair it with [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md) and [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model
@@ -406,6 +409,8 @@ This is one of the easiest scheduler myths to carry forward incorrectly.
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
+- [`../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h>
