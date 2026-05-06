@@ -1,15 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
+  - ../../../../../src/passes/local_subtyping.mbt
+  - ../../../../../src/passes/local_subtyping_test.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -17,102 +22,98 @@ sources:
   - ../../no-dwarf-default-optimize-path.md
 related:
   - ./index.md
+  - ./starshine-strategy.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./lubs-and-dominance.md
   - ./wat-shapes.md
-  - ./starshine-strategy.md
   - ../optimize-casts/index.md
   - ../coalesce-locals/index.md
   - ../local-cse/index.md
 ---
 
-# Starshine port-readiness and validation for `local-subtyping`
+# Starshine validation and parity gaps for `local-subtyping`
 
-This bridge is for the future Starshine port, not the upstream algorithm.
+This bridge used to read like a future-port plan. That is stale.
+Starshine already ships `local-subtyping`; this page now tracks the active subset and the remaining Binaryen parity gaps.
 
 Use it with:
 
-- [`./starshine-strategy.md`](./starshine-strategy.md) for current local status;
+- [`./starshine-strategy.md`](./starshine-strategy.md) for current Starshine status;
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) for the upstream algorithm;
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for exact owner/test surfaces;
-- [`./lubs-and-dominance.md`](./lubs-and-dominance.md) for the tricky semantics;
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for exact owner and test surfaces;
+- [`./lubs-and-dominance.md`](./lubs-and-dominance.md) for the upstream semantics;
 - [`./wat-shapes.md`](./wat-shapes.md) for before/after examples.
 
 ## Current local reality
 
-`local-subtyping` is still removed-registry only in Starshine.
-There is no owner file and no dispatcher case yet.
-So the first port should be a measured module-local implementation, not a quick HOT peephole.
+Starshine `local-subtyping` is an active module pass.
+The shipped implementation is narrower than Binaryen: it uses write-site evidence to narrow body locals, but it does not yet do get-aware dominance repair, get/tee retagging, or iterative refinalization.
 
-## The first safe slice
+## The current Starshine slice
 
-Start with a helper-only slice that can answer these questions:
+The shipped slice is:
 
-1. Which body locals are reference-typed and eligible for narrowing?
-2. What LUB does each local get from its assigned values?
-3. Which gets block non-nullability?
-4. Which gets and tees need retagging after a declaration change?
-5. Does a second refinalize/reanalyze round expose more narrowing?
+1. collect write-site types from `local.set` / `local.tee`;
+2. compute a safe common reference subtype;
+3. rewrite body-local declarations only;
+4. rebuild the module only when a body local changes.
 
-That slice should stay honest about the ABI boundary:
-
-- parameters are preserved;
-- body-local declarations are rewritten from the body-local base onward;
-- non-reference and tuple/nondefaultable shapes stay out of the first rewrite surface.
+That is a valid Starshine pass, but it is only a subset of the upstream contract.
 
 ## Exact Starshine code surfaces
 
 | Surface | Why it matters |
 | --- | --- |
-| `src/passes/optimize.mbt:143-151` | `local-subtyping` is still in `pass_registry_removed_names()`. |
-| `src/passes/optimize.mbt:272-278` | removed names become unsupported pass entries. |
-| `src/passes/pass_manager.mbt:8688-8704` | the hot-pass dispatcher has no `local-subtyping` case. |
-| `src/passes/optimize_test.mbt:390-395` | preset-honesty coverage keeps neighboring local passes out until the cluster is real. |
-| `src/lib/types.mbt:55-65` | `RefType` / `ValType` model the reference-local types this pass rewrites. |
-| `src/lib/types.mbt:230-238` | `Locals` stores the body-local declaration runs. |
-| `src/lib/types.mbt:416-420` | `Func` pairs declaration runs with the expression body. |
-| `src/lib/types.mbt:536-538` | `LocalGet`, `LocalSet`, and `LocalTee` are the relevant instruction nodes. |
-| `src/validate/typecheck.mbt:535-558` | validator typing reads the current declaration type, so declaration rewrites must stay type-safe. |
-| `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | canonical neighborhood: `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse`. |
-| `agent-todo.md:372-383` | backlog slice `LS` is the durable planning anchor. |
+| `src/passes/local_subtyping.mbt:1-19` | summary and public pass description. |
+| `src/passes/local_subtyping.mbt:143-314` | subtype helpers, assignment collection, candidate narrowing, and function rewrite. |
+| `src/passes/local_subtyping.mbt:337-362` | active module-pass entrypoint and module rebuild. |
+| `src/passes/registry_test.mbt:78-82` | registry category is `module_pass`. |
+| `src/passes/optimize.mbt:284-285, 296-312` | registry entry and hot-preset inclusion. |
+| `src/passes/pass_manager.mbt:8937-8940` | active dispatcher case. |
+| `src/passes/local_subtyping_test.mbt:41-93` | active pass tests for registry lookup and the shipped narrowing cases. |
+| `src/cmd/cmd_wbtest.mbt:4376-4439` | end-to-end CLI proof for `--local-subtyping`. |
+| `src/passes/optimize_test.mbt:522-526` | preset slot proof in the late local-cleanup neighborhood. |
 
-## Why this cannot be a HOT-only patch
+## What still needs parity work
 
-A faithful port has to touch module-local declaration state and validator-visible typing.
-That means the implementation shape is probably:
+Compared with Binaryen, Starshine still lacks:
 
-1. analyze locals and candidate types;
-2. rewrite `Locals`;
-3. repair `local.get` / `local.tee` expression types;
-4. repeat after refinalization;
-5. only then consider whether any HOT helper should be reused.
+- get-site dominance analysis;
+- non-null fallback based on structural dominance;
+- get/tee retagging after declaration narrowing;
+- repeated refinalize/reanalyze rounds;
+- broader shape coverage for parameters, tees, and non-null cases.
 
-If Starshine starts with HOT-only rewrite logic, it will miss the declaration table and the non-dominated-get fallback behavior.
+Those are the next parity slices, not the current shipped pass.
 
 ## Validation ladder
 
-A future port should land tests in this order:
+Current coverage should stay green first:
 
-1. body-local reference narrowing from assignments;
-2. common-parent LUB selection;
-3. `local.tee` retagging;
-4. non-null positives and dominance failures;
-5. repeated refinement after refinalization;
-6. parameter preservation;
-7. non-reference and tuple/nondefaultable preservation;
-8. neighborhood ordering with `optimize-casts`, `coalesce-locals`, and `local-cse`.
+1. registry category proof;
+2. body-local narrowing to a child heap type;
+3. mixed-sibling common-parent narrowing;
+4. CLI `--local-subtyping` end-to-end replay;
+5. optimize-preset slot coverage.
 
-Then add a Binaryen comparison lane for the implemented slice before widening to the next local-cleanup neighbor.
+Then grow coverage in this order:
 
-## Open question
+1. nullable-to-non-null positives and failures;
+2. `local.tee` retagging;
+3. get-aware safety / dominance failures;
+4. repeated refinement after a narrowing change;
+5. parameter preservation and body-local-only scope checks.
 
-The only unresolved shape question here is file ownership: the repo currently proves the absence of an implementation file, but not the eventual filename or whether the first landing is split across a helper module plus dispatcher wiring.
+## What to avoid saying
+
+Do not call this pass "future-only" or "removed-registry-only".
+That was the stale reading corrected by the 2026-05-06 repo-source note.
 
 ## Related pages
 
 - [`./index.md`](./index.md) - folder overview
-- [`./starshine-strategy.md`](./starshine-strategy.md) - current removed-registry / no-dispatcher status
+- [`./starshine-strategy.md`](./starshine-strategy.md) - active Starshine status and parity-gap map
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) - upstream algorithm and correction history
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - owner and test surface map
 - [`./lubs-and-dominance.md`](./lubs-and-dominance.md) - semantics guide

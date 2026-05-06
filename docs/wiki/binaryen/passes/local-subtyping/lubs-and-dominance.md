@@ -96,7 +96,7 @@ This is stricter than textual order. Loops, blocks, catches, and other structure
 
 Changing one local declaration can change the inferred type of expressions that assign to another local. Binaryen therefore reruns the analysis after refinalization while changes continue.
 
-A future Starshine implementation that does one pass over declarations may match small examples but miss repeated-refinement cases from the official lit file.
+The current Starshine subset already does one pass over declarations, so it will miss repeated-refinement cases from the official lit file until refinalization is added.
 
 ## Parameters and body locals
 
@@ -130,7 +130,7 @@ If you only remember a few things from this page, remember these:
 
 ## Porting checklist
 
-A future Starshine port should preserve:
+A Starshine parity expansion should preserve:
 
 - reference-local relevance filtering;
 - set/tee-fed LUB computation;

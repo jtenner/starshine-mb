@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | correct `local-subtyping` active-implementation reading and refresh code anchors
+
+- Added `docs/wiki/raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md` after rechecking current Starshine `src/passes/local_subtyping.mbt`, `src/passes/local_subtyping_test.mbt`, `src/cmd/cmd_wbtest.mbt`, `src/passes/registry_test.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, and `src/passes/optimize_test.mbt` against the older removed-only wiki reading.
+- Refreshed the `local-subtyping` landing page, Starshine strategy, implementation/test-map, validation bridge, root wiki index, tracker, and current code-map anchors so the dossier now reflects the active module-pass implementation plus the remaining Binaryen parity gaps.
+- Recorded corrected status: Starshine `local-subtyping` is already active; the remaining work is parity expansion, not first landing.
+
 ## [2026-05-06] health | refresh `global-struct-inference` current-main bridge and split Starshine status
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md` plus `docs/wiki/raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md` after rechecking current Binaryen `GlobalStructInference.cpp`, `pass.cpp`, `gsi.wast`, and `gsi-desc.wast` against the existing contract.

@@ -251,9 +251,9 @@ The important scheduler lesson:
 
 `optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals`
 
-## What a future Starshine port must preserve
+## What the current Starshine slice still needs
 
-If Starshine ports `local-subtyping`, the reduced shape tests should cover:
+Starshine currently covers the basic write-site narrowing shapes, but it does not yet cover the full Binaryen contract. If the active slice grows toward parity, the reduced shape tests should cover:
 
 1. body-local reference narrowing from assigned values;
 2. sibling assignments that choose a common parent LUB;
