@@ -83,3 +83,17 @@ test "rectype_suffix_member_index maps suffix-local members into absolute indice
   assert_eq(rectype_suffix_member_index(4, 2, 2), None)
   assert_eq(rectype_suffix_member_index(1, 2, 0), None)
 }
+
+///|
+test "stack discipline helpers preserve push and pop lengths" {
+  assert_eq(stack_len_after_push1(0), 1)
+  assert_eq(stack_len_after_push_types(2, 0), 2)
+  assert_eq(stack_len_after_push_types(2, 3), 5)
+  assert_eq(stack_len_after_pop1(0), None)
+  assert_eq(stack_len_after_pop1(3), Some(2))
+  assert_eq(stack_len_after_pop_types(2, 3), None)
+  assert_eq(stack_len_after_pop_types(2, 2), Some(0))
+  assert_eq(stack_len_after_pop_types(4, 1), Some(3))
+  assert_eq(stack_suffix_start_after_end_check(2, 3), None)
+  assert_eq(stack_suffix_start_after_end_check(5, 2), Some(3))
+}

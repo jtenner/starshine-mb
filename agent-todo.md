@@ -118,7 +118,21 @@ Observed unique-pass order
 #### H2L - Heap2Local
 
 - [H2L]002 - Localization Follow-up and Neighborhood Parity
-  - Deliverables: cover Binaryen's non-nullable-local / refinalization fixups and the wider missing-pass neighborhood (`coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
+  - Deliverables: cover Binaryen's non-nullable-local / refinalization fixups and the wider missing-pass neighborhood (`optimize-casts` follow-ups, `coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
+
+#### OC - Optimize Casts Follow-up
+
+- [OC]003 - Descriptor And Branch Cast Coverage
+  - Deliverables: extend the direct hot pass beyond plain `ref.cast` / `ref.test` to cover safe `ref.cast_desc_eq`, `ref.test_desc`, `br_on_cast`, and `br_on_cast_fail` rewrites; preserve descriptor-pair invariants, branch arity/payload semantics, exact refs, and all trap-vs-branch behavior.
+  - Tests: descriptor-cast GC regressions, branch-cast success/fail rewrites, nullable/exact negative cases, `moon test src/passes`, and direct `--optimize-casts` compare-pass replay.
+
+- [OC]004 - Negative And Exact-Ref Tightening
+  - Deliverables: add conservative guaranteed-false `ref.test` / cast-family folding where source and target heap hierarchies are provably disjoint; tighten exact-ref reasoning without invalidating subtype casts; keep impossible/null bottom cases validation-safe.
+  - Tests: sibling hierarchy false tests, abstract heap disjointness cases, exact-vs-inexact refs, null-only families, and `10000`-case `--optimize-casts` parity.
+
+- [OC]005 - Ordered Slot And Preset Readiness
+  - Deliverables: keep direct `optimize-casts` parity green while proving the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood; do not add `optimize-casts` to public `optimize` / `shrink` presets until the ordered neighborhood and debug artifact are oracle-proven.
+  - Tests: ordered-neighborhood replay after `local-subtyping`, `coalesce-locals`, and `local-cse` are active; debug artifact compare with `--optimize-casts` and the surrounding slot sequence.
 
 #### CL - Coalesce Locals
 
@@ -197,9 +211,6 @@ Suggested Tests
 - `moon prove src/validate/match.mbt`
 - `moon test`
 - `moon info && moon fmt`
-
-- [PRV]004 - `TcState` Stack-Discipline Proof Slice
-  - Deliverables: prove helper-layer facts around `push1`, `pop1`, `pop_expect`, `push_types`, `pop_types`, `validate_end_stack`, and `normalize_*_if_branch_exit`; extract a proof-friendly helper file first if needed.
 
 - [PRV]006 - Prove Everything In-Boundary That Should Be Proved
   - Deliverables: audit active `env`, `match`, and typecheck-helper candidates; land remaining high-value proofs; record explicit deferrals for blocked, low-value, or out-of-scope candidates.

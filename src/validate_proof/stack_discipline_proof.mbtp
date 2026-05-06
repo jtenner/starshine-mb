@@ -1,0 +1,47 @@
+predicate stack_len_after_push1_post(len : Int, result : Int) {
+  (result == len + 1) && (result > len) && (0 <= result)
+}
+
+predicate stack_len_after_push_types_post(
+  len : Int,
+  pushed_len : Int,
+  result : Int,
+) {
+  (result == len + pushed_len) && (len <= result) && (0 <= result)
+}
+
+predicate stack_len_after_pop1_post(len : Int, result : Option[Int]) {
+  match result {
+    None => len == 0
+    Some(new_len) =>
+      (new_len == len - 1) && (0 <= new_len) && (new_len < len)
+  }
+}
+
+predicate stack_len_after_pop_types_post(
+  len : Int,
+  popped_len : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => len < popped_len
+    Some(new_len) =>
+      (new_len == len - popped_len) &&
+      (0 <= new_len) &&
+      (new_len <= len)
+  }
+}
+
+predicate stack_suffix_start_after_end_check_post(
+  len : Int,
+  results_len : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => len < results_len
+    Some(start_idx) =>
+      (start_idx == len - results_len) &&
+      (0 <= start_idx) &&
+      (start_idx <= len)
+  }
+}

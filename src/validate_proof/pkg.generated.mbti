@@ -20,6 +20,16 @@ pub fn latest_stack_index(Int) -> Int?
 
 pub fn rectype_suffix_member_index(Int, Int, Int) -> Int?
 
+pub fn stack_len_after_pop1(Int) -> Int?
+
+pub fn stack_len_after_pop_types(Int, Int) -> Int?
+
+pub fn stack_len_after_push1(Int) -> Int
+
+pub fn stack_len_after_push_types(Int, Int) -> Int
+
+pub fn stack_suffix_start_after_end_check(Int, Int) -> Int?
+
 pub fn suffix_start_index(Int, Int) -> Int?
 
 // Errors
