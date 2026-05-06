@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md
+  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
@@ -65,7 +67,7 @@ So this pass is best taught as:
 - The exact helper matrix is small and source-confirmed: the interesting integer helper cases are misaligned `2`-byte and `4`-byte families, not an open-ended generic chunker.
 - The pass introduces fresh locals to preserve single evaluation of pointer and value expressions.
 - Unreachable loads and stores have special operand-preserving rewrites.
-- The reviewed `version_129` and current upstream `main` implementation file are identical in the 2026-04-23 spot check; the 2026-04-26 current-main / port-readiness recheck found no teaching-relevant drift from that contract.
+- The reviewed `version_129` and current upstream `main` implementation file are still aligned; the 2026-05-06 current-main recheck found no teaching-relevant drift from that contract.
 - Starshine still has no implementation or dedicated backlog slice for this pass, but the dossier now has a dedicated local status/port-planning page and a first-slice validation bridge instead of leaving that story scattered across registry docs.
 
 ## Page map
@@ -95,6 +97,8 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md)
+- [`../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md)
 - [`../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md`](../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)

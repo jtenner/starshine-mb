@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md
+  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
@@ -21,7 +23,7 @@ related:
 
 ## Reading this page correctly
 
-This pass is shape-driven, but the shapes are narrower than many people expect. The 2026-04-26 port-readiness recheck did not change these upstream shapes; it made them the recommended first red-test ladder for a future Starshine port.
+This pass is shape-driven, but the shapes are narrower than many people expect. The 2026-05-06 current-main recheck confirmed the same upstream shapes; the earlier 2026-04-26 port-readiness recheck still makes them the recommended first red-test ladder for a future Starshine port.
 It rewrites only ordinary scalar loads and stores with weaker-than-natural alignment.
 
 Read every example below as:
@@ -348,6 +350,8 @@ Not visited directly, except that the pass may wrap the current expression in a 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md)
+- [`../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md)
 - [`../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md`](../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)

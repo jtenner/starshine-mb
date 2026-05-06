@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `alignment-lowering` current-main recheck
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md` plus `docs/wiki/raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md` after pinning current Binaryen `alignment-lowering` source anchors and refreshing the exact Starshine status, implementation, shape, and readiness surfaces for the pass.
+- Refreshed the `alignment-lowering` landing page, Binaryen strategy, implementation/test-map, chunk-selection guide, WAT-shape catalog, Starshine strategy, Starshine readiness bridge, wiki index, pass catalog, tracker, and changelog so the dossier now has a 2026-05-06 freshness layer plus exact current-main source locations.
+- Recorded unchanged contract status: Binaryen still teaches the same narrow scalar `Load` / `Store` chunk-lowering story, and Starshine still keeps the pass boundary-only until a real landing zone and backlog slice exist.
+
 ## [2026-05-06] health | refresh `local-cse` line anchors and freshness layer
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md` after pinning the current Binaryen `local-cse` source URLs and refreshing the exact Starshine line anchors for the direct pass, registry, dispatcher, tests, and preset-neighborhood proof surfaces.

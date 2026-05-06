@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md
+  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
@@ -24,7 +26,7 @@ related:
 ## Why this page exists
 
 The first `alignment-lowering` dossier already explained the pass correctly at a high level.
-The 2026-04-26 port-readiness recheck did not change the chunk-selection contract; it added a future-Starshine validation ladder around these same shapes.
+The 2026-05-06 current-main recheck did not change the chunk-selection contract; the earlier 2026-04-26 port-readiness recheck still adds the future-Starshine validation ladder around these same shapes.
 The biggest remaining teaching gap was lower-level and more mechanical:
 
 - exactly which byte-width/alignment combinations the helpers really implement

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md
+  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
@@ -36,7 +38,7 @@ related:
 # Starshine Port Readiness And Validation For `alignment-lowering`
 
 Use this as the implementation-readiness bridge for the `alignment-lowering` dossier.
-The overview explains what the pass does, the Binaryen strategy page explains upstream mechanics, and the Starshine strategy page explains the current boundary-only status. This page answers the next practical question: what should a future Starshine implementer do first?
+The overview explains what the pass does, the Binaryen strategy page explains upstream mechanics, and the Starshine strategy page explains the current boundary-only status. This page answers the next practical question: what should a future Starshine implementer do first? The 2026-05-06 current-main recheck did not change that advice.
 
 ## Current readiness summary
 

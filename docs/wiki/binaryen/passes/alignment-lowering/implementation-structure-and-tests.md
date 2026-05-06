@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md
+  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
@@ -134,7 +136,7 @@ If you need to re-open the official sources later, use them in this order:
 During this dossier review I compared `version_129` and current `main` for `AlignmentLowering.cpp`.
 They were identical.
 The reviewed official Binaryen `version_129` release page observed on 2026-04-23 showed publish date **2026-04-01**.
-The 2026-04-26 current-main / port-readiness source bridge rechecked the same owner, registration, helper, and lit-test surfaces and found no teaching-relevant drift.
+The 2026-05-06 current-main recheck rechecked the same owner, registration, helper, and lit-test surfaces and found no teaching-relevant drift.
 
 That means:
 
@@ -156,6 +158,8 @@ Before calling a future Starshine port faithful, verify all of these against the
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md)
+- [`../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md)
 - [`../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md`](../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)

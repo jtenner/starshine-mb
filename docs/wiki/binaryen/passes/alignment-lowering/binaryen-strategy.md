@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md
+  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
   - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
@@ -27,7 +29,7 @@ Upstream Binaryen publishes this pass as `alignment-lowering`.
 The public registration description is: lower unaligned loads and stores to smaller aligned ones.
 
 That description is accurate, but still slightly too vague for teaching.
-On 2026-04-23 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**. A focused 2026-04-26 current-main / port-readiness recheck is captured in [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md); it found no teaching-relevant drift from the source-backed contract described here.
+On 2026-04-23 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**. A 2026-05-06 current-main recheck is captured in [`../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md); it found no teaching-relevant drift from the source-backed contract described here.
 
 The reviewed implementation is a **small local AST legalization pass** that:
 
@@ -381,6 +383,8 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-alignment-lowering-current-main-recheck.md)
+- [`../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md)
 - [`../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md`](../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)
