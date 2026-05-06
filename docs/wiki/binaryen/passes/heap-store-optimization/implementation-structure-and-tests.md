@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
@@ -20,6 +20,7 @@ related:
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `heap-store-optimization` implementation structure and tests
@@ -27,6 +28,7 @@ related:
 ## Scope
 
 This page maps the source files and test surfaces that prove the `heap-store-optimization` contract.
+For the compact validation and replay companion, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 It is deliberately more concrete than the overview:
 
 - read [`./binaryen-strategy.md`](./binaryen-strategy.md) for the algorithm;

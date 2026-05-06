@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | add `heap-store-optimization` validation bridge and source spotcheck
+
+- Added `docs/wiki/raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md` plus `docs/wiki/binaryen/passes/heap-store-optimization/starshine-port-readiness-and-validation.md` after rechecking current Binaryen `HeapStoreOptimization.cpp`, `pass.cpp`, and `heap-store-optimization.wast` anchors against the existing contract.
+- Refreshed the `heap-store-optimization` landing page, Starshine strategy, implementation/test-map, root wiki index, pass catalog, tracker, and changelog so the dossier now has a compact validation bridge alongside the existing Binaryen strategy, swap-safety guide, WAT-shape catalog, and current-main bridge.
+- Recorded unchanged contract status: Binaryen still teaches the same narrow `struct.set`-into-`struct.new` fold, and Starshine still keeps the pass active with the same raw-skip, unit-test, perf-test, and CLI replay surfaces.
+
 ## [2026-05-06] health | tighten `signext-lowering` source anchors and decode/show caveat
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md` after checking the official Binaryen `main` line anchors for `SignExtLowering.cpp`, `pass.cpp`, and `signext-lowering.wast`.

@@ -1,11 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
+  - ../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -32,6 +33,7 @@ related:
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../tracker.md
@@ -132,6 +134,8 @@ What it actually is in `version_129`:
   - Beginner-friendly shape catalog covering tee folds, subsequent local-set chains, default-materialization positives, safe and unsafe control-flow families, and the main bailout shapes.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine strategy and the major ways the HOT-region implementation differs from upstream Binaryen's CFG-based source while still pursuing the same core optimization; the refreshed page now also points readers to the exact MoonBit registry / dispatcher / helper-cluster / reduced-test / CLI-replay code map.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Compact validation bridge for the active local implementation, with the exact unit, perf, CLI replay, and source-spotcheck surfaces.
 - [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
   - Focused current-main source bridge plus exact Starshine code-map refresh for this dossier on 2026-05-05.
 - [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
@@ -160,11 +164,17 @@ Current durable answer:
 - Keep the current no-drift note explicit unless a future source sweep finds a real post-`version_129` change.
 - Keep [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) in sync with local owner/test line ranges when the active HOT implementation moves.
 
+## Validation quick links
+
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Compact local validation bridge for unit, perf, CLI replay, and source-spotcheck checks.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
 - [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md)
+- [`../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md`](../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md)
 - [`../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md`](../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md)
 - [`../../../../../src/passes/heap_store_optimization.mbt`](../../../../../src/passes/heap_store_optimization.mbt)
 - [`../../../../../src/passes/heap_store_optimization_test.mbt`](../../../../../src/passes/heap_store_optimization_test.mbt)

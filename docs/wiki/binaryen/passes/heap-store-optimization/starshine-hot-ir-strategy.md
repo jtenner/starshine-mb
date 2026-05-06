@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
@@ -19,6 +19,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-port-readiness-and-validation.md
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
 ---
@@ -26,6 +27,7 @@ related:
 # Current Starshine `heap-store-optimization` strategy
 
 This page is the local “what is actually implemented today?” companion to the upstream Binaryen strategy page.
+For the compact validation and replay surface, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Short version
 
