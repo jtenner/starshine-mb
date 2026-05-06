@@ -375,6 +375,13 @@ fn hot_pass_remove_region_nops(
       @ir.HotOp::Block => {
         let body_ref = @ir.hot_region_body_ref(func, node_id)
         changed = hot_pass_remove_region_nops(ctx, func, body_ref) || changed
+        if @ir.hot_region_root_count(func, body_ref) == 0 &&
+          @ir.hot_type_result_arity(func, node.ty) == 0 {
+          let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
+          pass_delete_detached_nodes(ctx, func, removed)
+          changed = true
+          continue
+        }
         if @ir.hot_region_root_count(func, body_ref) == 1 {
           let only_child = @ir.hot_region_get(func, body_ref, 0)
           match @ir.hot_node_get(func, only_child).op {

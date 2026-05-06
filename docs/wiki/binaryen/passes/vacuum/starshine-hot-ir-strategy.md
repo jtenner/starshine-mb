@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
@@ -63,11 +63,12 @@ The real rewrite logic is one recursive HOT helper in `src/passes/pass_manager.m
 
 - `hot_pass_remove_region_nops(ctx, func, region_ref)`
 
-That helper walks a region root list and now does three things:
+That helper walks a region root list and now does four things:
 
 1. if the current root is `HotOp::Nop`, it splices that root out of the region and deletes the detached node
 2. if the current root is `drop` of a removable nontrapping pure scalar/ref/tuple expression, it removes the dropped expression while preserving potentially trapping conversions such as non-saturating float-to-int truncations
-3. if the current root is a `block` whose only payload is `unreachable`, it unwraps the block to the payload `unreachable`
+3. if the current root is an empty `block` with zero result arity, it removes the block while preserving typed/result blocks
+4. if the current root is a `block` whose only payload is `unreachable`, it unwraps the block to the payload `unreachable`
 
 Then, if the current root owns nested regions, the helper recurses into them.
 
@@ -92,6 +93,7 @@ It already gives the repo a few concrete wins:
 
 - cheap cleanup of explicit HOT `nop` residue after other hot passes
 - Binaryen-aligned removal of dropped nontrapping pure scalar expressions
+- removal of empty void block residue without deleting typed/result-producing blocks
 - a straightforward fit with the `HotFunc` / region-reference ownership model
 - honest invalidation of broad HOT analyses after mutation
 - stable tracing and perf observability in the main hot pipeline
@@ -113,6 +115,8 @@ The local tests are small but meaningful.
 
 - `vacuum removes dropped pure scalar expressions`
   - proves the effect-aware dropped-result slice removes pure arithmetic while preserving local writes
+- `vacuum removes empty void blocks`
+  - proves empty zero-result block residue is deleted and the resulting module still validates
 - `vacuum unwraps block that only contains unreachable`
   - proves the block-only-`unreachable` cleanup shape Binaryen emits on the generated scalar corpus
 - `vacuum cleans simplify-locals structured return residue in the late cleanup pair`
@@ -156,12 +160,13 @@ That is the concrete proof surface behind the older artifact notes that retired 
 The safest one-line contrast is:
 
 - **Binaryen `vacuum`:** effect-aware unused-result pruning plus structural cleanup, TNH handling, and mandatory refinalization
-- **Starshine `vacuum`:** recursive explicit-`nop` trimming, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, and pipeline-level validation/writeback hygiene around those rewrites
+- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, and pipeline-level validation/writeback hygiene around those rewrites
 
 Direct oracle evidence for the current slice:
 
-- `.tmp/pass-fuzz-vacuum-genvalid-10000-after-drop-block`: `10000/10000` direct `gen-valid` normalized matches, `0` mismatches, `0` validation failures, `0` command failures
-- `.tmp/pass-fuzz-vacuum-1000-after-drop-block`: `131/131` comparable mixed-generator matches before Binaryen-side command failures hit the cap
+- `.tmp/pass-fuzz-vacuum-gen-valid`: `10000/10000` direct `gen-valid` normalized matches, `0` mismatches, `0` validation failures, `0` command failures after the empty-void-block cleanup landed
+- `.tmp/pass-fuzz-vacuum`: mixed-generator replay reached `6464/10000` comparable cases with `6459` normalized matches, `5` known broader wasm-smith mismatches, and `15` Binaryen/parser command failures; those mismatches are outside the completed empty-structure audit slice and remain part of future broader `vacuum` parity work
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --vacuum`: normalized WAT and canonical function compare equal; raw/canonical wasm bytes still differ, while Starshine pass time was `99.859ms` versus Binaryen pass time `222.616ms`
 
 Current Starshine does **not** yet model upstream behaviors such as:
 
@@ -209,7 +214,7 @@ For the current implementation, they are part of the honest contract.
 
 If Starshine wants closer Binaryen parity, the likely path is still staged:
 
-1. keep the current recursive `nop`, dropped-pure-result, and block-only-`unreachable` slice green
+1. keep the current recursive `nop`, empty-void-block, dropped-pure-result, and block-only-`unreachable` slice green
 2. move the pass into a dedicated owner file once the helper surface grows further
 3. broaden effect-aware dropped-wrapper elimination
 4. add the remaining easy structural cases
@@ -232,5 +237,5 @@ Its exact local implementation is now easy to follow:
 
 That makes the local subset easy to teach honestly:
 
-- **what it does today:** remove explicit HOT `nop` region entries, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, and keep the pipeline safe
+- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, and keep the pipeline safe
 - **what it does not do yet:** the broader Binaryen `vacuum` rewrite family

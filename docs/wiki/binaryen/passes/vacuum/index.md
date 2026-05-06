@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
@@ -72,6 +72,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
 - Current Starshine still implements a focused subset of upstream behavior, but it now covers the first effect-aware cleanup slice:
   - recursive `nop` region-entry trimming
   - dropped pure scalar result pruning for nontrapping numeric/ref/tuple shapes
+  - removing empty void blocks
   - unwrapping blocks whose only payload is `unreachable`
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
   - the 2026-02-27 explicit-`unreachable` preservation change belongs to Chromium commit `f284d54...`, not `9ee4a25...`
@@ -113,7 +114,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, dropped-pure-result, and block-only-`unreachable` cleanup slice.
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, and block-only-`unreachable` cleanup slice.
 
 ## Sources
 

@@ -43,6 +43,31 @@ test "vacuum removes dropped pure scalar expressions" {
 }
 
 ///|
+test "vacuum removes empty void blocks" {
+  let input = pass_test_module_from_wat(
+    "(module (func (local i32) block end i32.const 5 local.set 0))",
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected vacuum pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected empty-block vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      ])
+    other => fail("expected empty block to be removed, got \{other}")
+  }
+}
+
+///|
 test "vacuum unwraps block that only contains unreachable" {
   let input = pass_test_module_from_wat("(module (func block unreachable end))")
   let optimized = match

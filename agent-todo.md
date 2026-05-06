@@ -105,11 +105,6 @@ Observed unique-pass order
 - [SLNS]003 - Ordered Slot Gate
   - Deliverables: keep the direct pass out of public `optimize` / `shrink` until ordered-neighborhood replay proves the exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` slot; revisit placement with `coalesce-locals` and `local-cse`.
 
-#### VQ - Vacuum
-
-- [VQ]001 - Cleanup Semantics Audit
-  - Deliverables: continue confirming additional empty-structure and detached-residue families Binaryen drops; preserve typed block correctness.
-
 #### RL - Reorder Locals
 
 - [RL]003 - Boundary Policy and Artifact Compare

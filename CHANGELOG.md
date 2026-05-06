@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: extend vacuum empty-block cleanup
+
+- **complete the VQ001 cleanup-semantics audit slice by deleting empty zero-result `block` residue in `vacuum`, preserving typed/result blocks through the result-arity guard, adding a focused validation test, refreshing vacuum docs, and pruning the completed backlog item** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`docs/wiki/binaryen/passes/vacuum/index.md`](./docs/wiki/binaryen/passes/vacuum/index.md), [`docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Proofs: close PRV006 boundary audit
 
 - **audit and close the first-wave MoonBit validation proof boundary, record explicit deferrals for direct validator, recursive match, label-stack structural, and broader typechecker proofs, and prune the completed PRV006 backlog slice** by **@OpenAI**. Updated [`docs/wiki/raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](./docs/wiki/raw/research/0515-2026-05-06-validate-proof-boundary-audit.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
