@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
@@ -59,10 +59,10 @@ Primary source capture: [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-p
 
 | Surface | Current `dae2` role | Why it matters for the first slice |
 | --- | --- | --- |
-| `src/passes/optimize.mbt:124-142` | `pass_registry_boundary_only_names()` lists `dead-argument-elimination` and `dead-argument-elimination-optimizing`, but not `dae2`. | A future port must first choose whether `dae2` stays unknown, becomes boundary-only, or becomes an active module pass. |
-| `src/passes/optimize.mbt:145-152` | `pass_registry_removed_names()` also omits `dae2`. | Current behavior is not “removed”; docs and tests should keep saying unknown until the registry changes. |
-| `src/passes/optimize.mbt:457-519` | `run_hot_pipeline_expand_passes(...)` emits `unknown pass flag {name}` when lookup fails and distinct errors for boundary-only/removed entries. | Request-behavior tests should pin the transition when `dae2` changes status. |
-| `src/passes/pass_manager.mbt:8660-8694` | `run_hot_pipeline_apply_module_pass(...)` handles the current active module-pass set only. | A mutating `dae2` port would be a module pass; there is no dispatcher hook today. |
+| `src/passes/optimize.mbt:127-142` | `pass_registry_boundary_only_names()` lists `dead-argument-elimination` and `dead-argument-elimination-optimizing`, but not `dae2`. | A future port must first choose whether `dae2` stays unknown, becomes boundary-only, or becomes an active module pass. |
+| `src/passes/optimize.mbt:143-149` | `pass_registry_removed_names()` also omits `dae2`. | Current behavior is not “removed”; docs and tests should keep saying unknown until the registry changes. |
+| `src/passes/optimize.mbt:517-587` | `run_hot_pipeline_expand_passes(...)` emits `unknown pass flag {name}` when lookup fails and distinct errors for boundary-only/removed entries. | Request-behavior tests should pin the transition when `dae2` changes status. |
+| `src/passes/pass_manager.mbt:8915-8947` | `run_hot_pipeline_apply_module_pass(...)` handles the current active module-pass set only. | A mutating `dae2` port would be a module pass; there is no dispatcher hook today. |
 | `src/lib/types.mbt:416` | `FuncType` exists as the core signature value. | Parameter deletion and referenced type-tree repair must rewrite function types and all users consistently. |
 | `src/lib/types.mbt:527-532` | IR has `Call`, `CallIndirect`, `ReturnCall`, `ReturnCallIndirect`, `CallRef`, and `ReturnCallRef`. | These are the call families Binaryen analyzes; direct-call-only work is only a subset. |
 | `src/lib/types.mbt:722` | IR has `RefFunc`. | `ref.func` makes functions referenced and moves them out of the simplest private direct-call bucket. |

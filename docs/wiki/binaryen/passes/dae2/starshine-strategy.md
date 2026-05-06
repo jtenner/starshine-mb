@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
@@ -42,8 +42,8 @@ For a concrete future implementation sequence and validation ladder, use [`./sta
 
 | Local surface | Current role for `dae2` | What to read |
 | --- | --- | --- |
-| `src/passes/optimize.mbt:124-152,457-519` | Registry source of truth. `dae2` is absent from the active, boundary-only, removed, and preset names, so requests still take the `unknown pass flag` path in `run_hot_pipeline_expand_passes(...)`. | `pass_registry_boundary_only_names()`, `pass_registry_removed_names()`, `run_hot_pipeline_expand_passes(...)` |
-| `src/passes/pass_manager.mbt:8660-8694` | Active module dispatcher. It handles the current implemented module-pass set only; there is no DAE/DAE2 signature-rewrite dispatcher case. | `run_module_pass(...)` |
+| `src/passes/optimize.mbt:127-149,517-587` | Registry source of truth. `dae2` is absent from the active, boundary-only, removed, and preset names, so requests still take the `unknown pass flag` path in `run_hot_pipeline_expand_passes(...)`. | `pass_registry_boundary_only_names()`, `pass_registry_removed_names()`, `run_hot_pipeline_expand_passes(...)` |
+| `src/passes/pass_manager.mbt:8915-8947` | Active module dispatcher. It handles the current implemented module-pass set only; there is no DAE/DAE2 signature-rewrite dispatcher case. | `run_module_pass(...)` |
 | `src/cmd/cmd.mbt:1151-1158,1357-1362,1512-1517` | CLI and config plumbing. It reports unknown pass flags and already threads `closed_world` into `HotPipelineOptions`; that is a prerequisite, not a DAE2 implementation. | `cmd_error_message(...)`, `resolve_closed_world(...)`, optimizer option assembly |
 | `src/lib/types.mbt` | Core module/IR representation. It already has function types and the call/reference instructions a future pass must analyze and rewrite. | `FuncType`, `Instruction::call`, `CallIndirect`, `CallRef`, `ReturnCall*`, `RefFunc` |
 | `src/validate/typecheck.mbt` | Validation surface for direct calls, indirect calls, reference calls, and `ref.func` result typing. Useful for tests after any future rewrite. | `typecheck_call*`, `typecheck_call_ref`, `typecheck_ref_func` |
