@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate remove-unused-nonfunction-module-elements
+
+- **refresh `remove-unused-nonfunction-module-elements` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0539-2026-05-06-runfe-direct-revalidation.md`](./docs/wiki/raw/research/0539-2026-05-06-runfe-direct-revalidation.md), [`docs/wiki/binaryen/passes/remove-unused-non-function-elements/index.md`](./docs/wiki/binaryen/passes/remove-unused-non-function-elements/index.md), [`docs/wiki/binaryen/passes/remove-unused-non-function-elements/starshine-strategy.md`](./docs/wiki/binaryen/passes/remove-unused-non-function-elements/starshine-strategy.md), [`docs/wiki/binaryen/passes/remove-unused-non-function-elements/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/remove-unused-non-function-elements/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate redundant-set-elimination
 
 - **refresh `redundant-set-elimination` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0538-2026-05-06-rse-direct-revalidation.md`](./docs/wiki/raw/research/0538-2026-05-06-rse-direct-revalidation.md), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

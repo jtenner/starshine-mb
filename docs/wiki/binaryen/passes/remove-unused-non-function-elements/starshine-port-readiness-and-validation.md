@@ -6,6 +6,7 @@ sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md
   - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
@@ -130,7 +131,8 @@ Use a staged validation ladder rather than jumping straight to broad fuzzing.
 4. **Pass-fuzz compare**
    - `scripts/lib/pass-fuzz-compare-task.ts` now lists `--remove-unused-nonfunction-module-elements`.
    - The oracle uses Binaryen's spelling: `--remove-unused-nonfunction-module-elements`.
-   - Current evidence: `.tmp/pass-fuzz-runfe-genvalid-10000-final` reached `10000/10000` normalized matches; `.tmp/pass-fuzz-runfe-10000-after-oob` reached `9971/9971` normalized matches with `0` semantic mismatches and `29` command failures classified separately.
+   - Current post-fuzzer-refresh mixed-generator evidence: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-nonfunction-module-elements --out-dir .tmp/pass-fuzz-remove-unused-nonfunction-module-elements` reached `6581` compared cases, `6581` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group command failures.
+   - Older evidence: `.tmp/pass-fuzz-runfe-genvalid-10000-final` reached `10000/10000` normalized matches; `.tmp/pass-fuzz-runfe-10000-after-oob` reached `9971/9971` normalized matches with `0` semantic mismatches and `29` command failures classified separately.
 5. **Preset safety**
    - Do not add the pass to presets merely because it exists.
    - The current docs record no no-DWARF or saved `-O4z` role for this sibling; preset scheduling would need separate evidence.
@@ -150,11 +152,12 @@ The older local dashed spelling remains only as a historical dossier label. Do n
 
 ## Exit criteria status
 
-The Starshine implementation is ready for direct-pass signoff because:
+The Starshine implementation has refreshed direct-pass signoff as of 2026-05-06 because:
 
 - the sibling is an active module pass under the upstream-compatible spelling;
 - full RUME and sibling differential tests both pass;
 - imported-function and defined-function behavior are tested separately;
 - non-function cleanup and type compaction remain active through the shared RUME rewrite;
 - Binaryen oracle comparison uses `--remove-unused-nonfunction-module-elements`;
-- docs, tracker, and pass index have been updated from boundary-only status to implemented status.
+- docs, tracker, and pass index have been updated from boundary-only status to implemented status;
+- the refreshed mixed-generator direct lane reached 6581 normalized matches, 0 semantic mismatches, and only known Binaryen empty-recursion-group command failures.

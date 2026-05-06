@@ -6,6 +6,7 @@ sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md
   - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
@@ -50,7 +51,7 @@ The local state on 2026-05-06 is:
 - dedicated owner file: reused `src/passes/remove_unused_module_elements.mbt`
 - active backlog slice: no dedicated slice found in `agent-todo.md`
 
-The implementation is a small policy mode on the existing RUME liveness/rewrite path: root every defined function, leave imported functions as ordinary reachability candidates, then reuse the same module rewrite. Validation evidence and the signoff ladder are summarized in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The implementation is a small policy mode on the existing RUME liveness/rewrite path: root every defined function, leave imported functions as ordinary reachability candidates, then reuse the same module rewrite. Validation evidence and the signoff ladder are summarized in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), now including the 2026-05-06 refreshed mixed-generator direct lane with 6581 normalized matches, 0 semantic mismatches, and 20 known Binaryen empty-recursion-group command failures.
 
 ## Exact local code locations
 
@@ -146,3 +147,4 @@ The implemented Starshine port added tests before and during implementation:
 
 Starshine exposes Binaryen's `remove-unused-nonfunction-module-elements` sibling as an active module pass.
 The implementation is the intended small, source-backed policy mode on the existing module liveness-and-rewrite pass: root all defined functions, then run the ordinary RUME engine.
+The 2026-05-06 post-fuzzer-refresh direct revalidation is green on all comparable mixed-generator cases.
