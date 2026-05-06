@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
   - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
   - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../../../src/passes/optimize.mbt
@@ -32,7 +34,7 @@ related:
 
 `remove-unused` is a **boundary-only registry name** in Starshine, not an active pass implementation.
 
-The current local strategy is documentation and request hygiene:
+The current local strategy is documentation and request hygiene, and the 2026-05-06 current-main recheck did not change that:
 
 - keep the name known so old plans and user requests produce an intentional diagnostic;
 - reject active execution before dispatch;

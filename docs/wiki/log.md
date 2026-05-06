@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `remove-unused` lineage and shape catalog
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md` plus `docs/wiki/raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md` after rechecking current `main` `pass.cpp` and the historical `RemoveUnusedFunctions.cpp` / `RemoveUnusedModuleElements.cpp` supersession surfaces against the local alias dossier.
+- Refreshed the `remove-unused` landing page, Binaryen strategy, implementation/test-map, historical-lineage page, shape catalog, Starshine strategy, Starshine readiness bridge, wiki index, pass catalog, and tracker so the dossier now has a 2026-05-06 freshness layer plus a clearer historical shape catalog.
+- Recorded unchanged contract status: current Binaryen still exposes modern `remove-unused-module-elements` / `remove-unused-nonfunction-module-elements` names rather than the short alias, and Starshine still keeps `remove-unused` boundary-only pending a registry-hygiene decision.
+
 ## [2026-05-05] health | refresh `discard-global-effects` line anchors and cleanup bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md` after rechecking the official Binaryen `main` `GlobalEffects.cpp` and `pass.cpp` cleanup surfaces against the existing metadata-cleanup contract.
