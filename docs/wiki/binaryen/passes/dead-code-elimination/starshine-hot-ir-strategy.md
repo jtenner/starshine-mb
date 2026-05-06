@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
@@ -217,6 +218,17 @@ The existing tests lock cases such as:
 - branchy typed control that is still locally live and therefore a no-op for DCE
 
 The same file also proves that the pipeline emits the expected `skip-raw reason=no-dce-candidates` trace when those fast-path rules fire.
+
+### Refreshed direct compare coverage
+
+The 2026-05-06 refreshed-harness lane ran:
+
+- `moon info`
+- `moon fmt`
+- `moon test`
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --out-dir .tmp/pass-fuzz-dead-code-elimination`
+
+It reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. That re-proves the direct explicit pass after the fuzzer/harness churn while leaving whole-command runtime, raw wasm/text-form drift, and ordered-prefix proof as `[DCE]003` follow-up work.
 
 ### CLI and artifact replay coverage
 

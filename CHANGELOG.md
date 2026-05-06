@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate dead-code-elimination
+
+- **refresh `dead-code-elimination` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md`](./docs/wiki/raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md), [`docs/wiki/binaryen/passes/dead-code-elimination/index.md`](./docs/wiki/binaryen/passes/dead-code-elimination/index.md), [`docs/wiki/binaryen/passes/dead-code-elimination/starshine-strategy.md`](./docs/wiki/binaryen/passes/dead-code-elimination/starshine-strategy.md), [`docs/wiki/binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate code-pushing
 
 - **refresh `code-pushing` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](./docs/wiki/raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md), [`docs/wiki/binaryen/passes/code-pushing/index.md`](./docs/wiki/binaryen/passes/code-pushing/index.md), [`docs/wiki/binaryen/passes/code-pushing/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-pushing/starshine-strategy.md), [`docs/wiki/binaryen/passes/code-pushing/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/code-pushing/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

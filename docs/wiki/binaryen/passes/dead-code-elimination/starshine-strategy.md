@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
@@ -33,7 +34,7 @@ Use this page together with the fresh current-main bridge in [`../../../raw/bina
 
 ## Current status
 
-`dead-code-elimination` is an active Starshine hot pass.
+`dead-code-elimination` is an active Starshine hot pass. Its refreshed direct compare lane on 2026-05-06 reached 6759 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures under `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --out-dir .tmp/pass-fuzz-dead-code-elimination`.
 
 The local strategy is **not** a direct AST port of Binaryen `dce`.
 Current Starshine keeps a broader HOT rewrite family that covers:
@@ -120,6 +121,7 @@ That keeps the pass honest for Starshine today while leaving the upstream Binary
 
 ## Sources
 
+- [`../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md`](../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md)
 - [`../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md`](../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md)
