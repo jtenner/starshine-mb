@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md
+  - ../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md
   - ../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
@@ -24,6 +26,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-port-readiness-and-validation.md
   - ./ordering-cost-model-and-boundaries.md
   - ./wat-shapes.md
   - ../remove-unused-types/index.md
@@ -36,7 +39,7 @@ related:
 ## Current Starshine status
 
 Starshine does **not** implement `reorder-types` today.
-The 2026-05-04 current-main recheck did not change that local status.
+The 2026-05-04 current-main recheck did not change that local status, and the 2026-05-05 freshness refresh only added a port-readiness bridge.
 
 The exact local status is:
 
@@ -130,9 +133,12 @@ A faithful port should preserve the Binaryen strategy documented in [`./binaryen
 - Use [`./binaryen-strategy.md`](./binaryen-strategy.md) for the upstream algorithm.
 - Use [`./ordering-cost-model-and-boundaries.md`](./ordering-cost-model-and-boundaries.md) for the hard public/private, predecessor-edge, and cost-model rules.
 - Use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the upstream file/test map.
+- Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the first-slice order and validation ladder.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md)
+- [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md)
 - [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)

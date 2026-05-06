@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md
+  - ../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md
   - ../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
@@ -19,6 +21,7 @@ related:
   - ./ordering-cost-model-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
   - ../index.md
   - ../late-pipeline-dispatch.md
@@ -36,7 +39,7 @@ related:
 - Upstream `version_129` registers it publicly as `reorder-types`, plus a hidden testing sibling `reorder-types-for-testing`.
 - It is **not** part of the repo's canonical no-DWARF default optimize path.
 - `agent-todo.md` currently has **no dedicated `reorder-types` slice**.
-- The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md), and the 2026-05-04 current-main recheck is [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md).
+- The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md), the 2026-05-04 current-main recheck is [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md), and the 2026-05-05 freshness refresh is [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md).
 
 ## The real `version_129` contract in one paragraph
 
@@ -53,7 +56,7 @@ It still left several source-backed questions open:
 - what profitability model Binaryen used
 - which helper files and lit tests actually defined the behavior
 
-That major gap was closed by the 2026-04-21 source-confirmation follow-up, and the 2026-04-24 follow-up closes the remaining provenance/local-status gap by adding an immutable primary-source manifest plus the dedicated Starshine strategy page.
+That major gap was closed by the 2026-04-21 source-confirmation follow-up, and the 2026-04-24 follow-up closes the remaining provenance/local-status gap by adding an immutable primary-source manifest plus the dedicated Starshine strategy page and, now, the 2026-05-05 port-readiness bridge.
 The living folder is no longer a working-contract guess.
 It now teaches the real `version_129` implementation structure and the exact current Starshine non-implementation status.
 
@@ -112,6 +115,8 @@ It is a constrained whole-module type-remap pass.
   - Beginner-friendly shape catalog covering unconstrained positives, supertype/described-type barriers, successor-weight tie breaks, regression coverage, and preserved public/no-GC/open-world cases.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine status and port map: boundary-only registry entry, active request rejection, dispatcher gap, no owner file, no active backlog slice, and the exact type-section/parser/validator/binary surfaces a future module pass would need.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Implementation-readiness bridge: the first-slice order, validation ladder, and local rewrite-surfaces checklist for a future port.
 
 ## Current maintenance rule
 
@@ -125,7 +130,7 @@ It is a constrained whole-module type-remap pass.
   - `minimize-rec-groups` repartitions groups
   - `reorder-types` relays out surviving **private** type indices
 - If a future thread checks current `main` for drift, update this folder instead of reopening the old uncertainty-heavy version of the dossier.
-- The 2026-05-04 current-main spot check stayed aligned with the source-confirmed contract.
+- The 2026-05-04 current-main spot check stayed aligned with the source-confirmed contract, and the 2026-05-05 freshness refresh now adds a dedicated implementation-readiness bridge.
 
 ## Sources
 
@@ -133,6 +138,8 @@ It is a constrained whole-module type-remap pass.
 - [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md`](../../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md)
 - [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
+- [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md)
+- [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md)
 - [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md
+  - ../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md
   - ../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
@@ -14,6 +16,7 @@ related:
   - ./ordering-cost-model-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-globals/index.md
   - ../remove-unused-types/index.md
   - ../minimize-rec-groups/index.md
@@ -23,7 +26,7 @@ related:
 
 ## Scheduler placement and activation
 
-The 2026-04-24 raw manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md), and the 2026-05-04 current-main recheck is [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md).
+The 2026-04-24 raw manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md), the 2026-05-04 current-main recheck is [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md), and the 2026-05-05 freshness refresh is [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md).
 It anchors this page to the official Binaryen `version_129` release page, tagged owner files, helper files, dedicated lit file, and the current-main freshness layer.
 
 Source-confirmed scheduler facts:
@@ -241,8 +244,8 @@ It rewrites code, declarations, locals, and type metadata across the whole modul
 
 ## Future Starshine port rules
 
-The local status and code-location map live in [`./starshine-strategy.md`](./starshine-strategy.md).
-The 2026-05-04 current-main recheck did not change these port rules.
+The local status and code-location map live in [`./starshine-strategy.md`](./starshine-strategy.md), and the implementation-readiness bridge is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The 2026-05-04 current-main recheck did not change these port rules, and the 2026-05-05 freshness refresh only added the bridge.
 A future port should:
 
 - Keep the pass module-scoped.
@@ -258,6 +261,8 @@ A future port should:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md)
+- [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md)
 - [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)

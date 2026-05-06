@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md
+  - ../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md
   - ../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
@@ -14,12 +16,13 @@ related:
   - ./ordering-cost-model-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `reorder-types`: implementation structure and tests
 
 This page is the compact file/test map for the real Binaryen `version_129` `reorder-types` contract.
-The immutable 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md), and the 2026-05-04 current-main recheck is [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md).
+The immutable 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md), the 2026-05-04 current-main recheck is [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md), and the 2026-05-05 freshness refresh is [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md).
 
 ## Core implementation files
 
@@ -99,8 +102,8 @@ You still need the implementation files to understand:
 
 ## Current Starshine-facing port checklist
 
-The current local non-implementation and code map live in [`./starshine-strategy.md`](./starshine-strategy.md).
-The 2026-05-04 current-main recheck did not change these implementation boundaries.
+The current local non-implementation and code map live in [`./starshine-strategy.md`](./starshine-strategy.md), and the implementation-readiness bridge lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The 2026-05-04 current-main recheck did not change these implementation boundaries, and the 2026-05-05 freshness refresh only added the bridge.
 If Starshine eventually implements `reorder-types`, the local port should preserve all of the following upstream-observable facts:
 
 - module pass, not hot pass
@@ -116,6 +119,8 @@ If Starshine eventually implements `reorder-types`, the local port should preser
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md)
+- [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md)
 - [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)

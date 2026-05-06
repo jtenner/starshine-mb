@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | add `reorder-types` freshness layer and port-readiness bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-reorder-types-current-main-recheck.md` plus `docs/wiki/raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md` after rechecking the official Binaryen `main` `ReorderTypes.cpp`, `pass.cpp`, and `reorder-types.wast` surfaces against the existing contract.
+- Added `docs/wiki/binaryen/passes/reorder-types/starshine-port-readiness-and-validation.md` and refreshed the `reorder-types` dossier, the top-level wiki index, the pass-folder index, the tracker, and the reordered living page set so the 2026-05-05 freshness layer and the new validation bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same GC-only, `--closed-world`, private-type-only layout pass, and Starshine still keeps `reorder-types` boundary-only until a deliberate module-pass port exists.
+
 ## [2026-05-05] health | correct `local-cse` Starshine status and catalog wording
 
 - Added `docs/wiki/raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md` to record that the older raw upstream bridge is still valid for Binaryen, but its Starshine-status sentence is stale now that the direct Starshine `local-cse` pass has landed.
