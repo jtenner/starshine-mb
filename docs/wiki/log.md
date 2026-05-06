@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `code-folding` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `code-folding`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --out-dir .tmp/pass-fuzz-code-folding`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0522-2026-05-06-code-folding-direct-revalidation.md` and refreshed the code-folding living pages from stale removed-pass language to the current active narrow HOT pass status.
+- Pruned `code-folding` from the AUD002 remaining revalidation list while keeping `[CF]002` as the branchy late-slot and artifact replay blocker.
+
 ## [2026-05-06] validation | revalidate `directize` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `directize`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass directize --out-dir .tmp/pass-fuzz-directize`.

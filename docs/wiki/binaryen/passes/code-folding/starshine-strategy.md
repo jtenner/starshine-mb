@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
@@ -39,43 +40,36 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 ## The honest current status
 
-`code-folding` is still **unimplemented** in Starshine.
-There is no `src/passes/code_folding.mbt` owner file today.
+`code-folding` is now an active Starshine HOT pass with owner file `src/passes/code_folding.mbt`, focused tests in `src/passes/code_folding_test.mbt`, registry coverage, and a dispatcher arm.
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is boundary and port planning:
+The active implementation is still a narrow direct-pass subset, not the full Binaryen tail-sharing surface. It currently focuses on void `if`-arm suffix hoisting / identical full-arm cleanup and a small exiting dead-value block flattening family; broader branchy tails, function-ending helper-label sharing, EH movement, and exact late-slot artifact replay remain `[CF]002` follow-up work.
 
-- keep the public pass spelling tracked in the registry surface
-- keep the CLI spelling stable
-- keep the pass in the canonical no-DWARF parity/backlog documents
-- teach the surrounding late-cluster Starshine passes a future port would need to compose with
-
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page. For concrete first-slice scope, HOT prerequisites, source-backed negative gates, and validation ordering, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+On 2026-05-06, the refreshed direct lane for `--pass code-folding` reported `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group command failures; see [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md).
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
-- tracked but removed pass-name status
-  - `src/passes/optimize.mbt:144-151`
-    - `pass_registry_removed_names()` includes `"code-folding"`
-  - `src/passes/optimize.mbt:469-471`
-    - removed pass requests fail with the active-registry removed-pass diagnostic
-- preset omission
-  - `src/passes/optimize.mbt:385-410`
-    - public `optimize` / `shrink` preset expansion does not include `code-folding` yet
-- CLI spelling and pass-flag preservation proof
-  - `src/cli/cli_test.mbt:159-165`
-    - `parse_cli_args parses long-form kebab-case pass flags`
-  - `src/cli/cli_test.mbt:297-309`
-    - `resolve_pass_flags preserves cli token order for presets and explicit passes`
-    - `resolve_pass_flags keeps explicit pass order when no presets are set`
-- dispatcher absence
+- active pass owner
+  - `src/passes/code_folding.mbt`
+    - descriptor, summary, structural equality, void-tail candidate logic, mutation helpers, and run function for the current narrow HOT subset
+- focused direct tests
+  - `src/passes/code_folding_test.mbt`
+    - identical if-arm suffix hoist, identical full void arm cleanup, value-if bailout, and exiting dead-value block flattening coverage
+- active registry and dispatcher status
+  - `src/passes/optimize.mbt`
+    - `code-folding` is a hot-pass registry entry, not a removed-name placeholder
   - `src/passes/pass_manager.mbt`
-    - no `code-folding` match or owner branch today
+    - dispatches `"code-folding"` through `code_folding_run(ctx, func)`
+- preset caution
+  - `src/passes/optimize.mbt`
+    - public `optimize` / `shrink` preset expansion still needs exact late-slot proof before broader claims
+- CLI spelling and pass-flag preservation proof
+  - `src/cli/cli_test.mbt`
+    - long-form kebab-case pass flags and explicit pass-token order stay stable
 - backlog and delivery plan
   - `agent-todo.md`
-    - `CF` slice under the Binaryen no-DWARF default optimize pathway parity section
+    - `[CF]002` remains the late-slot regression and artifact-compare follow-up
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - the late-cluster slot where `code-folding` belongs before `merge-blocks`
@@ -89,42 +83,38 @@ That code-and-doc map, plus [`./implementation-structure-and-tests.md`](./implem
 
 ## What Starshine currently does for this pass name
 
-Today Starshine's behavior for `code-folding` is deliberately limited.
+Today Starshine's behavior for `code-folding` is deliberately active but narrow.
 
-### 1. The name is tracked, not forgotten
+### 1. The pass has a real owner and dispatch path
 
-`src/passes/optimize.mbt` keeps `code-folding` in `pass_registry_removed_names()`.
-That means:
+`src/passes/code_folding.mbt` owns the HOT descriptor and transform. `src/passes/optimize.mbt` registers `code-folding` as a hot pass, and `src/passes/pass_manager.mbt` dispatches active requests through `code_folding_run(ctx, func)`.
 
-- the project still treats `code-folding` as a real known pass
-- the name is preserved in the registry-level compatibility surface
-- the pass remains visible in tracker and backlog work instead of silently falling out of planning
+### 2. The reduced behavior is protected by focused tests
 
-That is the right current behavior for an unimplemented parity pass.
+`src/passes/code_folding_test.mbt` covers the current reduced surface:
 
-### 2. The CLI spelling is intentionally stable
+- identical void `if`-arm suffixes are hoisted once
+- identical full void arms collapse to condition evaluation plus one shared suffix
+- value-producing `if` arms stay unchanged
+- an exiting dead-value block shape is flattened without duplicating unreachable residue
 
-`src/cli/cli_test.mbt` proves the spelling `--code-folding` is still accepted and preserved in pass-flag order tests.
+### 3. The direct oracle lane is fresh
 
-That matters for two reasons:
+The 2026-05-06 revalidation lane ran the standard Moon signoff plus `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --out-dir .tmp/pass-fuzz-code-folding`.
+It produced zero semantic mismatches across all compared cases.
 
-- docs and future user-facing parity commands can keep using the upstream pass spelling consistently
-- once a real implementation lands, the public spelling does not need a second documentation migration first
+### 4. The broader parity slice remains real work
 
-### 3. The work is planned as a parity slice, not an orphan idea
+`agent-todo.md` still keeps `[CF]002` open because direct parity evidence does not prove the exact late-slot neighborhood or artifact lane. The remaining deliverables are framed around the right upstream concerns:
 
-`agent-todo.md` already gives `code-folding` a real backlog slice under `CF`.
-The current deliverables are framed around the right upstream concerns:
+- branchy and structured-control tail coverage
+- typed/value `if` folding decisions
+- late-pipeline slot replay around neighboring cleanup passes
+- debug-artifact `--code-folding` parity evidence
 
-- motion-safety rules
-- rewrite coverage
-- artifact validation against Binaryen
+## The right next Starshine implementation shape
 
-That backlog framing already matches the upstream dossier better than a vague “tail dedup” summary would.
-
-## The right future Starshine implementation shape
-
-The current docs and neighboring passes strongly suggest that a future local `code-folding` port should be taught as a **late-cluster HOT rewrite family**, not as an isolated generic optimizer.
+The current implementation and neighboring passes still suggest that expanded `code-folding` work should remain a **late-cluster HOT rewrite family**, not become an isolated generic optimizer.
 
 Why:
 
@@ -148,7 +138,7 @@ So the local strategy should be thought of as:
    - `remove-unused-names`
    - later `rse`
 
-In other words, the future port should slot into a local cleanup ecosystem that already exists.
+In other words, future expansion should stay slotted into the local cleanup ecosystem that already exists.
 
 ## The most important local dependency map
 
@@ -161,7 +151,7 @@ Why it matters locally:
 - Binaryen `code-folding` may add helper blocks
 - Starshine already has an active late `merge-blocks` pass that exists to flatten branch-free wrappers and expose simpler shapes downstream
 
-So a future Starshine `code-folding` port should preserve that cleanup handoff instead of trying to do every structural simplification itself.
+So future Starshine `code-folding` expansion should preserve that cleanup handoff instead of trying to do every structural simplification itself.
 
 ### It would also create work for local `remove-unused-brs`
 
@@ -172,7 +162,7 @@ Why:
 - upstream `code-folding` often rewrites duplicate tails into branch traffic toward a shared suffix
 - late branch cleanup is therefore part of the intended payoff, not an accidental afterthought
 
-A future local implementation should keep that relationship explicit.
+Future local expansion should keep that relationship explicit.
 
 ### It also interacts with local `remove-unused-names`
 
@@ -196,30 +186,30 @@ Why:
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
-Starshine does **not** currently have:
+Starshine still does **not** have:
 
-- a `code-folding` MoonBit implementation file
-- HOT or module-level candidate collection for duplicate tails
-- local branch-scope movement analysis specifically for this pass
+- broad branch-tail candidate collection for duplicate block-exit traffic
+- local branch-scope movement analysis broad enough for Binaryen's full expression-exit family
 - a function-ending helper-label tail-sharing rewriter
-- pass-specific tests or CLI execution coverage beyond the tracked spelling
-- a `pass_manager` dispatcher branch for `code-folding`
+- EH movement / nested-pop repair support for this pass
+- artifact proof for the exact late no-DWARF `code-folding` slot
 
 So the current repo status is best summarized as:
 
-- name tracked
-- backlog tracked
+- active narrow HOT transform
+- focused tests and dispatcher wiring
+- fresh direct fuzz parity evidence
 - scheduler slot documented
 - neighboring consumers implemented
-- transform itself not yet landed
+- broader late-slot and artifact proof still open
 
-## Validation plan for the eventual port
+## Validation plan for future expansion
 
-The dedicated port-readiness page now owns the detailed test-first ladder: [`./starshine-port-readiness-and-validation.md#validation-ladder`](./starshine-port-readiness-and-validation.md#validation-ladder).
+The dedicated port-readiness page owns the detailed test-first ladder: [`./starshine-port-readiness-and-validation.md#validation-ladder`](./starshine-port-readiness-and-validation.md#validation-ladder).
 The short version is still:
 
 The existing backlog plus neighboring pass docs imply the right validation ladder.
-A future real implementation should validate in this order:
+Future expansion should validate in this order:
 
 1. reduced shape tests for the two upstream families
    - named block-exit tails
@@ -241,24 +231,24 @@ That is more useful locally than a generic “compare with Binaryen later” not
 
 ## Bottom line
 
-Current Starshine `code-folding` strategy is honest boundary tracking plus port planning:
+Current Starshine `code-folding` strategy is an active narrow HOT pass plus explicit late-slot follow-up:
 
-- the pass name is intentionally preserved in `src/passes/optimize.mbt`
-- CLI spelling is intentionally preserved in `src/cli/cli_test.mbt`
-- the backlog already treats it as a real late-parity slice under `CF`
+- the pass has `src/passes/code_folding.mbt` ownership, registry wiring, dispatcher routing, and focused tests
+- the 2026-05-06 direct compare lane is green with zero semantic mismatches
+- the backlog still treats broader Binaryen coverage as a real late-parity slice under `[CF]002`
 - the canonical slot is already documented in the no-DWARF optimizer notes
-- the surrounding implemented cleanup passes already exist and define the practical landing zone for a future port
+- the surrounding implemented cleanup passes already exist and define the practical landing zone for future expansion
 
-So the right mental model today is not “nothing exists locally.”
-It is:
+So the right mental model today is:
 
-- **no transform yet**
-- **clear tracked status**
+- **active direct transform**
+- **fresh direct parity evidence**
 - **clear slot in the pipeline**
-- **clear neighboring implementation map for the eventual port**
+- **broader branchy/artifact proof still open**
 
 ## Sources
 
+- [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
 - [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
@@ -268,6 +258,8 @@ It is:
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
 - [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/code_folding.mbt`](../../../../../src/passes/code_folding.mbt)
+- [`../../../../../src/passes/code_folding_test.mbt`](../../../../../src/passes/code_folding_test.mbt)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

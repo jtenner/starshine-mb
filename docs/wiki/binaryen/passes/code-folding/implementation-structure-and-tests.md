@@ -32,7 +32,7 @@ Read it when you want to move from the conceptual pages to exact files.
 
 ## Status in one sentence
 
-Binaryen implements `code-folding` as a function-parallel pass in `src/passes/CodeFolding.cpp`; Starshine currently has no implementation file and keeps the pass as a removed-name compatibility/planning entry.
+Binaryen implements `code-folding` as a function-parallel pass in `src/passes/CodeFolding.cpp`; Starshine now has an active narrow HOT implementation in `src/passes/code_folding.mbt` with focused coverage in `src/passes/code_folding_test.mbt`.
 
 ## Upstream owner map
 
@@ -118,12 +118,12 @@ Starshine does not implement the transform yet, but the status is still represen
 
 | Local surface | Exact location | Meaning |
 | --- | --- | --- |
-| Removed-name registry | `src/passes/optimize.mbt:144-151` | `code-folding` is a known removed pass name, not an unknown typo. |
-| Removed-pass request guard | `src/passes/optimize.mbt:469-471` | Active requests for removed passes fail instead of running a placeholder transform. |
-| Preset omission | `src/passes/optimize.mbt:385-410` | Public `optimize` / `shrink` presets currently do not expand to `code-folding`. |
-| CLI pass-token parsing | `src/cli/cli_test.mbt:159-165` | `--code-folding` remains parseable as a kebab-case pass token. |
-| CLI ordering preservation | `src/cli/cli_test.mbt:297-309` | Explicit pass order with `code-folding` is preserved even though execution later rejects removed names. |
-| Missing dispatcher owner | `src/passes/pass_manager.mbt` has no `code-folding` match | There is no active HOT/module dispatch path today. |
+| Active owner | `src/passes/code_folding.mbt` | `code-folding` owns a real HOT descriptor and narrow direct transform. |
+| Focused tests | `src/passes/code_folding_test.mbt` | current void-tail positives, value-if bailout, and cleanup regression are covered. |
+| Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot-pass registry entry. |
+| Dispatcher owner | `src/passes/pass_manager.mbt` | active requests dispatch through `code_folding_run(ctx, func)`. |
+| CLI pass-token parsing | `src/cli/cli_test.mbt` | `--code-folding` remains parseable as a kebab-case pass token. |
+| CLI ordering preservation | `src/cli/cli_test.mbt` | explicit pass order with `code-folding` is preserved. |
 | Backlog slice | `agent-todo.md:445-460` | The future work is tracked as `CF`, with motion-safety and artifact-compare deliverables. |
 | Canonical scheduler context | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | The intended late slot sits before the final `merge-blocks` cleanup cluster. |
 

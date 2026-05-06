@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
@@ -32,7 +33,7 @@ related:
 ## Role
 
 - `code-folding` is an upstream Binaryen late function-cleanup pass.
-- It is currently **unimplemented** in Starshine and still appears under the removed pass names in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently an active narrow HOT pass in Starshine, with owner file [`../../../../../src/passes/code_folding.mbt`](../../../../../src/passes/code_folding.mbt) and focused tests in [`../../../../../src/passes/code_folding_test.mbt`](../../../../../src/passes/code_folding_test.mbt).
 - Its job is not generic CSE. Binaryen uses it to merge identical **tails** of code when multiple paths already reach the same semantic exit.
 
 ## Why it matters
@@ -77,10 +78,11 @@ That split is important. The pass is not one generic “merge any duplicate regi
 - The pass runs to a per-function **fixpoint** because one fold can expose another.
 - The folder now has a dedicated implementation/test-map page that points beginners and future porters to Binaryen's owner file, helper surfaces, lit proof families, scheduler location, and exact local Starshine status/code surfaces.
 - The folder also has a Starshine port-readiness page that turns the upstream contract into a staged local implementation and validation ladder: narrow expression-exit positives first, source-backed negative gates second, terminating-tail helper-label sharing later, and EH movement only after focused proof.
-- Current Starshine still has **no implementation**, but the dossier now maps the exact local status and future landing zone: removed-name registry tracking, CLI spelling coverage, backlog slice `CF`, canonical scheduler placement, HOT builder/region/label/verification prerequisites, and the neighboring implemented cleanup passes a future port would compose with.
+- Current Starshine has an active direct implementation for a narrow void-tail / cleanup subset, and a 2026-05-06 refreshed direct revalidation recorded `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group command failures in [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md). Broader `[CF]002` late-slot and artifact validation remains open.
 
 ## Freshness and provenance
 
+- The latest Starshine direct-pass evidence is [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md): `moon info`, `moon fmt`, `moon test`, then `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --out-dir .tmp/pass-fuzz-code-folding` with zero semantic mismatches.
 - The dossier has an immutable tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
 - On 2026-04-22 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - A 2026-05-05 focused current-`main` recheck in [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md) did not surface teaching-relevant drift beyond the existing Binaryen pages. The current-main bridge specifically rechecked `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.
@@ -97,18 +99,19 @@ That split is important. The pass is not one generic “merge any duplicate regi
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status and port-planning bridge: removed-name registry tracking, CLI spelling coverage, backlog slice `CF`, canonical scheduler slot, and the implemented neighboring cleanup passes a future local port would need to compose with.
+  Exact current Starshine status and expansion-planning bridge: active HOT owner, focused tests, fresh direct parity evidence, backlog slice `CF`, canonical scheduler slot, and the implemented neighboring cleanup passes broader local work must compose with.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Practical implementation-readiness bridge: minimum viable local slice order, HOT builder / region / label / branch-verification prerequisites, official-test-family-first validation ladder, neighborhood replay plan, and open design questions to answer before moving `code-folding` out of removed status.
+  Practical expansion-readiness bridge: landed narrow slice, remaining HOT builder / region / label / branch-verification prerequisites, official-test-family-first validation ladder, neighborhood replay plan, and open design questions before broader `code-folding` parity claims.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `code-folding` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
+- Keep it explicitly marked as an active narrow direct pass until the broader Binaryen late-slot and artifact replay work is complete; do not treat the direct revalidation as preset-readiness proof.
 - New `code-folding` findings should update the Binaryen strategy page, the shape pages, the Starshine status page, and the Starshine port-readiness page together so the upstream algorithm, concrete examples, and local implementation plan stay aligned.
 
 ## Sources
 
+- [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
 - [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
