@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate once-reduction
+
+- **refresh `once-reduction` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md`](./docs/wiki/raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md), [`docs/wiki/binaryen/passes/once-reduction/index.md`](./docs/wiki/binaryen/passes/once-reduction/index.md), [`docs/wiki/binaryen/passes/once-reduction/parity.md`](./docs/wiki/binaryen/passes/once-reduction/parity.md), [`docs/wiki/binaryen/passes/once-reduction/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/once-reduction/starshine-hot-ir-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate merge-locals
 
 - **refresh `merge-locals` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md`](./docs/wiki/raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md), [`docs/wiki/binaryen/passes/merge-locals/index.md`](./docs/wiki/binaryen/passes/merge-locals/index.md), [`docs/wiki/binaryen/passes/merge-locals/starshine-strategy.md`](./docs/wiki/binaryen/passes/merge-locals/starshine-strategy.md), [`docs/wiki/binaryen/passes/merge-locals/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/merge-locals/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

@@ -1,12 +1,13 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
   - ../../../../../src/passes/once_reduction.mbt
@@ -108,6 +109,19 @@ I did **not** prove in this thread whether that is:
 
 So treat it as an explicit open follow-up question, not a silent assumption.
 
+## Refreshed direct-pass signoff
+
+On 2026-05-06, the direct explicit-pass revalidation lane ran:
+
+- `moon info`
+- `moon fmt`
+- `moon test`
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction`
+
+The compare run reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The command failures are tracked separately from semantic output mismatches.
+
+So `once-reduction` is no longer stale under the 2026-05-06 AUD002 post-fuzzer-change revalidation queue, while the broader source-surface gaps below remain intentionally open.
+
 ## Current evidence
 
 The dossier now has an immutable raw provenance capture at:
@@ -164,6 +178,7 @@ That is the honest status this dossier should preserve.
 ## Sources
 
 - [`../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
+- [`../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md`](../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md)
 - [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md)
 - [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp>

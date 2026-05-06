@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -43,6 +44,8 @@ The most important current local rule is:
 - **Starshine implements a narrower recursive once-bit pass over boundary instruction arrays, not Binaryen's CFG + dominator + nested-pass engine.**
 
 That means the local pass should be taught as a useful implemented subset, not as a full source-parity port of the released Binaryen strategy.
+
+The 2026-05-06 refreshed direct-pass signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction`; the compare lane reported 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 known Binaryen empty-recursion-group parser/canonicalization command failures.
 
 ## Current local code map
 

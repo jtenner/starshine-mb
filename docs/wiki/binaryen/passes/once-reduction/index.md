@@ -1,13 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -136,7 +137,7 @@ What it actually is in `version_129`:
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine module-pass strategy: exact MoonBit code map, recursive once-bit analysis/rewrite flow, and the main ways the local implementation is narrower than upstream Binaryen's CFG/dominator engine.
 - [`./parity.md`](./parity.md)
-  - Current in-tree parity state, saved generated-artifact evidence, and the honest remaining gap between the local implementation and the full official `OnceReduction.cpp` surface.
+  - Current in-tree parity state, 2026-05-06 direct-pass revalidation evidence, saved generated-artifact evidence, and the honest remaining gap between the local implementation and the full official `OnceReduction.cpp` surface.
 
 ## Freshness note
 
@@ -166,6 +167,7 @@ So the durable rule is:
 - [`../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
 - [`../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md`](../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md)
 - [`../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md`](../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md)
+- [`../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md`](../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md)
 - [`../../../../../src/passes/once_reduction.mbt`](../../../../../src/passes/once_reduction.mbt)
 - [`../../../../../src/passes/once_reduction_test.mbt`](../../../../../src/passes/once_reduction_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

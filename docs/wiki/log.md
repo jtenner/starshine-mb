@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `once-reduction` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `once-reduction`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md` and refreshed the once-reduction living pages.
+- Pruned `once-reduction` from the AUD002 remaining revalidation list while keeping the documented upstream `@binaryen.idempotent`, CFG / dominator, and full source-surface gaps explicit.
+
 ## [2026-05-06] validation | revalidate `merge-locals` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `merge-locals`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`.
