@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `instrument-locals` current-main bridge and source anchors
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md` after rechecking current Binaryen `InstrumentLocals.cpp`, `pass.cpp`, and the dedicated lit files against the existing local contract.
+- Refreshed the `instrument-locals` dossier, its unsupported-types bridge, the Starshine strategy / port-readiness pages, the pass catalogs, the tracker, and the root wiki index so the folder now has a 2026-05-06 freshness layer plus the new source bridge and exact local code anchors.
+- Recorded unchanged contract status: Binaryen still teaches the same local-read/local-write instrumentation story with `i64` / typed-ref / `Pop` boundaries and effect invalidation, and Starshine still keeps `instrument-locals` unknown rather than boundary-only or removed.
+
 ## [2026-05-06] health | refresh `type-generalizing` current-main bridge and freshness layer
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-type-generalizing-current-main-recheck.md` plus `docs/wiki/raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md` after rechecking current-main Binaryen `TypeGeneralizing.cpp`, `pass.cpp`, and `type-generalizing.wast` against the corrected hidden/test contract.

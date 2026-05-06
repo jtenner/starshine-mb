@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
+  - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
   - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
@@ -112,7 +114,7 @@ Those would all overstate what `InstrumentLocals.cpp` actually does.
 
 ## Current-`main` drift check
 
-A 2026-04-24 spot check re-reviewed these surfaces between `version_129` and current `main`:
+A 2026-05-06 spot check re-reviewed these surfaces between `version_129` and current `main`:
 
 - `src/passes/InstrumentLocals.cpp`
 - `test/lit/passes/instrument-locals_all-features_disable-gc.wast`

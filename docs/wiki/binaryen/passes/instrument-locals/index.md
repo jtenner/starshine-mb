@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
+  - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-instrument-locals-port-readiness-primary-sources.md
   - ../../../raw/research/0397-2026-04-26-instrument-locals-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
@@ -71,7 +73,7 @@ So this pass is best taught as:
 
 ## Most important durable takeaways
 
-- The entire reviewed `version_129` contract lives in one small owner file, `InstrumentLocals.cpp`, plus public registration in `pass.cpp`; the 2026-04-24 raw manifest captures those primary sources directly.
+- The entire reviewed `version_129` contract lives in one small owner file, `InstrumentLocals.cpp`, plus public registration in `pass.cpp`; the 2026-05-06 current-main recheck and the 2026-04-24 raw manifest capture those primary sources directly.
 - The pass is a `PostWalker`, so it rewrites supported local traffic after walking children, and one shared `id++` counter numbers both gets and sets.
 - `local.get` is replaced by a helper call that returns the original type.
 - `local.set` is preserved as a set/tee node, but its assigned value is replaced by a helper call returning that same value type.

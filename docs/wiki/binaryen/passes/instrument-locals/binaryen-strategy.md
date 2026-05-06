@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
+  - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
   - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
@@ -22,7 +24,7 @@ related:
 
 ## One-sentence contract
 
-Binaryen `version_129` `instrument-locals` is a small effectful postwalk pass that wraps supported `local.get` and `local.set` / `local.tee` traffic in imported identity-style helper calls and injects those helpers into the module; the 2026-04-24 primary-source capture for this dossier is [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md).
+Binaryen `version_129` `instrument-locals` is a small effectful postwalk pass that wraps supported `local.get` and `local.set` / `local.tee` traffic in imported identity-style helper calls and injects those helpers into the module; the 2026-05-06 current-main recheck keeps that contract unchanged, and the 2026-04-24 primary-source capture remains the tagged-release anchor for this dossier.
 
 ## Public pass identity
 
@@ -228,7 +230,7 @@ That exact interaction is the point of `instrument-locals_effects.wast`.
 
 ## Current-source drift note
 
-A 2026-04-24 spot check of the reviewed `version_129` owner file and all three dedicated lit files against current `main` did not surface teaching-relevant contract drift.
+A 2026-05-06 current-main recheck of the reviewed owner file and all three dedicated lit files against current `main` did not surface teaching-relevant contract drift.
 So the tagged release contract here is still current on the inspected surfaces, subject to the usual caveat that this was a narrow source check and not a full upstream audit.
 
 ## Starshine status bridge
