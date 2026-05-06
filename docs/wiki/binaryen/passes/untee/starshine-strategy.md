@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0523-2026-05-06-untee-direct-revalidation.md
   - ../../../../../src/passes/untee.mbt
   - ../../../../../src/passes/untee_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -64,7 +65,14 @@ The active surfaces are:
 
 ## Validation evidence
 
-2026-04-26 direct-pass evidence:
+2026-05-06 refreshed direct-pass evidence after the pass-audit harness changes:
+
+- `moon info` passed with existing repo warnings.
+- `moon fmt` passed.
+- `moon test` passed `2800/2800`.
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass untee --out-dir .tmp/pass-fuzz-untee` reached `6759/10000` compared cases with `6759` normalized matches, `0` mismatches / validation failures / generator failures, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
+
+Earlier 2026-04-26 direct-pass evidence:
 
 - `moon info` passed with existing repo warnings.
 - `moon fmt` passed.
@@ -88,7 +96,7 @@ Future direct-pass validation should remain isolated from default preset work:
 4. `moon fmt`
 5. `moon test`
 6. `bun scripts/pass-fuzz-compare.ts --pass untee --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --out-dir .tmp/pass-fuzz-untee-genvalid-10000`
-7. `bun scripts/pass-fuzz-compare.ts --pass untee --count 10000 --seed 0x5eed --out-dir .tmp/pass-fuzz-untee --keep-going-after-command-failures`
+7. `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass untee --out-dir .tmp/pass-fuzz-untee`
 8. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --untee`
 
 If any compare mismatch appears, classify it separately as:

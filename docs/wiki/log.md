@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `untee` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `untee`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass untee --out-dir .tmp/pass-fuzz-untee`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0523-2026-05-06-untee-direct-revalidation.md` and refreshed the untee living pages.
+- Pruned `untee` from the AUD002 remaining revalidation list while keeping it as an explicit direct module pass outside the no-DWARF default preset.
+
 ## [2026-05-06] validation | revalidate `code-folding` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `code-folding`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --out-dir .tmp/pass-fuzz-code-folding`.

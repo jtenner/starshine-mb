@@ -1,13 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0523-2026-05-06-untee-direct-revalidation.md
   - ../../../../../src/passes/untee.mbt
   - ../../../../../src/passes/untee_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -35,6 +36,7 @@ related:
 - It is now implemented in Starshine as an explicit active module pass in [`../../../../../src/passes/untee.mbt`](../../../../../src/passes/untee.mbt) and is no longer in the local removed registry.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - The 2026-04-26 Starshine slice landed as a direct pass, not as preset scheduling work.
+- The 2026-05-06 refreshed direct revalidation reached 6759 compared mixed-generator cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures.
 - Upstream `pass.cpp` describes it briefly as:
   - `removes local.tees, replacing them with sets and gets`
 
@@ -81,6 +83,7 @@ So this pass is best taught as:
 - The source comment explicitly says this flatter form can help passes like `code-pushing`.
 - The 2026-04-23 raw primary-source manifest records the exact official release, source, and test URLs reviewed for this dossier, and the checked official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - The 2026-04-25 current-main source bridge found the implementation, registration, constructor declaration, dedicated lit file, and non-default scheduler status unchanged for teaching purposes, so the tagged release remains a reliable oracle here.
+- The 2026-05-06 direct pass-fuzz revalidation keeps the Starshine implementation evidence current after the fuzzer / compare-harness refresh.
 
 ## What this pass sounds like versus what it actually does
 
@@ -123,6 +126,7 @@ What it actually is in `version_129`:
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - [`../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md`](../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0523-2026-05-06-untee-direct-revalidation.md`](../../../raw/research/0523-2026-05-06-untee-direct-revalidation.md)
 - [`../../../../../src/passes/untee.mbt`](../../../../../src/passes/untee.mbt)
 - [`../../../../../src/passes/untee_test.mbt`](../../../../../src/passes/untee_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

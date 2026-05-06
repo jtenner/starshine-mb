@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate untee
+
+- **refresh `untee` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0523-2026-05-06-untee-direct-revalidation.md`](./docs/wiki/raw/research/0523-2026-05-06-untee-direct-revalidation.md), [`docs/wiki/binaryen/passes/untee/index.md`](./docs/wiki/binaryen/passes/untee/index.md), [`docs/wiki/binaryen/passes/untee/starshine-strategy.md`](./docs/wiki/binaryen/passes/untee/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate code-folding
 
 - **refresh `code-folding` direct parity evidence after fuzzer changes, correct stale docs to the active narrow HOT pass status, and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](./docs/wiki/raw/research/0522-2026-05-06-code-folding-direct-revalidation.md), [`docs/wiki/binaryen/passes/code-folding/index.md`](./docs/wiki/binaryen/passes/code-folding/index.md), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/binaryen/passes/code-folding/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/code-folding/starshine-port-readiness-and-validation.md), [`docs/wiki/binaryen/passes/code-folding/implementation-structure-and-tests.md`](./docs/wiki/binaryen/passes/code-folding/implementation-structure-and-tests.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
