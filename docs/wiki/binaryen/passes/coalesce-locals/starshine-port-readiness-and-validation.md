@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
@@ -89,7 +90,7 @@ Current status before moving the direct pass into public preset slots:
 1. **Unit shape tests** are green for active registration, non-overlap merging, interference negatives, redundant-copy cleanup, and dead write cleanup.
 2. **Registry tests** prove `--coalesce-locals` is an active module pass with dispatcher and CLI coverage.
 3. **Preset honesty tests** still keep broader locals-neighborhood scheduling separate from the direct pass.
-4. **Fuzz parity** is green for `.tmp/pass-fuzz-cl-genvalid-10000-livecount` at `10000/10000` normalized matches and mixed-generator comparable cases at `.tmp/pass-fuzz-cl-mixed-1000-livecount` with zero mismatches.
+4. **Fuzz parity** is green for the refreshed 2026-05-06 mixed-generator direct lane at `.tmp/pass-fuzz-coalesce-locals` (`6759/10000` compared cases, `6759` normalized matches, `0` mismatches, `20` Binaryen empty-recursion-group command failures), for `.tmp/pass-fuzz-cl-genvalid-10000-livecount` at `10000/10000` normalized matches, and for older mixed-generator comparable cases at `.tmp/pass-fuzz-cl-mixed-1000-livecount` with zero mismatches.
 5. **Artifact Starshine-side validation** is green: running Starshine `--coalesce-locals` over the rebuilt debug WASI artifact writes a validating output.
 6. **Self-opt artifact compare** is canonically/function equal with Binaryen on both `.tmp/self-opt-cl-debug-livecount` and `.tmp/self-opt-cl-optimized-livecount`; the optimized-artifact direct pass timer is now faster than Binaryen (`591.437ms` vs `629.109ms`), while total wall time remains slightly above Binaryen.
 7. **Neighborhood tests** for `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` remain future work once the neighboring passes exist.
@@ -101,10 +102,12 @@ If one of those steps fails, keep the pass out of public presets even if isolate
 
 The 2026-05-05 implementation run promoted `coalesce-locals` from removed-name planning to active direct module-pass status.
 No contradiction was found between the 2026-04-22 tagged source manifest and the 2026-05-05 current-main recheck for the teaching-level `coalesce-locals` contract.
+The 2026-05-06 AUD002 refresh reran the standard direct signoff lane after the fuzzer/harness churn and found no Starshine semantic mismatches: `.tmp/pass-fuzz-coalesce-locals` reported `6759/10000` compared cases, `6759` normalized matches, and `20` Binaryen empty-recursion-group command failures.
 The remaining uncertainty is placement-specific: direct fuzz parity, artifact-level Binaryen comparison, and direct-pass artifact timing are green with the compatible Binaryen 128 oracle, but public preset scheduling still needs ordered-neighborhood proof.
 
 ## Sources
 
+- [`../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md)

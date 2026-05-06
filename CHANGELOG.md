@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate coalesce-locals
+
+- **refresh `coalesce-locals` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](./docs/wiki/raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md), [`docs/wiki/binaryen/passes/coalesce-locals/index.md`](./docs/wiki/binaryen/passes/coalesce-locals/index.md), [`docs/wiki/binaryen/passes/coalesce-locals/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/coalesce-locals/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate remove-unused-names
 
 - **refresh `remove-unused-names` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md`](./docs/wiki/raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md), [`docs/wiki/binaryen/passes/remove-unused-names/index.md`](./docs/wiki/binaryen/passes/remove-unused-names/index.md), [`docs/wiki/binaryen/passes/remove-unused-names/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/remove-unused-names/starshine-hot-ir-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

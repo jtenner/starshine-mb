@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `coalesce-locals` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `coalesce-locals`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass coalesce-locals --out-dir .tmp/pass-fuzz-coalesce-locals`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md` and refreshed the coalesce-locals living pages.
+- Pruned `coalesce-locals` from the AUD002 remaining revalidation list while keeping `[CL]003` as the ordered-slot replay / preset-readiness blocker.
+
 ## [2026-05-06] validation | revalidate `remove-unused-names` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `remove-unused-names`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-names --out-dir .tmp/pass-fuzz-remove-unused-names`.
