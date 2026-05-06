@@ -68,6 +68,22 @@ test "vacuum removes empty void blocks" {
 }
 
 ///|
+test "vacuum matches Binaryen empty function nop canonicalization" {
+  let input = pass_test_module_from_wat("(module (func))")
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected vacuum pipeline success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      assert_eq(instrs, [@lib.Instruction::nop()])
+    other =>
+      fail("expected vacuumed empty function to contain one nop, got \{other}")
+  }
+}
+
+///|
 test "vacuum unwraps block that only contains unreachable" {
   let input = pass_test_module_from_wat("(module (func block unreachable end))")
   let optimized = match

@@ -8052,6 +8052,34 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
 }
 
 ///|
+fn run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
+  func : @lib.Func,
+) -> Bool {
+  match func {
+    @lib.Func(_, @lib.Expr([])) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
+  func : @lib.Func,
+  descriptor_name : String,
+) -> @lib.Func {
+  let cleaned = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+    func, descriptor_name,
+  )
+  if descriptor_name != "vacuum" {
+    return cleaned
+  }
+  match cleaned {
+    @lib.Func(locals, @lib.Expr([])) =>
+      @lib.Func::new(locals, @lib.Expr::new([@lib.Instruction::nop()]))
+    _ => cleaned
+  }
+}
+
+///|
 fn run_hot_pipeline_lower_options_for_descriptor(
   descriptor_name : String,
 ) -> @ir.HotLowerOptions {
@@ -8264,6 +8292,10 @@ fn run_hot_pipeline_func(
           descriptor.name == "remove-unused-brs"
         ) &&
         descriptor.name != "heap-store-optimization" &&
+        !(descriptor.name == "vacuum" &&
+        run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
+          run_hot_pipeline_original_func(mod_, func_idx),
+        )) &&
         !(descriptor.name == "dead-code-elimination" &&
         run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(
           run_hot_pipeline_original_func(mod_, func_idx),
@@ -8351,7 +8383,7 @@ fn run_hot_pipeline_func(
         Ok(_) => {
           run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
           let lower_start_us = perf_start_timer_opt(options.perf, "lower")
-          let lowered = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+          let lowered = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
             @ir.hot_lower_func_with_options(
               func,
               run_hot_pipeline_lower_options_for_descriptor(descriptor.name),
@@ -8371,7 +8403,7 @@ fn run_hot_pipeline_func(
     HotPipelineVerifyPolicy::FinalModuleOnly => {
       run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
-      let lowered = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+      let lowered = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
         @ir.hot_lower_func_unverified_with_options(
           func,
           run_hot_pipeline_lower_options_for_descriptor(descriptor.name),

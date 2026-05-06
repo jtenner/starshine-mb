@@ -7,6 +7,7 @@ sources:
   - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
+  - ../../../raw/research/0520-2026-05-06-vacuum-direct-revalidation.md
   - ../../../raw/research/0097-2026-04-18-generated-o4z-vacuum-slot23-func652-stack-underflow.md
   - ../../../raw/research/0098-2026-04-18-generated-o4z-vacuum-slot33-func1818-stack-underflow.md
   - ../../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
@@ -70,6 +71,8 @@ That helper walks a region root list and now does four things:
 3. if the current root is an empty `block` with zero result arity, it removes the block while preserving typed/result blocks
 4. if the current root is a `block` whose only payload is `unreachable`, it unwraps the block to the payload `unreachable`
 
+The hot-pipeline writeback path also has a `vacuum`-specific empty-function canonicalization shim: if an otherwise unchanged or lowered `vacuum` body is empty, Starshine emits Binaryen's single `nop` function body rather than serializing an empty expression list.
+
 Then, if the current root owns nested regions, the helper recurses into them.
 
 The recursion surface is explicit and limited:
@@ -119,6 +122,8 @@ The local tests are small but meaningful.
   - proves empty zero-result block residue is deleted and the resulting module still validates
 - `vacuum unwraps block that only contains unreachable`
   - proves the block-only-`unreachable` cleanup shape Binaryen emits on the generated scalar corpus
+- `vacuum matches Binaryen empty function nop canonicalization`
+  - proves direct `vacuum` keeps Binaryen's single-`nop` canonical form for otherwise empty function bodies
 - `vacuum cleans simplify-locals structured return residue in the late cleanup pair`
   - proves that explicit `nop` cleanup helps a real late local-cleanup pipeline shape
 - `vacuum roundtrips dead simd prefixes before unreachable`
@@ -160,12 +165,12 @@ That is the concrete proof surface behind the older artifact notes that retired 
 The safest one-line contrast is:
 
 - **Binaryen `vacuum`:** effect-aware unused-result pruning plus structural cleanup, TNH handling, and mandatory refinalization
-- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, and pipeline-level validation/writeback hygiene around those rewrites
+- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, Binaryen-style empty-function single-`nop` canonicalization, and pipeline-level validation/writeback hygiene around those rewrites
 
 Direct oracle evidence for the current slice:
 
+- `.tmp/pass-fuzz-vacuum`: after the 2026-05-06 empty-function canonicalization fix, mixed-generator replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen empty-recursion-group parser/canonicalization command failures
 - `.tmp/pass-fuzz-vacuum-gen-valid`: `10000/10000` direct `gen-valid` normalized matches, `0` mismatches, `0` validation failures, `0` command failures after the empty-void-block cleanup landed
-- `.tmp/pass-fuzz-vacuum`: mixed-generator replay reached `6464/10000` comparable cases with `6459` normalized matches, `5` known broader wasm-smith mismatches, and `15` Binaryen/parser command failures; those mismatches are outside the completed empty-structure audit slice and remain part of future broader `vacuum` parity work
 - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --vacuum`: normalized WAT and canonical function compare equal; raw/canonical wasm bytes still differ, while Starshine pass time was `99.859ms` versus Binaryen pass time `222.616ms`
 
 Current Starshine does **not** yet model upstream behaviors such as:

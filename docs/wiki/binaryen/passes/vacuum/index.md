@@ -7,6 +7,7 @@ sources:
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
   - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0520-2026-05-06-vacuum-direct-revalidation.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -74,6 +75,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - dropped pure scalar result pruning for nontrapping numeric/ref/tuple shapes
   - removing empty void blocks
   - unwrapping blocks whose only payload is `unreachable`
+  - Binaryen-style single-`nop` function-body canonicalization when `vacuum` rewrites or re-lowers an otherwise empty function body
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
   - the 2026-02-27 explicit-`unreachable` preservation change belongs to Chromium commit `f284d54...`, not `9ee4a25...`
   - that change is already present in Binaryen `version_129`
@@ -114,7 +116,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, and block-only-`unreachable` cleanup slice.
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, and empty-function single-`nop` canonicalization slice.
 
 ## Sources
 
@@ -122,6 +124,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - [`../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)
 - [`../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md`](../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md)
 - [`../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md`](../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md)
+- [`../../../raw/research/0520-2026-05-06-vacuum-direct-revalidation.md`](../../../raw/research/0520-2026-05-06-vacuum-direct-revalidation.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)

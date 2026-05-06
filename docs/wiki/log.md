@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `vacuum` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `vacuum`: `moon info`, `moon fmt`, `moon test`, `moon test src/passes`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum`.
+- The first replay exposed five empty-function canonicalization mismatches; added `src/passes/optimize_test.mbt` coverage and fixed `src/passes/pass_manager.mbt` so `vacuum` emits Binaryen's single `nop` body for otherwise empty functions.
+- Recorded the fixed replay as 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0520-2026-05-06-vacuum-direct-revalidation.md`, refreshed the `vacuum` living pages, and pruned `vacuum` from the AUD002 remaining revalidation list.
+
 ## [2026-05-06] validation | revalidate `duplicate-import-elimination` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `duplicate-import-elimination`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-import-elimination --out-dir .tmp/pass-fuzz-duplicate-import-elimination`.
