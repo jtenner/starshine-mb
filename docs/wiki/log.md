@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `strip-toolchain-annotations` current-main bridge and annotation subset
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md` plus `docs/wiki/raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md` after rechecking current Binaryen `StripToolchainAnnotations.cpp`, `pass.cpp`, `strip-toolchain-annotations.wast`, and `CHANGELOG.md` against the existing contract.
+- Refreshed the `strip-toolchain-annotations` dossier, Binaryen strategy, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine readiness bridge, wiki index, pass catalog, tracker, and changelog so the folder now has a 2026-05-06 freshness layer plus the unchanged function-level / per-expression annotation split.
+- Recorded unchanged contract status: current `main` still strips `removableIfUnused` / `jsCalled` / `idempotent` and preserves `metadata.code.inline`, and Starshine still keeps the pass upstream-only with no registry entry.
+
 ## [2026-05-06] health | refresh `type-ssa` current-main bridge and freshness layer
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md` plus `docs/wiki/raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md` after rechecking current Binaryen `TypeSSA.cpp`, `pass.cpp`, and `type-ssa.wast` against the corrected allocation-subtype contract.

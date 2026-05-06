@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
 related:
@@ -87,8 +89,7 @@ That release-note framing explains why the pass is intentionally forward-looking
 
 ## Current-main spot checks
 
-The current-`main` source and lit file reviewed on 2026-04-24 still presented the same teaching-level contract as the tagged `version_129` sources.
-A second focused recheck on 2026-04-26 found the same teaching-level result and added a port-readiness bridge for Starshine's narrower function-annotation model.
+The current-`main` source and lit file reviewed on 2026-05-06 still presented the same teaching-level contract as the tagged `version_129` sources.
 
 ## Testing gap to remember
 

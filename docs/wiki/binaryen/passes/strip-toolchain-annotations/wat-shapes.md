@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
 related:
@@ -18,7 +20,7 @@ related:
 # `strip-toolchain-annotations` WAT and annotation shapes
 
 This page uses WAT-like snippets to teach what changes and what must not change.
-Exact printed syntax can vary, but the before/after intent is source-backed by the Binaryen owner file and dedicated lit file.
+A 2026-05-06 current-main recheck kept the shapes unchanged; exact printed syntax can vary, but the before/after intent is source-backed by the Binaryen owner file and dedicated lit file.
 
 ## 1. `@binaryen.removable.if.unused` is removed
 

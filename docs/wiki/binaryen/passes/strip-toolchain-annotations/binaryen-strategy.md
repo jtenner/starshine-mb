@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
 related:
@@ -20,7 +22,7 @@ related:
 
 ## Source-backed contract
 
-The 2026-04-26 official `main` recheck found no teaching-relevant drift from the earlier `version_129` dossier.
+The 2026-05-06 current-main recheck found no teaching-relevant drift from the earlier `version_129` dossier.
 Binaryen's `strip-toolchain-annotations` is a narrow metadata pass.
 It removes Binaryen-owned toolchain annotation bits from functions and expressions and otherwise leaves the module's executable IR alone.
 

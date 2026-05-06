@@ -1,16 +1,21 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/wast/module_wast_tests.mbt
+  - ../../../../../src/passes/duplicate_function_elimination.mbt
+  - ../../../../../src/passes/duplicate_import_elimination.mbt
+  - ../../../../../src/passes/remove_unused_module_elements.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -23,7 +28,7 @@ related:
 
 # Starshine port readiness and validation for `strip-toolchain-annotations`
 
-This page is a future implementation ladder. Starshine does **not** currently implement or reserve `strip-toolchain-annotations`.
+This page is a future implementation ladder. A 2026-05-06 current-main recheck kept the upstream contract unchanged. Starshine does **not** currently implement or reserve `strip-toolchain-annotations`.
 
 ## Current decision point
 
@@ -95,14 +100,15 @@ For full parity later, add expression annotation fixtures matching Binaryen's `c
 
 ## Code locations to read
 
-- `src/passes/optimize.mbt:126-153` - boundary-only and removed name lists; the pass is absent today.
+- `src/passes/optimize.mbt:127-143` - boundary-only and removed name lists; the pass is absent today.
 - `src/passes/optimize.mbt:156-267` - active hot/module/preset registry; no entry exists today.
-- `src/passes/optimize.mbt:446-489` - unknown-pass rejection path.
-- `src/lib/types.mbt:335-348` and `src/lib/types.mbt:8089-8108` - `FuncAnnotation`, `FuncAnnotationAssoc`, `FuncAnnotationSec`, and constructors.
-- `src/wast/parser.mbt:750-800` - annotation parsing and function/function-import attachment rule.
-- `src/wast/lower_to_lib.mbt:196-205` and `src/wast/lower_to_lib.mbt:2894-3020` - lowering annotations into `FuncAnnotationSec`.
-- `src/wast/module_wast_tests.mbt:78-110`, `src/wast/parser.mbt:5378-5407`, and `src/wast/lower_to_lib.mbt:5281-5304` - current local annotation tests.
-- `src/passes/duplicate_function_elimination.mbt:2663-2694`, `src/passes/duplicate_import_elimination.mbt:310-332`, and `src/passes/remove_unused_module_elements.mbt:1703-1724` - existing annotation index remapping helpers.
+- `src/passes/optimize.mbt:317-320` - boundary-only and removed names are materialized into the lookup table.
+- `src/passes/optimize.mbt:525` - unknown-pass rejection path.
+- `src/lib/types.mbt:348` and `src/lib/types.mbt:8105-8108` - `FuncAnnotationSec` and its constructor.
+- `src/wast/parser.mbt:779-784` - annotation parsing and function/function-import attachment rule.
+- `src/wast/lower_to_lib.mbt:2916-2917`, `src/wast/lower_to_lib.mbt:3016-3017`, and `src/wast/lower_to_lib.mbt:3502` - lowering annotations into `FuncAnnotationSec`.
+- `src/wast/module_wast_tests.mbt:78-98`, `src/wast/parser.mbt:5378-5407`, and `src/wast/lower_to_lib.mbt:5281-5304` - current local annotation tests.
+- `src/passes/duplicate_function_elimination.mbt:23-31`, `src/passes/duplicate_function_elimination.mbt:2663-2694`, `src/passes/duplicate_import_elimination.mbt:309-332`, and `src/passes/remove_unused_module_elements.mbt:1944-1966` - existing annotation index remapping helpers.
 - `src/passes/duplicate_function_elimination.mbt:3034-3072` - DFE equivalence/hashing includes annotations.
 
 ## Open questions
