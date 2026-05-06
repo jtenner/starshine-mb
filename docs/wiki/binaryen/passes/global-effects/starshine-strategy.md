@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
+  - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
@@ -55,7 +57,7 @@ The exact local facts are:
 - no `src/passes/global_effects.mbt` owner file exists today.
 - no active HOT pass, module pass, preset slot, or `agent-todo.md` backlog slice exists for this pass today.
 
-The 2026-04-27 readiness bridge makes the next step explicit, and the 2026-05-05 current-main recheck did not change it: keep this boundary-only until Starshine can at least build observable per-function summaries, then promote it as a module pass with dispatcher support and paired consumer validation.
+The 2026-04-27 readiness bridge makes the next step explicit, and the 2026-05-06 current-main recheck did not change it: keep this boundary-only until Starshine can at least build observable per-function summaries, then promote it as a module pass with dispatcher support and paired consumer validation.
 
 That means the local behavior is intentionally honest: users can spell the compatibility flag, but Starshine refuses to run it until a real implementation exists.
 
@@ -168,6 +170,8 @@ Until a module-level implementation exists, do not claim that Starshine:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)

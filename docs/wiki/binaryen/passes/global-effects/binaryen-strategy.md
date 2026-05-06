@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
+  - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
@@ -143,18 +145,18 @@ Without this pass, later passes must be more conservative around calls.
 
 ## Current-`main` drift
 
-The 2026-04-24 primary-source capture also spot-checked current Binaryen `main`, and the 2026-05-05 recheck keeps that same teaching shape.
+The 2026-04-24 primary-source capture also spot-checked current Binaryen `main`, and the 2026-05-06 recheck keeps that same teaching shape.
 The visible teaching drift is in implementation structure, not in the high-level contract:
 
 - `version_129` uses a deferred reachability propagation style over function infos.
 - current `main` builds an explicit call graph, computes SCCs, processes components in reverse topological order, aggregates component effects, and applies component summaries back to functions.
 - both reviewed versions keep the durable story: shallow scan, conservative unknown effects, recursive-cycle conservatism, per-function effect metadata, and a discard sibling.
 
-When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation. The 2026-04-27 readiness bridge recommends an SCC-shaped Starshine analyzer as an implementation convenience, but only if the semantic contract is still compared against the selected Binaryen oracle; the 2026-05-05 recheck did not change that guidance. The companion 2026-05-05 line-anchor refresh keeps the exact local Starshine code-map anchors explicit for the living dossier.
+When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation. The 2026-04-27 readiness bridge recommends an SCC-shaped Starshine analyzer as an implementation convenience, but only if the semantic contract is still compared against the selected Binaryen oracle; the 2026-05-06 recheck did not change that guidance. The companion 2026-05-05 line-anchor refresh keeps the exact local Starshine code-map anchors explicit for the living dossier.
 
 ## Current-main spotcheck anchors
 
-The 2026-05-05 recheck also confirmed the same current-main source shape at these exact upstream locations:
+The 2026-05-06 recheck also confirmed the same current-main source shape at these exact upstream locations:
 
 - `GlobalEffects.cpp#L1006-L1035` - shallow `FuncInfo` setup and the metadata-producing per-function scan
 - `GlobalEffects.cpp#L1065-L1155` - direct-call, indirect-call, and unknown-boundary classification during the initial walk
@@ -260,6 +262,8 @@ If Starshine ever ports this and accidentally turns it into a direct code-rewrit
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)

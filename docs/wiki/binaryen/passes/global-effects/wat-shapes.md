@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
+  - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
@@ -247,6 +249,8 @@ that later rewrite belongs to the consumer pass, not to `generate-global-effects
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)

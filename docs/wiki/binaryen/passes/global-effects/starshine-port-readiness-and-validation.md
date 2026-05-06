@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
+  - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
@@ -40,7 +42,7 @@ related:
 
 ## Current local hold point
 
-`global-effects` is still a **boundary-only** Starshine compatibility name. The local code accepts the spelling but refuses to run a transform, and the 2026-05-05 current-main recheck did not change that hold point:
+`global-effects` is still a **boundary-only** Starshine compatibility name. The local code accepts the spelling but refuses to run a transform, and the 2026-05-06 current-main recheck did not change that hold point:
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 127-137 include `global-effects` in `pass_registry_boundary_only_names()`.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 481-487 reject boundary-only pass requests during expansion.
@@ -174,6 +176,8 @@ Until then, keep the local boundary-only status described in [`./starshine-strat
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)

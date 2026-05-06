@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
+  - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
@@ -32,7 +34,7 @@ related:
 
 | File | What it proves | Why it matters |
 | --- | --- | --- |
-| `src/passes/GlobalEffects.cpp` | The actual pass algorithm: shallow per-function effect scan, static-call reachability / current-main SCC propagation (confirmed again on 2026-05-05), conservative unknown-call and recursion handling, and storage into `Function.effects` | This is the main implementation oracle. |
+| `src/passes/GlobalEffects.cpp` | The actual pass algorithm: shallow per-function effect scan, static-call reachability / current-main SCC propagation (confirmed again on 2026-05-06), conservative unknown-call and recursion handling, and storage into `Function.effects` | This is the main implementation oracle. |
 | `src/passes/pass.cpp` | Public pass registration under the upstream name `generate-global-effects`, sibling [`discard-global-effects`](../discard-global-effects/index.md), and the explicit note that the pass is not currently scheduled in the default optimization sequence | This is the main scheduler and naming oracle. |
 | `src/ir/effects.h` | Consumer-side handoff: `EffectAnalyzer` on a direct `Call` may incorporate a callee's stored `effects` summary | This explains why the pass matters downstream. |
 | `src/wasm.h` | `Function` really stores an optional `effects` pointer as explicit metadata | This proves the pass is metadata-producing, not IR-rewriting. |
@@ -51,7 +53,7 @@ related:
 
 ## Exact local Starshine code-map refresh
 
-The 2026-05-05 line-anchor refresh keeps these exact local surfaces explicit for the living dossier:
+The 2026-05-06 recheck keeps these exact local surfaces explicit for the living dossier, and the 2026-05-05 line-anchor refresh still supplies the anchor detail:
 
 - `src/passes/optimize.mbt:127-137, 315-318, 525-531`
 - `src/cli/cli_test.mbt:207-210`
@@ -176,6 +178,8 @@ For the exact local owner-file, registry, dispatcher, summary-model, and validat
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)

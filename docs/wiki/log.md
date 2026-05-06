@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `global-effects` current-main bridge and freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-global-effects-current-main-recheck.md` plus `docs/wiki/raw/research/0502-2026-05-06-global-effects-current-main-recheck.md` after rechecking current Binaryen `GlobalEffects.cpp`, `pass.cpp`, `effects.h`, `wasm.h`, and the two consumer lit files against the existing metadata-producing contract.
+- Refreshed the `global-effects` dossier, Binaryen strategy, implementation/test-map, metadata/naming guide, WAT-shape catalog, Starshine strategy, Starshine readiness bridge, and the root wiki index so the folder now has a 2026-05-06 freshness layer plus the unchanged `Function.effects`/SCC story.
+- Recorded unchanged contract status: Binaryen still teaches the same metadata-producing interprocedural summary pass, and Starshine still keeps `global-effects` boundary-only until a real module-level metadata pass exists.
+
 ## [2026-05-06] health | refresh `remove-relaxed-simd` freshness layer and spelling anchors
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md` plus `docs/wiki/raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md` after rechecking current Binaryen `RemoveRelaxedSIMD.cpp`, `pass.cpp`, `child-localizer.h`, and `remove-relaxed-simd.wast` against the existing contract.
