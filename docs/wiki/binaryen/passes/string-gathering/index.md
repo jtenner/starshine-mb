@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
@@ -112,6 +113,7 @@ That is much closer to the real pass than either:
 ## Current repo caveat
 
 - The direct pass is active in `src/passes/string_gathering.mbt`, registered in `src/passes/optimize.mbt`, dispatched from `src/passes/pass_manager.mbt`, and accepted by the compare harness.
+- On 2026-05-06, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 - The first Starshine implementation intentionally creates fresh canonical string globals instead of reusing existing eligible string globals; add reuse only if string-heavy oracle inputs require it.
 - Binary wasm inputs with string proposal result types still expose decoder coverage gaps outside this pass (`DecodeAt(InvalidValType, ...)`), so focused behavior coverage currently uses the WAT/pipeline path while artifact and generator lanes cover ordinary decoded wasm.
 - Public `optimize` / `shrink` preset scheduling is still deferred until the neighboring late-tail passes can be replayed together.
@@ -141,6 +143,7 @@ That is much closer to the real pass than either:
 
 ## Sources
 
+- [`../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md`](../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md)
 - [`../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md`](../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md)

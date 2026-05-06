@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
@@ -51,6 +52,11 @@ The current implementation:
 - is accepted by the CLI and compare harness through [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) and [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 
 It collects direct `string.const` payloads from defined function bodies first, then module-level expression sites; deduplicates by literal bytes; inserts immutable string globals after imported globals and before existing defined globals; rewrites gathered sites to `global.get`; and remaps existing defined-global traffic around the inserted globals.
+
+Direct revalidation evidence:
+
+- `moon info`, `moon fmt`, and `moon test` passed on 2026-05-06.
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass string-gathering --out-dir .tmp/pass-fuzz-string-gathering` reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 Remaining caveats:
 
@@ -254,6 +260,6 @@ Current Starshine `string-gathering` strategy is direct-pass-landed with late-ta
 
 - the encoder, decoder, and tests preserve the literal identity the pass depends on
 - the active module pass hoists and rewrites direct string constants
-- direct pass-fuzz and debug-artifact compare evidence are green
+- refreshed direct pass-fuzz evidence is green under the 2026-05-06 harness
 - preset scheduling remains deferred until the surrounding late tail can be replayed honestly
 - the boundary with `reorder-globals` remains clear: `string-gathering` creates canonical string globals; `reorder-globals` owns final global layout

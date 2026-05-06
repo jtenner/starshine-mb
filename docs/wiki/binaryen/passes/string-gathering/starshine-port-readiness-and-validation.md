@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
@@ -53,7 +54,9 @@ Landed local state:
 - `src/passes/string_gathering.mbt` owns the direct module rewrite;
 - the registry, dispatcher, CLI acceptance, and pass-fuzz harness surfaces are wired;
 - focused tests cover direct hoisting, deduplication, global remapping, scan order, no-op behavior, and nested structured bodies;
-- direct debug-artifact compare and 10k generator lanes are green.
+- the 2026-05-06 refreshed direct lane is green: `.tmp/pass-fuzz-string-gathering` reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+
+Earlier direct debug-artifact compare evidence remains useful historical coverage, but AUD002 is closed by the refreshed harness lane above.
 
 Remaining readiness is late-tail scheduling proof, not direct-pass existence.
 
@@ -284,7 +287,7 @@ The most important checks are:
 Use the backlog's `[SG]002` intent:
 
 - compare focused reduced modules against Binaryen `--string-gathering`;
-- keep the landed direct evidence current (`.tmp/pass-fuzz-string-gathering-genvalid-10000-native`, `.tmp/pass-fuzz-string-gathering-10000-native-keepgoing`, `.tmp/self-opt-string-gathering-debug`);
+- keep the landed direct evidence current (`.tmp/pass-fuzz-string-gathering`, plus older `.tmp/pass-fuzz-string-gathering-genvalid-10000-native`, `.tmp/pass-fuzz-string-gathering-10000-native-keepgoing`, and `.tmp/self-opt-string-gathering-debug` lanes);
 - then replay the saved no-DWARF/debug-artifact late-tail path once preset scheduling wiring exists.
 
 ## Beginner-to-advanced takeaway

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
@@ -260,4 +261,4 @@ So the best source-backed teaching split is:
 A 2026-04-23 spot check and a focused 2026-04-25 current-main / port-readiness bridge found no reviewed drift on the `StringGathering` surface that changes the `version_129` contract summarized here.
 
 So this page is not only historical tag archaeology.
-It still matches the reviewed upstream implementation surface on the key behaviors covered here. For Starshine implementation sequencing and exact local prerequisite anchors, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+It still matches the reviewed upstream implementation surface on the key behaviors covered here. On 2026-05-06, the active Starshine direct pass was revalidated under the refreshed compare harness with 6759 normalized matches, 0 semantic mismatches, and only the known Binaryen empty-recursion-group parser/canonicalization command failures. For Starshine implementation sequencing and exact local prerequisite anchors, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
