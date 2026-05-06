@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md
+  - ../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md
@@ -259,10 +261,12 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 - ordinary SIMD remains unchanged;
 - deterministic-SIMD-only bodies are semantically unchanged;
 - binary encode/decode and WAT parsing still agree after rewriting;
-- Binaryen dot-product spellings and current Starshine `relaxed_dot` spellings are intentionally aligned or intentionally rejected.
+- Binaryen dot-product spellings and current Starshine `relaxed_dot` spellings are intentionally aligned or intentionally rejected. The current Starshine spelling is round-tripped in `src/wast/keywords.mbt:463-467`, `src/wast/lower_to_lib.mbt:1519-1522`, `src/binary/decode.mbt:3809-3812`, and `src/lib/show.mbt:2109-2112`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)

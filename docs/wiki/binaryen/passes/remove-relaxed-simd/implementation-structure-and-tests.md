@@ -87,12 +87,12 @@ For complete opcode coverage, use the source visitor enumerations in `RemoveRela
 | Ordinary SIMD is not rewritten | visitor only matches relaxed opcodes | non-relaxed SIMD expectations in lit file |
 | Functions are refinalized after the postwalk | `doWalkFunction(...)` | source-backed; validation should catch regressions |
 | No feature-gated skip is shown | absence in reviewed owner file | correction from 2026-04-25 recheck |
-| Dot-product naming differs across surfaces | Binaryen source/lit spelling vs Starshine keyword spelling | source-backed; add alias or documentation tests before porting |
+| Dot-product naming differs across surfaces | Binaryen source/lit spelling vs Starshine keyword spelling; Starshine accepts and round-trips the current spellings in `src/wast/keywords.mbt:463-467`, `src/wast/lower_to_lib.mbt:1519-1522`, `src/binary/decode.mbt:3809-3812`, and `src/lib/show.mbt:2109-2112` | source-backed; add alias or documentation tests before porting |
 
 ## Current-main drift check
 
-The `main` versions reviewed on 2026-05-05 kept the same owner file, public spelling, lit filename, trap replacement, and refinalization shape as `version_129`.
-The 2026-05-05 recheck found no teaching-level drift from that correction and added a local implementation ladder in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+The `main` versions reviewed on 2026-05-06 kept the same owner file, public spelling, lit filename, trap replacement, and refinalization shape as `version_129`.
+The 2026-05-06 recheck found no teaching-level drift from that correction and added a local implementation ladder in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 The checks also found no teaching-level evidence for the older feature-gate wording.
 
 ## Porting cautions
@@ -105,6 +105,8 @@ The checks also found no teaching-level evidence for the older feature-gate word
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md)

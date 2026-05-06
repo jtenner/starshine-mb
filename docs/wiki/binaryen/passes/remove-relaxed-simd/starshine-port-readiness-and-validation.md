@@ -1,8 +1,10 @@
 ---
 kind: strategy
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md
+  - ../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md
@@ -50,11 +52,11 @@ That means a future port should start with a deliberate registry choice. Until r
 | Surface | Code location | Port relevance |
 | --- | --- | --- |
 | Relaxed SIMD opcode inventory | [`src/wast/types.mbt:720-740`](../../../../../src/wast/types.mbt) | Gives the full local enum set to classify. |
-| WAT keyword spellings | [`src/wast/keywords.mbt:440-468`](../../../../../src/wast/keywords.mbt) | Shows current Starshine names, including `relaxed_dot` spellings that differ from Binaryen's lit spelling. |
+| WAT keyword spellings | [`src/wast/keywords.mbt:463-467`](../../../../../src/wast/keywords.mbt) | Shows current Starshine names, including `relaxed_dot` spellings that differ from Binaryen's lit spelling. |
 | Binary codec | [`src/binary/encode.mbt:3792-3814`](../../../../../src/binary/encode.mbt), [`src/binary/decode.mbt:3783-3813`](../../../../../src/binary/decode.mbt) | Confirms relaxed opcodes already survive binary roundtrips. |
 | Type checking | [`src/validate/typecheck.mbt:3710-3729`](../../../../../src/validate/typecheck.mbt), [`src/validate/typecheck.mbt:9573-9790`](../../../../../src/validate/typecheck.mbt) | Provides arity and `v128` validation expectations for unary, binary, and ternary families. |
 | HOT representation | [`src/ir/hot_lift.mbt:1178-1198`](../../../../../src/ir/hot_lift.mbt), [`src/ir/hot_lower.mbt:1091`](../../../../../src/ir/hot_lower.mbt) | Relaxed SIMD can already be carried as `HotOp::Simd`; a HOT pass could classify the stored instruction payload. |
-| Text output caveat | [`src/lib/show.mbt:2106-2113`](../../../../../src/lib/show.mbt) | Pretty-printer dot-product names currently omit some underscores; verify before WAT roundtrip oracle tests. |
+| Text output caveat | [`src/lib/show.mbt:2109-2112`](../../../../../src/lib/show.mbt) | Pretty-printer dot-product names currently omit some underscores; verify before WAT roundtrip oracle tests. |
 
 ## Minimum viable port slice
 

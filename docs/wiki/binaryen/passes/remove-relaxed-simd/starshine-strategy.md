@@ -67,9 +67,9 @@ So today's correct user-facing description is:
 
 - `src/wast/types.mbt:720-740`
   - includes `Opcode` variants for the relaxed SIMD family.
-- `src/wast/keywords.mbt:440-468`
-  - maps text names such as `i8x16.relaxed_swizzle`, `f32x4.relaxed_madd`, and `i32x4.relaxed_dot_i8x16_i7x16_add_s` to opcode variants.
-  - Caveat: Binaryen's lit/source spelling for the dot-product relaxed family omits `relaxed_`; Starshine currently uses `relaxed_dot` spellings.
+- `src/wast/keywords.mbt:463-467`
+  - maps the relaxed-dot text names, including `i16x8.relaxed_dot_i8x16_i7x16_s` and `i32x4.relaxed_dot_i8x16_i7x16_add_s`, to opcode variants.
+  - Caveat: Binaryen's lit/source spelling for the dot-product relaxed family omits `relaxed_`; Starshine currently uses `relaxed_dot` spellings, and the current Starshine spelling is also printed and decoded in `src/lib/show.mbt:2109-2112`, `src/binary/decode.mbt:3809-3812`, and lowered in `src/wast/lower_to_lib.mbt:1519-1522`.
 - `src/wast/parser.mbt:3798-3806`
   - classifies relaxed lane-select and madd/nmadd forms as `SimdTernary(...)`.
 - `src/wast/parser.mbt:3907-3919`
@@ -151,6 +151,8 @@ The Binaryen-compatible behavior is to trap at the relaxed operation site.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md)

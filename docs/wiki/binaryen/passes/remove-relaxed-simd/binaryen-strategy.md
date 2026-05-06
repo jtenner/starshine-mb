@@ -40,7 +40,7 @@ This avoids pretending that one deterministic SIMD sequence is a faithful substi
 The same tag declares `createRemoveRelaxedSIMDPass()` in `src/passes/passes.h` and implements the pass in `src/passes/RemoveRelaxedSIMD.cpp`.
 The tagged changelog records the pass as a `version_126` addition.
 
-Current `main`, rechecked again on 2026-05-05 for freshness, keeps the same public pass spelling, constructor, owner file, trap-replacement strategy, refinalization shape, and dedicated lit filename. The fresh recheck is captured in [`../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md).
+Current `main`, rechecked again on 2026-05-06 for freshness, keeps the same public pass spelling, constructor, owner file, trap-replacement strategy, refinalization shape, and dedicated lit filename. The fresh recheck is captured in [`../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md).
 
 ## Core rewrite algorithm
 
@@ -146,6 +146,8 @@ Before porting, source-confirm whether Starshine should add a separate metadata 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md)

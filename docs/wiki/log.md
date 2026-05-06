@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `remove-relaxed-simd` freshness layer and spelling anchors
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-remove-relaxed-simd-current-main-recheck.md` plus `docs/wiki/raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md` after rechecking current Binaryen `RemoveRelaxedSIMD.cpp`, `pass.cpp`, `child-localizer.h`, and `remove-relaxed-simd.wast` against the existing contract.
+- Refreshed the `remove-relaxed-simd` landing page, Binaryen strategy, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine port-readiness bridge, root wiki index, pass catalog, and tracker so the folder now has a 2026-05-06 freshness layer plus exact local dot-product spelling anchors in `src/wast/keywords.mbt`, `src/wast/lower_to_lib.mbt`, `src/binary/decode.mbt`, and `src/lib/show.mbt`.
+- Recorded unchanged contract status: Binaryen still traps relaxed SIMD expressions after preserving child effects, and Starshine still keeps the pass unimplemented with the dot-product spelling split explicit.
+
 ## [2026-05-06] health | refresh `dae2` Starshine code anchors
 
 - Tightened the `dae2` Starshine strategy and port-readiness pages so their local code-map ranges now point at the current `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, and `src/cmd/cmd.mbt` surfaces instead of stale anchors.
