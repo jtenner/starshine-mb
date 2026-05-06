@@ -54,9 +54,9 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 The active local strategy is still deliberately slot-honest:
 
 - keep the upstream pass spelling active in the registry surface
-- keep public `optimize` / `shrink` placement gated until the surrounding missing Binaryen-neighbor slots are representable
+- schedule the proven late `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` cleanup neighborhood in public `optimize` / `shrink`
+- keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gated until `flatten` lands
 - grow the implementation from same-window temp-localizing reuse without recasting it as a whole-function GVN pass
-- keep direct `--local-cse` parity evidence separate from later ordered-neighborhood proof
 
 ## Exact local code map today
 
@@ -66,12 +66,12 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/local_cse.mbt:2-7,217-...`
   - `src/passes/local_cse_test.mbt:14-94`
 - active registry and dispatcher surface
-  - `src/passes/optimize.mbt:253,437-448`
-    - `local-cse` is registered as an active module pass and kept out of the exact preset neighborhood
+  - `src/passes/optimize.mbt`
+    - `local-cse` is registered as an active module pass and scheduled in the proven late local-cleanup preset neighborhood
   - `src/passes/pass_manager.mbt:8941`
     - routes `local-cse` through `local_cse_run_module_pass(...)`
-  - `src/passes/optimize_test.mbt:510-512`
-    - keeps `local-cse` in the active module-pass category while the aggressive neighborhood stays gated
+  - `src/passes/optimize_test.mbt`
+    - keeps `local-cse` in the active module-pass category, locks the late preset order, and keeps the aggressive neighborhood gated
 - completed backlog and release note
   - `agent-todo.md`
     - the LCSE implementation slice has been pruned
@@ -108,7 +108,7 @@ Today Starshine's behavior for `local-cse` is active but deliberately scoped.
 That means:
 
 - direct `--local-cse` requests execute instead of rejecting as removed
-- the pass remains separate from public presets until neighbor-slot proof is ready
+- the pass participates in public presets through the proven late local-cleanup neighborhood
 - the completed LCSE backlog slice has moved to `CHANGELOG.md`
 
 ### 2. The landed work is a direct parity slice
@@ -134,8 +134,7 @@ Upstream Binaryen expects other passes to expose the right shapes first:
 - `coalesce-locals` simplifies later local traffic before the ordinary late run
 - full `simplify-locals` cleans up the temp-local traffic `local-cse` leaves behind
 
-Current Starshine already has the direct `local-cse` transform, the late consumer (`simplify-locals`), and a local-index rewrite neighbor (`reorder-locals`), but it does **not** yet have the missing early and late prerequisite neighbors needed for exact public preset parity.
-That is why current preset placement should stay honest.
+Current Starshine has the direct `local-cse` transform, the late consumer (`simplify-locals`), and enough late-neighbor proof to schedule `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` in public presets. The aggressive early `flatten -> simplify-locals-notee-nostructure -> local-cse` slot remains gated because `flatten` is still unavailable.
 
 ## The right future Starshine implementation shape
 

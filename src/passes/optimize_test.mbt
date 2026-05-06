@@ -517,11 +517,14 @@ test "simplify-locals-notee-nostructure exact neighborhood waits for flatten" {
 }
 
 ///|
-test "optimize preset schedules heap2local in the mid-function GC slot" {
+test "optimize preset schedules the proven late local-cse neighborhood" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   assert_eq(optimize[15], "remove-unused-brs")
   assert_eq(optimize[16], "heap2local")
-  assert_eq(optimize[17], "simplify-locals")
+  assert_eq(optimize[17], "local-subtyping")
+  assert_eq(optimize[18], "coalesce-locals")
+  assert_eq(optimize[19], "local-cse")
+  assert_eq(optimize[20], "simplify-locals")
 }
 
 ///|
@@ -561,7 +564,7 @@ test "optimize preset hands simplify-locals output to the late merge-blocks clea
   assert_eq(sl_count, 1)
   assert_true(sl_idx > 0, msg=starts.to_string())
   assert_true(
-    starts[sl_idx - 1].contains("pass[heap2local]:start"),
+    starts[sl_idx - 1].contains("pass[local-cse]:start"),
     msg=starts.to_string(),
   )
   assert_true(
