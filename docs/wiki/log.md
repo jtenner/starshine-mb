@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `global-effects` line anchors and local code-map refs
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md` after rechecking the official Binaryen `main` `GlobalEffects.cpp`, `pass.cpp`, and `effects.h` anchors against the existing metadata-producing contract.
+- Refreshed the `global-effects` overview, Binaryen strategy, implementation/test-map, Starshine strategy, and top-level wiki index so the 2026-05-05 line-anchor refresh is visible from the living dossier together with the exact local Starshine code-map anchors.
+- Recorded unchanged contract status: upstream `generate-global-effects` still remains metadata-only and out of the default optimize sequence, and Starshine still keeps `global-effects` boundary-only until a real module-level metadata pass exists.
+
 ## [2026-05-05] health | refresh `simplify-locals-notee-nostructure` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md` plus `docs/wiki/raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md` after rechecking current `main` `SimplifyLocals.cpp`, `pass.cpp`, and the dedicated `simplify-locals-notee-nostructure` test pair against the existing contract.

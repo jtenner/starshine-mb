@@ -5,6 +5,8 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
@@ -42,9 +44,22 @@ related:
 - `GlobalEffects.cpp#L1006-L1035` - stale `PassOptions` comment, `FuncInfo` setup, and the shallow per-function summary shell
 - `GlobalEffects.cpp#L1046-L1155` - parallel body scan plus direct-call and unknown-call classification
 - `GlobalEffects.cpp#L1329-L1530` - SCC/component propagation, recursive-cycle trap marking, and per-function writeback
+- `pass.cpp#L2475-L2480` - the cleanup sibling registration block
 - `pass.cpp#L2558-L2561` - the producer registration block
 - `pass.cpp#L3687-L3692` - the explicit note that the pass is still not part of the default optimize sequence
 - `effects.h#L3479-L3525` - direct-call consumer lookup on `Call` nodes
+
+## Exact local Starshine code-map refresh
+
+The 2026-05-05 line-anchor refresh keeps these exact local surfaces explicit for the living dossier:
+
+- `src/passes/optimize.mbt:127-137, 315-318, 525-531`
+- `src/cli/cli_test.mbt:207-210`
+- `src/cmd/cmd.mbt:1721-1731, 1919-1923`
+- `src/passes/pass_common.mbt:118-120, 318-338`
+- `src/ir/analysis_cache.mbt:19-23, 34-35, 70-72, 220-222`
+- `src/passes/simplify_locals.mbt:4413-4607`
+- `src/passes/heap_store_optimization.mbt:2224-2234`
 
 ## `GlobalEffects.cpp`
 
@@ -163,6 +178,8 @@ For the exact local owner-file, registry, dispatcher, summary-model, and validat
 
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)
+- [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
 - [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)

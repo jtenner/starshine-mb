@@ -5,6 +5,8 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
@@ -42,9 +44,14 @@ Starshine currently treats `global-effects` as a **boundary-only compatibility n
 
 The exact local facts are:
 
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lists `global-effects` in `pass_registry_boundary_only_names()`.
-- the same file rejects requested boundary-only passes with the standard “not implemented in the hot pipeline” error during pass expansion.
-- [`src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt) proves `--global-effects` is accepted by CLI parsing and normalized to the `global-effects` pass flag.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines `127-137` list `global-effects` in `pass_registry_boundary_only_names()`.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines `315-318` materialize those boundary-only names into the hot registry.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines `525-531` reject requested boundary-only passes with the standard “not implemented in the hot pipeline” error during pass expansion.
+- [`src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt) lines `207-210` prove `--global-effects` is accepted by CLI parsing and normalized to the `global-effects` pass flag.
+- [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt) lines `1721-1731` and `1919-1923` keep the hot-pipeline pass-flag path explicit.
+- [`src/passes/pass_common.mbt`](../../../../../src/passes/pass_common.mbt) lines `118-120` and `318-338` keep the shared local effects analysis path explicit.
+- [`src/ir/analysis_cache.mbt`](../../../../../src/ir/analysis_cache.mbt) lines `19-23`, `34-35`, `70-72`, and `220-222` keep the cached hot effects summary model explicit.
+- [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt) lines `4413-4607` and [`src/passes/heap_store_optimization.mbt`](../../../../../src/passes/heap_store_optimization.mbt) lines `2224-2234` are the main local consumers of that shared effect cache.
 - no `src/passes/global_effects.mbt` owner file exists today.
 - no active HOT pass, module pass, preset slot, or `agent-todo.md` backlog slice exists for this pass today.
 
@@ -163,6 +170,8 @@ Until a module-level implementation exists, do not claim that Starshine:
 
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)
+- [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
 - [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)

@@ -5,6 +5,8 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
@@ -148,7 +150,7 @@ The visible teaching drift is in implementation structure, not in the high-level
 - current `main` builds an explicit call graph, computes SCCs, processes components in reverse topological order, aggregates component effects, and applies component summaries back to functions.
 - both reviewed versions keep the durable story: shallow scan, conservative unknown effects, recursive-cycle conservatism, per-function effect metadata, and a discard sibling.
 
-When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation. The 2026-04-27 readiness bridge recommends an SCC-shaped Starshine analyzer as an implementation convenience, but only if the semantic contract is still compared against the selected Binaryen oracle; the 2026-05-05 recheck did not change that guidance.
+When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation. The 2026-04-27 readiness bridge recommends an SCC-shaped Starshine analyzer as an implementation convenience, but only if the semantic contract is still compared against the selected Binaryen oracle; the 2026-05-05 recheck did not change that guidance. The companion 2026-05-05 line-anchor refresh keeps the exact local Starshine code-map anchors explicit for the living dossier.
 
 ## Current-main spotcheck anchors
 
@@ -260,6 +262,8 @@ If Starshine ever ports this and accidentally turns it into a direct code-rewrit
 
 - [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)
+- [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
 - [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)

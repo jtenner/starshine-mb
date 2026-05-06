@@ -5,6 +5,8 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
@@ -45,7 +47,7 @@ related:
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - Its job is to compute per-function global-effect summaries that later passes can consult across calls.
 - The 2026-04-24 source capture adds an immutable primary-source manifest, records a current-`main` propagation refactor, and makes the stale upstream comment-vs-implementation wording explicit: the implementation writes per-function `Function.effects`, even though an owner-file header phrase still says `PassOptions`.
-- The 2026-05-05 current-main recheck confirms the same teaching contract on the reviewed surfaces and keeps the SCC-shaped current-main implementation note explicit.
+- The 2026-05-05 current-main recheck and line-anchor refresh confirm the same teaching contract on the reviewed surfaces, keep the SCC-shaped current-main implementation note explicit, and tighten the exact local code-map anchors used by the living dossier.
 - The 2026-04-25 follow-up gives the cleanup sibling [`../discard-global-effects/index.md`](../discard-global-effects/index.md) its own canonical home, so this page can focus on producing summaries while the sibling page covers clearing stale summaries.
 - The 2026-04-27 port-readiness bridge adds the missing local implementation ladder: analyzer-only first slice, per-function summary storage, SCC/fixed-point propagation choice, consumer sequencing, and paired Binaryen validation lanes.
 
@@ -109,6 +111,10 @@ So the pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-line-anchor-refresh.md)
+- [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
 - [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)
