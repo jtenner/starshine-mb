@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -188,9 +189,9 @@ The active direct Starshine port includes these pieces:
    - global-initializer dependencies,
    - binary encode/decode and validation-sensitive order.
 5. **Late-tail scheduling proof**
-   - still deferred until `string-gathering` and `directize` exist locally,
+   - still deferred until the full `string-gathering -> reorder-globals -> directize` neighborhood is replayed,
    - direct reduced shapes are covered now,
-   - direct oracle evidence is recorded: `.tmp/pass-fuzz-reorder-globals-10000-post-raw-name-clear` has `6759` comparable normalized matches with `0` mismatches before known command-failure cutoff, and `.tmp/self-opt-reorder-globals-20260426-post-raw-name-clear` is canonical/normalized-WAT equal on the debug artifact.
+   - refreshed direct oracle evidence is recorded: `.tmp/pass-fuzz-reorder-globals` has `6759` comparable normalized matches with `0` mismatches and `20` known Binaryen empty-recursion-group parser/canonicalization command failures, while the older `.tmp/self-opt-reorder-globals-20260426-post-raw-name-clear` artifact lane remained canonical/normalized-WAT equal on the debug artifact.
 
 ## Non-goals
 
@@ -207,6 +208,7 @@ Those are neighboring concerns with their own dossiers.
 
 ## Sources
 
+- [`../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md`](../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md)
 - [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)

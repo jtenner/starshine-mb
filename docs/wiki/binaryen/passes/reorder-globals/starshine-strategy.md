@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -46,7 +47,7 @@ The current local strategy is direct public-pass support plus explicit late-tail
 - count whole-module global traffic and initializer dependencies
 - apply a declaration reorder plus Starshine-specific numeric `GlobalIdx` remapping
 - keep the canonical no-DWARF late-tail slot documented but out of presets until `string-gathering` and `directize` exist locally
-- keep direct artifact and 10000-case oracle proof recorded while reserving ordered late-tail proof for missing neighbors
+- keep refreshed direct 10000-case oracle proof recorded while reserving ordered late-tail proof for the full late-tail neighborhood
 
 So this page is now an **implementation status and late-tail follow-up** page.
 
@@ -222,7 +223,7 @@ So the current repo status is best summarized as:
 - `always` sibling still boundary-only
 - late-tail preset integration deferred behind missing neighbors
 - reduced tests landed
-- direct artifact/oracle proof recorded; ordered late-tail proof still blocked on missing neighbors
+- refreshed direct oracle proof recorded; ordered late-tail proof still blocked on the full late-tail neighborhood
 
 ## Validation plan for the eventual port
 
@@ -257,7 +258,7 @@ Current Starshine `reorder-globals` strategy is direct public-pass support plus 
 - the pass implementation lives in [`src/passes/reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt)
 - focused coverage lives in [`src/passes/reorder_globals_test.mbt`](../../../../../src/passes/reorder_globals_test.mbt)
 - `reorder-globals` is registered as an active module pass while `reorder-globals-always` remains boundary-only
-- [`agent-todo.md`](../../../../../agent-todo.md) records direct artifact/oracle evidence and treats late-tail proof as the remaining `RG` work
+- [`agent-todo.md`](../../../../../agent-todo.md) records refreshed direct oracle evidence and treats late-tail proof as the remaining `RG` work
 - the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
 - the surrounding [`string-gathering`](../string-gathering/index.md), [`reorder-globals-always`](../reorder-globals-always/index.md), and [`directize`](../directize/index.md) dossiers define the remaining landing zone
 
@@ -267,4 +268,4 @@ So the right mental model today is:
 - **`always` sibling deferred**
 - **late-tail preset scheduling deferred**
 - **reduced reindexing tests landed**
-- **direct artifact and 10000-case compare evidence recorded; ordered late-tail proof pending**
+- **refreshed direct 10000-case compare evidence recorded; ordered late-tail proof pending**

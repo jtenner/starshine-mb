@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `reorder-globals` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `reorder-globals`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass reorder-globals --out-dir .tmp/pass-fuzz-reorder-globals`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md` and refreshed the reorder-globals living pages.
+- Pruned `reorder-globals` from the AUD002 remaining revalidation list while keeping `[RG]002` as the late-tail ordered-neighborhood proof blocker.
+
 ## [2026-05-06] validation | revalidate `duplicate-function-elimination` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `duplicate-function-elimination`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination`.

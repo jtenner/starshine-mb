@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -98,6 +99,7 @@ That is much closer to the real pass than either:
   - `reorder-globals` is an active direct module pass implemented in `src/passes/reorder_globals.mbt`
   - `reorder-globals-always` remains a boundary-only tracked name
 - The active pass implements the public production policy, including the `<128` total-global no-op, dependency-aware candidate ordering, true ULEB-size scoring, import-prefix preservation, and numeric `GlobalIdx` remapping across module/code/name surfaces.
+- On 2026-05-06, refreshed direct-pass signoff in `.tmp/pass-fuzz-reorder-globals` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 - The public optimize/shrink presets still do not schedule the late-tail slot even though neighboring `string-gathering` is now implemented; the active `directize` pass also has direct explicit-pass oracle signoff, but the full `string-gathering -> reorder-globals -> directize` tail still needs ordered replay before preset scheduling.
 
 Keep preserving the distinction between the public pass and the `always` helper instead of collapsing them accidentally.
@@ -126,6 +128,7 @@ Keep preserving the distinction between the public pass and the `always` helper 
 
 ## Sources
 
+- [`../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md`](../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md)
 - [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
