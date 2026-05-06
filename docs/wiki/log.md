@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `tuple-optimization` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `tuple-optimization`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass tuple-optimization --out-dir .tmp/pass-fuzz-tuple-optimization`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md` and refreshed the tuple-optimization living pages.
+- Pruned `tuple-optimization` from the AUD002 remaining revalidation list while keeping `[TO]005` as the exact-slot, debug-artifact, and runtime blocker.
+
 ## [2026-05-06] validation | revalidate `simplify-locals` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `simplify-locals`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals --out-dir .tmp/pass-fuzz-simplify-locals`.

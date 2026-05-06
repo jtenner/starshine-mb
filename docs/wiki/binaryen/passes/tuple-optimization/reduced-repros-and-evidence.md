@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
@@ -130,6 +131,13 @@ Interpretation:
   - pass-manager lowering currently promotes that tuple node before `hot_lower`
   - the reduced self-opt compare is still red and slow even though the reduced native parity lane is green
 
+## Current Fuzz Evidence
+
+Fresh full direct revalidation on `2026-05-06`:
+
+- `.tmp/pass-fuzz-tuple-optimization` => `6759 / 10000` compared, `6759` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `20` command failures
+- command-failure classification: Binaryen empty-recursion-group parser/canonicalization failures on wasm-smith inputs, not semantic mismatches
+
 ## Historical Fuzz Evidence
 
 Fresh current-head fuzz evidence on `2026-04-10`:
@@ -159,7 +167,7 @@ Standing larger evidence still includes the clean historical `gen-valid` lane at
 
 Current interpretation:
 
-- the isolated explicit pass is not showing semantic mismatches on the broad fuzz lane that currently compares successfully
+- the isolated explicit pass is not showing semantic mismatches on the refreshed broad fuzz lane that currently compares successfully
 - the white-box tuple file is now green again and no longer represents a separate parity blocker
 - the remaining work is concentrated in artifact replay signoff and runtime families, plus Binaryen parser-family noise outside Starshine semantics
 

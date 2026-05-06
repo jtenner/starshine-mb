@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
@@ -28,7 +29,7 @@ related:
 
 - Starshine's tuple-opt should be judged first against Binaryen, not against a home-grown notion of "reasonable multivalue cleanup."
 - The explicit pass surface is real and useful today, but it is not yet preset-slot parity.
-- The isolated pass has strong direct parity evidence on reduced and fuzzed lanes.
+- The isolated pass has fresh direct parity evidence under the 2026-05-06 refreshed `pass-fuzz-compare` harness.
 - The old white-box exact-shape reds were stale expectation debt and are now rebaselined to the current Binaryen-backed scalarization contract; full artifact parity is still not signed off.
 
 ## Current In-Tree Status
@@ -41,7 +42,19 @@ related:
 
 ## Current Direct Test Evidence
 
-Fresh local checks taken for this doc update on `2026-04-10`:
+Fresh direct revalidation taken for this doc update on `2026-05-06`:
+
+- `moon info`
+  - result: completed with existing warnings only
+- `moon fmt`
+  - result: completed, no formatting work needed
+- `moon test`
+  - result: `2800 / 2800` passed
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass tuple-optimization --out-dir .tmp/pass-fuzz-tuple-optimization`
+  - result: `6759 / 10000` compared, `6759` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `20` command failures
+  - command-failure classification: the already-seen Binaryen parser/canonicalization failure class on wasm-smith inputs with empty recursion groups, not a Starshine/Binaryen semantic mismatch
+
+Older focused local checks taken on `2026-04-10`:
 
 - `moon test --package jtenner/starshine/cmd --file cmd_native_wbtest.mbt --target native --filter '*tuple-optimization*'`
   - result: `15 / 15` passed
@@ -55,7 +68,7 @@ Interpretation:
 - the direct native Binaryen-compare lane is green again on every committed tuple-opt regression in that file
 - the black-box command-surface tuple lane is also green again
 - the white-box tuple file is green again after rebasing stale temp-local shape checks onto stable scalarization and copyback invariants
-- the remaining open work is preset placement plus the larger artifact/runtime proof gap, not reduced direct parity
+- the remaining open work is preset placement plus the larger artifact/runtime proof gap, not direct explicit-pass parity
 
 ## Current Green Surface
 
@@ -70,11 +83,11 @@ The branch is already in good shape on these fronts:
 
 ## Current Red Surface
 
-Parity is not signed off yet because all of these are still open:
+Direct explicit-pass parity is signed off under the refreshed 2026-05-06 harness, but these broader lanes are still open:
 
 - preset slot still not enabled in the real Binaryen neighborhood
-- the last recorded full artifact compare is still red and still treated as an active blocker
-- the reduced self-opt compare is still red and tuple-only runtime remains well behind Binaryen
+- exact `code-pushing -> tuple-optimization -> simplify-locals-nostructure` slot proof is still pending
+- full debug-artifact replay and tuple-only runtime remain active TO005 debt
 
 ## 2026-04-11 Health Rerun
 

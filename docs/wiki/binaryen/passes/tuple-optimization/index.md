@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md
@@ -85,6 +86,7 @@ It is a source-backed clarification pass over a real existing dossier.
 - The explicit Starshine pass exists and is wired into the pass manager and CLI.
 - The public `optimize` and `shrink` presets still intentionally omit it because exact preset-slot parity and runtime-budget proof are still open, even though the neighboring `code-pushing` and `simplify-locals-nostructure` surfaces are now represented locally.
 - Current reduced native-compare coverage is green.
+- Fresh 2026-05-06 full direct pass-fuzz revalidation is green on comparable cases: `6759 / 10000` compared, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
 - Current full-artifact comparison is canonically green on the per-function fallback surface, but exact preset-slot parity and runtime budget are still open.
 - Raw normalized WAT text is still too strict to use as the only tuple-opt parity oracle.
 
@@ -122,6 +124,8 @@ That broader reading is not what the source file or test suite implement today.
   - The current signoff state: strong direct isolated parity, canonical full-artifact compare status, open preset-slot proof, and remaining runtime debt.
 
 ## Freshness note
+
+The direct Starshine pass was revalidated on 2026-05-06 with the refreshed pass-fuzz harness, keeping explicit-pass parity green while leaving preset-slot proof separate.
 
 The reviewed official Binaryen release page on 2026-05-04 still showed `version_129` as the stable oracle, and the fresh current-main bridge keeps that provenance explicit.
 A narrow 2026-05-04 comparison against current GitHub `main` found:
