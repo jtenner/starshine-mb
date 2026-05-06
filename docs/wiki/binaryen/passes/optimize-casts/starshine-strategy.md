@@ -65,7 +65,7 @@ The fastest read-along path through the current Starshine status is:
 
 - active HOT implementation
   - `src/passes/optimize_casts.mbt`
-    - removes provably redundant GC casts and folds statically known `ref.test` outcomes
+    - removes provably redundant GC casts, folds statically known `ref.test` outcomes, and rewrites guaranteed-success branch casts
 - active dispatcher
   - `src/passes/pass_manager.mbt`
     - routes `"optimize-casts"` to `optimize_casts_run(...)`
@@ -74,7 +74,7 @@ The fastest read-along path through the current Starshine status is:
     - tracks `"optimize-casts"` as an active pass name
 - focused behavior tests
   - `src/passes/optimize_casts_test.mbt`
-    - covers redundant `ref.cast`, guaranteed-true `ref.test`, and nullable-to-nonnull trap preservation
+    - covers redundant `ref.cast`, guaranteed-true `ref.test`, descriptor casts/tests, guaranteed-success `br_on_cast` / `br_on_cast_fail`, and nullable-to-nonnull trap preservation
 - backlog and delivery plan
   - `agent-todo.md`
     - `#### OC - Optimize Casts Follow-up`
@@ -98,9 +98,9 @@ Today Starshine's behavior for `optimize-casts` is deliberately limited.
 
 ### 1. The active pass is narrow and direct-only
 
-`src/passes/optimize_casts.mbt` currently owns a conservative HOT rewrite, not the whole upstream Binaryen strategy. It removes casts when the source reference type already satisfies the target, folds `ref.test` when the static source type guarantees success, and preserves nullable-to-nonnull `ref.cast` trap behavior.
+`src/passes/optimize_casts.mbt` currently owns a conservative HOT rewrite, not the whole upstream Binaryen strategy. It removes casts when the source reference type already satisfies the target, folds `ref.test` / `ref.test_desc` when the static source type guarantees success, removes redundant `ref.cast_desc_eq`, rewrites guaranteed-success `br_on_cast` to an unconditional branch, rewrites guaranteed-success `br_on_cast_fail` to the fallthrough reference, and preserves nullable-to-nonnull `ref.cast` trap behavior.
 
-The 2026-05-06 direct revalidation ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. This removes `optimize-casts` from the AUD002 stale-evidence lane, but it does not prove the public preset slot.
+The 2026-05-06 direct revalidation ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The 2026-05-06 branch-cast widening replayed the same 10000-case lane with `--out-dir .tmp/pass-fuzz-optimize-casts-oc-branch` and again reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 command failures. This keeps direct parity green, but it does not prove the public preset slot.
 
 ### 2. The remaining work is planned as parity follow-up, not an orphan idea
 

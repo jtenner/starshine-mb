@@ -43,7 +43,7 @@ Use this bridge with:
 
 ## Current local reality
 
-`optimize-casts` now has an active narrow HOT implementation in Starshine. The current pass removes provably redundant GC casts and folds statically known `ref.test` outcomes; it is direct-pass revalidated but remains out of public preset scheduling until the surrounding GC/local neighborhood is oracle-proven.
+`optimize-casts` now has an active narrow HOT implementation in Starshine. The current pass removes provably redundant GC casts, folds statically known `ref.test` / descriptor-test outcomes, removes redundant descriptor casts, and rewrites guaranteed-success `br_on_cast` / `br_on_cast_fail`; it is direct-pass revalidated but remains out of public preset scheduling until the surrounding GC/local neighborhood is oracle-proven.
 
 ## Remaining upstream-aligned widening
 
@@ -65,8 +65,8 @@ That means the next upstream-aligned landing should be able to answer these ques
 
 | Surface | Why it matters |
 | --- | --- |
-| `src/passes/optimize_casts.mbt` | active narrow HOT implementation for redundant GC casts and statically known `ref.test` outcomes. |
-| `src/passes/optimize_casts_test.mbt` | direct behavior coverage for redundant `ref.cast`, guaranteed-true `ref.test`, and nullable-to-nonnull trap preservation. |
+| `src/passes/optimize_casts.mbt` | active narrow HOT implementation for redundant GC casts, statically known `ref.test` outcomes, descriptor casts/tests, and guaranteed-success branch casts. |
+| `src/passes/optimize_casts_test.mbt` | direct behavior coverage for redundant `ref.cast`, guaranteed-true `ref.test`, descriptor casts/tests, guaranteed-success `br_on_cast` / `br_on_cast_fail`, and nullable-to-nonnull trap preservation. |
 | `src/passes/optimize.mbt` | active registry coverage for `optimize-casts`. |
 | `src/passes/pass_manager.mbt` | dispatcher routes `optimize-casts` to `optimize_casts_run(...)`. |
 | `agent-todo.md` | backlog slice `OC` is the current follow-up planning anchor. |
@@ -117,7 +117,7 @@ Future widening should validate in this order:
 ## Non-goals to preserve
 
 Do not widen the active pass into a generic cast optimizer.
-The reviewed upstream oracle still does **not** own:
+The reviewed upstream oracle still does **not** own the following families even though Starshine's local direct pass now has conservative direct-only rewrites for the first three:
 
 - `ref.test`
 - `br_on_cast` / `br_on_cast_fail`

@@ -765,6 +765,8 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     Instruction::RefCast(_, _) => Some(HotOp::RefCast)
     Instruction::RefTestDesc(_, _) => Some(HotOp::RefTestDesc)
     Instruction::RefCastDescEq(_, _) => Some(HotOp::RefCastDescEq)
+    Instruction::BrOnCast(_, _, _, _) => Some(HotOp::BrOnCast)
+    Instruction::BrOnCastFail(_, _, _, _) => Some(HotOp::BrOnCastFail)
     Instruction::StringNewUtf8Array
     | Instruction::StringNewWtf16Array
     | Instruction::StringEncodeUtf8Array
@@ -1418,7 +1420,9 @@ fn hot_lift_impl_exact_node_shape(
     Instruction::RefTest(_, _)
     | Instruction::RefCast(_, _)
     | Instruction::RefTestDesc(_, _)
-    | Instruction::RefCastDescEq(_, _) => (op, ty, 0, payload_id)
+    | Instruction::RefCastDescEq(_, _)
+    | Instruction::BrOnCast(_, _, _, _)
+    | Instruction::BrOnCastFail(_, _, _, _) => (op, ty, 0, payload_id)
     _ => (op, ty, payload_id, 0)
   }
 }
@@ -2314,6 +2318,63 @@ fn hot_lift_impl_lift_instruction(
         HotOp::BrOnNull,
         hot_lift_impl_result_type(func, pushed_types),
         imm0=target,
+        children~,
+      )
+      hot_lift_impl_push_node(
+        roots, values, concrete_values, node_id, pushed_types,
+      )
+      return Ok(after_state)
+    }
+    Instruction::BrOnCast(label_idx, _, _, _)
+    | Instruction::BrOnCastFail(label_idx, _, _, _) => {
+      let before_types = tc_state.stack
+      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+      let target = match
+        hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
+        Ok(label_id) => label_id
+        Err(err) => return Err(err)
+      }
+      let payload_count = hot_label_branch_arity(func, target) - 1
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          instr,
+          tc_state,
+          concrete_values,
+          payload_count + 1,
+        ) {
+        return Ok(after_state)
+      }
+      let guard_id = match
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "br_on_cast guard",
+        ) {
+        Ok(guard_id) => guard_id
+        Err(err) => return Err(err)
+      }
+      let children = hot_lift_impl_peek_values_with_extra(
+        values, payload_count, guard_id,
+      )
+      let pushed_types = hot_lift_impl_pushed_types(
+        before_types,
+        after_state.stack,
+        payload_count + 1,
+      )
+      let op = match instr {
+        Instruction::BrOnCast(_, _, _, _) => HotOp::BrOnCast
+        _ => HotOp::BrOnCastFail
+      }
+      let payload_id = hot_alloc_instr_payload(
+        func,
+        HotInstrPayload::new(instr),
+      )
+      let node_id = hot_build_node(
+        func,
+        op,
+        hot_lift_impl_result_type(func, pushed_types),
+        imm0=target,
+        imm1=payload_id,
         children~,
       )
       hot_lift_impl_push_node(

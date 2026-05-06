@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] implementation | widen `optimize-casts` branch casts
+
+- Added HOT lifting support for `br_on_cast` / `br_on_cast_fail` and taught `optimize-casts` to rewrite guaranteed-success `br_on_cast` to an unconditional branch and guaranteed-success `br_on_cast_fail` to the fallthrough reference.
+- Added focused branch-cast regression coverage in `src/passes/optimize_casts_test.mbt` and replayed `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-oc-branch`: 6759 compared cases, 6759 normalized matches, 20 Binaryen command failures, and 0 mismatches.
+- Pruned completed `OC003` branch-cast follow-up from `agent-todo.md` while keeping exact-ref tightening and ordered-neighborhood preset proof active.
+
 ## [2026-05-06] validation | revalidate `remove-unused-module-elements` direct pass
 
 - Fixed direct RUME parity drift for non-constant active segment offsets and empty const-offset active element segments.

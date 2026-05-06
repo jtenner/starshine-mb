@@ -215,6 +215,23 @@ fn oc_replace_with_const_i32(
 }
 
 ///|
+fn oc_replace_with_unconditional_br(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  let node = @ir.hot_node_get(func, node_id)
+  let values : Array[Int] = []
+  for i = 0; i < @ir.hot_child_count(func, node_id); i = i + 1 {
+    values.push(@ir.hot_child_get(func, node_id, i))
+  }
+  let temp = @ir.hot_build_br(func, node.imm0, values~)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  pass_replace_node(ctx, func, node_id, replacement)
+}
+
+///|
 fn oc_rewrite_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -254,6 +271,46 @@ fn oc_rewrite_node(
           let target_ref = oc_target_ref_type(nullable, heap_type)
           if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
             oc_replace_with_const_i32(ctx, func, node_id, 1)
+            return true
+          }
+        }
+        None => ()
+      }
+      false
+    }
+    Some(@lib.Instruction::BrOnCast(_, @lib.CastOp(_, nullable), _, heap_type)) => {
+      if @ir.hot_child_count(func, node_id) == 0 {
+        return false
+      }
+      let child_id = @ir.hot_child_get(
+        func,
+        node_id,
+        @ir.hot_child_count(func, node_id) - 1,
+      )
+      match oc_ref_type_from_node(func, child_id) {
+        Some(source_ref) => {
+          let target_ref = oc_target_ref_type(nullable, heap_type)
+          if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
+            oc_replace_with_unconditional_br(ctx, func, node_id)
+            return true
+          }
+        }
+        None => ()
+      }
+      false
+    }
+    Some(
+      @lib.Instruction::BrOnCastFail(_, @lib.CastOp(_, nullable), _, heap_type)
+    ) => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return false
+      }
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      match oc_ref_type_from_node(func, child_id) {
+        Some(source_ref) => {
+          let target_ref = oc_target_ref_type(nullable, heap_type)
+          if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
+            oc_replace_with_child(ctx, func, node_id)
             return true
           }
         }

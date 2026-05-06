@@ -31,7 +31,7 @@ related:
 
 - `optimize-casts` is an upstream Binaryen GC/local cleanup pass.
 - Starshine now has an active narrow HOT implementation in [`../../../../../src/passes/optimize_casts.mbt`](../../../../../src/passes/optimize_casts.mbt), dispatcher coverage in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), registry coverage in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), and tests in [`../../../../../src/passes/optimize_casts_test.mbt`](../../../../../src/passes/optimize_casts_test.mbt).
-- Despite the broad CLI name, Binaryen `version_129` uses it for a much narrower job: improve how nearby `ref.cast` and `ref.as_non_null` values are reused through locals. Starshine's current direct pass is narrower/different: it removes provably redundant GC casts and folds statically known `ref.test` outcomes.
+- Despite the broad CLI name, Binaryen `version_129` uses it for a much narrower job: improve how nearby `ref.cast` and `ref.as_non_null` values are reused through locals. Starshine's current direct pass is narrower/different: it removes provably redundant GC casts, folds statically known `ref.test` outcomes, folds descriptor tests/casts, and rewrites guaranteed-success `br_on_cast` / `br_on_cast_fail` forms while preserving trap-vs-branch behavior.
 - The dossier now also has immutable raw primary-source manifests recording the reviewed `version_129` release provenance, a 2026-04-25 current-main implementation/test-map bridge, a 2026-05-05 current-main freshness recheck, a 2026-05-06 port-readiness research note, and a 2026-05-06 direct revalidation note, plus dedicated implementation/test-map, Starshine status, and port-readiness pages tying upstream owner/helper/test surfaces to current local registry, backlog, scheduler, and GC/local-neighbor code locations.
 
 ## Why it matters
@@ -40,7 +40,7 @@ related:
 - The saved generated-artifact `-O4z` audit records it as a real skipped top-level upstream slot:
   - top-level slot `28`
 - The saved Binaryen debug log also shows many more `optimize-casts` executions later in the same full run, which matches the nested rerun story from `opt-utils.h`.
-- The repo backlog already treats it as a real parity blocker under slice `OC` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The repo backlog already treats its remaining exact-ref tightening and ordered-neighborhood proof as real parity blockers under slice `OC` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
 
 ## Beginner summary
 
@@ -86,7 +86,7 @@ That is narrower than “optimize all casts.”
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `optimize-casts` research and port planning.
-- Keep the active Starshine implementation status and direct parity evidence current; do not treat direct parity as preset-readiness until the ordered GC/local neighborhood is oracle-proven.
+- Keep the active Starshine implementation status and direct parity evidence current; the 2026-05-06 branch-cast widening replayed `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-oc-branch` with 6759 compared cases, 6759 normalized matches, 20 Binaryen command failures, and 0 mismatches, but direct parity is still not preset-readiness until the ordered GC/local neighborhood is oracle-proven.
 - New `optimize-casts` findings should update the Binaryen strategy page, implementation/test-map page, shape pages, Starshine status page, and port-readiness bridge together so the upstream algorithm, concrete examples, source proof, validation ladder, and local port story stay aligned.
 
 ## Sources

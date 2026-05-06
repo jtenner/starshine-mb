@@ -133,3 +133,58 @@ test "optimize-casts preserves nullable-to-nonnull ref.cast trap" {
   )
   assert_true(pretty.contains("ref.cast"), msg=pretty)
 }
+
+///|
+test "optimize-casts turns guaranteed-success br_on_cast into br" {
+  let child_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_module(child_ref, child_ref, [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(child_ref),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+          ),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_cast"), msg=pretty)
+  assert_true(pretty.contains("br (Label 0)"), msg=pretty)
+}
+
+///|
+test "optimize-casts removes guaranteed-success br_on_cast_fail" {
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_module(child_ref, base_ref, [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(base_ref),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br_on_cast_fail(
+            @lib.LabelIdx::new(0U),
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_cast_fail"), msg=pretty)
+}
