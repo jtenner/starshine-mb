@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
+  - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
@@ -226,6 +228,8 @@ That wording is much safer than just saying “same constant value.”
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md)
+- [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)

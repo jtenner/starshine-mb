@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Wiki: refresh `const-hoisting` current-main bridge
+
+- **add a 2026-05-06 current-main recheck manifest, matching research note, and freshness-layer refresh for the `const-hoisting` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md), [`docs/wiki/raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](./docs/wiki/raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md), [`docs/wiki/binaryen/passes/const-hoisting/`](./docs/wiki/binaryen/passes/const-hoisting/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Wiki: refresh `global-struct-inference` current-main bridge
 
 - **add a 2026-05-06 current-main recheck manifest, matching research note, and split Starshine status/implementation-detail refresh for the `global-struct-inference` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md), [`docs/wiki/raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md`](./docs/wiki/raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md), [`docs/wiki/binaryen/passes/global-struct-inference/`](./docs/wiki/binaryen/passes/global-struct-inference/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

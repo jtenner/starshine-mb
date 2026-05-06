@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `const-hoisting` current-main bridge and freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md` plus `docs/wiki/raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md` after rechecking current Binaryen `ConstHoisting.cpp`, `pass.cpp`, `literal.h`, `wasm-binary.h`, and `const-hoisting.wast` against the existing contract.
+- Refreshed the `const-hoisting` dossier, Binaryen strategy, implementation/test-map, size/boundaries, literal-identity, WAT-shape, Starshine strategy, Starshine readiness bridge, root wiki index, pass catalog, tracker, and changelog so the folder now has a 2026-05-06 freshness layer plus the unchanged byte-model contract and stale `f64` comment caveat.
+- Recorded unchanged contract status: Binaryen still teaches the same repeated-literal temp-local hoist story, and Starshine still keeps the pass removed while the active backlog slice remains absent.
+
 ## [2026-05-06] health | correct `local-subtyping` active-implementation reading and refresh code anchors
 
 - Added `docs/wiki/raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md` after rechecking current Starshine `src/passes/local_subtyping.mbt`, `src/passes/local_subtyping_test.mbt`, `src/cmd/cmd_wbtest.mbt`, `src/passes/registry_test.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, and `src/passes/optimize_test.mbt` against the older removed-only wiki reading.

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
+  - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
@@ -44,7 +46,7 @@ That means the best mental model is:
 ## Public surface and scheduler meaning
 
 The reviewed official Binaryen GitHub release page for `version_129`, rechecked on 2026-04-23 through [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md), showed publish date **2026-04-01**.
-A focused 2026-04-25 current-`main` recheck captured in [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md) did not surface teaching-relevant drift in `ConstHoisting.cpp`, `literal.h`, `pass.cpp`, `wasm-binary.h`, or `const-hoisting.wast`. The 2026-04-27 port-readiness recheck in [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md) found the same upstream contract and moved the local first-slice checklist into [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+A focused 2026-05-06 current-`main` recheck captured in [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md) did not surface teaching-relevant drift in `ConstHoisting.cpp`, `literal.h`, `pass.cpp`, `wasm-binary.h`, or `const-hoisting.wast`. The 2026-04-27 port-readiness recheck in [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md) found the same upstream contract and moved the local first-slice checklist into [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 `src/passes/pass.cpp` registers `const-hoisting` as a public pass.
 The registration text says:
@@ -312,6 +314,8 @@ That is the real Binaryen strategy for `const-hoisting`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md)
+- [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)

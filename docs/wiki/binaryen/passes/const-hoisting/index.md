@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
+  - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
@@ -55,7 +57,7 @@ A better beginner summary is:
 - `const-hoisting` is small, but it teaches an optimization idea that beginner readers often miss: **binary encoding size economics are not the same thing as runtime speed or generic constant folding**.
 - It sits naturally beside already-covered size and literal-neighbor passes like `precompute*`, `optimize-added-constants*`, `simplify-locals*`, and `merge-similar-functions`, but it solves a different problem from all of them.
 - The upstream implementation and tests are tiny enough to audit exactly, which makes it a good high-confidence source-backed addition.
-- The folder now also has immutable raw primary-source manifests, a 2026-04-25 current-main freshness bridge, a 2026-04-27 implementation-readiness bridge, and dedicated Starshine status / validation pages, so readers no longer need to reconstruct release provenance or local port-planning from older research notes alone.
+- The folder now also has immutable raw primary-source manifests, a 2026-05-06 current-main freshness bridge, a 2026-04-27 implementation-readiness bridge, and dedicated Starshine status / validation pages, so readers no longer need to reconstruct release provenance or local port-planning from older research notes alone.
 
 ## Beginner summary
 
@@ -89,7 +91,7 @@ So this pass is best taught as:
   - `8`-byte constants need `2` uses
 - `v128` constants are explicitly unsupported in `version_129`.
 - The pass inserts a function-entry prelude block and relies on later cleanup such as `merge-blocks` to smooth structure afterwards.
-- A focused 2026-04-25 current-`main` recheck found no teaching-relevant drift in the implementation, registration, helper, or dedicated lit surfaces, so the tagged `version_129` release remains a reliable oracle here.
+- A focused 2026-05-06 current-`main` recheck found no teaching-relevant drift in the implementation, registration, helper, or dedicated lit surfaces; it mainly adds a fresher upstream anchor and keeps the stale `f64` threshold comment caveat explicit.
 - A 2026-04-27 port-readiness recheck again found no teaching-relevant upstream drift and now pins the first Starshine slice to existing HOT scalar constants, local builders, fresh-local append support, and signed-LEB byte accounting surfaces.
 
 ## What this pass sounds like versus what it actually does
@@ -131,6 +133,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md)
+- [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
