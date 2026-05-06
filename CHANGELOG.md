@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate avoid-reinterprets
+
+- **refresh `avoid-reinterprets` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md`](./docs/wiki/raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md), [`docs/wiki/binaryen/passes/avoid-reinterprets/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/avoid-reinterprets/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: extend vacuum empty-block cleanup
 
 - **complete the VQ001 cleanup-semantics audit slice by deleting empty zero-result `block` residue in `vacuum`, preserving typed/result blocks through the result-arity guard, adding a focused validation test, refreshing vacuum docs, and pruning the completed backlog item** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`docs/wiki/binaryen/passes/vacuum/index.md`](./docs/wiki/binaryen/passes/vacuum/index.md), [`docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

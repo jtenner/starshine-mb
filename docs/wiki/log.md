@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `avoid-reinterprets` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `avoid-reinterprets`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass avoid-reinterprets --out-dir .tmp/pass-fuzz-avoid-reinterprets`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md` and refreshed the Starshine validation page.
+- Pruned `avoid-reinterprets` from the AUD002 remaining revalidation list while keeping the pass active-partial/direct-only and preserving the indirect helper-local family as future work.
+
 ## [2026-05-06] maintain | close PRV006 validate proof boundary audit
 
 - Added `docs/wiki/raw/research/0515-2026-05-06-validate-proof-boundary-audit.md` after auditing `src/validate_proof`, direct `env`, recursive `match`, and typechecker-helper proof candidates.

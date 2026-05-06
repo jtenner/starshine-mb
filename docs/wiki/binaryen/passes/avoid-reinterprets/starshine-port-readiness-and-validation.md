@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
@@ -43,7 +44,7 @@ It answers a narrower question than [`./starshine-strategy.md`](./starshine-stra
 
 The first direct-load slice is now implemented in Starshine as an active module pass.
 The remaining implementation debt is the indirect `reinterpret(local.get <- load)` helper-local family.
-The 2026-05-05 current-main bridge keeps this split current for the living dossier.
+The 2026-05-06 direct revalidation keeps this split current for the living dossier.
 
 ## Beginner mental model
 
@@ -195,11 +196,19 @@ Preserve these Binaryen rules:
 - parameter/default-entry and multi-source merge cases must stay unchanged;
 - memory64 pointer helper locals must be `i64`, not hardcoded `i32`.
 
+## Validation evidence
+
+2026-05-06 direct revalidation after the pass-audit harness refresh:
+
+- `moon info`, `moon fmt`, and `moon test` succeeded.
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass avoid-reinterprets --out-dir .tmp/pass-fuzz-avoid-reinterprets` reported 6759 compared cases, 6759 normalized matches, 0 mismatches, 0 validation failures, 0 generator failures, and 20 command failures.
+- The command failures were Binaryen parser/canonicalization failures on wasm-smith empty-recursion-group inputs, for example `.tmp/pass-fuzz-avoid-reinterprets/failures/case-000029-wasm-smith/failure-metadata.json`; they were not Starshine/Binaryen semantic mismatches.
+
 ## Validation ladder
 
 ### 0. Keep the landed direct slice honest
 
-The pass is already active-partial, so keep the active-module registry entry, dispatcher arm, and focused tests green together.
+The pass is active-partial and direct revalidation is current as of 2026-05-06, so keep the active-module registry entry, dispatcher arm, and focused tests green together.
 
 ### 1. Direct-load fixtures
 
@@ -277,6 +286,6 @@ The pass itself must preserve both original and alternate views before any clean
 
 ## Bottom line
 
-`avoid-reinterprets` is ready for future Starshine implementation planning, but not implemented.
-The source-backed first slice is direct full-width reinterpret/load flipping.
+`avoid-reinterprets` is active-partial in Starshine.
+The source-backed first slice, direct full-width reinterpret/load flipping, is implemented and revalidated under the refreshed pass-fuzz harness as of 2026-05-06.
 The second slice requires a documented single-load provenance helper before Starshine should add Binaryen's indirect helper-local rewrite.
