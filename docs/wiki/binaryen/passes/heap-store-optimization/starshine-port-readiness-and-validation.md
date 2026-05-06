@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
@@ -21,6 +22,7 @@ related:
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
+  - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md
 ---
 
@@ -44,6 +46,7 @@ The practical validation surfaces are:
 - perf tests for raw fast-skip behavior
 - CLI replay tests for `--heap-store-optimization`
 - the current-main Binaryen source spotcheck that keeps the dossier honest about upstream drift
+- the refreshed `pass-fuzz-compare` direct parity lane
 
 ## Exact local code map
 
@@ -113,10 +116,19 @@ That matters because this pass is allowed to skip work when there is no plausibl
 
 The current-main source spotcheck in [`../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md`](../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md) keeps the upstream contract visible while the local implementation evolves.
 
+The refreshed direct oracle lane in [`../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md`](../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md) ran:
+
+- `moon info`
+- `moon fmt`
+- `moon test`
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --out-dir .tmp/pass-fuzz-heap-store-optimization`
+
+Result: 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+
 ## What this page does not claim
 
 - It does not claim generic heap dead-store elimination.
 - It does not claim load forwarding.
-- It does not claim a dedicated `pass-fuzz-compare` lane yet.
+- It does not claim ordered no-DWARF preset parity for the repeated `heap-store-optimization` slots.
 
 If any of those become true later, the bridge should grow with them instead of pretending the current contract already had them.

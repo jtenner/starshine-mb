@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
@@ -34,6 +35,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../tracker.md
@@ -135,7 +137,7 @@ What it actually is in `version_129`:
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine strategy and the major ways the HOT-region implementation differs from upstream Binaryen's CFG-based source while still pursuing the same core optimization; the refreshed page now also points readers to the exact MoonBit registry / dispatcher / helper-cluster / reduced-test / CLI-replay code map.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  - Compact validation bridge for the active local implementation, with the exact unit, perf, CLI replay, and source-spotcheck surfaces.
+  - Compact validation bridge for the active local implementation, with the exact unit, perf, CLI replay, source-spotcheck, and refreshed direct `pass-fuzz-compare` parity surfaces.
 - [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
   - Focused current-main source bridge plus exact Starshine code-map refresh for this dossier on 2026-05-05.
 - [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
@@ -151,6 +153,7 @@ Current durable answer:
 - The official Binaryen GitHub `version_129` release page re-checked on 2026-04-22 showed publish date **2026-04-01**.
 - The current upstream changelog still records `Add a new --heap-store-optimization pass. (#6882)` under `v119`.
 - A 2026-05-05 focused current-main source bridge preserved the no-teaching-drift result for `main` `HeapStoreOptimization.cpp`, the dedicated lit file, and helper surfaces, while refreshing the exact local code map.
+- A 2026-05-06 direct revalidation ran `pass-fuzz-compare` at `--count 10000 --seed 0x5eed`, producing 6759 compared normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures.
 - The Debian experimental `wasm-opt` manpage still lists `--heap-store-optimization`.
 - The published docs.rs `wasm_opt::Pass` enum still omits `HeapStoreOptimization`, so that surface is still wrapper lag, not rename pressure.
 

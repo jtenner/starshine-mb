@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `heap-store-optimization` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `heap-store-optimization`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --out-dir .tmp/pass-fuzz-heap-store-optimization`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md` and refreshed the heap-store-optimization living pages.
+- Pruned `heap-store-optimization` from the AUD002 remaining revalidation list while preserving ordered no-DWARF preset and nested-rerun proof as future work.
+
 ## [2026-05-06] validation | revalidate `global-struct-inference` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `global-struct-inference`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --out-dir .tmp/pass-fuzz-global-struct-inference`.
