@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
   - ../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
@@ -40,6 +41,8 @@ Starshine exposes `remove-unused-names` as an active hot pass with:
   - effects
   - loop info
   - SSA
+
+The 2026-05-06 direct revalidation keeps this active surface current after the fuzzer/harness refresh: `.tmp/pass-fuzz-remove-unused-names` recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures.
 
 That already makes the local pass smaller and more structural than the upstream Binaryen story.
 The local contract is **not** “remove all dead control labels.”

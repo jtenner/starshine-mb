@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - ../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
@@ -42,6 +43,7 @@ related:
 ## Role
 
 - `remove-unused-names` is an active implemented **hot pass** in Starshine.
+- The 2026-05-06 post-fuzzer-change direct revalidation reached 6759 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures under `--seed 0x5eed`.
 - In upstream Binaryen `version_129`, `pass.cpp` describes it as:
   - removes names from locations that are never branched to
 
