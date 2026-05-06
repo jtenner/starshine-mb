@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Wiki: refresh `type-ssa` current-main bridge
+
+- **add a 2026-05-06 current-main recheck manifest, matching research note, and freshness-layer refresh for the `type-ssa` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md), [`docs/wiki/raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md`](./docs/wiki/raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md), [`docs/wiki/binaryen/passes/type-ssa/`](./docs/wiki/binaryen/passes/type-ssa/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Wiki: sharpen `dae2` Starshine anchors
 
 - **refresh the exact local Starshine code-map anchors in the `dae2` status and readiness pages so they point at the current optimize, dispatcher, and CLI surfaces** by **@OpenAI**. Updated [`docs/wiki/binaryen/passes/dae2/starshine-strategy.md`](./docs/wiki/binaryen/passes/dae2/starshine-strategy.md), [`docs/wiki/binaryen/passes/dae2/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/dae2/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

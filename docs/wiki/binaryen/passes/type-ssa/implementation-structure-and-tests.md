@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
+  - ../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md
+  - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
@@ -21,7 +23,7 @@ related:
 
 ## Why this page exists
 
-This page maps the official Binaryen files that define `type-ssa` after the 2026-04-26 source correction. The main correction is that `TypeSSA.cpp` is an allocation-subtype creation pass, not the local/global/control-value retagging pass described by the older 2026-04-23 dossier.
+This page maps the official Binaryen files that define `type-ssa` after the 2026-04-26 source correction and the 2026-05-06 current-main freshness recheck. The main correction is that `TypeSSA.cpp` is an allocation-subtype creation pass, not the local/global/control-value retagging pass described by the older 2026-04-23 dossier.
 
 ## Main upstream files
 
@@ -149,4 +151,4 @@ That is module/type-section infrastructure. It is not a small HOT local-flow por
 
 ## Current-main drift
 
-The 2026-04-26 current-main check found no teaching-relevant drift from this corrected map.
+The 2026-05-06 current-main recheck found no teaching-relevant drift from this corrected map.

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | refresh `type-ssa` current-main bridge and freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md` plus `docs/wiki/raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md` after rechecking current Binaryen `TypeSSA.cpp`, `pass.cpp`, and `type-ssa.wast` against the corrected allocation-subtype contract.
+- Refreshed the `type-ssa` dossier, Binaryen strategy, implementation/test-map, stale-flow correction page, WAT-shape catalog, Starshine strategy, Starshine readiness bridge, wiki index, pass catalog, tracker, and changelog so the folder now has a 2026-05-06 freshness layer plus the unchanged allocation-site fresh-subtype story.
+- Recorded unchanged contract status: current `main` still teaches the same allocation-site fresh-subtype contract, and Starshine still keeps `type-ssa` upstream-only with no registry entry.
+
 ## [2026-05-06] health | refresh `global-effects` current-main bridge and freshness layer
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-global-effects-current-main-recheck.md` plus `docs/wiki/raw/research/0502-2026-05-06-global-effects-current-main-recheck.md` after rechecking current Binaryen `GlobalEffects.cpp`, `pass.cpp`, `effects.h`, `wasm.h`, and the two consumer lit files against the existing metadata-producing contract.

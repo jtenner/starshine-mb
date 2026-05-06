@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
+  - ../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md
+  - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../../../src/passes/optimize.mbt
@@ -26,7 +28,7 @@ related:
 
 # Starshine Strategy For `type-ssa`
 
-Use this page together with the corrected raw source capture in [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md) and the port-readiness bridge in [`../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md).
+Use this page together with the corrected raw source capture in [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md), the 2026-05-06 freshness recheck in [`../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md), and the port-readiness bridge in [`../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md).
 
 ## Honest current status
 
@@ -69,7 +71,7 @@ The fastest read-along path through the current local status is:
 
 The current strategy is deliberate non-adoption plus accurate documentation.
 
-That is especially important after the 2026-04-26 correction: a future `type-ssa` port would be module/type-section work, not a small HOT local-flow peephole.
+That is especially important after the 2026-04-26 correction and the 2026-05-06 freshness recheck: a future `type-ssa` port would be module/type-section work, not a small HOT local-flow peephole.
 
 ## What a faithful future port would require
 

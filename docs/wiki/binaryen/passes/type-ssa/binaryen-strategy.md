@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
+  - ../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md
+  - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
@@ -23,7 +25,7 @@ related:
 
 ## Upstream source rule
 
-Use the 2026-04-26 correction capture as the current source oracle: [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md).
+Use the 2026-05-06 freshness capture as the current source oracle: [`../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md).
 
 The key official sources are:
 
@@ -137,7 +139,7 @@ The pass comments describe the optimization as likely most useful in closed-worl
 
 ## Current-main drift check
 
-The 2026-04-26 source correction and the later port-readiness bridge rechecked current `main`. No teaching-relevant drift was found from the corrected `version_129` allocation-subtype contract. The latest bridge keeps the same port-facing reading: candidate discovery is still allocation-site based, exact-observation blockers still gate fresh subtype creation, and refinalization remains part of the post-rewrite contract.
+The 2026-04-26 source correction and the 2026-05-06 freshness recheck both rechecked current `main`. No teaching-relevant drift was found from the corrected `version_129` allocation-subtype contract. The latest bridge keeps the same port-facing reading: candidate discovery is still allocation-site based, exact-observation blockers still gate fresh subtype creation, and refinalization remains part of the post-rewrite contract.
 
 ## What the older dossier got wrong
 
