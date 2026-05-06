@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
@@ -30,7 +31,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 ## The honest current status
 
-As of 2026-05-04, `duplicate-import-elimination` is implemented in Starshine as a small active module pass with the source-confirmed Binaryen `version_129` function-import-only contract.
+As of 2026-05-06, `duplicate-import-elimination` is implemented in Starshine as a small active module pass with the source-confirmed Binaryen `version_129` function-import-only contract and refreshed direct parity evidence.
 
 The current local strategy is no longer boundary-only tracking. The pass now:
 
@@ -175,6 +176,12 @@ The current active Starshine HOT cluster covers passes like:
 Those are useful neighboring dossiers for style and validation habits, but `duplicate-import-elimination` does not naturally belong in that cluster.
 Its current module-pass classification is not arbitrary bookkeeping.
 It reflects the same architectural fact the Binaryen dossier teaches: this pass rewrites module import and function-reference surfaces, not HOT-region local patterns.
+
+## Direct revalidation evidence
+
+The 2026-05-06 post-fuzzer-change revalidation lane ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-import-elimination --out-dir .tmp/pass-fuzz-duplicate-import-elimination`.
+
+The compare run reported 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. That closes the AUD002 stale-evidence item for the direct module pass while leaving late-tail preset replay as future neighborhood work. See [`../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md`](../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md).
 
 ## What Starshine has now
 

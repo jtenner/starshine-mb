@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate duplicate-import-elimination
+
+- **refresh `duplicate-import-elimination` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md`](./docs/wiki/raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md), [`docs/wiki/binaryen/passes/duplicate-import-elimination/index.md`](./docs/wiki/binaryen/passes/duplicate-import-elimination/index.md), [`docs/wiki/binaryen/passes/duplicate-import-elimination/starshine-strategy.md`](./docs/wiki/binaryen/passes/duplicate-import-elimination/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate coalesce-locals
 
 - **refresh `coalesce-locals` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](./docs/wiki/raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md), [`docs/wiki/binaryen/passes/coalesce-locals/index.md`](./docs/wiki/binaryen/passes/coalesce-locals/index.md), [`docs/wiki/binaryen/passes/coalesce-locals/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/coalesce-locals/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
@@ -33,7 +34,7 @@ related:
 ## Role
 
 - `duplicate-import-elimination` is an upstream Binaryen late module / boundary cleanup pass.
-- As of 2026-05-04, it is implemented in Starshine as an active module pass in [`../../../../../src/passes/duplicate_import_elimination.mbt`](../../../../../src/passes/duplicate_import_elimination.mbt), registered in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), and dispatched by [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
+- As of 2026-05-06, it is implemented in Starshine as an active module pass in [`../../../../../src/passes/duplicate_import_elimination.mbt`](../../../../../src/passes/duplicate_import_elimination.mbt), registered in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), and dispatched by [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - Binaryen runs it in the late post-pass cluster after the second `duplicate-function-elimination` and before `simplify-globals-optimizing`; Starshine exposes the direct pass but has not yet widened the public `optimize` preset to that full late-tail shape.
 - The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through the raw primary-source manifest at [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
 - The upstream `main` implementation, helper, registration, and dedicated test surfaces were rechecked on **2026-05-04** through [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md); no teaching-relevant drift was found from the function-import-only `version_129` contract.
@@ -85,6 +86,7 @@ That is much closer to the real pass than either:
 
 ## Current durable takeaways
 
+- The 2026-05-06 refreshed direct parity lane for `duplicate-import-elimination` reported 6759 / 10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures; see [`../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md`](../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md).
 - `duplicate-import-elimination` is a **late module / boundary** pass, not a function-local peephole.
 - In Binaryen `version_129`, it scans only:
   - imported functions
@@ -126,6 +128,7 @@ That is much closer to the real pass than either:
 
 ## Sources
 
+- [`../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md`](../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md)
 - [`../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md`](../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md)
