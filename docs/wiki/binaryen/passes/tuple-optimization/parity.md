@@ -3,6 +3,7 @@ kind: comparison
 status: working
 last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md
   - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
@@ -49,10 +50,12 @@ Fresh direct revalidation taken for this doc update on `2026-05-06`:
 - `moon fmt`
   - result: completed, no formatting work needed
 - `moon test`
-  - result: `2800 / 2800` passed
+  - result: `2820 / 2820` passed
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass tuple-optimization --out-dir .tmp/pass-fuzz-tuple-optimization`
   - result: `6759 / 10000` compared, `6759` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `20` command failures
   - command-failure classification: the already-seen Binaryen parser/canonicalization failure class on wasm-smith inputs with empty recursion groups, not a Starshine/Binaryen semantic mismatch
+- `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --generator gen-valid --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-tuple-gen-valid-10000-20260506`
+  - result: `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
 
 Older focused local checks taken on `2026-04-10`:
 
@@ -112,6 +115,8 @@ As of the current `2026-04-10` working tree:
 
 Fresh current-head evidence:
 
+- `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --generator gen-valid --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-tuple-gen-valid-10000-20260506`
+  - result: `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
 - `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --generator gen-valid --count 1000 --max-failures 20 --out-dir /tmp/pass-fuzz-tuple-gen-valid-2026-04-10`
   - result: `1000 / 1000` compared, `1000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
 - `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --generator wasm-smith --count 200 --max-failures 20 --out-dir /tmp/pass-fuzz-tuple-smith-2026-04-10`
@@ -145,7 +150,7 @@ Fresh current-head evidence:
 - `bun scripts/pass-fuzz-compare.ts --starshine-bin _build/native/release/build/cmd/cmd.exe --pass tuple-optimization --generator gen-valid --count 10000 --max-failures 20 --out-dir /tmp/pass-fuzz-tuple-gen-valid-10000-bin-sharedmarks-2026-04-10`
   - result: `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
 
-Historical larger evidence still includes the clean `gen-valid` lane at `10000 / 10000`.
+Standing larger evidence now includes the fresh current-head `10000 / 10000` `gen-valid` lane plus the older direct-native `10000 / 10000` lane.
 
 These results are still not enough for final signoff because:
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Docs: refresh tuple-optimization gen-valid proof
+
+- **rerun the current-head `tuple-optimization` `gen-valid` 10000-case parity lane, prune the stale `[TO]005` rerun TODO, and record the refreshed evidence in the tuple dossier** by **@OpenAI**. Updated [`docs/wiki/raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md`](./docs/wiki/raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md), [`docs/wiki/binaryen/passes/tuple-optimization/parity.md`](./docs/wiki/binaryen/passes/tuple-optimization/parity.md), [`docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md`](./docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Binary: complete iterative expr decoder
 
 - **replace recursive structured-instruction binary decoding with an explicit frame stack so deeply nested valid wasm decodes through `decode_module` and native `run_cmd_with_adapter` without call-stack dependence while preserving the existing nesting limit error** by **@OpenAI**. Updated [`src/binary/decode.mbt`](./src/binary/decode.mbt), [`src/binary/tests.mbt`](./src/binary/tests.mbt), [`src/cmd/cmd_native_wbtest.mbt`](./src/cmd/cmd_native_wbtest.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

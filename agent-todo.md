@@ -85,7 +85,7 @@ Observed unique-pass order
 
 - [TO]005 - Exact Slot Gate And Oracle Proof
   - Deliverables: place the pass after `code-pushing` and before `simplify-locals-nostructure` once that slot exists in-tree; add feature-off preset coverage; prove the landed HOT-native rewrite with `pass-fuzz` and debug-artifact compare.
-  - Remaining TODOs: retire pre-lower carrier debt in chained host-copy `tail-live0`; rerun a fresh `10000`-case `gen-valid` compare on current head; keep full debug-artifact compare canonically green while reducing tuple runtime, especially candidate-heavy functions such as `Func 1673`.
+  - Remaining TODOs: retire pre-lower carrier debt in chained host-copy `tail-live0`; keep full debug-artifact compare canonically green while reducing tuple runtime, especially candidate-heavy functions such as `Func 1673`.
 
 #### SLNNS - Simplify Locals No-Tee No-Structure
 

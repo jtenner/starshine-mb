@@ -3,6 +3,7 @@ kind: concept
 status: working
 last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md
   - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
@@ -136,6 +137,7 @@ Interpretation:
 Fresh full direct revalidation on `2026-05-06`:
 
 - `.tmp/pass-fuzz-tuple-optimization` => `6759 / 10000` compared, `6759` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `20` command failures
+- `.tmp/pass-fuzz-tuple-gen-valid-10000-20260506` => `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
 - command-failure classification: Binaryen empty-recursion-group parser/canonicalization failures on wasm-smith inputs, not semantic mismatches
 
 ## Historical Fuzz Evidence
@@ -163,11 +165,11 @@ Fresh current-head fuzz evidence on `2026-04-10`:
 - `/tmp/pass-fuzz-tuple-gen-valid-10000-bin-sharedmarks-2026-04-10` => `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
 - historical `/tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` => `2124 / 10000` compared, then `20` repeated missing-output validation failures in the `moon run` launcher path; `pass-fuzz-compare` now retries that successful-but-no-output launcher churn instead of treating it as a standing semantic mismatch
 
-Standing larger evidence still includes the clean historical `gen-valid` lane at `10000 / 10000`.
+Standing larger evidence now includes the fresh current-head `gen-valid` lane at `10000 / 10000`.
 
 Current interpretation:
 
-- the isolated explicit pass is not showing semantic mismatches on the refreshed broad fuzz lane that currently compares successfully
+- the isolated explicit pass is not showing semantic mismatches on either the refreshed broad mixed-generator lane or the fresh `10000`-case current-head `gen-valid` lane
 - the white-box tuple file is now green again and no longer represents a separate parity blocker
 - the remaining work is concentrated in artifact replay signoff and runtime families, plus Binaryen parser-family noise outside Starshine semantics
 
