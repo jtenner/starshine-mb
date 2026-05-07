@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-01
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
+  - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
@@ -33,7 +34,7 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 - The April `2026-04-10` dead-param-write parity family is now fixed in-tree for `ssa-nomerge`.
 - Current source-mode `ssa-nomerge` replay on the checked-in debug CLI artifact now completes, validates, and matches Binaryen on normalized WAT and canonical per-function output.
 - Random compare fuzz is still useful, but it is not sufficient as the only signoff lane for `ssa-nomerge`.
-- Current mixed-generator compare coverage is mismatch-free on comparable cases and only hits the standing Binaryen `binaryen-rec-group-zero` parser-family gap.
+- Older mixed-generator compare coverage was mismatch-free on comparable cases and only hit the standing Binaryen `binaryen-rec-group-zero` parser-family gap, but the 2026-05-07 current-head smoke rerun reopened a narrower local-declaration shaping drift family that now lives under backlog slice `[SSA]001`.
 - Fresh post-merge reruns on seed `0x51a` stayed clean in both the mixed-generator and `gen-valid` lanes.
 - The reduced unreachable compare-carrier slice behind the traced `Func 523` family is now covered in-tree in both lift and pass tests.
 - The old traced `Func 523` `writeback-validate:type mismatch` skip is now retired by the focused extracted-function CLI replay test.
@@ -52,6 +53,7 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 - `wasm-tools validate tests/node/dist/starshine-debug-wasi.wasm` succeeds.
 - `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` is green with focused dead-param and live-param regressions.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0xA11D --max-failures 5 --pass ssa-nomerge --out-dir .tmp/recheck-ssa-nomerge` is **not** currently green: it compared `10 / 100`, matched `5`, and stopped on `5` local-declaration-only mismatches.
 - `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff-gen-valid --pass ssa-nomerge` is green at `10000 / 10000` compared and `10000` normalized matches.
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff --pass ssa-nomerge` stays mismatch-free on comparable cases (`2380 / 10000` compared, `0` mismatches) and only stops on the Binaryen-only `binaryen-rec-group-zero` parser family.
 - `bun scripts/pass-fuzz-compare.ts --count 2000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-mixed-seed51a --pass ssa-nomerge` stayed clean on all comparable cases (`1996 / 2000`, `0` mismatches, `4` Binaryen-only parser gaps).

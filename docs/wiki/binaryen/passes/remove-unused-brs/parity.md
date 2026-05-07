@@ -245,7 +245,7 @@ The active backlog now says the next work should be reduced in this order:
 - The newest direct mismatch family is narrower than the older backlog wording too:
   - the 2026-05-07 mixed rerun no longer points first at a shared dead branch-wrapper cleanup bug
   - the first saved mismatches reduce to local declaration shaping / normalization drift with no inspected instruction-body diffs yet
-  - keep that queue under shared `AUD001` unless a later reduced repro proves a real mutation-backed RUB body delta
+  - keep that queue under focused backlog slice `[RUB]003` unless a later reduced repro proves a real mutation-backed RUB body delta
 
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.

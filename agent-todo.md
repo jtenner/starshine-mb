@@ -47,13 +47,19 @@ Observed unique-pass order
   - Deliverables: add a native-only worker queue over eligible defined functions for the current hot batch payload (`ssa-nomerge -> dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`); keep final output byte-stable and deterministic; gate behind an explicit native-only option.
   - Dependencies: [HOT]001 replay hardening must stay green.
 
-#### 2026-05-06 direct-pass audit follow-up
+#### 2026-05-07 direct-pass mismatch follow-up
 
-- [AUD]001 - Fresh Direct-Pass Mismatch Triage
-  - Why: the 2026-05-06 full pass audit (`docs/wiki/raw/research/0513-2026-05-06-starshine-pass-audit.md`) reran the current `pass-fuzz-compare` harness after substantial fuzzer / harness changes and found fresh active-pass mismatches even on a 100-case smoke lane.
-  - Passes with active problems: `memory-packing`, `precompute`, `remove-unused-brs`, `ssa-nomerge`.
-  - Deliverables: reduce and classify each fresh repro under `.tmp/pass-audit-20260506/`; promote durable failures into focused tests; fix the current mismatch families; rerun direct `--pass <name>` parity at `10000` cases before treating the pass as green again.
-  - Current mismatch families from the audit: `memory-packing` data-segment normalization drift, `precompute` dead `block` / `br_table` cleanup drift, `remove-unused-brs` local-declaration normalization drift, and `ssa-nomerge` temp-local shaping drift.
+- [MP]001 - Empty-Segment And Dead Passive-Segment Normalization
+  - Why: the 2026-05-07 current-head rerun (`docs/wiki/raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`) reduced the remaining `memory-packing` direct mismatches to empty active segments and dead passive segments that Binaryen normalizes away.
+  - Deliverables: align empty active-segment emission and dead passive-segment cleanup with Binaryen on the saved `.tmp/recheck-memory-packing/` repros; add focused module-pass tests; rerun direct `--pass memory-packing` parity at `10000` cases before treating the pass as green again.
+
+- [RUB]003 - Local-Declaration Normalization Drift
+  - Why: the same 2026-05-07 rerun showed the remaining current-head `remove-unused-brs` mismatches are no longer the earlier `br_table` cleanup family; they now reduce to local-declaration count/type/order drift only.
+  - Deliverables: reduce the `.tmp/recheck-remove-unused-brs/` repros to the smallest declaration-only cases; decide whether to match Binaryen declaration shaping directly or share a post-lowering normalization helper with neighboring passes; add focused tests; rerun direct `--pass remove-unused-brs` parity at `10000` cases.
+
+- [SSA]001 - Temp-Local Declaration Normalization
+  - Why: the current-head `ssa-nomerge` rerun in `docs/wiki/raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md` confirmed the remaining direct drift is temp-local declaration count/type/order shaping rather than instruction-body semantics.
+  - Deliverables: align temp-local insertion/elision and declaration order/type shaping with Binaryen on the saved `.tmp/recheck-ssa-nomerge/` repros; add focused tests; rerun direct `--pass ssa-nomerge` parity at `10000` cases.
 
 #### DCE - Dead Code Elimination
 
@@ -63,8 +69,8 @@ Observed unique-pass order
 
 #### PC - Precompute
 
-- [PC]001 - Runtime and Representation Drift
-  - Deliverables: keep direct debug-artifact parity green; reduce the current runtime gap and canonical wasm/text-form drift; keep the fuzz parity gate green.
+- [PC]001 - Direct Mismatch Recovery, Runtime, And Representation Drift
+  - Deliverables: keep direct debug-artifact parity green; restore the direct fuzz parity gate by matching Binaryen's dead-root nop-normalization on the saved `.tmp/recheck-precompute/` repros; then reduce the remaining runtime gap and canonical wasm/text-form drift.
 
 #### CP - Code Pushing
 

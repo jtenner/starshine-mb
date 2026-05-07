@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] docs | close `AUD001` as a triage umbrella and split focused mismatch work
+
+- Reran the four still-red direct pass smoke lanes from the 2026-05-06 audit under fresh out dirs (`.tmp/recheck-memory-packing`, `.tmp/recheck-precompute`, `.tmp/recheck-remove-unused-brs`, `.tmp/recheck-ssa-nomerge`) and recorded the corrected current-head families in `docs/wiki/raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`.
+- The rerun sharpened the backlog split: `memory-packing` is now specifically empty active-segment / dead passive-segment normalization drift, `precompute` is dead-root `nop` normalization drift before trailing `unreachable`, and both `remove-unused-brs` plus `ssa-nomerge` are current-head local-declaration shaping drift rather than new instruction-body mismatches.
+- Closed `[AUD]001` in `agent-todo.md` and replaced it with focused follow-up slices `[MP]001`, `[RUB]003`, `[SSA]001`, plus an updated `[PC]001`; refreshed the living `memory-packing`, `precompute`, `remove-unused-brs`, and `ssa-nomerge` pages so they no longer imply the older umbrella or stale green direct-pass status.
+
 ## [2026-05-08] docs | close `heap2local` follow-up backlog slice
 
 - Reviewed the old `[H2L]002` deliverables against current in-tree reality and recorded the durable split in `docs/wiki/raw/research/0553-2026-05-08-heap2local-backlog-closure.md`: the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood is already represented and proven by the recent `optimize-casts` / `coalesce-locals` ordered-slot work, while Binaryen's nondefaultable-local / refinalization repair remains outside today's validator-accepted Starshine input surface.

@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
+  - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
@@ -29,7 +30,8 @@ related:
 # Starshine `precompute` port readiness and validation
 
 This page is the implementation-readiness bridge for Starshine's active `precompute` pass. It does **not** claim that Starshine already implements the full Binaryen `Precompute.cpp` engine. It explains what is implemented, what to validate, and how to extend the pass without confusing Starshine's HOT cleanup subset with Binaryen's interpreter-driven strategy.
-A 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) kept this local readiness map stable.
+A 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) kept the upstream-teaching map stable.
+A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine currently trims dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. Keep that recovery work inside `[PC]001` before treating runtime and representation drift as the only remaining `precompute` blockers.
 
 ## Current local contract
 

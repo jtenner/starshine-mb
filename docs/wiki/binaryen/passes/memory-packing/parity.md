@@ -1,11 +1,12 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
   - ../../../../../src/passes/memory_packing.mbt
@@ -27,6 +28,7 @@ related:
 - Binaryen `version_129` `memory-packing` is a module-level segment-plus-segment-op rewrite pass, not just an active-segment splitter.
 - Current Starshine only models the active-segment subset today.
 - The saved generated-artifact `-O4z` slot `3` is already green, which shows the local active subset is useful and exercised by that artifact.
+- A 2026-05-07 current-head smoke rerun reopened a narrow direct mismatch family: empty active-segment and dead passive-segment normalization still drift from Binaryen on saved `wasm-smith` cases under `.tmp/recheck-memory-packing/`.
 - That saved green slot is **not** proof that Starshine already covers passive-segment rewriting, imported-memory `zeroFilledMemory`, GC data-referrer conservatism, or segment-count limiting.
 
 ## Current in-tree status
@@ -63,8 +65,13 @@ So the honest parity rule is:
 
 ## Current evidence
 
-The 2026-04-22 raw primary-source capture did not change the parity verdict.
-It did make one freshness point explicit:
+The 2026-04-22 raw primary-source capture did not change the upstream-teaching verdict.
+A later 2026-05-07 current-head rerun did change the direct-status note:
+
+- `memory-packing` is no longer best described as simply artifact-green plus incomplete upstream coverage
+- the remaining direct mismatch family is now specifically empty active-segment and dead passive-segment normalization drift, tracked in backlog slice `[MP]001`
+
+The earlier source capture still made one freshness point explicit:
 
 - the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01** on 2026-04-22
 - the narrow `main` spot check did not surface a teaching-relevant drift from the released `memory-packing` contract on the reviewed source surfaces

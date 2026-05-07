@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-01
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
+  - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
   - ../../../raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md
@@ -80,8 +81,8 @@ So this is **not** full SSA construction, but it is also **not** just straight-l
   - input validates: `yes`
   - output validates: `yes`
 - The saved `-O4z` debug log also shows repeated nested reruns of `ssa-nomerge`, not just the top-level slot.
-- `agent-todo.md` still has **no dedicated `SSA` slice** today.
-  - The current live repo intent is only indirect through the canonical ordered-path note and the shared post-`SSA` hot-batch work.
+- `agent-todo.md` now has a dedicated `[SSA]001` slice for the reopened current-head direct mismatch family.
+  - The active remaining work is temp-local declaration count/type/order normalization against Binaryen, not a new semantic rewrite family.
 
 ## Most important durable takeaways
 

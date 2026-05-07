@@ -73,7 +73,7 @@ So this is **not** just a trailing-branch stripper.
   - early `remove-unused-names` and later `merge-blocks` help RUB
   - later `coalesce-locals` opens more RUB opportunities
   - late `remove-unused-names` and another `merge-blocks` clean up after RUB again
-- The dedicated `RUB` backlog slice was retired on 2026-05-07 after a fresh direct debug-artifact replay plus a larger mixed-generator direct-pass rerun; remaining direct mismatch triage now lives under shared `AUD001`, while ordered-neighborhood proof stays with the broader optimize-path queue.
+- The old mixed-rerun `RUB` slice was retired on 2026-05-07 after a fresh direct debug-artifact replay plus a larger mixed-generator direct-pass rerun; the still-open current-head declaration-only mismatch family now lives under focused backlog slice `[RUB]003`, while ordered-neighborhood proof stays with the broader optimize-path queue.
 - The saved generated-artifact work also touched RUB heavily, especially the retired slot-14 and slot-40 corruption witnesses that now live in the parity history.
 
 This makes RUB relevant to:
