@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md
   - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
@@ -37,12 +38,12 @@ related:
 # Starshine Strategy For `simplify-locals-notee-nostructure`
 
 Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md) and the companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) bridge.
-The 2026-05-05 current-main recheck left the Starshine status unchanged: active direct, preset deferred.
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, the direct-pass validation evidence, and the neighboring implementation areas still needed for preset replay.
+A 2026-05-07 backlog-closure review confirmed the current Starshine status is now best described as active direct with the aggressive prelude deferred outside the active no-DWARF parity queue.
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, the direct-pass validation evidence, and why no standalone `SLNNS` backlog slice remains open today.
 
 ## The honest current status
 
-`simplify-locals-notee-nostructure` is now **active direct, preset deferred** in Starshine.
+`simplify-locals-notee-nostructure` is now **active direct, aggressive-prelude deferred** in Starshine.
 It does not get a separate owner file; instead, `src/passes/simplify_locals.mbt` exposes a stricter policy mode of the shared locals engine:
 
 - `allowStructure = false`
@@ -56,7 +57,7 @@ The current local strategy is still conservative:
 - reuse the no-structure locals cleanup engine without creating fresh tees
 - keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` preset role behind an explicit readiness gate until both neighbors are active
 
-So this page is now an **active direct implementation map** plus remaining preset-neighborhood plan.
+That means this page is now an **active direct implementation map** plus the standing boundary for future aggressive-path work, not an active same-release preset checklist.
 
 ## Exact local code map today
 
@@ -88,7 +89,7 @@ The fastest read-along path through the current Starshine status is:
     - checks that the no-tee variant does not synthesize a `local.tee` for a multi-use local
 - current backlog truth
   - `agent-todo.md`
-    - records the landed `SLNNS` direct-pass slice and keeps only the preset-neighborhood follow-up active
+    - no longer keeps a standalone `SLNNS` slice active after the 2026-05-07 backlog closure review
     - keeps this stricter sibling distinct from `SLNS` / `simplify-locals-nostructure`
 
 That code-and-doc map is the main practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and future landing zone.
@@ -169,15 +170,17 @@ The direct-pass slice is green at the focused and oracle-comparison levels:
 5. `.tmp/pass-fuzz-slnns-10000-after-genvalid-fix` reached `9496/9496` comparable mixed-generator matches with `0` mismatches and `0` validation failures;
 6. `.tmp/self-opt-slnns-after-local-bin128` passed normalized-WAT and canonical-function equality against Binaryen 128 for `tests/node/dist/starshine-debug-wasi.wasm`.
 
-Remaining scope is preset-neighborhood validation after neighboring slots exist:
+Remaining scope is future aggressive-neighborhood validation after neighboring slots exist:
 
 - `flatten -> simplify-locals-notee-nostructure -> local-cse` cluster replay;
 - nested aggressive rerun surfaces when optimizing passes call the default function pipeline;
 - generated-artifact `-O4z` replay only after `flatten` and `local-cse` constraints are representable locally.
 
+That work should reopen under a future `flatten` / aggressive scheduler task rather than under a standalone `SLNNS` backlog item.
+
 ## Bottom line
 
-Current Starshine `simplify-locals-notee-nostructure` strategy is active direct execution plus conservative preset planning:
+Current Starshine `simplify-locals-notee-nostructure` strategy is active direct execution plus a conservative aggressive-prelude boundary:
 
 - the exact upstream spelling is registered locally today
 - the CLI and dispatcher can run it as a direct hot pass
@@ -191,10 +194,11 @@ So the right mental model today is:
 - **no fresh tees**
 - **no structure synthesis**
 - **clear upstream spelling**
-- **preset-neighborhood still deferred**
+- **future aggressive-prelude replay deferred**
 
 ## Sources
 
+- [`../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md`](../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md)
 - [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)

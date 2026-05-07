@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md
   - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
@@ -57,7 +58,8 @@ related:
   - `flatten`
   - `simplify-locals-notee-nostructure`
   - `local-cse`
-- The Starshine implementation adds direct-pass registry, dispatcher, script-listing, focused HOT-pipeline coverage, 10k fuzz parity evidence, `gen-valid` parity evidence, and self-opt parity evidence; full `-O4z` preset scheduling is readiness-gated until the neighboring `flatten` and `local-cse` slots are active.
+- The Starshine implementation adds direct-pass registry, dispatcher, script-listing, focused HOT-pipeline coverage, 10k fuzz parity evidence, `gen-valid` parity evidence, and self-opt parity evidence.
+- A 2026-05-07 backlog review closed `[SLNNS]003`: the remaining `flatten -> simplify-locals-notee-nostructure -> local-cse` replay is future aggressive-path work, not active `v0.1.0` no-DWARF backlog scope.
 
 ## Beginner summary
 
@@ -102,21 +104,22 @@ That is much closer to the real pass than “full simplify-locals, but smaller.�
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for single-use temp sinks, preserved multi-use locals, dead-overwrite cleanup, late equivalent-get canonicalization, trap / `try` barriers, and the main bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and port map: exact upstream spelling active as a direct HOT pass, no-tee/no-structure policy mode in the shared locals engine, focused registry/dispatcher/tests, and remaining preset-neighborhood work.
+  Current Starshine status and port map: exact upstream spelling active as a direct HOT pass, no-tee/no-structure policy mode in the shared locals engine, focused registry/dispatcher/tests, and the standing aggressive-prelude boundary.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Implementation-readiness bridge: spelling policy, negative tests, direct oracle evidence, and remaining preset-neighborhood scope.
+  Validation bridge: spelling policy, negative-test boundary, direct oracle evidence, and the reason no standalone `SLNNS` backlog slice remains open.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `simplify-locals-notee-nostructure` research and port planning.
-- Keep it explicitly marked as **active direct, preset deferred** until the surrounding aggressive `-O4z` neighborhood is schedulable.
-- Cite `0544` for refreshed direct-pass parity evidence; cite the raw primary-source manifest and `0333` follow-up for provenance or current Starshine status; keep `0129` as historical mechanics research rather than the current status source.
+- Keep it explicitly marked as **active direct, aggressive-prelude deferred**.
+- Cite `0554` when explaining why `[SLNNS]003` was pruned from the active backlog; cite `0544` for refreshed direct-pass parity evidence; cite the raw primary-source manifest and `0333` follow-up for provenance or current Starshine status; keep `0129` as historical mechanics research rather than the current status source.
 - Keep the strategy page, implementation/test map, Starshine page, and variant-surface page aligned whenever new evidence changes the answer to either:
   - “what exact rewrite families remain enabled in `SimplifyLocals<false, false, true>`?” or
   - “what does this aggressive post-`flatten` slot actually preserve versus only simplify a little?”
 
 ## Sources
 
+- [`../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md`](../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md)
 - [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)

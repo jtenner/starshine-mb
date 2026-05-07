@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md
   - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
@@ -38,16 +39,16 @@ related:
 
 The main dossier already explains what Binaryen does.
 The Starshine strategy page already explains the current active direct-pass status.
-A 2026-05-05 current-main recheck left that status unchanged.
-This page tracks the remaining preset-neighborhood validation gap:
+A 2026-05-07 backlog-closure review then confirmed there is no separate active `SLNNS` backlog slice left in the no-DWARF parity queue.
+This page now records the landed direct-pass boundary:
 
-- what is the smallest honest local slice?
+- what local slice is already honest and shipped?
 - what must stay disabled so the sibling does not become full `simplify-locals`?
-- what tests and oracle lanes prove the no-tee / no-structure contract?
+- why does the future `flatten -> simplify-locals-notee-nostructure -> local-cse` replay belong to aggressive-path work instead of the active backlog?
 
 ## Current hold point
 
-Starshine now treats `simplify-locals-notee-nostructure` as an active direct hot pass with green direct-pass oracle evidence, but not as a preset-scheduled `-O4z` neighborhood member yet.
+Starshine now treats `simplify-locals-notee-nostructure` as an active direct hot pass with green direct-pass oracle evidence, but not as a preset-scheduled `-O4z` neighborhood member.
 The state to preserve until broader preset work starts is:
 
 - upstream Binaryen spelling: `simplify-locals-notee-nostructure`
@@ -56,7 +57,7 @@ The state to preserve until broader preset work starts is:
 - current CLI behavior: accepted through the registry category gate
 - current lower-level pipeline behavior: dispatched to the shared locals engine with `allowStructure=false` and `allowTee=false`
 - current owner: `src/passes/simplify_locals.mbt`
-- current preset role: explicit readiness-gated omission until `flatten` and `local-cse` are active
+- current preset role: explicit readiness-gated omission because the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` slot is outside the active no-DWARF parity target and still depends on `flatten`
 
 ## Exact local code map today
 
@@ -67,7 +68,7 @@ The state to preserve until broader preset work starts is:
 | Hot dispatcher | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), `hot_pass_run(...)` | Dispatches the exact spelling to the no-tee / no-structure locals runner. |
 | Shared locals implementation | [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), `simplify_locals_run_with_options(...)` | Owns the full pass and the stricter sibling policy mode. |
 | Registry proof surface | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Covers active category and descriptor spelling. |
-| Backlog truth | [`agent-todo.md`](../../../../../agent-todo.md) | Records the landed `SLNNS` direct-pass slice and leaves only preset-neighborhood work active for this sibling. |
+| Backlog truth | [`agent-todo.md`](../../../../../agent-todo.md) | No longer carries a standalone `SLNNS` slice after the 2026-05-07 closure review; future aggressive-prelude replay belongs to later `flatten` / scheduler work. |
 | Neighbor scheduler context | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) | Documents the sibling’s aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` slot, but not a local implementation. |
 
 ## Slice status
@@ -84,9 +85,9 @@ The shared locals engine now models the two relevant policy axes for this siblin
 - `allowStructure = false`
 - `allowNesting = true` by using existing nested consumer traversal rather than flatness-only traversal.
 
-### Slice 2: direct no-tee / no-structure cleanup only — active first slice
+### Slice 2: direct no-tee / no-structure cleanup only — landed
 
-The active first implementation uses the shared locals cleanup path for:
+The landed direct implementation uses the shared locals cleanup path for:
 
 1. direct single-use local sinking into an already-existing consumer;
 2. dead-overwrite cleanup on the current linear trace;
@@ -102,19 +103,19 @@ Exit criteria:
 - no block / `if` / loop result carrier is introduced;
 - no non-copy expression is moved under `drop`, call operands, arithmetic operands, branch payloads, or control conditions unless the source contract already allows it.
 
-### Slice 3: late cleanup reuse
+### Slice 3: late cleanup reuse — landed for direct-pass scope
 
-Only after Slice 2 is stable, reuse the late equivalent-local and dead-set cleanup families from the full pass.
+The landed direct pass already reuses the late equivalent-local and dead-set cleanup families from the full pass for direct-pass scope.
 
-Exit criteria:
+Durable guardrails:
 
 - equivalent-copy cleanup works on flat local-copy classes;
 - dead-set cleanup removes only now-dead local shells;
 - the same negative fixtures still prove no fresh teeing or structure synthesis.
 
-## Negative tests that should exist before mutating code
+## Negative tests future widening should keep in mind
 
-Add these before enabling real rewrites:
+Keep these families explicit before widening the pass or the aggressive neighborhood:
 
 - multi-use non-copy temp that full `simplify-locals` could tee;
 - computed value consumed by `drop`;
@@ -151,6 +152,8 @@ Earlier direct-pass evidence collected on 2026-05-04:
 
 Next oracle scope remains the ordered aggressive neighborhood: add `flatten -> simplify-locals-notee-nostructure -> local-cse` only after both neighbors are active enough to replay and compare honestly. Keep `--simplify-locals`, `--simplify-locals-nostructure`, and local active `simplify-locals` as contrast lanes, not as the oracle for this sibling.
 
+That future replay should reopen as a new aggressive-path / `flatten` task, not as a reopened standalone `SLNNS` direct-pass item.
+
 ## What not to do
 
 Do not start by routing this name to the active full `simplify-locals` implementation.
@@ -165,6 +168,7 @@ A faithful port should make that choice visible in tests.
 
 ## Sources
 
+- [`../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md`](../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md)
 - [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md)
 - [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)

@@ -32,6 +32,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Ran `moon test src/passes` and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-string-reorder-directize-20260508 --string-gathering --reorder-globals --directize`; the current-head artifact replay reported `Canonical wasm equal: yes` and `Normalized WAT equal: yes`.
 - Added `docs/wiki/raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`, refreshed the living `reorder-globals` and `directize` status/readiness pages, and pruned `RG002` plus `DIR002` from `agent-todo.md`; remaining late-tail preset gating now lives under `[SG]002` as the missing earlier-neighbor/postpass proof.
 
+## [2026-05-07] docs | close `simplify-locals-notee-nostructure` backlog slice
+
+- Reviewed `[SLNNS]003` against the current `v0.1.0` target and recorded the durable split in `docs/wiki/raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md`: the direct pass plus the preset-omission gate are already landed, while the only remaining `flatten -> simplify-locals-notee-nostructure -> local-cse` replay belongs to future aggressive-path work rather than the active no-DWARF optimize queue.
+- Refreshed the living `simplify-locals-notee-nostructure` landing, Starshine-strategy, and validation pages so they describe the pass as active direct with an aggressive-prelude boundary instead of implying an active standalone preset-readiness slice.
+- Pruned `[SLNNS]003` from `agent-todo.md`; if `flatten` lands or the repo adds an explicit aggressive preset queue later, reopen that as a new `flatten` / scheduler task instead of reviving the closed `SLNNS` blocker.
+
 ## [2026-05-07] docs | close `remove-unused-brs` mixed-rerun backlog slice
 
 - Reran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-brs` and confirmed the current direct artifact lane still compares green on representation-stable surfaces (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`) even though raw emitted wasm remains different.
