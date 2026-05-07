@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Passes: close remove-unused-brs local-declaration drift
+
+- **prune dead root suffixes after unreferenced nonfallthrough blocks in `remove-unused-brs`, add a focused br-table/unreachable regression, prove the 10k attempted mixed-generator direct lane has zero semantic mismatches, and prune `[RUB]003` from the active backlog** by **@OpenAI**. Updated [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt), [`docs/wiki/binaryen/passes/remove-unused-brs/parity.md`](./docs/wiki/binaryen/passes/remove-unused-brs/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-07 Passes: close `ssa-nomerge` temp-local normalization
 
 - **align `ssa-nomerge` unreachable dead-tee temp-local preservation with Binaryen for value-if carrier shapes, add focused IR/pass regressions, prove the 10k `gen-valid` direct lane, and prune `[SSA]001` from the active backlog** by **@OpenAI**. Updated [`src/ir/ssa_destroy.mbt`](./src/ir/ssa_destroy.mbt), [`src/ir/ssa_destroy_test.mbt`](./src/ir/ssa_destroy_test.mbt), [`src/passes/ssa_nomerge.mbt`](./src/passes/ssa_nomerge.mbt), [`src/passes/ssa_nomerge_test.mbt`](./src/passes/ssa_nomerge_test.mbt), [`docs/wiki/binaryen/passes/ssa-nomerge/parity.md`](./docs/wiki/binaryen/passes/ssa-nomerge/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

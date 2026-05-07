@@ -1352,6 +1352,108 @@ fn remove_unused_brs_tail_is_nonfallthrough(
 }
 
 ///|
+fn remove_unused_brs_node_is_nonfallthrough_root(
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_refs : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => {
+      let else_ref = match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => else_ref
+        None => return false
+      }
+      remove_unused_brs_tail_is_nonfallthrough(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+      ) &&
+      remove_unused_brs_tail_is_nonfallthrough(func, else_ref)
+    }
+    @ir.HotOp::Block => {
+      let label_id = @ir.hot_control_node_label(func, node_id)
+      if label_id >= 0 &&
+        label_id < label_refs.length() &&
+        label_refs[label_id] > 0 {
+        return false
+      }
+      remove_unused_brs_tail_is_nonfallthrough(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    }
+    _ => {
+      let edge_kinds = @ir.cfg_terminator_edge_kinds(node.op)
+      if edge_kinds.length() == 0 {
+        return false
+      }
+      for edge_kind in edge_kinds {
+        match edge_kind {
+          @ir.CfgEdgeKind::FallthroughEdge => return false
+          _ => ()
+        }
+      }
+      true
+    }
+  }
+}
+
+///|
+fn remove_unused_brs_prune_dead_suffix_after_nonfallthrough(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  label_refs : Array[Int],
+) -> Bool {
+  if region_ref != @ir.HotRegionRef::root() {
+    return false
+  }
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count <= 1 {
+    return false
+  }
+  for idx = 0; idx < root_count - 1; idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if !remove_unused_brs_node_is_nonfallthrough_root(func, node_id, label_refs) {
+      continue
+    }
+    let replacement = match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block => {
+        let body_ref = @ir.hot_region_body_ref(func, node_id)
+        if @ir.hot_region_root_count(func, body_ref) == 1 {
+          let body_root = @ir.hot_region_get(func, body_ref, 0)
+          if @ir.hot_node_is_live(func, body_root) {
+            match @ir.hot_node_get(func, body_root).op {
+              @ir.HotOp::Unreachable => [body_root]
+              _ => [node_id]
+            }
+          } else {
+            [node_id]
+          }
+        } else {
+          [node_id]
+        }
+      }
+      _ => [node_id]
+    }
+    let removed = pass_splice_region(
+      ctx,
+      func,
+      region_ref,
+      idx,
+      root_count - idx,
+      replacement,
+    )
+    remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+    return true
+  }
+  false
+}
+
+///|
 fn remove_unused_brs_region_roots(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -5537,6 +5639,11 @@ fn remove_unused_brs_visit_region(
   control_cache : Array[Int],
   return_cache : Array[Int],
 ) -> Bool {
+  if remove_unused_brs_prune_dead_suffix_after_nonfallthrough(
+      ctx, func, region_ref, label_refs,
+    ) {
+    return true
+  }
   let mut changed = false
   let roots : Array[Int] = []
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {

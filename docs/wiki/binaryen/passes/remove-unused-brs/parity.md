@@ -158,10 +158,15 @@ related:
   - `.tmp/pass-fuzz-rub-20260410-final-500` completed `499/499` compared matches
   - `0` mismatches, `0` validation failures, `0` generator failures
   - the only failure was the known Binaryen-side `binaryen-rec-group-zero` parser class
-- Fresh current-head mixed-generator evidence from `.tmp/pass-fuzz-remove-unused-brs-20260507` is no longer clean on normalized text, but the saved reduced failures currently classify as local-declaration shaping drift rather than body rewrites:
+- Fresh current-head mixed-generator evidence from `.tmp/pass-fuzz-remove-unused-brs-20260507` reopened a normalized local-declaration shaping family, not a body-rewrite family:
   - compared `163/10000`, normalized matches `143`, mismatches `20`, validation failures `0`, generator failures `0`, command failures `1`
   - the lone command failure stayed the known Binaryen-side `binaryen-rec-group-zero` parser class
   - inspected mismatch dirs (`case-000006`, `000018`, `000022`, `000024`, `000026`, `000052`, and the rest of the first saved gen-valid set) showed no non-local diff hunks, only local declaration count/type/order drift
+- The follow-up `[RUB]003` fix is now landed:
+  - Starshine prunes dead suffix roots after unreferenced nonfallthrough block sentinels and unwraps single-root `block { unreachable }` suffix sentinels to the inner `unreachable`, avoiding the Binaryen canonicalization scratch locals that caused the declaration drift
+  - focused coverage lives in `test "remove-unused-brs prunes suffix after br-table then unreachable block"`
+  - `.tmp/pass-fuzz-remove-unused-brs` attempted the 10k mixed-generator direct lane and stopped at the configured `20` command failures after `6759` compared cases; all `6759` compared outputs matched with `0` mismatches, `0` validation failures, and `0` generator failures
+  - command failures were tool/Binaryen-side classes: `17` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`
 - New post-skip parity evidence is also clean:
   - `.tmp/pass-fuzz-rub-genvalid-20260410-large-brtable-skip-10000` completed `10000/10000` compared matches with `0` mismatches and no validation, generator, or command failures
   - `.tmp/pass-fuzz-rub-genvalid-20260410-false-prefix-guard-10000` also completed `10000/10000` compared matches with `0` mismatches and no validation, generator, or command failures

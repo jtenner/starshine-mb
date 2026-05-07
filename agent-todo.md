@@ -47,13 +47,6 @@ Observed unique-pass order
   - Deliverables: add a native-only worker queue over eligible defined functions for the current hot batch payload (`ssa-nomerge -> dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`); keep final output byte-stable and deterministic; gate behind an explicit native-only option.
   - Dependencies: [HOT]001 replay hardening must stay green.
 
-#### 2026-05-07 direct-pass mismatch follow-up
-
-- [RUB]003 - Local-Declaration Normalization Drift
-  - Why: the same 2026-05-07 rerun showed the remaining current-head `remove-unused-brs` mismatches are no longer the earlier `br_table` cleanup family; they now reduce to local-declaration count/type/order drift only.
-  - Deliverables: reduce the `.tmp/recheck-remove-unused-brs/` repros to the smallest declaration-only cases; decide whether to match Binaryen declaration shaping directly or share a post-lowering normalization helper with neighboring passes; add focused tests; rerun direct `--pass remove-unused-brs` parity at `10000` cases.
-
-
 #### DCE - Dead Code Elimination
 
 - [DCE]003 - Runtime Budget and Oracle Refresh

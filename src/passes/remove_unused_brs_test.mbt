@@ -1,4 +1,22 @@
 ///|
+test "remove-unused-brs prunes suffix after br-table then unreachable block" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $f (param f32) (result i32) (local i64 i32 f64 f32) block i32.const 1 br_table 0 0 end block unreachable end i32.const 7 local.tee 2 drop i32.const 11 i32.const 22 i32.const 1 select drop f32.const 92 call $f drop block i32.const 1 br_if 0 end loop i32.const 0 br_if 0 end i32.const 1 if block br 0 end else nop end i32.const 0 if (result i32) i32.const 467 else i32.const 333 end) (export \"main\" (func $f)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs unreachable suffix success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs removes trailing branch to the enclosing block" {
   let optimized = match
     pass_test_run_pipeline(

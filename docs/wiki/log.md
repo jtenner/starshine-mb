@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | close `remove-unused-brs` local-declaration drift slice
+
+- Added a focused `remove-unused-brs` regression for the gen-valid br-table / unreachable-block suffix family that had reduced to canonical local-declaration drift after Binaryen normalization.
+- Updated `src/passes/remove_unused_brs.mbt` so unreferenced nonfallthrough block roots prune the following dead suffix, and single-root `block { unreachable }` suffix sentinels are replaced with the inner `unreachable` root to keep result-typed functions valid and avoid Binaryen canonicalization inventing scratch locals.
+- Ran `moon test src/passes -f 'remove-unused-brs prunes suffix after br-table then unreachable block'` during the TDD loop and `bun scripts/pass-fuzz-compare.ts --pass remove-unused-brs --count 10000 --max-failures 20 --seed 0x5eed --out-dir .tmp/pass-fuzz-remove-unused-brs`; the long lane compared `6759` cases with `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures (`binaryen-rec-group-zero`, `binaryen-bad-section-size`, `binaryen-table-index-out-of-range`, `binaryen-invalid-tag-index`).
+- Refreshed the living `remove-unused-brs` parity page and pruned `[RUB]003` from `agent-todo.md`; remaining optimize-path work now stays with DCE/PC/CP/TO/SL/CF/RSE and global optimizing-pass slices.
+
 ## [2026-05-07] parity | close `ssa-nomerge` temp-local normalization slice
 
 - Added focused IR and pass regressions for unreachable dead `local.tee` carriers around value-producing `if` roots and later branchy control, while preserving the existing Binaryen-style temp-local cases for value-block carriers.
