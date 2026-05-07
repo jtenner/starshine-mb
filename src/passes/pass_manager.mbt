@@ -8069,7 +8069,7 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   let cleaned = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
     func, descriptor_name,
   )
-  if descriptor_name != "vacuum" {
+  if descriptor_name != "vacuum" && descriptor_name != "precompute" {
     return cleaned
   }
   match cleaned {
@@ -8095,6 +8095,8 @@ fn run_hot_pipeline_lower_options_for_descriptor(
       preserve_nontrailing_nops=true,
       preserve_trailing_nops=true,
     )
+  } else if descriptor_name == "precompute" {
+    @ir.HotLowerOptions::new(preserve_nontrailing_nops=true)
   } else if descriptor_name == "remove-unused-brs" {
     @ir.HotLowerOptions::new(
       preserve_if_arm_single_nops=true,
@@ -8294,7 +8296,7 @@ fn run_hot_pipeline_func(
           descriptor.name == "remove-unused-brs"
         ) &&
         descriptor.name != "heap-store-optimization" &&
-        !(descriptor.name == "vacuum" &&
+        !((descriptor.name == "vacuum" || descriptor.name == "precompute") &&
         run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
           run_hot_pipeline_original_func(mod_, func_idx),
         )) &&

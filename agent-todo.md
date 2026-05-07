@@ -55,8 +55,9 @@ Observed unique-pass order
 
 #### PC - Precompute
 
-- [PC]001 - Direct Mismatch Recovery, Runtime, And Representation Drift
-  - Deliverables: keep direct debug-artifact parity green; restore the direct fuzz parity gate by matching Binaryen's dead-root nop-normalization on the saved `.tmp/recheck-precompute/` repros; then reduce the remaining runtime gap and canonical wasm/text-form drift.
+- [PC]001 - Runtime And Representation Drift
+  - Deliverables: keep direct debug-artifact parity green after the dead-root `nop` normalization fix; reduce the remaining runtime gap and canonical wasm/text-form drift.
+  - Current status: saved `.tmp/recheck-precompute/` repros replay green (`100 / 100`, seed `0xa11d`, out dir `.tmp/recheck-precompute-after`); the standard mixed 10k lane has `0` semantic mismatches before known Binaryen/tool command failures stop the run (`6759` compared, `.tmp/pass-fuzz-precompute`); direct debug-artifact compare has normalized WAT and canonical-function parity but raw canonical wasm/text drift and a large runtime gap remain.
 
 #### CP - Code Pushing
 

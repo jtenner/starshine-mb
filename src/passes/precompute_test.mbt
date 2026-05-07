@@ -176,6 +176,36 @@ test "precompute removes dropped pure constants from void bodies" {
 }
 
 ///|
+test "precompute normalizes empty void bodies to one nop" {
+  let optimized = match
+    pass_test_run_pipeline("(module (func))", ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected precompute empty-body success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+}
+
+///|
+test "precompute leaves a dead exact root nop before unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func i32.const 2 i32.const 3 i32.mul drop unreachable))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected precompute dead-root nop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.mul"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "precompute removes pure root nop prefixes before a final const result" {
   let optimized = match
     pass_test_run_pipeline(

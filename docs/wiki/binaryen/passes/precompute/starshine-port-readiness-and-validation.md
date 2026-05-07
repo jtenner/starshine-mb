@@ -31,7 +31,7 @@ related:
 
 This page is the implementation-readiness bridge for Starshine's active `precompute` pass. It does **not** claim that Starshine already implements the full Binaryen `Precompute.cpp` engine. It explains what is implemented, what to validate, and how to extend the pass without confusing Starshine's HOT cleanup subset with Binaryen's interpreter-driven strategy.
 A 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) kept the upstream-teaching map stable.
-A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine currently trims dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. Keep that recovery work inside `[PC]001` before treating runtime and representation drift as the only remaining `precompute` blockers.
+A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine trimmed dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. The same-day `[PC]001` recovery now preserves that dead-root `nop` during `precompute` lowering and normalizes empty unchanged direct-pass bodies to one `nop`; saved repro replay and the mixed direct lane have `0` semantic mismatches, so remaining `[PC]001` work is runtime plus raw canonical wasm/text representation drift.
 
 ## Current local contract
 
@@ -42,6 +42,7 @@ Starshine `precompute` is an active HOT pass with a narrow, practical contract:
 - replace immutable defined `global.get` values with constants or `ref.null` where the module context can prove the initializer;
 - choose constant `if` arms and rebuild the chosen root shape;
 - remove pure dropped values and clean up `nop` residue that would otherwise make HOT writeback harder;
+- preserve Binaryen-visible dead-root `nop` sentinels before trailing `unreachable` and normalize empty void bodies to one `nop` at the direct pass boundary;
 - validate suspicious lowered output before committing it back to the module.
 
 That contract is source-backed by [`src/passes/precompute.mbt:1-1158`](../../../../../src/passes/precompute.mbt), [`src/passes/pass_manager.mbt:8185-8484`](../../../../../src/passes/pass_manager.mbt), and the proof lanes in [`src/passes/precompute_test.mbt:1-342`](../../../../../src/passes/precompute_test.mbt).
@@ -119,7 +120,7 @@ Use this order for future work:
 | `i32.const a; i32.const b; i32.div_s` | Preserved. | Correctly avoids trap-sensitive folding. |
 | immutable defined `global.get` | Replaced with literal i32/i64/f32/f64/ref-null constants; `StringConst` is rejected. | Binaryen's emitability and string/GC behavior is broader and subtler. |
 | constant void/result `if` | Chooses the surviving arm, emits `nop`, a root, or a rebuilt block. | Related to but narrower than Binaryen's flow-aware computation. |
-| `drop(pure-value)` | Replaced with `nop` or spliced away when the value is side-effect-free and nontrapping. | Local HOT cleanup, not the full Binaryen child-retention algorithm. |
+| `drop(pure-value)` | Replaced with `nop` or spliced away when the value is side-effect-free and nontrapping; dead exact roots before a trailing `unreachable` keep one Binaryen-style `nop`. | Local HOT cleanup, not the full Binaryen child-retention algorithm. |
 | `select` partial precompute | Not implemented. | Binaryen has a source-backed partial-precompute path. |
 | local-flow propagation | Not implemented in `precompute`; local sibling `precompute-propagate` is removed today. | Binaryen's `precompute-propagate` uses `LazyLocalGraph` and a rerun. |
 | GC/string/atomic reads | Mostly not implemented. | Upstream has drift and special-case safety fixes; treat as a dedicated future design. |

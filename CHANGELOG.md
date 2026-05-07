@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Passes: restore precompute direct mismatch parity
+
+- **match Binaryen's `precompute` dead-root `nop` normalization before trailing `unreachable`, normalize empty direct-pass bodies to one `nop`, replay the saved repro lane green, and narrow `[PC]001` to runtime plus representation drift** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/precompute_test.mbt`](./src/passes/precompute_test.mbt), [`docs/wiki/binaryen/passes/precompute/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/precompute/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-07 Passes: close remove-unused-brs local-declaration drift
 
 - **prune dead root suffixes after unreferenced nonfallthrough blocks in `remove-unused-brs`, add a focused br-table/unreachable regression, prove the 10k attempted mixed-generator direct lane has zero semantic mismatches, and prune `[RUB]003` from the active backlog** by **@OpenAI**. Updated [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt), [`docs/wiki/binaryen/passes/remove-unused-brs/parity.md`](./docs/wiki/binaryen/passes/remove-unused-brs/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

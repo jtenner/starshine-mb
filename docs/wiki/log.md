@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | restore `precompute` direct mismatch gate
+
+- Added focused `precompute` regressions for the saved dead-root exact-fold family before a trailing `unreachable` and for empty void-body normalization.
+- Updated `src/passes/pass_manager.mbt` so direct `precompute` lowering preserves nontrailing `nop`s, does not skip lowering when an unchanged empty function needs Binaryen-style single-`nop` canonicalization, and applies the same empty-body normalization already used for `vacuum`.
+- Replayed `.tmp/recheck-precompute/` with `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0xa11d --pass precompute --max-failures 20 --out-dir .tmp/recheck-precompute-after` (`100 / 100` matches, `0` mismatches), then ran the standard mixed lane at `.tmp/pass-fuzz-precompute` (`6759` compared, `6759` matches, `0` mismatches, stopped by `20` known Binaryen/tool command failures) plus direct debug-artifact compare (`normalized WAT` and canonical functions equal; raw canonical wasm/text and runtime drift remain).
+- Refreshed the living `precompute` readiness page and narrowed `[PC]001` in `agent-todo.md` to remaining runtime and representation work.
+
 ## [2026-05-07] parity | close `remove-unused-brs` local-declaration drift slice
 
 - Added a focused `remove-unused-brs` regression for the gen-valid br-table / unreachable-block suffix family that had reduced to canonical local-declaration drift after Binaryen normalization.
