@@ -8083,7 +8083,9 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
 fn run_hot_pipeline_lower_options_for_descriptor(
   descriptor_name : String,
 ) -> @ir.HotLowerOptions {
-  if descriptor_name == "simplify-locals" ||
+  if descriptor_name == "ssa-nomerge" {
+    @ir.HotLowerOptions::new(preserve_dead_local_tee_drops=true)
+  } else if descriptor_name == "simplify-locals" ||
     descriptor_name == "simplify-locals-nostructure" ||
     descriptor_name == "simplify-locals-no-structure" ||
     descriptor_name == "simplify-locals-notee-nostructure" {

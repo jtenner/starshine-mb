@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Passes: narrow `ssa-nomerge` temp-local drift
+
+- **catch dead-write-only `ssa-nomerge` hot rewrites, preserve Binaryen-style unreachable dead `local.tee` drops in lowering, add focused IR/pass regressions, and refresh the active `[SSA]001` backlog note for the remaining reachable temp-local shaping mismatches** by **@OpenAI**. Updated [`src/ir/ssa_destroy.mbt`](./src/ir/ssa_destroy.mbt), [`src/ir/ssa_destroy_test.mbt`](./src/ir/ssa_destroy_test.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/ssa_nomerge.mbt`](./src/passes/ssa_nomerge.mbt), [`src/passes/ssa_nomerge_test.mbt`](./src/passes/ssa_nomerge_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-07 Passes: close memory-packing passive cleanup parity slice
 
 - **drop dead passive data segments conservatively in `memory-packing`, remap later passive users after active segment-count changes, replay the saved repro lane cleanly, and prune `[MP]001` from the active backlog** by **@OpenAI**. Updated [`src/passes/memory_packing.mbt`](./src/passes/memory_packing.mbt), [`src/passes/memory_packing_test.mbt`](./src/passes/memory_packing_test.mbt), [`docs/wiki/raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md`](./docs/wiki/raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md), [`docs/wiki/binaryen/passes/memory-packing/parity.md`](./docs/wiki/binaryen/passes/memory-packing/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

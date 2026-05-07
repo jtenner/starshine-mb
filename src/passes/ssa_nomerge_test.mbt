@@ -28,7 +28,10 @@ fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
     Ok(_) => ()
     Err(err) => return Err("ssa-nomerge hot-path run failed: \{err}")
   }
-  let lowered = @ir.hot_lower_func(func)
+  let lowered = @ir.hot_lower_func_with_options(
+    func,
+    @ir.HotLowerOptions::new(preserve_dead_local_tee_drops=true),
+  )
   let next_code_sec = match mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
       let next_defs = defs.copy()
@@ -679,6 +682,42 @@ test "ssa-nomerge preserves unreachable compare carriers from func 523 shape" {
         "expected func 523 followup compare carrier shape to survive ssa-nomerge, got \{err}",
       )
   }
+}
+
+///|
+test "ssa-nomerge hot path preserves Binaryen temp locals for unreachable dead tees" {
+  let input =
+    #| (module
+    #|   (func (result i32)
+    #|     (local i32)
+    #|     block
+    #|       unreachable
+    #|     end
+    #|     i32.const 7
+    #|     local.tee 0
+    #|     drop
+    #|     i32.const 9))
+    #|
+  let optimized = match ssa_test_run_hot_path_only(input) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unreachable dead tee hot-path success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(locals, @lib.Locals::from_types([
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ]))
+  assert_eq(instrs, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::unreachable_()]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+  ])
 }
 
 ///|

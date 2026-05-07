@@ -31,7 +31,10 @@ fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
-fn ssa_nomerge_needs_rewrite(ssa : @ir.HotLocalSsa) -> Bool {
+fn ssa_nomerge_needs_rewrite(
+  func : @ir.HotFunc,
+  ssa : @ir.HotLocalSsa,
+) -> Bool {
   if ssa.phis.length() != 0 {
     return true
   }
@@ -39,6 +42,15 @@ fn ssa_nomerge_needs_rewrite(ssa : @ir.HotLocalSsa) -> Bool {
     match origin {
       @ir.HotSsaValueOrigin::LocalSetDef(_)
       | @ir.HotSsaValueOrigin::LocalTeeDef(_) => return true
+      _ => ()
+    }
+  }
+  for node_id = 0; node_id < ssa.local_write_defs.length(); node_id = node_id + 1 {
+    if ssa.local_write_defs[node_id] >= 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => return true
       _ => ()
     }
   }
@@ -52,7 +64,7 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
   let cfg = pass_require_cfg(ctx, func)
   let ssa = pass_require_ssa(ctx, func)
-  if !ssa_nomerge_needs_rewrite(ssa) {
+  if !ssa_nomerge_needs_rewrite(func, ssa) {
     return HotPassResult::unchanged()
   }
   let before_revision = @ir.hot_revision_current(func)

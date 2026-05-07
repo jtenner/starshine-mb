@@ -56,6 +56,8 @@ Observed unique-pass order
 - [SSA]001 - Temp-Local Declaration Normalization
   - Why: the current-head `ssa-nomerge` rerun in `docs/wiki/raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md` confirmed the remaining direct drift is temp-local declaration count/type/order shaping rather than instruction-body semantics.
   - Deliverables: align temp-local insertion/elision and declaration order/type shaping with Binaryen on the saved `.tmp/recheck-ssa-nomerge/` repros; add focused tests; rerun direct `--pass ssa-nomerge` parity at `10000` cases.
+  - Current status: hot-path rewrite detection now catches dead local writes with no SSA defs, and `ssa-nomerge` lowering preserves Binaryen-style unreachable dead `local.tee` drops; focused IR/pass tests are green.
+  - Remaining TODOs: resolve the saved `.tmp/recheck-ssa-nomerge-after-fix*` repros that still over-allocate temp locals on some reachable dead-tee / local-shaping cases, then rerun the full direct parity gate.
 
 #### DCE - Dead Code Elimination
 

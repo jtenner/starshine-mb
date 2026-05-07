@@ -249,21 +249,6 @@ fn ssa_destroy_apply_pending_inserts(
 }
 
 ///|
-fn ssa_destroy_original_write_local(
-  func : HotFunc,
-  node_id : NodeId,
-) -> LocalId {
-  let node = hot_node_get(func, node_id)
-  match node.op {
-    HotOp::LocalSet | HotOp::LocalTee => node.imm0
-    _ =>
-      abort(
-        "ssa concrete local assignment requires local_set/local_tee defs, got \{node.op} at node \{node_id}",
-      )
-  }
-}
-
-///|
 pub fn ssa_assign_concrete_locals(
   func : HotFunc,
   ssa : HotLocalSsa,
@@ -278,16 +263,13 @@ pub fn ssa_assign_concrete_locals(
       HotSsaValueOrigin::EntryParamDef(local_id)
       | HotSsaValueOrigin::EntryDefaultInitDef(local_id) => local_id
       HotSsaValueOrigin::PhiDef(phi_id) => ssa.phis[phi_id].local_id
-      HotSsaValueOrigin::LocalSetDef(node_id)
-      | HotSsaValueOrigin::LocalTeeDef(node_id) =>
-        if ssa.value_uses[value_id].length() == 0 {
-          ssa_destroy_original_write_local(func, node_id)
-        } else {
-          extra_local_types.push(ssa.value_types[value_id])
-          let local_id = next_local
-          next_local = next_local + 1
-          local_id
-        }
+      HotSsaValueOrigin::LocalSetDef(_)
+      | HotSsaValueOrigin::LocalTeeDef(_) => {
+        extra_local_types.push(ssa.value_types[value_id])
+        let local_id = next_local
+        next_local = next_local + 1
+        local_id
+      }
     }
   }
   { value_locals, extra_local_types }
@@ -477,6 +459,35 @@ pub fn ssa_insert_predecessor_copies(
 }
 
 ///|
+fn ssa_trim_unused_trailing_temp_locals(
+  func : HotFunc,
+  original_local_count : Int,
+) -> Unit {
+  let mut max_used_local = hot_param_count(func) - 1
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee =>
+        if node.imm0 > max_used_local {
+          max_used_local = node.imm0
+        }
+      _ => ()
+    }
+  }
+  while hot_local_count(func) > original_local_count {
+    let trailing_local_id = hot_local_count(func) - 1
+    if trailing_local_id <= max_used_local {
+      break
+    }
+    ignore(func.locals.locals.pop())
+    hot_revision_bump(func)
+  }
+}
+
+///|
 pub fn ssa_remove_dead_local_defs(
   func : HotFunc,
   dead_nodes : Array[NodeId],
@@ -510,10 +521,7 @@ pub fn ssa_remove_dead_local_defs(
           imm0: 0,
           imm1: 0,
         })
-      HotOp::LocalTee => {
-        let child = hot_node_get(func, hot_child_get(func, node_id, 0))
-        hot_replace_node(func, node_id, child)
-      }
+      HotOp::LocalTee => ()
       HotOp::Drop => ()
       _ =>
         abort(
@@ -531,6 +539,7 @@ pub fn ssa_destroy_into_hot(
   policy? : HotSsaDestroyPolicy = HotSsaDestroyPolicy::ReusePhiLocals,
 ) -> HotSsaConcreteLocals {
   ignore(policy)
+  let original_local_count = hot_local_count(func)
   let concrete = ssa_assign_concrete_locals(func, ssa)
   for ty in concrete.extra_local_types {
     ignore(hot_append_body_local(func, ty))
@@ -604,6 +613,34 @@ pub fn ssa_destroy_into_hot(
   }
 
   let dead_nodes : Array[NodeId] = []
+  let (node_order, last_local_get_order) = ssa_destroy_last_local_get_orders(
+    func,
+  )
+  for node_id = 0
+      node_id < ssa.local_write_defs.length()
+      node_id = node_id + 1 {
+    if ssa.local_write_defs[node_id] >= 0 || !hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::LocalSet | HotOp::LocalTee => {
+        if node.imm0 >= 0 &&
+          node.imm0 < last_local_get_order.length() &&
+          node_order[node_id] >= 0 &&
+          last_local_get_order[node.imm0] > node_order[node_id] {
+          continue
+        }
+        let fresh_local = hot_append_body_local(
+          func,
+          ssa_destroy_local_type(func, node.imm0),
+        )
+        ssa_rewrite_local_use(func, node_id, fresh_local)
+        dead_nodes.push(node_id)
+      }
+      _ => ()
+    }
+  }
   for value_id = 0
       value_id < ssa.value_origins.length()
       value_id = value_id + 1 {
@@ -617,5 +654,6 @@ pub fn ssa_destroy_into_hot(
     }
   }
   ssa_remove_dead_local_defs(func, dead_nodes)
+  ssa_trim_unused_trailing_temp_locals(func, original_local_count)
   concrete
 }

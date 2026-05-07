@@ -245,7 +245,7 @@ test "ssa dead local cleanup preserves writes with later concrete local reads" {
 }
 
 ///|
-test "ssa destruction does not allocate extra locals for dead local sets" {
+test "ssa destruction trims unused temp locals for dead local sets" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let set_id = hot_build_local_set(
     func,
@@ -267,7 +267,7 @@ test "ssa destruction does not allocate extra locals for dead local sets" {
 }
 
 ///|
-test "ssa destruction does not allocate extra locals for dead local tees" {
+test "ssa destruction retains Binaryen temp locals for dead local tees" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let tee_id = hot_build_local_tee(
     func,
@@ -284,8 +284,36 @@ test "ssa destruction does not allocate extra locals for dead local tees" {
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 1)
-  assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "Const")
+  assert_eq(hot_local_count(func), 2)
+  let rewritten = hot_root_get(func, 0)
+  assert_eq(hot_node_get(func, rewritten).op.to_string(), "LocalTee")
+  assert_eq(hot_node_get(func, rewritten).imm0, 1)
+}
+
+///|
+test "ssa destruction retains Binaryen temp locals for unreachable dead local tees" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+
+  assert_eq(hot_local_count(func), 2)
 }
 
 ///|
