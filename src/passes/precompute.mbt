@@ -1151,6 +1151,558 @@ fn precompute_trim_root_nops_before_trailing_const(
 }
 
 ///|
+fn precompute_raw_i32_const(instr : @lib.Instruction) -> @lib.I32? {
+  match instr {
+    @lib.I32Const(value) => Some(value)
+    _ => None
+  }
+}
+
+///|
+fn precompute_raw_i64_const(instr : @lib.Instruction) -> @lib.I64? {
+  match instr {
+    @lib.I64Const(value) => Some(value)
+    _ => None
+  }
+}
+
+///|
+fn precompute_raw_bool(value : Bool) -> @lib.Instruction {
+  @lib.Instruction::i32_const(if value { @lib.I32(1) } else { @lib.I32(0) })
+}
+
+///|
+fn precompute_raw_try_fold_unary(
+  operand : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match (instr, precompute_raw_i32_const(operand)) {
+    (@lib.Instruction::I32Eqz, Some(v)) =>
+      return Some(precompute_raw_bool(v == @lib.I32(0)))
+    _ => ()
+  }
+  match (instr, precompute_raw_i64_const(operand)) {
+    (@lib.Instruction::I64Eqz, Some(v)) =>
+      Some(precompute_raw_bool(v == @lib.I64(0L)))
+    _ => None
+  }
+}
+
+///|
+fn precompute_raw_try_fold_binary(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match
+    (
+      instr,
+      precompute_raw_i32_const(lhs_instr),
+      precompute_raw_i32_const(rhs_instr),
+    ) {
+    (@lib.Instruction::I32Add, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(
+            (lhs.reinterpret_as_uint() + rhs.reinterpret_as_uint()).reinterpret_as_int(),
+          ),
+        ),
+      )
+    (@lib.Instruction::I32Sub, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(
+            (lhs.reinterpret_as_uint() - rhs.reinterpret_as_uint()).reinterpret_as_int(),
+          ),
+        ),
+      )
+    (@lib.Instruction::I32Mul, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(
+            (lhs.reinterpret_as_uint() * rhs.reinterpret_as_uint()).reinterpret_as_int(),
+          ),
+        ),
+      )
+    (@lib.Instruction::I32And, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(@lib.Instruction::i32_const(@lib.I32(lhs & rhs)))
+    (@lib.Instruction::I32Or, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(@lib.Instruction::i32_const(@lib.I32(lhs | rhs)))
+    (@lib.Instruction::I32Xor, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(@lib.Instruction::i32_const(@lib.I32(lhs ^ rhs)))
+    (@lib.Instruction::I32Shl, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      let shift = rhs.reinterpret_as_uint() & 31U
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(
+            (lhs.reinterpret_as_uint() << shift.reinterpret_as_int()).reinterpret_as_int(),
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::I32ShrU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      let shift = rhs.reinterpret_as_uint() & 31U
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(
+            (lhs.reinterpret_as_uint() >> shift.reinterpret_as_int()).reinterpret_as_int(),
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::I32ShrS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      let shift = rhs.reinterpret_as_uint() & 31U
+      return Some(
+        @lib.Instruction::i32_const(@lib.I32(lhs >> shift.reinterpret_as_int())),
+      )
+    }
+    (@lib.Instruction::I32Eq, Some(lhs), Some(rhs)) =>
+      return Some(precompute_raw_bool(lhs == rhs))
+    (@lib.Instruction::I32Ne, Some(lhs), Some(rhs)) =>
+      return Some(precompute_raw_bool(lhs != rhs))
+    (@lib.Instruction::I32LtS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(precompute_raw_bool(lhs < rhs))
+    (@lib.Instruction::I32LtU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(
+        precompute_raw_bool(
+          lhs.reinterpret_as_uint() < rhs.reinterpret_as_uint(),
+        ),
+      )
+    (@lib.Instruction::I32GtS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(precompute_raw_bool(lhs > rhs))
+    (@lib.Instruction::I32GtU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(
+        precompute_raw_bool(
+          lhs.reinterpret_as_uint() > rhs.reinterpret_as_uint(),
+        ),
+      )
+    (@lib.Instruction::I32LeS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(precompute_raw_bool(lhs <= rhs))
+    (@lib.Instruction::I32LeU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(
+        precompute_raw_bool(
+          lhs.reinterpret_as_uint() <= rhs.reinterpret_as_uint(),
+        ),
+      )
+    (@lib.Instruction::I32GeS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(precompute_raw_bool(lhs >= rhs))
+    (@lib.Instruction::I32GeU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) =>
+      return Some(
+        precompute_raw_bool(
+          lhs.reinterpret_as_uint() >= rhs.reinterpret_as_uint(),
+        ),
+      )
+    _ => ()
+  }
+  match
+    (
+      instr,
+      precompute_raw_i64_const(lhs_instr),
+      precompute_raw_i64_const(rhs_instr),
+    ) {
+    (@lib.Instruction::I64Add, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(
+            (lhs.reinterpret_as_uint64() + rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
+          ),
+        ),
+      )
+    (@lib.Instruction::I64Sub, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(
+            (lhs.reinterpret_as_uint64() - rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
+          ),
+        ),
+      )
+    (@lib.Instruction::I64Mul, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(
+            (lhs.reinterpret_as_uint64() * rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
+          ),
+        ),
+      )
+    (@lib.Instruction::I64And, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(@lib.Instruction::i64_const(@lib.I64(lhs & rhs)))
+    (@lib.Instruction::I64Or, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(@lib.Instruction::i64_const(@lib.I64(lhs | rhs)))
+    (@lib.Instruction::I64Xor, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(@lib.Instruction::i64_const(@lib.I64(lhs ^ rhs)))
+    (@lib.Instruction::I64Shl, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      let shift = rhs.reinterpret_as_uint64() & 63UL
+      Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(
+            (lhs.reinterpret_as_uint64() << shift.to_int()).reinterpret_as_int64(),
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::I64ShrU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      let shift = rhs.reinterpret_as_uint64() & 63UL
+      Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(
+            (lhs.reinterpret_as_uint64() >> shift.to_int()).reinterpret_as_int64(),
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::I64ShrS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      let shift = rhs.reinterpret_as_uint64() & 63UL
+      Some(@lib.Instruction::i64_const(@lib.I64(lhs >> shift.to_int())))
+    }
+    (@lib.Instruction::I64Eq, Some(lhs), Some(rhs)) =>
+      Some(precompute_raw_bool(lhs == rhs))
+    (@lib.Instruction::I64Ne, Some(lhs), Some(rhs)) =>
+      Some(precompute_raw_bool(lhs != rhs))
+    (@lib.Instruction::I64LtS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(precompute_raw_bool(lhs < rhs))
+    (@lib.Instruction::I64LtU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(
+        precompute_raw_bool(
+          lhs.reinterpret_as_uint64() < rhs.reinterpret_as_uint64(),
+        ),
+      )
+    (@lib.Instruction::I64GtS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(precompute_raw_bool(lhs > rhs))
+    (@lib.Instruction::I64GtU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(
+        precompute_raw_bool(
+          lhs.reinterpret_as_uint64() > rhs.reinterpret_as_uint64(),
+        ),
+      )
+    (@lib.Instruction::I64LeS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(precompute_raw_bool(lhs <= rhs))
+    (@lib.Instruction::I64LeU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(
+        precompute_raw_bool(
+          lhs.reinterpret_as_uint64() <= rhs.reinterpret_as_uint64(),
+        ),
+      )
+    (@lib.Instruction::I64GeS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(precompute_raw_bool(lhs >= rhs))
+    (@lib.Instruction::I64GeU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
+      Some(
+        precompute_raw_bool(
+          lhs.reinterpret_as_uint64() >= rhs.reinterpret_as_uint64(),
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+fn precompute_raw_instr_is_flat_discardable_value(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.LocalGet(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_) => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
+  if out.length() >= 2 {
+    match out[out.length() - 1] {
+      @lib.Drop =>
+        if precompute_raw_instr_is_flat_discardable_value(out[out.length() - 2]) {
+          ignore(out.pop())
+          ignore(out.pop())
+          out.push(@lib.Instruction::nop())
+          return true
+        }
+      _ => ()
+    }
+    match
+      precompute_raw_try_fold_unary(
+        out[out.length() - 2],
+        out[out.length() - 1],
+      ) {
+      Some(folded) => {
+        ignore(out.pop())
+        ignore(out.pop())
+        out.push(folded)
+        return true
+      }
+      None => ()
+    }
+  }
+  if out.length() >= 3 {
+    match
+      precompute_raw_try_fold_binary(
+        out[out.length() - 3],
+        out[out.length() - 2],
+        out[out.length() - 1],
+      ) {
+      Some(folded) => {
+        ignore(out.pop())
+        ignore(out.pop())
+        ignore(out.pop())
+        out.push(folded)
+        return true
+      }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_rewrite_instr(
+  instr : @lib.Instruction,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (next_body, changed) = precompute_raw_rewrite_instrs(body)
+      if changed {
+        (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), true)
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (next_body, changed) = precompute_raw_rewrite_instrs(body)
+      if changed {
+        (@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)), true)
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (next_then, then_changed) = precompute_raw_rewrite_instrs(then_body)
+      let mut changed = then_changed
+      let next_else = match else_body {
+        Some(body) => {
+          let (rewritten, else_changed) = precompute_raw_rewrite_instrs(body)
+          if else_changed {
+            changed = true
+          }
+          Some(rewritten)
+        }
+        None => None
+      }
+      if changed {
+        (@lib.Instruction::if_(block_type, next_then, next_else), true)
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (next_body, changed) = precompute_raw_rewrite_instrs(body)
+      if changed {
+        (
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn precompute_raw_rewrite_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    let (rewritten, nested_changed) = precompute_raw_rewrite_instr(instr)
+    out.push(rewritten)
+    if nested_changed {
+      changed = true
+    }
+    while precompute_raw_fold_output_tail(out) {
+      changed = true
+    }
+  }
+  (out, changed)
+}
+
+///|
+fn precompute_raw_instr_has_hot_only_candidate(
+  instr : @lib.Instruction,
+  nested : Bool,
+) -> Bool {
+  match instr {
+    @lib.GlobalGet(_) | @lib.BrTable(_, _) => true
+    @lib.Nop => nested
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_hot_only_candidate(body, true)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_hot_only_candidate(then_body, true) {
+        return true
+      }
+      match else_body {
+        Some(body) => precompute_raw_instrs_have_hot_only_candidate(body, true)
+        None => false
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_hot_only_candidate(body, true)
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_hot_only_candidate(
+  instrs : Array[@lib.Instruction],
+  nested : Bool,
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_hot_only_candidate(instr, nested) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_instrs_have_drop(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Drop => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if precompute_raw_instrs_have_drop(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if precompute_raw_instrs_have_drop(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if precompute_raw_instrs_have_drop(body) { return true }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if precompute_raw_instrs_have_drop(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_instrs_have_const_if_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    match instr {
+      @lib.If(_, then_body, else_body) => {
+        if idx > 0 {
+          match precompute_raw_i32_const(instrs[idx - 1]) {
+            Some(_) => return true
+            None => ()
+          }
+        }
+        if precompute_raw_instrs_have_const_if_candidate(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if precompute_raw_instrs_have_const_if_candidate(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if precompute_raw_instrs_have_const_if_candidate(body) {
+          return true
+        }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if precompute_raw_instrs_have_const_if_candidate(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_root_nop_cleanup_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() == 0 {
+    return true
+  }
+  if instrs.length() <= 1 {
+    return false
+  }
+  let mut all_nops = true
+  for instr in instrs {
+    match instr {
+      @lib.Nop => ()
+      _ => all_nops = false
+    }
+  }
+  if all_nops {
+    return true
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.I32Const(_) | @lib.I64Const(_) | @lib.F32Const(_) | @lib.F64Const(_) =>
+      ()
+    _ => return false
+  }
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Nop => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn precompute_run_raw_func(func : @lib.Func) -> (@lib.Func, Bool, String)? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if precompute_raw_instrs_have_hot_only_candidate(instrs, false) {
+    return None
+  }
+  if precompute_raw_root_nop_cleanup_candidate(instrs) {
+    return None
+  }
+  let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs)
+  if precompute_raw_instrs_have_drop(rewritten) ||
+    precompute_raw_instrs_have_const_if_candidate(rewritten) ||
+    precompute_raw_root_nop_cleanup_candidate(rewritten) {
+    return None
+  }
+  Some(
+    (
+      @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+      changed,
+      if changed {
+        "raw-scalar-folds"
+      } else {
+        "no-precompute-candidates"
+      },
+    ),
+  )
+}
+
+///|
 fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed_any = false
   let mut changed_round = true

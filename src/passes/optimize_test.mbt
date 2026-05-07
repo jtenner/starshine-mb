@@ -462,10 +462,11 @@ test "optimize preset replays precompute in both PC slots" {
     Ok(_) => ()
     Err(err) => fail("expected optimized module to validate, got \{err}")
   }
-  let pc_starts = trace.filter(fn(line) {
-    line.contains("pass[precompute]:start")
+  let pc_runs = trace.filter(fn(line) {
+    line.contains("pass[precompute]:start") ||
+    line.contains("pass[precompute]:skip-raw")
   })
-  assert_eq(pc_starts.length(), 2)
+  assert_eq(pc_runs.length(), 2)
 }
 
 ///|
@@ -487,10 +488,11 @@ test "shrink preset replays precompute in both PC slots" {
     Ok(_) => ()
     Err(err) => fail("expected shrink module to validate, got \{err}")
   }
-  let pc_starts = trace.filter(fn(line) {
-    line.contains("pass[precompute]:start")
+  let pc_runs = trace.filter(fn(line) {
+    line.contains("pass[precompute]:start") ||
+    line.contains("pass[precompute]:skip-raw")
   })
-  assert_eq(pc_starts.length(), 2)
+  assert_eq(pc_runs.length(), 2)
 }
 
 ///|

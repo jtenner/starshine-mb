@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
@@ -75,8 +75,7 @@ So this pass is not just “integer constant folding.”
   - slot `43`: `precompute-propagate`
 - The saved Binaryen debug log contains `53` `running pass: precompute-propagate` lines in total, so nested optimizing reruns matter a lot more than the two visible top-level `-O4z` slots suggest.
 - The local backlog already has dedicated `PC` slices, so a deeper dossier here directly helps future implementation work:
-  - `[PC]001 - Constant Folding Surface`
-  - `[PC]002 - Early/Late Slot Regression and Artifact Parity`
+  - `[PC]001 - Runtime And Representation Drift`
 
 ## Most important durable takeaways
 
@@ -102,7 +101,7 @@ So this pass is not just “integer constant folding.”
   - The pass keeps a heap-value cache so `ref.eq`, immutable field reads, and nested immutable-object reasoning do not accidentally confuse “same contents” with “same allocation.”
 - Emitability is also part of the contract.
   - Binaryen may know a result value precisely, but still refuse to replace the expression if it cannot emit that value as a valid constant expression.
-- Current Starshine models only a small scalar/control subset of the upstream behavior.
+- Current Starshine models only a small scalar/control subset of the upstream behavior, with a conservative raw stack-level shortcut for scalar/no-candidate functions to reduce direct-pass HOT lift/lower work.
 - The earlier generated-artifact slot-19 hard failure is retired.
   - The durable explanation is that the saved failure was fixed by HOT-lowering / writeback guards and full-module validation, not by discovering that Binaryen `precompute` itself is a still-open structural rewrite hazard.
 - The later rooted slot-43 continuation blocker is also retired.

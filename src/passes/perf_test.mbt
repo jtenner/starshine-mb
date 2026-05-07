@@ -3719,6 +3719,35 @@ test "ssa-nomerge skips raw lift when the original function has no local writes"
 }
 
 ///|
+test "precompute raw-folds scalar constants without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 0 i32.const 2 i32.and i32.const 1 i32.or))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected raw precompute scalar fold success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i32.or"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
 test "remove-unused-names skips raw lift when the original function has no candidate control flow" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

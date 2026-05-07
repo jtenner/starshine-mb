@@ -7318,6 +7318,28 @@ fn run_hot_pipeline_raw_pick_load_signs(
 }
 
 ///|
+fn run_hot_pipeline_raw_precompute(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "precompute" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  match precompute_run_raw_func(original) {
+    Some((rewritten, changed, reason)) =>
+      Some({
+        reason,
+        func: rewritten,
+        unchanged_original: !changed,
+        trace_skip_raw: true,
+      })
+    None => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_rse(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -8138,6 +8160,10 @@ fn run_hot_pipeline_func(
     None => ()
   }
   match run_hot_pipeline_raw_pick_load_signs(mod_, func_idx, descriptor) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match run_hot_pipeline_raw_precompute(mod_, func_idx, descriptor) {
     Some(result) => return Ok(result)
     None => ()
   }

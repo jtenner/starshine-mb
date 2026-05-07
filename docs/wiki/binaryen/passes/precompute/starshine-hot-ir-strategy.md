@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
@@ -41,6 +41,7 @@ This page describes the **current in-tree Starshine implementation**, not the fu
 Starshine currently implements a deliberately narrow HOT-IR `precompute` pass focused on:
 
 - exact i32/i64 unary and binary folds
+- raw stack-level shortcuts for no-candidate functions and functions that only need adjacent scalar folds, so they can skip HOT lift/lower safely while root/dead-drop cleanup stays on the HOT path
 - exact i32/i64 comparisons lowered to i32 boolean constants
 - immutable scalar-or-null `global.get` replacement
 - constant-`if` arm picking
@@ -79,7 +80,9 @@ The pass also appears in the registry and preset expansions in [`src/passes/opti
 
 ## 2. Exact constant sources the pass knows how to read
 
-The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt):
+The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The same file now also owns a conservative raw stack-level shortcut for no-candidate functions and functions with only adjacent scalar folds; that shortcut refuses functions with unhandled `global.get`, `br_table`, constant-`if`, nested-`nop`, root-`nop` cleanup, or remaining `drop` candidates so the HOT path still handles structural cases.
+
+The HOT constant-source helpers are:
 
 - `precompute_global_const(...)`
   - resolves immutable defined-global initializers through `ctx.module_ctx`
@@ -158,9 +161,9 @@ This cleanup cluster is not a generic Binaryen port. It is a local HOT/writeback
 
 ## 6. Fixpoint driver
 
-The pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt).
+The HOT pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). For direct pass-manager execution, `precompute_run_raw_func(...)` can now return a raw rewritten function or a raw no-candidate skip before HOT lift when the function is inside the conservative stack-only subset.
 
-Each round currently does:
+Each HOT round currently does:
 
 1. `precompute_simplify_region_roots(...)`
 2. full node scan for:
@@ -185,6 +188,7 @@ The other critical owner is [`src/passes/pass_manager.mbt`](../../../../../src/p
 
 ### Dispatch
 
+- the raw dispatcher first asks `precompute_run_raw_func(...)` whether scalar-only work or no-candidate functions can skip HOT lift/lower
 - the hot-pass dispatcher maps `"precompute" => precompute_run(ctx, func)`
 
 ### Invalid-lower / writeback guard rails
@@ -231,7 +235,7 @@ Those tests prove that the local contract is not just arithmetic folding. They a
 - `optimize preset replays precompute in both PC slots`
 - `shrink preset replays precompute in both PC slots`
 
-Those tests are the honest source for the statement that Starshine replays top-level `precompute` twice today.
+Those tests are the honest source for the statement that Starshine replays top-level `precompute` twice today. They now count both full HOT starts and raw `skip-raw` shortcuts so the two slots remain visible even when the raw scalar shortcut handles a slot without lifting.
 
 ## 3. Registry proof
 
@@ -272,6 +276,7 @@ That follow-up matters for honest ownership: the local `precompute` dossier shou
 Current Starshine `precompute` implements:
 
 - exact i32/i64 unary and binary scalar folds
+- conservative raw stack-level no-candidate and scalar-fold shortcuts for safe no-HOT-lift cases
 - exact integer comparison folding to i32 booleans
 - immutable defined-global folding for scalar and `ref.null` payloads
 - direct constant-`if` picking

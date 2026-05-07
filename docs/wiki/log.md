@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | add `precompute` raw scalar shortcut
+
+- Added a conservative raw stack-level shortcut for direct `precompute` so no-candidate functions and functions with only adjacent scalar folds can skip HOT lift/lower.
+- Added a perf trace regression proving a scalar raw fold uses `pass[precompute]:skip-raw reason=raw-scalar-folds`, and updated preset-slot tests to count either HOT starts or raw skips for both public PC slots.
+- Replayed direct proof lanes: `moon test src/passes`; `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-raw` (`6759` compared, `6759` matches, `0` mismatches, `20` known Binaryen/tool command failures); and direct debug-artifact compare at `.tmp/pc-artifact-raw-fast` (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`, Starshine pass time about `249ms` versus about `289ms` before this slice).
+- Refreshed the living `precompute` pages and `[PC]001`; remaining work is whole-command runtime plus raw canonical wasm/text representation drift, not direct semantic parity.
+
 ## [2026-05-07] parity | restore `precompute` direct mismatch gate
 
 - Added focused `precompute` regressions for the saved dead-root exact-fold family before a trailing `unreachable` and for empty void-body normalization.
