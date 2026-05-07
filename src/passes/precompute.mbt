@@ -1167,6 +1167,30 @@ fn precompute_raw_i64_const(instr : @lib.Instruction) -> @lib.I64? {
 }
 
 ///|
+fn precompute_raw_global_const_instr(
+  module_ctx : @ir.HotModuleContext?,
+  global_idx : @lib.GlobalIdx,
+) -> @lib.Instruction? {
+  let payload = match module_ctx {
+    Some(ctx) => @ir.hot_module_resolve_global_const_init(ctx, global_idx)
+    None => None
+  }
+  match payload {
+    Some(@ir.HotConstPayload::I32Const(value)) =>
+      Some(@lib.Instruction::i32_const(value))
+    Some(@ir.HotConstPayload::I64Const(value)) =>
+      Some(@lib.Instruction::i64_const(value))
+    Some(@ir.HotConstPayload::F32Const(value)) =>
+      Some(@lib.Instruction::f32_const(value))
+    Some(@ir.HotConstPayload::F64Const(value)) =>
+      Some(@lib.Instruction::f64_const(value))
+    Some(@ir.HotConstPayload::RefNullConst(value)) =>
+      Some(@lib.Instruction::ref_null(value.get_heap_type()))
+    Some(@ir.HotConstPayload::StringConst(_)) | None => None
+  }
+}
+
+///|
 fn precompute_raw_bool(value : Bool) -> @lib.Instruction {
   @lib.Instruction::i32_const(if value { @lib.I32(1) } else { @lib.I32(0) })
 }
@@ -1460,10 +1484,16 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
 ///|
 fn precompute_raw_rewrite_instr(
   instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext?,
 ) -> (@lib.Instruction, Bool) {
   match instr {
+    @lib.GlobalGet(global_idx) =>
+      match precompute_raw_global_const_instr(module_ctx, global_idx) {
+        Some(rewritten) => (rewritten, true)
+        None => (instr, false)
+      }
     @lib.Block(block_type, @lib.Expr(body)) => {
-      let (next_body, changed) = precompute_raw_rewrite_instrs(body)
+      let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
       if changed {
         (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), true)
       } else {
@@ -1471,7 +1501,7 @@ fn precompute_raw_rewrite_instr(
       }
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
-      let (next_body, changed) = precompute_raw_rewrite_instrs(body)
+      let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
       if changed {
         (@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)), true)
       } else {
@@ -1479,11 +1509,15 @@ fn precompute_raw_rewrite_instr(
       }
     }
     @lib.If(block_type, then_body, else_body) => {
-      let (next_then, then_changed) = precompute_raw_rewrite_instrs(then_body)
+      let (next_then, then_changed) = precompute_raw_rewrite_instrs(
+        then_body, module_ctx,
+      )
       let mut changed = then_changed
       let next_else = match else_body {
         Some(body) => {
-          let (rewritten, else_changed) = precompute_raw_rewrite_instrs(body)
+          let (rewritten, else_changed) = precompute_raw_rewrite_instrs(
+            body, module_ctx,
+          )
           if else_changed {
             changed = true
           }
@@ -1498,7 +1532,7 @@ fn precompute_raw_rewrite_instr(
       }
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-      let (next_body, changed) = precompute_raw_rewrite_instrs(body)
+      let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
       if changed {
         (
           @lib.Instruction::try_table(
@@ -1519,11 +1553,14 @@ fn precompute_raw_rewrite_instr(
 ///|
 fn precompute_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   for instr in instrs {
-    let (rewritten, nested_changed) = precompute_raw_rewrite_instr(instr)
+    let (rewritten, nested_changed) = precompute_raw_rewrite_instr(
+      instr, module_ctx,
+    )
     out.push(rewritten)
     if nested_changed {
       changed = true
@@ -1539,23 +1576,29 @@ fn precompute_raw_rewrite_instrs(
 fn precompute_raw_instr_has_hot_only_candidate(
   instr : @lib.Instruction,
   nested : Bool,
+  module_ctx : @ir.HotModuleContext?,
 ) -> Bool {
   match instr {
-    @lib.GlobalGet(_) | @lib.BrTable(_, _) => true
+    @lib.GlobalGet(global_idx) =>
+      precompute_raw_global_const_instr(module_ctx, global_idx) is None
+    @lib.BrTable(_, _) => true
     @lib.Nop => nested
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-      precompute_raw_instrs_have_hot_only_candidate(body, true)
+      precompute_raw_instrs_have_hot_only_candidate(body, true, module_ctx)
     @lib.If(_, then_body, else_body) => {
-      if precompute_raw_instrs_have_hot_only_candidate(then_body, true) {
+      if precompute_raw_instrs_have_hot_only_candidate(
+          then_body, true, module_ctx,
+        ) {
         return true
       }
       match else_body {
-        Some(body) => precompute_raw_instrs_have_hot_only_candidate(body, true)
+        Some(body) =>
+          precompute_raw_instrs_have_hot_only_candidate(body, true, module_ctx)
         None => false
       }
     }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
-      precompute_raw_instrs_have_hot_only_candidate(body, true)
+      precompute_raw_instrs_have_hot_only_candidate(body, true, module_ctx)
     _ => false
   }
 }
@@ -1564,13 +1607,53 @@ fn precompute_raw_instr_has_hot_only_candidate(
 fn precompute_raw_instrs_have_hot_only_candidate(
   instrs : Array[@lib.Instruction],
   nested : Bool,
+  module_ctx : @ir.HotModuleContext?,
 ) -> Bool {
   for instr in instrs {
-    if precompute_raw_instr_has_hot_only_candidate(instr, nested) {
+    if precompute_raw_instr_has_hot_only_candidate(instr, nested, module_ctx) {
       return true
     }
   }
   false
+}
+
+///|
+fn precompute_raw_instr_has_global_get(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.GlobalGet(_) => true
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_global_get(body)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_global_get(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => precompute_raw_instrs_have_global_get(body)
+        None => false
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_global_get(body)
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_global_get(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_global_get(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_func_has_global_get(func : @lib.Func) -> Bool {
+  let @lib.Func(_, @lib.Expr(instrs)) = func
+  precompute_raw_instrs_have_global_get(instrs)
 }
 
 ///|
@@ -1675,15 +1758,18 @@ fn precompute_raw_root_nop_cleanup_candidate(
 }
 
 ///|
-fn precompute_run_raw_func(func : @lib.Func) -> (@lib.Func, Bool, String)? {
+fn precompute_run_raw_func(
+  func : @lib.Func,
+  module_ctx : @ir.HotModuleContext?,
+) -> (@lib.Func, Bool, String)? {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  if precompute_raw_instrs_have_hot_only_candidate(instrs, false) {
+  if precompute_raw_instrs_have_hot_only_candidate(instrs, false, module_ctx) {
     return None
   }
   if precompute_raw_root_nop_cleanup_candidate(instrs) {
     return None
   }
-  let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs)
+  let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)
   if precompute_raw_instrs_have_drop(rewritten) ||
     precompute_raw_instrs_have_const_if_candidate(rewritten) ||
     precompute_raw_root_nop_cleanup_candidate(rewritten) {

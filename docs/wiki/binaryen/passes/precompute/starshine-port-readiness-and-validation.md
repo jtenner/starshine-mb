@@ -31,14 +31,14 @@ related:
 
 This page is the implementation-readiness bridge for Starshine's active `precompute` pass. It does **not** claim that Starshine already implements the full Binaryen `Precompute.cpp` engine. It explains what is implemented, what to validate, and how to extend the pass without confusing Starshine's HOT cleanup subset with Binaryen's interpreter-driven strategy.
 A 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) kept the upstream-teaching map stable.
-A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine trimmed dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. The same-day `[PC]001` recovery now preserves that dead-root `nop` during `precompute` lowering and normalizes empty unchanged direct-pass bodies to one `nop`; saved repro replay and the mixed direct lane have `0` semantic mismatches. A follow-up raw stack-level shortcut now skips HOT lift/lower for no-candidate functions and handles safe adjacent scalar folds before HOT, improving direct debug-artifact pass time while keeping canonical-function parity; remaining `[PC]001` work is whole-command/runtime plus raw canonical wasm/text representation drift.
+A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine trimmed dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. The same-day `[PC]001` recovery now preserves that dead-root `nop` during `precompute` lowering and normalizes empty unchanged direct-pass bodies to one `nop`; saved repro replay and the mixed direct lane have `0` semantic mismatches. Follow-up raw stack-level shortcuts now skip HOT lift/lower for no-candidate functions, safe adjacent scalar folds, and immutable module-constant `global.get` folds before HOT, improving direct debug-artifact pass time while keeping canonical-function parity; remaining `[PC]001` work is whole-command/runtime plus raw canonical wasm/text representation drift.
 
 ## Current local contract
 
 Starshine `precompute` is an active HOT pass with a narrow, practical contract:
 
 - fold exact trap-free i32/i64 unary and binary expressions;
-- use a conservative raw stack-level fast path for no-candidate functions plus adjacent scalar folds;
+- use a conservative raw stack-level fast path for no-candidate functions, adjacent scalar folds, and module-proven immutable `global.get` constants;
 - fold exact i32/i64 comparisons to i32 booleans;
 - replace immutable defined `global.get` values with constants or `ref.null` where the module context can prove the initializer;
 - choose constant `if` arms and rebuild the chosen root shape;

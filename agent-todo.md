@@ -57,7 +57,7 @@ Observed unique-pass order
 
 - [PC]001 - Runtime And Representation Drift
   - Deliverables: keep direct debug-artifact parity green after the dead-root `nop` normalization fix; reduce the remaining runtime gap and canonical wasm/text-form drift.
-  - Current status: saved `.tmp/recheck-precompute/` repros replay green (`100 / 100`, seed `0xa11d`, out dir `.tmp/recheck-precompute-after`); the raw stack-level no-candidate/scalar-fold shortcut keeps the standard mixed 10k lane at `0` semantic mismatches before known Binaryen/tool command failures stop the run (`6759` compared, `.tmp/pass-fuzz-precompute-raw`); direct debug-artifact compare remains canonical-function green (`.tmp/pc-artifact-raw-fast`, normalized WAT equal, canonical function compare equal) and improves measured Starshine pass time from about `289ms` to about `249ms`, but raw canonical wasm/text drift and whole-command runtime gap remain.
+  - Current status: saved `.tmp/recheck-precompute/` repros replay green (`100 / 100`, seed `0xa11d`, out dir `.tmp/recheck-precompute-after`); the raw stack-level shortcut now covers no-candidate functions, adjacent scalar folds, and immutable module-constant `global.get` folds while skipping HOT lift/pass timers. The standard mixed 10k lane stays at `0` semantic mismatches before known Binaryen/tool command failures stop the run (`6759` compared, `.tmp/pass-fuzz-precompute-global-raw`); direct debug-artifact compare remains canonical-function green (`.tmp/pc-artifact-global-raw`, normalized WAT equal, canonical function compare equal) and improves measured Starshine pass time from about `249ms` to about `172ms`, while raw canonical wasm/text drift and whole-command runtime gap remain.
 
 #### CP - Code Pushing
 

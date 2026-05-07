@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | extend `precompute` raw global shortcut
+
+- Extended the direct `precompute` raw stack-level shortcut so immutable module-constant `global.get` values can be resolved through `HotModuleContext`, rewritten to literal constants, and folded with adjacent scalar operations without HOT lift/lower.
+- Added a perf trace regression proving a `global.get -> i32.add` fold uses `pass[precompute]:skip-raw reason=raw-scalar-folds` while avoiding `lift` and `pass:precompute` timers.
+- Replayed direct proof lanes: `moon test src/passes`; `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-global-raw` (`6759` compared, `6759` matches, `0` mismatches, `20` known Binaryen/tool command failures: `binaryen-rec-group-zero`, `binaryen-bad-section-size`, `binaryen-table-index-out-of-range`, `binaryen-invalid-tag-index`); and direct debug-artifact compare at `.tmp/pc-artifact-global-raw` (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`, Starshine pass time about `172ms`, whole command about `5.47s`).
+- Refreshed the living `precompute` pages and `[PC]001`; remaining work is raw canonical wasm/text representation drift and whole-command runtime relative to Binaryen.
+
 ## [2026-05-07] parity | add `precompute` raw scalar shortcut
 
 - Added a conservative raw stack-level shortcut for direct `precompute` so no-candidate functions and functions with only adjacent scalar folds can skip HOT lift/lower.
