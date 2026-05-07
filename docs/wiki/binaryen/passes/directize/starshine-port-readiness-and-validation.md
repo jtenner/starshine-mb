@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: current
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
@@ -262,11 +262,11 @@ Use the official Binaryen files as the reduced-shape map when extending the pass
 3. `directize-wasm64.wast`
    - full-width table index behavior.
 4. no-DWARF late-tail replay
-   - verify the neighborhood ending in `reorder-globals -> directize` once all neighbors are active.
+   - keep the proven inner `string-gathering -> reorder-globals -> directize` replay green, then verify the broader scheduled neighborhood once the earlier neighbors are active.
 
 ## What to avoid
 
-Do not widen presets solely because direct explicit-pass parity is green. The scheduled tail still depends on the neighboring `string-gathering -> reorder-globals -> directize` sequence.
+Do not widen presets solely because direct explicit-pass parity is green. The inner `string-gathering -> reorder-globals -> directize` sequence is now proven, but the scheduled tail still depends on the earlier late-tail neighbors that feed it.
 
 Do not silently conflate the default pass with `directize-initial-contents-immutable`. That Binaryen pass arg loosens table trust under a separate policy and should wait for an explicit Starshine pass-arg surface.
 
@@ -276,7 +276,7 @@ Do not fold `call_ref` into this pass. Binaryen's `directize` source does not do
 
 - Where should the pass argument for immutable initial contents be exposed?
 - Should table-info construction become reusable infrastructure for future table-layout or call-target passes?
-- What exact validation lane should gate adding the final no-DWARF tail preset once `string-gathering` is active?
+- What exact validation lane should gate adding the final no-DWARF tail preset once the remaining earlier late-tail neighbors are active?
 
 ## Bottom line
 

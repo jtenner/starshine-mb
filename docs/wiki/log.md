@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-08] validation | close the `string-gathering -> reorder-globals -> directize` triple blocker
+
+- Added `test "string-gathering reorder-globals directize preserve late-tail order"` to `src/passes/reorder_globals_test.mbt`; the fixture combines a real `129`-global public reorder case, a `string.const` hoist, and a constant-table `call_indirect`, then proves the hot exported global ends at index `0`, `string.const` is gone, and `call_indirect` is rewritten to a direct call after the full triple.
+- Ran `moon test src/passes` and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-string-reorder-directize-20260508 --string-gathering --reorder-globals --directize`; the current-head artifact replay reported `Canonical wasm equal: yes` and `Normalized WAT equal: yes`.
+- Added `docs/wiki/raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`, refreshed the living `reorder-globals` and `directize` status/readiness pages, and pruned `RG002` plus `DIR002` from `agent-todo.md`; remaining late-tail preset gating now lives under `[SG]002` as the missing earlier-neighbor/postpass proof.
+
 ## [2026-05-07] docs | close `remove-unused-brs` mixed-rerun backlog slice
 
 - Reran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-brs` and confirmed the current direct artifact lane still compares green on representation-stable surfaces (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`) even though raw emitted wasm remains different.

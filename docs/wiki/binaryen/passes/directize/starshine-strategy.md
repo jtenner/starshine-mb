@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: current
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
@@ -72,8 +72,8 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/directize.mbt:933`
   - `src/passes/directize_test.mbt:2`
 - backlog and delivery plan
-  - `agent-todo.md:689-701`
-    - `DIR` slice under the Binaryen no-DWARF default optimize pathway parity section, now recording direct explicit-pass oracle evidence
+  - `agent-todo.md`
+    - the remaining late-tail preset blocker now lives under shared `SG` scheduling work after the direct `DIR` triple-replay slice was closed
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:34-35`
     - the final late-tail slot where `directize` follows `reorder-globals`
@@ -119,13 +119,15 @@ It also handles the two important non-direct-call target classes from the defaul
 
 ### 3. The remaining work is preset and option integration, not core default-pass parity
 
-`agent-todo.md` keeps `directize` under `DIR`, but the active remaining local work is now narrower:
+`agent-todo.md` no longer needs a dedicated `DIR` replay blocker because the neighboring `string-gathering -> reorder-globals -> directize` sequence is now locally replayable.
+
+The active remaining local work is narrower:
 
 - keep direct Binaryen oracle evidence current
-- add the final late-tail preset only after the neighboring `string-gathering -> reorder-globals -> directize` sequence is locally replayable
+- keep the broader late-tail preset blocked until the earlier scheduled neighbors also exist locally
 - decide how Starshine should expose Binaryen-style pass args before adding `directize-initial-contents-immutable`
 
-That backlog framing keeps the implemented explicit pass separate from still-unscheduled tail integration.
+That framing keeps the implemented explicit pass separate from still-unscheduled broader tail integration.
 
 ## The right future Starshine implementation shape
 
@@ -189,7 +191,7 @@ Starshine still does **not** currently have:
 
 - the optional `directize-initial-contents-immutable` pass-arg mode
 - preset scheduling for the full no-DWARF late tail
-- a combined oracle replay for `string-gathering -> reorder-globals -> directize`, because `string-gathering` is still not active locally
+- the broader scheduled late-tail replay that starts earlier at `simplify-globals-optimizing -> remove-unused-module-elements`
 
 So the current repo status is best summarized as:
 
@@ -198,7 +200,7 @@ So the current repo status is best summarized as:
 - direct Binaryen oracle evidence recorded
 - scheduler slot documented but not preset-scheduled
 - parser / IR / binary / validation / HOT substrates mapped
-- remaining work is pass-arg and late-tail integration, not the core default explicit pass
+- remaining work is pass-arg support and broader late-tail preset integration, not the core default explicit pass
 
 ## Validation evidence and future validation plan
 
@@ -216,7 +218,10 @@ Current direct evidence:
 4. debug artifact oracle lane
    - `.tmp/self-opt-directize-debug-final2`: canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm`
 
-Future changes should rerun those direct lanes when touching table facts, trap rewriting, select lowering, type matching, or local insertion. Preset scheduling should additionally replay the full late tail once `string-gathering` is active.
+5. current-head late-tail triple replay
+   - `.tmp/self-opt-string-reorder-directize-20260508`: canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm` for `--string-gathering --reorder-globals --directize`
+
+Future changes should rerun those direct lanes when touching table facts, trap rewriting, select lowering, type matching, or local insertion. Preset scheduling should additionally replay the broader scheduled late tail once the remaining earlier neighbors exist locally.
 
 ## Bottom line
 
@@ -224,7 +229,7 @@ Current Starshine `directize` strategy is an active explicit module pass plus la
 
 - the pass name is intentionally preserved in `src/passes/optimize.mbt` as an active module pass
 - `src/passes/directize.mbt` implements default directize behavior for direct calls, known traps, and narrow select lowering
-- `agent-todo.md` records direct oracle evidence under `DIR`
+- `agent-todo.md` now leaves the remaining preset blocker under shared late-tail scheduling work rather than a dedicated `DIR` replay item
 - the canonical slot is already documented in the no-DWARF optimizer notes but remains out of presets
 - the surrounding `duplicate-import-elimination`, `simplify-globals-optimizing`, `remove-unused-module-elements`, `string-gathering`, and `reorder-globals` dossiers already define the practical landing zone for scheduled tail integration
 

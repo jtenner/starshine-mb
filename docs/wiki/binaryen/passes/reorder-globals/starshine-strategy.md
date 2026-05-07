@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -46,8 +46,8 @@ The current local strategy is direct public-pass support plus explicit late-tail
 - preserve Binaryen's public `<128` total-global no-op
 - count whole-module global traffic and initializer dependencies
 - apply a declaration reorder plus Starshine-specific numeric `GlobalIdx` remapping
-- keep the canonical no-DWARF late-tail slot documented but out of presets until `string-gathering` and `directize` exist locally
-- keep refreshed direct 10000-case oracle proof recorded while reserving ordered late-tail proof for the full late-tail neighborhood
+- keep the canonical no-DWARF late-tail slot documented but out of presets until the earlier scheduled neighbors also exist locally
+- keep refreshed direct 10000-case oracle proof recorded and the inner `string-gathering -> reorder-globals -> directize` replay explicit while the broader preset tail stays deferred
 
 So this page is now an **implementation status and late-tail follow-up** page.
 
@@ -82,10 +82,8 @@ The fastest read-along path through the current Starshine status is:
   - [`src/ir/hot.mbt#L206-L218`](../../../../../src/ir/hot.mbt#L206-L218) and [`src/ir/hot.mbt#L285-L297`](../../../../../src/ir/hot.mbt#L285-L297)
     - HOT lift stores `GlobalGet` / `GlobalSet` operands as numeric global indices, confirming this is not a HOT-only peephole
 - backlog and delivery plan
-  - [`agent-todo.md#L672-L687`](../../../../../agent-todo.md#L672-L687)
-    - `RG - Reorder Globals`
-    - `[RG]001 - Global Cost Model and Reindexing`
-    - `[RG]002 - Late-Postpass Validation and Artifact Compare`
+  - [`agent-todo.md`](../../../../../agent-todo.md)
+    - the dedicated `RG` replay blocker is closed; remaining preset gating now lives under shared late-tail scheduling work
 - canonical scheduler context
   - [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
     - the canonical late-tail slot `string-gathering -> reorder-globals -> directize`
@@ -118,16 +116,16 @@ The implementation:
 
 ### 3. The remaining work is planned as a real parity slice, not an orphan idea
 
-`agent-todo.md` already gives `reorder-globals` a real backlog slice under `RG`.
-The current deliverables are framed around the right local concerns:
+The old dedicated `RG` replay blocker is now closed.
+The delivered work covers the right local concerns:
 
-- port Binaryen's reordering criteria
-- compute a safe remap after late global cleanup and string gathering
-- preserve externally visible boundaries and section invariants
-- add regressions for reordered globals with string users and exports
-- compare local output against Binaryen on the debug artifact
+- Binaryen-shaped reordering criteria
+- safe remap after string gathering and other late global cleanup
+- externally visible boundary and section invariants
+- regressions for reordered globals with string users, exports, and directized tail interaction
+- direct Binaryen comparison on the debug artifact plus the proven inner late-tail replay
 
-That backlog framing already matches the upstream dossier better than a vague “sort globals by use count” summary would.
+That framing matches the upstream dossier better than a vague “sort globals by use count” summary would.
 
 ## The right Starshine implementation shape
 
@@ -214,16 +212,16 @@ A future contributor should be careful not to overread the current local surface
 Starshine does **not** currently have:
 
 - a `reorder-globals-always` implementation
-- public optimize/shrink preset scheduling for the late `string-gathering -> reorder-globals -> directize` tail
-- ordered late-tail artifact replay coverage through `string-gathering -> reorder-globals -> directize`
+- public optimize/shrink preset scheduling for the broader no-DWARF late tail that still starts earlier at `simplify-globals-optimizing -> remove-unused-module-elements`
+- a replay of that broader scheduled late tail once the remaining earlier neighbors exist locally
 
 So the current repo status is best summarized as:
 
 - direct public transform landed
 - `always` sibling still boundary-only
-- late-tail preset integration deferred behind missing neighbors
-- reduced tests landed
-- refreshed direct oracle proof recorded; ordered late-tail proof still blocked on the full late-tail neighborhood
+- late-tail preset integration deferred behind missing earlier neighbors
+- reduced tests and explicit triple-neighborhood replay landed
+- refreshed direct oracle proof recorded; remaining proof debt is now the broader scheduled late tail, not the inner triple
 
 ## Validation plan for the eventual port
 
@@ -258,7 +256,7 @@ Current Starshine `reorder-globals` strategy is direct public-pass support plus 
 - the pass implementation lives in [`src/passes/reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt)
 - focused coverage lives in [`src/passes/reorder_globals_test.mbt`](../../../../../src/passes/reorder_globals_test.mbt)
 - `reorder-globals` is registered as an active module pass while `reorder-globals-always` remains boundary-only
-- [`agent-todo.md`](../../../../../agent-todo.md) records refreshed direct oracle evidence and treats late-tail proof as the remaining `RG` work
+- [`agent-todo.md`](../../../../../agent-todo.md) records the remaining late-tail preset blocker under shared scheduling work rather than a dedicated `RG` replay item
 - the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
 - the surrounding [`string-gathering`](../string-gathering/index.md), [`reorder-globals-always`](../reorder-globals-always/index.md), and [`directize`](../directize/index.md) dossiers define the remaining landing zone
 
@@ -268,4 +266,4 @@ So the right mental model today is:
 - **`always` sibling deferred**
 - **late-tail preset scheduling deferred**
 - **reduced reindexing tests landed**
-- **refreshed direct 10000-case compare evidence recorded; ordered late-tail proof pending**
+- **refreshed direct 10000-case compare evidence recorded; inner late-tail triple replay proven**

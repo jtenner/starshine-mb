@@ -149,12 +149,7 @@ Observed unique-pass order
 
 - [SG]002 - Late-Tail Preset Scheduling
   - Deliverables: keep `string-gathering` out of public presets until `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` can be replayed as an ordered neighborhood; decide whether Binaryen reuse of existing canonical string globals is needed for string-heavy binaries.
-
-- [RG]002 - Late-Postpass Validation and Artifact Compare
-  - Deliverables: add string-gathering/directize neighborhood regressions; verify the pass stays after `string-gathering`; replay ordered late-tail parity once neighboring passes exist.
-
-- [DIR]002 - Late-Tail Slot Proof
-  - Deliverables: keep `directize` preset scheduling deferred until the `string-gathering -> reorder-globals -> directize` slot can be replayed together; add `directize-initial-contents-immutable` support only if/when Starshine grows a pass-arg surface for it.
+  - 2026-05-08 note: the inner `string-gathering -> reorder-globals -> directize` triple now has explicit neighborhood regression coverage plus a current-head debug-artifact replay (`.tmp/self-opt-string-reorder-directize-20260508`) with canonical wasm and normalized WAT equality. Remaining preset gating is now the missing earlier late-tail neighbors (`simplify-globals-optimizing` and the full scheduled postpass lane), not the triple itself.
 
 ## v0.2.0 Backlog
 

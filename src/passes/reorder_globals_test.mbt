@@ -182,3 +182,66 @@ test "reorder-globals remaps exported global indices and global names" {
     None => fail("expected name section")
   }
 }
+
+///|
+fn rg_test_late_tail_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (type (func))\n")
+  out.write_string("  (type (func (param i32) (result i32)))\n")
+  out.write_string("  (table 1 funcref)\n")
+  out.write_string(
+    "  (func $target (type 1) (param i32) (result i32) local.get 0)\n",
+  )
+  out.write_string("  (elem (i32.const 0) $target)\n")
+  for idx = 0; idx < 129; idx = idx + 1 {
+    out.write_string("  (global (mut i32) (i32.const \{idx}))\n")
+  }
+  out.write_string("  (export \"hot\" (global 128))\n")
+  out.write_string("  (func $run (type 0)\n")
+  for i = 0; i < 16; i = i + 1 {
+    ignore(i)
+    out.write_string("    global.get 128\n")
+    out.write_string("    drop\n")
+  }
+  out.write_string("    string.const \"x\"\n")
+  out.write_string("    drop\n")
+  out.write_string("    i32.const 7\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    call_indirect (type 1)\n")
+  out.write_string("    drop)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "string-gathering reorder-globals directize preserve late-tail order" {
+  let optimized = match
+    pass_test_run_pipeline(rg_test_late_tail_fixture(), [
+      "string-gathering", "reorder-globals", "directize",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected string-gathering/reorder-globals/directize success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected late-tail replay module to validate, got \{err}")
+  }
+
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx)))]
+      )
+    ) => assert_eq(idx, 0U)
+    other => fail("expected hot export after late-tail replay, got \{other}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("string.const"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_false(pretty.contains("call_indirect"), msg=pretty)
+}

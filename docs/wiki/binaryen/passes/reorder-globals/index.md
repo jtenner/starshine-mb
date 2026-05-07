@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -100,7 +100,7 @@ That is much closer to the real pass than either:
   - `reorder-globals-always` remains a boundary-only tracked name
 - The active pass implements the public production policy, including the `<128` total-global no-op, dependency-aware candidate ordering, true ULEB-size scoring, import-prefix preservation, and numeric `GlobalIdx` remapping across module/code/name surfaces.
 - On 2026-05-06, refreshed direct-pass signoff in `.tmp/pass-fuzz-reorder-globals` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
-- The public optimize/shrink presets still do not schedule the late-tail slot even though neighboring `string-gathering` is now implemented; the active `directize` pass also has direct explicit-pass oracle signoff, but the full `string-gathering -> reorder-globals -> directize` tail still needs ordered replay before preset scheduling.
+- The public optimize/shrink presets still do not schedule the late-tail slot, but the inner `string-gathering -> reorder-globals -> directize` triple now has explicit regression coverage plus a current-head debug-artifact replay at [`../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`](../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md). Remaining preset gating is now the missing earlier late-tail neighbors, not the triple itself.
 
 Keep preserving the distinction between the public pass and the `always` helper instead of collapsing them accidentally.
 
@@ -115,12 +115,12 @@ Keep preserving the distinction between the public pass and the `always` helper 
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT and module-shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status plus the local code/doc map for the active module pass, recorded direct evidence, remaining `string-gathering -> reorder-globals -> directize` scheduler slot, and the explicit split from `reorder-globals-always`.
+  Exact current Starshine status plus the local code/doc map for the active module pass, recorded direct evidence, the proven `string-gathering -> reorder-globals -> directize` triple replay, and the explicit split from `reorder-globals-always`.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `reorder-globals` research and port planning.
-- Keep it marked as an active direct Starshine module pass, while keeping `reorder-globals-always` and late-tail preset scheduling explicitly deferred until their own evidence lands.
+- Keep it marked as an active direct Starshine module pass, while keeping `reorder-globals-always` boundary-only and public late-tail preset scheduling deferred until the remaining earlier postpass neighbors land.
 - Keep the strategy page, implementation/test-map page, size/dependency page, and Starshine strategy page in sync whenever new evidence changes the answer to either:
   - “what does the pass actually optimize for?”
   - “when does Binaryen deliberately do nothing?”

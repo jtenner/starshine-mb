@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -189,9 +189,9 @@ The active direct Starshine port includes these pieces:
    - global-initializer dependencies,
    - binary encode/decode and validation-sensitive order.
 5. **Late-tail scheduling proof**
-   - still deferred until the full `string-gathering -> reorder-globals -> directize` neighborhood is replayed,
+   - the inner `string-gathering -> reorder-globals -> directize` neighborhood is now replayed and regression-covered,
    - direct reduced shapes are covered now,
-   - refreshed direct oracle evidence is recorded: `.tmp/pass-fuzz-reorder-globals` has `6759` comparable normalized matches with `0` mismatches and `20` known Binaryen empty-recursion-group parser/canonicalization command failures, while the older `.tmp/self-opt-reorder-globals-20260426-post-raw-name-clear` artifact lane remained canonical/normalized-WAT equal on the debug artifact.
+   - refreshed direct oracle evidence is recorded: `.tmp/pass-fuzz-reorder-globals` has `6759` comparable normalized matches with `0` mismatches and `20` known Binaryen empty-recursion-group parser/canonicalization command failures, the older `.tmp/self-opt-reorder-globals-20260426-post-raw-name-clear` direct artifact lane remained canonical/normalized-WAT equal, and `.tmp/self-opt-string-reorder-directize-20260508` now records canonical wasm plus normalized WAT equality for the active triple.
 
 ## Non-goals
 
