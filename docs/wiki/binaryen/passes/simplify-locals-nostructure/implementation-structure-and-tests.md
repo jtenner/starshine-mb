@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-08
 sources:
+  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
@@ -210,15 +211,15 @@ Starshine now implements this pass as an active direct hot pass.
 | Local surface | Current role |
 | --- | --- |
 | `src/passes/optimize.mbt` | active hot entries for `simplify-locals-nostructure` and alias `simplify-locals-no-structure`; presets remain conservative |
-| `src/passes/optimize_test.mbt` | regression that the no-structure neighbor is active while public presets still avoid premature tuple-slot scheduling |
+| `src/passes/optimize_test.mbt` | regressions that the no-structure neighbor is active, the exact slot helper is explicit, and public presets still avoid premature tuple-slot scheduling |
 | `src/passes/pass_manager.mbt` | dispatches both spellings to the no-structure runner and shares raw simplify-locals artifact gates |
 | `src/passes/simplify_locals.mbt` | owns the no-structure descriptor, alias descriptor, summary, and runner; reuses local sink/dead cleanup while disabling structure-result rewrites |
-| `src/passes/simplify_locals_nostructure_test.mbt` | focused positive and no-structure negative tests |
+| `src/passes/simplify_locals_nostructure_test.mbt` | focused positive and no-structure negative tests plus exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay coverage |
 | `scripts/lib/pass-fuzz-compare-task.ts` | compare-pass harness canonical/alias support |
 | `scripts/lib/self-optimize-compare-task.ts` | debug-artifact compare canonical/alias support |
-| `agent-todo.md` | direct slice evidence plus remaining ordered-neighborhood preset follow-up |
+| `agent-todo.md` | neighboring tuple/local-cluster follow-up only; the standalone `SLNS` ordered-slot blocker is now retired |
 
-The key local caveat is now preset scope, not direct implementation: the direct pass is oracle-checked, but public `optimize` / `shrink` placement waits on ordered-neighborhood replay.
+The key local caveat is now preset scope, not direct implementation: the direct pass is oracle-checked and the exact early local slot is replay-proven, but public `optimize` / `shrink` placement still depends on neighboring tuple/local-cluster work.
 
 ## Validation checklist for Starshine preset follow-up
 

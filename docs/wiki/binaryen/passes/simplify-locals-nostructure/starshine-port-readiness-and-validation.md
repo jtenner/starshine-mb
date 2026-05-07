@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
+  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
   - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
@@ -53,23 +54,24 @@ This page answers the follow-along question:
 
 ## Current hold point
 
-The direct pass is landed. Starshine now treats `simplify-locals-nostructure` as an active hot pass, and also accepts the local compatibility spelling `simplify-locals-no-structure`.
+The direct pass is landed, and the exact early local slot is now replay-proven. Starshine treats `simplify-locals-nostructure` as an active hot pass, and also accepts the local compatibility spelling `simplify-locals-no-structure`.
 
 Current state:
 
 - upstream Binaryen spelling: `simplify-locals-nostructure`
 - local alias: `simplify-locals-no-structure`
 - local category: active hot pass
-- CLI / pipeline behavior: runnable direct pass
+- CLI / pipeline behavior: runnable direct pass plus exact-slot ordered replay helper
 - owner: `src/passes/simplify_locals.mbt`
-- preset role: still omitted from `optimize` / `shrink` until ordered-neighborhood replay proves the slot
+- preset role: public `optimize` / `shrink` still stay unchanged, but the standalone ordered-slot blocker is now closed
 
 ## Exact local code map today
 
 - `src/passes/optimize.mbt`
   - active hot entries for `simplify-locals-nostructure` and `simplify-locals-no-structure`
   - `tuple_optimization_exact_slot_prereqs_ready()` now sees the no-structure neighbor as active
-  - public presets remain conservative pending ordered replay
+  - `simplify_locals_nostructure_exact_slot_passes()` exposes the proven `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay lane
+  - public presets remain conservative because neighboring preset work is still owned elsewhere
 - `src/passes/simplify_locals.mbt`
   - owns the no-structure descriptors and alias descriptor
   - runs the shared local-sink/dead-cleanup cycles with structure-result rewrites disabled
@@ -77,7 +79,7 @@ Current state:
   - dispatches both spellings to `simplify_locals_nostructure_run(...)`
   - shares the raw simplify-locals artifact skip/rewrite gates and writeback validation guards
 - `src/passes/simplify_locals_nostructure_test.mbt`
-  - covers straight-line sinking and the negative guarantee that the pass does not synthesize `if` result structures
+  - covers straight-line sinking, the negative guarantee that the pass does not synthesize `if` result structures, and the exact ordered `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay
 - `scripts/lib/pass-fuzz-compare-task.ts` and `scripts/lib/self-optimize-compare-task.ts`
   - accept the canonical flag and compatibility alias, mapping the alias to Binaryen's canonical `--simplify-locals-nostructure` spelling
 
@@ -119,14 +121,15 @@ Direct-pass validation on the landed slice:
 
 ## Remaining validation before preset placement
 
-The direct pass is implemented and oracle-checked, but public preset placement still needs ordered-neighborhood proof. Before adding it to `optimize` / `shrink`, replay at least:
+The direct pass and its exact early local slot are now implemented and oracle-checked. Public preset placement still stays conservative, but the remaining caution is no longer this pass's standalone ordered-slot proof.
 
-- `tuple-optimization -> simplify-locals-nostructure`
-- `simplify-locals-nostructure -> vacuum`
-- `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals`
-- later local-neighborhood chains once `coalesce-locals` and `local-cse` land
+What remains belongs to neighboring slices instead:
 
-Keep those preset claims separate from direct-pass signoff so the tracker can say “implemented” without overstating full no-DWARF / saved-`O4z` preset parity.
+- `tuple-optimization` exact-slot and feature-off preset proof
+- the earlier `code-pushing -> tuple-optimization` side of the neighborhood
+- broader local-cluster scheduling work around later `coalesce-locals` / `local-cse` consumers
+
+Keep those preset claims separate from direct-pass and exact-slot signoff so the tracker can say “implemented” without overstating full no-DWARF / saved-`O4z` preset parity.
 
 ## Sources
 

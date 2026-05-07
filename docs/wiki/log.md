@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-08] validation | close `simplify-locals-nostructure` ordered-slot replay
+
+- Added `test "simplify-locals-nostructure exact slot replays tuple cleanup before vacuum and reorder-locals"` plus `test "simplify-locals-nostructure exact slot keeps the no-structure if boundary"` to `src/passes/simplify_locals_nostructure_test.mbt`, and added `test "simplify-locals-nostructure exact slot helper exposes the ordered replay lane"` to `src/passes/optimize_test.mbt`; the new `src/passes/optimize.mbt` helper locks the exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay lane while public presets stay unchanged.
+- Ran `moon info`, `moon fmt`, `moon test`, `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals-nostructure --out-dir .tmp/pass-fuzz-simplify-locals-nostructure-20260508`, and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --tuple-optimization --simplify-locals-nostructure --vacuum --reorder-locals --out-dir .tmp/self-opt-slns-slot-20260508`; the direct lane stayed green (`6759 / 6759` normalized matches, `0` mismatches) and the debug-artifact replay compared green on normalized WAT plus canonical functions.
+- Added `docs/wiki/raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md`, refreshed the living `simplify-locals-nostructure` dossier pages, and pruned `[SLNS]003` from `agent-todo.md`; remaining broader preset work now belongs to neighboring tuple/local-cluster slices rather than a standalone `SLNS` blocker.
+
 ## [2026-05-08] validation | close `optimize-casts` ordered-slot replay
 
 - Added `test "optimize-casts ordered neighborhood stays valid through local cleanup consumers"` to `src/passes/optimize_casts_test.mbt`, updated `src/passes/optimize_test.mbt` plus `src/passes/registry_test.mbt`, and moved `optimize-casts` into the public `optimize` / `shrink` presets in `src/passes/optimize.mbt` at the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` slot.

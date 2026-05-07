@@ -102,3 +102,94 @@ test "simplify-locals-nostructure does not synthesize if results" {
   assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
 }
+
+///|
+test "simplify-locals-nostructure exact slot replays tuple cleanup before vacuum and reorder-locals" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32 i32 i32) block (result i32 i32 i32) i32.const 10 i32.const 20 i32.const 30 end local.set 2 local.set 1 local.set 0 local.get 0))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      simplify_locals_nostructure_exact_slot_passes(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure exact slot replay success, got \{err}",
+      )
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected exact slot replay module to validate, got \{err}")
+  }
+
+  let starts = trace.filter(fn(line) {
+    line.contains("pass[") && line.contains(":start")
+  })
+  assert_true(starts.length() >= 4, msg=starts.to_string())
+  assert_true(
+    starts[0].contains("pass[tuple-optimization]:start"),
+    msg=starts.to_string(),
+  )
+  assert_true(
+    starts[1].contains("pass[simplify-locals-nostructure]:start"),
+    msg=starts.to_string(),
+  )
+  assert_true(starts[2].contains("pass[vacuum]:start"), msg=starts.to_string())
+  assert_true(
+    starts[3].contains("pass[reorder-locals]:start"),
+    msg=starts.to_string(),
+  )
+
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
+      assert_eq(locals, @lib.Locals::empty())
+    other =>
+      fail("expected exact slot replay single-function output, got \{other}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "simplify-locals-nostructure exact slot keeps the no-structure if boundary" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      simplify_locals_nostructure_exact_slot_passes(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure exact slot no-structure replay success, got \{err}",
+      )
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exact slot no-structure replay module to validate, got \{err}",
+      )
+  }
+
+  let starts = trace.filter(fn(line) {
+    line.contains("pass[") && line.contains(":start")
+  })
+  assert_true(starts.length() >= 4, msg=starts.to_string())
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("if (Void)"), msg=pretty)
+}

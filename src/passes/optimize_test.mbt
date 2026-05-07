@@ -356,6 +356,21 @@ test "tuple-optimization exact preset prereqs see no-structure pass but presets 
 }
 
 ///|
+test "simplify-locals-nostructure exact slot helper exposes the ordered replay lane" {
+  assert_eq(simplify_locals_nostructure_exact_slot_passes(), [
+    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+  ])
+  assert_false(
+    optimize_preset_passes(HotPipelineOptions::new()).contains(
+      "simplify-locals-nostructure",
+    ),
+  )
+  assert_false(
+    shrink_preset_passes(HotPipelineOptions::new()).contains("reorder-locals"),
+  )
+}
+
+///|
 test "optimize preset replays remove-unused-names in all RUN slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat("(module (func loop br 0 end))")

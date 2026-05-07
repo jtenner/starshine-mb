@@ -441,6 +441,13 @@ pub fn simplify_locals_notee_nostructure_exact_neighborhood_ready() -> Bool {
 }
 
 ///|
+pub fn simplify_locals_nostructure_exact_slot_passes() -> Array[String] {
+  [
+    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+  ]
+}
+
+///|
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   // Keep tuple-optimization off the public presets until its exact Binaryen
   // slot is representable in-tree. The explicit pass surface stays active.

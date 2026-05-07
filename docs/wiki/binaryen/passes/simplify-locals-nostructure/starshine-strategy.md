@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
+  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
   - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
@@ -47,13 +48,14 @@ The implementation lives in `src/passes/simplify_locals.mbt` as a no-structure v
 
 Current direct evidence:
 
-- `.tmp/pass-fuzz-simplify-locals-nostructure`: refreshed 2026-05-06 mixed-generator canonical-spelling run, `6759/10000` comparable cases, `6759` matches, `0` mismatches, `20` Binaryen empty-recursion-group parser/canonicalization command failures.
+- `.tmp/pass-fuzz-simplify-locals-nostructure-20260508`: refreshed 2026-05-08 mixed-generator canonical-spelling run, `6759/10000` comparable cases, `6759` matches, `0` mismatches, `20` Binaryen empty-recursion-group parser/canonicalization command failures.
 - `.tmp/pass-fuzz-simplify-locals-no-structure`: refreshed 2026-05-06 mixed-generator alias-spelling run, `6759/10000` comparable cases, `6759` matches, `0` mismatches, `20` Binaryen empty-recursion-group parser/canonicalization command failures.
 - `.tmp/pass-fuzz-slns-genvalid-10000-after-raw`: earlier `10000/10000` gen-valid comparisons, `0` mismatches, `0` command failures.
 - `.tmp/pass-fuzz-slns-10000-keepgoing-after-raw`: earlier `9975/10000` mixed-generator comparable cases, `9975` matches, `0` mismatches; the `25` command failures are Binaryen-side parser/canonicalization families.
 - `.tmp/self-opt-slns-direct-rerun`: debug-artifact direct compare is normalized-WAT and canonical-function equal; Starshine pass time `325.166ms` vs Binaryen pass time `509466.000ms` in that run.
+- `.tmp/self-opt-slns-slot-20260508`: exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay is normalized-WAT and canonical-function equal on the checked-in debug artifact.
 
-Preset placement remains conservative: the direct pass is runnable and oracle-checked, but the public `optimize` / `shrink` presets still avoid claiming the full ordered local-neighborhood slot until neighboring ordered replay is refreshed.
+Preset placement remains conservative, but the standalone ordered local-neighborhood blocker is now closed: Starshine has exact-slot replay evidence for `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals`, while the remaining preset caution belongs to neighboring slices.
 
 See the companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) page for the validation ladder, recommended first slices, and oracle plan.
 
@@ -68,14 +70,13 @@ The fastest read-along path through the current Starshine status is:
     - `tuple_optimization_exact_slot_prereqs_ready()` now sees the no-structure neighbor as active
   - `src/passes/optimize.mbt`
     - optimize/shrink presets deliberately avoid claiming the exact ordered tuple/no-structure slot until the broader neighborhood replay is proven
-- direct regression proving the slot gate sees the pass while presets remain conservative
+- direct regressions proving the slot gate sees the pass while presets remain conservative
   - `src/passes/optimize_test.mbt`
     - `test "tuple-optimization exact preset prereqs see no-structure pass but presets stay conservative"`
-- backlog and delivery plan
-  - `agent-todo.md`
-    - `#### SLNS - Simplify Locals No-Structure`
-    - `[SLNS]001 - Early Local Simplification Core`
-    - `[SLNS]002 - Early-Slot Regression and Artifact Proof`
+    - `test "simplify-locals-nostructure exact slot helper exposes the ordered replay lane"`
+- exact-slot signoff evidence
+  - `docs/wiki/raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md`
+    - closes the old standalone `SLNS` ordered-slot blocker with current-head direct and artifact replay evidence
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - the early local-cleanup slot where `simplify-locals-nostructure` belongs after `tuple-optimization` and before `vacuum -> reorder-locals`
@@ -135,17 +136,17 @@ to become active before Starshine will claim the exact Binaryen tuple slot publi
 
 So the repo treats `simplify-locals-nostructure` as implemented for direct execution while still requiring ordered-neighborhood evidence before public preset scheduling.
 
-### 3. The work is planned as a parity slice, not an orphan idea
+### 3. The work now has exact-slot signoff, not just a backlog placeholder
 
-`agent-todo.md` already gives the pass a real backlog slice under `SLNS`.
-The current deliverables point in the right direction:
+The pass no longer depends on a standalone `SLNS` backlog placeholder for its main scheduler claim.
+Current in-tree regressions plus the new raw note now prove:
 
-- simplify sets, gets, and dead locals without creating new structured returns
-- preserve later coalescing opportunities
-- add regressions for tee-like traffic and tuple scratch locals
-- replay parity on the debug artifact in the intended early slot
+- tuple cleanup can hand values into the no-structure pass in the real slot,
+- the no-structure pass still refuses to synthesize structured results there,
+- `vacuum` and `reorder-locals` can consume the rewritten output in the same ordered replay,
+- and the checked-in debug artifact compares green on normalized WAT plus canonical-function equality for that full neighborhood.
 
-That is a useful local framing because it matches the reviewed upstream contract much better than a vague “port simplify-locals earlier” description.
+That is a better local framing than a generic “ordered replay still needed” note because it matches the reviewed upstream contract and records that the exact early slot is now proven.
 
 ### 4. The scheduler slot is already documented
 
@@ -161,7 +162,7 @@ Upstream Binaryen expects:
 - `vacuum` to remove the leftover garbage
 - `reorder-locals` to benefit from the cleaner early local set
 
-That cluster story remains the preset-scheduling strategy: the direct pass is implemented, but broader ordered-neighborhood replay must still prove the exact public preset slot.
+That cluster story remains the preset-scheduling strategy. The exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` suffix is now replay-proven, but broader public preset work still depends on neighboring slices rather than this pass alone.
 
 ## Current Starshine implementation shape
 
@@ -179,16 +180,15 @@ It disables the full-pass structure stage, so it does not synthesize block / `if
 
 ## Remaining local-neighborhood work
 
-Direct execution is done; preset integration is still intentionally conservative.
+Direct execution is done, and the exact early local neighborhood is now replay-proven.
 
-Before adding this pass to public `optimize` / `shrink` ordering, refresh the ordered neighborhood evidence around:
+The remaining preset work is broader than this pass:
 
-- `tuple-optimization -> simplify-locals-nostructure`
-- `simplify-locals-nostructure -> vacuum`
-- `vacuum -> reorder-locals`
-- later `coalesce-locals` / `local-cse` once those passes land
+- `tuple-optimization` still owns its wider exact-slot and feature-off preset proof
+- the earlier `code-pushing -> tuple-optimization` side of the neighborhood still belongs to neighboring slices
+- later local-cluster scheduling questions remain with downstream passes, not with a standalone `simplify-locals-nostructure` blocker
 
-That is why the tracker now treats the pass as implemented while still recording preset placement as follow-up.
+That is why the tracker can now treat this pass and its exact early slot as proven while keeping broader preset placement conservative.
 
 ## Bottom line
 
@@ -200,4 +200,4 @@ Current Starshine `simplify-locals-nostructure` status:
 - dispatcher and harness wiring complete
 - focused no-structure tests complete
 - refreshed 2026-05-06 direct mixed-generator evidence for both canonical spelling and alias, plus earlier direct 10k gen-valid, mixed-generator comparable, and debug-artifact self-opt oracle evidence recorded
-- public preset scheduling still deferred until ordered-neighborhood replay is proven
+- public preset scheduling still deferred, but no longer because of a standalone `simplify-locals-nostructure` ordered-slot gap

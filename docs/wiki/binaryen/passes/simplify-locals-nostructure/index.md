@@ -1,8 +1,9 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-05-06
+status: supported
+last_reviewed: 2026-05-08
 sources:
+  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
   - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
@@ -45,8 +46,8 @@ related:
 - The canonical Binaryen no-DWARF `-O` / `-Os` function pipeline runs `simplify-locals-nostructure` after `code-pushing` plus `tuple-optimization` and before `vacuum` plus the first `reorder-locals`.
 - The saved generated-artifact `-O4z` audit records it as a real skipped top-level upstream slot:
   - top-level slot `22`
-- The repo backlog records the direct `SLNS` slice as landed and keeps ordered preset-neighborhood replay as the remaining follow-up in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
-- The current Starshine tuple-slot gate now sees the no-structure pass as active, but the public presets still stay conservative until the broader ordered local neighborhood is proven.
+- The repo backlog previously tracked the remaining ordered-slot follow-up under `SLNS`; that exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay is now proven and the standalone slice is closed.
+- The current Starshine tuple-slot gate still sees the no-structure pass as active, and the public presets still stay conservative, but the remaining caution now belongs to neighboring tuple/local-cluster slices rather than this pass's own ordered-slot proof.
 - The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-05-04 current-`main` recheck found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md).
 
 ## Beginner summary
@@ -76,7 +77,7 @@ That is narrower than “full simplify-locals.”
   - one-armed `if` speculative else-side `local.get` insertion
 - The first fixpoint cycle is still stricter than later ones: it only sinks easy single-use locals.
 - The main analysis is deliberately linear-trace based and uses directional effect invalidation instead of whole-function CFG reasoning.
-- Current Starshine has a direct transform for this pass: it reuses the existing local-sink/dead-cleanup cycles from full `simplify-locals` while disabling structure-result rewrites. The 2026-05-06 refreshed harness revalidation recorded 6759 compared canonical-spelling cases plus 6759 compared alias-spelling cases with 0 mismatches; direct oracle evidence is recorded in the strategy and validation pages.
+- Current Starshine has a direct transform for this pass: it reuses the existing local-sink/dead-cleanup cycles from full `simplify-locals` while disabling structure-result rewrites. The 2026-05-08 refreshed harness revalidation again recorded `6759` comparable canonical-spelling cases with `0` mismatches, and the exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` neighborhood now has current-head debug-artifact replay proof on normalized WAT plus canonical-function equality.
 
 ## Page map
 
@@ -96,7 +97,7 @@ That is narrower than “full simplify-locals.”
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for `simplify-locals-nostructure` research, direct-pass validation, and preset-neighborhood planning.
-- Keep direct-pass evidence and ordered-preset status separate: the pass and its `simplify-locals-no-structure` alias are active and revalidated after the 2026-05-06 harness changes, but public `optimize` / `shrink` placement still needs ordered replay.
+- Keep direct-pass evidence and broader preset status separate: the pass and its `simplify-locals-no-structure` alias are active, revalidated, and now exact-slot replay-proven, but public `optimize` / `shrink` placement still depends on neighboring tuple/local-cluster work.
 - New `simplify-locals-nostructure` findings should update the strategy, implementation/test-map, variant-surface, and Starshine pages together so the upstream algorithm, source proof surface, variant boundary, and local port story stay aligned.
 
 ## Sources

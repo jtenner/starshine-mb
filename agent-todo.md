@@ -84,11 +84,6 @@ Observed unique-pass order
 - [SLNNS]003 - Preset Readiness Gate
   - Deliverables: keep the direct pass out of public `optimize` / `shrink` until the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood is representable and oracle-proven.
 
-#### SLNS - Simplify Locals No-Structure
-
-- [SLNS]003 - Ordered Slot Gate
-  - Deliverables: keep the direct pass out of public `optimize` / `shrink` until ordered-neighborhood replay proves the exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` slot; revisit placement with `coalesce-locals` and `local-cse`.
-
 #### H2L - Heap2Local
 
 - [H2L]002 - Localization Follow-up and Neighborhood Parity
