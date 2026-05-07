@@ -700,14 +700,15 @@ test "ssa-nomerge hot path preserves Binaryen temp locals for unreachable dead t
     #|
   let optimized = match ssa_test_run_hot_path_only(input) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected unreachable dead tee hot-path success, got \{err}")
+    Err(err) =>
+      fail("expected unreachable dead tee hot-path success, got \{err}")
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([
-    @lib.ValType::i32(),
-    @lib.ValType::i32(),
-  ]))
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
   assert_eq(instrs, [
     @lib.Instruction::block(
       @lib.BlockType::void_(),
@@ -718,6 +719,155 @@ test "ssa-nomerge hot path preserves Binaryen temp locals for unreachable dead t
     @lib.Instruction::drop(),
     @lib.Instruction::i32_const(@lib.I32(9)),
   ])
+}
+
+///|
+test "ssa-nomerge preserves unreachable dead tee temps before later control" {
+  let input =
+    #| (module
+    #|   (func (param i32)
+    #|     block
+    #|       i32.const 1
+    #|       br_table 0 0
+    #|     end
+    #|     block
+    #|       unreachable
+    #|     end
+    #|     i32.const 7
+    #|     local.tee 0
+    #|     drop
+    #|     block (result i32)
+    #|       i32.const 1
+    #|     end
+    #|     drop
+    #|     local.get 0
+    #|     drop
+    #|     block
+    #|       i32.const 1
+    #|       br_if 0
+    #|     end
+    #|     loop
+    #|       i32.const 1
+    #|       br_if 0
+    #|     end
+    #|     i32.const 1
+    #|     if
+    #|       block
+    #|         br 0
+    #|       end
+    #|     else
+    #|       nop
+    #|     end))
+    #|
+  let optimized = match ssa_test_run_hot_path_only(input) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unreachable dead tee temp preservation before later control, got \{err}",
+      )
+  }
+
+  let (locals, _) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+}
+
+///|
+test "ssa-nomerge keeps canonical locals for if-result unreachable tee carriers" {
+  let input =
+    #| (module
+    #|   (func (param f64 i32) (result i32)
+    #|     block
+    #|       i32.const 1
+    #|       br_table 0 0
+    #|     end
+    #|     block
+    #|       unreachable
+    #|     end
+    #|     i32.const 7
+    #|     local.tee 1
+    #|     drop
+    #|     i32.const 11
+    #|     i32.const 22
+    #|     i32.const 1
+    #|     select (result i32)
+    #|     drop
+    #|     i32.const 1
+    #|     if (result i32)
+    #|       i32.const 4
+    #|     else
+    #|       i32.const 58
+    #|     end
+    #|     drop
+    #|     local.get 1
+    #|     drop
+    #|     block
+    #|       i32.const 1
+    #|       br_if 0
+    #|     end
+    #|     loop
+    #|       i32.const 0
+    #|       br_if 0
+    #|     end
+    #|     i32.const 0
+    #|     if
+    #|       block
+    #|         br 0
+    #|       end
+    #|     else
+    #|       nop
+    #|     end
+    #|     i32.const 869))
+    #|
+  let optimized = match ssa_test_run_hot_path_only(input) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected if-result unreachable tee-carrier success, got \{err}")
+  }
+
+  let (locals, _) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(locals, @lib.Locals::from_types([]))
+}
+
+///|
+test "ssa-nomerge keeps canonical locals when unreachable reads stay behind later control blocks" {
+  let input =
+    #| (module
+    #|   (func (result i32)
+    #|     (local i32)
+    #|     block
+    #|       unreachable
+    #|     end
+    #|     i32.const 7
+    #|     local.tee 0
+    #|     drop
+    #|     block
+    #|       i32.const 1
+    #|       br_if 0
+    #|     end
+    #|     loop
+    #|       i32.const 1
+    #|       br_if 0
+    #|     end
+    #|     i32.const 1
+    #|     if
+    #|       block
+    #|         br 0
+    #|       end
+    #|     else
+    #|       nop
+    #|     end
+    #|     local.get 0))
+    #|
+  let optimized = match ssa_test_run_hot_path_only(input) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected structured unreachable tee-carrier hot-path success, got \{err}",
+      )
+  }
+
+  let (locals, _) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
 }
 
 ///|

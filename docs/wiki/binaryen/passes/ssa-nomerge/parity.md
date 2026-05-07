@@ -34,7 +34,7 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 - The April `2026-04-10` dead-param-write parity family is now fixed in-tree for `ssa-nomerge`.
 - Current source-mode `ssa-nomerge` replay on the checked-in debug CLI artifact now completes, validates, and matches Binaryen on normalized WAT and canonical per-function output.
 - Random compare fuzz is still useful, but it is not sufficient as the only signoff lane for `ssa-nomerge`.
-- Older mixed-generator compare coverage was mismatch-free on comparable cases and only hit the standing Binaryen `binaryen-rec-group-zero` parser-family gap, but the 2026-05-07 current-head smoke rerun reopened a narrower local-declaration shaping drift family that now lives under backlog slice `[SSA]001`.
+- The 2026-05-07 current-head local-declaration shaping drift family is fixed in-tree: `ssa_destroy` now matches Binaryen temp-local preservation/reuse for unreachable dead `local.tee` value-if carriers without generic lowerer trimming.
 - Fresh post-merge reruns on seed `0x51a` stayed clean in both the mixed-generator and `gen-valid` lanes.
 - The reduced unreachable compare-carrier slice behind the traced `Func 523` family is now covered in-tree in both lift and pass tests.
 - The old traced `Func 523` `writeback-validate:type mismatch` skip is now retired by the focused extracted-function CLI replay test.
@@ -52,9 +52,11 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 ## Current Signoff State
 
 - `wasm-tools validate tests/node/dist/starshine-debug-wasi.wasm` succeeds.
-- `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` is green with focused dead-param and live-param regressions.
-- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0xA11D --max-failures 5 --pass ssa-nomerge --out-dir .tmp/recheck-ssa-nomerge` is **not** currently green: it compared `10 / 100`, matched `5`, and stopped on `5` local-declaration-only mismatches.
-- `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff-gen-valid --pass ssa-nomerge` is green at `10000 / 10000` compared and `10000` normalized matches.
+- `moon test --package jtenner/starshine/ir --file ssa_destroy_test.mbt` is green with focused temp-local declaration and unreachable dead-tee regressions.
+- `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` is green with focused dead-param, live-param, unreachable-carrier, and value-if temp-local regressions.
+- `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 500 --min-compared 500 --seed 0x5eed --keep-going-after-command-failures --pass ssa-nomerge --out-dir .tmp/recheck-ssa-nomerge-genvalid-500-if-order-fix` is green at `500 / 500` compared, `500` normalized matches, and `0` mismatches.
+- `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --keep-going-after-command-failures --pass ssa-nomerge --out-dir .tmp/pass-fuzz-ssa-nomerge-genvalid-10000-if-order-fix-rerun` is green at `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, and `0` validation/generator/command failures.
+- Historical `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff-gen-valid --pass ssa-nomerge` was green at `10000 / 10000` compared and `10000` normalized matches.
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff --pass ssa-nomerge` stays mismatch-free on comparable cases (`2380 / 10000` compared, `0` mismatches) and only stops on the Binaryen-only `binaryen-rec-group-zero` parser family.
 - `bun scripts/pass-fuzz-compare.ts --count 2000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-mixed-seed51a --pass ssa-nomerge` stayed clean on all comparable cases (`1996 / 2000`, `0` mismatches, `4` Binaryen-only parser gaps).
 - `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-genvalid-seed51a --pass ssa-nomerge` is also green at `10000 / 10000` compared and `10000` normalized matches.
@@ -65,6 +67,7 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Remaining Gap
 
+- The direct `[SSA]001` temp-local declaration drift is closed by focused tests plus the current `10000 / 10000` `gen-valid` lane.
 - The focused extracted-function CLI replay now proves that the old `Func 523` `writeback-validate:type mismatch` skip is retired.
 - However, this follow-up did **not** rerun a fresh full-artifact traced skip census, so the older `2026-04-11` count of `228` `suspicious-escape-carrier` skips remains only historical context, not a fresh exact current count.
 - The same input still succeeds under Binaryen with `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge`.
@@ -75,7 +78,7 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 - Keep direct debug-artifact replay in the `ssa-nomerge` signoff loop.
 - Treat the seeded `binaryen-rec-group-zero` wasm-smith failure as an oracle parser gap, not an SSA semantic mismatch.
 - Treat current-source output parity as green for the fixed dead-param family and the reduced unreachable compare-carrier follow-up, but do not claim exact artifact parity until a fresh traced full-artifact replay shows that the remaining fail-closed raw-lowering skip families are gone or intentionally accepted.
-- Keep the direct artifact replay and the `10000 / 10000` `gen-valid` compare lane together as the minimum signoff pair.
+- Keep the direct artifact replay and the `10000 / 10000` `gen-valid` compare lane together as the minimum signoff pair; the current `0x5eed` `gen-valid` lane is green in `.tmp/pass-fuzz-ssa-nomerge-genvalid-10000-if-order-fix-rerun`.
 
 ## Sources
 

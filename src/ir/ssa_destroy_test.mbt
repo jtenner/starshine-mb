@@ -317,6 +317,217 @@ test "ssa destruction retains Binaryen temp locals for unreachable dead local te
 }
 
 ///|
+test "ssa destruction retains Binaryen temp locals for unreachable dead tees before later control" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_table(
+            [@lib.LabelIdx::new(0U)],
+            @lib.LabelIdx::new(0U),
+          ),
+        ]),
+      ),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+          ),
+        ],
+        Some([@lib.Instruction::nop()]),
+      ),
+    ]),
+    HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+
+  assert_eq(hot_local_count(func), 2)
+
+  let lowered = hot_lower_func_with_options(
+    func,
+    HotLowerOptions::new(preserve_dead_local_tee_drops=true),
+  )
+  let @lib.Func(locals, _) = lowered
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+}
+
+///|
+test "ssa destruction keeps canonical locals for if-result unreachable tee carriers" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_table(
+            [@lib.LabelIdx::new(0U)],
+            @lib.LabelIdx::new(0U),
+          ),
+        ]),
+      ),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(11)),
+      @lib.Instruction::i32_const(@lib.I32(22)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::select(types=Some([@lib.ValType::i32()])),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [@lib.Instruction::i32_const(@lib.I32(4))],
+        Some([@lib.Instruction::i32_const(@lib.I32(58))]),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+          ),
+        ],
+        Some([@lib.Instruction::nop()]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(869)),
+    ]),
+    HotLocals::new(params=[@lib.ValType::f64(), @lib.ValType::i32()]),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+
+  assert_eq(hot_local_count(func), 2)
+}
+
+///|
+test "ssa destruction keeps canonical locals when unreachable reads stay behind later control blocks" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+          ),
+        ],
+        Some([@lib.Instruction::nop()]),
+      ),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+
+  assert_eq(hot_local_count(func), 1)
+  let lowered = hot_lower_func_with_options(
+    func,
+    HotLowerOptions::new(preserve_dead_local_tee_drops=true),
+  )
+  let @lib.Func(locals, _) = lowered
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+}
+
+///|
 fn ssa_destroy_test_count_substring(text : String, needle : String) -> Int {
   if needle.length() == 0 {
     return 0

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Passes: close `ssa-nomerge` temp-local normalization
+
+- **align `ssa-nomerge` unreachable dead-tee temp-local preservation with Binaryen for value-if carrier shapes, add focused IR/pass regressions, prove the 10k `gen-valid` direct lane, and prune `[SSA]001` from the active backlog** by **@OpenAI**. Updated [`src/ir/ssa_destroy.mbt`](./src/ir/ssa_destroy.mbt), [`src/ir/ssa_destroy_test.mbt`](./src/ir/ssa_destroy_test.mbt), [`src/passes/ssa_nomerge.mbt`](./src/passes/ssa_nomerge.mbt), [`src/passes/ssa_nomerge_test.mbt`](./src/passes/ssa_nomerge_test.mbt), [`docs/wiki/binaryen/passes/ssa-nomerge/parity.md`](./docs/wiki/binaryen/passes/ssa-nomerge/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-07 Passes: narrow `ssa-nomerge` temp-local drift
 
 - **catch dead-write-only `ssa-nomerge` hot rewrites, preserve Binaryen-style unreachable dead `local.tee` drops in lowering, add focused IR/pass regressions, and refresh the active `[SSA]001` backlog note for the remaining reachable temp-local shaping mismatches** by **@OpenAI**. Updated [`src/ir/ssa_destroy.mbt`](./src/ir/ssa_destroy.mbt), [`src/ir/ssa_destroy_test.mbt`](./src/ir/ssa_destroy_test.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/ssa_nomerge.mbt`](./src/passes/ssa_nomerge.mbt), [`src/passes/ssa_nomerge_test.mbt`](./src/passes/ssa_nomerge_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

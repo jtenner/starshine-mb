@@ -31,10 +31,7 @@ fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
-fn ssa_nomerge_needs_rewrite(
-  func : @ir.HotFunc,
-  ssa : @ir.HotLocalSsa,
-) -> Bool {
+fn ssa_nomerge_needs_rewrite(func : @ir.HotFunc, ssa : @ir.HotLocalSsa) -> Bool {
   if ssa.phis.length() != 0 {
     return true
   }
@@ -45,8 +42,11 @@ fn ssa_nomerge_needs_rewrite(
       _ => ()
     }
   }
-  for node_id = 0; node_id < ssa.local_write_defs.length(); node_id = node_id + 1 {
-    if ssa.local_write_defs[node_id] >= 0 || !@ir.hot_node_is_live(func, node_id) {
+  for node_id = 0
+      node_id < ssa.local_write_defs.length()
+      node_id = node_id + 1 {
+    if ssa.local_write_defs[node_id] >= 0 ||
+      !@ir.hot_node_is_live(func, node_id) {
       continue
     }
     match @ir.hot_node_get(func, node_id).op {

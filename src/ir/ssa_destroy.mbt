@@ -263,8 +263,7 @@ pub fn ssa_assign_concrete_locals(
       HotSsaValueOrigin::EntryParamDef(local_id)
       | HotSsaValueOrigin::EntryDefaultInitDef(local_id) => local_id
       HotSsaValueOrigin::PhiDef(phi_id) => ssa.phis[phi_id].local_id
-      HotSsaValueOrigin::LocalSetDef(_)
-      | HotSsaValueOrigin::LocalTeeDef(_) => {
+      HotSsaValueOrigin::LocalSetDef(_) | HotSsaValueOrigin::LocalTeeDef(_) => {
         extra_local_types.push(ssa.value_types[value_id])
         let local_id = next_local
         next_local = next_local + 1
@@ -403,6 +402,785 @@ fn ssa_destroy_assign_node_order_node(
 }
 
 ///|
+fn ssa_destroy_mark_reachable_node_tree(
+  func : HotFunc,
+  node_id : NodeId,
+  reachable_nodes : Array[Bool],
+) -> Unit {
+  if node_id == HOT_NONE_NODE ||
+    !hot_node_is_live(func, node_id) ||
+    reachable_nodes[node_id] {
+    return
+  }
+  reachable_nodes[node_id] = true
+  let node = hot_node_get(func, node_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if ssa_destroy_is_region_slot(node.op, slot) {
+      continue
+    }
+    ssa_destroy_mark_reachable_node_tree(
+      func,
+      hot_child_get(func, node_id, slot),
+      reachable_nodes,
+    )
+  }
+  match node.op {
+    HotOp::Block | HotOp::Loop =>
+      ssa_destroy_mark_reachable_region_tree(
+        func,
+        hot_region_body_ref(func, node_id),
+        reachable_nodes,
+      )
+    HotOp::If => {
+      ssa_destroy_mark_reachable_region_tree(
+        func,
+        hot_region_then_ref(func, node_id),
+        reachable_nodes,
+      )
+      match hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_destroy_mark_reachable_region_tree(
+            func, region_ref, reachable_nodes,
+          )
+        None => ()
+      }
+    }
+    HotOp::Try => {
+      ssa_destroy_mark_reachable_region_tree(
+        func,
+        hot_region_body_ref(func, node_id),
+        reachable_nodes,
+      )
+      match hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_destroy_mark_reachable_region_tree(
+            func, region_ref, reachable_nodes,
+          )
+        None => ()
+      }
+    }
+    HotOp::TryTable => {
+      ssa_destroy_mark_reachable_region_tree(
+        func,
+        hot_region_body_ref(func, node_id),
+        reachable_nodes,
+      )
+      ssa_destroy_mark_reachable_region_tree(
+        func,
+        hot_region_catch_list_ref(func, node_id),
+        reachable_nodes,
+      )
+    }
+    _ => ()
+  }
+}
+
+///|
+fn ssa_destroy_mark_reachable_region_tree(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+  reachable_nodes : Array[Bool],
+) -> Unit {
+  for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
+    ssa_destroy_mark_reachable_node_tree(
+      func,
+      hot_region_get(func, region_ref, idx),
+      reachable_nodes,
+    )
+  }
+}
+
+///|
+fn ssa_destroy_region_may_fall_through(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> Bool {
+  let mut reachable = true
+  for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if !reachable {
+      break
+    }
+    reachable = ssa_destroy_node_may_fall_through(
+      func,
+      hot_region_get(func, region_ref, idx),
+    )
+  }
+  reachable
+}
+
+///|
+fn ssa_destroy_node_may_fall_through(func : HotFunc, node_id : NodeId) -> Bool {
+  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+    return true
+  }
+  let node = hot_node_get(func, node_id)
+  if cfg_op_is_terminator(node.op) {
+    return false
+  }
+  match node.op {
+    HotOp::Block =>
+      ssa_destroy_region_may_fall_through(
+        func,
+        hot_region_body_ref(func, node_id),
+      )
+    HotOp::If => {
+      let then_falls = ssa_destroy_region_may_fall_through(
+        func,
+        hot_region_then_ref(func, node_id),
+      )
+      let else_falls = match hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_destroy_region_may_fall_through(func, region_ref)
+        None => true
+      }
+      then_falls || else_falls
+    }
+    _ => true
+  }
+}
+
+///|
+fn ssa_destroy_reachable_nodes(func : HotFunc) -> Array[Bool] {
+  let reachable_nodes = Array::make(hot_node_count(func), false)
+  let mut root_reachable = true
+  for idx = 0; idx < hot_root_count(func); idx = idx + 1 {
+    if !root_reachable {
+      break
+    }
+    let root_id = hot_root_get(func, idx)
+    ssa_destroy_mark_reachable_node_tree(func, root_id, reachable_nodes)
+    root_reachable = ssa_destroy_node_may_fall_through(func, root_id)
+  }
+  reachable_nodes
+}
+
+///|
+fn ssa_destroy_mark_block_region(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+  block_id : Int,
+  node_blocks : Array[Int],
+) -> Unit {
+  for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
+    ssa_destroy_mark_block_node(
+      func,
+      hot_region_get(func, region_ref, idx),
+      block_id,
+      node_blocks,
+    )
+  }
+}
+
+///|
+fn ssa_destroy_mark_block_node(
+  func : HotFunc,
+  node_id : NodeId,
+  block_id : Int,
+  node_blocks : Array[Int],
+) -> Unit {
+  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+    return
+  }
+  if node_blocks[node_id] < 0 {
+    node_blocks[node_id] = block_id
+  }
+  let node = hot_node_get(func, node_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if ssa_destroy_is_region_slot(node.op, slot) {
+      continue
+    }
+    ssa_destroy_mark_block_node(
+      func,
+      hot_child_get(func, node_id, slot),
+      block_id,
+      node_blocks,
+    )
+  }
+  match node.op {
+    HotOp::Block | HotOp::Loop =>
+      ssa_destroy_mark_block_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        block_id,
+        node_blocks,
+      )
+    HotOp::If => {
+      ssa_destroy_mark_block_region(
+        func,
+        hot_region_then_ref(func, node_id),
+        block_id,
+        node_blocks,
+      )
+      match hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_destroy_mark_block_region(func, region_ref, block_id, node_blocks)
+        None => ()
+      }
+    }
+    HotOp::Try => {
+      ssa_destroy_mark_block_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        block_id,
+        node_blocks,
+      )
+      match hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_destroy_mark_block_region(func, region_ref, block_id, node_blocks)
+        None => ()
+      }
+    }
+    HotOp::TryTable => {
+      ssa_destroy_mark_block_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        block_id,
+        node_blocks,
+      )
+      ssa_destroy_mark_block_region(
+        func,
+        hot_region_catch_list_ref(func, node_id),
+        block_id,
+        node_blocks,
+      )
+    }
+    _ => ()
+  }
+}
+
+///|
+fn ssa_destroy_node_blocks(func : HotFunc) -> Array[Int] {
+  let cfg = cfg_build(func)
+  let node_blocks = Array::make(hot_node_count(func), -1)
+  for block in cfg.blocks {
+    for node_id in block.nodes {
+      ssa_destroy_mark_block_node(func, node_id, block.id, node_blocks)
+    }
+  }
+  node_blocks
+}
+
+///|
+fn ssa_destroy_node_contains_terminator(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Bool {
+  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = hot_node_get(func, node_id)
+  if cfg_op_is_terminator(node.op) {
+    return true
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if ssa_destroy_is_region_slot(node.op, slot) {
+      continue
+    }
+    if ssa_destroy_node_contains_terminator(
+        func,
+        hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    HotOp::Block | HotOp::Loop =>
+      for idx = 0
+          idx < hot_region_root_count(func, hot_region_body_ref(func, node_id))
+          idx = idx + 1 {
+        if ssa_destroy_node_contains_terminator(
+            func,
+            hot_region_get(func, hot_region_body_ref(func, node_id), idx),
+          ) {
+          return true
+        }
+      }
+    HotOp::If => {
+      let then_ref = hot_region_then_ref(func, node_id)
+      for idx = 0; idx < hot_region_root_count(func, then_ref); idx = idx + 1 {
+        if ssa_destroy_node_contains_terminator(
+            func,
+            hot_region_get(func, then_ref, idx),
+          ) {
+          return true
+        }
+      }
+      match hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          for idx = 0
+              idx < hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            if ssa_destroy_node_contains_terminator(
+                func,
+                hot_region_get(func, else_ref, idx),
+              ) {
+              return true
+            }
+          }
+        None => ()
+      }
+    }
+    HotOp::Try => {
+      let body_ref = hot_region_body_ref(func, node_id)
+      for idx = 0; idx < hot_region_root_count(func, body_ref); idx = idx + 1 {
+        if ssa_destroy_node_contains_terminator(
+            func,
+            hot_region_get(func, body_ref, idx),
+          ) {
+          return true
+        }
+      }
+      match hot_region_catch_ref(func, node_id) {
+        Some(catch_ref) =>
+          for idx = 0
+              idx < hot_region_root_count(func, catch_ref)
+              idx = idx + 1 {
+            if ssa_destroy_node_contains_terminator(
+                func,
+                hot_region_get(func, catch_ref, idx),
+              ) {
+              return true
+            }
+          }
+        None => ()
+      }
+    }
+    HotOp::TryTable => {
+      let body_ref = hot_region_body_ref(func, node_id)
+      for idx = 0; idx < hot_region_root_count(func, body_ref); idx = idx + 1 {
+        if ssa_destroy_node_contains_terminator(
+            func,
+            hot_region_get(func, body_ref, idx),
+          ) {
+          return true
+        }
+      }
+      let catches_ref = hot_region_catch_list_ref(func, node_id)
+      for idx = 0; idx < hot_region_root_count(func, catches_ref); idx = idx + 1 {
+        if ssa_destroy_node_contains_terminator(
+            func,
+            hot_region_get(func, catches_ref, idx),
+          ) {
+          return true
+        }
+      }
+    }
+    _ => ()
+  }
+  false
+}
+
+///|
+fn ssa_destroy_mark_root_slot_node(
+  func : HotFunc,
+  node_id : NodeId,
+  root_slot : Int,
+  node_root_slots : Array[Int],
+) -> Unit {
+  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+    return
+  }
+  if node_root_slots[node_id] >= 0 {
+    return
+  }
+  node_root_slots[node_id] = root_slot
+  let node = hot_node_get(func, node_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if ssa_destroy_is_region_slot(node.op, slot) {
+      continue
+    }
+    ssa_destroy_mark_root_slot_node(
+      func,
+      hot_child_get(func, node_id, slot),
+      root_slot,
+      node_root_slots,
+    )
+  }
+  match node.op {
+    HotOp::Block | HotOp::Loop =>
+      ssa_destroy_mark_root_slot_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        root_slot,
+        node_root_slots,
+      )
+    HotOp::If => {
+      ssa_destroy_mark_root_slot_region(
+        func,
+        hot_region_then_ref(func, node_id),
+        root_slot,
+        node_root_slots,
+      )
+      match hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_destroy_mark_root_slot_region(
+            func, region_ref, root_slot, node_root_slots,
+          )
+        None => ()
+      }
+    }
+    HotOp::Try => {
+      ssa_destroy_mark_root_slot_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        root_slot,
+        node_root_slots,
+      )
+      match hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_destroy_mark_root_slot_region(
+            func, region_ref, root_slot, node_root_slots,
+          )
+        None => ()
+      }
+    }
+    HotOp::TryTable => {
+      ssa_destroy_mark_root_slot_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        root_slot,
+        node_root_slots,
+      )
+      ssa_destroy_mark_root_slot_region(
+        func,
+        hot_region_catch_list_ref(func, node_id),
+        root_slot,
+        node_root_slots,
+      )
+    }
+    _ => ()
+  }
+}
+
+///|
+fn ssa_destroy_mark_root_slot_region(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+  root_slot : Int,
+  node_root_slots : Array[Int],
+) -> Unit {
+  for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
+    ssa_destroy_mark_root_slot_node(
+      func,
+      hot_region_get(func, region_ref, idx),
+      root_slot,
+      node_root_slots,
+    )
+  }
+}
+
+///|
+fn ssa_destroy_node_root_slots(func : HotFunc) -> Array[Int] {
+  let node_root_slots = Array::make(hot_node_count(func), -1)
+  for root_slot = 0; root_slot < hot_root_count(func); root_slot = root_slot + 1 {
+    ssa_destroy_mark_root_slot_node(
+      func,
+      hot_root_get(func, root_slot),
+      root_slot,
+      node_root_slots,
+    )
+  }
+  node_root_slots
+}
+
+///|
+fn ssa_destroy_root_slot_range(
+  node_root_slots : Array[Int],
+  start_node_id : NodeId,
+  end_node_id : NodeId,
+) -> (Int, Int) {
+  if start_node_id < 0 ||
+    start_node_id >= node_root_slots.length() ||
+    end_node_id < 0 ||
+    end_node_id >= node_root_slots.length() {
+    return (-1, -1)
+  }
+  let start_root_slot = node_root_slots[start_node_id]
+  let end_root_slot = node_root_slots[end_node_id]
+  if start_root_slot < 0 ||
+    end_root_slot < 0 ||
+    end_root_slot <= start_root_slot {
+    return (-1, -1)
+  }
+  (start_root_slot, end_root_slot)
+}
+
+///|
+fn ssa_destroy_has_branchy_root_between(
+  func : HotFunc,
+  node_root_slots : Array[Int],
+  start_node_id : NodeId,
+  end_node_id : NodeId,
+) -> Bool {
+  let (start_root_slot, end_root_slot) = ssa_destroy_root_slot_range(
+    node_root_slots, start_node_id, end_node_id,
+  )
+  if start_root_slot < 0 {
+    return false
+  }
+  for root_slot = start_root_slot + 1
+      root_slot < end_root_slot
+      root_slot = root_slot + 1 {
+    let root_id = hot_root_get(func, root_slot)
+    if hot_is_control_node(func, root_id) &&
+      ssa_destroy_node_contains_terminator(func, root_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_destroy_has_value_block_root_between(
+  func : HotFunc,
+  node_root_slots : Array[Int],
+  start_node_id : NodeId,
+  end_node_id : NodeId,
+) -> Bool {
+  let (start_root_slot, end_root_slot) = ssa_destroy_root_slot_range(
+    node_root_slots, start_node_id, end_node_id,
+  )
+  if start_root_slot < 0 {
+    return false
+  }
+  let void_ty = hot_type_void(func)
+  for root_slot = start_root_slot + 1
+      root_slot < end_root_slot
+      root_slot = root_slot + 1 {
+    let root_id = hot_root_get(func, root_slot)
+    let root = hot_node_get(func, root_id)
+    if root.op == HotOp::Block && root.ty != void_ty {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_destroy_has_live_parent(func : HotFunc, node_id : NodeId) -> Bool {
+  for parent_id = 0; parent_id < hot_node_count(func); parent_id = parent_id + 1 {
+    if !hot_node_is_live(func, parent_id) {
+      continue
+    }
+    let parent = hot_node_get(func, parent_id)
+    for slot = 0; slot < parent.child_count; slot = slot + 1 {
+      if ssa_destroy_is_region_slot(parent.op, slot) {
+        continue
+      }
+      if hot_child_get(func, parent_id, slot) == node_id {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn ssa_destroy_should_preserve_dead_write_local(
+  func : HotFunc,
+  node_id : NodeId,
+  local_id : LocalId,
+  node_order : Array[Int],
+  node_blocks : Array[Int],
+  node_root_slots : Array[Int],
+  reachable_nodes : Array[Bool],
+) -> Bool {
+  let write_order = node_order[node_id]
+  if write_order < 0 {
+    return false
+  }
+  let write_block = node_blocks[node_id]
+  for candidate_id = 0
+      candidate_id < hot_node_count(func)
+      candidate_id = candidate_id + 1 {
+    if !hot_node_is_live(func, candidate_id) ||
+      reachable_nodes[candidate_id] ||
+      node_order[candidate_id] <= write_order {
+      continue
+    }
+    let candidate = hot_node_get(func, candidate_id)
+    if (candidate.op == HotOp::LocalSet || candidate.op == HotOp::LocalTee) &&
+      candidate.imm0 == local_id &&
+      node_blocks[candidate_id] == write_block {
+      break
+    }
+    if candidate.op == HotOp::LocalGet &&
+      candidate.imm0 == local_id &&
+      ssa_destroy_has_branchy_root_between(
+        func, node_root_slots, node_id, candidate_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_destroy_should_keep_dead_tee_temp(
+  func : HotFunc,
+  node_id : NodeId,
+  original_local_id : LocalId,
+  node_order : Array[Int],
+  node_root_slots : Array[Int],
+  reachable_nodes : Array[Bool],
+) -> Bool {
+  let write_order = node_order[node_id]
+  if write_order < 0 || original_local_id < 0 {
+    return false
+  }
+  for candidate_id = 0
+      candidate_id < hot_node_count(func)
+      candidate_id = candidate_id + 1 {
+    if !hot_node_is_live(func, candidate_id) ||
+      reachable_nodes[candidate_id] ||
+      node_order[candidate_id] <= write_order {
+      continue
+    }
+    let candidate = hot_node_get(func, candidate_id)
+    if candidate.op == HotOp::LocalGet &&
+      candidate.imm0 == original_local_id &&
+      ssa_destroy_has_live_parent(func, candidate_id) &&
+      ssa_destroy_has_value_block_root_between(
+        func, node_root_slots, node_id, candidate_id,
+      ) &&
+      !ssa_destroy_has_branchy_root_between(
+        func, node_root_slots, node_id, candidate_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_destroy_has_value_if_order_between(
+  func : HotFunc,
+  node_order : Array[Int],
+  start_node_id : NodeId,
+  end_node_id : NodeId,
+) -> Bool {
+  let start_order = node_order[start_node_id]
+  let end_order = node_order[end_node_id]
+  if start_order < 0 || end_order <= start_order {
+    return false
+  }
+  let void_ty = hot_type_void(func)
+  for candidate_id = 0
+      candidate_id < hot_node_count(func)
+      candidate_id = candidate_id + 1 {
+    if !hot_node_is_live(func, candidate_id) ||
+      node_order[candidate_id] <= start_order ||
+      node_order[candidate_id] >= end_order {
+      continue
+    }
+    let candidate = hot_node_get(func, candidate_id)
+    if candidate.op == HotOp::If && candidate.ty != void_ty {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_destroy_has_branchy_root_after(
+  func : HotFunc,
+  node_root_slots : Array[Int],
+  node_id : NodeId,
+) -> Bool {
+  if node_id < 0 || node_id >= node_root_slots.length() {
+    return false
+  }
+  let start_root_slot = node_root_slots[node_id]
+  if start_root_slot < 0 {
+    return false
+  }
+  for root_slot = start_root_slot + 1
+      root_slot < hot_root_count(func)
+      root_slot = root_slot + 1 {
+    let root_id = hot_root_get(func, root_slot)
+    if hot_is_control_node(func, root_id) &&
+      ssa_destroy_node_contains_terminator(func, root_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_destroy_should_reuse_original_dead_tee_local(
+  func : HotFunc,
+  node_id : NodeId,
+  original_local_id : LocalId,
+  node_order : Array[Int],
+  node_root_slots : Array[Int],
+  reachable_nodes : Array[Bool],
+) -> Bool {
+  let write_order = node_order[node_id]
+  if write_order < 0 || original_local_id < 0 || reachable_nodes[node_id] {
+    return false
+  }
+  let rewritten_local_id = hot_node_get(func, node_id).imm0
+  for candidate_id = 0
+      candidate_id < hot_node_count(func)
+      candidate_id = candidate_id + 1 {
+    if !hot_node_is_live(func, candidate_id) ||
+      reachable_nodes[candidate_id] ||
+      node_order[candidate_id] <= write_order {
+      continue
+    }
+    let candidate = hot_node_get(func, candidate_id)
+    if candidate.op == HotOp::LocalGet &&
+      (
+        candidate.imm0 == original_local_id ||
+        candidate.imm0 == rewritten_local_id
+      ) &&
+      ssa_destroy_has_live_parent(func, candidate_id) &&
+      ssa_destroy_has_value_if_order_between(
+        func, node_order, node_id, candidate_id,
+      ) &&
+      !ssa_destroy_has_branchy_root_between(
+        func, node_root_slots, node_id, candidate_id,
+      ) &&
+      ssa_destroy_has_branchy_root_after(func, node_root_slots, candidate_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_destroy_rewrite_unreachable_local_gets_after(
+  func : HotFunc,
+  node_id : NodeId,
+  from_local_id : LocalId,
+  to_local_id : LocalId,
+  node_root_slots : Array[Int],
+  reachable_nodes : Array[Bool],
+) -> Unit {
+  if node_id < 0 ||
+    node_id >= node_root_slots.length() ||
+    node_root_slots[node_id] < 0 ||
+    from_local_id == to_local_id {
+    return
+  }
+  let start_root_slot = node_root_slots[node_id]
+  for candidate_id = 0
+      candidate_id < hot_node_count(func)
+      candidate_id = candidate_id + 1 {
+    if !hot_node_is_live(func, candidate_id) ||
+      reachable_nodes[candidate_id] ||
+      candidate_id >= node_root_slots.length() ||
+      node_root_slots[candidate_id] <= start_root_slot {
+      continue
+    }
+    let candidate = hot_node_get(func, candidate_id)
+    if candidate.op == HotOp::LocalGet && candidate.imm0 == from_local_id {
+      ssa_rewrite_local_use(func, candidate_id, to_local_id)
+    }
+  }
+}
+
+///|
 fn ssa_destroy_last_local_get_orders(
   func : HotFunc,
 ) -> (Array[Int], Array[Int]) {
@@ -415,9 +1193,12 @@ fn ssa_destroy_last_local_get_orders(
       0,
     ),
   )
+  let reachable_nodes = ssa_destroy_reachable_nodes(func)
   let last_local_get_order = Array::make(hot_local_count(func), -1)
   for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
-    if node_order[node_id] < 0 || !hot_node_is_live(func, node_id) {
+    if node_order[node_id] < 0 ||
+      !hot_node_is_live(func, node_id) ||
+      !reachable_nodes[node_id] {
       continue
     }
     let node = hot_node_get(func, node_id)
@@ -545,9 +1326,18 @@ pub fn ssa_destroy_into_hot(
     ignore(hot_append_body_local(func, ty))
   }
 
+  let original_write_locals = Array::make(ssa.local_write_defs.length(), -1)
   for node_id = 0
       node_id < ssa.local_write_defs.length()
       node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    match hot_node_get(func, node_id).op {
+      HotOp::LocalSet | HotOp::LocalTee =>
+        original_write_locals[node_id] = hot_node_get(func, node_id).imm0
+      _ => ()
+    }
     let value_id = ssa.local_write_defs[node_id]
     if value_id < 0 {
       continue
@@ -616,6 +1406,9 @@ pub fn ssa_destroy_into_hot(
   let (node_order, last_local_get_order) = ssa_destroy_last_local_get_orders(
     func,
   )
+  let node_blocks = ssa_destroy_node_blocks(func)
+  let node_root_slots = ssa_destroy_node_root_slots(func)
+  let reachable_nodes = ssa_destroy_reachable_nodes(func)
   for node_id = 0
       node_id < ssa.local_write_defs.length()
       node_id = node_id + 1 {
@@ -627,8 +1420,32 @@ pub fn ssa_destroy_into_hot(
       HotOp::LocalSet | HotOp::LocalTee => {
         if node.imm0 >= 0 &&
           node.imm0 < last_local_get_order.length() &&
-          node_order[node_id] >= 0 &&
-          last_local_get_order[node.imm0] > node_order[node_id] {
+          (
+            (
+              node_order[node_id] >= 0 &&
+              last_local_get_order[node.imm0] > node_order[node_id]
+            ) ||
+            ssa_destroy_should_preserve_dead_write_local(
+              func,
+              node_id,
+              node.imm0,
+              node_order,
+              node_blocks,
+              node_root_slots,
+              reachable_nodes,
+            ) ||
+            (
+              node.op == HotOp::LocalTee &&
+              ssa_destroy_should_reuse_original_dead_tee_local(
+                func,
+                node_id,
+                node.imm0,
+                node_order,
+                node_root_slots,
+                reachable_nodes,
+              )
+            )
+          ) {
           continue
         }
         let fresh_local = hot_append_body_local(
@@ -649,7 +1466,35 @@ pub fn ssa_destroy_into_hot(
     }
     match ssa.value_origins[value_id] {
       HotSsaValueOrigin::LocalSetDef(node_id) => dead_nodes.push(node_id)
-      HotSsaValueOrigin::LocalTeeDef(node_id) => dead_nodes.push(node_id)
+      HotSsaValueOrigin::LocalTeeDef(node_id) =>
+        if ssa_destroy_should_reuse_original_dead_tee_local(
+            func,
+            node_id,
+            original_write_locals[node_id],
+            node_order,
+            node_root_slots,
+            reachable_nodes,
+          ) {
+          let rewritten_local_id = hot_node_get(func, node_id).imm0
+          ssa_rewrite_local_use(func, node_id, original_write_locals[node_id])
+          ssa_destroy_rewrite_unreachable_local_gets_after(
+            func,
+            node_id,
+            rewritten_local_id,
+            original_write_locals[node_id],
+            node_root_slots,
+            reachable_nodes,
+          )
+        } else if !ssa_destroy_should_keep_dead_tee_temp(
+            func,
+            node_id,
+            original_write_locals[node_id],
+            node_order,
+            node_root_slots,
+            reachable_nodes,
+          ) {
+          dead_nodes.push(node_id)
+        }
       _ => ()
     }
   }

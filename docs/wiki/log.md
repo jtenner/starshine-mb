@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | close `ssa-nomerge` temp-local normalization slice
+
+- Added focused IR and pass regressions for unreachable dead `local.tee` carriers around value-producing `if` roots and later branchy control, while preserving the existing Binaryen-style temp-local cases for value-block carriers.
+- Updated `src/ir/ssa_destroy.mbt` so dead-write cleanup keeps or reuses temp locals based on root-slot, reachability, later local-read, value-if, and branchy-control evidence instead of generic trailing-local trimming.
+- Ran `moon test --package jtenner/starshine/ir --file ssa_destroy_test.mbt`, `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt`, and `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --keep-going-after-command-failures --pass ssa-nomerge --out-dir .tmp/pass-fuzz-ssa-nomerge-genvalid-10000-if-order-fix-rerun`; the long lane compared `10000 / 10000` with `10000` normalized matches and `0` mismatches, validation failures, generator failures, or command failures.
+- Refreshed the living `ssa-nomerge` parity page and pruned `[SSA]001` from `agent-todo.md`; remaining optimize-path work now stays with neighboring pass and preset slices rather than direct `ssa-nomerge` local-declaration drift.
+
 ## [2026-05-07] parity | close `memory-packing` dead-passive normalization slice
 
 - Added conservative passive cleanup plus passive data-index remapping to `src/passes/memory_packing.mbt`, specifically dropping passive segments with no non-`data.drop` referrers, rewriting later passive users when active segment counts change, and rewriting dead `data.drop` instructions to `nop`.
