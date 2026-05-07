@@ -1951,6 +1951,39 @@ test "optimize-instructions removes effective zero shifts" {
 }
 
 ///|
+test "optimize-instructions canonicalizes non-negative signed const ops to unsigned" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 84 i32.const 3 i32.div_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_div_u()),
+  )
+
+  let compare_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 11 i32.const 3 i32.lt_s))",
+  )
+  let compare_root = @ir.hot_root_get(compare_func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(compare_func, compare_root),
+    Some(@lib.Instruction::i32_lt_u()),
+  )
+}
+
+///|
+test "optimize-instructions keeps signed ops with negative constants signed" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const -84 i32.const 3 i32.div_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_div_s()),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned ge zero on pure values" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 0 i32.ge_u))",

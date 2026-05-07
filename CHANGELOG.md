@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Passes: narrow optimize-instructions signed const drift
+
+- **canonicalize non-negative signed constant compare/div/rem/shr operations to Binaryen's unsigned forms in `optimize-instructions` and keep remaining AUD001 drift explicit** by **@OpenAI**. Updated [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-07 Passes: narrow remove-unused-brs br_table parity drift
 
 - **drop selector-only self-targeting `br_table` blocks in `remove-unused-brs` and cover the reduced gen-valid repro shape** by **@OpenAI**. Updated [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

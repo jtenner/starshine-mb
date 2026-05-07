@@ -367,6 +367,101 @@ fn optimize_instructions_shift_mask_bits(instr : @lib.Instruction) -> Int? {
 }
 
 ///|
+fn optimize_instructions_i32_non_negative_const(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(raw)) => raw >= 0
+    None => false
+  }
+}
+
+///|
+fn optimize_instructions_i64_non_negative_const(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match optimize_instructions_i64_const(func, dead, node_id) {
+    Some(@lib.I64(raw)) => raw >= 0L
+    None => false
+  }
+}
+
+///|
+fn optimize_instructions_signed_const_unsigned_variant(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Instruction::I32LtS => Some(@lib.Instruction::i32_lt_u())
+    @lib.Instruction::I32GtS => Some(@lib.Instruction::i32_gt_u())
+    @lib.Instruction::I32LeS => Some(@lib.Instruction::i32_le_u())
+    @lib.Instruction::I32GeS => Some(@lib.Instruction::i32_ge_u())
+    @lib.Instruction::I32DivS => Some(@lib.Instruction::i32_div_u())
+    @lib.Instruction::I32RemS => Some(@lib.Instruction::i32_rem_u())
+    @lib.Instruction::I32ShrS => Some(@lib.Instruction::i32_shr_u())
+    @lib.Instruction::I64LtS => Some(@lib.Instruction::i64_lt_u())
+    @lib.Instruction::I64GtS => Some(@lib.Instruction::i64_gt_u())
+    @lib.Instruction::I64LeS => Some(@lib.Instruction::i64_le_u())
+    @lib.Instruction::I64GeS => Some(@lib.Instruction::i64_ge_u())
+    @lib.Instruction::I64DivS => Some(@lib.Instruction::i64_div_u())
+    @lib.Instruction::I64RemS => Some(@lib.Instruction::i64_rem_u())
+    @lib.Instruction::I64ShrS => Some(@lib.Instruction::i64_shr_u())
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_try_canonicalize_signed_const_unsigned(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let unsigned_instr = match
+    optimize_instructions_signed_const_unsigned_variant(instr) {
+    Some(unsigned_instr) => unsigned_instr
+    None => return false
+  }
+  let operands_are_non_negative = match instr {
+    @lib.Instruction::I32LtS
+    | @lib.Instruction::I32GtS
+    | @lib.Instruction::I32LeS
+    | @lib.Instruction::I32GeS
+    | @lib.Instruction::I32DivS
+    | @lib.Instruction::I32RemS =>
+      optimize_instructions_i32_non_negative_const(func, dead, lhs_id) &&
+      optimize_instructions_i32_non_negative_const(func, dead, rhs_id)
+    @lib.Instruction::I32ShrS =>
+      optimize_instructions_i32_non_negative_const(func, dead, lhs_id) &&
+      optimize_instructions_i32_non_negative_const(func, dead, rhs_id)
+    @lib.Instruction::I64LtS
+    | @lib.Instruction::I64GtS
+    | @lib.Instruction::I64LeS
+    | @lib.Instruction::I64GeS
+    | @lib.Instruction::I64DivS
+    | @lib.Instruction::I64RemS =>
+      optimize_instructions_i64_non_negative_const(func, dead, lhs_id) &&
+      optimize_instructions_i64_non_negative_const(func, dead, rhs_id)
+    @lib.Instruction::I64ShrS =>
+      optimize_instructions_i64_non_negative_const(func, dead, lhs_id) &&
+      optimize_instructions_i64_non_negative_const(func, dead, rhs_id)
+    _ => false
+  }
+  if !operands_are_non_negative {
+    return false
+  }
+  @ir.hot_node_exact_instr_set(func, node_id, unsigned_instr)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_prefer_negative_leb_i32(raw : Int) -> Bool {
   match raw {
     0x40 | 0x2000 | 0x100000 | 0x8000000 => true
@@ -3063,7 +3158,10 @@ fn optimize_instructions_visit_node(
         let initial_instr = func.instr_payloads[node.imm0].instr
         let initial_lhs = func.children[node.child_base]
         let initial_rhs = func.children[node.child_base + 1]
-        let changed = optimize_instructions_try_fold_exact_const_binary(
+        let changed = optimize_instructions_try_canonicalize_signed_const_unsigned(
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
+          optimize_instructions_try_fold_exact_const_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_rewrite_add_sub(
@@ -3127,6 +3225,15 @@ fn optimize_instructions_visit_node(
           ) {
           true
         } else {
+          if optimize_instructions_try_canonicalize_signed_const_unsigned(
+              ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ) {
+            changed = true
+            let current = func.nodes[node_id]
+            current_instr = func.instr_payloads[current.imm0].instr
+            current_lhs = func.children[current.child_base]
+            current_rhs = func.children[current.child_base + 1]
+          }
           if optimize_instructions_try_canonicalize_relational_const(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
             ) {
