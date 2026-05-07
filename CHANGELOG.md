@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: complete optimize-casts negative checks
+
+- **fold guaranteed-false `ref.test` / cast-branch outcomes for disjoint and exact reference types in `optimize-casts` and add direct helper regressions plus 10k gen-valid parity evidence** by **@OpenAI**. Updated [`src/passes/optimize_casts.mbt`](./src/passes/optimize_casts.mbt), [`src/passes/optimize_casts_wbtest.mbt`](./src/passes/optimize_casts_wbtest.mbt), [`docs/wiki/binaryen/passes/optimize-casts/starshine-strategy.md`](./docs/wiki/binaryen/passes/optimize-casts/starshine-strategy.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: cover optimize-casts branch casts
 
 - **add HOT lift/lower coverage for `br_on_cast` / `br_on_cast_fail` and rewrite guaranteed-success branch casts in `optimize-casts`** by **@OpenAI**. Updated [`src/ir/hot_lift.mbt`](./src/ir/hot_lift.mbt), [`src/passes/optimize_casts.mbt`](./src/passes/optimize_casts.mbt), [`src/passes/optimize_casts_test.mbt`](./src/passes/optimize_casts_test.mbt), [`docs/wiki/binaryen/passes/optimize-casts/index.md`](./docs/wiki/binaryen/passes/optimize-casts/index.md), [`docs/wiki/binaryen/passes/optimize-casts/starshine-strategy.md`](./docs/wiki/binaryen/passes/optimize-casts/starshine-strategy.md), [`docs/wiki/binaryen/passes/optimize-casts/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/optimize-casts/starshine-port-readiness-and-validation.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

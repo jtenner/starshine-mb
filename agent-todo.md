@@ -112,10 +112,6 @@ Observed unique-pass order
 
 #### OC - Optimize Casts Follow-up
 
-- [OC]004 - Negative And Exact-Ref Tightening
-  - Deliverables: add conservative guaranteed-false `ref.test` / cast-family folding where source and target heap hierarchies are provably disjoint; tighten exact-ref reasoning without invalidating subtype casts; keep impossible/null bottom cases validation-safe.
-  - Tests: sibling hierarchy false tests, abstract heap disjointness cases, exact-vs-inexact refs, null-only families, and `10000`-case `--optimize-casts` parity.
-
 - [OC]005 - Ordered Slot And Preset Readiness
   - Deliverables: keep direct `optimize-casts` parity green while proving the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood; do not add `optimize-casts` to public `optimize` / `shrink` presets until the ordered neighborhood and debug artifact are oracle-proven.
   - Tests: ordered-neighborhood replay after `local-subtyping`, `coalesce-locals`, and `local-cse` are active; debug artifact compare with `--optimize-casts` and the surrounding slot sequence.

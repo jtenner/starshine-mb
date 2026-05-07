@@ -189,6 +189,86 @@ fn oc_ref_always_matches(
 }
 
 ///|
+fn oc_comptype_may_overlap(a : @lib.CompType, b : @lib.CompType) -> Bool {
+  match (a, b) {
+    (@lib.StructCompType(_), @lib.StructCompType(_)) => true
+    (@lib.ArrayCompType(_), @lib.ArrayCompType(_)) => true
+    (@lib.FuncCompType(_, _), @lib.FuncCompType(_, _)) => true
+    _ => false
+  }
+}
+
+///|
+fn oc_heap_never_matches(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> Bool {
+  if oc_heap_matches(module_ctx, source, target, 512) {
+    return false
+  }
+  match (source, target) {
+    (@lib.AbsHeapTypeHeapType(source_abs), @lib.AbsHeapTypeHeapType(target_abs)) =>
+      !oc_abs_heap_matches(source_abs, target_abs) &&
+      !oc_abs_heap_matches(target_abs, source_abs)
+    (@lib.HeapType(source_idx), @lib.HeapType(target_idx)) =>
+      match
+        (
+          @ir.hot_module_resolve_subtype(module_ctx, source_idx),
+          @ir.hot_module_resolve_subtype(module_ctx, target_idx),
+        ) {
+        (Some(source_subtype), Some(target_subtype)) =>
+          !oc_comptype_may_overlap(
+            source_subtype.get_comptype(),
+            target_subtype.get_comptype(),
+          )
+        _ => false
+      }
+    (@lib.HeapType(source_idx), @lib.AbsHeapTypeHeapType(target_abs)) =>
+      match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
+        Some(source_subtype) =>
+          !oc_comptype_matches_abs(source_subtype.get_comptype(), target_abs)
+        None => false
+      }
+    (@lib.AbsHeapTypeHeapType(source_abs), @lib.HeapType(target_idx)) =>
+      match @ir.hot_module_resolve_subtype(module_ctx, target_idx) {
+        Some(target_subtype) =>
+          !oc_comptype_matches_abs(target_subtype.get_comptype(), source_abs)
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn oc_ref_never_matches(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.RefType,
+  target : @lib.RefType,
+) -> Bool {
+  if source.is_nullable() && target.is_nullable() {
+    return false
+  }
+  if target.is_exact() {
+    return source.is_exact() && source.get_heap_type() != target.get_heap_type()
+  }
+  if source.is_exact() &&
+    !oc_heap_matches(
+      module_ctx,
+      source.get_heap_type(),
+      target.get_heap_type(),
+      512,
+    ) {
+    return true
+  }
+  oc_heap_never_matches(
+    module_ctx,
+    source.get_heap_type(),
+    target.get_heap_type(),
+  )
+}
+
+///|
 fn oc_replace_with_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -273,6 +353,10 @@ fn oc_rewrite_node(
             oc_replace_with_const_i32(ctx, func, node_id, 1)
             return true
           }
+          if oc_ref_never_matches(module_ctx, source_ref, target_ref) {
+            oc_replace_with_const_i32(ctx, func, node_id, 0)
+            return true
+          }
         }
         None => ()
       }
@@ -294,6 +378,11 @@ fn oc_rewrite_node(
             oc_replace_with_unconditional_br(ctx, func, node_id)
             return true
           }
+          if oc_ref_never_matches(module_ctx, source_ref, target_ref) &&
+            @ir.hot_child_count(func, node_id) == 1 {
+            oc_replace_with_child(ctx, func, node_id)
+            return true
+          }
         }
         None => ()
       }
@@ -311,6 +400,10 @@ fn oc_rewrite_node(
           let target_ref = oc_target_ref_type(nullable, heap_type)
           if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
             oc_replace_with_child(ctx, func, node_id)
+            return true
+          }
+          if oc_ref_never_matches(module_ctx, source_ref, target_ref) {
+            oc_replace_with_unconditional_br(ctx, func, node_id)
             return true
           }
         }

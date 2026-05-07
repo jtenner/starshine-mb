@@ -65,7 +65,7 @@ The fastest read-along path through the current Starshine status is:
 
 - active HOT implementation
   - `src/passes/optimize_casts.mbt`
-    - removes provably redundant GC casts, folds statically known `ref.test` outcomes, and rewrites guaranteed-success branch casts
+    - removes provably redundant GC casts, folds statically known `ref.test` outcomes, and rewrites guaranteed-success / guaranteed-fail branch casts
 - active dispatcher
   - `src/passes/pass_manager.mbt`
     - routes `"optimize-casts"` to `optimize_casts_run(...)`
@@ -75,10 +75,12 @@ The fastest read-along path through the current Starshine status is:
 - focused behavior tests
   - `src/passes/optimize_casts_test.mbt`
     - covers redundant `ref.cast`, guaranteed-true `ref.test`, descriptor casts/tests, guaranteed-success `br_on_cast` / `br_on_cast_fail`, and nullable-to-nonnull trap preservation
+  - `src/passes/optimize_casts_wbtest.mbt`
+    - covers the conservative negative heap/ref matcher for exact refs, abstract disjoint heaps, nullable non-null-target failures, and inexact-ref conservatism
 - backlog and delivery plan
   - `agent-todo.md`
     - `#### OC - Optimize Casts Follow-up`
-    - `[OC]003`, `[OC]004`, and `[OC]005` track descriptor/branch-cast expansion, exact-ref tightening, ordered-neighborhood proof, and preset readiness
+    - `[OC]005` tracks ordered-neighborhood proof and preset readiness after descriptor/branch-cast and exact-ref tightening landed
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - the GC/local cleanup slot where `optimize-casts` belongs after `heap2local` and before `local-subtyping -> coalesce-locals -> local-cse`
@@ -98,9 +100,9 @@ Today Starshine's behavior for `optimize-casts` is deliberately limited.
 
 ### 1. The active pass is narrow and direct-only
 
-`src/passes/optimize_casts.mbt` currently owns a conservative HOT rewrite, not the whole upstream Binaryen strategy. It removes casts when the source reference type already satisfies the target, folds `ref.test` / `ref.test_desc` when the static source type guarantees success, removes redundant `ref.cast_desc_eq`, rewrites guaranteed-success `br_on_cast` to an unconditional branch, rewrites guaranteed-success `br_on_cast_fail` to the fallthrough reference, and preserves nullable-to-nonnull `ref.cast` trap behavior.
+`src/passes/optimize_casts.mbt` currently owns a conservative HOT rewrite, not the whole upstream Binaryen strategy. It removes casts when the source reference type already satisfies the target, folds `ref.test` / `ref.test_desc` when the static source type guarantees success or failure, removes redundant `ref.cast_desc_eq`, rewrites guaranteed-success `br_on_cast` to an unconditional branch, rewrites single-ref guaranteed-fail `br_on_cast` to the fallthrough reference, rewrites guaranteed-success `br_on_cast_fail` to the fallthrough reference, rewrites guaranteed-fail `br_on_cast_fail` to an unconditional branch, and preserves nullable-to-nonnull `ref.cast` trap behavior.
 
-The 2026-05-06 direct revalidation ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The 2026-05-06 branch-cast widening replayed the same 10000-case lane with `--out-dir .tmp/pass-fuzz-optimize-casts-oc-branch` and again reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 command failures. This keeps direct parity green, but it does not prove the public preset slot.
+The 2026-05-06 direct revalidation ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The 2026-05-06 branch-cast widening replayed the same 10000-case lane with `--out-dir .tmp/pass-fuzz-optimize-casts-oc-branch` and again reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 command failures. The 2026-05-06 negative/exact-ref tightening ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --keep-going-after-command-failures --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 9975 compared cases, 9975 normalized matches, 0 validation failures, 0 generator failures, 25 Binaryen command failures, and 0 mismatches. It also ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --generator gen-valid --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-gen-valid` and reported 10000 compared cases, 10000 normalized matches, 0 validation failures, 0 generator failures, 0 command failures, and 0 mismatches. This keeps direct parity green, but it does not prove the public preset slot.
 
 ### 2. The remaining work is planned as parity follow-up, not an orphan idea
 
