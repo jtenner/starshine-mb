@@ -276,6 +276,54 @@ fn assert_encode_err_contains(
 }
 
 ///|
+fn binary_test_write_u32_leb(buf : @buffer.Buffer, value : Int) -> Unit {
+  encode_unsigned(value.to_uint64(), buf, 32).unwrap()
+}
+
+///|
+fn binary_test_deep_nested_block_module_bytes(depth : Int) -> Bytes {
+  let type_payload = @buffer.new()
+  binary_test_write_u32_leb(type_payload, 1)
+  type_payload.write_byte(0x60)
+  binary_test_write_u32_leb(type_payload, 0)
+  binary_test_write_u32_leb(type_payload, 0)
+
+  let func_payload = @buffer.new()
+  binary_test_write_u32_leb(func_payload, 1)
+  binary_test_write_u32_leb(func_payload, 0)
+
+  let body = @buffer.new()
+  binary_test_write_u32_leb(body, 0)
+  for _ in 0..<depth {
+    body.write_byte(0x02)
+    body.write_byte(0x40)
+  }
+  for _ in 0..<depth {
+    body.write_byte(0x0B)
+  }
+  body.write_byte(0x0B)
+  let body_bytes = body.to_bytes()
+
+  let code_payload = @buffer.new()
+  binary_test_write_u32_leb(code_payload, 1)
+  binary_test_write_u32_leb(code_payload, body_bytes.length())
+  code_payload.write_bytes(body_bytes)
+
+  let wasm = @buffer.new()
+  wasm.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
+  wasm.write_byte(0x01)
+  binary_test_write_u32_leb(wasm, type_payload.to_bytes().length())
+  wasm.write_bytes(type_payload.to_bytes())
+  wasm.write_byte(0x03)
+  binary_test_write_u32_leb(wasm, func_payload.to_bytes().length())
+  wasm.write_bytes(func_payload.to_bytes())
+  wasm.write_byte(0x0A)
+  binary_test_write_u32_leb(wasm, code_payload.to_bytes().length())
+  wasm.write_bytes(code_payload.to_bytes())
+  wasm.to_bytes()
+}
+
+///|
 test "run_binary_roundtrip_fuzz rejects unknown profile" {
   match run_binary_roundtrip_fuzz("not-a-profile", 0x5eedUL) {
     Ok(_) => fail("expected unknown binary fuzz profile error")
@@ -1230,6 +1278,35 @@ test "module decode bubbles section errors instead of generic invalid module" {
       Result[(Module, Int), BinaryDecodeError]),
     BinaryDecodeError::InvalidCompType,
   )
+}
+
+///|
+test "decode_module accepts deep nested block modules up to the nesting limit" {
+  let wasm = binary_test_deep_nested_block_module_bytes(10000)
+  match decode_module(wasm) {
+    Ok(_) => ()
+    Err(err) => fail("expected deep nested module decode success, got \{err}")
+  }
+}
+
+///|
+test "decode_module rejects deep nested block modules past the nesting limit" {
+  let wasm = binary_test_deep_nested_block_module_bytes(10001)
+  assert_decode_err_contains(
+    (Decode::decode(wasm, 0) : Result[(Module, Int), BinaryDecodeError]),
+    BinaryDecodeError::InstructionNestingLimitExceeded,
+  )
+  match decode_module(wasm) {
+    Ok(_) => fail("expected nesting-limit wrapper decode failure")
+    Err(
+      DecodeError::DecodeAt(
+        BinaryDecodeError::InstructionNestingLimitExceeded,
+        18,
+        30013
+      )
+    ) => ()
+    Err(err) => fail("expected nesting-limit decode error, got \{err}")
+  }
 }
 
 ///|

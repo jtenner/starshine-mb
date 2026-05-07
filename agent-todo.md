@@ -47,11 +47,6 @@ Observed unique-pass order
   - Deliverables: add a native-only worker queue over eligible defined functions for the current hot batch payload (`ssa-nomerge -> dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`); keep final output byte-stable and deterministic; gate behind an explicit native-only option.
   - Dependencies: [HOT]001 replay hardening must stay green.
 
-- [BIN]001 - Iterative Expr Decoder
-  - Goal: replace recursive binary expression decoding with an explicit worklist / stack machine so deeply nested valid wasm does not depend on native call-stack budget.
-  - Deliverables: preserve exact decode errors and offsets; add large-depth regressions that exercise native `run_cmd` without stack-limit hacks.
-  - Relevant code: `src/binary/decode.mbt`.
-
 #### 2026-05-06 direct-pass audit follow-up
 
 - [AUD]001 - Fresh Direct-Pass Mismatch Triage

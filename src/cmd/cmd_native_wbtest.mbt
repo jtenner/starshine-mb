@@ -424,6 +424,89 @@ fn cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
 
 ///|
 #cfg(target="native")
+fn cmd_native_wbtest_write_u32_leb(buf : @buffer.Buffer, value : Int) -> Unit {
+  @binary.encode_unsigned(value.to_uint64(), buf, 32).unwrap()
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_wbtest_deep_nested_block_module_bytes(depth : Int) -> Bytes {
+  let type_payload = @buffer.new()
+  cmd_native_wbtest_write_u32_leb(type_payload, 1)
+  type_payload.write_byte(0x60)
+  cmd_native_wbtest_write_u32_leb(type_payload, 0)
+  cmd_native_wbtest_write_u32_leb(type_payload, 0)
+
+  let func_payload = @buffer.new()
+  cmd_native_wbtest_write_u32_leb(func_payload, 1)
+  cmd_native_wbtest_write_u32_leb(func_payload, 0)
+
+  let body = @buffer.new()
+  cmd_native_wbtest_write_u32_leb(body, 0)
+  for _ in 0..<depth {
+    body.write_byte(0x02)
+    body.write_byte(0x40)
+  }
+  for _ in 0..<depth {
+    body.write_byte(0x0B)
+  }
+  body.write_byte(0x0B)
+  let body_bytes = body.to_bytes()
+
+  let code_payload = @buffer.new()
+  cmd_native_wbtest_write_u32_leb(code_payload, 1)
+  cmd_native_wbtest_write_u32_leb(code_payload, body_bytes.length())
+  code_payload.write_bytes(body_bytes)
+
+  let wasm = @buffer.new()
+  wasm.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
+  wasm.write_byte(0x01)
+  cmd_native_wbtest_write_u32_leb(wasm, type_payload.to_bytes().length())
+  wasm.write_bytes(type_payload.to_bytes())
+  wasm.write_byte(0x03)
+  cmd_native_wbtest_write_u32_leb(wasm, func_payload.to_bytes().length())
+  wasm.write_bytes(func_payload.to_bytes())
+  wasm.write_byte(0x0A)
+  cmd_native_wbtest_write_u32_leb(wasm, code_payload.to_bytes().length())
+  wasm.write_bytes(code_payload.to_bytes())
+  wasm.to_bytes()
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter decodes deep nested wasm on native without stack-limit hacks" {
+  let wasm = cmd_native_wbtest_deep_nested_block_module_bytes(10000)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "deep.wasm" },
+    list_candidates=fn() { ["deep.wasm"] },
+    read_file=fn(path) {
+      if path == "deep.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) { Ok(wasm) },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["--out", "deep-out.wasm", "deep.wasm"], io) {
+    Ok(summary) => {
+      assert_eq(summary.input_files, ["deep.wasm"])
+      assert_eq(summary.output_files, ["deep-out.wasm"])
+      assert_eq(writes.length(), 1)
+      assert_eq(writes[0].0, "deep-out.wasm")
+      assert_eq(writes[0].1, wasm)
+    }
+    Err(err) => fail("expected deep native decode success, got \{err}")
+  }
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0 source lanes live through downstream tees" {
   let input_mod = match
     @wast.wast_to_binary_module(

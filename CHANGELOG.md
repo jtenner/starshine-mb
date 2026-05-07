@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Binary: complete iterative expr decoder
+
+- **replace recursive structured-instruction binary decoding with an explicit frame stack so deeply nested valid wasm decodes through `decode_module` and native `run_cmd_with_adapter` without call-stack dependence while preserving the existing nesting limit error** by **@OpenAI**. Updated [`src/binary/decode.mbt`](./src/binary/decode.mbt), [`src/binary/tests.mbt`](./src/binary/tests.mbt), [`src/cmd/cmd_native_wbtest.mbt`](./src/cmd/cmd_native_wbtest.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-07 Passes: align global-refining export and null parity
 
 - **tighten `global-refining` `ref.null` handling to Binaryen bottom reference types, allow immutable exported refinements while preserving mutable export boundaries, and clear the active direct-pass mismatch lane** by **@OpenAI**. Updated [`src/passes/global_refining.mbt`](./src/passes/global_refining.mbt), [`src/passes/global_refining_test.mbt`](./src/passes/global_refining_test.mbt), [`docs/wiki/binaryen/passes/global-refining/index.md`](./docs/wiki/binaryen/passes/global-refining/index.md), [`docs/wiki/binaryen/passes/global-refining/parity.md`](./docs/wiki/binaryen/passes/global-refining/parity.md), [`docs/wiki/binaryen/passes/global-refining/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/global-refining/starshine-hot-ir-strategy.md), [`docs/wiki/binaryen/passes/global-refining/exports-public-types-and-retagging.md`](./docs/wiki/binaryen/passes/global-refining/exports-public-types-and-retagging.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

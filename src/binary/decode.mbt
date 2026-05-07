@@ -2419,6 +2419,171 @@ fn i8x16_shuffle_from_lanes(lanes : FixedArray[LaneIdx]) -> Instruction {
 }
 
 ///|
+priv enum StructuredDecodeFrame {
+  BlockFrame(BlockType, Int, Array[Instruction])
+  LoopFrame(BlockType, Int, Array[Instruction])
+  IfFrame(BlockType, Int, Array[Instruction], Array[Instruction]?)
+  TryTableFrame(BlockType, Array[Catch], Int, Array[Instruction])
+}
+
+///|
+fn structured_frame_body_instruction_depth(
+  frame : StructuredDecodeFrame,
+) -> Int {
+  match frame {
+    BlockFrame(_, body_depth, _) => body_depth
+    LoopFrame(_, body_depth, _) => body_depth
+    IfFrame(_, body_depth, _, _) => body_depth
+    TryTableFrame(_, _, body_depth, _) => body_depth
+  }
+}
+
+///|
+fn structured_frame_push_instruction(
+  frame : StructuredDecodeFrame,
+  inst : Instruction,
+) -> StructuredDecodeFrame {
+  match frame {
+    BlockFrame(bt, body_depth, body) => {
+      body.push(inst)
+      BlockFrame(bt, body_depth, body)
+    }
+    LoopFrame(bt, body_depth, body) => {
+      body.push(inst)
+      LoopFrame(bt, body_depth, body)
+    }
+    IfFrame(bt, body_depth, then_body, else_body) =>
+      match else_body {
+        Some(else_body) => {
+          else_body.push(inst)
+          IfFrame(bt, body_depth, then_body, Some(else_body))
+        }
+        None => {
+          then_body.push(inst)
+          IfFrame(bt, body_depth, then_body, None)
+        }
+      }
+    TryTableFrame(bt, catches, body_depth, body) => {
+      body.push(inst)
+      TryTableFrame(bt, catches, body_depth, body)
+    }
+  }
+}
+
+///|
+fn structured_frame_finish(frame : StructuredDecodeFrame) -> Instruction {
+  match frame {
+    BlockFrame(bt, _, body) => Instruction::block(bt, Expr::new(body))
+    LoopFrame(bt, _, body) => Instruction::loop_(bt, Expr::new(body))
+    IfFrame(bt, _, then_body, else_body) =>
+      match else_body {
+        Some(else_body) => Instruction::if_(bt, then_body, Some(else_body))
+        None => Instruction::if_(bt, then_body, None)
+      }
+    TryTableFrame(bt, catches, _, body) =>
+      Instruction::try_table(bt, catches, Expr::new(body))
+  }
+}
+
+///|
+fn decode_structured_frame_header(
+  bytes : Bytes,
+  i : Int,
+  depth : Int,
+) -> Result[(StructuredDecodeFrame, Int), BinaryDecodeError] {
+  if depth + 1 > MAX_INSTRUCTION_NESTING_DEPTH {
+    return Err(BinaryDecodeError::InstructionNestingLimitExceeded)
+  }
+  let body_depth = depth + 2
+  match bytes.get(i) {
+    Some(0x02) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((bt, next)) => Ok((BlockFrame(bt, body_depth, []), next))
+        Err(err) => Err(err)
+      }
+    Some(0x03) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((bt, next)) => Ok((LoopFrame(bt, body_depth, []), next))
+        Err(err) => Err(err)
+      }
+    Some(0x04) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((bt, next)) => Ok((IfFrame(bt, body_depth, [], None), next))
+        Err(err) => Err(err)
+      }
+    Some(0x1F) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((bt, next)) =>
+          match Decode::decode(bytes, next) {
+            Ok((catches, next)) =>
+              Ok((TryTableFrame(bt, catches, body_depth, []), next))
+            Err(err) => Err(err)
+          }
+        Err(err) => Err(err)
+      }
+    _ => Err(BinaryDecodeError::InvalidInstruction)
+  }
+}
+
+///|
+fn decode_structured_instruction_with_depth(
+  bytes : Bytes,
+  i : Int,
+  depth : Int,
+) -> Result[(Instruction, Int), BinaryDecodeError] {
+  let (initial_frame, next) = match
+    decode_structured_frame_header(bytes, i, depth) {
+    Ok(decoded) => decoded
+    Err(err) => return Err(err)
+  }
+  let frames : Array[StructuredDecodeFrame] = [initial_frame]
+  let mut pos = next
+  while frames.length() > 0 {
+    let frame = frames.pop().unwrap()
+    match (frame, bytes.get(pos)) {
+      (IfFrame(bt, body_depth, then_body, None), Some(0x05)) => {
+        pos += 1
+        frames.push(IfFrame(bt, body_depth, then_body, Some([])))
+      }
+      (frame, Some(0x0B)) => {
+        let inst = structured_frame_finish(frame)
+        pos += 1
+        if frames.is_empty() {
+          return Ok((inst, pos))
+        }
+        let parent = frames.pop().unwrap()
+        frames.push(structured_frame_push_instruction(parent, inst))
+      }
+      (frame, Some(0x02))
+      | (frame, Some(0x03))
+      | (frame, Some(0x04))
+      | (frame, Some(0x1F)) => {
+        let body_depth = structured_frame_body_instruction_depth(frame)
+        frames.push(frame)
+        match decode_structured_frame_header(bytes, pos, body_depth) {
+          Ok((child, next)) => {
+            frames.push(child)
+            pos = next
+          }
+          Err(err) => return Err(err)
+        }
+      }
+      (frame, _) => {
+        let body_depth = structured_frame_body_instruction_depth(frame)
+        match decode_instruction_with_depth(bytes, pos, body_depth) {
+          Ok((inst, next)) => {
+            frames.push(structured_frame_push_instruction(frame, inst))
+            pos = next
+          }
+          Err(err) => return Err(err)
+        }
+      }
+    }
+  }
+  Err(BinaryDecodeError::UnreachableDecodeState)
+}
+
+///|
 fn decode_instruction_with_depth(
   bytes : Bytes,
   i : Int,
@@ -2437,78 +2602,8 @@ fn decode_instruction_with_depth(
         Ok((vts, i)) => Ok((Instruction::select(types=Some(vts)), i))
         Err(t) => Err(t)
       }
-    Some(0x02) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((bt, i)) =>
-          match decode_expr_with_depth(bytes, i, depth + 1) {
-            Ok((expr, i)) => Ok((Instruction::block(bt, expr), i))
-            Err(t) => Err(t)
-          }
-        Err(t) => Err(t)
-      }
-    Some(0x03) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((bt, i)) =>
-          match decode_expr_with_depth(bytes, i, depth + 1) {
-            Ok((expr, i)) => Ok((Instruction::loop_(bt, expr), i))
-            Err(t) => Err(t)
-          }
-        Err(t) => Err(t)
-      }
-    Some(0x04) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((bt, i)) => {
-          let mut pos = i
-          let if_insts : Array[Instruction] = []
-          let mut else_insts : Array[Instruction]? = None
-          let mut if_inst : Instruction? = None
-          while if_inst is None {
-            match else_insts {
-              Some(else_insts) =>
-                match bytes.get(pos) {
-                  Some(0x0B) => {
-                    if_inst = Some(
-                      Instruction::if_(bt, if_insts, Some(else_insts)),
-                    )
-                    pos = pos + 1
-                  }
-                  _ =>
-                    match decode_instruction_with_depth(bytes, pos, depth + 1) {
-                      Ok((inst, next_pos)) => {
-                        else_insts.push(inst)
-                        pos = next_pos
-                      }
-                      Err(t) => return Err(t)
-                    }
-                }
-              None =>
-                match bytes.get(pos) {
-                  Some(0x05) => {
-                    pos = pos + 1
-                    else_insts = Some([])
-                  }
-                  Some(0x0B) => {
-                    if_inst = Some(Instruction::if_(bt, if_insts, None))
-                    pos = pos + 1
-                  }
-                  _ =>
-                    match decode_instruction_with_depth(bytes, pos, depth + 1) {
-                      Ok((inst, next_pos)) => {
-                        if_insts.push(inst)
-                        pos = next_pos
-                      }
-                      Err(t) => return Err(t)
-                    }
-                }
-            }
-          }
-          match if_inst {
-            Some(if_inst) => Ok((if_inst, pos))
-            None => abort("unreachable")
-          }
-        }
-        Err(t) => Err(t)
-      }
+    Some(0x02) | Some(0x03) | Some(0x04) | Some(0x1F) =>
+      decode_structured_instruction_with_depth(bytes, i, depth)
     Some(0x08) =>
       match Decode::decode(bytes, i + 1) {
         Ok((tag, i)) => Ok((Instruction::throw_(tag), i))
@@ -2572,19 +2667,6 @@ fn decode_instruction_with_depth(
     Some(0x15) =>
       match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) => Ok((Instruction::return_call_ref(tidx), i))
-        Err(t) => Err(t)
-      }
-    Some(0x1F) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((bt, i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((c, i)) =>
-              match decode_expr_with_depth(bytes, i, depth + 1) {
-                Ok((e, i)) => Ok((Instruction::try_table(bt, c, e), i))
-                Err(t) => Err(t)
-              }
-            Err(t) => Err(t)
-          }
         Err(t) => Err(t)
       }
     Some(0xD5) =>
