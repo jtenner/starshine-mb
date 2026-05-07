@@ -1493,7 +1493,81 @@ fn precompute_raw_instr_is_nontrapping_binary_op(
 }
 
 ///|
+fn precompute_raw_instrs_have_label_relative_branch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if precompute_raw_instrs_have_label_relative_branch(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if precompute_raw_instrs_have_label_relative_branch(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if precompute_raw_instrs_have_label_relative_branch(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if precompute_raw_instrs_have_label_relative_branch(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_try_fold_const_if_tail(out : Array[@lib.Instruction]) -> Bool {
+  if out.length() < 2 {
+    return false
+  }
+  let cond = match precompute_raw_i32_const(out[out.length() - 2]) {
+    Some(value) => value
+    None => return false
+  }
+  let selected = match out[out.length() - 1] {
+    @lib.If(_, then_body, else_body) =>
+      if cond == @lib.I32(0) {
+        match else_body {
+          Some(body) => body
+          None => []
+        }
+      } else {
+        then_body
+      }
+    _ => return false
+  }
+  if precompute_raw_instrs_have_label_relative_branch(selected) {
+    return false
+  }
+  ignore(out.pop())
+  ignore(out.pop())
+  for instr in selected {
+    out.push(instr)
+  }
+  true
+}
+
+///|
 fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
+  if precompute_raw_try_fold_const_if_tail(out) {
+    return true
+  }
   if out.length() >= 2 {
     match out[out.length() - 1] {
       @lib.Drop => {

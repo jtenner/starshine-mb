@@ -3748,6 +3748,59 @@ test "precompute raw-folds scalar constants without hot lift" {
 }
 
 ///|
+test "precompute raw-folds constant if results without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 0 if (result i32) i32.const 7 else i32.const 8 end i32.const 1 i32.add))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected raw precompute const-if fold success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
+test "precompute raw-defers branchy constant if to hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func i32.const 1 if block br 0 end end))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected hot precompute branchy const-if success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_false(text.contains("pass[precompute]:skip-raw"), msg=text)
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
 test "precompute raw-removes dropped pure scalar expressions without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
