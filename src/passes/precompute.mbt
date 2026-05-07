@@ -1428,6 +1428,7 @@ fn precompute_raw_instr_is_flat_discardable_value(
     | @lib.F32Const(_)
     | @lib.F64Const(_)
     | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
     | @lib.RefNull(_)
     | @lib.RefFunc(_) => true
     _ => false
@@ -1657,8 +1658,7 @@ fn precompute_raw_instr_has_hot_only_candidate(
   module_ctx : @ir.HotModuleContext?,
 ) -> Bool {
   match instr {
-    @lib.GlobalGet(global_idx) =>
-      precompute_raw_global_const_instr(module_ctx, global_idx) is None
+    @lib.GlobalGet(_) => false
     @lib.BrTable(_, _) => true
     @lib.Nop => nested
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
