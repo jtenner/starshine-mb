@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: implemented
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
+  - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
@@ -48,9 +49,9 @@ related:
   - top-level slot `30`
   - top-level slot `35`
 - The saved Binaryen debug log also shows many later reruns of the same local-cleanup neighborhood, which matches the nested rerun story from `opt-utils.h`.
-- The repo backlog already treats it as a real parity blocker under slice `CL` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
-- The current preset story is intentionally still incomplete: the explicit pass is active, but public `optimize` / `shrink` placement still waits on ordered-neighborhood replay with the surrounding locals passes.
-- It is one of the scheduler neighbors needed for fully honest preset placement around the already-implemented `reorder-locals` and the future `local-cse` port.
+- The ordered-slot replay that used to live under slice `CL` is now closed: `src/passes/coalesce_locals_test.mbt` covers both exact neighborhoods, and [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md) records the current-head proof.
+- The first `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` slot is now explicitly proven in-tree and remains the public `optimize` / `shrink` cluster.
+- The second `reorder-locals -> coalesce-locals -> reorder-locals` slot is now replayable as a focused neighborhood and compares green on the checked-in debug artifact, while public `reorder-locals` scheduling still stays with the separate reorder-locals policy work.
 
 ## Beginner summary
 
@@ -65,7 +66,9 @@ That is narrower than “merge any locals that look unused.”
 
 ## Current durable takeaways
 
-- Starshine's current direct-pass validation is green on focused tests, CLI coverage, full `moon test`, the refreshed 2026-05-06 mixed-generator direct parity lane (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen empty-recursion-group command failures), earlier 10k `gen-valid` Binaryen compare, mixed-generator comparable cases, and compatible Binaryen 128 self-opt artifact compare on both rebuilt debug and optimized WASI artifacts.
+- Starshine's current direct-pass validation is green on focused tests, CLI coverage, full `moon test`, the refreshed 2026-05-08 mixed-generator direct parity lane (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen empty-recursion-group command failures), earlier 10k `gen-valid` Binaryen compare, mixed-generator comparable cases, and compatible Binaryen 128 self-opt artifact compare on both rebuilt debug and optimized WASI artifacts.
+- The exact `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` and `reorder-locals -> coalesce-locals -> reorder-locals` neighborhoods are now both regression-covered in `src/passes/coalesce_locals_test.mbt`.
+- The debug-artifact `reorder-locals -> coalesce-locals -> reorder-locals` replay at `.tmp/self-opt-cl-reorder-sandwich-20260508` is green on normalized WAT and canonical-function equality.
 - The pass header explicitly says the algorithm is **nonlinear in the number of locals**, so Binaryen schedules it late after earlier local-cleanup passes have already reduced the local set.
 - Exact local type equality is mandatory while coalescing. This pass does **not** use subtype compatibility.
 - Two locals can overlap in liveness and still share a slot if Binaryen can prove they hold the same current value.
@@ -107,6 +110,7 @@ That is narrower than “merge any locals that look unused.”
 - [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
 - [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
+- [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md)
 - [`../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md)
 - [`../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md`](../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

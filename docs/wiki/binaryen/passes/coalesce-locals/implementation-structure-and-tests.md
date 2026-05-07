@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-08
 sources:
+  - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
@@ -112,19 +113,19 @@ Starshine now implements this pass as an active direct module pass. The relevant
 | Local file | Exact role today |
 | --- | --- |
 | `src/passes/coalesce_locals.mbt:2-5,347-574,576-850,851-1031,1032-1057` | Active module-pass owner with action scan, value-aware interference, exact-type coloring, local-index rewrite, redundant-copy cleanup, dead-write cleanup, and local-name-section invalidation. |
-| `src/passes/coalesce_locals_test.mbt:14-155` | Focused direct-pass tests for registration, non-overlap merge, different-value overlap, later reread liveness, redundant-copy cleanup, and ineffective-write cleanup. |
+| `src/passes/coalesce_locals_test.mbt:14-341` | Focused direct-pass and ordered-neighborhood tests for registration, non-overlap merge, different-value overlap, later reread liveness, redundant-copy cleanup, ineffective-write cleanup, `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals`, and `reorder-locals -> coalesce-locals -> reorder-locals`. |
 | `src/passes/optimize.mbt:277` | `coalesce-locals` is an active module pass spelling. |
 | `src/passes/pass_manager.mbt:8936` | Dispatches `coalesce-locals` to `coalesce_locals_run_module_pass`. |
 | `src/passes/reorder_locals.mbt:2`, `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Neighboring module pass with local-summary, access scan, in-place index rewrite, and module-pass entry logic the coalescer must compose with. |
 | `src/passes/simplify_locals.mbt:15`, `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:4126`, `src/passes/simplify_locals.mbt:4191`, `src/passes/simplify_locals.mbt:4245`, `src/passes/simplify_locals.mbt:4348` | Neighboring HOT local cleanup pass with local-traffic cleanup machinery, but not a slot-coalescing implementation. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF pipeline still records both `coalesce-locals` slots. |
-| `agent-todo.md:392-399` | Current `CL` backlog slice records landed direct-pass evidence plus remaining ordered-neighborhood/runtime caveats. |
+| `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md` | Current ordered-slot proof: new in-tree regressions, refreshed 10k direct parity, and current-head debug-artifact replay for the reorder sandwich. |
 
 ## What this page rules out
 
 - Do not cite `reorder_locals.mbt` as if it implements coalescing. It sorts and drops unaccessed body locals; it does not prove value-aware compatibility between two simultaneously live locals.
 - Do not cite `simplify_locals.mbt` as if it implements coalescing. It rewrites local traffic and removes dead/equivalent writes; it does not merge declaration slots using liveness coloring.
-- Do not schedule Starshine's existing locals-neighborhood passes in Binaryen-equivalent preset positions just because `coalesce-locals` is now active. The missing `local-subtyping` and `local-cse` surfaces still matter.
+- Do not treat `coalesce-locals` as permission to publicly schedule every late local-cleanup neighbor. The exact coalesce neighborhoods are now proven, but broader preset and reorder-locals scheduling claims still belong to their own slices.
 
 ## Validation guidance for the Starshine port
 
@@ -134,6 +135,11 @@ The active local port is signed off with:
 - registry and explicit-pass CLI tests proving `coalesce-locals` remains active,
 - repeated-pass idempotence tests because Binaryen can rerun the local cleanup cluster,
 - pass-targeted fuzz compare against `wasm-opt --coalesce-locals`, and
-- ordered no-DWARF artifact replay once `local-subtyping` and `local-cse` are also honest enough for the surrounding cluster.
+- ordered no-DWARF replay for the exact local clusters that own this pass.
 
-Keep the current pages explicit that direct-pass behavior is landed, while public preset placement still depends on ordered locals-neighborhood proof.
+That ordered replay now exists in two forms:
+
+- in-tree regressions for both exact neighborhoods in `src/passes/coalesce_locals_test.mbt`, and
+- current-head debug-artifact replay for `reorder-locals -> coalesce-locals -> reorder-locals` at `.tmp/self-opt-cl-reorder-sandwich-20260508` with normalized WAT and canonical-function equality.
+
+Keep the current pages explicit that direct-pass behavior and the exact `coalesce-locals` neighborhoods are now proven, while broader preset or neighboring-pass claims still belong to the surrounding backlog slices.

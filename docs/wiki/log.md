@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-08] validation | close `coalesce-locals` ordered-slot replay
+
+- Added three new exact-neighborhood regressions to `src/passes/coalesce_locals_test.mbt`: a `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` order/validation proof, a ref-type narrowing fixture that only merges after `local-subtyping`, and a `reorder-locals -> coalesce-locals -> reorder-locals` remap replay that locks the final local indices after the merge.
+- Ran `moon test src/passes`, `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass coalesce-locals --out-dir .tmp/pass-fuzz-coalesce-locals-20260508`, and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --reorder-locals --coalesce-locals --reorder-locals --out-dir .tmp/self-opt-cl-reorder-sandwich-20260508`; the direct lane stayed green (`6759 / 6759` normalized matches, `0` mismatches) and the debug-artifact reorder sandwich compared green on normalized WAT plus canonical functions.
+- Added `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`, refreshed the living `coalesce-locals` status/readiness pages, and pruned `[CL]003` from `agent-todo.md`; remaining broader preset or reorder-locals scheduling work now belongs to neighboring slices rather than direct `coalesce-locals` uncertainty.
+
 ## [2026-05-08] validation | close the `string-gathering -> reorder-globals -> directize` triple blocker
 
 - Added `test "string-gathering reorder-globals directize preserve late-tail order"` to `src/passes/reorder_globals_test.mbt`; the fixture combines a real `129`-global public reorder case, a `string.const` hoist, and a constant-table `call_indirect`, then proves the hot exported global ends at index `0`, `string.const` is gone, and `call_indirect` is rewritten to a direct call after the full triple.

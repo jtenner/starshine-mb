@@ -100,11 +100,6 @@ Observed unique-pass order
   - Deliverables: keep direct `optimize-casts` parity green while proving the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood; do not add `optimize-casts` to public `optimize` / `shrink` presets until the ordered neighborhood and debug artifact are oracle-proven.
   - Tests: ordered-neighborhood replay after `local-subtyping`, `coalesce-locals`, and `local-cse` are active; debug artifact compare with `--optimize-casts` and the surrounding slot sequence.
 
-#### CL - Coalesce Locals
-
-- [CL]003 - Ordered-Slot Replay
-  - Deliverables: keep direct pass parity green and replay the exact slots after `local-subtyping`, `reorder-locals`, and surrounding cleanup passes are available.
-
 #### SL - Simplify Locals
 
 - [SL]004 - Slot Validation and Artifact Replay

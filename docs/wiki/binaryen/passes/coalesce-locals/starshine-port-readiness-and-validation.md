@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
+  - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
@@ -39,10 +40,10 @@ Instead, it answers: which Starshine surfaces are now active, which placement/ar
 
 | Area | Current Starshine state | Port implication |
 | --- | --- | --- |
-| Registry | `src/passes/optimize.mbt:277` tracks `coalesce-locals` as an active module pass. | Keep the public spelling stable and leave public preset placement for ordered-neighborhood replay. |
+| Registry | `src/passes/optimize.mbt:277` tracks `coalesce-locals` as an active module pass. | Keep the public spelling stable. |
 | Dispatcher | `src/passes/pass_manager.mbt:8936` dispatches to `coalesce_locals_run_module_pass`. | Direct `--coalesce-locals` requests are active and covered by registry/CLI tests. |
-| Presets | `src/passes/optimize_test.mbt` locks the current partial preset honesty rule around missing local-neighborhood passes. | Do not add `reorder-locals` / `coalesce-locals` late slots in isolation; preserve the Binaryen neighborhood order when the missing passes land. |
-| Backlog | `agent-todo.md:392-399` keeps slice `CL` with compatibility/lifetime analysis and dual-slot rewrite work. | Treat `CL` as the active planning home before coding. |
+| Presets | `src/passes/optimize_test.mbt` locks the live `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` cluster inside the public `optimize` preset while leaving public `reorder-locals` scheduling to the separate reorder-locals policy slice. | Preserve the proven first slot and keep the second slot focused until reorder-locals itself is publicly scheduled. |
+| Ordered-slot proof | `src/passes/coalesce_locals_test.mbt` and `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md` now cover both exact neighborhoods. | Treat `[CL]003` as closed; future work belongs to neighboring-pass or preset slices, not direct `coalesce-locals` uncertainty. |
 | Local-index rewrite substrate | `src/passes/reorder_locals.mbt:118`, `:183`, and `:544` already scan and rewrite local users and rebuild declarations for a landed module pass. | Reuse the local-index and metadata-repair lessons; do not copy the exact reorder algorithm as the coalescing algorithm. |
 | Later cleanup substrate | `src/passes/simplify_locals.mbt:70`, `:4126`, `:4191`, `:4245`, and `:4348` already own HOT local-traffic cleanup phases. | Let later cleanup remain a consumer; do not grow `coalesce-locals` into generic simplify-locals. |
 | Core pass | `src/passes/coalesce_locals.mbt:2-5,347-574,576-850,851-1031,1032-1057` implements action scanning, value-aware interference, exact-type greedy coloring, index rewrite, redundant-copy cleanup, ineffective-write cleanup, and name-section invalidation. | Keep future changes parity-driven and add focused fixtures before changing coloring or cleanup behavior. |
@@ -87,26 +88,26 @@ The local test set is small but covers the core correctness envelope.
 
 Current status before moving the direct pass into public preset slots:
 
-1. **Unit shape tests** are green for active registration, non-overlap merging, interference negatives, redundant-copy cleanup, and dead write cleanup.
+1. **Unit shape tests** are green for active registration, non-overlap merging, interference negatives, redundant-copy cleanup, dead write cleanup, the exact `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` order, and the exact `reorder-locals -> coalesce-locals -> reorder-locals` order.
 2. **Registry tests** prove `--coalesce-locals` is an active module pass with dispatcher and CLI coverage.
-3. **Preset honesty tests** still keep broader locals-neighborhood scheduling separate from the direct pass.
-4. **Fuzz parity** is green for the refreshed 2026-05-06 mixed-generator direct lane at `.tmp/pass-fuzz-coalesce-locals` (`6759/10000` compared cases, `6759` normalized matches, `0` mismatches, `20` Binaryen empty-recursion-group command failures), for `.tmp/pass-fuzz-cl-genvalid-10000-livecount` at `10000/10000` normalized matches, and for older mixed-generator comparable cases at `.tmp/pass-fuzz-cl-mixed-1000-livecount` with zero mismatches.
-5. **Artifact Starshine-side validation** is green: running Starshine `--coalesce-locals` over the rebuilt debug WASI artifact writes a validating output.
-6. **Self-opt artifact compare** is canonically/function equal with Binaryen on both `.tmp/self-opt-cl-debug-livecount` and `.tmp/self-opt-cl-optimized-livecount`; the optimized-artifact direct pass timer is now faster than Binaryen (`591.437ms` vs `629.109ms`), while total wall time remains slightly above Binaryen.
-7. **Neighborhood tests** for `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` remain future work once the neighboring passes exist.
-8. **Reorder interaction tests** for `reorder-locals -> coalesce-locals -> reorder-locals` remain the next ordered-slot proof because local-index repair and local-name repair are observable in Starshine.
+3. **Preset tests** keep the public first slot explicit and keep public `reorder-locals` scheduling separate from the direct pass.
+4. **Fuzz parity** is green for the refreshed 2026-05-08 mixed-generator direct lane at `.tmp/pass-fuzz-coalesce-locals-20260508` (`6759/10000` compared cases, `6759` normalized matches, `0` mismatches, `20` Binaryen empty-recursion-group command failures), for `.tmp/pass-fuzz-cl-genvalid-10000-livecount` at `10000/10000` normalized matches, and for older mixed-generator comparable cases at `.tmp/pass-fuzz-cl-mixed-1000-livecount` with zero mismatches.
+5. **Artifact Starshine-side validation** is green for the direct pass: running Starshine `--coalesce-locals` over the rebuilt debug WASI artifact writes a validating output.
+6. **Direct-pass self-opt artifact compare** is canonically/function equal with Binaryen on both `.tmp/self-opt-cl-debug-livecount` and `.tmp/self-opt-cl-optimized-livecount`; the optimized-artifact direct pass timer is now faster than Binaryen (`591.437ms` vs `629.109ms`), while total wall time remains slightly above Binaryen.
+7. **Reorder-sandwich artifact replay** is green at `.tmp/self-opt-cl-reorder-sandwich-20260508` with `Normalized WAT equal: yes` and `Canonical function compare equal: yes` on the checked-in debug artifact.
 
-If one of those steps fails, keep the pass out of public presets even if isolated reduced tests pass.
+That is enough to treat the exact `coalesce-locals` slot work as proven. Remaining uncertainty now belongs to neighboring-pass/preset work, not this direct pass.
 
 ## Health-check outcome from this run
 
 The 2026-05-05 implementation run promoted `coalesce-locals` from removed-name planning to active direct module-pass status.
 No contradiction was found between the 2026-04-22 tagged source manifest and the 2026-05-05 current-main recheck for the teaching-level `coalesce-locals` contract.
-The 2026-05-06 AUD002 refresh reran the standard direct signoff lane after the fuzzer/harness churn and found no Starshine semantic mismatches: `.tmp/pass-fuzz-coalesce-locals` reported `6759/10000` compared cases, `6759` normalized matches, and `20` Binaryen empty-recursion-group command failures.
-The remaining uncertainty is placement-specific: direct fuzz parity, artifact-level Binaryen comparison, and direct-pass artifact timing are green with the compatible Binaryen 128 oracle, but public preset scheduling still needs ordered-neighborhood proof.
+The 2026-05-08 ordered-slot replay refresh reran the standard direct signoff lane after landing exact-neighborhood regressions: `.tmp/pass-fuzz-coalesce-locals-20260508` reported `6759/10000` compared cases, `6759` normalized matches, and `20` Binaryen empty-recursion-group command failures.
+That same refresh closed the remaining slot proof: `src/passes/coalesce_locals_test.mbt` now covers both exact neighborhoods, and `.tmp/self-opt-cl-reorder-sandwich-20260508` compares green on normalized WAT and canonical-function equality over the checked-in debug artifact.
 
 ## Sources
 
+- [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md)
 - [`../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md)
