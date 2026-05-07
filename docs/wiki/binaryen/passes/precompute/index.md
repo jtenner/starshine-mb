@@ -14,6 +14,7 @@ sources:
   - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
+  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -101,7 +102,7 @@ So this pass is not just “integer constant folding.”
   - The pass keeps a heap-value cache so `ref.eq`, immutable field reads, and nested immutable-object reasoning do not accidentally confuse “same contents” with “same allocation.”
 - Emitability is also part of the contract.
   - Binaryen may know a result value precisely, but still refuse to replace the expression if it cannot emit that value as a valid constant expression.
-- Current Starshine models only a small scalar/control subset of the upstream behavior, with a conservative raw stack-level shortcut for scalar/no-candidate functions and module-proven immutable `global.get` constants to reduce direct-pass HOT lift/lower work.
+- Current Starshine models only a small scalar/control subset of the upstream behavior, with a conservative raw stack-level shortcut for scalar/no-candidate functions, module-proven immutable `global.get` constants, and dropped flat nontrapping scalar expressions to reduce direct-pass HOT lift/lower work.
 - The earlier generated-artifact slot-19 hard failure is retired.
   - The durable explanation is that the saved failure was fixed by HOT-lowering / writeback guards and full-module validation, not by discovering that Binaryen `precompute` itself is a still-open structural rewrite hazard.
 - The later rooted slot-43 continuation blocker is also retired.

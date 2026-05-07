@@ -1435,16 +1435,94 @@ fn precompute_raw_instr_is_flat_discardable_value(
 }
 
 ///|
+fn precompute_raw_instr_is_nontrapping_unary_op(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instr_is_nontrapping_binary_op(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::I32Add
+    | @lib.Instruction::I32Sub
+    | @lib.Instruction::I32Mul
+    | @lib.Instruction::I32And
+    | @lib.Instruction::I32Or
+    | @lib.Instruction::I32Xor
+    | @lib.Instruction::I32Shl
+    | @lib.Instruction::I32ShrU
+    | @lib.Instruction::I32ShrS
+    | @lib.Instruction::I32Eq
+    | @lib.Instruction::I32Ne
+    | @lib.Instruction::I32LtS
+    | @lib.Instruction::I32LtU
+    | @lib.Instruction::I32GtS
+    | @lib.Instruction::I32GtU
+    | @lib.Instruction::I32LeS
+    | @lib.Instruction::I32LeU
+    | @lib.Instruction::I32GeS
+    | @lib.Instruction::I32GeU
+    | @lib.Instruction::I64Add
+    | @lib.Instruction::I64Sub
+    | @lib.Instruction::I64Mul
+    | @lib.Instruction::I64And
+    | @lib.Instruction::I64Or
+    | @lib.Instruction::I64Xor
+    | @lib.Instruction::I64Shl
+    | @lib.Instruction::I64ShrU
+    | @lib.Instruction::I64ShrS
+    | @lib.Instruction::I64Eq
+    | @lib.Instruction::I64Ne
+    | @lib.Instruction::I64LtS
+    | @lib.Instruction::I64LtU
+    | @lib.Instruction::I64GtS
+    | @lib.Instruction::I64GtU
+    | @lib.Instruction::I64LeS
+    | @lib.Instruction::I64LeU
+    | @lib.Instruction::I64GeS
+    | @lib.Instruction::I64GeU => true
+    _ => false
+  }
+}
+
+///|
 fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
   if out.length() >= 2 {
     match out[out.length() - 1] {
-      @lib.Drop =>
+      @lib.Drop => {
         if precompute_raw_instr_is_flat_discardable_value(out[out.length() - 2]) {
           ignore(out.pop())
           ignore(out.pop())
           out.push(@lib.Instruction::nop())
           return true
         }
+        if out.length() >= 3 &&
+          precompute_raw_instr_is_nontrapping_unary_op(out[out.length() - 2]) &&
+          precompute_raw_instr_is_flat_discardable_value(out[out.length() - 3]) {
+          ignore(out.pop())
+          ignore(out.pop())
+          ignore(out.pop())
+          out.push(@lib.Instruction::nop())
+          return true
+        }
+        if out.length() >= 4 &&
+          precompute_raw_instr_is_nontrapping_binary_op(out[out.length() - 2]) &&
+          precompute_raw_instr_is_flat_discardable_value(out[out.length() - 3]) &&
+          precompute_raw_instr_is_flat_discardable_value(out[out.length() - 4]) {
+          ignore(out.pop())
+          ignore(out.pop())
+          ignore(out.pop())
+          ignore(out.pop())
+          out.push(@lib.Instruction::nop())
+          return true
+        }
+      }
       _ => ()
     }
     match

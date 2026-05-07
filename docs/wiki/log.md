@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | extend `precompute` raw dropped-scalar shortcut
+
+- Extended the direct `precompute` raw stack-level shortcut so flat nontrapping unary/binary scalar expressions that are immediately dropped can be replaced with `nop` without HOT lift/lower.
+- Added a perf trace regression proving `local.get -> i32.const -> i32.add -> drop` uses `pass[precompute]:skip-raw reason=raw-scalar-folds` while avoiding `lift` and `pass:precompute` timers.
+- Replayed direct proof lanes: `moon test src/passes`; `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0xc0ffee --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-dropped-raw-smoke-100` (`100` compared, `100` matches, `0` mismatches); `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-dropped-raw` (`6759` compared, `6759` matches, `0` mismatches, `20` known Binaryen/tool command failures); and direct debug-artifact compare at `.tmp/pc-artifact-dropped-raw` (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`, Starshine pass time about `173ms`, whole command about `5.42s`).
+- Refreshed the living `precompute` pages and `[PC]001`; remaining work is still raw canonical wasm/text representation drift and whole-command runtime relative to Binaryen.
+
 ## [2026-05-07] parity | extend `precompute` raw global shortcut
 
 - Extended the direct `precompute` raw stack-level shortcut so immutable module-constant `global.get` values can be resolved through `HotModuleContext`, rewritten to literal constants, and folded with adjacent scalar operations without HOT lift/lower.

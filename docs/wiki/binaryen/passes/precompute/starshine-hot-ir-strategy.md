@@ -15,6 +15,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/precompute_test.mbt
+  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -41,7 +42,7 @@ This page describes the **current in-tree Starshine implementation**, not the fu
 Starshine currently implements a deliberately narrow HOT-IR `precompute` pass focused on:
 
 - exact i32/i64 unary and binary folds
-- raw stack-level shortcuts for no-candidate functions, adjacent scalar folds, and immutable module-constant `global.get` folds, so they can skip HOT lift/lower safely while root/dead-drop cleanup stays on the HOT path
+- raw stack-level shortcuts for no-candidate functions, adjacent scalar folds, immutable module-constant `global.get` folds, and dropped flat nontrapping scalar expressions, so they can skip HOT lift/lower safely while structural cleanup stays on the HOT path
 - exact i32/i64 comparisons lowered to i32 boolean constants
 - immutable scalar-or-null `global.get` replacement
 - constant-`if` arm picking
@@ -80,7 +81,7 @@ The pass also appears in the registry and preset expansions in [`src/passes/opti
 
 ## 2. Exact constant sources the pass knows how to read
 
-The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The same file now also owns a conservative raw stack-level shortcut for no-candidate functions, functions with only adjacent scalar folds, and immutable module-constant `global.get` folds; that shortcut still refuses functions with unresolved `global.get`, `br_table`, constant-`if`, nested-`nop`, root-`nop` cleanup, or remaining `drop` candidates so the HOT path handles structural cases.
+The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The same file now also owns a conservative raw stack-level shortcut for no-candidate functions, functions with only adjacent scalar folds, immutable module-constant `global.get` folds, and dropped flat nontrapping scalar expressions; that shortcut still refuses functions with unresolved `global.get`, `br_table`, constant-`if`, nested-`nop`, root-`nop` cleanup, or remaining `drop` candidates so the HOT path handles structural cases.
 
 The HOT constant-source helpers are:
 
@@ -161,7 +162,7 @@ This cleanup cluster is not a generic Binaryen port. It is a local HOT/writeback
 
 ## 6. Fixpoint driver
 
-The HOT pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). For direct pass-manager execution, `precompute_run_raw_func(...)` can now return a raw rewritten function or a raw no-candidate skip before HOT lift when the function is inside the conservative stack-only subset; the dispatcher provides module context only when raw scanning sees a `global.get`.
+The HOT pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). For direct pass-manager execution, `precompute_run_raw_func(...)` can now return a raw rewritten function or a raw no-candidate skip before HOT lift when the function is inside the conservative stack-only subset, including adjacent folds and dropped flat trap-free scalar expressions; the dispatcher provides module context only when raw scanning sees a `global.get`.
 
 Each HOT round currently does:
 
@@ -188,7 +189,7 @@ The other critical owner is [`src/passes/pass_manager.mbt`](../../../../../src/p
 
 ### Dispatch
 
-- the raw dispatcher first asks `precompute_run_raw_func(...)` whether scalar-only work, module-proven immutable `global.get` constants, or no-candidate functions can skip HOT lift/lower
+- the raw dispatcher first asks `precompute_run_raw_func(...)` whether scalar-only work, module-proven immutable `global.get` constants, dropped flat trap-free scalar expressions, or no-candidate functions can skip HOT lift/lower
 - the hot-pass dispatcher maps `"precompute" => precompute_run(ctx, func)`
 
 ### Invalid-lower / writeback guard rails
