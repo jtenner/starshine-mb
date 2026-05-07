@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-08] validation | close `optimize-casts` ordered-slot replay
+
+- Added `test "optimize-casts ordered neighborhood stays valid through local cleanup consumers"` to `src/passes/optimize_casts_test.mbt`, updated `src/passes/optimize_test.mbt` plus `src/passes/registry_test.mbt`, and moved `optimize-casts` into the public `optimize` / `shrink` presets in `src/passes/optimize.mbt` at the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` slot.
+- Ran `moon test src/passes`, `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-oc005-20260508`, and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --heap2local --optimize-casts --local-subtyping --coalesce-locals --local-cse --out-dir .tmp/self-opt-optimize-casts-neighborhood-20260508`; the direct lane stayed green (`6759 / 6759` normalized matches, `0` mismatches) and the debug-artifact replay compared green on normalized WAT plus canonical functions.
+- Added `docs/wiki/raw/research/0551-2026-05-08-optimize-casts-ordered-slot-replay.md`, refreshed the living `optimize-casts` dossier pages, and pruned `[OC]005` from `agent-todo.md`; remaining broader GC/local follow-up now lives under neighboring backlog slices instead of a standalone `OC` gate.
+
 ## [2026-05-08] validation | close `coalesce-locals` ordered-slot replay
 
 - Added three new exact-neighborhood regressions to `src/passes/coalesce_locals_test.mbt`: a `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` order/validation proof, a ref-type narrowing fixture that only merges after `local-subtyping`, and a `reorder-locals -> coalesce-locals -> reorder-locals` remap replay that locks the final local indices after the merge.

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
+  - ../../../raw/research/0551-2026-05-08-optimize-casts-ordered-slot-replay.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../late-pipeline-dispatch.md
@@ -40,7 +41,7 @@ related:
 - The saved generated-artifact `-O4z` audit records it as a real skipped top-level upstream slot:
   - top-level slot `28`
 - The saved Binaryen debug log also shows many more `optimize-casts` executions later in the same full run, which matches the nested rerun story from `opt-utils.h`.
-- The repo backlog already treats its remaining exact-ref tightening and ordered-neighborhood proof as real parity blockers under slice `OC` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The 2026-05-08 ordered-slot replay proved the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood, so public `optimize` / `shrink` now schedule `optimize-casts` in that slot; remaining broader GC/local follow-up now lives under neighboring backlog slices instead of a standalone `OC` gate.
 
 ## Beginner summary
 
@@ -79,14 +80,14 @@ That is narrower than “optimize all casts.”
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status and parity-planning bridge: active narrow HOT pass tracking, backlog slice `OC`, canonical no-DWARF slot, the local-scope mismatch to keep explicit, and the practical `heap2local -> local-subtyping -> coalesce-locals -> local-cse` landing zone for future ordered proof.
+  Exact current Starshine status and parity-planning bridge: active narrow HOT pass tracking, the now-public `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` slot, the local-scope mismatch to keep explicit, and the broader GC/local follow-up that remains outside the closed `OC` slice.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Dedicated implementation-readiness bridge: first-slice scope, exact local code surfaces, validation ladder, and the explicit non-goals that keep the port narrower than the backlog wording.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `optimize-casts` research and port planning.
-- Keep the active Starshine implementation status and direct parity evidence current; the 2026-05-06 branch-cast widening replayed `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-oc-branch` with 6759 compared cases, 6759 normalized matches, 20 Binaryen command failures, and 0 mismatches, but direct parity is still not preset-readiness until the ordered GC/local neighborhood is oracle-proven.
+- Keep the active Starshine implementation status and direct parity evidence current; the 2026-05-08 ordered-slot replay revalidated direct `optimize-casts` parity, replayed `--heap2local --optimize-casts --local-subtyping --coalesce-locals --local-cse` on the checked-in debug artifact with normalized-WAT plus canonical-function equality, and moved the proven slot into public `optimize` / `shrink`.
 - New `optimize-casts` findings should update the Binaryen strategy page, implementation/test-map page, shape pages, Starshine status page, and port-readiness bridge together so the upstream algorithm, concrete examples, source proof, validation ladder, and local port story stay aligned.
 
 ## Sources

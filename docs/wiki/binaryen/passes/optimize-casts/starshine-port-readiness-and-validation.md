@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0500-2026-05-06-optimize-casts-starshine-port-readiness.md
   - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
+  - ../../../raw/research/0551-2026-05-08-optimize-casts-ordered-slot-replay.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
@@ -43,7 +44,7 @@ Use this bridge with:
 
 ## Current local reality
 
-`optimize-casts` now has an active narrow HOT implementation in Starshine. The current pass removes provably redundant GC casts, folds statically known `ref.test` / descriptor-test outcomes, removes redundant descriptor casts, and rewrites guaranteed-success `br_on_cast` / `br_on_cast_fail`; it is direct-pass revalidated but remains out of public preset scheduling until the surrounding GC/local neighborhood is oracle-proven.
+`optimize-casts` now has an active narrow HOT implementation in Starshine. The current pass removes provably redundant GC casts, folds statically known `ref.test` / descriptor-test outcomes, removes redundant descriptor casts, and rewrites guaranteed-success `br_on_cast` / `br_on_cast_fail`; it is direct-pass revalidated, the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood is debug-artifact proven, and public `optimize` / `shrink` now schedule that slot.
 
 ## Remaining upstream-aligned widening
 
@@ -66,10 +67,10 @@ That means the next upstream-aligned landing should be able to answer these ques
 | Surface | Why it matters |
 | --- | --- |
 | `src/passes/optimize_casts.mbt` | active narrow HOT implementation for redundant GC casts, statically known `ref.test` outcomes, descriptor casts/tests, and guaranteed-success branch casts. |
-| `src/passes/optimize_casts_test.mbt` | direct behavior coverage for redundant `ref.cast`, guaranteed-true `ref.test`, descriptor casts/tests, guaranteed-success `br_on_cast` / `br_on_cast_fail`, and nullable-to-nonnull trap preservation. |
-| `src/passes/optimize.mbt` | active registry coverage for `optimize-casts`. |
+| `src/passes/optimize_casts_test.mbt` | direct behavior coverage for redundant `ref.cast`, guaranteed-true `ref.test`, descriptor casts/tests, guaranteed-success `br_on_cast` / `br_on_cast_fail`, nullable-to-nonnull trap preservation, and the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood order. |
+| `src/passes/optimize.mbt` | active registry coverage for `optimize-casts` plus the public `optimize` / `shrink` slot immediately after `heap2local`. |
 | `src/passes/pass_manager.mbt` | dispatcher routes `optimize-casts` to `optimize_casts_run(...)`. |
-| `agent-todo.md` | backlog slice `OC` is the current follow-up planning anchor. |
+| `agent-todo.md` | the standalone `OC` preset-readiness gate is closed; remaining broader GC/local follow-up now lives under neighboring backlog slices. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` | canonical scheduler slot: after `heap2local`, before `local-subtyping -> coalesce-locals -> local-cse`. |
 | `docs/wiki/binaryen/passes/heap2local/index.md` | upstream feeder for stronger local cast facts. |
 | `docs/wiki/binaryen/passes/local-subtyping/index.md` | immediate left neighbor and later type-narrowing consumer. |
@@ -112,7 +113,7 @@ Future widening should validate in this order:
    - `coalesce-locals -> local-cse`
 5. oracle comparison
    - compare the implemented slice directly against Binaryen
-   - keep the backlog's `OC` slice honest about the narrower upstream scope
+   - keep any broader post-`OC` GC/local follow-up honest about the narrower upstream scope
 
 ## Non-goals to preserve
 

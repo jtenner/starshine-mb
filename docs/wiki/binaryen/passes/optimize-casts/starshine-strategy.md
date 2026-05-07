@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
@@ -10,6 +10,7 @@ sources:
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
+  - ../../../raw/research/0551-2026-05-08-optimize-casts-ordered-slot-replay.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -52,8 +53,8 @@ The current owner file is `src/passes/optimize_casts.mbt`, with dispatcher cover
 The current local strategy is direct-pass parity plus conservative cluster planning:
 
 - keep the active pass spelling and category tracked in the registry surface
-- keep the canonical no-DWARF slot documented but out of public presets until the neighborhood is proven
-- keep the backlog slice focused on cast-family scope, trap timing, descriptor/branch-cast coverage, exact-ref reasoning, and artifact validation
+- keep the canonical no-DWARF slot documented and now scheduled in public `optimize` / `shrink` at `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse`
+- keep the remaining follow-up focused on cast-family scope, trap timing, descriptor/branch-cast coverage, exact-ref reasoning, and broader artifact/full-path validation beyond the closed preset-readiness slice
 - teach the surrounding GC/local cleanup dossiers that the active pass still has to compose with `heap2local`, `local-subtyping`, `coalesce-locals`, and `local-cse`
 - keep the upstream-vs-local scope mismatch explicit instead of silently broadening the completed work
 
@@ -79,8 +80,8 @@ The fastest read-along path through the current Starshine status is:
     - covers the conservative negative heap/ref matcher for exact refs, abstract disjoint heaps, nullable non-null-target failures, and inexact-ref conservatism
 - backlog and delivery plan
   - `agent-todo.md`
-    - `#### OC - Optimize Casts Follow-up`
-    - `[OC]005` tracks ordered-neighborhood proof and preset readiness after descriptor/branch-cast and exact-ref tightening landed
+    - the standalone `[OC]005` ordered-slot / preset-readiness gate is closed on 2026-05-08
+    - remaining broader GC/local follow-up now lives under neighboring backlog slices instead of a dedicated `OC` blocker
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - the GC/local cleanup slot where `optimize-casts` belongs after `heap2local` and before `local-subtyping -> coalesce-locals -> local-cse`
@@ -102,16 +103,16 @@ Today Starshine's behavior for `optimize-casts` is deliberately limited.
 
 `src/passes/optimize_casts.mbt` currently owns a conservative HOT rewrite, not the whole upstream Binaryen strategy. It removes casts when the source reference type already satisfies the target, folds `ref.test` / `ref.test_desc` when the static source type guarantees success or failure, removes redundant `ref.cast_desc_eq`, rewrites guaranteed-success `br_on_cast` to an unconditional branch, rewrites single-ref guaranteed-fail `br_on_cast` to the fallthrough reference, rewrites guaranteed-success `br_on_cast_fail` to the fallthrough reference, rewrites guaranteed-fail `br_on_cast_fail` to an unconditional branch, and preserves nullable-to-nonnull `ref.cast` trap behavior.
 
-The 2026-05-06 direct revalidation ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The 2026-05-06 branch-cast widening replayed the same 10000-case lane with `--out-dir .tmp/pass-fuzz-optimize-casts-oc-branch` and again reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 command failures. The 2026-05-06 negative/exact-ref tightening ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --keep-going-after-command-failures --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 9975 compared cases, 9975 normalized matches, 0 validation failures, 0 generator failures, 25 Binaryen command failures, and 0 mismatches. It also ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --generator gen-valid --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-gen-valid` and reported 10000 compared cases, 10000 normalized matches, 0 validation failures, 0 generator failures, 0 command failures, and 0 mismatches. This keeps direct parity green, but it does not prove the public preset slot.
+The 2026-05-06 direct revalidation ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The 2026-05-06 branch-cast widening replayed the same 10000-case lane with `--out-dir .tmp/pass-fuzz-optimize-casts-oc-branch` and again reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 command failures. The 2026-05-06 negative/exact-ref tightening ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --keep-going-after-command-failures --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 9975 compared cases, 9975 normalized matches, 0 validation failures, 0 generator failures, 25 Binaryen command failures, and 0 mismatches. It also ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --generator gen-valid --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-gen-valid` and reported 10000 compared cases, 10000 normalized matches, 0 validation failures, 0 generator failures, 0 command failures, and 0 mismatches. The 2026-05-08 ordered-slot replay refreshed the direct 10k lane (`.tmp/pass-fuzz-optimize-casts-oc005-20260508`) with 6759 compared cases, 6759 normalized matches, 0 mismatches, and 20 Binaryen command failures, then replayed `--heap2local --optimize-casts --local-subtyping --coalesce-locals --local-cse` on `tests/node/dist/starshine-debug-wasi.wasm` with normalized-WAT equality and canonical-function equality. That closes the public preset-slot proof and allows `optimize-casts` into `optimize` / `shrink`.
 
 ### 2. The remaining work is planned as parity follow-up, not an orphan idea
 
-`agent-todo.md` already gives `optimize-casts` a real backlog slice under `OC`.
-The current deliverables point in the right general direction:
+The standalone `OC` preset-readiness slice is now closed.
+The remaining deliverables still point in the right general direction:
 
 - GC cast tightening after `heap2local`
 - explicit regression coverage for exact refs, nullability, and escaping values
-- artifact-level proof before calling the slot done
+- broader artifact/full-path proof for the remaining non-slice follow-up work
 
 But one important mismatch needs to stay explicit.
 The current backlog wording still says a future port should cover `ref.cast`, `ref.test`, nullability, and subtype simplifications.

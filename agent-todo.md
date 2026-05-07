@@ -94,12 +94,6 @@ Observed unique-pass order
 - [H2L]002 - Localization Follow-up and Neighborhood Parity
   - Deliverables: cover Binaryen's non-nullable-local / refinalization fixups and the wider missing-pass neighborhood (`optimize-casts` follow-ups, `coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
 
-#### OC - Optimize Casts Follow-up
-
-- [OC]005 - Ordered Slot And Preset Readiness
-  - Deliverables: keep direct `optimize-casts` parity green while proving the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood; do not add `optimize-casts` to public `optimize` / `shrink` presets until the ordered neighborhood and debug artifact are oracle-proven.
-  - Tests: ordered-neighborhood replay after `local-subtyping`, `coalesce-locals`, and `local-cse` are active; debug artifact compare with `--optimize-casts` and the surrounding slot sequence.
-
 #### SL - Simplify Locals
 
 - [SL]004 - Slot Validation and Artifact Replay

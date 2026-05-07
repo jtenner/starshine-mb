@@ -112,7 +112,7 @@ Current shipped coverage proves:
 - the pass narrows a body local to a child heap type;
 - mixed sibling writes keep the common parent type;
 - the CLI path accepts `--local-subtyping`;
-- the default optimize preset keeps the pass in the `heap2local -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood.
+- the default optimize preset keeps the pass in the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood.
 
 The 2026-05-06 refreshed direct pass signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 

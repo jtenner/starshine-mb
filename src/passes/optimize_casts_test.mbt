@@ -188,3 +188,84 @@ test "optimize-casts removes guaranteed-success br_on_cast_fail" {
   )
   assert_false(pretty.contains("br_on_cast_fail"), msg=pretty)
 }
+
+///|
+fn oc_test_ordered_neighborhood_fixture() -> @lib.Module {
+  let box = @lib.TypeIdx::new(0U)
+  let temp = @lib.LocalIdx::new(0U)
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::anyref()]),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(11)),
+          @lib.Instruction::i32_const(@lib.I32(22)),
+          @lib.Instruction::struct_new(box),
+          @lib.Instruction::local_tee(temp),
+          @lib.Instruction::ref_cast(false, @lib.HeapType::new(box)),
+          @lib.Instruction::struct_get(box, @lib.U32(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "optimize-casts ordered neighborhood stays valid through local cleanup consumers" {
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      oc_test_ordered_neighborhood_fixture(),
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      [
+        "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected heap2local/optimize-casts/local-subtyping/coalesce-locals/local-cse success, got \{err}",
+      )
+  }
+  let starts = trace.filter(fn(line) {
+    line.contains("pass[") && line.contains(":start")
+  })
+  assert_true(
+    starts.length() >= 5 &&
+    starts[0].contains("pass[heap2local]:start") &&
+    starts[1].contains("pass[optimize-casts]:start") &&
+    starts[2].contains("pass[local-subtyping]:start") &&
+    starts[3].contains("pass[coalesce-locals]:start") &&
+    starts[4].contains("pass[local-cse]:start"),
+    msg=starts.to_string(),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-casts ordered neighborhood output to validate, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("ref.cast"), msg=pretty)
+}

@@ -66,7 +66,7 @@ The current implementation is still narrower than Binaryen, but it is not future
 | `src/passes/registry_test.mbt` | Registry category proof that `local-subtyping` is a module pass.
 | `src/passes/optimize.mbt` | Registry entry and preset inclusion for `local-subtyping`.
 | `src/passes/pass_manager.mbt` | Active hot-pass dispatcher entry.
-| `src/passes/optimize_test.mbt` | Optimize-preset slot proof for the `heap2local -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood.
+| `src/passes/optimize_test.mbt` | Optimize-preset slot proof for the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood.
 
 ## Starshine phase map
 
@@ -98,7 +98,7 @@ The active Starshine tests are small but meaningful.
 | `src/passes/local_subtyping_test.mbt:74-93` | Mixed sibling assignments keep the common supertype. |
 | `src/cmd/cmd_wbtest.mbt:4376-4439` | The CLI path accepts `--local-subtyping` and writes an optimized wasm module. |
 | `src/passes/optimize_test.mbt:491-495` | The pass is intentionally absent from the stale `reorder-locals` gating test; that test is about neighboring local-passes not yet being scheduled in a different slot. |
-| `src/passes/optimize_test.mbt:522-526` | The optimize preset includes `local-subtyping` at slot `17` in the late local-cleanup neighborhood. |
+| `src/passes/optimize_test.mbt:561-568` | The optimize preset includes `local-subtyping` immediately after `optimize-casts` in the late GC/local cleanup neighborhood. |
 | `src/passes/registry_test.mbt:78-82` | Registry category is `module_pass`. |
 | `src/passes/optimize.mbt:284-285, 296-312` | Registry and preset wiring exist in the main optimize registry. |
 | `src/passes/pass_manager.mbt:8937-8940` | The active dispatcher has a `local-subtyping` case. |

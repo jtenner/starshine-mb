@@ -558,14 +558,15 @@ test "simplify-locals-notee-nostructure exact neighborhood waits for flatten" {
 }
 
 ///|
-test "optimize preset schedules the proven late local-cse neighborhood" {
+test "optimize preset schedules the proven optimize-casts GC/local cleanup neighborhood" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   assert_eq(optimize[15], "remove-unused-brs")
   assert_eq(optimize[16], "heap2local")
-  assert_eq(optimize[17], "local-subtyping")
-  assert_eq(optimize[18], "coalesce-locals")
-  assert_eq(optimize[19], "local-cse")
-  assert_eq(optimize[20], "simplify-locals")
+  assert_eq(optimize[17], "optimize-casts")
+  assert_eq(optimize[18], "local-subtyping")
+  assert_eq(optimize[19], "coalesce-locals")
+  assert_eq(optimize[20], "local-cse")
+  assert_eq(optimize[21], "simplify-locals")
 }
 
 ///|

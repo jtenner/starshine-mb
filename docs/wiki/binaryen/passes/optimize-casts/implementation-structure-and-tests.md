@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
+  - ../../../raw/research/0551-2026-05-08-optimize-casts-ordered-slot-replay.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -209,13 +210,13 @@ Starshine has an active narrow HOT `optimize-casts` implementation. The exact cu
 - `src/passes/optimize_casts.mbt`
   - active owner file for redundant GC cast removal and statically known `ref.test` folds
 - `src/passes/optimize_casts_test.mbt`
-  - focused fixtures for redundant `ref.cast`, guaranteed-true `ref.test`, and nullable-to-nonnull trap preservation
+  - focused fixtures for redundant `ref.cast`, guaranteed-true `ref.test`, nullable-to-nonnull trap preservation, and the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood order
 - `src/passes/optimize.mbt`
-  - active registry coverage for `"optimize-casts"`
+  - active registry coverage for `"optimize-casts"` plus the public `optimize` / `shrink` slot immediately after `heap2local`
 - `src/passes/pass_manager.mbt`
   - active dispatcher case routes to `optimize_casts_run(...)`
 - `agent-todo.md`
-  - `OC` follow-up slices track descriptor/branch casts, exact-ref tightening, ordered slot proof, and preset readiness
+  - the standalone `OC` preset-readiness gate is closed; remaining broader GC/local follow-up now lives under neighboring slices
 
 The reusable local primitives and active pass surfaces are:
 
