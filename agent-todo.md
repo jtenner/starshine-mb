@@ -82,11 +82,6 @@ Observed unique-pass order
 - [SLNNS]003 - Preset Readiness Gate
   - Deliverables: keep the direct pass out of public `optimize` / `shrink` until the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood is representable and oracle-proven.
 
-#### H2L - Heap2Local
-
-- [H2L]002 - Localization Follow-up and Neighborhood Parity
-  - Deliverables: cover Binaryen's non-nullable-local / refinalization fixups and the wider missing-pass neighborhood (`optimize-casts` follow-ups, `coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
-
 #### SL - Simplify Locals
 
 - [SL]004 - Slot Validation and Artifact Replay

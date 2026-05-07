@@ -139,7 +139,7 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering positive struct/array flows, bailout shapes, explicit trap families, and the important source-only corner cases.
 - [`./parity.md`](./parity.md)
-  - Current in-tree Starshine parity state, focused coverage, and the local remaining gap.
+  - Current in-tree Starshine parity state, focused coverage, and the current boundary between active Starshine parity and broader upstream-only fixup surface.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current Starshine HOT-IR strategy, now with an exact MoonBit registry / dispatcher / candidate-analysis / rewrite / test map so readers can move directly from the dossier into `src/passes/heap2local.mbt`.
 - [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
@@ -172,6 +172,7 @@ Current durable rule:
 - Keep the main correction explicit:
   - upstream `heap2local` is conservative GC scalarization, not generic stack allocation
 - Keep the array-first, exclusivity-proof, and validation-repair stories explicit whenever future docs or code changes touch this pass.
+- Keep the 2026-05-08 backlog-closure boundary explicit too: the old `[H2L]002` neighbor-slot work is done, while nondefaultable-local repair remains an upstream/source-contract note until Starshine accepts that validator surface.
 - Keep the exact local navigation path explicit too: registry / preset placement in `src/passes/optimize.mbt`, dispatch in `src/passes/pass_manager.mbt`, rewrite logic in `src/passes/heap2local.mbt`, proof coverage in the focused local test files, and the line-range map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 - Keep the current-main drift note explicit unless a future released Binaryen tag absorbs those changes.
 

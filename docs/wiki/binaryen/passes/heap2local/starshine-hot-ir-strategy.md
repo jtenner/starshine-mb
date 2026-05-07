@@ -237,32 +237,28 @@ That is useful, but it is still smaller than upstream Binaryen's broader direct-
 
 ## 5. No documented local equivalent of Binaryen's nondefaultable-local fixups
 
-The backlog and parity note still treat this as the main remaining gap.
-Binaryen relies on generic pass-runner `TypeUpdating::handleNonDefaultableLocals(...)` plus in-pass refinalization and EH repair.
-Current Starshine's HOT pipeline does not currently advertise an equivalent automatic repair layer here.
+The old backlog used to treat this as the main remaining `heap2local` gap.
+Binaryen still relies on generic pass-runner `TypeUpdating::handleNonDefaultableLocals(...)` plus in-pass refinalization and EH repair.
+Current Starshine still does not advertise an equivalent automatic repair layer here.
 
-That is why the backlog still calls out:
+However, the 2026-05-08 backlog-closure review moved that concern out of the active `heap2local` queue:
 
-- non-nullable-local / refinalization fixups
-
-as the main remaining local `heap2local` gap.
+- validator-accepted open-world Starshine inputs still reject nondefaultable locals before `heap2local` can run,
+- so this remains an upstream/source-contract note, not a live direct-parity blocker in today's pass surface.
 
 ## Current scheduler story in-tree
 
-The local preset tests show that Starshine currently schedules `heap2local` in a simplified mid-function GC slot:
+The local preset tests originally showed only a simplified mid-function GC slot:
 
 - `remove-unused-brs -> heap2local -> simplify-locals`
 
-That is intentionally smaller than upstream Binaryen's full neighborhood, which continues with:
+That is no longer the whole story.
+The exact neighboring cleanup cluster is now represented in-tree via the public `optimize-casts` placement and its proved follow-up chain:
 
-- `optimize-casts`
-- `local-subtyping`
-- `coalesce-locals`
-- `local-cse`
-- `simplify-locals`
+- `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals`
 
-So the current Starshine scheduler story is honest but incomplete.
-The local slot exists, but several important neighbors are still missing.
+So the old “important neighbors are still missing” wording is now stale.
+What remains outside Starshine is the broader upstream nondefaultable-local / refinalization repair surface, not the ordinary no-DWARF neighbor slot.
 
 ## Best current mental model
 
@@ -283,8 +279,8 @@ If Starshine rewrites this pass again, keep these lessons explicit:
 - preserve the distinction between nonescape and exclusivity
 - do not treat arrays as fully solved unless the upstream-sized synthetic-struct and type-repair story is really ported
 - keep descriptor-bearing support honest
-- add nondefaultable-local / refinalization repair instead of papering over it
-- keep the preset slot aligned with the future `optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighbor cluster
+- keep the upstream nondefaultable-local / refinalization contract documented even though it is outside today's validator-accepted Starshine input surface
+- keep the now-landed `optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighbor cluster explicit whenever scheduler docs are refreshed
 - keep the strong existing parity evidence visible, but do not overstate it as full upstream surface parity
 
 ## Sources

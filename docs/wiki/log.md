@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-08] docs | close `heap2local` follow-up backlog slice
+
+- Reviewed the old `[H2L]002` deliverables against current in-tree reality and recorded the durable split in `docs/wiki/raw/research/0553-2026-05-08-heap2local-backlog-closure.md`: the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood is already represented and proven by the recent `optimize-casts` / `coalesce-locals` ordered-slot work, while Binaryen's nondefaultable-local / refinalization repair remains outside today's validator-accepted Starshine input surface.
+- Refreshed the living `heap2local` parity, Starshine-strategy, and landing pages so they no longer claim the neighboring cleanup cluster is still missing and instead keep the upstream nondefaultable-local repair story as a documented source-contract boundary.
+- Pruned `[H2L]002` from `agent-todo.md`; if future validator or IR work enables nondefaultable locals, reopen that as a new cross-cutting task rather than reviving the already-closed `heap2local` neighbor proof slice.
+
 ## [2026-05-08] validation | close `simplify-locals-nostructure` ordered-slot replay
 
 - Added `test "simplify-locals-nostructure exact slot replays tuple cleanup before vacuum and reorder-locals"` plus `test "simplify-locals-nostructure exact slot keeps the no-structure if boundary"` to `src/passes/simplify_locals_nostructure_test.mbt`, and added `test "simplify-locals-nostructure exact slot helper exposes the ordered replay lane"` to `src/passes/optimize_test.mbt`; the new `src/passes/optimize.mbt` helper locks the exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay lane while public presets stay unchanged.

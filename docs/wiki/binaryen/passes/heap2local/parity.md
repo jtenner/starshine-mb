@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-08
 sources:
+  - ../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md
   - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
@@ -52,11 +53,13 @@ The current Starshine slice covers the full in-tree primary suite:
 
 ## Remaining Gap
 
-- The remaining documented Binaryen gap is the non-nullable-local and refinalization fixup work Binaryen performs after successful rewrites.
-- Wider no-DWARF optimize-path parity still depends on neighboring passes such as `optimize-casts`, `local-subtyping`, `coalesce-locals`, and `local-cse`.
+- Upstream Binaryen still has a broader nondefaultable-local / refinalization repair story than current Starshine documents locally.
+- But that surface is not a current Starshine `heap2local` parity blocker: validator-accepted open-world inputs still reject nondefaultable locals before the pass can run, and the previously-missing no-DWARF neighbor cluster is now proven in-tree.
+- Reopen a new cross-cutting task only if Starshine later accepts that local surface.
 
 ## Current Evidence
 
+- A `2026-05-08` backlog-closure review confirmed that the old `[H2L]002` wording was stale: the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood is now represented and proven elsewhere in-tree, while nondefaultable-local repair remains outside today's validator-accepted Starshine input surface.
 - A `2026-05-06` refreshed direct lane (`bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local`) reports:
   - `6759 / 10000` compared
   - `6759` normalized matches
@@ -71,6 +74,7 @@ The current Starshine slice covers the full in-tree primary suite:
 
 ## Sources
 
+- Backlog-closure review: [`../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md`](../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md)
 - Refreshed direct revalidation: [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md)
 - Current source/code-map manifest: [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
 - Current follow-up note: [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)

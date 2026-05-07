@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-08 Docs: close heap2local follow-up slice
+
+- **close `[H2L]002` after recording that the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood is already proven in-tree while Binaryen's nondefaultable-local repair remains outside today's validator-accepted Starshine input surface** by **@OpenAI**. Updated [`docs/wiki/raw/research/0553-2026-05-08-heap2local-backlog-closure.md`](./docs/wiki/raw/research/0553-2026-05-08-heap2local-backlog-closure.md), [`docs/wiki/binaryen/passes/heap2local/parity.md`](./docs/wiki/binaryen/passes/heap2local/parity.md), [`docs/wiki/binaryen/passes/heap2local/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/heap2local/starshine-hot-ir-strategy.md), [`docs/wiki/binaryen/passes/heap2local/index.md`](./docs/wiki/binaryen/passes/heap2local/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-08 Docs: prune filed status notes from active backlog
 
 - **trim historical replay notes out of `agent-todo.md` so the active backlog keeps only live unreleased work while the filed evidence stays in the changelog and wiki** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md) and [`CHANGELOG.md`](./CHANGELOG.md).
