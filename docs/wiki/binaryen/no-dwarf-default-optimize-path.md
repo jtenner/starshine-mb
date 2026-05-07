@@ -50,6 +50,7 @@ related:
 - The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against `version_129` source first.
 - The local workspace `wasm-opt` now reports `version_129`, so command-based parity evidence can be rerun under the same upstream oracle.
 - Earlier command-based evidence tied to `version_125` remains historical until rerun under `version_129`.
+- `scripts/self-optimize-compare.ts` now runs `moon build --target native --release --package jtenner/starshine/cmd` and invokes the built `_build/native/release/build/cmd/cmd.exe` by default, so recorded Starshine command timings measure the native CLI rather than a `moon run` wrapper unless `--starshine-bin` overrides it.
 
 ## Sources
 

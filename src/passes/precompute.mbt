@@ -1728,29 +1728,26 @@ fn precompute_raw_rewrite_instrs(
 ///|
 fn precompute_raw_instr_has_hot_only_candidate(
   instr : @lib.Instruction,
-  nested : Bool,
   module_ctx : @ir.HotModuleContext?,
 ) -> Bool {
   match instr {
     @lib.GlobalGet(_) => false
     @lib.BrTable(_, _) => true
-    @lib.Nop => nested
+    @lib.Nop => false
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-      precompute_raw_instrs_have_hot_only_candidate(body, true, module_ctx)
+      precompute_raw_instrs_have_hot_only_candidate(body, module_ctx)
     @lib.If(_, then_body, else_body) => {
-      if precompute_raw_instrs_have_hot_only_candidate(
-          then_body, true, module_ctx,
-        ) {
+      if precompute_raw_instrs_have_hot_only_candidate(then_body, module_ctx) {
         return true
       }
       match else_body {
         Some(body) =>
-          precompute_raw_instrs_have_hot_only_candidate(body, true, module_ctx)
+          precompute_raw_instrs_have_hot_only_candidate(body, module_ctx)
         None => false
       }
     }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
-      precompute_raw_instrs_have_hot_only_candidate(body, true, module_ctx)
+      precompute_raw_instrs_have_hot_only_candidate(body, module_ctx)
     _ => false
   }
 }
@@ -1758,11 +1755,10 @@ fn precompute_raw_instr_has_hot_only_candidate(
 ///|
 fn precompute_raw_instrs_have_hot_only_candidate(
   instrs : Array[@lib.Instruction],
-  nested : Bool,
   module_ctx : @ir.HotModuleContext?,
 ) -> Bool {
   for instr in instrs {
-    if precompute_raw_instr_has_hot_only_candidate(instr, nested, module_ctx) {
+    if precompute_raw_instr_has_hot_only_candidate(instr, module_ctx) {
       return true
     }
   }
@@ -1958,6 +1954,37 @@ fn precompute_raw_instrs_have_const_if_candidate(
 }
 
 ///|
+fn precompute_raw_instrs_are_all_nops(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Nop => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn precompute_raw_root_nop_block_cleanup_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if precompute_raw_instrs_are_all_nops(body) {
+          return true
+        }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if precompute_raw_instrs_are_all_nops(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn precompute_raw_root_nop_cleanup_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -1997,10 +2024,11 @@ fn precompute_run_raw_func(
   module_ctx : @ir.HotModuleContext?,
 ) -> (@lib.Func, Bool, String)? {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  if precompute_raw_instrs_have_hot_only_candidate(instrs, false, module_ctx) {
+  if precompute_raw_instrs_have_hot_only_candidate(instrs, module_ctx) {
     return None
   }
-  if precompute_raw_root_nop_cleanup_candidate(instrs) {
+  if precompute_raw_root_nop_cleanup_candidate(instrs) ||
+    precompute_raw_root_nop_block_cleanup_candidate(instrs) {
     return None
   }
   let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)

@@ -126,6 +126,10 @@ function normalizeStarshinePassFlag(flag: string): string {
   return STARSHINE_FLAG_ALIASES.get(flag) ?? flag;
 }
 
+function defaultBuiltStarshineBinPath(repoRoot: string): string {
+  return path.join(repoRoot, "_build", "native", "release", "build", "cmd", "cmd.exe");
+}
+
 function resolveStarshineInvocation(
   repoRoot: string,
   starshineBin: string | null,
@@ -134,6 +138,13 @@ function resolveStarshineInvocation(
   if (starshineBin !== null) {
     return {
       command: resolveRepoPath(repoRoot, starshineBin),
+      argsPrefix: [],
+    };
+  }
+  const builtStarshineBin = defaultBuiltStarshineBinPath(repoRoot);
+  if (fs.existsSync(builtStarshineBin)) {
+    return {
+      command: builtStarshineBin,
       argsPrefix: [],
     };
   }

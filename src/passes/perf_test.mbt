@@ -3719,6 +3719,33 @@ test "ssa-nomerge skips raw lift when the original function has no local writes"
 }
 
 ///|
+test "precompute skips nested nop-only control without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (if (local.get 0) (then nop) (else nop))))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected raw precompute nested-nop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=no-precompute-candidates"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
 test "precompute raw-folds scalar constants without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

@@ -440,6 +440,7 @@ export function runSelfOptimizeCompareDefaultStarshineInvocationTest(): void {
   const moonLog = path.join(tmpdir, "moon.log");
   const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
   const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
+  const starshineLog = path.join(tmpdir, "starshine.log");
   fs.writeFileSync(inputPath, "input");
 
   const fakeMoon = makeExecutable(
@@ -449,15 +450,27 @@ const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
-if (args[0] === "run") {
-  const outIndex = args.indexOf("--out");
-  if (outIndex === -1 || outIndex + 1 >= args.length) {
-    process.stderr.write("missing --out\\n");
-    process.exit(1);
-  }
-  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
-  fs.writeFileSync(args[outIndex + 1], "starshine-wasm");
-  process.stderr.write("[trace] input fixture:opt perf:timer name=pass:pick-load-signs elapsed_us=40000 total_us=40000\\n");
+if (args[0] === "build") {
+  const repoRoot = process.cwd();
+  const builtBin = path.join(repoRoot, "_build", "native", "release", "build", "cmd", "cmd.exe");
+  fs.mkdirSync(path.dirname(builtBin), { recursive: true });
+  fs.writeFileSync(
+    builtBin,
+    '#!/usr/bin/env node\\n' +
+      'const fs = require("node:fs");\\n' +
+      'const path = require("node:path");\\n' +
+      'const args = process.argv.slice(2);\\n' +
+      'fs.writeFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args, null, 2));\\n' +
+      'const outIndex = args.indexOf("--out");\\n' +
+      'if (outIndex === -1 || outIndex + 1 >= args.length) {\\n' +
+      '  process.stderr.write("missing --out\\\\n");\\n' +
+      '  process.exit(1);\\n' +
+      '}\\n' +
+      'fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });\\n' +
+      'fs.writeFileSync(args[outIndex + 1], "starshine-wasm");\\n' +
+      'process.stderr.write("[trace] input fixture:opt perf:timer name=pass:pick-load-signs elapsed_us=40000 total_us=40000\\\\n");\\n',
+  );
+  fs.chmodSync(builtBin, 0o755);
 }
 process.exit(0);
 `,
@@ -514,12 +527,13 @@ process.exit(0);
       "--pick-load-signs",
     ],
     {
-      cwd: repoRoot,
+      cwd: tmpdir,
       env: {
         ...process.env,
         FAKE_MOON_LOG: moonLog,
         FAKE_WASM_TOOLS_LOG: wasmToolsLog,
         FAKE_WASM_OPT_LOG: wasmOptLog,
+        FAKE_STARSHINE_LOG: starshineLog,
       },
       encoding: "utf8",
     },
@@ -537,7 +551,7 @@ process.exit(0);
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line) as string[]);
-  assert(moonLogs.length === 2, `expected compile and run moon invocations, got ${moonLogs.length}`);
+  assert(moonLogs.length === 1, `expected only compile moon invocation, got ${moonLogs.length}`);
   assert(
     JSON.stringify(moonLogs[0]) === JSON.stringify([
       "build",
@@ -549,13 +563,15 @@ process.exit(0);
     ]),
     `unexpected default compile invocation:\n${JSON.stringify(moonLogs[0], null, 2)}`,
   );
+  const starshineArgs = JSON.parse(fs.readFileSync(starshineLog, "utf8")) as string[];
   assert(
-    JSON.stringify(moonLogs[1].slice(0, 6)) === JSON.stringify(["run", "--target", "native", "--release", "src/cmd", "--"]),
-    `expected default run invocation via moon run --release, got ${JSON.stringify(moonLogs[1], null, 2)}`,
-  );
-  assert(
-    moonLogs[1].includes("--pick-load-signs"),
-    `expected pass flag in default run invocation, got ${JSON.stringify(moonLogs[1], null, 2)}`,
+    JSON.stringify(starshineArgs) === JSON.stringify([
+      "--pick-load-signs",
+      "--out",
+      path.join(outDir, "starshine.raw.wasm"),
+      inputPath,
+    ]),
+    `expected default invocation to use built Starshine binary, got ${JSON.stringify(starshineArgs, null, 2)}`,
   );
 }
 

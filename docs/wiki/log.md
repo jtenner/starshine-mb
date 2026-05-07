@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | let `precompute` raw-skip nested nop-only control
+
+- Relaxed the direct `precompute` raw stack-level shortcut so nested `nop`-only control is treated as no-candidate work instead of forcing HOT lift/lower only to report `changed=false`.
+- Added a perf trace regression proving an `if` with `nop` arms uses `pass[precompute]:skip-raw reason=no-precompute-candidates` while avoiding `lift` and `pass:precompute` timers, and updated the compare harness default Starshine invocation to run the freshly built native `cmd.exe` directly after `moon build` instead of wrapping the measured command in `moon run`.
+- Replayed direct proof lanes: `moon test src/passes/perf_test.mbt`; `bun scripts/test/self-optimize-compare-command.ts`; `bun scripts/pass-fuzz-compare.ts --count 200 --seed 0xa11d --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-nested-nop-smoke` (`200` compared, `200` matches, `0` mismatches); `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-nested-nop-raw` (`6759` compared, `6759` matches, `0` mismatches, `20` known Binaryen/tool command failures); and direct debug-artifact compare at `.tmp/pc-artifact-nested-nop-raw` (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`, Starshine pass time about `116ms`, Binaryen pass time about `149ms`, whole command about `5.04s`).
+- Refreshed the living `precompute` pages and `[PC]001`; remaining work is still raw canonical wasm/text representation drift and whole-command runtime relative to Binaryen.
+
 ## [2026-05-07] parity | extend `precompute` raw constant-if shortcut
 
 - Extended the direct `precompute` raw stack-level shortcut so branch-free constant-`if` tails can pick the surviving arm before adjacent scalar folds without HOT lift/lower.

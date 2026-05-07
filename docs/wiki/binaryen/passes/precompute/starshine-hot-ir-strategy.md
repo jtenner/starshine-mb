@@ -42,7 +42,7 @@ This page describes the **current in-tree Starshine implementation**, not the fu
 Starshine currently implements a deliberately narrow HOT-IR `precompute` pass focused on:
 
 - exact i32/i64 unary and binary folds
-- raw stack-level shortcuts for no-candidate functions, adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global expressions, and preserved effectful/trapping dropped tails with no remaining precompute candidates, so they can skip HOT lift/lower safely while unsupported pure drop cleanup and label-relative branchy arm picks stay on the HOT path
+- raw stack-level shortcuts for no-candidate functions, nested nop-only control, adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global expressions, and preserved effectful/trapping dropped tails with no remaining precompute candidates, so they can skip HOT lift/lower safely while unsupported pure drop cleanup and label-relative branchy arm picks stay on the HOT path
 - exact i32/i64 comparisons lowered to i32 boolean constants
 - immutable scalar-or-null `global.get` replacement
 - constant-`if` arm picking
@@ -81,7 +81,7 @@ The pass also appears in the registry and preset expansions in [`src/passes/opti
 
 ## 2. Exact constant sources the pass knows how to read
 
-The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The same file now also owns a conservative raw stack-level shortcut for no-candidate functions, functions with only adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global expressions, and preserved effectful/trapping dropped tails after raw folding exhausts safe candidates; that shortcut still refuses functions with `br_table`, label-relative branchy `if` arms, nested-`nop`, root-`nop` cleanup, or unsupported pure `drop` candidates so the HOT path handles structural cases.
+The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The same file now also owns a conservative raw stack-level shortcut for no-candidate functions, nested nop-only control, functions with only adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global expressions, and preserved effectful/trapping dropped tails after raw folding exhausts safe candidates; that shortcut still refuses functions with `br_table`, label-relative branchy `if` arms, root-`nop` cleanup, or unsupported pure `drop` candidates so the HOT path handles structural cases.
 
 The HOT constant-source helpers are:
 
@@ -164,7 +164,7 @@ This cleanup cluster is not a generic Binaryen port. It is a local HOT/writeback
 
 ## 6. Fixpoint driver
 
-The HOT pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). For direct pass-manager execution, `precompute_run_raw_func(...)` can now return a raw rewritten function or a raw no-candidate skip before HOT lift when the function is inside the conservative stack-only subset, including adjacent folds, branch-free constant-`if` arm picks, immutable global folds, mutable/global no-candidate reads, dropped flat trap-free scalar/global expressions, and preserved effectful/trapping dropped tails with no remaining precompute candidate; the dispatcher provides module context only when raw scanning sees a `global.get`.
+The HOT pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). For direct pass-manager execution, `precompute_run_raw_func(...)` can now return a raw rewritten function or a raw no-candidate skip before HOT lift when the function is inside the conservative stack-only subset, including nested nop-only control, adjacent folds, branch-free constant-`if` arm picks, immutable global folds, mutable/global no-candidate reads, dropped flat trap-free scalar/global expressions, and preserved effectful/trapping dropped tails with no remaining precompute candidate; the dispatcher provides module context only when raw scanning sees a `global.get`.
 
 Each HOT round currently does:
 
@@ -191,7 +191,7 @@ The other critical owner is [`src/passes/pass_manager.mbt`](../../../../../src/p
 
 ### Dispatch
 
-- the raw dispatcher first asks `precompute_run_raw_func(...)` whether scalar-only work, branch-free constant-`if` arm picking, module-proven immutable `global.get` constants, mutable/global no-candidate reads, dropped flat trap-free scalar/global expressions, preserved effectful/trapping dropped tails, or no-candidate functions can skip HOT lift/lower
+- the raw dispatcher first asks `precompute_run_raw_func(...)` whether scalar-only work, branch-free constant-`if` arm picking, module-proven immutable `global.get` constants, mutable/global no-candidate reads, dropped flat trap-free scalar/global expressions, preserved effectful/trapping dropped tails, nested nop-only control, or no-candidate functions can skip HOT lift/lower
 - the hot-pass dispatcher maps `"precompute" => precompute_run(ctx, func)`
 
 ### Invalid-lower / writeback guard rails
@@ -279,7 +279,7 @@ That follow-up matters for honest ownership: the local `precompute` dossier shou
 Current Starshine `precompute` implements:
 
 - exact i32/i64 unary and binary scalar folds
-- conservative raw stack-level no-candidate and scalar-fold shortcuts for safe no-HOT-lift cases, including preserved effectful/trapping dropped tails once raw folding has no remaining safe candidate
+- conservative raw stack-level no-candidate, nested nop-only, and scalar-fold shortcuts for safe no-HOT-lift cases, including preserved effectful/trapping dropped tails once raw folding has no remaining safe candidate
 - exact integer comparison folding to i32 booleans
 - immutable defined-global folding for scalar and `ref.null` payloads
 - direct constant-`if` picking
