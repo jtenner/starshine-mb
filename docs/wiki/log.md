@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] docs | close `reorder-locals` boundary-policy backlog slice
+
+- Reran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals` on current head and recorded that Binaryen still failed to converge on raw emitted wasm after 5 no-pass roundtrips while representation-stable surfaces still compared green (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`).
+- Added `docs/wiki/raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md` and refreshed the living `reorder-locals` landing, parity, validation, and multivalue-call-scope pages so the standing out-of-scope policy is backed by a current-head debug-artifact replay instead of only the older reduced repro archive.
+- Pruned `[RL]003` from `agent-todo.md`; remaining preset-slot gating stays with the neighboring ordered-local-pass backlog slices rather than a standalone `reorder-locals` boundary-policy task.
+
 ## [2026-05-07] parity | align `global-refining` export and null boundary handling
 
 - Changed Starshine `global-refining` to classify `ref.null` initializers with Binaryen-style bottom reference types (`none`, `nofunc`, `noextern`, `noexn`), preserve exported mutable globals, and allow immutable exported refinements on the direct-pass lane.

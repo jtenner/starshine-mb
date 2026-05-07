@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
   - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
@@ -51,6 +52,14 @@ related:
 - It stays out of the `optimize` and `shrink` presets until `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals` land and the neighboring Binaryen slots can be modeled honestly.
 - Representation-stable comparison, local-name rewrite correctness, and explicit module-pass coverage are the current honest signoff targets.
 
+## Refreshed Debug-Artifact Boundary Replay
+
+- The 2026-05-07 current-head artifact lane ran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals`.
+- Binaryen no-pass writeback still did not converge within 5 roundtrips, so canonical emitted wasm stayed unequal on the full artifact.
+- The representation-stable surfaces still compared green on that same replay: `Normalized WAT equal: yes` and `Canonical function compare equal: yes`.
+- Starshine pass runtime on that lane was `56.953 ms` versus Binaryen `86.020 ms`.
+- This keeps the repo scope decision intact: treat the remaining full-artifact raw-output drift as Binaryen multivalue-call writeback/materialization behavior, not as a remaining `reorder-locals` sorter bug.
+
 ## Refreshed Direct Signoff
 
 - The 2026-05-06 post-fuzzer-change direct signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass reorder-locals --out-dir .tmp/pass-fuzz-reorder-locals`.
@@ -82,6 +91,7 @@ Use the Binaryen boundary controls when comparing this pass:
 
 ## Sources
 
+- Current closure note: [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md)
 - Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 - Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
 - Validation primary-source manifest: [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md)

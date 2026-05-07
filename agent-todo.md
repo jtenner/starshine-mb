@@ -97,11 +97,6 @@ Observed unique-pass order
 - [SLNS]003 - Ordered Slot Gate
   - Deliverables: keep the direct pass out of public `optimize` / `shrink` until ordered-neighborhood replay proves the exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` slot; revisit placement with `coalesce-locals` and `local-cse`.
 
-#### RL - Reorder Locals
-
-- [RL]003 - Boundary Policy and Artifact Compare
-  - Deliverables: decide whether Binaryen's multivalue call writeback/materialization layer is a broader compatibility target or explicitly out of scope for `reorder-locals`; keep preset slot wiring deferred until neighboring passes make the slot truthful.
-
 #### H2L - Heap2Local
 
 - [H2L]002 - Localization Follow-up and Neighborhood Parity

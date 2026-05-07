@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Docs: close reorder-locals boundary-policy slice
+
+- **rerun the `reorder-locals` debug-artifact stable-boundary compare, reaffirm Binaryen multivalue-call writeback as out of scope for current pass parity, and prune `[RL]003` from the active backlog** by **@OpenAI**. Updated [`docs/wiki/raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](./docs/wiki/raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md), [`docs/wiki/binaryen/passes/reorder-locals/index.md`](./docs/wiki/binaryen/passes/reorder-locals/index.md), [`docs/wiki/binaryen/passes/reorder-locals/parity.md`](./docs/wiki/binaryen/passes/reorder-locals/parity.md), [`docs/wiki/binaryen/passes/reorder-locals/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/reorder-locals/starshine-port-readiness-and-validation.md), [`docs/wiki/binaryen/passes/reorder-locals/multivalue-call-scope.md`](./docs/wiki/binaryen/passes/reorder-locals/multivalue-call-scope.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Docs: refresh tuple-optimization gen-valid proof
 
 - **rerun the current-head `tuple-optimization` `gen-valid` 10000-case parity lane, prune the stale `[TO]005` rerun TODO, and record the refreshed evidence in the tuple dossier** by **@OpenAI**. Updated [`docs/wiki/raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md`](./docs/wiki/raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md), [`docs/wiki/binaryen/passes/tuple-optimization/parity.md`](./docs/wiki/binaryen/passes/tuple-optimization/parity.md), [`docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md`](./docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

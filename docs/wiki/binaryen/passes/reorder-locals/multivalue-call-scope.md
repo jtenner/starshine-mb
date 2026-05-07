@@ -1,8 +1,9 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
   - ../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md
   - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
 related:
@@ -26,6 +27,13 @@ related:
 - Block-only multivalue witnesses can stabilize after scalarization, but multivalue call witnesses can keep growing and fail convergence.
 - This behavior happens before and after `ReorderLocals.cpp`; it is not evidence that Starshine's sorter is wrong.
 
+## Refreshed full-artifact evidence
+
+- A 2026-05-07 current-head replay reran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals`.
+- Binaryen no-pass writeback still did not converge within 5 roundtrips, and canonical emitted wasm still compared red.
+- The same replay still reached `Normalized WAT equal: yes` and `Canonical function compare equal: yes` on the debug artifact.
+- That keeps the repo decision stable: the remaining full-artifact raw-output drift still belongs to Binaryen's multivalue-call writeback/materialization boundary, not to the `reorder-locals` sorter contract.
+
 ## Current Tooling
 
 [`../../../../../scripts/lib/self-optimize-compare-task.ts`](../../../../../scripts/lib/self-optimize-compare-task.ts) supports:
@@ -43,5 +51,6 @@ related:
 
 ## Sources
 
+- Current closure note: [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md)
 - Archived research doc: [`../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md`](../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md)
 - Related parity page: [`./parity.md`](./parity.md)

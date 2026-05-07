@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
   - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
@@ -56,6 +57,7 @@ related:
 
 - `reorder-locals` is an active implemented **module pass** in Starshine.
 - A 2026-05-06 refreshed direct signoff reached 6759/10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see [`../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md).
+- A 2026-05-07 debug-artifact stable-boundary replay kept `Normalized WAT equal: yes` and `Canonical function compare equal: yes` after 5 Binaryen no-pass roundtrips even though Binaryen still did not converge on raw emitted wasm; see [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md).
 - In upstream Binaryen `version_129`, `pass.cpp` describes it as:
   - sorts locals by access frequency
 

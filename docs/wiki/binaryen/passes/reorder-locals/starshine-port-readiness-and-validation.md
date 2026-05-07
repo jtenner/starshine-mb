@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
   - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
@@ -45,6 +46,8 @@ This page is the bridge from the algorithm pages to validation work. Use it when
 ## Current Starshine status
 
 The 2026-05-06 refreshed direct signoff re-proved the explicit pass with 6759/10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see [`../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md).
+
+A 2026-05-07 stable-boundary replay on the checked-in debug artifact kept the policy honest: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals` still reported `Binaryen no-pass converged: no` and `Canonical wasm equal: no`, but it also reported `Normalized WAT equal: yes` and `Canonical function compare equal: yes`. That confirms the remaining full-artifact raw drift still belongs to the Binaryen multivalue-call writeback boundary documented in [`./multivalue-call-scope.md`](./multivalue-call-scope.md), not to the standalone sorter contract.
 
 Starshine currently exposes `reorder-locals` as an active module pass:
 
