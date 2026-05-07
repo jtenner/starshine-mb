@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | extend `precompute` raw effectful-drop shortcut
+
+- Relaxed the direct `precompute` raw stack-level shortcut so preserved effectful/trapping dropped tails no longer force HOT lift/lower when raw folding has already exhausted safe scalar/global candidates, while unsupported pure drop families such as `select/drop` still defer to HOT.
+- Added perf trace regressions proving `load/drop`, `call/drop`, and `load/drop` plus adjacent scalar folds use `pass[precompute]:skip-raw` while avoiding `lift` and `pass:precompute` timers; added a negative trace regression proving unsupported pure `select/drop` still lifts.
+- Replayed direct proof lanes: focused TDD failures before implementation; `moon test src/passes`; `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0xc0ffee --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-effect-drop-raw-smoke-100` (`100` compared, `100` matches, `0` mismatches); `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-effect-drop-raw` (`6759` compared, `6759` matches, `0` mismatches, `20` known Binaryen/tool command failures); and direct debug-artifact compare at `.tmp/pc-artifact-effect-drop-raw` (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`, Starshine pass time about `154ms`, Binaryen pass time about `151ms`, whole command about `5.18s`).
+- Refreshed the living `precompute` pages and `[PC]001`; remaining work is still raw canonical wasm/text representation drift and whole-command runtime relative to Binaryen.
+
 ## [2026-05-07] parity | extend `precompute` raw global-get shortcut
 
 - Extended the direct `precompute` raw stack-level shortcut so mutable or otherwise non-constant `global.get` no-candidate functions can skip HOT lift/lower unchanged, and immediately dropped `global.get` values can be replaced with `nop` without HOT.

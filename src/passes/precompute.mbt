@@ -1735,25 +1735,107 @@ fn precompute_raw_func_has_global_get(func : @lib.Func) -> Bool {
 }
 
 ///|
-fn precompute_raw_instrs_have_drop(instrs : Array[@lib.Instruction]) -> Bool {
-  for instr in instrs {
+fn precompute_raw_instr_is_preserved_dropped_effect(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Call(_)
+    | @lib.CallIndirect(_, _)
+    | @lib.CallRef(_)
+    | @lib.LocalTee(_)
+    | @lib.TableGet(_)
+    | @lib.MemoryGrow(_)
+    | @lib.MemoryAtomicNotify(_)
+    | @lib.MemoryAtomicWait32(_)
+    | @lib.MemoryAtomicWait64(_)
+    | @lib.AtomicRmw(_, _)
+    | @lib.AtomicCmpxchg(_, _)
+    | @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.RefAsNonNull
+    | @lib.RefCast(_, _)
+    | @lib.RefCastDescEq(_, _)
+    | @lib.StructGet(_, _)
+    | @lib.StructGetS(_, _)
+    | @lib.StructGetU(_, _)
+    | @lib.ArrayGet(_)
+    | @lib.ArrayGetS(_)
+    | @lib.ArrayGetU(_)
+    | @lib.ArrayLen
+    | @lib.I31GetS
+    | @lib.I31GetU
+    | @lib.I32Load(_)
+    | @lib.I64Load(_)
+    | @lib.F32Load(_)
+    | @lib.F64Load(_)
+    | @lib.I32Load8S(_)
+    | @lib.I32Load8U(_)
+    | @lib.I32Load16S(_)
+    | @lib.I32Load16U(_)
+    | @lib.I64Load8S(_)
+    | @lib.I64Load8U(_)
+    | @lib.I64Load16S(_)
+    | @lib.I64Load16U(_)
+    | @lib.I64Load32S(_)
+    | @lib.I64Load32U(_)
+    | @lib.I32AtomicLoad(_)
+    | @lib.I64AtomicLoad(_)
+    | @lib.I32AtomicLoad8U(_)
+    | @lib.I32AtomicLoad16U(_)
+    | @lib.I64AtomicLoad8U(_)
+    | @lib.I64AtomicLoad16U(_)
+    | @lib.I64AtomicLoad32U(_)
+    | @lib.V128Load(_)
+    | @lib.V128Load8x8S(_)
+    | @lib.V128Load8x8U(_)
+    | @lib.V128Load16x4S(_)
+    | @lib.V128Load16x4U(_)
+    | @lib.V128Load32x2S(_)
+    | @lib.V128Load32x2U(_)
+    | @lib.V128Load8Splat(_)
+    | @lib.V128Load16Splat(_)
+    | @lib.V128Load32Splat(_)
+    | @lib.V128Load64Splat(_) => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_drop_needing_hot(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
     match instr {
-      @lib.Drop => return true
+      @lib.Drop =>
+        if idx == 0 ||
+          !precompute_raw_instr_is_preserved_dropped_effect(instrs[idx - 1]) {
+          return true
+        }
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        if precompute_raw_instrs_have_drop(body) {
+        if precompute_raw_instrs_have_drop_needing_hot(body) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
-        if precompute_raw_instrs_have_drop(then_body) {
+        if precompute_raw_instrs_have_drop_needing_hot(then_body) {
           return true
         }
         match else_body {
-          Some(body) => if precompute_raw_instrs_have_drop(body) { return true }
+          Some(body) =>
+            if precompute_raw_instrs_have_drop_needing_hot(body) {
+              return true
+            }
           None => ()
         }
       }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if precompute_raw_instrs_have_drop(body) {
+        if precompute_raw_instrs_have_drop_needing_hot(body) {
           return true
         }
       _ => ()
@@ -1848,7 +1930,7 @@ fn precompute_run_raw_func(
     return None
   }
   let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)
-  if precompute_raw_instrs_have_drop(rewritten) ||
+  if precompute_raw_instrs_have_drop_needing_hot(rewritten) ||
     precompute_raw_instrs_have_const_if_candidate(rewritten) ||
     precompute_raw_root_nop_cleanup_candidate(rewritten) {
     return None

@@ -3777,6 +3777,118 @@ test "precompute raw-removes dropped pure scalar expressions without hot lift" {
 }
 
 ///|
+test "precompute raw-folds constants after effectful dropped load without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32) (result i32) local.get 0 i32.load drop i32.const 1 i32.const 2 i32.add))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected raw precompute load-plus-fold success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(3)"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
+test "precompute raw-defers unsupported pure select drops to hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) local.get 0 i32.const 1 i32.const 1 select drop))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected hot precompute select-drop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_false(text.contains("pass[precompute]:skip-raw"), msg=text)
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
+test "precompute raw-skips dropped call no-candidate functions without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 1) (func call 0 drop))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected raw precompute call-drop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=no-precompute-candidates"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
+test "precompute raw-skips effectful dropped load no-candidate functions without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32) local.get 0 i32.load drop))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected raw precompute load-drop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=no-precompute-candidates"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
 test "precompute raw-preserves mutable global.get no-candidate functions without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
