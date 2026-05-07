@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Passes: narrow remove-unused-brs br_table parity drift
+
+- **drop selector-only self-targeting `br_table` blocks in `remove-unused-brs` and cover the reduced gen-valid repro shape** by **@OpenAI**. Updated [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: complete optimize-casts negative checks
 
 - **fold guaranteed-false `ref.test` / cast-branch outcomes for disjoint and exact reference types in `optimize-casts` and add direct helper regressions plus 10k gen-valid parity evidence** by **@OpenAI**. Updated [`src/passes/optimize_casts.mbt`](./src/passes/optimize_casts.mbt), [`src/passes/optimize_casts_wbtest.mbt`](./src/passes/optimize_casts_wbtest.mbt), [`docs/wiki/binaryen/passes/optimize-casts/starshine-strategy.md`](./docs/wiki/binaryen/passes/optimize-casts/starshine-strategy.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

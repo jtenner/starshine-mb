@@ -59,6 +59,7 @@ Observed unique-pass order
   - Passes with active problems: `global-refining`, `memory-packing`, `optimize-instructions`, `precompute`, `remove-unused-brs`, `ssa-nomerge`.
   - Deliverables: reduce and classify each fresh repro under `.tmp/pass-audit-20260506/`; promote durable failures into focused tests; fix the current mismatch families; rerun direct `--pass <name>` parity at `10000` cases before treating the pass as green again.
   - Current mismatch families from the audit: `global-refining` nullability/type-tightening drift, `memory-packing` data-segment normalization drift, `optimize-instructions` signed-vs-unsigned constant-fold canonicalization drift, `precompute` dead `block` / `br_table` cleanup drift, `remove-unused-brs` shared dead branch-wrapper cleanup drift, and `ssa-nomerge` temp-local shaping drift.
+  - 2026-05-07 RUB note: fixed the selector-only self-targeting `br_table` subfamily (`block $exit ... br_table $exit $exit`) and promoted it to `remove_unused_brs_test`; rerun `.tmp/pass-fuzz-remove-unused-brs-20260507` advanced past the previous early gen-valid failures but still found later local-normalization and remaining RUB mismatches, so [AUD]001 stays open.
 
 #### DCE - Dead Code Elimination
 

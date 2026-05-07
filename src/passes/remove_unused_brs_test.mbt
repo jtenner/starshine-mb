@@ -1853,6 +1853,26 @@ test "remove-unused-brs drops carried result wrappers after lowering then-arm gu
 }
 
 ///|
+test "remove-unused-brs drops selector for self-targeting br_table block" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) block $exit local.get 0 br_table $exit $exit end unreachable))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs self-target br_table success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites repeated branch-target equality ladders into br_table" {
   let optimized = match
     pass_test_run_pipeline(

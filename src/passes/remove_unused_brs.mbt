@@ -2162,6 +2162,76 @@ fn remove_unused_brs_try_inline_single_br_if_block(
 }
 
 ///|
+fn remove_unused_brs_try_drop_self_targeting_br_table_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_refs : Array[Int],
+) -> Bool {
+  if idx < 0 || idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let block_id = @ir.hot_region_get(func, region_ref, idx)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block =>
+      if @ir.hot_node_result_arity(func, block_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  if block_label < 0 ||
+    block_label >= label_refs.length() ||
+    @ir.hot_label_branch_arity(func, block_label) != 0 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let br_table_id = @ir.hot_region_get(func, body_ref, 0)
+  if br_table_id < 0 || !@ir.hot_node_is_live(func, br_table_id) {
+    return false
+  }
+  let br_table_node = @ir.hot_node_get(func, br_table_id)
+  match br_table_node.op {
+    @ir.HotOp::BrTable => if br_table_node.child_count != 1 { return false }
+    _ => return false
+  }
+  let targets = @ir.hot_branch_table_targets(func, br_table_node.imm0)
+  for target in targets {
+    if target != block_label {
+      return false
+    }
+  }
+  if @ir.hot_branch_table_default_target(func, br_table_node.imm0) !=
+    block_label {
+    return false
+  }
+  let expected_refs = targets.length() + 1
+  if label_refs[block_label] != expected_refs {
+    return false
+  }
+
+  let selector = @ir.hot_child_get(func, br_table_id, 0)
+  if selector < 0 || !@ir.hot_node_is_live(func, selector) {
+    return false
+  }
+  let replacement = @ir.hot_build_drop(func, selector)
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [replacement])
+  removed.push(replacement)
+  remove_unused_brs_mark_mutated(
+    ctx, func, "drop-self-targeting-br-table-block",
+  )
+  remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+  true
+}
+
+///|
 fn remove_unused_brs_try_rewrite_br_table_continuation_wrappers(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5501,6 +5571,12 @@ fn remove_unused_brs_visit_region(
           continue
         }
         if remove_unused_brs_try_inline_single_br_if_block(
+            ctx, func, region_ref, idx, label_refs,
+          ) {
+          changed = true
+          continue
+        }
+        if remove_unused_brs_try_drop_self_targeting_br_table_block(
             ctx, func, region_ref, idx, label_refs,
           ) {
           changed = true
