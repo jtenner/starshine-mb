@@ -49,10 +49,6 @@ Observed unique-pass order
 
 #### 2026-05-07 direct-pass mismatch follow-up
 
-- [MP]001 - Empty-Segment And Dead Passive-Segment Normalization
-  - Why: the 2026-05-07 current-head rerun (`docs/wiki/raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`) reduced the remaining `memory-packing` direct mismatches to empty active segments and dead passive segments that Binaryen normalizes away.
-  - Deliverables: align empty active-segment emission and dead passive-segment cleanup with Binaryen on the saved `.tmp/recheck-memory-packing/` repros; add focused module-pass tests; rerun direct `--pass memory-packing` parity at `10000` cases before treating the pass as green again.
-
 - [RUB]003 - Local-Declaration Normalization Drift
   - Why: the same 2026-05-07 rerun showed the remaining current-head `remove-unused-brs` mismatches are no longer the earlier `br_table` cleanup family; they now reduce to local-declaration count/type/order drift only.
   - Deliverables: reduce the `.tmp/recheck-remove-unused-brs/` repros to the smallest declaration-only cases; decide whether to match Binaryen declaration shaping directly or share a post-lowering normalization helper with neighboring passes; add focused tests; rerun direct `--pass remove-unused-brs` parity at `10000` cases.

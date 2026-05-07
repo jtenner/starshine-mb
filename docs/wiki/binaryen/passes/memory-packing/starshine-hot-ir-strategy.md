@@ -39,11 +39,13 @@ Starshine currently implements a deliberately narrow **module-pass** subset of `
 - merging back across small zero runs with a fixed threshold of `8`
 - top-byte retention when startup trap behavior must survive
 - overlap bailout for active segments
+- conservative dead passive-segment cleanup when only `data.drop` remains
+- passive data-index remapping after active segment-count changes
 - `data_count` section repair after segment-count changes
 
 That is already useful and artifact-proven.
 
-But it is still much smaller than upstream Binaryen `MemoryPacking.cpp`, which also rewrites active segment ops, analyzes passive segment users, inserts `memory.fill`, rewrites `data.drop`, creates lazy drop-state globals, honors `zeroFilledMemory` for imported memory, and enforces `MaxDataSegments` limits.
+But it is still much smaller than upstream Binaryen `MemoryPacking.cpp`, which also rewrites active segment ops, performs full passive profitability analysis and splitting, inserts `memory.fill`, expands `data.drop` across split passive survivors, creates lazy drop-state globals, honors `zeroFilledMemory` for imported memory, and enforces `MaxDataSegments` limits.
 
 ## Current rule about the filename
 
@@ -99,8 +101,8 @@ The first helper cluster in [`src/passes/memory_packing.mbt`](../../../../../src
   - turn parsed offsets back into rewritten active data offsets after a kept-range shift
 
 This cluster is the first big Binaryen/Starshine divergence:
-local Starshine has no generic segment-user analysis and no broader offset reasoning here.
-It only knows how to reason about exact constant active offsets.
+local Starshine still has no broader offset reasoning here.
+It only knows how to reason about exact constant active offsets, even though later helpers now also do conservative passive-user scanning and remapping.
 
 ## 3. Range collection and profitability helpers
 
@@ -148,12 +150,11 @@ That function owns the current local rewrite contract:
 - emit only nonzero kept ranges as rewritten active data segments with shifted offsets
 
 So the local pass is genuinely doing a semantics-aware active split.
-But it is still just the active subset.
-There is no local equivalent here of upstream:
+But it is still just the active rewriting subset.
+There is still no local equivalent here of upstream:
 
 - `optimizeSegmentOps(...)`
-- `getSegmentReferrers(...)`
-- `dropUnusedSegments(...)`
+- passive split-range profitability
 - `createReplacements(...)`
 - `replaceSegmentOps(...)`
 
@@ -176,7 +177,7 @@ It requires:
 That is narrower than upstream Binaryen in two important ways:
 
 - imported memory is always a hard local bailout, instead of an optional `zeroFilledMemory` mode
-- passive-segment users are not analyzed at all, because passive segments are not rewritten locally
+- passive-segment users are only analyzed conservatively for dead-segment cleanup and index remapping, not for full passive splitting/replacement
 
 ## 6. Module-pass driver and output repair
 
@@ -188,8 +189,10 @@ That driver owns:
 
 - reading the module `data_sec`
 - applying `mp_can_optimize(...)`
+- collecting conservative passive data users
 - rewriting active segments through `mp_active_rewrite(...)`
-- leaving passive segments untouched
+- dropping passive segments that have no non-`data.drop` referrers
+- remapping surviving passive users after segment-count changes
 - detecting whether anything changed
 - rebuilding `data_sec`
 - recomputing `data_cnt_sec` when the module already had one
@@ -222,8 +225,12 @@ Important focused tests include:
   - proves the out-of-bounds-startup-trap family by keeping the final byte at offset `65536`
 - `memory-packing bails out when active segments overlap`
   - proves the whole-module overlap bailout and leaves `data_sec` unchanged
+- `memory-packing drops passive segments referenced only by data.drop`
+  - proves conservative dead-passive cleanup and `data.drop` -> `nop`
+- `memory-packing remaps passive data users after active segment count changes`
+  - proves passive `memory.init` index repair after active splitting
 
-Those tests are small, but they lock the real currently implemented subset.
+Those tests are still small, but they now lock the real currently implemented subset more honestly.
 
 ## 2. Registry and preset proof
 
@@ -258,7 +265,9 @@ Current Starshine `memory-packing` implements:
 - small-zero-run merge-back with threshold `8`
 - startup-trap-preserving top-byte retention
 - one-memory-only and overlap legality gating
-- passive-segment pass-through
+- conservative dead passive-segment cleanup
+- passive data-index remapping after active segment-count changes
+- `data.drop` -> `nop` cleanup for removed passive segments
 - `data_count` repair after rewritten segment counts
 - explicit module-pass scheduling in the public presets
 
@@ -267,18 +276,18 @@ Current Starshine `memory-packing` implements:
 Compared with upstream Binaryen `version_129`, the local pass still lacks:
 
 - active-segment `memory.init` / `data.drop` simplification
-- passive-segment splitting and referrer collection
+- passive-segment splitting and full profitability/referrer collection
 - `memory.init` replacement planning
 - `memory.fill` insertion for zero slices
 - `data.drop` expansion into surviving split segments
 - lazy drop-state globals
 - imported-memory `zeroFilledMemory` mode
-- GC `array.new_data` / `array.init_data` conservative boundaries
+- GC `array.new_data` / `array.init_data` conservative no-split boundaries beyond index remapping
 - `MaxDataSegments` limiting
 
 So the honest short description of current Starshine remains:
 
-- **active constant-offset module-level segment packing with overlap and trap guards**
+- **active constant-offset module-level segment packing plus conservative dead-passive cleanup, with overlap and trap guards**
 
 not:
 

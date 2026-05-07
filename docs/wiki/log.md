@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | close `memory-packing` dead-passive normalization slice
+
+- Added conservative passive cleanup plus passive data-index remapping to `src/passes/memory_packing.mbt`, specifically dropping passive segments with no non-`data.drop` referrers, rewriting later passive users when active segment counts change, and rewriting dead `data.drop` instructions to `nop`.
+- Added focused regressions in `src/passes/memory_packing_test.mbt` for drop-only passive cleanup and passive `memory.init` remapping after active splitting, then reran `bun scripts/pass-fuzz-compare.ts --pass memory-packing --count 100 --seed 0xA11D --max-failures 5 --out-dir .tmp/recheck-memory-packing-current` (`100 / 100` matches, `0` mismatches) plus `bun scripts/pass-fuzz-compare.ts --pass memory-packing --count 10000 --seed 0x5eed --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-memory-packing-keepgoing` (`9975 / 10000` compared, `9975` matches, `0` mismatches, only known Binaryen/tool command-failure classes remaining).
+- Added `docs/wiki/raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md`, refreshed the living `memory-packing` parity page, and pruned `[MP]001` from `agent-todo.md`; broader passive split/rewrite/imported-memory gaps remain documented, but the saved current-head dead-passive mismatch family is closed.
+
 ## [2026-05-07] docs | close `AUD001` as a triage umbrella and split focused mismatch work
 
 - Reran the four still-red direct pass smoke lanes from the 2026-05-06 audit under fresh out dirs (`.tmp/recheck-memory-packing`, `.tmp/recheck-precompute`, `.tmp/recheck-remove-unused-brs`, `.tmp/recheck-ssa-nomerge`) and recorded the corrected current-head families in `docs/wiki/raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`.

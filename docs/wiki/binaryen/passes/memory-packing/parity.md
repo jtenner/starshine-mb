@@ -7,6 +7,7 @@ sources:
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
+  - ../../../raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
   - ../../../../../src/passes/memory_packing.mbt
@@ -26,10 +27,10 @@ related:
 ## Durable conclusions
 
 - Binaryen `version_129` `memory-packing` is a module-level segment-plus-segment-op rewrite pass, not just an active-segment splitter.
-- Current Starshine only models the active-segment subset today.
-- The saved generated-artifact `-O4z` slot `3` is already green, which shows the local active subset is useful and exercised by that artifact.
-- A 2026-05-07 current-head smoke rerun reopened a narrow direct mismatch family: empty active-segment and dead passive-segment normalization still drift from Binaryen on saved `wasm-smith` cases under `.tmp/recheck-memory-packing/`.
-- That saved green slot is **not** proof that Starshine already covers passive-segment rewriting, imported-memory `zeroFilledMemory`, GC data-referrer conservatism, or segment-count limiting.
+- Current Starshine still models only a narrow subset of Binaryen's full module-plus-segment-op pass, but it now also performs conservative dead passive-segment cleanup and passive data-index remapping.
+- The saved generated-artifact `-O4z` slot `3` is already green, which shows the local subset is useful and exercised by that artifact.
+- The 2026-05-07 saved dead-passive normalization family from `.tmp/recheck-memory-packing/` is now retired on current head.
+- That saved green slot is **not** proof that Starshine already covers full passive-segment rewriting, imported-memory `zeroFilledMemory`, GC data-referrer conservatism, or segment-count limiting.
 
 ## Current in-tree status
 
@@ -44,6 +45,9 @@ The current Starshine subset covers:
 - profitable active zero-range trimming
 - trap-preserving top-byte retention
 - overlap bailout
+- conservative removal of passive segments with no non-`data.drop` referrers
+- passive data-index remapping after active segment count changes
+- `data.drop` -> `nop` cleanup for removed passive segments
 - data-count section updates after changed segment counts
 
 ## Remaining gap
@@ -52,10 +56,10 @@ The main documented Binaryen gap is the entire passive-segment and segment-user 
 
 - no local `memory.init` rewrite engine
 - no local `memory.fill` insertion for zero slices
-- no local `data.drop` expansion or passive dead-segment cleanup
+- no local `data.drop` expansion for split passive segments
 - no local lazy drop-state globals
 - no imported-memory `zeroFilledMemory` mode
-- no GC `array.new_data` / `array.init_data` no-split boundary
+- no GC `array.new_data` / `array.init_data` no-split boundary beyond conservative index remapping
 - no `MaxDataSegments` limiting guard
 
 So the honest parity rule is:
@@ -66,10 +70,11 @@ So the honest parity rule is:
 ## Current evidence
 
 The 2026-04-22 raw primary-source capture did not change the upstream-teaching verdict.
-A later 2026-05-07 current-head rerun did change the direct-status note:
+The later 2026-05-07 current-head follow-up now sharpens the direct-status note again:
 
-- `memory-packing` is no longer best described as simply artifact-green plus incomplete upstream coverage
-- the remaining direct mismatch family is now specifically empty active-segment and dead passive-segment normalization drift, tracked in backlog slice `[MP]001`
+- `memory-packing` is still best described as artifact-green plus incomplete upstream coverage
+- but the narrow saved dead-passive normalization blocker from `[MP]001` is now closed on current head
+- direct `10000`-requested compare-pass evidence is semantically green on all successfully compared cases (`9975 / 10000`, `0` mismatches) with only known Binaryen/tool command-failure noise remaining
 
 The earlier source capture still made one freshness point explicit:
 
@@ -102,11 +107,13 @@ That matches the documented scheduler story:
 
 ## In-tree focused tests
 
-The local focused suite currently covers three families:
+The local focused suite currently covers five families:
 
 - active profitable zero-range splitting
 - active trap-preserving top-byte retention
 - overlap bailout
+- drop-only passive segment cleanup
+- passive data-index remapping after active splitting
 
 Those tests are real, but still much smaller than the upstream lit surface.
 
@@ -115,8 +122,8 @@ Those tests are real, but still much smaller than the upstream lit surface.
 For now, treat `memory-packing` as:
 
 - **green on the saved generated artifact**
-- **narrowly implemented locally**
-- **not yet a full port of Binaryen `MemoryPacking.cpp`**
+- **green again on the direct saved-repro family and current direct compare lane, modulo known Binaryen/tool command-failure noise**
+- **still narrowly implemented locally, not a full port of Binaryen `MemoryPacking.cpp`**
 
 That is the honest status this dossier should preserve.
 
@@ -125,6 +132,7 @@ That is the honest status this dossier should preserve.
 - [`../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md`](../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md)
 - [`../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
 - [`../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md`](../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md)
+- [`../../../raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md`](../../../raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md)
 - [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md)
 - [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MemoryPacking.cpp>
