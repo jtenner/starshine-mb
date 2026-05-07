@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md
@@ -72,7 +73,7 @@ So this is **not** just a trailing-branch stripper.
   - early `remove-unused-names` and later `merge-blocks` help RUB
   - later `coalesce-locals` opens more RUB opportunities
   - late `remove-unused-names` and another `merge-blocks` clean up after RUB again
-- The pass still has an active backlog slice in `agent-todo.md` under `RUB`.
+- The dedicated `RUB` backlog slice was retired on 2026-05-07 after a fresh direct debug-artifact replay plus a larger mixed-generator direct-pass rerun; remaining direct mismatch triage now lives under shared `AUD001`, while ordered-neighborhood proof stays with the broader optimize-path queue.
 - The saved generated-artifact work also touched RUB heavily, especially the retired slot-14 and slot-40 corruption witnesses that now live in the parity history.
 
 This makes RUB relevant to:
@@ -189,6 +190,7 @@ That is still a narrow spot check, not a whole-file equivalence proof, so keep t
 
 ## Sources
 
+- [`../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md`](../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md)
 - [`../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md)
 - [`../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md)

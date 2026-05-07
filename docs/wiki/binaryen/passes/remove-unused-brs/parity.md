@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-07
 sources:
+  - ../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
@@ -136,7 +137,7 @@ related:
 - Gen-valid compare-pass evidence:
   the current backlog records clean `100`, `1000`, and `10000` case `gen-valid` lanes with zero mismatches.
 - Mixed-generator compare evidence:
-  the current saved runs are still clean on compared cases and stop mainly on Binaryen-side command failures rather than Starshine semantic mismatches.
+  older saved runs stayed clean on compared cases and stopped mainly on Binaryen-side command failures rather than Starshine semantic mismatches, while the fresh 2026-05-07 rerun reopens a narrower local-declaration shaping drift family.
 - Artifact validation:
   the native `cmd` replay for `--remove-unused-brs` now validates the checked-in debug artifact in-memory.
 - Specific fixed families called out by the backlog:
@@ -153,10 +154,14 @@ related:
   - raw false-prefix guard cancellation inside structured-return ladders
   - `br_table` continuation-wrapper retargeting to the outer exit
   - raw skipping of large result `br_table` dispatch ladders with no HOT-only surface
-- New mixed-generator evidence is still clean on compared cases:
+- Older mixed-generator evidence stayed clean on compared cases:
   - `.tmp/pass-fuzz-rub-20260410-final-500` completed `499/499` compared matches
   - `0` mismatches, `0` validation failures, `0` generator failures
   - the only failure was the known Binaryen-side `binaryen-rec-group-zero` parser class
+- Fresh current-head mixed-generator evidence from `.tmp/pass-fuzz-remove-unused-brs-20260507` is no longer clean on normalized text, but the saved reduced failures currently classify as local-declaration shaping drift rather than body rewrites:
+  - compared `163/10000`, normalized matches `143`, mismatches `20`, validation failures `0`, generator failures `0`, command failures `1`
+  - the lone command failure stayed the known Binaryen-side `binaryen-rec-group-zero` parser class
+  - inspected mismatch dirs (`case-000006`, `000018`, `000022`, `000024`, `000026`, `000052`, and the rest of the first saved gen-valid set) showed no non-local diff hunks, only local declaration count/type/order drift
 - New post-skip parity evidence is also clean:
   - `.tmp/pass-fuzz-rub-genvalid-20260410-large-brtable-skip-10000` completed `10000/10000` compared matches with `0` mismatches and no validation, generator, or command failures
   - `.tmp/pass-fuzz-rub-genvalid-20260410-false-prefix-guard-10000` also completed `10000/10000` compared matches with `0` mismatches and no validation, generator, or command failures
@@ -237,6 +242,10 @@ The active backlog now says the next work should be reduced in this order:
   - slot `14` is retired by [`0102`](../../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md)
   - slot `40` is retired by [`0108`](../../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md)
 - So the remaining work is no longer a generated-artifact corruption blocker; it is parity reduction, canonicalization-noise separation, and runtime work inside already-valid replays.
+- The newest direct mismatch family is narrower than the older backlog wording too:
+  - the 2026-05-07 mixed rerun no longer points first at a shared dead branch-wrapper cleanup bug
+  - the first saved mismatches reduce to local declaration shaping / normalization drift with no inspected instruction-body diffs yet
+  - keep that queue under shared `AUD001` unless a later reduced repro proves a real mutation-backed RUB body delta
 
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.

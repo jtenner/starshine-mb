@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] docs | close `remove-unused-brs` mixed-rerun backlog slice
+
+- Reran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-brs` and confirmed the current direct artifact lane still compares green on representation-stable surfaces (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`) even though raw emitted wasm remains different.
+- Ran `bun scripts/pass-fuzz-compare.ts --pass remove-unused-brs --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-remove-unused-brs-20260507 --keep-going-after-command-failures`, then classified the saved semantic failures as local declaration shaping drift only: the first saved `gen-valid` mismatch set showed no non-local diff hunks, while the lone command failure stayed the known Binaryen-side `binaryen-rec-group-zero` parser class.
+- Added `docs/wiki/raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md`, refreshed the living `remove-unused-brs` landing/parity pages, and pruned `[RUB]002` from `agent-todo.md`; remaining direct mismatch triage now stays under shared `[AUD]001` while ordered-neighborhood/runtime proof moves with the broader optimize-path queue.
+
 ## [2026-05-07] docs | close `reorder-locals` boundary-policy backlog slice
 
 - Reran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals` on current head and recorded that Binaryen still failed to converge on raw emitted wasm after 5 no-pass roundtrips while representation-stable surfaces still compared green (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`).
