@@ -860,6 +860,26 @@ fn precompute_simplify_region_roots(
             pass_delete_detached_nodes(ctx, func, removed)
             changed = true
             continue
+          } else if region_ref == @ir.HotRegionRef::root() {
+            match @ir.hot_node_get(func, node_id).op {
+              @ir.HotOp::Block =>
+                if precompute_block_is_selector_only_self_targeting_br_table(
+                    func, node_id,
+                  ) {
+                  let removed = pass_splice_region(
+                    ctx,
+                    func,
+                    region_ref,
+                    idx,
+                    1,
+                    [@ir.hot_build_nop(func)],
+                  )
+                  pass_delete_detached_nodes(ctx, func, removed)
+                  changed = true
+                  continue
+                }
+              _ => ()
+            }
           }
         @ir.HotOp::Drop =>
           if @ir.hot_child_count(func, node_id) == 1 &&
@@ -932,6 +952,45 @@ fn precompute_simplify_region_roots(
     pass_mark_mutated(ctx, func)
   }
   changed
+}
+
+///|
+fn precompute_block_is_selector_only_self_targeting_br_table(
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> Bool {
+  if @ir.hot_node_result_arity(func, block_id) != 0 {
+    return false
+  }
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  if block_label < 0 || @ir.hot_label_branch_arity(func, block_label) != 0 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let br_table_id = @ir.hot_region_get(func, body_ref, 0)
+  match @ir.hot_node_get(func, br_table_id).op {
+    @ir.HotOp::BrTable => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, br_table_id) != 1 ||
+    !precompute_is_discardable_value(
+      func,
+      @ir.hot_child_get(func, br_table_id, 0),
+    ) {
+    return false
+  }
+  if @ir.hot_branch_target(func, br_table_id) != Some(block_label) {
+    return false
+  }
+  for target in @ir.hot_branch_table_targets_for_node(func, br_table_id) {
+    if target != block_label {
+      return false
+    }
+  }
+  true
 }
 
 ///|

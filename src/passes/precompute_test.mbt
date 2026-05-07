@@ -112,6 +112,57 @@ test "precompute retargets split local.set wrappers with void-if forwarders" {
 }
 
 ///|
+test "precompute folds after early cleanup exposes constants" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) block (result i32) i32.const 41 i32.const 1 i32.add end))",
+      ["vacuum", "precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected early cleanup precompute success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
+test "precompute leaves late cleanup-ready nops around dead exact roots" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 2 i32.const 3 i32.mul drop i32.const 9))",
+      ["precompute", "vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected late cleanup precompute success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("i32.mul"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "precompute removes selector-only self-targeting br_table blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) block $exit i32.const 1 br_table $exit $exit end unreachable))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected precompute self-target br_table success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
 test "precompute removes dropped pure constants from void bodies" {
   let optimized = match
     pass_test_run_pipeline("(module (func i64.const 360 drop))", ["precompute"]) {

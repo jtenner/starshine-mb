@@ -61,6 +61,7 @@ Observed unique-pass order
   - Current mismatch families from the audit: `global-refining` nullability/type-tightening drift, `memory-packing` data-segment normalization drift, `optimize-instructions` signed-vs-unsigned constant-fold canonicalization drift, `precompute` dead `block` / `br_table` cleanup drift, `remove-unused-brs` shared dead branch-wrapper cleanup drift, and `ssa-nomerge` temp-local shaping drift.
   - 2026-05-07 RUB note: fixed the selector-only self-targeting `br_table` subfamily (`block $exit ... br_table $exit $exit`) and promoted it to `remove_unused_brs_test`; rerun `.tmp/pass-fuzz-remove-unused-brs-20260507` advanced past the previous early gen-valid failures but still found later local-normalization and remaining RUB mismatches, so [AUD]001 stays open.
   - 2026-05-07 OI note: fixed the non-negative signed-constant canonicalization subfamily for `optimize-instructions` (`*_s` compare/div/rem/shr to unsigned variants when Binaryen does so) and promoted focused regressions to `optimize_instructions_test`; rerun `.tmp/pass-fuzz-optimize-instructions-20260507` shows the signed/unsigned drift gone from early failures, with remaining mismatches now dominated by existing constant `eqz` folding and other OI representation drift, so [AUD]001 stays open.
+  - 2026-05-07 PC note: fixed the selector-only self-targeting `br_table` block subfamily for `precompute`, added early/late cleanup interaction regressions, and replayed the debug artifact lane at `.tmp/self-precompute-20260507` with normalized WAT and canonical function parity; direct gen-valid fuzz in `.tmp/pass-fuzz-precompute-20260507` still reports broader precompute drift, so [AUD]001 stays open.
 
 #### DCE - Dead Code Elimination
 
@@ -77,9 +78,6 @@ Observed unique-pass order
 
 - [PC]001 - Runtime and Representation Drift
   - Deliverables: keep direct debug-artifact parity green; reduce the current runtime gap and canonical wasm/text-form drift; keep the fuzz parity gate green.
-
-- [PC]002 - Early/Late Slot Regression and Artifact Parity
-  - Deliverables: add regressions for early and late folding opportunities; verify interaction with surrounding cleanup passes; replay `--precompute` parity on the artifact after neighboring slots land.
 
 #### CP - Code Pushing
 

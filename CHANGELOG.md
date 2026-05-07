@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Passes: complete precompute slot regression coverage
+
+- **cover early/late cleanup interactions for `precompute`, remove selector-only self-targeting `br_table` blocks, and replay the debug artifact lane with canonical function parity** by **@OpenAI**. Updated [`src/passes/precompute.mbt`](./src/passes/precompute.mbt), [`src/passes/precompute_test.mbt`](./src/passes/precompute_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-07 Passes: narrow optimize-instructions signed const drift
 
 - **canonicalize non-negative signed constant compare/div/rem/shr operations to Binaryen's unsigned forms in `optimize-instructions` and keep remaining AUD001 drift explicit** by **@OpenAI**. Updated [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
