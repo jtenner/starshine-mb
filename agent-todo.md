@@ -54,8 +54,6 @@ Observed unique-pass order
   - Passes with active problems: `memory-packing`, `precompute`, `remove-unused-brs`, `ssa-nomerge`.
   - Deliverables: reduce and classify each fresh repro under `.tmp/pass-audit-20260506/`; promote durable failures into focused tests; fix the current mismatch families; rerun direct `--pass <name>` parity at `10000` cases before treating the pass as green again.
   - Current mismatch families from the audit: `memory-packing` data-segment normalization drift, `precompute` dead `block` / `br_table` cleanup drift, `remove-unused-brs` local-declaration normalization drift, and `ssa-nomerge` temp-local shaping drift.
-  - 2026-05-07 RUB note: fixed the selector-only self-targeting `br_table` subfamily (`block $exit ... br_table $exit $exit`) and promoted it to `remove_unused_brs_test`; reran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-brs` with `Normalized WAT equal: yes` and `Canonical function compare equal: yes`, then reran `.tmp/pass-fuzz-remove-unused-brs-20260507` at `10000` mixed cases and reached `163` compared / `143` normalized matches / `20` mismatches / `1` known Binaryen `binaryen-rec-group-zero` parser failure. The inspected saved mismatch set currently reduces to local declaration shaping only, with no body diffs yet, so direct RUB triage stays under [AUD]001 as local-normalization drift rather than a fresh mutation-backed branch rewrite bug.
-  - 2026-05-07 PC note: fixed the selector-only self-targeting `br_table` block subfamily for `precompute`, added early/late cleanup interaction regressions, and replayed the debug artifact lane at `.tmp/self-precompute-20260507` with normalized WAT and canonical function parity; direct gen-valid fuzz in `.tmp/pass-fuzz-precompute-20260507` still reports broader precompute drift, so [AUD]001 stays open.
 
 #### DCE - Dead Code Elimination
 
@@ -133,7 +131,6 @@ Observed unique-pass order
 
 - [SG]002 - Late-Tail Preset Scheduling
   - Deliverables: keep `string-gathering` out of public presets until `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` can be replayed as an ordered neighborhood; decide whether Binaryen reuse of existing canonical string globals is needed for string-heavy binaries.
-  - 2026-05-08 note: the inner `string-gathering -> reorder-globals -> directize` triple now has explicit neighborhood regression coverage plus a current-head debug-artifact replay (`.tmp/self-opt-string-reorder-directize-20260508`) with canonical wasm and normalized WAT equality. Remaining preset gating is now the missing earlier late-tail neighbors (`simplify-globals-optimizing` and the full scheduled postpass lane), not the triple itself.
 
 ## v0.2.0 Backlog
 

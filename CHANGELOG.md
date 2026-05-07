@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-08 Docs: prune filed status notes from active backlog
+
+- **trim historical replay notes out of `agent-todo.md` so the active backlog keeps only live unreleased work while the filed evidence stays in the changelog and wiki** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md) and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-08 Passes: close simplify-locals-nostructure ordered-slot replay
 
 - **prove the exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` neighborhood, refresh 10k direct parity evidence, and prune `[SLNS]003` from the active backlog** by **@OpenAI**. Updated [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`src/passes/simplify_locals_nostructure_test.mbt`](./src/passes/simplify_locals_nostructure_test.mbt), [`docs/wiki/raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md`](./docs/wiki/raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md), [`docs/wiki/binaryen/passes/simplify-locals-nostructure/index.md`](./docs/wiki/binaryen/passes/simplify-locals-nostructure/index.md), [`docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-port-readiness-and-validation.md), [`docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-strategy.md`](./docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-strategy.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
