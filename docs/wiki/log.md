@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | align `global-refining` export and null boundary handling
+
+- Changed Starshine `global-refining` to classify `ref.null` initializers with Binaryen-style bottom reference types (`none`, `nofunc`, `noextern`, `noexn`), preserve exported mutable globals, and allow immutable exported refinements on the direct-pass lane.
+- Added focused regressions in `src/passes/global_refining_test.mbt` for exported immutable positives, exported mutable bailouts, abstract `ref.null` bottom typing, and the existing private/sibling join cases; updated the living `global-refining` dossier pages to retire the old private-only wording and keep the remaining public-type / closed-world gaps explicit.
+- Ran `moon test src/passes`, `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-refining` (canonical wasm equal, normalized WAT equal), and `bun scripts/pass-fuzz-compare.ts --pass global-refining --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-global-refining-20260507c` (6759 compared, 6759 matches, 0 mismatches, 20 Binaryen/tool command failures: `binaryen-rec-group-zero`, `binaryen-bad-section-size`, `binaryen-table-index-out-of-range`, `binaryen-invalid-tag-index`).
+- Removed `global-refining` from the active AUD001 mismatch-family list while keeping the broader queue open for `memory-packing`, `precompute`, `remove-unused-brs`, and `ssa-nomerge`.
+
 ## [2026-05-07] parity | align `optimize-instructions` literal-constant `eqz`
 
 - Changed Starshine `optimize-instructions` to preserve literal-constant `i32.eqz` / `i64.eqz` nodes instead of folding them to `i32.const`, matching Binaryen direct `--optimize-instructions` output.

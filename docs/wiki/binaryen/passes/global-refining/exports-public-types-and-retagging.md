@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
 related:
@@ -234,8 +234,8 @@ That is an inference from the source plus the lit output, not a direct prose sta
 
 The current MoonBit pass differs from Binaryen in a few relevant ways:
 
-- it skips all exported globals instead of modeling the full boundary matrix
-- it does not use a public-type validator on this path
+- it now preserves exported mutable globals but allows immutable exported refinement without an explicit public-type validator
+- it still does not model the official closed-world exported-global distinction on this path
 - it does not need Binaryen-style AST retagging because the local representation does not cache expression types the same way
 
 That means a future parity port must decide carefully:

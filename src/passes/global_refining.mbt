@@ -1,6 +1,6 @@
 ///|
 pub fn global_refining_summary() -> String {
-  "Refine private defined global reference types from their initializer and observed writes."
+  "Refine defined global reference types from their initializer and observed writes, while preserving mutable export boundaries."
 }
 
 ///|
@@ -54,10 +54,56 @@ fn gr_global_ref_type(global_type : @lib.GlobalType) -> @lib.RefType? {
 }
 
 ///|
+fn gr_null_bottom_type_for_comp(comp_type : @lib.CompType) -> @lib.AbsHeapType {
+  match comp_type {
+    @lib.FuncCompType(_, _) => @lib.AbsHeapType::no_func()
+    @lib.StructCompType(_) | @lib.ArrayCompType(_) => @lib.AbsHeapType::none()
+  }
+}
+
+///|
+fn gr_ref_null_result_type(
+  ref_type : @lib.RefType,
+  env : @validate.Env,
+) -> @lib.RefType {
+  match ref_type.get_heap_type() {
+    @lib.AbsHeapTypeHeapType(abs) => {
+      let bottom = match abs {
+        @lib.FuncAbsHeapType => @lib.AbsHeapType::no_func()
+        @lib.NoFuncAbsHeapType => @lib.AbsHeapType::no_func()
+        @lib.ExternAbsHeapType => @lib.AbsHeapType::no_extern()
+        @lib.NoExternAbsHeapType => @lib.AbsHeapType::no_extern()
+        @lib.ExnAbsHeapType => @lib.AbsHeapType::no_exn()
+        @lib.NoExnAbsHeapType => @lib.AbsHeapType::no_exn()
+        @lib.AnyAbsHeapType
+        | @lib.EqAbsHeapType
+        | @lib.I31AbsHeapType
+        | @lib.StructAbsHeapType
+        | @lib.ArrayAbsHeapType
+        | @lib.StringAbsHeapType
+        | @lib.NoneAbsHeapType => @lib.AbsHeapType::none()
+      }
+      @lib.RefType::new(true, @lib.HeapType::abs(bottom))
+    }
+    heap_type =>
+      match env.resolve_heaptype_subtype(heap_type) {
+        Some(subtype) =>
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(
+              gr_null_bottom_type_for_comp(subtype.get_comptype()),
+            ),
+          )
+        None => ref_type.make_nullable()
+      }
+  }
+}
+
+///|
 fn gr_expr_result_type(env : @validate.Env, expr : @lib.Expr) -> @lib.ValType? {
   match expr {
     @lib.Expr([@lib.RefNull(ref_type)]) =>
-      Some(@lib.ValType::ref_type(ref_type.make_nullable()))
+      Some(@lib.ValType::ref_type(gr_ref_null_result_type(ref_type, env)))
     @lib.Expr([@lib.GlobalGet(global_idx)]) =>
       match env.get_global_type(global_idx) {
         Some(global_type) =>
@@ -210,6 +256,12 @@ fn gr_join_heaptypes(
   right : @lib.HeapType,
   env : @validate.Env,
 ) -> @lib.HeapType? {
+  if @validate.Match::matches(left, right, env) {
+    return Some(right)
+  }
+  if @validate.Match::matches(right, left, env) {
+    return Some(left)
+  }
   let candidates = gr_collect_heaptype_candidates(left, env)
   for candidate in candidates {
     if @validate.Match::matches(left, candidate, env) &&
@@ -399,7 +451,10 @@ pub fn global_refining_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       defined_idx < globals.length()
       defined_idx = defined_idx + 1 {
     let abs_idx = imported_global_count + defined_idx
-    if exported_globals[abs_idx] {
+    let is_mutable = match env.globals[abs_idx] {
+      @lib.GlobalType(_, mutable_) => mutable_
+    }
+    if exported_globals[abs_idx] && is_mutable {
       continue
     }
     match gr_global_ref_type(env.globals[abs_idx]) {
@@ -482,9 +537,14 @@ pub fn global_refining_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       continue
     }
     let @lib.Global(@lib.GlobalType(_, mutable_), init) = next_globals[defined_idx]
+    let refined_init = match init {
+      @lib.Expr([@lib.RefNull(_)]) =>
+        @lib.Expr::new([@lib.Instruction::ref_null_type(refined_ref_type)])
+      _ => init
+    }
     next_globals[defined_idx] = @lib.Global::new(
       @lib.GlobalType::new(@lib.ValType::ref_type(refined_ref_type), mutable_),
-      init,
+      refined_init,
     )
     changed = true
   }

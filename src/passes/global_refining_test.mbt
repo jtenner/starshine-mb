@@ -43,7 +43,29 @@ test "run_hot_pipeline applies global-refining to private globals with narrower 
 }
 
 ///|
-test "global-refining keeps exported globals at their declared boundary type" {
+test "global-refining refines exported immutable globals from their initializer" {
+  let input =
+    #| (module
+    #|   (global $g (export "g") exnref (ref.null exn)))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected exported immutable global-refining success, got \{err}")
+  }
+
+  assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_exn())),
+      ),
+      false,
+    ),
+  )
+}
+
+///|
+test "global-refining keeps exported mutable globals at their declared boundary type" {
   let input =
     #| (module
     #|   (type $base (sub (struct)))
@@ -63,6 +85,60 @@ test "global-refining keeps exported globals at their declared boundary type" {
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
         @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining treats abstract ref.null initializers as bottom references" {
+  let input =
+    #| (module
+    #|   (global $exn (mut exnref) (ref.null exn))
+    #|   (global $extern (mut externref) (ref.null extern))
+    #|   (global $func (mut funcref) (ref.null func))
+    #|   (global $any (mut anyref) (ref.null any)))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref.null global-refining success, got \{err}")
+  }
+
+  assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_exn())),
+      ),
+      true,
+    ),
+  )
+  assert_eq(
+    try! gr_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          true,
+          @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
+        ),
+      ),
+      true,
+    ),
+  )
+  assert_eq(
+    try! gr_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_func())),
+      ),
+      true,
+    ),
+  )
+  assert_eq(
+    try! gr_test_defined_global_type(optimized, 3),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::none())),
       ),
       true,
     ),

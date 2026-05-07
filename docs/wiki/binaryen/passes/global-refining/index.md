@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
@@ -64,7 +64,7 @@ It is a small whole-module **global declaration tightening** pass.
   - `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> gsi`
 - That placement is meaningful:
   - `once-reduction` can simplify run-once scaffolding first
-  - `global-refining` then tightens private global types based on surviving observed writes
+  - `global-refining` then tightens defined global reference types based on surviving observed writes while preserving mutable export boundaries
   - the next `remove-unused-module-elements` and later `gsi` see a cleaner, more precise module
 - `agent-todo.md` still has **no dedicated `GR` slice** today.
   - The live repo intent is only indirect through the canonical ordered-path notes and the shared `DFE -> RUME -> MP -> OR -> GR -> GSI` replay context.
@@ -92,7 +92,8 @@ It is a small whole-module **global declaration tightening** pass.
   - update `global.get` result types
   - refinalize changed code
 - The current local Starshine pass is narrower:
-  - it refines only non-exported defined reference globals
+  - it refines defined reference globals, but still skips exported mutable ones
+  - it does not yet model Binaryen's explicit public-type validation or closed-world exported-global conservatism
   - it collects writes through HOT lifting only for functions that mention candidate globals
   - and it rewrites declarations without Binaryen-style post-pass `global.get` retagging because the local representation does not use the same cached expression-type model here
 - The pass does **not** remove `global.set`s, replace `global.get`s with constants, or run `gsi`-style field-value inference.
@@ -138,7 +139,7 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering init-only null and `ref.func` positives, exactness/nullability outcomes, heterogeneous `anyref`-to-`eqref` joins, exported/imported bailouts, and the main non-goals.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy: private-global-only candidate selection, HOT-assisted `global.set` collection, local ref-type joining, declaration-only rewrite, and the main differences from upstream Binaryen's export/public-type/retagging contract.
+  - Current in-tree Starshine strategy: immutable-export-aware candidate selection, HOT-assisted `global.set` collection, Binaryen-style bottom-null tightening, declaration rewrite, and the remaining differences from upstream Binaryen's public-type / closed-world / retagging contract.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, the green saved generated-artifact evidence, and the honest remaining gaps between the local MoonBit pass and the full official Binaryen boundary matrix.
 
@@ -160,7 +161,7 @@ So the durable rule is:
 - Treat `implementation-structure-and-tests.md` as the compact owner/test-map page for future follow-ups so the file/test surface stays source-confirmed instead of getting re-inferred from broad prose.
 - Keep the main beginner correction explicit:
   - upstream `global-refining` is a declaration-tightening plus retagging pass, not a broad control-flow-sensitive global optimizer
-- Keep the exported immutable open-world case, the closed-world exported-global conservatism, the `PublicTypeValidator` rule, the Starshine-local private-global subset page, and the `global.get` retagging contract explicit whenever future docs or code changes touch this pass.
+- Keep the exported immutable open-world case, the closed-world exported-global conservatism, the `PublicTypeValidator` rule, the Starshine-local mutable-export-preserving subset page, and the `global.get` retagging contract explicit whenever future docs or code changes touch this pass.
 
 ## Sources
 

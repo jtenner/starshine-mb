@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
@@ -30,15 +30,15 @@ This page describes the **current local MoonBit implementation**, not the full u
 Starshine exposes `global-refining` as an active module pass with:
 
 - descriptor name: `global-refining`
-- summary text: `Refine private defined global reference types from their initializer and observed writes.`
+- summary text: `Refine defined global reference types from their initializer and observed writes, while preserving mutable export boundaries.`
 - module-pass dispatch through `pass_manager.mbt`
 - preset placement in the early module cluster between `once-reduction` and `global-struct-inference`
 
 The most important immediate local rule is:
 
-- **the pass currently refines only non-exported defined reference globals**
+- **the pass currently refines defined reference globals, but still preserves exported mutable boundaries**
 
-That is already narrower than official Binaryen `version_129`, which can still refine some open-world immutable exported globals when the refined type stays public.
+That is closer to official Binaryen `version_129` than the earlier private-only subset, but it is still narrower because Starshine does not yet model public-type validation or the closed-world exported-global distinction.
 
 ## Current local code map
 
@@ -46,21 +46,25 @@ The easiest way to follow the in-tree implementation is this file map:
 
 - `src/passes/global_refining.mbt:2`
   - summary string used by the registry and preset docs
-- `src/passes/global_refining.mbt:57`
+- `src/passes/global_refining.mbt:103`
   - `gr_expr_result_type(...)`: initializer classification for `ref.null`, immutable `global.get`, and `ref.func`
-- `src/passes/global_refining.mbt:232`
+- `src/passes/global_refining.mbt:284`
   - `gr_join_reftypes(...)`: local join over heap type, nullability, and exactness
-- `src/passes/global_refining.mbt:280`
+- `src/passes/global_refining.mbt:332`
   - `gr_scan_candidate_sets(...)`: cheap instruction pre-scan before HOT lifting
-- `src/passes/global_refining.mbt:317`
+- `src/passes/global_refining.mbt:369`
   - `gr_collect_func_global_sets(...)`: HOT-side `global.set` value collection
-- `src/passes/global_refining.mbt:367`
+- `src/passes/global_refining.mbt:419`
   - `global_refining_run_module_pass(...)`: exported-global filtering, initializer seeding, per-function collection, and declaration rewrite
 - `src/passes/global_refining_test.mbt:17`
   - private narrowing positive
 - `src/passes/global_refining_test.mbt:46`
-  - exported-global bailout
-- `src/passes/global_refining_test.mbt:73`
+  - exported immutable positive
+- `src/passes/global_refining_test.mbt:70`
+  - exported mutable bailout
+- `src/passes/global_refining_test.mbt:97`
+  - abstract `ref.null` bottom-type coverage
+- `src/passes/global_refining_test.mbt:160`
   - sibling-write join case
 - `src/passes/pass_manager.mbt:8643`
   - active module-pass dispatch site
@@ -82,16 +86,16 @@ The easiest way to follow the in-tree implementation is this file map:
 A defined global becomes a candidate only when all of these are true:
 
 - it is not imported
-- it is not exported
 - its declared type is a reference type
+- if it is exported, it is immutable
 
 That means current Starshine intentionally skips:
 
 - imported globals
-- all exported globals
+- exported mutable globals
 - non-reference globals
 
-So the local boundary policy is simpler and more conservative than Binaryen's open-vs-closed-world plus public-type matrix.
+So the local boundary policy now matches the broad open-world mutable-export split, but it is still simpler than Binaryen's full open-vs-closed-world plus public-type matrix.
 
 ## 2. Initializer typing is tiny and syntax-driven
 
@@ -103,7 +107,9 @@ So the local boundary policy is simpler and more conservative than Binaryen's op
 
 If an initializer is not recognized as one of those reference-producing forms, it simply contributes nothing to the candidate type.
 
-That is smaller than Binaryen's broad AST-plus-refinalization context, but it covers the current focused local tests and the main private-global use cases.
+One important 2026-05-07 correction is that `ref.null` is now classified using Binaryen-style bottom reference types (`none`, `nofunc`, `noextern`, `noexn`) instead of reusing the broader declared heap kind directly.
+
+That is still smaller than Binaryen's broad AST-plus-refinalization context, but it now covers the focused nullability/type-tightening mismatch family that direct fuzz exposed.
 
 ## 3. The local LUB story is custom but clearly Binaryen-inspired
 
@@ -154,22 +160,23 @@ That is a real source-backed split from Binaryen. The local representation curre
 
 ## 6. Current tests prove a narrow but clear contract
 
-The focused local tests lock three main families:
+The focused local tests lock five main families:
 
 - private global narrowing from a declared supertype to a child write type
-- exported global bailout
+- exported immutable refinement
+- exported mutable bailout
+- abstract `ref.null` bottom-type tightening
 - sibling-write join at the shared declared supertype
 
-That is a good local floor for the current implementation.
-It is much smaller than the official `global-refining.wast` surface, which is why the parity page still keeps the missing exported-immutable-public and Binaryen-retagging behaviors explicit.
+That is a much better local floor for the current implementation.
+It is still smaller than the official `global-refining.wast` surface, which is why the parity page keeps the remaining public-type, closed-world, and Binaryen-retagging differences explicit.
 
 ## What the local pass does not do
 
 Compared with upstream Binaryen `version_129`, Starshine currently does **not** do these `global-refining` behaviors here:
 
-- open-world immutable exported global refinement
+- explicit `PublicTypeValidator`-style public-boundary filtering for immutable exports
 - closed-world-vs-open-world exported-global distinction
-- `PublicTypeValidator`-style public-boundary filtering
 - broad AST-side `FindAll<GlobalSet>` collection
 - explicit `global.get` retagging after declaration rewrites
 - `runOnModuleCode(...)` repair of dependent global initializers
@@ -183,7 +190,7 @@ Those are real capability and representation differences, not just documentation
 The most important durable correction is:
 
 - upstream Binaryen `global-refining` is a boundary-sensitive declaration-tightening pass with export/public-type logic and mandatory `global.get` repair
-- local Starshine `global-refining` is currently a **private-global declaration-tightening subset**
+- local Starshine `global-refining` is currently a **defined-global declaration-tightening subset with mutable-export preservation**
 
 That narrower local strategy is still useful, and it is already green on the saved generated-artifact slot documented in `parity.md`.
 But it should not be described as if it were the entire official Binaryen pass.
@@ -193,12 +200,12 @@ But it should not be described as if it were the entire official Binaryen pass.
 Treat the current Starshine implementation as:
 
 - a real in-tree module pass
-- a conservative private-global subset of Binaryen `global-refining`
+- a conservative defined-global subset of Binaryen `global-refining`
 - a HOT-assisted declaration-tightener whose correctness currently depends on the local IR not needing Binaryen-style post-rewrite `global.get` retagging
 
 Future work on this pass should answer one question explicitly:
 
-- are we preserving the current private-global subset,
-- or are we expanding toward full Binaryen export/public-type behavior?
+- are we preserving the current mutable-export-preserving subset,
+- or are we expanding toward full Binaryen public-type and closed-world behavior?
 
 For `global-refining`, those are meaningfully different projects.
