@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | align `optimize-instructions` literal-constant `eqz`
+
+- Changed Starshine `optimize-instructions` to preserve literal-constant `i32.eqz` / `i64.eqz` nodes instead of folding them to `i32.const`, matching Binaryen direct `--optimize-instructions` output.
+- Updated focused HOT regressions in `src/passes/optimize_instructions_test.mbt` and refreshed the Starshine strategy pages to distinguish exact binary constant folding from non-constant `eqz` rewrites.
+- Ran `moon info`, `moon fmt`, `moon test`, mixed-generator `bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-optimize-instructions-eqz-20260507` (6759 compared, 6759 matches, 0 mismatches, 20 Binaryen/tool command failures), and gen-valid `bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --generator gen-valid --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-optimize-instructions-gen-valid-eqz-20260507` (10000 compared, 10000 matches, 0 failures).
+- Removed `optimize-instructions` from the active AUD001 mismatch-family list while keeping the broader AUD001 queue open for the other passes.
+
 ## [2026-05-06] implementation | widen `optimize-casts` branch casts
 
 - Added HOT lifting support for `br_on_cast` / `br_on_cast_fail` and taught `optimize-casts` to rewrite guaranteed-success `br_on_cast` to an unconditional branch and guaranteed-success `br_on_cast_fail` to the fallthrough reference.

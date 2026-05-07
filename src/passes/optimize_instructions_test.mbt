@@ -1,16 +1,19 @@
 ///|
-test "optimize-instructions folds i32.eqz on constant zero" {
-  let optimized = match
-    pass_test_run_pipeline("(module (func (result i32) i32.const 0 i32.eqz))", [
-      "optimize-instructions",
-    ]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected optimize-instructions success, got \{err}")
-  }
-
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("I32(1)"))
-  assert_false(pretty.contains("I32Eqz"))
+test "optimize-instructions keeps i32.eqz on constant zero" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 0 i32.eqz))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  assert_eq(@ir.hot_child_count(func, root), 1)
+  let operand = @ir.hot_child_get(func, root, 0)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, operand).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
 }
 
 ///|
@@ -80,7 +83,7 @@ fn optimize_instructions_shared_dag_fixture(depth : Int) -> @ir.HotFunc {
 }
 
 ///|
-test "optimize-instructions keeps shared children live when folding eqz" {
+test "optimize-instructions keeps shared eqz constant children live" {
   let func = pass_test_lift_first_func(
     "(module (func (result i32) i32.const 0 i32.eqz))",
   )
@@ -102,33 +105,32 @@ test "optimize-instructions keeps shared children live when folding eqz" {
       fail("expected optimize-instructions shared-child success, got \{err}")
   }
 
-  let folded = @ir.hot_root_get(func, 0)
-  let folded_node = @ir.hot_node_get(func, folded)
-  match folded_node.op {
-    @ir.HotOp::Const => ()
-    _ => fail("expected folded root to become a const node")
-  }
+  let root = @ir.hot_root_get(func, 0)
   assert_eq(
-    @ir.hot_const_get(func, folded_node.imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_eqz()),
   )
+  assert_eq(@ir.hot_child_get(func, root, 0), shared)
   assert_true(@ir.hot_node_is_live(func, shared))
   assert_eq(@ir.hot_child_get(func, drop_, 0), shared)
 }
 
 ///|
-test "optimize-instructions folds i64.eqz on non-zero constants" {
-  let optimized = match
-    pass_test_run_pipeline("(module (func (result i32) i64.const 9 i64.eqz))", [
-      "optimize-instructions",
-    ]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected optimize-instructions success, got \{err}")
-  }
-
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("I32(0)"))
-  assert_false(pretty.contains("I64Eqz"))
+test "optimize-instructions keeps i64.eqz on non-zero constants" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 9 i64.eqz))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+  assert_eq(@ir.hot_child_count(func, root), 1)
+  let operand = @ir.hot_child_get(func, root, 0)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, operand).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(9L)),
+  )
 }
 
 ///|

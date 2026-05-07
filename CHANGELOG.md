@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-07 Passes: align optimize-instructions const eqz parity
+
+- **preserve literal-constant `i32.eqz` / `i64.eqz` nodes in `optimize-instructions` to match Binaryen direct-pass output and clear the active OI AUD001 mismatch lane** by **@OpenAI**. Updated [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt), [`docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md`](./docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md), [`docs/wiki/binaryen/passes/optimize-instructions/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/optimize-instructions/starshine-hot-ir-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-07 Passes: complete precompute slot regression coverage
 
 - **cover early/late cleanup interactions for `precompute`, remove selector-only self-targeting `br_table` blocks, and replay the debug artifact lane with canonical function parity** by **@OpenAI**. Updated [`src/passes/precompute.mbt`](./src/passes/precompute.mbt), [`src/passes/precompute_test.mbt`](./src/passes/precompute_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

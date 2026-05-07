@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-07
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
@@ -36,8 +36,8 @@ Current Starshine `src/passes/optimize_instructions.mbt` is **much narrower** th
 The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
 
-- exact constant and `eqz` folding
-- compare-to-zero and relational constant canonicalization
+- exact binary constant folding
+- non-constant `eqz` / compare-to-zero rewrites and relational constant canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites
 - constant-`if` folding
@@ -117,7 +117,7 @@ That exact code map is the main practical improvement in this refresh: readers c
 The local tests are intentionally split across multiple files:
 
 - `src/passes/optimize_instructions_test.mbt`
-  - focused reduced pass behavior: exact constant folding, `eqz` and compare canonicalization, arithmetic rewrites, nested boolean-`if` cleanup, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant normalization, and guard-heavy no-reorder cases
+  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, nested boolean-`if` cleanup, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant normalization, and guard-heavy no-reorder cases
 - `src/passes/registry_test.mbt`
   - registry/descriptors exposure for the public HOT pass surface
 - `src/cmd/cmd_wbtest.mbt`
@@ -133,7 +133,7 @@ The strongest evidence surface is the focused reduced pass file plus the CLI rep
 The local file has dedicated helpers for:
 
 - exact constant folding of binary ops
-- `eqz` folding
+- `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
 - relational operand canonicalization
 - relational-constant normalization

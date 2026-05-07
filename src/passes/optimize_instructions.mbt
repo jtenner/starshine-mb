@@ -13,7 +13,7 @@ pub fn optimize_instructions_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn optimize_instructions_summary() -> String {
-  "Fold safe exact-instruction peepholes such as constant eqz, shift masks, and compare-to-zero patterns."
+  "Fold safe exact-instruction peepholes such as shift masks and compare-to-zero patterns."
 }
 
 ///|
@@ -2518,25 +2518,7 @@ fn optimize_instructions_try_fold_eqz(
     }
     _ => ()
   }
-  match operand.op {
-    @ir.HotOp::Const => ()
-    _ => return false
-  }
-
-  let folded = match (instr, @ir.hot_const_get(func, operand.imm0)) {
-    (@lib.Instruction::I32Eqz, @ir.HotConstPayload::I32Const(v)) =>
-      Some(if v == @lib.I32(0) { @lib.I32(1) } else { @lib.I32(0) })
-    (@lib.Instruction::I64Eqz, @ir.HotConstPayload::I64Const(v)) =>
-      Some(if v == @lib.I64(0) { @lib.I32(1) } else { @lib.I32(0) })
-    _ => None
-  }
-  match folded {
-    Some(value) => {
-      optimize_instructions_replace_with_const_i32(ctx, func, node_id, value)
-      true
-    }
-    None => false
-  }
+  false
 }
 
 ///|
