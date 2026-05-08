@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
@@ -18,6 +18,7 @@ sources:
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../scripts/lib/self-optimize-compare-task.ts
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../src/ir/hot_lower_test.mbt
@@ -182,7 +183,7 @@ Each HOT round currently does:
 Then it repeats until a round makes no further changes.
 
 That iterative HOT fixpoint is useful locally, but it is not Binaryen-shaped:
-there is no compile-time interpreter, no partial-select climb, no local-flow propagation phase, and no explicit refinalization tail here.
+there is no compile-time interpreter, no partial-select climb, no local-flow propagation phase, and no explicit refinalization tail here. The current direct debug-artifact drift in `.tmp/pc-artifact-drift-classified` is consistent with that gap: Binaryen rewrites the first differing function (`defined=4`, `abs=21`) through temporary-local/block scaffolding and dropped intermediate constants around `memory.size` / `local.tee`, while Starshine keeps the stack expression compact. A small raw stack shortcut is unlikely to close that family because the first witness is already on the HOT/output-shaping side, not a raw no-candidate skip.
 
 ## 7. Pipeline dispatch and writeback guards
 

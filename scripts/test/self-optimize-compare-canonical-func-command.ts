@@ -95,12 +95,12 @@ if (args.includes("-S")) {
   if (input.endsWith("starshine.wasm")) {
     fs.writeFileSync(
       args[outIndex + 1],
-      "(module\\n (import \\"env\\" \\"f\\" (func $imp))\\n (func $0 (type $0) (result i32)\\n  (local $1 (tuple i32 i32))\\n )\\n)\\n",
+      "(module\\n (import \\"env\\" \\"f\\" (func $imp))\\n (memory 1)\\n (data (i32.const 0) \\"\\\\00(\\\\00\\")\\n (func $0 (type $0) (result i32)\\n  (local $1 (tuple i32 i32))\\n )\\n)\\n",
     );
   } else if (input.endsWith("binaryen.wasm")) {
     fs.writeFileSync(
       args[outIndex + 1],
-      "(module\\n (import \\"env\\" \\"f\\" (func $imp))\\n (func $0 (type $0) (result i32)\\n  (local $1 i32)\\n )\\n)\\n",
+      "(module\\n (import \\"env\\" \\"f\\" (func $imp))\\n (memory 1)\\n (data (i32.const 0) \\"\\\\00(\\\\00\\")\\n (func $0 (type $0) (result i32)\\n  (local $1 i32)\\n )\\n)\\n",
     );
   } else {
     fs.writeFileSync(args[outIndex + 1], "(module)\\n");

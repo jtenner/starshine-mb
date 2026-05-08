@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
@@ -16,6 +16,8 @@ sources:
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../scripts/lib/self-optimize-compare-task.ts
+  - ../../../../../scripts/test/self-optimize-compare-canonical-func-command.ts
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
@@ -32,7 +34,7 @@ related:
 
 This page is the implementation-readiness bridge for Starshine's active `precompute` pass. It does **not** claim that Starshine already implements the full Binaryen `Precompute.cpp` engine. It explains what is implemented, what to validate, and how to extend the pass without confusing Starshine's HOT cleanup subset with Binaryen's interpreter-driven strategy.
 A 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) kept the upstream-teaching map stable.
-A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine trimmed dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. The same-day `[PC]001` recovery now preserves that dead-root `nop` during `precompute` lowering and normalizes empty unchanged direct-pass bodies to one `nop`; saved repro replay and the mixed direct lane have `0` semantic mismatches. Follow-up raw stack-level shortcuts now skip HOT lift/lower for no-candidate functions, nested nop-only control, safe adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result blocks with no branch to the rewritten label, and preserved effectful/trapping dropped tails before HOT. Direct debug-artifact pass time remains about `116ms`, faster than the measured Binaryen direct pass, while canonical-function parity stays green; remaining `[PC]001` work is whole-command/runtime plus raw canonical wasm/text representation drift.
+A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine trimmed dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. The same-day `[PC]001` recovery now preserves that dead-root `nop` during `precompute` lowering and normalizes empty unchanged direct-pass bodies to one `nop`; saved repro replay and the mixed direct lane have `0` semantic mismatches. Follow-up raw stack-level shortcuts now skip HOT lift/lower for no-candidate functions, nested nop-only control, safe adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result blocks with no branch to the rewritten label, and preserved effectful/trapping dropped tails before HOT. A 2026-05-08 compare-tooling fix stopped WAT data string bytes such as `\\00(` from corrupting canonical-function splitting; the current direct debug-artifact compare at `.tmp/pc-artifact-drift-classified` is still semantically useful but no longer reports canonical-function equality. The first real function drift is defined function `4` / absolute function `21`, and the remaining representation gap is Binaryen expression-stack / temporary-local shaping plus type-index ordering, not a small raw shortcut candidate.
 
 ## Current local contract
 
@@ -127,6 +129,28 @@ Use this order for future work:
 | local-flow propagation | Not implemented in `precompute`; local sibling `precompute-propagate` is removed today. | Binaryen's `precompute-propagate` uses `LazyLocalGraph` and a rerun. |
 | GC/string/atomic reads | Mostly not implemented. | Upstream has drift and special-case safety fixes; treat as a dedicated future design. |
 
+## Current representation drift classification
+
+The current direct debug-artifact evidence is `.tmp/pc-artifact-drift-classified`, generated with:
+
+```sh
+bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --precompute --out-dir .tmp/pc-artifact-drift-classified
+```
+
+Important results:
+
+- canonical wasm equal: `no`
+- normalized WAT text equal: `no`
+- normalized WAT equal after canonical function fallback: `no`
+- first differing function: defined `4`, absolute `21`
+- Starshine pass time: about `123ms`; Binaryen pass time: about `155ms`
+- function type-index drift: `1913 / 4671` defined functions have different type indices because Binaryen's `precompute` output reorders the 119 function types (`type 1` and `type 2` swap immediately), while Starshine's output stays in the no-pass type order
+- code-body drift: `757 / 4671` defined code bodies differ byte-for-byte, with `683` size differences and Starshine's code section about `25.9KB` smaller than Binaryen's
+
+The first function drift illustrates the main body-shape family. Starshine keeps the original stack expression around `memory.size`, `local.tee`, and scalar arithmetic, while Binaryen introduces a temporary local and block to preserve the left operand, drops the `local.tee` result, leaves dropped intermediate constants, and replaces the right side with `i32.const 3`. Later in the same function, Binaryen similarly turns a `local.tee`-fed comparison into an explicit `drop(local.tee(...)); if (i32.const 1)`, while Starshine leaves the comparison expression. This is representation drift, not a known semantic mismatch.
+
+Do not treat the older `.tmp/pc-artifact-branch-blockdrop-raw` `Canonical function compare equal: yes` line as proof of function-body equality. The compare splitter was previously counting parentheses inside WAT data strings, so a large data line containing escaped bytes such as `\\00(` could hide all following defined functions from the fallback comparer.
+
 ## Open decisions
 
 - Whether Starshine should grow a shared interpreter/constant-flow abstraction or keep `precompute` as a pragmatic HOT peephole-plus-cleanup pass.
@@ -143,3 +167,5 @@ Use this order for future work:
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt)
+- [`../../../../../scripts/lib/self-optimize-compare-task.ts`](../../../../../scripts/lib/self-optimize-compare-task.ts)
+- [`../../../../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../../../../scripts/test/self-optimize-compare-canonical-func-command.ts)

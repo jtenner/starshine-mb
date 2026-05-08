@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-08] tooling | classify `precompute` representation drift
+
+- Fixed the self-opt compare canonical-function fallback so `lineParenDelta` ignores parentheses inside WAT string literals and comments; this prevents large data lines containing escaped bytes such as `\\00(` from hiding all following defined functions.
+- Added script coverage to `scripts/test/self-optimize-compare-canonical-func-command.ts` for a data segment before the differing function, then reran direct `precompute` on the debug artifact at `.tmp/pc-artifact-drift-classified`.
+- Reclassified the current direct artifact status: canonical wasm/text still differ, normalized WAT now correctly reports unequal, first function drift is `defined=4 abs=21`, Starshine pass time is about `123ms` versus Binaryen about `155ms`, and the drift is dominated by Binaryen type-order changes plus temporary-local/block expression-stack shaping around `memory.size` / `local.tee`, not a small raw shortcut opportunity.
+- Refreshed the living `precompute` pages and `[PC]001`; whole-command runtime diagnosis remains explicitly deferred.
+
 ## [2026-05-07] parity | extend `precompute` raw dropped-value shortcuts
 
 - Extended the direct `precompute` raw stack-level shortcut so dropped pure `select` tails and dropped single-result `block`s with no branch to the rewritten block label can be rewritten before HOT lift/lower.

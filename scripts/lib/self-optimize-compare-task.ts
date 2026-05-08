@@ -227,8 +227,23 @@ function filesEqual(leftPath: string, rightPath: string): boolean {
 
 function lineParenDelta(line: string): number {
   let delta = 0;
-  for (const ch of line) {
-    if (ch === "(") {
+  let inString = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (inString) {
+      if (ch === "\\") {
+        i += 1;
+      } else if (ch === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === ";" && line[i + 1] === ";") {
+      break;
+    }
+    if (ch === "\"") {
+      inString = true;
+    } else if (ch === "(") {
       delta += 1;
     } else if (ch === ")") {
       delta -= 1;

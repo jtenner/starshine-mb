@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-05-08
 sources:
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
@@ -16,6 +16,7 @@ sources:
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../scripts/lib/self-optimize-compare-task.ts
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json
@@ -103,6 +104,7 @@ So this pass is not just “integer constant folding.”
 - Emitability is also part of the contract.
   - Binaryen may know a result value precisely, but still refuse to replace the expression if it cannot emit that value as a valid constant expression.
 - Current Starshine models only a small scalar/control subset of the upstream behavior, with a conservative raw stack-level shortcut for scalar/no-candidate functions, branch-free constant-`if` arm picks, module-proven immutable `global.get` constants, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, safely voidable dropped result blocks, and preserved effectful/trapping dropped-tail no-candidate shapes to reduce direct-pass HOT lift/lower work.
+- The current direct debug-artifact representation drift is now classified at `.tmp/pc-artifact-drift-classified`: after fixing the compare fallback to ignore parentheses inside WAT data strings, the first function-body drift is defined `4` / absolute `21`, where Binaryen emits temporary-local/block scaffolding plus dropped intermediate constants around `memory.size` / `local.tee` scalar folding while Starshine leaves the compact stack expression. Type-index ordering also differs across `1913 / 4671` defined functions because Binaryen's `precompute` output reorders the function types.
 - The earlier generated-artifact slot-19 hard failure is retired.
   - The durable explanation is that the saved failure was fixed by HOT-lowering / writeback guards and full-module validation, not by discovering that Binaryen `precompute` itself is a still-open structural rewrite hazard.
 - The later rooted slot-43 continuation blocker is also retired.
