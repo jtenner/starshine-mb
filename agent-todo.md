@@ -41,12 +41,6 @@ Suggested Tests
 Observed unique-pass order
 - `DFE -> RUME -> MP -> OR -> GR -> GSI -> SSA -> DCE -> RUN -> RUB -> OI -> HSO -> PLS -> PC -> CP -> TO -> SLNS -> VQ -> RL -> H2L -> OC -> LS -> CL -> LCSE -> SL -> CF -> MB -> RSE -> DAE -> INL -> DIE -> SGO -> SG -> RG -> DIR`
 
-#### Whole-command wall-time budget
-
-- [WALL]001 - Cross-Pass Runtime Budget And Attribution
-  - Deliverables: own whole-command Starshine-vs-Binaryen wall-time measurement outside individual pass parity slices; separate pass-local runtime, harness/tool startup, parse/emit, validation, HOT lift/lower, analysis cache, and artifact representation costs; maintain a prioritized list of cross-cutting runtime fixes without blocking pass correctness signoff on aggregate wall time.
-  - Current status: direct pass slices may record timing evidence when available, but unresolved whole-command wall-time gaps should be filed here unless the root cause is clearly inside one pass implementation.
-
 #### Ordered-prefix / hot-pipeline blockers
 
 - No active threading work for v0.1.0. Parallel hot-batch execution is deferred until MoonBit exposes threading support that is suitable for Starshine's native runtime.
@@ -55,6 +49,7 @@ Observed unique-pass order
 
 - [CP]002 - Rewrite Coverage and Artifact Validation
   - Deliverables: continue profiling the optimized-artifact lane; decide whether to expand the Binaryen surface or keep the pass direct-only after performance is better understood; do not schedule publicly until performance and slot proof are acceptable.
+  - Current status: direct debug-artifact compare now advances past the original `defined=6 abs=23` global-get mismatch and the local-get sink mismatch at `defined=219 abs=236`; remaining first diff is `defined=220 abs=237`, where the visible `$120 -> $122` copy appears after HOT lowering rather than as a direct `code-pushing` root.
 
 #### TO - Tuple Optimization
 
@@ -106,6 +101,12 @@ Observed unique-pass order
 
 - [SG]002 - Late-Tail Preset Scheduling
   - Deliverables: keep `string-gathering` out of public presets until `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` can be replayed as an ordered neighborhood; decide whether Binaryen reuse of existing canonical string globals is needed for string-heavy binaries.
+
+#### Whole-command wall-time budget
+
+- [WALL]001 - Cross-Pass Runtime Budget And Attribution
+  - Deliverables: own whole-command Starshine-vs-Binaryen wall-time measurement outside individual pass parity slices; separate pass-local runtime, harness/tool startup, parse/emit, validation, HOT lift/lower, analysis cache, and artifact representation costs; maintain a prioritized list of cross-cutting runtime fixes without blocking pass correctness signoff on aggregate wall time.
+  - Current status: direct pass slices may record timing evidence when available, but unresolved whole-command wall-time gaps should be filed here unless the root cause is clearly inside one pass implementation.
 
 ## Deferred Until MoonBit Threading Support
 

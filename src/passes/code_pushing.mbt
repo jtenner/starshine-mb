@@ -17,12 +17,165 @@ pub fn code_pushing_summary() -> String {
 }
 
 ///|
-fn code_pushing_node_is_const_like(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn code_pushing_exact_instr_can_trap(instr : @lib.Instruction?) -> Bool {
+  match instr {
+    Some(@lib.Instruction::I32DivS)
+    | Some(@lib.Instruction::I32DivU)
+    | Some(@lib.Instruction::I32RemS)
+    | Some(@lib.Instruction::I32RemU)
+    | Some(@lib.Instruction::I64DivS)
+    | Some(@lib.Instruction::I64DivU)
+    | Some(@lib.Instruction::I64RemS)
+    | Some(@lib.Instruction::I64RemU) => true
+    _ => false
+  }
+}
+
+///|
+fn code_pushing_node_is_movable_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if code_pushing_exact_instr_can_trap(@ir.hot_node_exact_instr(func, node_id)) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let movable_shape = match node.op {
+    @ir.HotOp::Const
+    | @ir.HotOp::Unary
+    | @ir.HotOp::Binary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::Convert
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefIsNull
+    | @ir.HotOp::RefFunc
+    | @ir.HotOp::TupleMake
+    | @ir.HotOp::TupleExtract =>
+      @ir.effects_is_pure(@ir.effects_for_node(func, node_id))
+    @ir.HotOp::GlobalGet => true
+    _ => false
+  }
+  movable_shape
+}
+
+///|
+fn code_pushing_node_is_global_get(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => true
+    @ir.HotOp::GlobalGet => true
+    _ => false
+  }
+}
+
+///|
+fn code_pushing_node_is_local_get(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet => true
+    _ => false
+  }
+}
+
+///|
+fn code_pushing_effects_safe_to_cross_for_value(mask : UInt) -> Bool {
+  (
+    mask &
+    (
+      @ir.EFFECT_MASK_CALL |
+      @ir.EFFECT_MASK_GLOBAL_STATE |
+      @ir.EFFECT_MASK_MEMORY_WRITE
+    )
+  ) ==
+  0U
+}
+
+///|
+fn code_pushing_node_safe_to_cross_for_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+  value_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if code_pushing_node_is_global_get(func, value_id) {
+    code_pushing_effects_safe_to_cross_for_value(
+      @ir.effects_for_node(func, node_id),
+    )
+  } else if code_pushing_node_is_local_get(func, value_id) {
+    let (_, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+      func,
+      node_id,
+      @ir.hot_node_get(func, value_id).imm0,
+      0,
+      0,
+    )
+    writes == 0
+  } else {
+    true
+  }
+}
+
+///|
+fn code_pushing_node_writes_local_deep_limited(
+  func : @ir.HotFunc,
+  node_id : Int,
+  local_id : Int,
+  depth : Int,
+) -> Bool {
+  if depth <= 0 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == local_id =>
+      return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if code_pushing_node_writes_local_deep_limited(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        local_id,
+        depth - 1,
+      ) {
+      return true
+    }
+  }
+  let region_has_write = fn(region_ref : @ir.HotRegionRef) -> Bool {
+    for idx = 0
+        idx < @ir.hot_region_root_count(func, region_ref)
+        idx = idx + 1 {
+      if code_pushing_node_writes_local_deep_limited(
+          func,
+          @ir.hot_region_get(func, region_ref, idx),
+          local_id,
+          depth - 1,
+        ) {
+        return true
+      }
+    }
+    false
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      region_has_write(@ir.hot_region_body_ref(func, node_id))
+    @ir.HotOp::If => {
+      if region_has_write(@ir.hot_region_then_ref(func, node_id)) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => region_has_write(else_ref)
+        None => false
+      }
+    }
     _ => false
   }
 }
@@ -110,16 +263,19 @@ fn code_pushing_count_local_gets_in_region(
 }
 
 ///|
-fn code_pushing_count_local_gets_writes_in_region_bounded(
+fn code_pushing_count_local_gets_writes_in_region_prefix_bounded(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   local_id : Int,
+  end_idx : Int,
   max_gets : Int,
   max_writes : Int,
 ) -> (Int, Int) {
   let mut gets = 0
   let mut writes = 0
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let stop_idx = if end_idx < root_count { end_idx } else { root_count }
+  for idx = 0; idx < stop_idx; idx = idx + 1 {
     let (root_gets, root_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
       func,
       @ir.hot_region_get(func, region_ref, idx),
@@ -134,6 +290,24 @@ fn code_pushing_count_local_gets_writes_in_region_bounded(
     }
   }
   (gets, writes)
+}
+
+///|
+fn code_pushing_count_local_gets_writes_in_region_bounded(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  local_id : Int,
+  max_gets : Int,
+  max_writes : Int,
+) -> (Int, Int) {
+  code_pushing_count_local_gets_writes_in_region_prefix_bounded(
+    func,
+    region_ref,
+    local_id,
+    @ir.hot_region_root_count(func, region_ref),
+    max_gets,
+    max_writes,
+  )
 }
 
 ///|
@@ -194,11 +368,36 @@ fn code_pushing_node_has_branch(func : @ir.HotFunc, node_id : Int) -> Bool {
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail
-    | @ir.HotOp::Delegate => return true
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef => return true
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     if code_pushing_node_has_branch(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn code_pushing_node_has_unreachable(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Unreachable => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if code_pushing_node_has_unreachable(
         func,
         @ir.hot_child_get(func, node_id, slot),
       ) {
@@ -317,6 +516,154 @@ fn code_pushing_try_flatten_dead_block_before_unreachable(
 }
 
 ///|
+fn code_pushing_try_sink_set_before_later_barrier(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  set_idx : Int,
+) -> Bool {
+  if set_idx + 1 >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let set_id = @ir.hot_region_get(func, region_ref, set_idx)
+  if set_id < 0 || !@ir.hot_node_is_live(func, set_id) {
+    return false
+  }
+  let set_node = @ir.hot_node_get(func, set_id)
+  match set_node.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, set_id) != 0 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, set_id, 0)
+  if !code_pushing_node_is_movable_value(func, value_id) {
+    return false
+  }
+  if !code_pushing_node_is_global_get(func, value_id) {
+    return false
+  }
+  let local_id = set_node.imm0
+  let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
+    func, local_id, 1_000_000, 2,
+  )
+  if total_writes != 1 || total_gets == 0 {
+    return false
+  }
+
+  let mut barrier_idx = -1
+  let mut idx = set_idx + 1
+  let max_idx = set_idx + 32
+  while idx < @ir.hot_region_root_count(func, region_ref) && idx <= max_idx {
+    let candidate_id = @ir.hot_region_get(func, region_ref, idx)
+    let (gets, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+      func, candidate_id, local_id, 1, 0,
+    )
+    if writes != 0 {
+      return false
+    }
+    if gets != 0 ||
+      !code_pushing_node_safe_to_cross_for_value(func, candidate_id, value_id) {
+      barrier_idx = idx
+      break
+    }
+    idx += 1
+  }
+  if barrier_idx <= set_idx + 1 {
+    return false
+  }
+  if barrier_idx < 0 {
+    return false
+  }
+  let pushed_set = code_pushing_make_local_set_clone(func, local_id, value_id)
+  ignore(
+    pass_splice_region(ctx, func, region_ref, barrier_idx, 0, [pushed_set]),
+  )
+  let nop = @ir.hot_build_nop(func)
+  pass_replace_node(ctx, func, set_id, @ir.hot_node_get(func, nop))
+  true
+}
+
+///|
+fn code_pushing_try_sink_local_get_set_after_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  set_idx : Int,
+) -> Bool {
+  if set_idx + 1 >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let set_id = @ir.hot_region_get(func, region_ref, set_idx)
+  if set_id < 0 || !@ir.hot_node_is_live(func, set_id) {
+    return false
+  }
+  let set_node = @ir.hot_node_get(func, set_id)
+  match set_node.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, set_id) != 0 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, set_id, 0)
+  if !code_pushing_node_is_local_get(func, value_id) {
+    return false
+  }
+  let source_local = @ir.hot_node_get(func, value_id).imm0
+  let dest_local = set_node.imm0
+  if source_local == dest_local {
+    return false
+  }
+  let mut idx = set_idx + 1
+  let max_idx = set_idx + 32
+  while idx < @ir.hot_region_root_count(func, region_ref) && idx <= max_idx {
+    let candidate_id = @ir.hot_region_get(func, region_ref, idx)
+    let (dest_gets, dest_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+      func, candidate_id, dest_local, 1, 0,
+    )
+    if dest_gets != 0 || dest_writes != 0 {
+      return false
+    }
+    if !code_pushing_node_safe_to_cross_for_value(func, candidate_id, value_id) {
+      return false
+    }
+    let (_, source_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+      func, candidate_id, source_local, 0, 0,
+    )
+    if source_writes != 0 {
+      return false
+    }
+    match @ir.hot_node_get(func, candidate_id).op {
+      @ir.HotOp::If => {
+        if code_pushing_node_has_branch(func, candidate_id) ||
+          code_pushing_node_has_unreachable(func, candidate_id) {
+          return false
+        }
+        if code_pushing_node_writes_local_deep_limited(
+            func, candidate_id, source_local, 8,
+          ) {
+          return false
+        }
+        let pushed_set = code_pushing_make_local_set_clone(
+          func, dest_local, value_id,
+        )
+        ignore(
+          pass_splice_region(ctx, func, region_ref, idx + 1, 0, [pushed_set]),
+        )
+        let nop = @ir.hot_build_nop(func)
+        pass_replace_node(ctx, func, set_id, @ir.hot_node_get(func, nop))
+        return true
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn code_pushing_try_sink_set_into_if_then(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -339,17 +686,62 @@ fn code_pushing_try_sink_set_into_if_then(
     return false
   }
   let value_id = @ir.hot_child_get(func, set_id, 0)
-  if !code_pushing_node_is_const_like(func, value_id) {
+  if !code_pushing_node_is_movable_value(func, value_id) {
     return false
   }
 
-  let if_id = @ir.hot_region_get(func, region_ref, set_idx + 1)
-  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+  let mut if_idx = set_idx + 1
+  let mut found_if = false
+  while if_idx < @ir.hot_region_root_count(func, region_ref) {
+    let candidate_id = @ir.hot_region_get(func, region_ref, if_idx)
+    if candidate_id < 0 || !@ir.hot_node_is_live(func, candidate_id) {
+      return false
+    }
+    match @ir.hot_node_get(func, candidate_id).op {
+      @ir.HotOp::If if @ir.hot_node_result_arity(func, candidate_id) == 0 => {
+        let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
+          func,
+          candidate_id,
+          set_node.imm0,
+        )
+        if then_gets + else_gets > 0 {
+          found_if = true
+          break
+        }
+        if !code_pushing_node_safe_to_cross_for_value(
+            func, candidate_id, value_id,
+          ) {
+          return false
+        }
+      }
+      _ => {
+        let (gets, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+          func,
+          candidate_id,
+          set_node.imm0,
+          0,
+          0,
+        )
+        if gets != 0 ||
+          writes != 0 ||
+          !code_pushing_node_safe_to_cross_for_value(
+            func, candidate_id, value_id,
+          ) {
+          return false
+        }
+      }
+    }
+    if_idx += 1
+  }
+  if !found_if {
     return false
   }
-  match @ir.hot_node_get(func, if_id).op {
-    @ir.HotOp::If => ()
-    _ => return false
+  let if_id = @ir.hot_region_get(func, region_ref, if_idx)
+  if @ir.hot_child_count(func, if_id) > 0 {
+    let if_cond = @ir.hot_child_get(func, if_id, 0)
+    if !code_pushing_node_safe_to_cross_for_value(func, if_cond, value_id) {
+      return false
+    }
   }
   if @ir.hot_node_result_arity(func, if_id) != 0 {
     return false
@@ -398,6 +790,14 @@ fn code_pushing_scan_region_once(
     if code_pushing_try_flatten_dead_block_before_unreachable(
         ctx, func, region_ref, idx,
       ) {
+      return true
+    }
+    if code_pushing_try_sink_set_before_later_barrier(
+        ctx, func, region_ref, idx,
+      ) {
+      return true
+    }
+    if code_pushing_try_sink_local_get_set_after_if(ctx, func, region_ref, idx) {
       return true
     }
     if code_pushing_try_sink_set_into_if_then(ctx, func, region_ref, idx) {

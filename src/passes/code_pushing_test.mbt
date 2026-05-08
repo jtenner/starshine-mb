@@ -113,6 +113,27 @@ test "code-pushing sinks const local.set into the only using else arm" {
 }
 
 ///|
+test "code-pushing sinks pure computed local.set into the only using if arm" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32) i32.const 3 i32.const 4 i32.add local.set 1 local.get 0 if local.get 1 drop end))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  let if_id = @ir.hot_root_get(func, 1)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  let pushed_set = @ir.hot_region_get(func, then_ref, 0)
+  code_pushing_expect_op(func, pushed_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
+  let value_id = @ir.hot_child_get(func, pushed_set, 0)
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Binary => ()
+    other => abort("expected pushed computed value, got \{other}")
+  }
+}
+
+///|
 test "code-pushing keeps const local.set when both if arms use it" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop else local.get 1 drop end))",
@@ -241,6 +262,190 @@ test "code-pushing keeps const local.set when only nested later code uses it" {
     trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
     msg=trace.to_string(),
   )
+}
+
+///|
+test "code-pushing sinks global get past local-only setup into sole using if arm" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (global i32 (i32.const 9))
+      #|  (func (param i32) (local i32 i32)
+      #|    global.get 0
+      #|    local.set 1
+      #|    i32.const 4
+      #|    local.set 2
+      #|    local.get 0
+      #|    if
+      #|      local.get 2
+      #|      drop
+      #|      local.get 1
+      #|      drop
+      #|    end))
+      #|,
+    ),
+  )
+
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  let if_id = @ir.hot_root_get(func, @ir.hot_root_count(func) - 1)
+  code_pushing_expect_op(func, if_id, "if")
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let mut saw_global_set = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, then_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, then_ref, idx)
+    if @ir.hot_node_get(func, root_id).imm0 == 1 {
+      code_pushing_expect_op(func, root_id, "local.set")
+      match @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op {
+        @ir.HotOp::GlobalGet => saw_global_set = true
+        _ => ()
+      }
+    }
+  }
+  assert_true(saw_global_set)
+}
+
+///|
+test "code-pushing sinks global get through value if before later side effect" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (global i32 (i32.const 9))
+      #|  (memory 1)
+      #|  (func (param i32) (local i32 i32)
+      #|    global.get 0
+      #|    local.set 2
+      #|    local.get 0
+      #|    i32.const 4
+      #|    i32.sub
+      #|    local.set 1
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      local.get 1
+      #|    end
+      #|    if
+      #|      unreachable
+      #|    end
+      #|    i32.const 0
+      #|    i32.const 1
+      #|    i32.store
+      #|    local.get 2
+      #|    drop))
+      #|,
+    ),
+  )
+
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  let mut saw_moved_set = false
+  for idx = 1; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet if @ir.hot_node_get(func, root_id).imm0 == 2 =>
+        saw_moved_set = true
+      _ => ()
+    }
+  }
+  assert_true(saw_moved_set)
+}
+
+///|
+test "code-pushing sinks local.get set after unrelated effectful if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32 i32 i32)
+      #|    i32.const 9
+      #|    local.set 3
+      #|    local.get 3
+      #|    local.set 1
+      #|    i32.const 7
+      #|    local.set 2
+      #|    local.get 0
+      #|    if
+      #|      i32.const 0
+      #|      i32.const 1
+      #|      i32.store
+      #|    end
+      #|    local.get 1
+      #|    drop))
+      #|,
+    ),
+  )
+
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "nop")
+  let mut moved_set_idx = -1
+  let mut if_idx = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::If => if_idx = idx
+      @ir.HotOp::LocalSet if @ir.hot_node_get(func, root_id).imm0 == 1 =>
+        moved_set_idx = idx
+      _ => ()
+    }
+  }
+  assert_true(if_idx >= 0, msg="expected if root")
+  assert_true(moved_set_idx == if_idx + 1, msg="expected moved set after if")
+}
+
+///|
+test "code-pushing sinks local.get set when source write is nested in previous root" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32 i32 i32)
+      #|    block (result i32)
+      #|      i32.const 11
+      #|      local.set 1
+      #|      i32.const 22
+      #|    end
+      #|    local.set 3
+      #|    local.get 1
+      #|    local.set 2
+      #|    local.get 0
+      #|    if
+      #|      i32.const 0
+      #|      i32.const 1
+      #|      i32.store
+      #|    end
+      #|    local.get 2
+      #|    drop))
+      #|,
+    ),
+  )
+
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "local.set")
+}
+
+///|
+test "code-pushing sinks local.get set after immediately following effectful if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32 i32) (local i32 i32)
+      #|    local.get 0
+      #|    local.set 3
+      #|    local.get 3
+      #|    local.set 2
+      #|    local.get 1
+      #|    if
+      #|      i32.const 0
+      #|      i32.const 1
+      #|      i32.store
+      #|    end
+      #|    local.get 2
+      #|    drop))
+      #|,
+    ),
+  )
+
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "local.set")
 }
 
 ///|
