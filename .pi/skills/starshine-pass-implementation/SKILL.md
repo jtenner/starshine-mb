@@ -123,8 +123,8 @@ Required result:
 
 Add when the pass affects hot paths, a preset, or a known artifact:
 
-1. Record Starshine and Binaryen wall time where the harness reports it.
-2. Target `< 1s` or `>= 50%` of Binaryen wall time where possible, matching the repo policy wording.
+1. Record pass-local Starshine and Binaryen timings where the harness reports them.
+2. Attribute aggregate whole-command wall-time gaps to the top-level `[WALL]001` backlog slice unless the root cause is clearly inside the pass implementation.
 3. Compare the relevant artifact, ordered prefix, or preset run when the pass participates in a documented optimize path.
 4. Ask before running long self-optimize commands, especially:
 
@@ -165,7 +165,7 @@ When reporting pass signoff, include:
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
 - `10000` compare-pass command, seed, out dir, compared count, normalized match count, mismatch count, and command-failure classification
 - replayed failure dirs and their outcomes, if any
-- performance numbers, artifact comparisons, or why they were not applicable
+- pass-local performance numbers, artifact comparisons, any `[WALL]001` attribution, or why they were not applicable
 - docs, changelog, and backlog updates
 - remaining blockers, uncertainty, or explicitly deferred Binaryen differences
 - commands not run and why

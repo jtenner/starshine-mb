@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-08 Backlog: centralize wall-time ownership
+
+- **move aggregate whole-command wall-time follow-up out of individual pass slices and the pass implementation skill into top-level `[WALL]001`, leaving pass work focused on correctness, representation drift, and pass-local timing unless a pass is clearly the root cause** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md), [`.pi/skills/starshine-pass-implementation/SKILL.md`](./.pi/skills/starshine-pass-implementation/SKILL.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-08 Tooling: classify precompute representation drift
 
 - **fix the self-opt compare canonical-function fallback so WAT data strings containing escaped parentheses do not hide defined functions, reclassify direct `precompute` debug-artifact drift at `.tmp/pc-artifact-drift-classified`, and keep `[PC]001` open for nontrivial Binaryen type-order and expression-stack shaping differences rather than adding broad raw folds** by **@OpenAI**. Updated [`scripts/lib/self-optimize-compare-task.ts`](./scripts/lib/self-optimize-compare-task.ts), [`scripts/test/self-optimize-compare-canonical-func-command.ts`](./scripts/test/self-optimize-compare-canonical-func-command.ts), [`docs/wiki/binaryen/passes/precompute/index.md`](./docs/wiki/binaryen/passes/precompute/index.md), [`docs/wiki/binaryen/passes/precompute/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/precompute/starshine-hot-ir-strategy.md), [`docs/wiki/binaryen/passes/precompute/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/precompute/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

@@ -41,6 +41,12 @@ Suggested Tests
 Observed unique-pass order
 - `DFE -> RUME -> MP -> OR -> GR -> GSI -> SSA -> DCE -> RUN -> RUB -> OI -> HSO -> PLS -> PC -> CP -> TO -> SLNS -> VQ -> RL -> H2L -> OC -> LS -> CL -> LCSE -> SL -> CF -> MB -> RSE -> DAE -> INL -> DIE -> SGO -> SG -> RG -> DIR`
 
+#### Whole-command wall-time budget
+
+- [WALL]001 - Cross-Pass Runtime Budget And Attribution
+  - Deliverables: own whole-command Starshine-vs-Binaryen wall-time measurement outside individual pass parity slices; separate pass-local runtime, harness/tool startup, parse/emit, validation, HOT lift/lower, analysis cache, and artifact representation costs; maintain a prioritized list of cross-cutting runtime fixes without blocking pass correctness signoff on aggregate wall time.
+  - Current status: direct pass slices may record timing evidence when available, but unresolved whole-command wall-time gaps should be filed here unless the root cause is clearly inside one pass implementation.
+
 #### Ordered-prefix / hot-pipeline blockers
 
 - No active threading work for v0.1.0. Parallel hot-batch execution is deferred until MoonBit exposes threading support that is suitable for Starshine's native runtime.
@@ -48,8 +54,8 @@ Observed unique-pass order
 #### DCE - Dead Code Elimination
 
 - [DCE]003 - Runtime Budget and Oracle Refresh
-  - Deliverables: rerun single-pass and ordered-prefix DCE parity on a valid baseline/oracle path; measure Starshine and Binaryen on the same artifact; reduce whole-command wall time and representation drift after the direct pass-time fixes.
-  - Current status: refreshed on 2026-05-08. Direct fuzz parity is green on the valid oracle path (`9975 / 10000` compared, `0` mismatches, `25` known Binaryen/tool command failures, seed `0x5eed`, out dir `.tmp/pass-fuzz-dce-refresh-10k`). Ordered-prefix fuzz proof through `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference -> ssa-nomerge -> dead-code-elimination` is green (`9972 / 10000` compared, `0` mismatches, `28` command failures, `.tmp/pass-fuzz-dce-prefix-10k`). Direct debug-artifact compare remains representation/runtime drift, not semantic fuzz drift: `.tmp/dce-artifact-direct-refresh` reports canonical wasm/text unequal, first differing function `defined=201 abs=218` with identical body but Binaryen-renumbered type index, Starshine whole command `1399.846ms` vs Binaryen `507.851ms`, and Starshine direct pass `111.047ms` vs Binaryen `104.640ms`. A 5-roundtrip Binaryen no-pass baseline (`.tmp/dce-artifact-direct-nopstable`) did not converge or remove the type-index drift. Remaining work is whole-command wall time and canonical wasm/text-form drift; do not treat the debug artifact as byte/text-parity green yet.
+  - Deliverables: rerun single-pass and ordered-prefix DCE parity on a valid baseline/oracle path; measure Starshine and Binaryen on the same artifact; reduce representation drift after the direct pass-time fixes.
+  - Current status: refreshed on 2026-05-08. Direct fuzz parity is green on the valid oracle path (`9975 / 10000` compared, `0` mismatches, `25` known Binaryen/tool command failures, seed `0x5eed`, out dir `.tmp/pass-fuzz-dce-refresh-10k`). Ordered-prefix fuzz proof through `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference -> ssa-nomerge -> dead-code-elimination` is green (`9972 / 10000` compared, `0` mismatches, `28` command failures, `.tmp/pass-fuzz-dce-prefix-10k`). Direct debug-artifact compare remains representation drift, not semantic fuzz drift: `.tmp/dce-artifact-direct-refresh` reports canonical wasm/text unequal, first differing function `defined=201 abs=218` with identical body but Binaryen-renumbered type index; direct pass time is close to Binaryen (`111.047ms` vs `104.640ms`). A 5-roundtrip Binaryen no-pass baseline (`.tmp/dce-artifact-direct-nopstable`) did not converge or remove the type-index drift. Remaining pass-local work is canonical wasm/text-form drift; aggregate whole-command timing belongs to [WALL]001.
 
 #### PC - Precompute
 
