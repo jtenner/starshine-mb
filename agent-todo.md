@@ -43,15 +43,13 @@ Observed unique-pass order
 
 #### Ordered-prefix / hot-pipeline blockers
 
-- [HOT]002 - Native Parallel Hot-Batch Queue
-  - Deliverables: add a native-only worker queue over eligible defined functions for the current hot batch payload (`ssa-nomerge -> dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`); keep final output byte-stable and deterministic; gate behind an explicit native-only option.
-  - Dependencies: [HOT]001 replay hardening must stay green.
+- No active threading work for v0.1.0. Parallel hot-batch execution is deferred until MoonBit exposes threading support that is suitable for Starshine's native runtime.
 
 #### DCE - Dead Code Elimination
 
 - [DCE]003 - Runtime Budget and Oracle Refresh
   - Deliverables: rerun single-pass and ordered-prefix DCE parity on a valid baseline/oracle path; measure Starshine and Binaryen on the same artifact; reduce whole-command wall time and representation drift after the direct pass-time fixes.
-  - Current status: direct DCE canonical-function parity is green and direct pass time is close to Binaryen. Remaining work is whole-command wall time, raw wasm/text-form drift, and valid ordered-prefix proof.
+  - Current status: refreshed on 2026-05-08. Direct fuzz parity is green on the valid oracle path (`9975 / 10000` compared, `0` mismatches, `25` known Binaryen/tool command failures, seed `0x5eed`, out dir `.tmp/pass-fuzz-dce-refresh-10k`). Ordered-prefix fuzz proof through `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference -> ssa-nomerge -> dead-code-elimination` is green (`9972 / 10000` compared, `0` mismatches, `28` command failures, `.tmp/pass-fuzz-dce-prefix-10k`). Direct debug-artifact compare remains representation/runtime drift, not semantic fuzz drift: `.tmp/dce-artifact-direct-refresh` reports canonical wasm/text unequal, first differing function `defined=201 abs=218` with identical body but Binaryen-renumbered type index, Starshine whole command `1399.846ms` vs Binaryen `507.851ms`, and Starshine direct pass `111.047ms` vs Binaryen `104.640ms`. A 5-roundtrip Binaryen no-pass baseline (`.tmp/dce-artifact-direct-nopstable`) did not converge or remove the type-index drift. Remaining work is whole-command wall time and canonical wasm/text-form drift; do not treat the debug artifact as byte/text-parity green yet.
 
 #### PC - Precompute
 
@@ -115,8 +113,17 @@ Observed unique-pass order
 - [SG]002 - Late-Tail Preset Scheduling
   - Deliverables: keep `string-gathering` out of public presets until `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` can be replayed as an ordered neighborhood; decide whether Binaryen reuse of existing canonical string globals is needed for string-heavy binaries.
 
+## Deferred Until MoonBit Threading Support
+
+- [HOT]002 - Native Parallel Hot-Batch Queue
+  - Status: deferred; MoonBit does not currently support the threading model Starshine needs for a safe native worker queue.
+  - Resume when: MoonBit native threading is stable enough to run per-function optimizer workers with deterministic, byte-stable output and explicit runtime gating.
+  - Deliverables: add a native-only worker queue over eligible defined functions for the hot batch payload (`ssa-nomerge -> dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`); keep final output byte-stable and deterministic; gate behind an explicit native-only option.
+  - Dependencies: [HOT]001 replay hardening must stay green.
+
 ## v0.2.0 Backlog
 
 - [HOT]003 - Node-Package Worker Queue Port
+  - Status: deferred behind [HOT]002 and future Node package rebuild work.
   - Deliverables: reuse the native hot-batch queue contract in the shipped Node package with `worker_threads`, one WasmGC module per worker, worker-local heap state, and stable-order serialized merge.
   - Dependencies: [HOT]002 native queue contract, worker-local function serialization hooks, and future Node package rebuild work.
