@@ -31,7 +31,7 @@ test "run_hot_pipeline applies global-refining to private globals with narrower 
     Err(err) => fail("expected global-refining pipeline success, got \{err}")
   }
 
-  assert_eq(
+  @debug.assert_eq(
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
@@ -53,7 +53,7 @@ test "global-refining refines exported immutable globals from their initializer"
       fail("expected exported immutable global-refining success, got \{err}")
   }
 
-  assert_eq(
+  @debug.assert_eq(
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
@@ -80,7 +80,7 @@ test "global-refining keeps exported mutable globals at their declared boundary 
     Err(err) => fail("expected exported global-refining success, got \{err}")
   }
 
-  assert_eq(
+  @debug.assert_eq(
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
@@ -104,7 +104,7 @@ test "global-refining treats abstract ref.null initializers as bottom references
     Err(err) => fail("expected ref.null global-refining success, got \{err}")
   }
 
-  assert_eq(
+  @debug.assert_eq(
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
@@ -113,7 +113,7 @@ test "global-refining treats abstract ref.null initializers as bottom references
       true,
     ),
   )
-  assert_eq(
+  @debug.assert_eq(
     try! gr_test_defined_global_type(optimized, 1),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
@@ -125,7 +125,7 @@ test "global-refining treats abstract ref.null initializers as bottom references
       true,
     ),
   )
-  assert_eq(
+  @debug.assert_eq(
     try! gr_test_defined_global_type(optimized, 2),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
@@ -134,7 +134,7 @@ test "global-refining treats abstract ref.null initializers as bottom references
       true,
     ),
   )
-  assert_eq(
+  @debug.assert_eq(
     try! gr_test_defined_global_type(optimized, 3),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
@@ -168,7 +168,7 @@ test "global-refining joins sibling writes at the shared declared supertype" {
     Err(err) => fail("expected sibling global-refining success, got \{err}")
   }
 
-  assert_eq(
+  @debug.assert_eq(
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(

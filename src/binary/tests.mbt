@@ -9,7 +9,9 @@ priv suberror DecodingFailed {
 }
 
 ///|
-fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
+fn[T : Encode + Decode + Eq + Show + @debug.Debug] roundtrip(
+  x : T,
+) -> Unit raise {
   let buf = @buffer.new()
   match Encode::encode(x, buf) {
     Ok(_) => ()
@@ -34,12 +36,12 @@ fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
     }
     println(("Decoded", y))
   }
-  assert_eq(i2, bytes.length())
-  assert_eq(y, x)
+  @debug.assert_eq(i2, bytes.length())
+  @debug.assert_eq(y, x)
 }
 
 ///|
-fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary_with_state(
+fn[T : Encode + Decode + Eq + Show + @debug.Debug + @quickcheck.Arbitrary] roundtrip_arbitrary_with_state(
   count : Int,
   st : @splitmix.RandomState,
 ) -> Array[T] raise {
@@ -260,7 +262,7 @@ fn[T] assert_decode_err_contains(
 ) -> Unit raise {
   match result {
     Ok(_) => fail("expected decode failure: \{expected}")
-    Err(err) => assert_eq(err, expected)
+    Err(err) => @debug.assert_eq(err, expected)
   }
 }
 
@@ -271,7 +273,7 @@ fn assert_encode_err_contains(
 ) -> Unit raise {
   match result {
     Ok(_) => fail("expected encode failure: \{expected}")
-    Err(err) => assert_eq(err, expected)
+    Err(err) => @debug.assert_eq(err, expected)
   }
 }
 
@@ -335,8 +337,8 @@ test "run_binary_roundtrip_fuzz rejects unknown profile" {
 test "binary codec errors derive eq show debug" {
   let enc = BinaryEncodeError::CannotEncodeDefTypeHeapType
   let dec = BinaryDecodeError::InvalidCompType
-  assert_eq(enc, BinaryEncodeError::CannotEncodeDefTypeHeapType)
-  assert_eq(dec, BinaryDecodeError::InvalidCompType)
+  @debug.assert_eq(enc, BinaryEncodeError::CannotEncodeDefTypeHeapType)
+  @debug.assert_eq(dec, BinaryDecodeError::InvalidCompType)
   inspect(enc, content="CannotEncodeDefTypeHeapType")
   inspect(dec, content="InvalidCompType")
   debug_inspect(enc, content="CannotEncodeDefTypeHeapType")
@@ -353,13 +355,13 @@ test "module codec wrapper errors derive eq show debug" {
     8,
     2,
   )
-  assert_eq(
+  @debug.assert_eq(
     enc,
     EncodeError::Encode(BinaryEncodeError::CannotEncodeBottomValType),
   )
-  assert_eq(dec, DecodeError::Decode(BinaryDecodeError::InvalidModule))
-  assert_eq(trailing, DecodeError::TrailingBytes(1, 1))
-  assert_eq(
+  @debug.assert_eq(dec, DecodeError::Decode(BinaryDecodeError::InvalidModule))
+  @debug.assert_eq(trailing, DecodeError::TrailingBytes(1, 1))
+  @debug.assert_eq(
     spanned,
     DecodeError::DecodeAt(BinaryDecodeError::InvalidSectionHeader, 8, 2),
   )
@@ -381,15 +383,15 @@ test "decode_module wraps decode success and malformed extra bytes as decode err
     Err(e) => fail("expected wrapper encode success: \{e}")
   }
   match decode_module(wasm) {
-    Ok(decoded) => assert_eq(decoded, mod)
+    Ok(decoded) => @debug.assert_eq(decoded, mod)
     Err(e) => fail("expected wrapper decode success: \{e}")
   }
   let trailing = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x7f"
   match decode_module(trailing) {
     Ok(_) => fail("expected malformed extra-bytes decode failure")
     Err(DecodeError::TrailingBytes(offset, len)) => {
-      assert_eq(offset, 8)
-      assert_eq(len, 1)
+      @debug.assert_eq(offset, 8)
+      @debug.assert_eq(len, 1)
     }
     Err(e) => fail("expected decode-error variant, got \{e}")
   }
@@ -407,8 +409,8 @@ test "decode_module attaches section spans to wrapper decode errors" {
         len
       )
     ) => {
-      assert_eq(offset, 8)
-      assert_eq(len, 3)
+      @debug.assert_eq(offset, 8)
+      @debug.assert_eq(len, 3)
     }
     Err(e) => fail("expected section span decode error, got \{e}")
   }
@@ -423,8 +425,8 @@ test "decode_module attaches section spans to wrapper decode errors" {
         len
       )
     ) => {
-      assert_eq(offset, 8)
-      assert_eq(len, 3)
+      @debug.assert_eq(offset, 8)
+      @debug.assert_eq(len, 3)
     }
     Err(e) => fail("expected custom-section span decode error, got \{e}")
   }
@@ -436,8 +438,8 @@ test "decode_module reports section span for non-length type section decode erro
   match decode_module(bad_type_payload) {
     Ok(_) => fail("expected decode failure for invalid type section payload")
     Err(DecodeError::DecodeAt(BinaryDecodeError::InvalidCompType, offset, len)) => {
-      assert_eq(offset, 8)
-      assert_eq(len, 5)
+      @debug.assert_eq(offset, 8)
+      @debug.assert_eq(len, 5)
     }
     Err(e) => fail("expected type-section span decode error, got \{e}")
   }
@@ -455,8 +457,8 @@ test "decode_module reports section span for non-length custom section decode er
         len
       )
     ) => {
-      assert_eq(offset, 8)
-      assert_eq(len, 3)
+      @debug.assert_eq(offset, 8)
+      @debug.assert_eq(len, 3)
     }
     Err(e) => fail("expected custom-section span decode error, got \{e}")
   }
@@ -467,7 +469,7 @@ test "decode_module wraps decode failure variant" {
   match decode_module(b"not-wasm") {
     Ok(_) => fail("expected decode wrapper failure")
     Err(DecodeError::Decode(err)) =>
-      assert_eq(err, BinaryDecodeError::InvalidMagicHeader)
+      @debug.assert_eq(err, BinaryDecodeError::InvalidMagicHeader)
     Err(e) => fail("expected decode-error variant, got \{e}")
   }
 }
@@ -559,13 +561,13 @@ test "module roundtrip preserves raw high-type-index loop seed ordering" {
         ]
       )
     ) => {
-      assert_eq(seed, 0)
-      assert_eq(loop_type_idx, 289U)
-      assert_eq(tee_idx, 0U)
-      assert_eq(limit, 1)
-      assert_eq(br_arg_idx, 0U)
-      assert_eq(step, 1)
-      assert_eq(br_label, 0U)
+      @debug.assert_eq(seed, 0)
+      @debug.assert_eq(loop_type_idx, 289U)
+      @debug.assert_eq(tee_idx, 0U)
+      @debug.assert_eq(limit, 1)
+      @debug.assert_eq(br_arg_idx, 0U)
+      @debug.assert_eq(step, 1)
+      @debug.assert_eq(br_label, 0U)
     }
     _ =>
       fail(
@@ -673,16 +675,16 @@ test "module roundtrip preserves raw high-type-index multi-value loop seed order
         ]
       )
     ) => {
-      assert_eq(seed_block_type_idx, 352U)
-      assert_eq(a, 1)
-      assert_eq(b, 2)
-      assert_eq(c, 3)
-      assert_eq(seed_local_2, 2U)
-      assert_eq(seed_local_1, 1U)
-      assert_eq(loop_type_idx, 360U)
-      assert_eq(loop_local, 0U)
-      assert_eq(get_local_1, 1U)
-      assert_eq(get_local_2, 2U)
+      @debug.assert_eq(seed_block_type_idx, 352U)
+      @debug.assert_eq(a, 1)
+      @debug.assert_eq(b, 2)
+      @debug.assert_eq(c, 3)
+      @debug.assert_eq(seed_local_2, 2U)
+      @debug.assert_eq(seed_local_1, 1U)
+      @debug.assert_eq(loop_type_idx, 360U)
+      @debug.assert_eq(loop_local, 0U)
+      @debug.assert_eq(get_local_1, 1U)
+      @debug.assert_eq(get_local_2, 2U)
     }
     _ =>
       fail(
@@ -809,7 +811,7 @@ test "decode_module accepts elem header 6 with explicit reftype and roundtrips m
     Ok(v) => v
     Err(e) => fail("expected decode success after re-encode, got \{e}")
   }
-  assert_eq(reparsed, mod)
+  @debug.assert_eq(reparsed, mod)
 }
 
 ///|
@@ -832,7 +834,7 @@ test "decode_module accepts shared memory imports and encode_module preserves th
     Err(err) =>
       fail("expected shared-memory import module to re-encode, got \{err}")
   }
-  assert_eq(reencoded, wasm)
+  @debug.assert_eq(reencoded, wasm)
 }
 
 ///|
@@ -874,14 +876,14 @@ test "encode elem active non-zero table func exprs includes explicit funcref ref
     Err(e) => fail("expected elem encode success, got \{e}")
   }
   let bytes = buf.to_bytes()
-  assert_eq(bytes, b"\x06\x01\x41\x00\x0b\x70\x01\xd2\x00\x0b")
+  @debug.assert_eq(bytes, b"\x06\x01\x41\x00\x0b\x70\x01\xd2\x00\x0b")
   let (decoded, i) = match
     (Decode::decode(bytes, 0) : Result[(Elem, Int), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected elem decode success, got \{e}")
   }
-  assert_eq(i, bytes.length())
-  assert_eq(decoded, elem)
+  @debug.assert_eq(i, bytes.length())
+  @debug.assert_eq(decoded, elem)
 }
 
 ///|
@@ -907,8 +909,8 @@ test "encode elem supports active typed expr segments for header 6" {
     Ok(v) => v
     Err(e) => fail("expected active typed elem decode success, got \{e}")
   }
-  assert_eq(i, bytes.length())
-  assert_eq(decoded, elem)
+  @debug.assert_eq(i, bytes.length())
+  @debug.assert_eq(decoded, elem)
 }
 
 ///|
@@ -928,13 +930,13 @@ test "decode_module preserves trailing-byte diagnostics for section-order and du
     match
       (Decode::decode(bytes, 0) : Result[(Module, Int), BinaryDecodeError]) {
       Ok(_) => fail("expected raw module decode failure for '\{name}'")
-      Err(err) => assert_eq(err, BinaryDecodeError::InvalidModule)
+      Err(err) => @debug.assert_eq(err, BinaryDecodeError::InvalidModule)
     }
     match decode_module(bytes) {
       Ok(_) => fail("expected wrapper decode failure for '\{name}'")
       Err(DecodeError::TrailingBytes(offset, len)) => {
-        assert_eq(offset, expected_offset)
-        assert_eq(len, expected_len)
+        @debug.assert_eq(offset, expected_offset)
+        @debug.assert_eq(len, expected_len)
       }
       Err(e) =>
         fail("expected trailing-byte wrapper error for '\{name}', got \{e}")
@@ -952,7 +954,7 @@ test "encode_module wraps encode failure variant" {
   match encode_module(bad) {
     Ok(_) => fail("expected encode wrapper failure")
     Err(EncodeError::Encode(err)) =>
-      assert_eq(err, BinaryEncodeError::CannotEncodeBottomValType)
+      @debug.assert_eq(err, BinaryEncodeError::CannotEncodeBottomValType)
   }
 }
 
@@ -964,8 +966,8 @@ test "uleb roundtrip u33" {
     encode_unsigned(v, buf, 33).unwrap()
     let bytes = buf.to_bytes()
     let (v2, i2) = decode_unsigned(bytes, 0, 33).unwrap()
-    assert_eq(v2, v)
-    assert_eq(i2, bytes.length())
+    @debug.assert_eq(v2, v)
+    @debug.assert_eq(i2, bytes.length())
   }
 }
 
@@ -979,8 +981,8 @@ test "sleb roundtrip s33 boundary" {
     encode_signed(v, buf, 33).unwrap()
     let bytes = buf.to_bytes()
     let (v2, i2) = decode_signed(bytes, 0, 33).unwrap()
-    assert_eq(v2, v)
-    assert_eq(i2, bytes.length())
+    @debug.assert_eq(v2, v)
+    @debug.assert_eq(i2, bytes.length())
   }
 }
 
@@ -992,14 +994,17 @@ test "uleb rejects terminal unused bits at max width" {
   match decode_unsigned(bytes, 0, 64) {
     Ok(_) => fail("expected error")
     Err(err) =>
-      assert_eq(err, BinaryDecodeError::UnsignedLebTerminalHasNonZeroUnusedBits)
+      @debug.assert_eq(
+        err,
+        BinaryDecodeError::UnsignedLebTerminalHasNonZeroUnusedBits,
+      )
   }
 }
 
 ///|
 test "sleb s33 accepts 0x3f" {
   match decode_signed(b"\x3f", 0, 33) {
-    Ok((value, _)) => assert_eq(value, 63L)
+    Ok((value, _)) => @debug.assert_eq(value, 63L)
     Err(e) => fail("unexpected error: \{e}")
   }
 }
@@ -1009,7 +1014,8 @@ test "uleb u33 rejects too many bytes" {
   let bytes : Bytes = [0x80, 0x80, 0x80, 0x80, 0x80, 0x00]
   match decode_unsigned(bytes, 0, 33) {
     Ok(_) => fail("expected error")
-    Err(err) => assert_eq(err, BinaryDecodeError::UnsignedLebTooManyBytes)
+    Err(err) =>
+      @debug.assert_eq(err, BinaryDecodeError::UnsignedLebTooManyBytes)
   }
 }
 
@@ -1017,8 +1023,8 @@ test "uleb u33 rejects too many bytes" {
 test "uleb allows trailing zeros within max bytes" {
   let bytes : Bytes = [0x83, 0x00]
   let (v, i) = decode_unsigned(bytes, 0, 8).unwrap()
-  assert_eq(v, 3)
-  assert_eq(i, 2)
+  @debug.assert_eq(v, 3)
+  @debug.assert_eq(i, 2)
 }
 
 ///|
@@ -1038,16 +1044,16 @@ test "uleb u33 boundaries roundtrip" {
     encode_unsigned(v, buf, 33).unwrap()
     let bytes = buf.to_bytes()
     let (v2, i2) = decode_unsigned(bytes, 0, 33).unwrap()
-    assert_eq(v2, v)
-    assert_eq(i2, bytes.length())
+    @debug.assert_eq(v2, v)
+    @debug.assert_eq(i2, bytes.length())
   }
 }
 
 ///|
 test "uleb allows trailing zeros within bound" {
   let (v, i) = decode_unsigned(b"\x83\x00", 0, 8).unwrap()
-  assert_eq(v, 3UL)
-  assert_eq(i, 2)
+  @debug.assert_eq(v, 3UL)
+  @debug.assert_eq(i, 2)
 }
 
 ///|
@@ -1072,8 +1078,8 @@ test "sleb s33 boundaries roundtrip" {
     encode_signed(v, buf, 33).unwrap()
     let bytes = buf.to_bytes()
     let (v2, i2) = decode_signed(bytes, 0, 33).unwrap()
-    assert_eq(v2, v)
-    assert_eq(i2, bytes.length())
+    @debug.assert_eq(v2, v)
+    @debug.assert_eq(i2, bytes.length())
   }
 }
 
@@ -1086,8 +1092,8 @@ test "decode S33 accepts full unsigned upper bound" {
   let decoded : Result[(S33, Int), BinaryDecodeError] = Decode::decode(bytes, 0)
   match decoded {
     Ok((S33(v), i)) => {
-      assert_eq(v, 0xffffffff)
-      assert_eq(i, bytes.length())
+      @debug.assert_eq(v, 0xffffffff)
+      @debug.assert_eq(i, bytes.length())
     }
     Err(e) => fail("expected S33 upper bound to decode, got error: \{e}")
   }
@@ -1105,15 +1111,15 @@ test "S33 roundtrip includes upper bound" {
 test "sleb s33 rejects too many bytes" {
   match decode_signed(b"\x80\x80\x80\x80\x80\x00", 0, 33) {
     Ok(_) => fail("expected error")
-    Err(err) => assert_eq(err, BinaryDecodeError::SignedLebTooManyBytes)
+    Err(err) => @debug.assert_eq(err, BinaryDecodeError::SignedLebTooManyBytes)
   }
 }
 
 ///|
 test "sleb allows extra sign extension within bound" {
   let (v, i) = decode_signed(b"\xff\x7f", 0, 8).unwrap()
-  assert_eq(v, -1)
-  assert_eq(i, 2)
+  @debug.assert_eq(v, -1)
+  @debug.assert_eq(i, 2)
 }
 
 ///|
@@ -1121,7 +1127,7 @@ test "sleb rejects malformed sign-extension bits" {
   match decode_signed(b"\xff\xff\xff\xff\x5f", 0, 33) {
     Ok(_) => fail("expected malformed sign-extension error")
     Err(err) =>
-      assert_eq(err, BinaryDecodeError::SignedLebOutOfRangeForBitWidth)
+      @debug.assert_eq(err, BinaryDecodeError::SignedLebOutOfRangeForBitWidth)
   }
 }
 
@@ -1129,13 +1135,13 @@ test "sleb rejects malformed sign-extension bits" {
 test "optional decode fallthrough keeps cursor on decode failure" {
   let (none1, i1) = (
     Decode::decode(b"\x02", 0) : Result[(Bool?, Int), BinaryDecodeError]).unwrap()
-  assert_eq(none1, None)
-  assert_eq(i1, 0)
+  @debug.assert_eq(none1, None)
+  @debug.assert_eq(i1, 0)
 
   let (none2, i2) = (
     Decode::decode(b"", 0) : Result[(Bool?, Int), BinaryDecodeError]).unwrap()
-  assert_eq(none2, None)
-  assert_eq(i2, 0)
+  @debug.assert_eq(none2, None)
+  @debug.assert_eq(i2, 0)
 }
 
 ///|
@@ -1156,27 +1162,33 @@ test "numeric decoders reject out-of-bounds fixed-width loads" {
 test "decode helpers reject invalid bit widths and truncated inputs" {
   match decode_unsigned(b"\x00", 0, 0) {
     Ok(_) => fail("expected invalid nbits error for uleb nbits=0")
-    Err(err) => assert_eq(err, BinaryDecodeError::InvalidUnsignedLebBitWidth)
+    Err(err) =>
+      @debug.assert_eq(err, BinaryDecodeError::InvalidUnsignedLebBitWidth)
   }
   match decode_unsigned(b"\x00", 0, 65) {
     Ok(_) => fail("expected invalid nbits error for uleb nbits=65")
-    Err(err) => assert_eq(err, BinaryDecodeError::InvalidUnsignedLebBitWidth)
+    Err(err) =>
+      @debug.assert_eq(err, BinaryDecodeError::InvalidUnsignedLebBitWidth)
   }
   match decode_unsigned(b"\x80", 0, 8) {
     Ok(_) => fail("expected EOF error for unterminated uleb")
-    Err(err) => assert_eq(err, BinaryDecodeError::UnexpectedEofInUnsignedLeb)
+    Err(err) =>
+      @debug.assert_eq(err, BinaryDecodeError::UnexpectedEofInUnsignedLeb)
   }
   match decode_signed(b"\x00", 0, 0) {
     Ok(_) => fail("expected invalid nbits error for sleb nbits=0")
-    Err(err) => assert_eq(err, BinaryDecodeError::InvalidSignedLebBitWidth)
+    Err(err) =>
+      @debug.assert_eq(err, BinaryDecodeError::InvalidSignedLebBitWidth)
   }
   match decode_signed(b"\x00", 0, 65) {
     Ok(_) => fail("expected invalid nbits error for sleb nbits=65")
-    Err(err) => assert_eq(err, BinaryDecodeError::InvalidSignedLebBitWidth)
+    Err(err) =>
+      @debug.assert_eq(err, BinaryDecodeError::InvalidSignedLebBitWidth)
   }
   match decode_signed(b"\x80", 0, 8) {
     Ok(_) => fail("expected EOF error for unterminated sleb")
-    Err(err) => assert_eq(err, BinaryDecodeError::UnexpectedEofInSignedLeb)
+    Err(err) =>
+      @debug.assert_eq(err, BinaryDecodeError::UnexpectedEofInSignedLeb)
   }
 }
 
@@ -1211,7 +1223,7 @@ test "decode i8x16.shuffle preserves all 16 lane indices in order" {
   match
     (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
     Ok((instr, next)) => {
-      assert_eq(
+      @debug.assert_eq(
         instr,
         Instruction::i8x16_shuffle(
           LaneIdx::new(0),
@@ -1232,7 +1244,7 @@ test "decode i8x16.shuffle preserves all 16 lane indices in order" {
           LaneIdx::new(15),
         ),
       )
-      assert_eq(next, bytes.length())
+      @debug.assert_eq(next, bytes.length())
     }
     Err(e) => fail("unexpected shuffle decode failure: \{e}")
   }
@@ -1355,7 +1367,7 @@ test "invalid decode vectors are table-driven across decoders" {
     match
       (Decode::decode(bytes, 0) : Result[(Module, Int), BinaryDecodeError]) {
       Ok(_) => fail("expected module decode failure for vector '\{name}'")
-      Err(err) => assert_eq(err, expected)
+      Err(err) => @debug.assert_eq(err, expected)
     }
   }
 
@@ -1381,7 +1393,7 @@ test "invalid decode vectors are table-driven across decoders" {
     match
       (Decode::decode(bytes, 0) : Result[(TypeSec, Int), BinaryDecodeError]) {
       Ok(_) => fail("expected TypeSec decode failure for vector '\{name}'")
-      Err(err) => assert_eq(err, expected)
+      Err(err) => @debug.assert_eq(err, expected)
     }
   }
 
@@ -1398,7 +1410,7 @@ test "invalid decode vectors are table-driven across decoders" {
     match
       (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
       Ok(_) => fail("expected Instruction decode failure for vector '\{name}'")
-      Err(err) => assert_eq(err, expected)
+      Err(err) => @debug.assert_eq(err, expected)
     }
   }
 }
@@ -1484,8 +1496,8 @@ test "generic list decode and encode propagate nested failures" {
       Decode::decode(b"\x02\x00\x01", 0) :
       Result[(@list.List[Bool], Int), BinaryDecodeError]) {
     Ok((decoded, i)) => {
-      assert_eq(i, 3)
-      assert_eq(decoded.to_array(), [false, true])
+      @debug.assert_eq(i, 3)
+      @debug.assert_eq(decoded.to_array(), [false, true])
     }
     Err(e) => fail("unexpected list decode failure: \{e}")
   }
@@ -1605,30 +1617,30 @@ test "leb sizing and encoding reject invalid bit widths and ranges" {
 
   match size_unsigned(1UL, 0) {
     Ok(_) => fail("expected invalid nbits for size_unsigned")
-    Err(e) => assert_eq(e, BinaryEncodeError::InvalidUnsignedLebBitWidth)
+    Err(e) => @debug.assert_eq(e, BinaryEncodeError::InvalidUnsignedLebBitWidth)
   }
   match size_unsigned(300UL, 8) {
     Ok(_) => fail("expected out-of-range size_unsigned")
-    Err(e) => assert_eq(e, BinaryEncodeError::UnsignedLebValueOutOfRange)
+    Err(e) => @debug.assert_eq(e, BinaryEncodeError::UnsignedLebValueOutOfRange)
   }
   match size_signed(1L, 0) {
     Ok(_) => fail("expected invalid nbits for size_signed")
-    Err(e) => assert_eq(e, BinaryEncodeError::InvalidSignedLebBitWidth)
+    Err(e) => @debug.assert_eq(e, BinaryEncodeError::InvalidSignedLebBitWidth)
   }
   match size_signed(200L, 8) {
     Ok(_) => fail("expected out-of-range size_signed")
-    Err(e) => assert_eq(e, BinaryEncodeError::SignedLebValueOutOfRange)
+    Err(e) => @debug.assert_eq(e, BinaryEncodeError::SignedLebValueOutOfRange)
   }
 }
 
 ///|
 test "max leb constants match common widths" {
-  assert_eq(MAX_LEB128_BYTES_32, 5)
-  assert_eq(MAX_LEB128_BYTES_33, 5)
-  assert_eq(MAX_LEB128_BYTES_64, 10)
-  assert_eq(max_leb_bytes(32), MAX_LEB128_BYTES_32)
-  assert_eq(max_leb_bytes(33), MAX_LEB128_BYTES_33)
-  assert_eq(max_leb_bytes(64), MAX_LEB128_BYTES_64)
+  @debug.assert_eq(MAX_LEB128_BYTES_32, 5)
+  @debug.assert_eq(MAX_LEB128_BYTES_33, 5)
+  @debug.assert_eq(MAX_LEB128_BYTES_64, 10)
+  @debug.assert_eq(max_leb_bytes(32), MAX_LEB128_BYTES_32)
+  @debug.assert_eq(max_leb_bytes(33), MAX_LEB128_BYTES_33)
+  @debug.assert_eq(max_leb_bytes(64), MAX_LEB128_BYTES_64)
 }
 
 ///|
@@ -1640,7 +1652,7 @@ test "write_section helper writes id length and payload" {
       payload.write_byte(0xCD)
       Ok(())
     }) {
-    Ok(_) => assert_eq(buf.to_bytes().to_array(), [42, 2, 0xAB, 0xCD])
+    Ok(_) => @debug.assert_eq(buf.to_bytes().to_array(), [42, 2, 0xAB, 0xCD])
     Err(e) => fail("unexpected write_section error: \{e}")
   }
 }
@@ -1660,19 +1672,22 @@ test "write_section helper propagates payload errors" {
 test "start code and data count sections encode with canonical payload lengths" {
   let start_buf = @buffer.new()
   match Encode::encode(StartSec::new(FuncIdx::new(0)), start_buf) {
-    Ok(_) => assert_eq(start_buf.to_bytes().to_array(), [0x08, 0x01, 0x00])
+    Ok(_) =>
+      @debug.assert_eq(start_buf.to_bytes().to_array(), [0x08, 0x01, 0x00])
     Err(e) => fail("unexpected start section encode failure: \{e}")
   }
 
   let code_buf = @buffer.new()
   match Encode::encode(CodeSec::new([]), code_buf) {
-    Ok(_) => assert_eq(code_buf.to_bytes().to_array(), [0x0A, 0x01, 0x00])
+    Ok(_) =>
+      @debug.assert_eq(code_buf.to_bytes().to_array(), [0x0A, 0x01, 0x00])
     Err(e) => fail("unexpected code section encode failure: \{e}")
   }
 
   let data_cnt_buf = @buffer.new()
   match Encode::encode(DataCntSec::new(U32(0)), data_cnt_buf) {
-    Ok(_) => assert_eq(data_cnt_buf.to_bytes().to_array(), [0x0C, 0x01, 0x00])
+    Ok(_) =>
+      @debug.assert_eq(data_cnt_buf.to_bytes().to_array(), [0x0C, 0x01, 0x00])
     Err(e) => fail("unexpected data count section encode failure: \{e}")
   }
 }
@@ -1684,8 +1699,8 @@ test "start code and data count sections decode canonical payload wrappers" {
       Decode::decode(b"\x08\x01\x00", 0) :
       Result[(StartSec, Int), BinaryDecodeError]) {
     Ok((start, next)) => {
-      assert_eq(start, StartSec::new(FuncIdx::new(0)))
-      assert_eq(next, 3)
+      @debug.assert_eq(start, StartSec::new(FuncIdx::new(0)))
+      @debug.assert_eq(next, 3)
     }
     Err(e) => fail("unexpected start section decode failure: \{e}")
   }
@@ -1695,8 +1710,8 @@ test "start code and data count sections decode canonical payload wrappers" {
       Decode::decode(b"\x0A\x01\x00", 0) :
       Result[(CodeSec, Int), BinaryDecodeError]) {
     Ok((code, next)) => {
-      assert_eq(code, CodeSec::new([]))
-      assert_eq(next, 3)
+      @debug.assert_eq(code, CodeSec::new([]))
+      @debug.assert_eq(next, 3)
     }
     Err(e) => fail("unexpected code section decode failure: \{e}")
   }
@@ -1706,8 +1721,8 @@ test "start code and data count sections decode canonical payload wrappers" {
       Decode::decode(b"\x0C\x01\x00", 0) :
       Result[(DataCntSec, Int), BinaryDecodeError]) {
     Ok((data_count, next)) => {
-      assert_eq(data_count, DataCntSec::new(U32(0)))
-      assert_eq(next, 3)
+      @debug.assert_eq(data_count, DataCntSec::new(U32(0)))
+      @debug.assert_eq(next, 3)
     }
     Err(e) => fail("unexpected data count section decode failure: \{e}")
   }
@@ -1780,14 +1795,14 @@ test "encode ref.null uses heap-type immediate for abstract refs" {
     Err(e) => fail("expected ref.null extern encode success, got \{e}")
   }
   let bytes = buf.to_bytes()
-  assert_eq(bytes, b"\xd0\x6f")
+  @debug.assert_eq(bytes, b"\xd0\x6f")
   let (decoded, i) = match
     (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected ref.null extern decode success, got \{e}")
   }
-  assert_eq(i, bytes.length())
-  assert_eq(decoded, instr)
+  @debug.assert_eq(i, bytes.length())
+  @debug.assert_eq(decoded, instr)
 }
 
 ///|
@@ -1801,14 +1816,14 @@ test "encode ref.null exact type index uses heap-type immediate" {
     Err(e) => fail("expected exact typed ref.null encode success, got \{e}")
   }
   let bytes = buf.to_bytes()
-  assert_eq(bytes, b"\xd0\x62\x00")
+  @debug.assert_eq(bytes, b"\xd0\x62\x00")
   let (decoded, i) = match
     (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected exact typed ref.null decode success, got \{e}")
   }
-  assert_eq(i, bytes.length())
-  assert_eq(decoded, instr)
+  @debug.assert_eq(i, bytes.length())
+  @debug.assert_eq(decoded, instr)
 }
 
 ///|
@@ -1928,7 +1943,7 @@ test "module roundtrip preserves string.const literals and stringrefs section" {
     Ok(decoded) => decoded
     Err(err) => fail("expected string.const module to decode: \{err}")
   }
-  assert_eq(decoded, mod)
+  @debug.assert_eq(decoded, mod)
 }
 
 ///|
@@ -2053,15 +2068,15 @@ test "encode_module emits structured name section after standard sections and de
     Ok(bytes) => bytes
     Err(e) => fail("expected encode success, got \{e}")
   }
-  assert_eq(wasm[8], 0x01)
+  @debug.assert_eq(wasm[8], 0x01)
 
   let decoded = match decode_module(wasm) {
     Ok(v) => v
     Err(e) => fail("expected decode success, got \{e}")
   }
-  assert_eq(decoded, mod)
-  assert_eq(decoded.custom_secs.length(), 0)
-  assert_eq(decoded.name_sec, mod.name_sec)
+  @debug.assert_eq(decoded, mod)
+  @debug.assert_eq(decoded.custom_secs.length(), 0)
+  @debug.assert_eq(decoded.name_sec, mod.name_sec)
   assert_true(decoded.raw_name_sec_payload is Some(_))
 }
 
@@ -2116,12 +2131,12 @@ test "encode_module reuses raw decoded name-section payload bytes" {
     Ok(v) => v
     Err(e) => fail("expected decode success, got \{e}")
   }
-  assert_eq(decoded.raw_name_sec_payload, Some(name_payload.to_bytes()))
+  @debug.assert_eq(decoded.raw_name_sec_payload, Some(name_payload.to_bytes()))
   let reencoded = match encode_module(decoded) {
     Ok(bytes) => bytes
     Err(e) => fail("expected re-encode success, got \{e}")
   }
-  assert_eq(reencoded, wasm)
+  @debug.assert_eq(reencoded, wasm)
 }
 
 ///|
@@ -2132,8 +2147,8 @@ test "decode_module rejects malformed function name map ordering inside name sec
     Err(
       DecodeError::DecodeAt(BinaryDecodeError::InvalidNameMapOrder, offset, len)
     ) => {
-      assert_eq(offset, 8)
-      assert_eq(len, 16)
+      @debug.assert_eq(offset, 8)
+      @debug.assert_eq(len, 16)
     }
     Err(e) =>
       fail("expected spanned malformed name-section decode error, got \{e}")

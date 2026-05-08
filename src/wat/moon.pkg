@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/debug",
   "jtenner/starshine/lib",
   "jtenner/starshine/wast",
   "moonbitlang/core/quickcheck",

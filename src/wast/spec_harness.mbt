@@ -429,7 +429,7 @@ test "wast spec harness skips assert_exception commands without skipping static 
     Failed(msg) => fail("expected static checks to still run: \{msg}")
   }
   assert_true(report.checked_commands >= 2)
-  assert_eq(report.skipped_commands, 1)
+  @debug.assert_eq(report.skipped_commands, 1)
 }
 
 ///|
@@ -451,8 +451,8 @@ test "wast spec harness keeps runtime directives command-scoped and validates st
       fail("expected static directives to be validated: \{reason}")
     Failed(msg) => fail("expected mixed runtime/static script to pass: \{msg}")
   }
-  assert_eq(report.checked_commands, 3)
-  assert_eq(report.skipped_commands, 6)
+  @debug.assert_eq(report.checked_commands, 3)
+  @debug.assert_eq(report.skipped_commands, 6)
 }
 
 ///|
@@ -470,8 +470,8 @@ test "wast spec harness exercises module directive validator paths" {
       fail("expected directive coverage script to run: \{reason}")
     Failed(msg) => fail("expected directive coverage script to pass: \{msg}")
   }
-  assert_eq(report.checked_commands, 5)
-  assert_eq(report.skipped_commands, 0)
+  @debug.assert_eq(report.checked_commands, 5)
+  @debug.assert_eq(report.skipped_commands, 0)
 }
 
 ///|
@@ -503,7 +503,7 @@ test "wast spec harness suite summary tracks pass skip and fail counts" {
     ),
   ]
   let summary = run_wast_spec_suite(files)
-  assert_eq(summary.total_files, 3)
+  @debug.assert_eq(summary.total_files, 3)
   assert_true(summary.passed_files >= 1)
   assert_true(summary.skipped_files >= 1)
   assert_true(summary.failed_files >= 1)

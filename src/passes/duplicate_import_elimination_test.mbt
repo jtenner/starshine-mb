@@ -75,17 +75,17 @@ test "duplicate-import-elimination collapses duplicate imported functions and re
     #|,
   let optimized = try! die_test_run(source)
 
-  assert_eq(die_test_imported_func_count(optimized), 1)
-  assert_eq(try! die_test_first_call_target(optimized, 0), 0U)
-  assert_eq(try! die_test_ref_func_target(optimized, 0), 0U)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
+  @debug.assert_eq(try! die_test_first_call_target(optimized, 0), 0U)
+  @debug.assert_eq(try! die_test_ref_func_target(optimized, 0), 0U)
   match optimized.export_sec {
     Some(
       @lib.ExportSec([@lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(target)))])
-    ) => assert_eq(target, 0U)
+    ) => @debug.assert_eq(target, 0U)
     _ => fail("expected rewritten function export")
   }
   match optimized.start_sec {
-    Some(@lib.StartSec(@lib.FuncIdx(target))) => assert_eq(target, 0U)
+    Some(@lib.StartSec(@lib.FuncIdx(target))) => @debug.assert_eq(target, 0U)
     _ => fail("expected rewritten start")
   }
   match optimized.elem_sec {
@@ -94,8 +94,8 @@ test "duplicate-import-elimination collapses duplicate imported functions and re
         [@lib.Elem(_, @lib.FuncsElemKind([@lib.FuncIdx(a), @lib.FuncIdx(b)]))]
       )
     ) => {
-      assert_eq(a, 0U)
-      assert_eq(b, 0U)
+      @debug.assert_eq(a, 0U)
+      @debug.assert_eq(b, 0U)
     }
     _ => fail("expected rewritten function element segment")
   }
@@ -122,12 +122,12 @@ test "duplicate-import-elimination preserves non-function and different-signatur
     #|,
   let optimized = try! die_test_run(source)
 
-  assert_eq(die_test_imported_func_count(optimized), 2)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
   match optimized.import_sec {
-    Some(@lib.ImportSec(imports)) => assert_eq(imports.length(), 4)
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 4)
     None => fail("expected imports")
   }
-  assert_eq(try! die_test_first_call_target(optimized, 0), 0U)
+  @debug.assert_eq(try! die_test_first_call_target(optimized, 0), 0U)
 }
 
 ///|
@@ -143,5 +143,5 @@ test "duplicate-import-elimination compares later aliases only against the first
     #|,
   let optimized = try! die_test_run(source)
 
-  assert_eq(die_test_imported_func_count(optimized), 3)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 3)
 }

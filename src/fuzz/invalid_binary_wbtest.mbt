@@ -42,7 +42,7 @@ fn invalid_binary_test_base_module(seed : UInt64) -> Module {
 ///|
 test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
   let registry = validate_invalid_binary_registry()
-  assert_eq(registry.map(fn(spec) { spec.stable_id }), [
+  @debug.assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "trailing-garbage", "truncated-module", "duplicate-type-section", "wrong-section-order",
     "invalid-func-type-index", "invalid-start-signature-module", "invalid-imported-start-func-param-module",
     "invalid-imported-start-func-result-module", "invalid-imported-start-func-param-result-module",
@@ -61,7 +61,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
     "malformed-simd-immediate", "simd-lane-index-overflow", "malformed-custom-section-payload",
   ])
-  assert_eq(
+  @debug.assert_eq(
     registry.map(fn(spec) {
       invalid_binary_test_expected_label(spec.expected_result)
     }),
@@ -77,7 +77,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 40)
+  @debug.assert_eq(smoke_required.length(), 40)
 }
 
 ///|
@@ -565,7 +565,7 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 40)
+  @debug.assert_eq(first.attempts, 40)
   let mut saw_decode = false
   let mut saw_validate = false
   for stat in first.strategy_stats {
@@ -580,7 +580,7 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
       if stat.validate_rejected > 0 {
         saw_validate = true
       }
-      assert_eq(stat.accepted, 0)
+      @debug.assert_eq(stat.accepted, 0)
     }
   }
   assert_true(saw_decode)
@@ -618,7 +618,7 @@ test "gen_invalid_binary_generate returns valid base and validator-rejected byte
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "function",
           )
@@ -647,7 +647,7 @@ test "gen_invalid_binary_generate supports start-section invalid modules" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "start",
           )
@@ -677,7 +677,10 @@ test "gen_invalid_binary_generate supports invalid table-name modules" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(invalid_binary_test_validation_family_label(family), "name")
+          @debug.assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "name",
+          )
         }
       }
   }
@@ -703,7 +706,10 @@ test "gen_invalid_binary_generate supports invalid elem-name modules" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(invalid_binary_test_validation_family_label(family), "name")
+          @debug.assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "name",
+          )
         }
       }
   }
@@ -730,7 +736,10 @@ test "gen_invalid_binary_generate supports invalid local-name modules" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(invalid_binary_test_validation_family_label(family), "name")
+          @debug.assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "name",
+          )
         }
       }
   }
@@ -757,7 +766,10 @@ test "gen_invalid_binary_generate supports invalid field-name modules" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(invalid_binary_test_validation_family_label(family), "name")
+          @debug.assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "name",
+          )
         }
       }
   }
@@ -786,7 +798,7 @@ test "gen_invalid_binary_generate supports invalid imported-start-result modules
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "start",
           )
@@ -829,7 +841,7 @@ test "gen_invalid_binary_generate supports invalid imported-start-externref modu
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "start",
           )
@@ -861,7 +873,7 @@ test "gen_invalid_binary_generate supports invalid export-memory modules" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "export",
           )
@@ -891,7 +903,7 @@ test "gen_invalid_binary_generate supports invalid export-tag modules" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "export",
           )
@@ -923,7 +935,7 @@ test "gen_invalid_binary_generate supports invalid imported-tag-type modules" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "import",
           )
@@ -968,7 +980,7 @@ test "gen_invalid_binary_generate supports datacount mismatch too-large modules"
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "datacount",
           )
@@ -1098,7 +1110,7 @@ test "gen_invalid_binary_generate supports small coverage-forced seeds" {
           let family = validation_issue_family(
             validation_error_diagnostic(err).issue,
           )
-          assert_eq(
+          @debug.assert_eq(
             invalid_binary_test_validation_family_label(family),
             "function",
           )
@@ -1120,43 +1132,43 @@ test "gen_invalid_binary repro_seed matches small coverage-forced seed defaults"
 
 ///|
 test "gen_invalid_binary_params_profile_name identifies named and custom profiles" {
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_binary_params_profile_name(
       GenInvalidBinaryParams::natural_seed(TrailingGarbage),
     ),
     "natural",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_binary_params_profile_name(
       GenInvalidBinaryParams::coverage_forced_seed(TrailingGarbage),
     ),
     "coverage-forced",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_binary_params_profile_name(
       GenInvalidBinaryParams::small_natural_seed(TrailingGarbage),
     ),
     "small-natural",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_binary_params_profile_name(
       GenInvalidBinaryParams::small_coverage_forced_seed(TrailingGarbage),
     ),
     "small-coverage-forced",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_binary_params_profile_name(
       GenInvalidBinaryParams::repro_seed(TrailingGarbage),
     ),
     "repro",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_binary_params_profile_name(
       GenInvalidBinaryParams::minimal_seed(TrailingGarbage),
     ),
     "minimal",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_binary_params_profile_name(
       GenInvalidBinaryParams::new(
         TrailingGarbage,

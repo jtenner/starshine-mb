@@ -558,7 +558,7 @@ test "remove-unused-brs restructures loop-body one-exit-arm ifs with carried sel
       )
   }
   let loop_body = @ir.hot_region_body_ref(func, loop_id)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_region_root_count(func, loop_body),
     2,
     msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
@@ -634,7 +634,7 @@ test "remove-unused-brs verifies loop-body carried self-tail rewrites from Binar
   let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
   let loop_id = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
   let loop_body = @ir.hot_region_body_ref(func, loop_id)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_region_root_count(func, loop_body),
     2,
     msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
@@ -642,7 +642,7 @@ test "remove-unused-brs verifies loop-body carried self-tail rewrites from Binar
 
   let if_id = @ir.hot_region_get(func, loop_body, 0)
   let then_ref = @ir.hot_region_then_ref(func, if_id)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_region_root_count(func, then_ref),
     4,
     msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
@@ -1132,10 +1132,10 @@ test "remove-unused-brs detects nested multi-value root return context" {
   let inner_then_ref = @ir.hot_region_then_ref(func, inner_if)
   let tail = @ir.hot_region_get(func, inner_then_ref, 0)
   let child = @ir.hot_child_get(func, tail, 0)
-  assert_eq(@ir.hot_region_result_arity(func, inner_then_ref), 2)
-  assert_eq(@ir.hot_node_get(func, tail).child_count, 2)
-  assert_eq(@ir.hot_child_get(func, tail, 1), child)
-  assert_eq(@ir.hot_node_result_arity(func, child), 2)
+  @debug.assert_eq(@ir.hot_region_result_arity(func, inner_then_ref), 2)
+  @debug.assert_eq(@ir.hot_node_get(func, tail).child_count, 2)
+  @debug.assert_eq(@ir.hot_child_get(func, tail, 1), child)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, child), 2)
 }
 
 ///|
@@ -1154,7 +1154,7 @@ test "remove-unused-brs lifts scalar returned ladders through return and holder 
   let else_return = @ir.hot_region_get(func, else_ref, 0)
   let nested_block = @ir.hot_child_get(func, else_return, 0)
 
-  assert_eq(@ir.hot_node_result_arity(func, root), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, root), 1)
   match @ir.hot_node_get(func, tail).op {
     @ir.HotOp::Return => ()
     _ => fail("expected lifted root body tail to be a return")
@@ -1163,7 +1163,7 @@ test "remove-unused-brs lifts scalar returned ladders through return and holder 
     @ir.HotOp::If => ()
     _ => fail("expected lifted return child to be an if")
   }
-  assert_eq(@ir.hot_node_result_arity(func, outer_if), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_if), 1)
   match @ir.hot_node_get(func, then_holder).op {
     @ir.HotOp::Block => ()
     _ => fail("expected lifted then holder to stay a block")
@@ -1180,7 +1180,7 @@ test "remove-unused-brs lifts scalar returned ladders through return and holder 
     @ir.HotOp::Block => ()
     _ => fail("expected nested returned value region to be wrapped in a block")
   }
-  assert_eq(@ir.hot_node_result_arity(func, nested_block), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, nested_block), 1)
 }
 
 ///|
@@ -1219,13 +1219,13 @@ test "remove-unused-brs lifts multi-value returned ladders through repeated hold
     @ir.HotOp::Block => ()
     _ => fail("expected lifted else holder to be a block")
   }
-  assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
-  assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
   match @ir.hot_node_get(func, then_root0).op {
     @ir.HotOp::Block => ()
     _ => fail("expected returned then root to be a result block")
   }
-  assert_eq(@ir.hot_region_root_count(func, then_root0_body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_root0_body), 2)
   match @ir.hot_node_get(func, body0).op {
     @ir.HotOp::Block => ()
     _ => fail("expected nested returned ladder wrapper block")
@@ -1234,7 +1234,7 @@ test "remove-unused-brs lifts multi-value returned ladders through repeated hold
     @ir.HotOp::Block => ()
     _ => fail("expected repeated returned ladder wrapper block")
   }
-  assert_eq(@ir.hot_region_root_count(func, body0_body), 3)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body0_body), 3)
   match @ir.hot_node_get(func, nested0).op {
     @ir.HotOp::If => ()
     _ => fail("expected leading nested guard to stay an if")
@@ -1247,7 +1247,7 @@ test "remove-unused-brs lifts multi-value returned ladders through repeated hold
     @ir.HotOp::Block => ()
     _ => fail("expected nested guard then holder to stay a block")
   }
-  assert_eq(@ir.hot_region_root_count(func, nested0_then), 3)
+  @debug.assert_eq(@ir.hot_region_root_count(func, nested0_then), 3)
   match @ir.hot_node_get(func, nested0_then2).op {
     @ir.HotOp::Br => ()
     _ => fail("expected nested then tail to stay a branch")
@@ -1256,7 +1256,7 @@ test "remove-unused-brs lifts multi-value returned ladders through repeated hold
     @ir.HotOp::If => ()
     _ => fail("expected branch payload to stay a repeated result if")
   }
-  assert_eq(@ir.hot_node_get(func, nested0_then2).child_count, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, nested0_then2).child_count, 2)
 }
 
 ///|
@@ -1966,9 +1966,9 @@ test "remove-unused-brs retargets br_table continuation wrappers to the outer ex
   let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
   let exit_label = @ir.hot_control_node_label(func, exit_block)
 
-  assert_eq(targets[0], exit_label)
-  assert_eq(targets[1], exit_label)
-  assert_eq(targets[2], exit_label)
+  @debug.assert_eq(targets[0], exit_label)
+  @debug.assert_eq(targets[1], exit_label)
+  @debug.assert_eq(targets[2], exit_label)
 
   let wrapper0_tail = @ir.hot_region_get(
     func,
@@ -2121,7 +2121,7 @@ test "remove-unused-brs voidifies nested branch-exit ifs inside branch payload a
     typed_if_parts += 1
   }
   assert_true(pretty.contains("br_if"), msg=pretty)
-  assert_eq(typed_if_parts, 2, msg=pretty)
+  @debug.assert_eq(typed_if_parts, 2, msg=pretty)
   assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
 }
 
@@ -2145,7 +2145,7 @@ test "remove-unused-brs voidifies nested branch-exit ifs inside local.set payloa
     typed_if_parts += 1
   }
   assert_true(pretty.contains("br_if"), msg=pretty)
-  assert_eq(typed_if_parts, 2, msg=pretty)
+  @debug.assert_eq(typed_if_parts, 2, msg=pretty)
   assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
 }
 
@@ -2260,14 +2260,17 @@ test "remove-unused-brs preserves nop-only if arms while trimming trailing root 
       fail("expected remove-unused-brs nop-arm parity success, got \{err}")
   }
 
-  assert_eq(try! remove_unused_brs_test_defined_func_instrs(optimized, 0), [
-    @lib.Instruction::i32_const(@lib.I32(0)),
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::nop()],
-      Some([@lib.Instruction::nop()]),
-    ),
-  ])
+  @debug.assert_eq(
+    try! remove_unused_brs_test_defined_func_instrs(optimized, 0),
+    [
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [@lib.Instruction::nop()],
+        Some([@lib.Instruction::nop()]),
+      ),
+    ],
+  )
 }
 
 ///|
@@ -2284,12 +2287,15 @@ test "remove-unused-brs trims dead local.tee roots along with trailing root nops
       )
   }
 
-  assert_eq(try! remove_unused_brs_test_defined_func_instrs(optimized, 0), [
-    @lib.Instruction::i32_const(@lib.I32(252)),
-    @lib.Instruction::drop(),
-    @lib.Instruction::i64_const(@lib.I64(563L)),
-    @lib.Instruction::drop(),
-  ])
+  @debug.assert_eq(
+    try! remove_unused_brs_test_defined_func_instrs(optimized, 0),
+    [
+      @lib.Instruction::i32_const(@lib.I32(252)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i64_const(@lib.I64(563L)),
+      @lib.Instruction::drop(),
+    ],
+  )
 }
 
 ///|
@@ -2304,13 +2310,16 @@ test "remove-unused-brs preserves leading root nops while trimming trailing noop
       fail("expected remove-unused-brs root-nop parity success, got \{err}")
   }
 
-  assert_eq(try! remove_unused_brs_test_defined_func_instrs(optimized, 0), [
-    @lib.Instruction::nop(),
-    @lib.Instruction::i32_const(@lib.I32(0)),
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::nop()],
-      Some([@lib.Instruction::nop()]),
-    ),
-  ])
+  @debug.assert_eq(
+    try! remove_unused_brs_test_defined_func_instrs(optimized, 0),
+    [
+      @lib.Instruction::nop(),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [@lib.Instruction::nop()],
+        Some([@lib.Instruction::nop()]),
+      ),
+    ],
+  )
 }

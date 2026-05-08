@@ -23,8 +23,8 @@ test "parse_readme_api_verify_blocks extracts signature blocks with interface pa
     Ok(v) => v
     Err(e) => fail("expected parse success, got \{e}")
   }
-  assert_eq(blocks.length(), 1)
-  assert_eq(
+  @debug.assert_eq(blocks.length(), 1)
+  @debug.assert_eq(
     blocks[0],
     ReadmeApiVerifyBlock::new("src/cmd/pkg.generated.mbti", [
       "pub fn cmd_help_text() -> String", "pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]",

@@ -25,7 +25,7 @@ test "script_to_wat escapes register names and can be parsed back" {
     Ok(s) => s
     Err(e) => fail("unexpected wat_to_script error: \{e}")
   }
-  assert_eq(parsed.commands.length(), 1)
+  @debug.assert_eq(parsed.commands.length(), 1)
 }
 
 ///|

@@ -12,9 +12,9 @@ test "wast_to_module parses passive typed empty elem declarations" {
   }
   match mod.fields {
     [TypeField(_), TableField(_), ElemField(elem)] => {
-      assert_eq(elem.offset.length(), 0)
-      assert_eq(elem.func_indices.length(), 0)
-      assert_eq(elem.elem_exprs.length(), 0)
+      @debug.assert_eq(elem.offset.length(), 0)
+      @debug.assert_eq(elem.func_indices.length(), 0)
+      @debug.assert_eq(elem.elem_exprs.length(), 0)
       match elem.elem_type {
         Some(TypedFuncRef(HeapTypeRef::TypeId("$func"))) => ()
         _ => fail("expected passive typed empty elem type hint")
@@ -64,7 +64,7 @@ test "wast_to_binary_module lowers passive typed empty elem declarations" {
   }
   match lowered.elem_sec {
     Some(@lib.ElemSec([elem])) =>
-      assert_eq(
+      @debug.assert_eq(
         elem,
         @lib.Elem::new(
           @lib.ElemMode::passive(),

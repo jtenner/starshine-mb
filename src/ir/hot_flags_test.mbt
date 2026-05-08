@@ -17,7 +17,7 @@ test "lifted nodes expose canonical flag helpers" {
   let ret = hot_root_get(func, 1)
   let ret_value = hot_child_get(func, ret, 0)
 
-  assert_eq(
+  @debug.assert_eq(
     hot_node_flags(func, block),
     hot_default_flags_for_op(hot_node_get(func, block).op),
   )
@@ -25,7 +25,7 @@ test "lifted nodes expose canonical flag helpers" {
   assert_false(hot_is_terminator_node(func, block))
   assert_false(hot_has_side_effect(func, block))
 
-  assert_eq(
+  @debug.assert_eq(
     hot_node_flags(func, ret),
     hot_default_flags_for_op(hot_node_get(func, ret).op),
   )
@@ -33,7 +33,7 @@ test "lifted nodes expose canonical flag helpers" {
   assert_true(hot_has_side_effect(func, ret))
   assert_false(hot_is_control_node(func, ret))
 
-  assert_eq(
+  @debug.assert_eq(
     hot_node_flags(func, ret_value),
     hot_default_flags_for_op(hot_node_get(func, ret_value).op),
   )
@@ -55,7 +55,7 @@ test "heap family flags conservatively cover value trap and side-effect behavior
     [ref_null],
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_node_flags(func, node),
     hot_default_flags_for_op(hot_node_get(func, node).op),
   )

@@ -32,8 +32,8 @@ test "hot verify core reports root child span label owner and side-table corrupt
   )
   match hot_verify_core(invalid_label_owner) {
     Err(HotVerifyError::InvalidLabelOwner(owner_label, owner)) => {
-      assert_eq(owner_label, label_id)
-      assert_eq(owner, 99)
+      @debug.assert_eq(owner_label, label_id)
+      @debug.assert_eq(owner, 99)
     }
     other => fail("expected invalid label owner, got \{other}")
   }
@@ -56,8 +56,8 @@ test "hot verify core reports root child span label owner and side-table corrupt
         table_id
       )
     ) => {
-      assert_eq(node_id, br_table)
-      assert_eq(table_id, 17)
+      @debug.assert_eq(node_id, br_table)
+      @debug.assert_eq(table_id, 17)
     }
     other => fail("expected invalid branch-table side table ref, got \{other}")
   }

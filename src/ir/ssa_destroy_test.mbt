@@ -30,17 +30,17 @@ test "ssa destruction lowers diamond phis to predecessor copies" {
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 3)
-  assert_eq(hot_node_get(func, then_set).imm0, 2)
-  assert_eq(hot_region_root_count(func, then_region), 2)
+  @debug.assert_eq(hot_local_count(func), 3)
+  @debug.assert_eq(hot_node_get(func, then_set).imm0, 2)
+  @debug.assert_eq(hot_region_root_count(func, then_region), 2)
   let then_copy = hot_region_get(func, then_region, 1)
-  assert_eq(hot_node_get(func, then_copy).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, then_copy).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, then_copy).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, then_copy).imm0, 1)
   let then_copy_get = hot_child_get(func, then_copy, 0)
-  assert_eq(hot_node_get(func, then_copy_get).op.to_string(), "LocalGet")
-  assert_eq(hot_node_get(func, then_copy_get).imm0, 2)
-  assert_eq(hot_region_root_count(func, else_region), 1)
-  assert_eq(hot_node_get(func, join_get).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, then_copy_get).op.to_string(), "LocalGet")
+  @debug.assert_eq(hot_node_get(func, then_copy_get).imm0, 2)
+  @debug.assert_eq(hot_region_root_count(func, else_region), 1)
+  @debug.assert_eq(hot_node_get(func, join_get).imm0, 1)
 }
 
 ///|
@@ -70,25 +70,28 @@ test "ssa destruction lowers loop-header phis before the backedge and preheader"
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 3)
-  assert_eq(hot_node_get(func, entry_set).imm0, 1)
-  assert_eq(hot_root_count(func), 3)
+  @debug.assert_eq(hot_local_count(func), 3)
+  @debug.assert_eq(hot_node_get(func, entry_set).imm0, 1)
+  @debug.assert_eq(hot_root_count(func), 3)
   let preheader_copy = hot_root_get(func, 1)
-  assert_eq(hot_node_get(func, preheader_copy).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, preheader_copy).imm0, 0)
+  @debug.assert_eq(
+    hot_node_get(func, preheader_copy).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(hot_node_get(func, preheader_copy).imm0, 0)
   let preheader_get = hot_child_get(func, preheader_copy, 0)
-  assert_eq(hot_node_get(func, preheader_get).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, preheader_get).imm0, 1)
 
   let loop_body = hot_region_body_ref(func, loop_id)
-  assert_eq(hot_node_get(func, loop_get).imm0, 0)
-  assert_eq(hot_node_get(func, loop_set).imm0, 2)
-  assert_eq(hot_region_root_count(func, loop_body), 4)
+  @debug.assert_eq(hot_node_get(func, loop_get).imm0, 0)
+  @debug.assert_eq(hot_node_get(func, loop_set).imm0, 2)
+  @debug.assert_eq(hot_region_root_count(func, loop_body), 4)
   let body_copy = hot_region_get(func, loop_body, 2)
-  assert_eq(hot_node_get(func, body_copy).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, body_copy).imm0, 0)
+  @debug.assert_eq(hot_node_get(func, body_copy).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, body_copy).imm0, 0)
   let body_get = hot_child_get(func, body_copy, 0)
-  assert_eq(hot_node_get(func, body_get).imm0, 2)
-  assert_eq(hot_region_get(func, loop_body, 3), loop_br)
+  @debug.assert_eq(hot_node_get(func, body_get).imm0, 2)
+  @debug.assert_eq(hot_region_get(func, loop_body, 3), loop_br)
 }
 
 ///|
@@ -144,14 +147,14 @@ test "ssa predecessor copy insertion allocates a temp for cycles" {
     ),
   )
 
-  assert_eq(hot_local_count(func), 3)
-  assert_eq(hot_root_count(func), 4)
+  @debug.assert_eq(hot_local_count(func), 3)
+  @debug.assert_eq(hot_root_count(func), 4)
   let temp_copy = hot_root_get(func, 1)
   let first_copy = hot_root_get(func, 2)
   let second_copy = hot_root_get(func, 3)
-  assert_eq(hot_node_get(func, temp_copy).imm0, 2)
-  assert_eq(hot_node_get(func, first_copy).imm0, 0)
-  assert_eq(hot_node_get(func, second_copy).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, temp_copy).imm0, 2)
+  @debug.assert_eq(hot_node_get(func, first_copy).imm0, 0)
+  @debug.assert_eq(hot_node_get(func, second_copy).imm0, 1)
 }
 
 ///|
@@ -191,19 +194,19 @@ test "ssa destruction preserves root-region copy order for multiple loop prehead
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_root_count(func), 6)
-  assert_eq(hot_root_get(func, 0), entry1_set)
-  assert_eq(
+  @debug.assert_eq(hot_root_count(func), 6)
+  @debug.assert_eq(hot_root_get(func, 0), entry1_set)
+  @debug.assert_eq(
     hot_node_get(func, hot_root_get(func, 1)).op.to_string(),
     "LocalSet",
   )
-  assert_eq(hot_root_get(func, 2), loop1)
-  assert_eq(hot_root_get(func, 3), entry2_set)
-  assert_eq(
+  @debug.assert_eq(hot_root_get(func, 2), loop1)
+  @debug.assert_eq(hot_root_get(func, 3), entry2_set)
+  @debug.assert_eq(
     hot_node_get(func, hot_root_get(func, 4)).op.to_string(),
     "LocalSet",
   )
-  assert_eq(hot_root_get(func, 5), loop2)
+  @debug.assert_eq(hot_root_get(func, 5), loop2)
 }
 
 ///|
@@ -216,9 +219,9 @@ test "ssa dead local cleanup tolerates duplicate dead node ids" {
   ssa_remove_dead_local_defs(func, [set_id, set_id])
 
   let rewritten = hot_root_get(func, 0)
-  assert_eq(hot_node_get(func, rewritten).op.to_string(), "Drop")
+  @debug.assert_eq(hot_node_get(func, rewritten).op.to_string(), "Drop")
   let child = hot_child_get(func, rewritten, 0)
-  assert_eq(hot_node_get(func, child).op.to_string(), "Const")
+  @debug.assert_eq(hot_node_get(func, child).op.to_string(), "Const")
 }
 
 ///|
@@ -236,12 +239,12 @@ test "ssa dead local cleanup preserves writes with later concrete local reads" {
 
   ssa_remove_dead_local_defs(func, [set_id])
 
-  assert_eq(
+  @debug.assert_eq(
     hot_node_get(func, hot_root_get(func, 0)).op.to_string(),
     "LocalSet",
   )
-  assert_eq(hot_node_get(func, get_id).op.to_string(), "LocalGet")
-  assert_eq(hot_child_get(func, hot_root_get(func, 1), 0), get_id)
+  @debug.assert_eq(hot_node_get(func, get_id).op.to_string(), "LocalGet")
+  @debug.assert_eq(hot_child_get(func, hot_root_get(func, 1), 0), get_id)
 }
 
 ///|
@@ -262,8 +265,11 @@ test "ssa destruction trims unused temp locals for dead local sets" {
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 1)
-  assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "Drop")
+  @debug.assert_eq(hot_local_count(func), 1)
+  @debug.assert_eq(
+    hot_node_get(func, hot_root_get(func, 0)).op.to_string(),
+    "Drop",
+  )
 }
 
 ///|
@@ -284,10 +290,10 @@ test "ssa destruction retains Binaryen temp locals for dead local tees" {
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 2)
+  @debug.assert_eq(hot_local_count(func), 2)
   let rewritten = hot_root_get(func, 0)
-  assert_eq(hot_node_get(func, rewritten).op.to_string(), "LocalTee")
-  assert_eq(hot_node_get(func, rewritten).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, rewritten).op.to_string(), "LocalTee")
+  @debug.assert_eq(hot_node_get(func, rewritten).imm0, 1)
 }
 
 ///|
@@ -313,7 +319,7 @@ test "ssa destruction retains Binaryen temp locals for unreachable dead local te
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 2)
+  @debug.assert_eq(hot_local_count(func), 2)
 }
 
 ///|
@@ -381,14 +387,14 @@ test "ssa destruction retains Binaryen temp locals for unreachable dead tees bef
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 2)
+  @debug.assert_eq(hot_local_count(func), 2)
 
   let lowered = hot_lower_func_with_options(
     func,
     HotLowerOptions::new(preserve_dead_local_tee_drops=true),
   )
   let @lib.Func(locals, _) = lowered
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
 }
 
 ///|
@@ -465,7 +471,7 @@ test "ssa destruction keeps canonical locals for if-result unreachable tee carri
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 2)
+  @debug.assert_eq(hot_local_count(func), 2)
 }
 
 ///|
@@ -518,13 +524,13 @@ test "ssa destruction keeps canonical locals when unreachable reads stay behind 
 
   ignore(ssa_destroy_into_hot(func, cfg, ssa))
 
-  assert_eq(hot_local_count(func), 1)
+  @debug.assert_eq(hot_local_count(func), 1)
   let lowered = hot_lower_func_with_options(
     func,
     HotLowerOptions::new(preserve_dead_local_tee_drops=true),
   )
   let @lib.Func(locals, _) = lowered
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
 }
 
 ///|
@@ -576,7 +582,7 @@ test "ssa destruction does not duplicate returned br_table result regions" {
   let baseline_pretty = fixture.mod_
     .with_code_sec(@lib.CodeSec::new([hot_lower_func(fixture.hot_func)]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_eq(
+  @debug.assert_eq(
     ssa_destroy_test_count_substring(baseline_pretty, "(block (Type 1)"),
     1,
   )
@@ -594,5 +600,8 @@ test "ssa destruction does not duplicate returned br_table result regions" {
   let pretty = fixture.mod_
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_eq(ssa_destroy_test_count_substring(pretty, "(block (Type 1)"), 1)
+  @debug.assert_eq(
+    ssa_destroy_test_count_substring(pretty, "(block (Type 1)"),
+    1,
+  )
 }

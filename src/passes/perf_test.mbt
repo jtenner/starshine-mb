@@ -3557,11 +3557,11 @@ test "perf session records hot allocation deltas dumps and checkpoints" {
   perf_validation_checkpoint(perf, "after-build")
 
   let counters = perf_counters(perf)
-  assert_eq(counters.node_allocs, 1)
-  assert_eq(counters.child_span_allocs, 0)
-  assert_eq(counters.side_table_allocs, 1)
-  assert_eq(counters.cfg_builds, 1)
-  assert_eq(counters.traversal_visits, @ir.cfg_block_count(cfg))
+  @debug.assert_eq(counters.node_allocs, 1)
+  @debug.assert_eq(counters.child_span_allocs, 0)
+  @debug.assert_eq(counters.side_table_allocs, 1)
+  @debug.assert_eq(counters.cfg_builds, 1)
+  @debug.assert_eq(counters.traversal_visits, @ir.cfg_block_count(cfg))
 
   let text = perf_test_join_lines(lines)
   assert_true(text.contains("perf:dump hot-func label=after-build"))
@@ -3592,7 +3592,7 @@ test "pass require cfg records a single cfg build and optional cfg dump" {
   ignore(pass_require_cfg(ctx, func))
 
   let counters = perf_counters(perf)
-  assert_eq(counters.cfg_builds, 1)
+  @debug.assert_eq(counters.cfg_builds, 1)
   let text = perf_test_join_lines(lines)
   assert_true(text.contains("perf:timer name=analysis:cfg"))
   assert_true(text.contains("perf:dump cfg label=analysis:cfg"))
@@ -5218,7 +5218,11 @@ test "simplify-locals rewrites straight-line pure call tails without hot lift" {
   )
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=pass:simplify-locals"))
-  assert_eq(perf_test_count_occurrences(pretty, "local.set"), 0, msg=pretty)
+  @debug.assert_eq(
+    perf_test_count_occurrences(pretty, "local.set"),
+    0,
+    msg=pretty,
+  )
 }
 
 ///|
@@ -5252,7 +5256,11 @@ test "simplify-locals rewrites giant straight-line adjacent tees without hot lif
   )
   assert_false(text.contains("perf:timer name=lift"), msg=text)
   assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
-  assert_eq(perf_test_count_occurrences(pretty, "local.set"), 0, msg=pretty)
+  @debug.assert_eq(
+    perf_test_count_occurrences(pretty, "local.set"),
+    0,
+    msg=pretty,
+  )
   assert_true(pretty.contains("local.tee"), msg=pretty)
 }
 
@@ -5321,7 +5329,11 @@ test "simplify-locals rewrites straight-line lane builders without hot lift" {
   )
   assert_false(text.contains("perf:timer name=lift"), msg=text)
   assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
-  assert_eq(perf_test_count_occurrences(pretty, "local.tee"), 16, msg=pretty)
+  @debug.assert_eq(
+    perf_test_count_occurrences(pretty, "local.tee"),
+    16,
+    msg=pretty,
+  )
   assert_false(pretty.contains("nop"), msg=pretty)
 }
 
@@ -5380,7 +5392,11 @@ test "simplify-locals rewrites structured pure call tails without hot lift" {
   )
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=pass:simplify-locals"))
-  assert_eq(perf_test_count_occurrences(pretty, "local.set"), 0, msg=pretty)
+  @debug.assert_eq(
+    perf_test_count_occurrences(pretty, "local.set"),
+    0,
+    msg=pretty,
+  )
 }
 
 ///|
@@ -6739,7 +6755,7 @@ test "heap-store-optimization aggregates identical raw-skip trace lines across f
   }
 
   let text = perf_test_join_lines(lines)
-  assert_eq(
+  @debug.assert_eq(
     perf_test_count_occurrences(
       text, "pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates",
     ),
@@ -6827,7 +6843,7 @@ test "pick-load-signs aggregates identical raw-skip trace lines across functions
   }
 
   let text = perf_test_join_lines(lines)
-  assert_eq(
+  @debug.assert_eq(
     perf_test_count_occurrences(
       text, "pass[pick-load-signs]:skip-raw reason=no-pick-load-signs-candidates",
     ),

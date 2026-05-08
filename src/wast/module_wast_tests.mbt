@@ -22,7 +22,7 @@ test "script_to_wast escapes register names and can be parsed back" {
     Ok(s) => s
     Err(e) => fail("unexpected wast_to_script error: \{e}")
   }
-  assert_eq(parsed.commands.length(), 1)
+  @debug.assert_eq(parsed.commands.length(), 1)
 }
 
 ///|
@@ -100,8 +100,10 @@ test "module_to_wast preserves function annotations" {
     Ok(parsed) =>
       match parsed.fields {
         [ImportField(im), FuncField(func)] => {
-          assert_eq(im.annotations, [{ name: "binaryen.js.called", args: [] }])
-          assert_eq(func.annotations, [
+          @debug.assert_eq(im.annotations, [
+            { name: "binaryen.js.called", args: [] },
+          ])
+          @debug.assert_eq(func.annotations, [
             { name: "binaryen.idempotent", args: [] },
             { name: "metadata.code.inline", args: ["\"\\00\""] },
           ])

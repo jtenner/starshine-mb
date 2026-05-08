@@ -69,7 +69,7 @@ test "without_name_sec clears the structured name section" {
     ),
   )
   assert_true(mod.name_sec is Some(_))
-  assert_eq(mod.without_name_sec().name_sec, None)
+  @debug.assert_eq(mod.without_name_sec().name_sec, None)
 }
 
 ///|
@@ -81,12 +81,12 @@ test "with_name_sec and without_name_sec clear cached raw name payload" {
       ),
     )
     .with_raw_name_sec_payload(b"raw")
-  assert_eq(mod.raw_name_sec_payload, Some(b"raw"))
+  @debug.assert_eq(mod.raw_name_sec_payload, Some(b"raw"))
   let replaced = mod.with_name_sec(
     NameSec::new(
       func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("g"))])),
     ),
   )
-  assert_eq(replaced.raw_name_sec_payload, None)
-  assert_eq(replaced.without_name_sec().raw_name_sec_payload, None)
+  @debug.assert_eq(replaced.raw_name_sec_payload, None)
+  @debug.assert_eq(replaced.without_name_sec().raw_name_sec_payload, None)
 }

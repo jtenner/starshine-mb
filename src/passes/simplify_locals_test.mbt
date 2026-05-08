@@ -1985,7 +1985,7 @@ test "simplify-locals rewrites same-arm tee aliases back to the source local" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
   assert_true(pretty.contains("local.tee (Local 4)"), msg=pretty)
-  assert_eq(
+  @debug.assert_eq(
     simplify_locals_test_count_substring(pretty, "local.get (Local 4)"),
     1,
     msg=pretty,
@@ -2501,7 +2501,7 @@ test "simplify-locals skips one-armed if lifting for non-defaultable locals" {
       )
   }
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
     @ir.HotOp::If => ()
     _ => fail("expected non-defaultable if to stay as a plain if root")
@@ -2596,8 +2596,8 @@ test "simplify-locals rehomes dead tee control labels before cleanup" {
     @ir.HotOp::Block => ()
     other => fail("expected tee slot to become a block, got \{other}")
   }
-  assert_eq(@ir.hot_control_node_label(func, tee), carried_label)
-  assert_eq(@ir.hot_label_owner(func, carried_label), tee)
+  @debug.assert_eq(@ir.hot_control_node_label(func, tee), carried_label)
+  @debug.assert_eq(@ir.hot_label_owner(func, carried_label), tee)
   assert_false(@ir.hot_node_is_live(func, carried_block))
   match @ir.hot_verify_core(func) {
     Ok(_) => ()

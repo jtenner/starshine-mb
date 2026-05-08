@@ -33,7 +33,10 @@ test "simplify-locals does not collect block exits through typed child carriers"
   let outer_id = @ir.hot_root_get(func, 0)
   let outer_body = @ir.hot_region_body_ref(func, outer_id)
   let fallthrough_set = @ir.hot_region_get(func, outer_body, 0)
-  assert_eq(@ir.hot_node_get(func, fallthrough_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(
+    @ir.hot_node_get(func, fallthrough_set).op.to_string(),
+    "LocalSet",
+  )
   let inner_res_id = @ir.hot_child_get(func, fallthrough_set, 0)
   assert_true(
     simplify_locals_control_has_typed_branch_payload(func, inner_res_id),
@@ -124,10 +127,10 @@ test "simplify-locals records sparse pending local effects" {
     func, set_id, set_node, sinkables,
   )
 
-  assert_eq(effects.local_reads.length(), 2)
+  @debug.assert_eq(effects.local_reads.length(), 2)
   assert_true(effects.local_reads.contains(0))
   assert_true(effects.local_reads.contains(3))
-  assert_eq(effects.local_writes.length(), 2)
+  @debug.assert_eq(effects.local_writes.length(), 2)
   assert_true(effects.local_writes.contains(2))
   assert_true(effects.local_writes.contains(3))
 }
@@ -160,7 +163,7 @@ test "simplify-locals bulk-clear gate follows active sinkable density" {
   assert_true(simplify_locals_sinkables_should_bulk_clear(sinkables))
 
   simplify_locals_clear_sinkables(sinkables)
-  assert_eq(sinkables.active_locals.length(), 0)
-  assert_eq(sinkables.local_read_counts[0], 0)
-  assert_eq(sinkables.local_write_counts[1], 0)
+  @debug.assert_eq(sinkables.active_locals.length(), 0)
+  @debug.assert_eq(sinkables.local_read_counts[0], 0)
+  @debug.assert_eq(sinkables.local_write_counts[1], 0)
 }

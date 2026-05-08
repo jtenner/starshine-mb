@@ -87,7 +87,7 @@ test "hot lower roundtrips representative exact-payload families" {
     hot_module_context_from_module(hot_lower_test_context_module()),
   )
 
-  assert_eq(hot_lower_body(func), body)
+  @debug.assert_eq(hot_lower_body(func), body)
 }
 
 ///|
@@ -111,7 +111,7 @@ test "hot lower roundtrips branches through label metadata" {
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
 
-  assert_eq(hot_lower_body(func), body)
+  @debug.assert_eq(hot_lower_body(func), body)
 }
 
 ///|
@@ -130,7 +130,7 @@ test "hot lower preserves result-only loop fallthrough values" {
 
   let lowered = hot_lower_func(hot)
 
-  assert_eq(lowered, @lib.Func::new(@lib.Locals::from_types([]), body))
+  @debug.assert_eq(lowered, @lib.Func::new(@lib.Locals::from_types([]), body))
 }
 
 ///|
@@ -163,7 +163,7 @@ test "hot lower peels typed wrapper blocks that only branch to the parent" {
     body_result_type=@lib.BlockType::val_type(struct_ref_type),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([struct_ref_type]),
@@ -212,7 +212,7 @@ test "hot lower peels same-typed payload wrappers that feed a final parent branc
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([]),
@@ -267,7 +267,7 @@ test "hot lower peels payload wrappers inside side-effecting parent result block
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([]),
@@ -378,7 +378,7 @@ test "hot lower keeps flattened parent-exit payloads unpacked when child exits s
     "(module (func (param i32) (result i32) (local i32) (block $block10 (result i32) (block $block9 (block $block8 (local.set 1 (i32.const 1)) (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))) unreachable) (br $block10 (local.get 1))))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
-  assert_eq(
+  @debug.assert_eq(
     lowered,
     @lib.Func::new(
       @lib.Locals::from_types([@lib.ValType::i32()]),
@@ -428,7 +428,7 @@ test "hot lower keeps split parent-exit payload wrappers unpacked when child exi
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit1 (block $exit0 (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $exit0)) (else (local.set 2 (i32.const 9)) (br $exit1))) unreachable) (br $outer (local.get 2))))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
-  assert_eq(
+  @debug.assert_eq(
     lowered,
     @lib.Func::new(
       @lib.Locals::from_types([@lib.ValType::i32()]),
@@ -787,7 +787,7 @@ test "hot lower peels final typed wrappers with void prefix and local.get tail" 
     "(module (func (param i32 i32) (result i32) (block (result i32) (block $block5 (local.get 0) drop (br $block5)) (block $block7 (result i32) (local.get 1)))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
-  assert_eq(
+  @debug.assert_eq(
     lowered,
     @lib.Func::new(
       @lib.Locals::from_types([]),
@@ -985,7 +985,7 @@ test "hot lower peels same-typed nested if wrappers when inner label is unused" 
     body_result_type=@lib.BlockType::val_type(struct_ref_type),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([struct_ref_type]),
@@ -1045,7 +1045,7 @@ test "hot lower peels escaping wrapper blocks and trims dead tails" {
     body_result_type=@lib.BlockType::val_type(struct_ref_type),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([struct_ref_type]),
@@ -1088,7 +1088,7 @@ test "hot lower peels pure typed wrappers used as ref children" {
     body_result_type=@lib.BlockType::val_type(struct_ref_type),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([struct_ref_type]),
@@ -1127,7 +1127,7 @@ test "hot lower stackifies wrapped struct.set value prefixes through a scratch r
     body_result_type=@lib.BlockType::val_type(struct_ref_type),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([struct_ref_type, struct_ref_type]),
@@ -1180,7 +1180,7 @@ test "hot lower keeps trailing if conditions outside wrapped struct.set scratch 
     body_result_type=@lib.BlockType::val_type(struct_ref_type),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([struct_ref_type, struct_ref_type]),
@@ -1239,7 +1239,7 @@ test "hot lower materializes unreachable tails after loop exits to the parent bl
     body_result_type=@lib.BlockType::val_type(struct_ref_type),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([struct_ref_type]),
@@ -1286,7 +1286,7 @@ test "hot lower keeps terminal unreachable after self-looping loop bodies" {
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
 
-  assert_eq(hot_lower_body(hot), body)
+  @debug.assert_eq(hot_lower_body(hot), body)
 }
 
 ///|
@@ -1316,7 +1316,7 @@ test "hot lower roundtrips deep nested branch label stacks" {
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
 
-  assert_eq(hot_lower_body(hot), body)
+  @debug.assert_eq(hot_lower_body(hot), body)
 }
 
 ///|
@@ -1669,8 +1669,8 @@ test "hot lower func restores declared locals and body" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -1695,7 +1695,7 @@ test "hot lower canonicalizes typed loop entry values without redundant tees" {
     hot_module_context_from_module(module_),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_body(hot),
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(7)),
@@ -1729,11 +1729,11 @@ test "hot lower spills transparent typed single-param drop-leading result blocks
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(4)),
@@ -1784,7 +1784,7 @@ test "hot lower spills transparent typed single-param drop-leading result block 
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -1793,7 +1793,7 @@ test "hot lower spills transparent typed single-param drop-leading result block 
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -1840,11 +1840,11 @@ test "hot lower spills transparent typed single-param void blocks through a seco
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(4)),
@@ -1874,7 +1874,7 @@ test "hot lower preserves typed multi-param void blocks when merge-blocks leaves
     hot_module_context_from_module(module_),
   )
 
-  assert_eq(hot_lower_body(hot), body)
+  @debug.assert_eq(hot_lower_body(hot), body)
 }
 
 ///|
@@ -1909,7 +1909,7 @@ test "hot lower preserves typed multi-param void block if-arm carriers when merg
     ),
   )
 
-  assert_eq(hot_lower_body(hot), body)
+  @debug.assert_eq(hot_lower_body(hot), body)
 }
 
 ///|
@@ -1933,11 +1933,11 @@ test "hot lower drops branch-free typed void loop carriers into direct spills wh
   )
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(4)),
@@ -1983,7 +1983,7 @@ test "hot lower drops branch-free typed void loop if-arm carriers into direct sp
   )
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -1992,7 +1992,7 @@ test "hot lower drops branch-free typed void loop if-arm carriers into direct sp
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -2054,8 +2054,16 @@ test "hot lower drops branch-free typed multi-param void loop carriers into dire
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 0, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 2, msg=pretty)
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(loop"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
   assert_true(pretty.contains("I32(4)"), msg=pretty)
   assert_true(pretty.contains("I32(5)"), msg=pretty)
 }
@@ -2114,8 +2122,16 @@ test "hot lower drops branch-free typed multi-param void loop if-arm carriers in
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 0, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 4, msg=pretty)
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(loop"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "drop"),
+    4,
+    msg=pretty,
+  )
   assert_true(pretty.contains("I32(4)"), msg=pretty)
   assert_true(pretty.contains("I32(5)"), msg=pretty)
   assert_true(pretty.contains("I32(8)"), msg=pretty)
@@ -2147,11 +2163,11 @@ test "hot lower preserves typed loop const-prefix carriers when merge-blocks wan
   )
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(4)),
@@ -2216,11 +2232,31 @@ test "hot lower preserves typed multi-result loop const-prefix carriers when mer
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_eq(hot_lower_test_count_substring(pretty, "local.set"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.get"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 1, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "i32.const"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "i64.const"), 1, msg=pretty)
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "i32.const"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "i64.const"),
+    1,
+    msg=pretty,
+  )
 }
 
 ///|
@@ -2267,7 +2303,7 @@ test "hot lower rewrites typed multi-result loop if-arm carriers to result-only 
   )
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -2276,7 +2312,7 @@ test "hot lower rewrites typed multi-result loop if-arm carriers to result-only 
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -2375,13 +2411,41 @@ test "hot lower rewrites typed externref multi-result loop if-arm carriers to re
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_eq(hot_lower_test_count_substring(pretty, "(block"), 0, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.set"), 4, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.get"), 5, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "ref.null"), 4, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "i32.const"), 2, msg=pretty)
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(loop"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.set"),
+    4,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.get"),
+    5,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "ref.null"),
+    4,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "i32.const"),
+    2,
+    msg=pretty,
+  )
   assert_true(pretty.contains("Type 1"), msg=pretty)
   assert_false(pretty.contains("Type 0"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
@@ -2442,13 +2506,41 @@ test "hot lower rewrites typed funcref multi-result loop if-arm carriers to resu
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_eq(hot_lower_test_count_substring(pretty, "(block"), 0, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.set"), 4, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.get"), 5, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "ref.null"), 4, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "i32.const"), 2, msg=pretty)
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(loop"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.set"),
+    4,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.get"),
+    5,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "ref.null"),
+    4,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "i32.const"),
+    2,
+    msg=pretty,
+  )
   assert_true(pretty.contains("Type 1"), msg=pretty)
   assert_false(pretty.contains("Type 0"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
@@ -2490,13 +2582,41 @@ test "hot lower rewrites typed externref multi-result loop roots to result-only 
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_eq(hot_lower_test_count_substring(pretty, "(block"), 0, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 1, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.set"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.get"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 1, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "ref.null"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "i32.const"), 1, msg=pretty)
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(loop"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "ref.null"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "i32.const"),
+    1,
+    msg=pretty,
+  )
   assert_true(pretty.contains("Type 1"), msg=pretty)
   assert_false(pretty.contains("Type 0"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
@@ -2535,13 +2655,41 @@ test "hot lower rewrites typed funcref multi-result loop roots to result-only lo
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_eq(hot_lower_test_count_substring(pretty, "(block"), 0, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 1, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.set"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "local.get"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 1, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "ref.null"), 2, msg=pretty)
-  assert_eq(hot_lower_test_count_substring(pretty, "i32.const"), 1, msg=pretty)
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "(loop"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "ref.null"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    hot_lower_test_count_substring(pretty, "i32.const"),
+    1,
+    msg=pretty,
+  )
   assert_true(pretty.contains("Type 1"), msg=pretty)
   assert_false(pretty.contains("Type 0"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
@@ -2554,8 +2702,8 @@ test "hot lower roundtrips multi-result producers consumed across instructions" 
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::call(@lib.FuncIdx::new(0U)),
@@ -2590,8 +2738,8 @@ test "hot lower preserves result blocks consumed by local.set" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -2844,7 +2992,7 @@ test "hot lower keeps nested escaping-if unreachable sentinels" {
   let lowered = ir_test_assert_verify_and_lower(fixture)
   let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(1U))
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_test_count_substring(pretty, "unreachable"),
     4,
     msg=pretty,
@@ -2979,7 +3127,7 @@ test "hot lower keeps mixed-exit parent payload wrappers stable across reroundtr
   }
   let second = hot_lower_func(hot_lift_func(first_mod, @lib.FuncIdx::new(0U)))
 
-  assert_eq(
+  @debug.assert_eq(
     second,
     first_code,
     msg="first:\n\{first_code.to_string()}\n\nsecond:\n\{second.to_string()}",
@@ -3006,12 +3154,12 @@ test "hot lower does not reintroduce dead drops after non-fallthrough block exit
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
   assert_false(
     lowered_body.to_string().contains("drop"),
     msg=lowered_body.to_string(),
   )
-  assert_eq(
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -3036,8 +3184,8 @@ test "hot lower collapses dead local.tee roots into local.set" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(7)),
@@ -3058,8 +3206,8 @@ test "hot lower preserves local.tee roots with dead drops when a later local.get
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(7)),
@@ -3083,8 +3231,8 @@ test "hot lower strips redundant nop roots during canonicalization" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -3146,11 +3294,11 @@ test "hot lower preserves result blocks consumed by local.tee and later local.ge
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -3214,11 +3362,11 @@ test "hot lower preserves branchy result blocks consumed by local.tee and later 
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -3287,7 +3435,7 @@ test "hot lower preserves repeated local.get consumers after block-fed local.tee
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -3295,7 +3443,7 @@ test "hot lower preserves repeated local.get consumers after block-fed local.tee
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -3347,8 +3495,8 @@ test "hot lower preserves local.set fed by unreachable typed block results" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(1)),
@@ -3401,8 +3549,8 @@ test "hot lower preserves multi-result calls after branchy block exits" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -3479,7 +3627,7 @@ test "hot lower preserves triple-result calls after polymorphic inner exits" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -3487,7 +3635,7 @@ test "hot lower preserves triple-result calls after polymorphic inner exits" {
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -3584,7 +3732,7 @@ test "hot lower preserves local.tee-fed triple-result consumers after inner exit
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -3592,7 +3740,7 @@ test "hot lower preserves local.tee-fed triple-result consumers after inner exit
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -3678,7 +3826,7 @@ test "hot lower preserves triple-result local.set chains after removing leading 
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -3686,7 +3834,7 @@ test "hot lower preserves triple-result local.set chains after removing leading 
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(1)),
@@ -3778,7 +3926,7 @@ test "hot lower preserves branchy triple-result bridges after removing leading n
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -3786,7 +3934,7 @@ test "hot lower preserves branchy triple-result bridges after removing leading n
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(1)),
@@ -3904,7 +4052,7 @@ test "hot lower roundtrips branch-exit triple-result temp copy chains" {
     )
     .pretty_print_func(@lib.FuncIdx::new(1U))
 
-  assert_eq(pretty, expected)
+  @debug.assert_eq(pretty, expected)
 }
 
 ///|
@@ -3946,7 +4094,7 @@ test "hot lower preserves typed loop bridge roots after removing leading nop fro
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -3954,7 +4102,7 @@ test "hot lower preserves typed loop bridge roots after removing leading nop fro
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(10)),
@@ -4005,8 +4153,8 @@ test "hot lower preserves multi-result block values carried into typed loops" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -4070,7 +4218,7 @@ test "hot lower preserves multi-result local.tee bridges feeding later local.set
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -4081,7 +4229,7 @@ test "hot lower preserves multi-result local.tee bridges feeding later local.set
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -4159,7 +4307,7 @@ test "hot lower preserves early local.tee bridges before later sibling local.set
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -4171,7 +4319,7 @@ test "hot lower preserves early local.tee bridges before later sibling local.set
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -4223,7 +4371,7 @@ test "hot lower keeps wrapped prefix local.get carriers when they are read again
     body_result_type=@lib.BlockType::void_(),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_func(hot),
     @lib.Func::new(
       @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
@@ -4251,8 +4399,8 @@ test "hot lower drops dead non-final multi-result roots after mutation" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::call(@lib.FuncIdx::new(0U)),
@@ -4282,11 +4430,11 @@ test "hot lower drops partially dead multi-result roots after mutation" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::call(@lib.FuncIdx::new(0U)),

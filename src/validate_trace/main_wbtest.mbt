@@ -1,6 +1,6 @@
 ///|
 test "validate trace corpus names stay fixed" {
-  assert_eq(validate_trace_corpus_names(), [
+  @debug.assert_eq(validate_trace_corpus_names(), [
     "deep-control", "wide-locals", "large-codesec", "ref-func-heavy",
   ])
 }
@@ -11,10 +11,10 @@ test "validate trace benchmark captures summary lines" {
     Ok(items) => items
     Err(e) => fail("unexpected validate trace benchmark error: \{e}")
   }
-  assert_eq(results.length(), 1)
+  @debug.assert_eq(results.length(), 1)
   let result = results[0]
-  assert_eq(result.corpus, "deep-control")
-  assert_eq(result.repeats, 1)
+  @debug.assert_eq(result.corpus, "deep-control")
+  @debug.assert_eq(result.repeats, 1)
   assert_true(result.elapsed_ms > 0UL)
   assert_true(result.phase_totals.has_prefix("phase_totals"))
   assert_true(result.helper_totals.has_prefix("helper_totals"))
@@ -39,8 +39,8 @@ test "parse validate trace cli command accepts repeat and repeated corpora" {
   ])
   match parsed {
     ValidateTraceCliCommand::Run(args) => {
-      assert_eq(args.repeats, 2)
-      assert_eq(args.corpora, ["deep-control", "wide-locals"])
+      @debug.assert_eq(args.repeats, 2)
+      @debug.assert_eq(args.corpora, ["deep-control", "wide-locals"])
     }
     _ => fail("expected run command")
   }

@@ -122,12 +122,12 @@ test "tuple-optimization seed-group scan rejects scalar-only functions" {
     "(module (func (result i32) i32.const 7))",
   )
   let use_def = @ir.use_def_build(fixture.hot_func)
-  assert_eq(
+  @debug.assert_eq(
     tuple_optimization_collect_seed_groups(fixture.hot_func, use_def).length(),
     0,
   )
   let analysis = tuple_optimization_analyze(fixture.hot_func, use_def)
-  assert_eq(analysis.groups.length(), 0)
+  @debug.assert_eq(analysis.groups.length(), 0)
 }
 
 ///|
@@ -136,13 +136,13 @@ test "tuple-optimization analysis detects a direct multivalue spill group" {
     "(module (func (result i32) (local i32 i32 i32) block (result i32 i32 i32) i32.const 10 i32.const 20 i32.const 30 end local.set 2 local.set 1 local.set 0 local.get 0))",
   )
 
-  assert_eq(analysis.groups.length(), 1)
+  @debug.assert_eq(analysis.groups.length(), 1)
   let group = analysis.groups[0]
-  assert_eq(group.lane_locals, [0, 1, 2])
-  assert_eq(group.copy_source, None)
-  assert_eq(group.uses, 2)
-  assert_eq(group.valid_uses, 2)
-  assert_eq(group.neighbors, [])
+  @debug.assert_eq(group.lane_locals, [0, 1, 2])
+  @debug.assert_eq(group.copy_source, None)
+  @debug.assert_eq(group.uses, 2)
+  @debug.assert_eq(group.valid_uses, 2)
+  @debug.assert_eq(group.neighbors, [])
   assert_false(group.bad)
 }
 
@@ -153,31 +153,31 @@ test "tuple-optimization rewrite carries direct spill bridges through a root loc
   )
   let func = fixture.hot_func
 
-  assert_eq(@ir.hot_local_count(func), 3)
+  @debug.assert_eq(@ir.hot_local_count(func), 3)
 
   let bridge = @ir.hot_root_get(func, 0)
-  assert_eq(@ir.hot_node_get(func, bridge).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, bridge).imm0, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, bridge).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, bridge).imm0, 0)
 
   let body = @ir.hot_child_get(func, bridge, 0)
-  assert_eq(@ir.hot_node_get(func, body).op.to_string(), "Block")
-  assert_eq(@ir.hot_node_result_arity(func, body), 1)
+  @debug.assert_eq(@ir.hot_node_get(func, body).op.to_string(), "Block")
+  @debug.assert_eq(@ir.hot_node_result_arity(func, body), 1)
 
   let body_ref = @ir.hot_region_body_ref(func, body)
-  assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
   let lane2 = @ir.hot_region_get(func, body_ref, 0)
   let lane1 = @ir.hot_region_get(func, body_ref, 1)
   let lane0 = @ir.hot_region_get(func, body_ref, 2)
-  assert_eq(@ir.hot_node_get(func, lane2).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane2).imm0, 2)
-  assert_eq(@ir.hot_node_get(func, lane1).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane1).imm0, 1)
-  assert_eq(@ir.hot_node_get(func, lane0).op.to_string(), "Block")
+  @debug.assert_eq(@ir.hot_node_get(func, lane2).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, lane2).imm0, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, lane1).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, lane1).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, lane0).op.to_string(), "Block")
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   let forwarded = @ir.hot_root_get(func, 1)
-  assert_eq(@ir.hot_node_get(func, forwarded).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, forwarded).imm0, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, forwarded).op.to_string(), "LocalGet")
+  @debug.assert_eq(@ir.hot_node_get(func, forwarded).imm0, 0)
 
   let use_def = @ir.use_def_build(func)
   tuple_optimization_assert_local_traffic(use_def, 0, 1, 1)
@@ -191,12 +191,12 @@ test "tuple-optimization analysis rejects mixed bridge and non-bridge consumers"
     "(module (func (result i32) (local i32) block (result i32 i32) i32.const 1 i32.const 2 end local.set 0 drop local.get 0))",
   )
   let use_def = @ir.use_def_build(fixture.hot_func)
-  assert_eq(
+  @debug.assert_eq(
     tuple_optimization_collect_seed_groups(fixture.hot_func, use_def).length(),
     0,
   )
   let analysis = tuple_optimization_analyze(fixture.hot_func, use_def)
-  assert_eq(analysis.groups.length(), 0)
+  @debug.assert_eq(analysis.groups.length(), 0)
 }
 
 ///|
@@ -204,7 +204,7 @@ test "tuple-optimization analysis rejects duplicate lane locals in a seed group"
   let analysis = tuple_optimization_test_analyze(
     "(module (func (result i32) (local i32) block (result i32 i32) i32.const 1 i32.const 2 end local.set 0 local.set 0 local.get 0))",
   )
-  assert_eq(analysis.groups.length(), 0)
+  @debug.assert_eq(analysis.groups.length(), 0)
 }
 
 ///|
@@ -213,22 +213,22 @@ test "tuple-optimization analysis links pure lane-forwarding copy groups" {
     "(module (func (result i32) (local i32 i32 i32 i32 i32 i32) block (result i32 i32 i32) i32.const 1 i32.const 2 i32.const 3 end local.set 2 local.set 1 local.set 0 block (result i32 i32 i32) local.get 0 local.get 1 local.get 2 end local.set 5 local.set 4 local.set 3 local.get 3))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [0, 1, 2])
-  assert_eq(source.copy_source, None)
-  assert_eq(source.uses, 2)
-  assert_eq(source.valid_uses, 2)
-  assert_eq(source.neighbors, [1])
+  @debug.assert_eq(source.lane_locals, [0, 1, 2])
+  @debug.assert_eq(source.copy_source, None)
+  @debug.assert_eq(source.uses, 2)
+  @debug.assert_eq(source.valid_uses, 2)
+  @debug.assert_eq(source.neighbors, [1])
   assert_false(source.bad)
 
   let copy = analysis.groups[1]
-  assert_eq(copy.lane_locals, [3, 4, 5])
-  assert_eq(copy.copy_source, Some(0))
-  assert_eq(copy.uses, 2)
-  assert_eq(copy.valid_uses, 2)
-  assert_eq(copy.neighbors, [0])
+  @debug.assert_eq(copy.lane_locals, [3, 4, 5])
+  @debug.assert_eq(copy.copy_source, Some(0))
+  @debug.assert_eq(copy.uses, 2)
+  @debug.assert_eq(copy.valid_uses, 2)
+  @debug.assert_eq(copy.neighbors, [0])
   assert_false(copy.bad)
 }
 
@@ -238,11 +238,11 @@ test "tuple-optimization analysis rejects result-block copy groups with duplicat
     "(module (func (result i32) (local i32 i32 i32) block (result i32 i32) i32.const 1 i32.const 2 end local.set 1 local.set 0 block (result i32 i32) local.get 0 local.get 1 end local.set 2 local.set 2 local.get 2))",
   )
 
-  assert_eq(analysis.groups.length(), 1)
+  @debug.assert_eq(analysis.groups.length(), 1)
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [0, 1])
-  assert_eq(source.copy_source, None)
-  assert_eq(source.neighbors, [])
+  @debug.assert_eq(source.lane_locals, [0, 1])
+  @debug.assert_eq(source.copy_source, None)
+  @debug.assert_eq(source.neighbors, [])
 }
 
 ///|
@@ -267,16 +267,16 @@ test "tuple-optimization analysis propagates badness across copy-connected group
     "(module (func (result i32) (local i32 i32 i32 i32 i32 i32) block (result i32 i32 i32) i32.const 1 i32.const 2 i32.const 3 end local.set 2 local.set 1 local.set 0 block (result i32 i32 i32) local.get 0 local.get 1 local.get 2 end local.set 5 local.set 4 local.set 3 i32.const 9 local.set 4 local.get 3))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.uses, 2)
-  assert_eq(source.valid_uses, 2)
+  @debug.assert_eq(source.uses, 2)
+  @debug.assert_eq(source.valid_uses, 2)
   assert_true(source.bad)
 
   let copy = analysis.groups[1]
-  assert_eq(copy.uses, 3)
-  assert_eq(copy.valid_uses, 2)
+  @debug.assert_eq(copy.uses, 3)
+  @debug.assert_eq(copy.valid_uses, 2)
   assert_true(copy.bad)
 }
 
@@ -286,13 +286,13 @@ test "tuple-optimization analysis accepts multivalue spill bridges ending in loc
     "(module (func (local i32 i32) block (result i32 i32) i32.const 1 i32.const 2 end local.set 1 local.tee 0 drop local.get 1 drop))",
   )
 
-  assert_eq(analysis.groups.length(), 1)
+  @debug.assert_eq(analysis.groups.length(), 1)
   let group = analysis.groups[0]
-  assert_eq(group.lane_locals, [0, 1])
-  assert_eq(group.copy_source, None)
-  assert_eq(group.uses, 3)
-  assert_eq(group.valid_uses, 3)
-  assert_eq(group.neighbors, [])
+  @debug.assert_eq(group.lane_locals, [0, 1])
+  @debug.assert_eq(group.copy_source, None)
+  @debug.assert_eq(group.uses, 3)
+  @debug.assert_eq(group.valid_uses, 3)
+  @debug.assert_eq(group.neighbors, [])
   assert_false(group.bad)
 }
 
@@ -334,7 +334,7 @@ test "tuple-optimization rewrite keeps the exact host tee repro scalarized and v
     ),
     msg=pretty,
   )
-  assert_eq(
+  @debug.assert_eq(
     tuple_optimization_test_count_substring(pretty, "local.tee"),
     0,
     msg=pretty,
@@ -347,21 +347,21 @@ test "tuple-optimization analysis links exact scalar-forward compare-shape copy 
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"trim\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 6 local.set 3 local.get 7 local.set 2 local.get 8 local.tee 1 local.get 2 local.get 3 call 1 local.set 0 local.get 0))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [4, 5, 6])
-  assert_eq(source.copy_source, None)
-  assert_eq(source.uses, 2)
-  assert_eq(source.valid_uses, 2)
+  @debug.assert_eq(source.lane_locals, [4, 5, 6])
+  @debug.assert_eq(source.copy_source, None)
+  @debug.assert_eq(source.uses, 2)
+  @debug.assert_eq(source.valid_uses, 2)
   assert_false(source.bad)
 
   let copy = analysis.groups[1]
-  assert_eq(copy.lane_locals, [8, 7, 3])
-  assert_eq(copy.copy_source, Some(0))
-  assert_eq(copy.uses, 3)
-  assert_eq(copy.valid_uses, 3)
-  assert_eq(tuple_optimization_group_host_lane(copy), Some(0))
+  @debug.assert_eq(copy.lane_locals, [8, 7, 3])
+  @debug.assert_eq(copy.copy_source, Some(0))
+  @debug.assert_eq(copy.uses, 3)
+  @debug.assert_eq(copy.valid_uses, 3)
+  @debug.assert_eq(tuple_optimization_group_host_lane(copy), Some(0))
   assert_false(copy.bad)
 }
 
@@ -421,18 +421,18 @@ test "tuple-optimization analysis links nested exact copy groups through scalar 
     "(module (type (func (param i32 i64) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (param i32) (result i32) (local i32 i32 i32 i32 i32 i32) local.get 0 i64.const 1 call 0 local.set 5 local.set 4 local.set 3 block block block (result i32) block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 end local.set 0 end end local.get 0))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [3, 4, 5])
-  assert_eq(source.copy_source, None)
+  @debug.assert_eq(source.lane_locals, [3, 4, 5])
+  @debug.assert_eq(source.copy_source, None)
   assert_false(source.bad)
 
   let copy = analysis.groups[1]
-  assert_eq(copy.lane_locals, [0, 1, 2])
-  assert_eq(copy.copy_source, Some(0))
-  assert_eq(copy.copy_payload_locals, Some([3, 4, 5]))
-  assert_eq(tuple_optimization_group_host_lane(copy), None)
+  @debug.assert_eq(copy.lane_locals, [0, 1, 2])
+  @debug.assert_eq(copy.copy_source, Some(0))
+  @debug.assert_eq(copy.copy_payload_locals, Some([3, 4, 5]))
+  @debug.assert_eq(tuple_optimization_group_host_lane(copy), None)
   assert_false(copy.bad)
   assert_true(tuple_optimization_group_should_rewrite(copy))
 }
@@ -518,17 +518,17 @@ test "tuple-optimization analysis links overlapping exact copy groups from a hos
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
   let copy = analysis.groups[1]
-  assert_eq(copy.lane_locals, [9, 10, 6])
-  assert_eq(copy.copy_source, Some(0))
-  assert_eq(copy.copy_payload_locals, Some([8, 7, 6]))
+  @debug.assert_eq(copy.lane_locals, [9, 10, 6])
+  @debug.assert_eq(copy.copy_source, Some(0))
+  @debug.assert_eq(copy.copy_payload_locals, Some([8, 7, 6]))
   assert_false(copy.bad)
   assert_true(tuple_optimization_group_should_rewrite(copy))
 
-  assert_eq(source.lane_locals, [4, 5, 6])
+  @debug.assert_eq(source.lane_locals, [4, 5, 6])
   assert_false(source.bad)
   assert_true(tuple_optimization_group_should_rewrite(source))
 }
@@ -642,22 +642,22 @@ test "tuple-optimization analysis accepts one-hop scalar forwarding bridges" {
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"trim\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.set 4 local.get 6 local.set 0 local.get 5 local.set 1 local.get 4 local.tee 3 local.get 1 local.get 0 call 1 local.set 2 local.get 2))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [4, 5, 6])
-  assert_eq(source.copy_source, None)
-  assert_eq(source.uses, 2)
-  assert_eq(source.valid_uses, 2)
+  @debug.assert_eq(source.lane_locals, [4, 5, 6])
+  @debug.assert_eq(source.copy_source, None)
+  @debug.assert_eq(source.uses, 2)
+  @debug.assert_eq(source.valid_uses, 2)
   assert_false(source.bad)
   assert_true(tuple_optimization_group_should_rewrite(source))
 
   let copy = analysis.groups[1]
-  assert_eq(copy.lane_locals, [3, 1, 0])
-  assert_eq(copy.copy_source, Some(0))
-  assert_eq(copy.uses, 3)
-  assert_eq(copy.valid_uses, 3)
-  assert_eq(tuple_optimization_group_host_lane(copy), Some(0))
+  @debug.assert_eq(copy.lane_locals, [3, 1, 0])
+  @debug.assert_eq(copy.copy_source, Some(0))
+  @debug.assert_eq(copy.uses, 3)
+  @debug.assert_eq(copy.valid_uses, 3)
+  @debug.assert_eq(tuple_optimization_group_host_lane(copy), Some(0))
   assert_false(copy.bad)
   assert_true(tuple_optimization_group_should_rewrite(copy))
 }
@@ -668,17 +668,17 @@ test "tuple-optimization leaves terminal two-hop scalar forwarding copy groups h
     "(module (type (func (param i64 i64) (result i64 i64))) (import \"env\" \"pair\" (func (type 0))) (func (param i64 i64) (result i64 i64) (local i64 i64 i64 i64 i64 i64) block local.get 0 local.get 1 call 0 local.set 3 local.set 2 local.get 3 local.set 5 end local.get 2 local.tee 4 local.set 6 local.get 5 local.set 7 local.get 6 local.get 7))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [2, 3])
-  assert_eq(source.copy_source, None)
+  @debug.assert_eq(source.lane_locals, [2, 3])
+  @debug.assert_eq(source.copy_source, None)
   assert_true(tuple_optimization_group_should_rewrite(source))
 
   let copy = analysis.groups[1]
-  assert_eq(copy.lane_locals, [4, 5])
-  assert_eq(copy.copy_source, Some(0))
-  assert_eq(tuple_optimization_group_host_lane(copy), None)
+  @debug.assert_eq(copy.lane_locals, [4, 5])
+  @debug.assert_eq(copy.copy_source, Some(0))
+  @debug.assert_eq(tuple_optimization_group_host_lane(copy), None)
   assert_false(tuple_optimization_group_should_rewrite(copy))
 }
 
@@ -688,16 +688,16 @@ test "tuple-optimization keeps terminal two-hop scalar forwarding copy groups wi
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [6, 7, 8])
+  @debug.assert_eq(source.lane_locals, [6, 7, 8])
   assert_true(tuple_optimization_group_should_rewrite(source))
 
   let terminal = analysis.groups[1]
-  assert_eq(terminal.lane_locals, [0, 1, 2])
-  assert_eq(terminal.copy_source, Some(0))
-  assert_eq(tuple_optimization_group_host_lane(terminal), Some(0))
+  @debug.assert_eq(terminal.lane_locals, [0, 1, 2])
+  @debug.assert_eq(terminal.copy_source, Some(0))
+  @debug.assert_eq(tuple_optimization_group_host_lane(terminal), Some(0))
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
   )
@@ -724,7 +724,7 @@ test "tuple-optimization rewrite carries terminal host results past trailing dro
   assert_true(root_count >= 3)
   let last_root = @ir.hot_region_get(func, root_ref, root_count - 1)
   let last_node = @ir.hot_node_get(func, last_root)
-  assert_eq(last_node.op.to_string(), "LocalGet")
+  @debug.assert_eq(last_node.op.to_string(), "LocalGet")
   let result_local = last_node.imm0
   assert_not_eq(result_local, 0)
   let mut saw_result_set = false
@@ -751,16 +751,16 @@ test "tuple-optimization keeps terminal drop-only no-host exact copy groups rewr
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [6, 7, 8])
+  @debug.assert_eq(source.lane_locals, [6, 7, 8])
   assert_true(tuple_optimization_group_should_rewrite(source))
 
   let terminal = analysis.groups[1]
-  assert_eq(terminal.lane_locals, [0, 1, 2])
-  assert_eq(terminal.copy_source, Some(0))
-  assert_eq(tuple_optimization_group_host_lane(terminal), None)
+  @debug.assert_eq(terminal.lane_locals, [0, 1, 2])
+  @debug.assert_eq(terminal.copy_source, Some(0))
+  @debug.assert_eq(tuple_optimization_group_host_lane(terminal), None)
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
   )
@@ -782,15 +782,15 @@ test "tuple-optimization keeps chained terminal drop-only no-host exact copy gro
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 5 local.set 4 local.set 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
   )
 
-  assert_eq(analysis.groups.length(), 3)
+  @debug.assert_eq(analysis.groups.length(), 3)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [6, 7, 8])
+  @debug.assert_eq(source.lane_locals, [6, 7, 8])
   assert_true(tuple_optimization_group_should_rewrite(source))
 
   let first = analysis.groups[1]
-  assert_eq(first.lane_locals, [3, 4, 5])
-  assert_eq(first.copy_source, Some(0))
+  @debug.assert_eq(first.lane_locals, [3, 4, 5])
+  @debug.assert_eq(first.copy_source, Some(0))
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 5 local.set 4 local.set 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
   )
@@ -806,9 +806,9 @@ test "tuple-optimization keeps chained terminal drop-only no-host exact copy gro
   )
 
   let terminal = analysis.groups[2]
-  assert_eq(terminal.lane_locals, [0, 1, 2])
-  assert_eq(terminal.copy_source, Some(1))
-  assert_eq(tuple_optimization_group_host_lane(terminal), None)
+  @debug.assert_eq(terminal.lane_locals, [0, 1, 2])
+  @debug.assert_eq(terminal.copy_source, Some(1))
+  @debug.assert_eq(tuple_optimization_group_host_lane(terminal), None)
   assert_true(
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
@@ -894,8 +894,8 @@ test "tuple-optimization rewrite avoids redundant tuple.make carriers in chained
       _ => ()
     }
   }
-  assert_eq(original_tuple_make_count, 0)
-  assert_eq(rewritten_tuple_make_count, 1)
+  @debug.assert_eq(original_tuple_make_count, 0)
+  @debug.assert_eq(rewritten_tuple_make_count, 1)
 }
 
 ///|
@@ -918,9 +918,15 @@ test "tuple-optimization lowered chained host-copy tail-live0 keeps downstream h
 test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups rewriteable" {
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))"
   let analysis = tuple_optimization_test_analyze(source)
-  assert_eq(analysis.groups.length(), 3)
-  assert_eq(tuple_optimization_group_host_lane(analysis.groups[1]), Some(0))
-  assert_eq(tuple_optimization_group_host_lane(analysis.groups[2]), Some(0))
+  @debug.assert_eq(analysis.groups.length(), 3)
+  @debug.assert_eq(
+    tuple_optimization_group_host_lane(analysis.groups[1]),
+    Some(0),
+  )
+  @debug.assert_eq(
+    tuple_optimization_group_host_lane(analysis.groups[2]),
+    Some(0),
+  )
 
   let fixture = @ir.ir_test_build_hot_from_wat(source)
   let use_def = @ir.use_def_build(fixture.hot_func)
@@ -957,9 +963,15 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
 test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups rewriteable after binary decode" {
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))"
   let analysis = tuple_optimization_test_analyze_via_binary(source, 1U)
-  assert_eq(analysis.groups.length(), 3)
-  assert_eq(tuple_optimization_group_host_lane(analysis.groups[1]), Some(0))
-  assert_eq(tuple_optimization_group_host_lane(analysis.groups[2]), Some(0))
+  @debug.assert_eq(analysis.groups.length(), 3)
+  @debug.assert_eq(
+    tuple_optimization_group_host_lane(analysis.groups[1]),
+    Some(0),
+  )
+  @debug.assert_eq(
+    tuple_optimization_group_host_lane(analysis.groups[2]),
+    Some(0),
+  )
 
   let mod_ = pass_test_module_from_wat(source)
   let encoded = match @binary.encode_module(mod_) {
@@ -1013,16 +1025,16 @@ test "tuple-optimization analysis links mixed scalar-forward bridges from direct
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))",
   )
 
-  assert_eq(analysis.groups.length(), 2)
+  @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [4, 5, 6])
+  @debug.assert_eq(source.lane_locals, [4, 5, 6])
   assert_true(tuple_optimization_group_should_rewrite(source))
 
   let copy = analysis.groups[1]
-  assert_eq(copy.lane_locals, [8, 7, 6])
-  assert_eq(copy.copy_source, Some(0))
-  assert_eq(tuple_optimization_group_host_lane(copy), Some(0))
+  @debug.assert_eq(copy.lane_locals, [8, 7, 6])
+  @debug.assert_eq(copy.copy_source, Some(0))
+  @debug.assert_eq(tuple_optimization_group_host_lane(copy), Some(0))
   assert_true(tuple_optimization_group_should_rewrite(copy))
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))",
@@ -1066,22 +1078,22 @@ test "tuple-optimization analysis links chained mixed scalar-forward bridges" {
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 7 local.set 9 local.get 8 local.get 9 local.get 6 call 1 local.set 0 local.get 0))",
   )
 
-  assert_eq(analysis.groups.length(), 3)
+  @debug.assert_eq(analysis.groups.length(), 3)
 
   let source = analysis.groups[0]
-  assert_eq(source.lane_locals, [4, 5, 6])
+  @debug.assert_eq(source.lane_locals, [4, 5, 6])
   assert_true(tuple_optimization_group_should_rewrite(source))
 
   let first = analysis.groups[1]
-  assert_eq(first.lane_locals, [8, 7, 6])
-  assert_eq(first.copy_source, Some(0))
-  assert_eq(tuple_optimization_group_host_lane(first), Some(0))
+  @debug.assert_eq(first.lane_locals, [8, 7, 6])
+  @debug.assert_eq(first.copy_source, Some(0))
+  @debug.assert_eq(tuple_optimization_group_host_lane(first), Some(0))
   assert_false(tuple_optimization_group_should_rewrite(first))
 
   let second = analysis.groups[2]
-  assert_eq(second.lane_locals, [8, 9, 6])
-  assert_eq(second.copy_source, Some(1))
-  assert_eq(tuple_optimization_group_host_lane(second), Some(0))
+  @debug.assert_eq(second.lane_locals, [8, 9, 6])
+  @debug.assert_eq(second.copy_source, Some(1))
+  @debug.assert_eq(tuple_optimization_group_host_lane(second), Some(0))
   assert_true(tuple_optimization_group_should_rewrite(second))
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 7 local.set 9 local.get 8 local.get 9 local.get 6 call 1 local.set 0 local.get 0))",

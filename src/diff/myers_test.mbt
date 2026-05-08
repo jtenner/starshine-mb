@@ -3,15 +3,15 @@ test "myers_diff groups replacements and trailing insertions" {
   let lhs = "a\nb\nc"
   let rhs = "a\nx\nc\nz"
   let changes = myers_diff(lhs, rhs)
-  assert_eq(changes.length(), 2)
-  assert_eq(changes[0].lhs_at, 1)
-  assert_eq(changes[0].lhs_del, 1)
-  assert_eq(changes[0].rhs_at, 1)
-  assert_eq(changes[0].rhs_add, 1)
-  assert_eq(changes[1].lhs_at, 3)
-  assert_eq(changes[1].lhs_del, 0)
-  assert_eq(changes[1].rhs_at, 3)
-  assert_eq(changes[1].rhs_add, 1)
+  @debug.assert_eq(changes.length(), 2)
+  @debug.assert_eq(changes[0].lhs_at, 1)
+  @debug.assert_eq(changes[0].lhs_del, 1)
+  @debug.assert_eq(changes[0].rhs_at, 1)
+  @debug.assert_eq(changes[0].rhs_add, 1)
+  @debug.assert_eq(changes[1].lhs_at, 3)
+  @debug.assert_eq(changes[1].lhs_del, 0)
+  @debug.assert_eq(changes[1].rhs_at, 3)
+  @debug.assert_eq(changes[1].rhs_add, 1)
 }
 
 ///|
@@ -20,7 +20,7 @@ test "myers_diff respects ignore case and whitespace options" {
   let rhs = "ab\nc"
   let options = DiffOptions::new(ignore_whitespace=true, ignore_case=true)
   let changes = myers_diff(lhs, rhs, options~)
-  assert_eq(changes.length(), 0)
+  @debug.assert_eq(changes.length(), 0)
 }
 
 ///|

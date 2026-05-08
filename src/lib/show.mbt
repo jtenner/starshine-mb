@@ -2,7 +2,7 @@
 pub impl Show for S33 with output(self, logger) {
   let S33(t) = self
   logger.write_string("S33(")
-  t.output(logger)
+  Show::output(t, logger)
   logger.write_char(')')
 }
 
@@ -10,7 +10,7 @@ pub impl Show for S33 with output(self, logger) {
 pub impl Show for I32 with output(self, logger) {
   let I32(t) = self
   logger.write_string("I32(")
-  t.output(logger)
+  Show::output(t, logger)
   logger.write_char(')')
 }
 
@@ -18,7 +18,7 @@ pub impl Show for I32 with output(self, logger) {
 pub impl Show for I64 with output(self, logger) {
   let I64(t) = self
   logger.write_string("I64(")
-  t.output(logger)
+  Show::output(t, logger)
   logger.write_char(')')
 }
 
@@ -26,7 +26,7 @@ pub impl Show for I64 with output(self, logger) {
 pub impl Show for F32 with output(self, logger) {
   let F32(t) = self
   logger.write_string("F32(")
-  t.output(logger)
+  Show::output(t, logger)
   logger.write_char(')')
 }
 
@@ -34,7 +34,7 @@ pub impl Show for F32 with output(self, logger) {
 pub impl Show for F64 with output(self, logger) {
   let F64(t) = self
   logger.write_string("F64(")
-  t.output(logger)
+  Show::output(t, logger)
   logger.write_char(')')
 }
 
@@ -42,7 +42,7 @@ pub impl Show for F64 with output(self, logger) {
 pub impl Show for U32 with output(self, logger) {
   let U32(t) = self
   logger.write_string("U32(")
-  t.output(logger)
+  Show::output(t, logger)
   logger.write_char(')')
 }
 
@@ -50,7 +50,7 @@ pub impl Show for U32 with output(self, logger) {
 pub impl Show for U64 with output(self, logger) {
   let U64(t) = self
   logger.write_string("U64(")
-  t.output(logger)
+  Show::output(t, logger)
   logger.write_char(')')
 }
 
@@ -88,22 +88,22 @@ pub impl Show for HeapType with output(self, logger) {
   match self {
     AbsHeapTypeHeapType(ht) => {
       logger.write_string("(HeapType ")
-      ht.output(logger)
+      Show::output(ht, logger)
       logger.write_char(')')
     }
     HeapType(TypeIdx(t)) => {
       logger.write_string("(HeapType Idx ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(')')
     }
     HeapType(RecIdx(t)) => {
       logger.write_string("(HeapType Rec ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(')')
     }
     DefTypeHeapType(d) => {
       logger.write_string("(HeapType ")
-      d.output(logger)
+      Show::output(d, logger)
       logger.write_char(')')
     }
   }
@@ -112,9 +112,9 @@ pub impl Show for HeapType with output(self, logger) {
 ///|
 pub impl Show for DefType with output(self, logger) {
   logger.write_string("(DefType ")
-  self.0.output(logger)
+  Show::output(self.0, logger)
   logger.write_char(' ')
-  self.1.output(logger)
+  Show::output(self.1, logger)
   logger.write_char(')')
 }
 
@@ -130,12 +130,12 @@ pub impl Show for RefType with output(self, logger) {
       if exact {
         logger.write_string("Exact ")
       }
-      ht.output(logger)
+      Show::output(ht, logger)
       logger.write_char(')')
     }
     AbsHeapTypeRefType(aht) => {
       logger.write_string("(RefType Null ")
-      aht.output(logger)
+      Show::output(aht, logger)
       logger.write_char(')')
     }
   }
@@ -145,8 +145,8 @@ pub impl Show for RefType with output(self, logger) {
 pub impl Show for ValType with output(self, logger) {
   match self {
     VecTypeValType => logger.write_string("(V128)")
-    NumTypeValType(nt) => nt.output(logger)
-    RefTypeValType(rt) => rt.output(logger)
+    NumTypeValType(nt) => Show::output(nt, logger)
+    RefTypeValType(rt) => Show::output(rt, logger)
     BotValType => logger.write_string("(Bot)")
   }
 }
@@ -162,8 +162,8 @@ pub impl Show for PackType with output(self, logger) {
 ///|
 pub impl Show for StorageType with output(self, logger) {
   match self {
-    ValTypeStorageType(vt) => vt.output(logger)
-    PackTypeStorageType(pt) => pt.output(logger)
+    ValTypeStorageType(vt) => Show::output(vt, logger)
+    PackTypeStorageType(pt) => Show::output(pt, logger)
   }
 }
 
@@ -171,9 +171,9 @@ pub impl Show for StorageType with output(self, logger) {
 pub impl Show for FieldType with output(self, logger) {
   let FieldType(st, m) = self
   logger.write_string("(Field ")
-  m.output(logger)
+  Show::output(m, logger)
   logger.write_char(' ')
-  st.output(logger)
+  Show::output(st, logger)
   logger.write_char(')')
 }
 
@@ -190,12 +190,12 @@ pub impl Show for TypeIdx with output(self, logger) {
   match self {
     TypeIdx(val) => {
       logger.write_string("(Type ")
-      val.output(logger)
+      Show::output(val, logger)
       logger.write_char(')')
     }
     RecIdx(i) => {
       logger.write_string("(Rec ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
   }
@@ -205,7 +205,7 @@ pub impl Show for TypeIdx with output(self, logger) {
 pub impl Show for FuncIdx with output(self, logger) {
   let FuncIdx(val) = self
   logger.write_string("(Func ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -213,7 +213,7 @@ pub impl Show for FuncIdx with output(self, logger) {
 pub impl Show for TableIdx with output(self, logger) {
   let TableIdx(val) = self
   logger.write_string("(Table ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -221,7 +221,7 @@ pub impl Show for TableIdx with output(self, logger) {
 pub impl Show for MemIdx with output(self, logger) {
   let MemIdx(val) = self
   logger.write_string("(Mem ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -229,7 +229,7 @@ pub impl Show for MemIdx with output(self, logger) {
 pub impl Show for GlobalIdx with output(self, logger) {
   let GlobalIdx(val) = self
   logger.write_string("(Global ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -237,7 +237,7 @@ pub impl Show for GlobalIdx with output(self, logger) {
 pub impl Show for TagIdx with output(self, logger) {
   let TagIdx(val) = self
   logger.write_string("(Tag ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -245,7 +245,7 @@ pub impl Show for TagIdx with output(self, logger) {
 pub impl Show for ElemIdx with output(self, logger) {
   let ElemIdx(val) = self
   logger.write_string("(Elem ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -253,7 +253,7 @@ pub impl Show for ElemIdx with output(self, logger) {
 pub impl Show for DataIdx with output(self, logger) {
   let DataIdx(val) = self
   logger.write_string("(Data ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -261,7 +261,7 @@ pub impl Show for DataIdx with output(self, logger) {
 pub impl Show for LocalIdx with output(self, logger) {
   let LocalIdx(val) = self
   logger.write_string("(Local ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -269,7 +269,7 @@ pub impl Show for LocalIdx with output(self, logger) {
 pub impl Show for LabelIdx with output(self, logger) {
   let LabelIdx(val) = self
   logger.write_string("(Label ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -277,7 +277,7 @@ pub impl Show for LabelIdx with output(self, logger) {
 pub impl Show for LaneIdx with output(self, logger) {
   let LaneIdx(val) = self
   logger.write_string("(Lane ")
-  val.output(logger)
+  Show::output(val, logger)
   logger.write_char(')')
 }
 
@@ -287,14 +287,14 @@ pub impl Show for CompType with output(self, logger) {
     StructCompType(st) => {
       logger.write_string("(Struct ")
       for f in st {
-        f.output(logger)
+        Show::output(f, logger)
         logger.write_char(' ')
       }
       logger.write_char(')')
     }
     ArrayCompType(at) => {
       logger.write_string("(Array ")
-      at.output(logger)
+      Show::output(at, logger)
       logger.write_char(')')
     }
     FuncCompType(p, r) => {
@@ -303,7 +303,7 @@ pub impl Show for CompType with output(self, logger) {
         [] => logger.write_string("(Void)")
         _ =>
           for pm in p {
-            pm.output(logger)
+            Show::output(pm, logger)
             logger.write_char(' ')
           }
       }
@@ -312,7 +312,7 @@ pub impl Show for CompType with output(self, logger) {
         [] => logger.write_string("(Void)")
         _ =>
           for pm in r {
-            pm.output(logger)
+            Show::output(pm, logger)
             logger.write_char(' ')
           }
       }
@@ -332,7 +332,7 @@ pub impl Show for SubType with output(self, logger) {
       match meta.describes {
         Some(t) => {
           logger.write_string("(describes ")
-          t.output(logger)
+          Show::output(t, logger)
           logger.write_string(") ")
         }
         None => ()
@@ -340,16 +340,16 @@ pub impl Show for SubType with output(self, logger) {
       match meta.descriptor {
         Some(t) => {
           logger.write_string("(descriptor ")
-          t.output(logger)
+          Show::output(t, logger)
           logger.write_string(") ")
         }
         None => ()
       }
       for st in sts {
-        st.output(logger)
+        Show::output(st, logger)
         logger.write_char(' ')
       }
-      ct.output(logger)
+      Show::output(ct, logger)
       logger.write_char(')')
     }
     CompTypeSubType(meta, ct) => {
@@ -357,7 +357,7 @@ pub impl Show for SubType with output(self, logger) {
       match meta.describes {
         Some(t) => {
           logger.write_string("(describes ")
-          t.output(logger)
+          Show::output(t, logger)
           logger.write_string(") ")
         }
         None => ()
@@ -365,12 +365,12 @@ pub impl Show for SubType with output(self, logger) {
       match meta.descriptor {
         Some(t) => {
           logger.write_string("(descriptor ")
-          t.output(logger)
+          Show::output(t, logger)
           logger.write_string(") ")
         }
         None => ()
       }
-      ct.output(logger)
+      Show::output(ct, logger)
       logger.write_char(')')
     }
   }
@@ -381,13 +381,13 @@ pub impl Show for RecType with output(self, logger) {
   match self {
     SingleRecType(st) => {
       logger.write_string("(Rec ")
-      st.output(logger)
+      Show::output(st, logger)
       logger.write_char(')')
     }
     GroupRecType(sts) => {
       logger.write_string("(Rec ")
       for st in sts {
-        st.output(logger)
+        Show::output(st, logger)
         logger.write_char(' ')
       }
       logger.write_char(')')
@@ -400,19 +400,19 @@ pub impl Show for Limits with output(self, logger) {
   match self {
     I32Limits(min, max) => {
       logger.write_string("(Lim I32 ")
-      min.output(logger)
+      Show::output(min, logger)
       if max is Some(max) {
         logger.write_char(' ')
-        max.output(logger)
+        Show::output(max, logger)
       }
       logger.write_char(')')
     }
     I64Limits(min, max) => {
       logger.write_string("(Lim I64 ")
-      min.output(logger)
+      Show::output(min, logger)
       if max is Some(max) {
         logger.write_char(' ')
-        max.output(logger)
+        Show::output(max, logger)
       }
       logger.write_char(')')
     }
@@ -422,7 +422,7 @@ pub impl Show for Limits with output(self, logger) {
 ///|
 pub impl Show for TagType with output(self, logger) {
   let TagType(t) = self
-  t.output(logger)
+  Show::output(t, logger)
 }
 
 ///|
@@ -432,7 +432,7 @@ pub impl Show for GlobalType with output(self, logger) {
   if m {
     logger.write_string("Mut ")
   }
-  vt.output(logger)
+  Show::output(vt, logger)
   logger.write_char(')')
 }
 
@@ -441,42 +441,42 @@ pub impl Show for MemType with output(self, logger) {
   let MemType(l, shared) = self
   if shared {
     logger.write_string("(MemType Shared ")
-    l.output(logger)
+    Show::output(l, logger)
     logger.write_char(')')
     return
   }
-  l.output(logger)
+  Show::output(l, logger)
 }
 
 ///|
 pub impl Show for TableType with output(self, logger) {
   let TableType(rt, l) = self
   logger.write_string("(TableType ")
-  rt.output(logger)
+  Show::output(rt, logger)
   logger.write_char(' ')
-  l.output(logger)
+  Show::output(l, logger)
   logger.write_char(')')
 }
 
 ///|
 pub impl Show for ExternType with output(self, logger) {
   match self {
-    GlobalExternType(gt) => gt.output(logger)
-    MemExternType(mt) => mt.output(logger)
-    TableExternType(tt) => tt.output(logger)
-    FuncExternType(t) => t.output(logger)
-    TagExternType(t) => t.output(logger)
+    GlobalExternType(gt) => Show::output(gt, logger)
+    MemExternType(mt) => Show::output(mt, logger)
+    TableExternType(tt) => Show::output(tt, logger)
+    FuncExternType(t) => Show::output(t, logger)
+    TagExternType(t) => Show::output(t, logger)
   }
 }
 
 ///|
 pub impl Show for ExternIdx with output(self, logger) {
   match self {
-    GlobalExternIdx(g) => g.output(logger)
-    MemExternIdx(m) => m.output(logger)
-    TableExternIdx(t) => t.output(logger)
-    FuncExternIdx(f) => f.output(logger)
-    TagExternIdx(t) => t.output(logger)
+    GlobalExternIdx(g) => Show::output(g, logger)
+    MemExternIdx(m) => Show::output(m, logger)
+    TableExternIdx(t) => Show::output(t, logger)
+    FuncExternIdx(f) => Show::output(f, logger)
+    TagExternIdx(t) => Show::output(t, logger)
   }
 }
 
@@ -485,9 +485,9 @@ pub impl Show for ElemMode with output(self, logger) {
   match self {
     Active(t, e) => {
       logger.write_string("(Active ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(' ')
-      e.output(logger)
+      Show::output(e, logger)
       logger.write_char(')')
     }
     Passive => logger.write_string("Passive")
@@ -501,7 +501,7 @@ pub impl Show for ElemKind with output(self, logger) {
     FuncExprsElemKind(exprs) => {
       logger.write_string("(Funcs ")
       for expr in exprs {
-        expr.output(logger)
+        Show::output(expr, logger)
         logger.write_char(' ')
       }
       logger.write_char(')')
@@ -509,17 +509,17 @@ pub impl Show for ElemKind with output(self, logger) {
     FuncsElemKind(idxs) => {
       logger.write_string("(Funcs Indexes ")
       for idx in idxs {
-        idx.output(logger)
+        Show::output(idx, logger)
         logger.write_char(' ')
       }
       logger.write_char(')')
     }
     TypedExprsElemKind(rt, exprs) => {
       logger.write_string("(Exprs ")
-      rt.output(logger)
+      Show::output(rt, logger)
       logger.write_char(' ')
       for expr in exprs {
-        expr.output(logger)
+        Show::output(expr, logger)
       }
       logger.write_char(')')
     }
@@ -530,9 +530,9 @@ pub impl Show for ElemKind with output(self, logger) {
 pub impl Show for Elem with output(self, logger) {
   let Elem(m, k) = self
   logger.write_string("(Elem ")
-  m.output(logger)
+  Show::output(m, logger)
   logger.write_char(' ')
-  k.output(logger)
+  Show::output(k, logger)
   logger.write_char(')')
 }
 
@@ -540,7 +540,7 @@ pub impl Show for Elem with output(self, logger) {
 pub impl Show for Expr with output(self, logger) {
   let Expr(insts) = self
   for inst in insts {
-    inst.output(logger)
+    Show::output(inst, logger)
   }
   logger.write_string("(end)")
 }
@@ -549,11 +549,11 @@ pub impl Show for Expr with output(self, logger) {
 pub impl Show for Import with output(self, logger) {
   let Import(ns, n, et) = self
   logger.write_char('(')
-  ns.output(logger)
+  Show::output(ns, logger)
   logger.write_char(' ')
-  n.output(logger)
+  Show::output(n, logger)
   logger.write_char(' ')
-  et.output(logger)
+  Show::output(et, logger)
   logger.write_char(')')
 }
 
@@ -561,10 +561,10 @@ pub impl Show for Import with output(self, logger) {
 pub impl Show for Table with output(self, logger) {
   let Table(tt, e) = self
   logger.write_string("(Table ")
-  tt.output(logger)
+  Show::output(tt, logger)
   if e is Some(e) {
     logger.write_char(' ')
-    e.output(logger)
+    Show::output(e, logger)
   }
   logger.write_char(')')
 }
@@ -573,9 +573,9 @@ pub impl Show for Table with output(self, logger) {
 pub impl Show for Global with output(self, logger) {
   let Global(gt, e) = self
   logger.write_string("(Global ")
-  gt.output(logger)
+  Show::output(gt, logger)
   logger.write_char(' ')
-  e.output(logger)
+  Show::output(e, logger)
   logger.write_char(')')
 }
 
@@ -583,9 +583,9 @@ pub impl Show for Global with output(self, logger) {
 pub impl Show for Export with output(self, logger) {
   let Export(n, idx) = self
   logger.write_string("(Export ")
-  n.output(logger)
+  Show::output(n, logger)
   logger.write_char(' ')
-  idx.output(logger)
+  Show::output(idx, logger)
   logger.write_char(')')
 }
 
@@ -594,7 +594,7 @@ pub impl Show for Locals with output(self, logger) {
   for run in self.runs() {
     let mut remaining = run.count
     while remaining > 0 {
-      run.vt.output(logger)
+      Show::output(run.vt, logger)
       logger.write_char(' ')
       remaining = remaining - 1
     }
@@ -606,7 +606,7 @@ pub impl Show for LocalRun with output(self, logger) {
   logger.write_string("(LocalRun ")
   logger.write_string(self.count.to_string())
   logger.write_char(' ')
-  self.vt.output(logger)
+  Show::output(self.vt, logger)
   logger.write_char(')')
 }
 
@@ -615,9 +615,9 @@ pub impl Show for Func with output(self, logger) {
   match self {
     Func(ls, expr) => {
       logger.write_string("(Func ")
-      ls.output(logger)
+      Show::output(ls, logger)
       logger.write_char(' ')
-      expr.output(logger)
+      Show::output(expr, logger)
       logger.write_char(')')
     }
   }
@@ -628,9 +628,9 @@ pub impl Show for DataMode with output(self, logger) {
   match self {
     Active(m, e) => {
       logger.write_string("(Active ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      e.output(logger)
+      Show::output(e, logger)
       logger.write_char(')')
     }
     Passive => logger.write_string("Passive")
@@ -641,9 +641,9 @@ pub impl Show for DataMode with output(self, logger) {
 pub impl Show for Data with output(self, logger) {
   let Data(dm, b) = self
   logger.write_string("(Data ")
-  dm.output(logger)
+  Show::output(dm, logger)
   logger.write_char(' ')
-  b.output(logger)
+  Show::output(b, logger)
   logger.write_char(')')
 }
 
@@ -659,9 +659,9 @@ pub impl Show for Name with output(self, logger) {
 pub impl Show for NameAssoc with output(self, logger) {
   let NameAssoc(idx, name) = self
   logger.write_string("(NameAssoc ")
-  idx.output(logger)
+  Show::output(idx, logger)
   logger.write_char(' ')
-  name.output(logger)
+  Show::output(name, logger)
   logger.write_char(')')
 }
 
@@ -674,7 +674,7 @@ pub impl Show for NameMap with output(self, logger) {
     return
   }
   logger.write_string(": ")
-  entries.output(logger)
+  Show::output(entries, logger)
   logger.write_char(']')
 }
 
@@ -682,9 +682,9 @@ pub impl Show for NameMap with output(self, logger) {
 pub impl Show for IndirectNameAssoc with output(self, logger) {
   let IndirectNameAssoc(idx, names) = self
   logger.write_string("(IndirectNameAssoc ")
-  idx.output(logger)
+  Show::output(idx, logger)
   logger.write_char(' ')
-  names.output(logger)
+  Show::output(names, logger)
   logger.write_char(')')
 }
 
@@ -697,7 +697,7 @@ pub impl Show for IndirectNameMap with output(self, logger) {
     return
   }
   logger.write_string(": ")
-  entries.output(logger)
+  Show::output(entries, logger)
   logger.write_char(']')
 }
 
@@ -718,38 +718,38 @@ pub impl Show for NameSec with output(self, logger) {
     tag_names,
   } = self
   logger.write_string("NameSec(module_name=")
-  module_name.output(logger)
+  logger.write_string(@debug.to_string(module_name))
   logger.write_string(" func_names=")
-  func_names.output(logger)
+  logger.write_string(@debug.to_string(func_names))
   logger.write_string(" local_names=")
-  local_names.output(logger)
+  logger.write_string(@debug.to_string(local_names))
   logger.write_string(" label_names=")
-  label_names.output(logger)
+  logger.write_string(@debug.to_string(label_names))
   logger.write_string(" type_names=")
-  type_names.output(logger)
+  logger.write_string(@debug.to_string(type_names))
   logger.write_string(" table_names=")
-  table_names.output(logger)
+  logger.write_string(@debug.to_string(table_names))
   logger.write_string(" memory_names=")
-  memory_names.output(logger)
+  logger.write_string(@debug.to_string(memory_names))
   logger.write_string(" global_names=")
-  global_names.output(logger)
+  logger.write_string(@debug.to_string(global_names))
   logger.write_string(" elem_names=")
-  elem_names.output(logger)
+  logger.write_string(@debug.to_string(elem_names))
   logger.write_string(" data_names=")
-  data_names.output(logger)
+  logger.write_string(@debug.to_string(data_names))
   logger.write_string(" field_names=")
-  field_names.output(logger)
+  logger.write_string(@debug.to_string(field_names))
   logger.write_string(" tag_names=")
-  tag_names.output(logger)
+  logger.write_string(@debug.to_string(tag_names))
   logger.write_char(')')
 }
 
 ///|
 pub impl Show for BlockType with output(self, logger) {
   match self {
-    ValTypeBlockType(vt) => vt.output(logger)
+    ValTypeBlockType(vt) => Show::output(vt, logger)
     VoidBlockType => logger.write_string("(Void)")
-    TypeIdxBlockType(t) => t.output(logger)
+    TypeIdxBlockType(t) => Show::output(t, logger)
   }
 }
 
@@ -758,26 +758,26 @@ pub impl Show for Catch with output(self, logger) {
   match self {
     CatchAll(l) => {
       logger.write_string("(catch_all ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     CatchRef(t, l) => {
       logger.write_string("(catch_ref ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(' ')
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     Catch(t, l) => {
       logger.write_string("(catch ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(' ')
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     CatchAllRef(l) => {
       logger.write_string("(catch_all_ref ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
   }
@@ -787,13 +787,13 @@ pub impl Show for Catch with output(self, logger) {
 pub impl Show for MemArg with output(self, logger) {
   let MemArg(a, m, o) = self
   logger.write_string("align=")
-  a.output(logger)
+  Show::output(a, logger)
   if m is Some(m) {
     logger.write_string(" mem=")
-    m.output(logger)
+    Show::output(m, logger)
   }
   logger.write_string(" offset=")
-  o.output(logger)
+  Show::output(o, logger)
 }
 
 ///|
@@ -803,30 +803,30 @@ pub impl Show for Instruction with output(self, logger) {
     Nop => logger.write_string("nop")
     Block(bt, expr) => {
       logger.write_string("(block ")
-      bt.output(logger)
+      Show::output(bt, logger)
       logger.write_char(' ')
-      expr.output(logger)
+      Show::output(expr, logger)
       logger.write_char(')')
     }
     Loop(bt, expr) => {
       logger.write_string("(loop ")
-      bt.output(logger)
+      Show::output(bt, logger)
       logger.write_char(' ')
-      expr.output(logger)
+      Show::output(expr, logger)
       logger.write_char(')')
     }
     If(bt, i, e) => {
       logger.write_string("(if ")
-      bt.output(logger)
+      Show::output(bt, logger)
       logger.write_char(' ')
       for n in i {
-        n.output(logger)
+        Show::output(n, logger)
         logger.write_char(' ')
       }
       if e is Some(e) {
         logger.write_string("else ")
         for n in e {
-          n.output(logger)
+          Show::output(n, logger)
           logger.write_char(' ')
         }
         logger.write_char(')')
@@ -834,62 +834,62 @@ pub impl Show for Instruction with output(self, logger) {
     }
     Throw(t) => {
       logger.write_string("(throw ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(')')
     }
     ThrowRef => logger.write_string("throw_ref")
     Br(l) => {
       logger.write_string("(br ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     BrIf(l) => {
       logger.write_string("(br_if ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     BrTable(ls, l) => {
       logger.write_string("(br_table ")
       for n in ls {
-        n.output(logger)
+        Show::output(n, logger)
         logger.write_char(' ')
       }
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     Return => logger.write_string("return")
     Call(f) => {
       logger.write_string("(call ")
-      f.output(logger)
+      Show::output(f, logger)
       logger.write_char(')')
     }
     CallIndirect(ty, tbl) => {
       logger.write_string("(call_indirect ")
-      ty.output(logger)
+      Show::output(ty, logger)
       logger.write_char(' ')
-      tbl.output(logger)
+      Show::output(tbl, logger)
       logger.write_char(')')
     }
     ReturnCall(f) => {
       logger.write_string("(return_call ")
-      f.output(logger)
+      Show::output(f, logger)
       logger.write_char(')')
     }
     ReturnCallIndirect(ty, tbl) => {
       logger.write_string("(return_call_indirect ")
-      ty.output(logger)
+      Show::output(ty, logger)
       logger.write_char(' ')
-      tbl.output(logger)
+      Show::output(tbl, logger)
       logger.write_char(')')
     }
     CallRef(t) => {
       logger.write_string("(call_ref ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(')')
     }
     ReturnCallRef(t) => {
       logger.write_string("(return_call_ref ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(')')
     }
     Drop => logger.write_string("drop")
@@ -898,297 +898,297 @@ pub impl Show for Instruction with output(self, logger) {
       logger.write_string("(select")
       for vt in vts {
         logger.write_char(' ')
-        vt.output(logger)
+        Show::output(vt, logger)
       }
       logger.write_char(')')
     }
     TryTable(bt, c, e) => {
       logger.write_string("(try_table ")
-      bt.output(logger)
+      Show::output(bt, logger)
       logger.write_char(' ')
-      c.output(logger)
+      Show::output(c, logger)
       logger.write_char(' ')
-      e.output(logger)
+      Show::output(e, logger)
       logger.write_char(')')
     }
     LocalGet(l) => {
       logger.write_string("(local.get ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     LocalSet(l) => {
       logger.write_string("(local.set ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     LocalTee(l) => {
       logger.write_string("(local.tee ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     GlobalGet(g) => {
       logger.write_string("(global.get ")
-      g.output(logger)
+      Show::output(g, logger)
       logger.write_char(')')
     }
     GlobalSet(g) => {
       logger.write_string("(global.set ")
-      g.output(logger)
+      Show::output(g, logger)
       logger.write_char(')')
     }
     TableGet(t) => {
       logger.write_string("(table.get ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(')')
     }
     TableSet(t) => {
       logger.write_string("(table.set ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(')')
     }
     I32Load(m) => {
       logger.write_string("(i32.load ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Load(m) => {
       logger.write_string("(i64.load ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     F32Load(m) => {
       logger.write_string("(f32.load ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     F64Load(m) => {
       logger.write_string("(f64.load ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32Load8S(m) => {
       logger.write_string("(i32.load8s ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32Load8U(m) => {
       logger.write_string("(i32.load8u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32Load16S(m) => {
       logger.write_string("(i32.load16s ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32Load16U(m) => {
       logger.write_string("(i32.load16u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Load8S(m) => {
       logger.write_string("(i64.load8s ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Load8U(m) => {
       logger.write_string("(i64.load8u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Load16S(m) => {
       logger.write_string("(i64.load16s ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Load16U(m) => {
       logger.write_string("(i64.load16u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Load32S(m) => {
       logger.write_string("(i64.load32s ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Load32U(m) => {
       logger.write_string("(i64.load32u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32Store(m) => {
       logger.write_string("(i32.store ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Store(m) => {
       logger.write_string("(i64.store ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     F32Store(m) => {
       logger.write_string("(f32.store ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     F64Store(m) => {
       logger.write_string("(f64.store ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32Store8(m) => {
       logger.write_string("(i32.store8 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32Store16(m) => {
       logger.write_string("(i32.store16 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Store8(m) => {
       logger.write_string("(i64.store8 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Store16(m) => {
       logger.write_string("(i64.store16 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64Store32(m) => {
       logger.write_string("(i64.store32 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     MemorySize(m) => {
       logger.write_string("(memory.size ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     MemoryGrow(m) => {
       logger.write_string("(memory.grow ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     MemoryAtomicNotify(m) => {
       logger.write_string("(memory.atomic.notify ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     MemoryAtomicWait32(m) => {
       logger.write_string("(memory.atomic.wait32 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     MemoryAtomicWait64(m) => {
       logger.write_string("(memory.atomic.wait64 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     AtomicFence => logger.write_string("atomic.fence")
     I32AtomicLoad(m) => {
       logger.write_string("(i32.atomic.load ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64AtomicLoad(m) => {
       logger.write_string("(i64.atomic.load ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32AtomicLoad8U(m) => {
       logger.write_string("(i32.atomic.load8_u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32AtomicLoad16U(m) => {
       logger.write_string("(i32.atomic.load16_u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64AtomicLoad8U(m) => {
       logger.write_string("(i64.atomic.load8_u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64AtomicLoad16U(m) => {
       logger.write_string("(i64.atomic.load16_u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64AtomicLoad32U(m) => {
       logger.write_string("(i64.atomic.load32_u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32AtomicStore(m) => {
       logger.write_string("(i32.atomic.store ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64AtomicStore(m) => {
       logger.write_string("(i64.atomic.store ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32AtomicStore8(m) => {
       logger.write_string("(i32.atomic.store8 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32AtomicStore16(m) => {
       logger.write_string("(i32.atomic.store16 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64AtomicStore8(m) => {
       logger.write_string("(i64.atomic.store8 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64AtomicStore16(m) => {
       logger.write_string("(i64.atomic.store16 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I64AtomicStore32(m) => {
       logger.write_string("(i64.atomic.store32 ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     AtomicRmw(op, m) => {
       logger.write_string("(atomic.rmw ")
-      op.output(logger)
+      Show::output(op, logger)
       logger.write_char(' ')
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     AtomicCmpxchg(op, m) => {
       logger.write_string("(atomic.cmpxchg ")
-      op.output(logger)
+      Show::output(op, logger)
       logger.write_char(' ')
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     I32Const(c) => {
       logger.write_string("(i32.const ")
-      c.output(logger)
+      Show::output(c, logger)
       logger.write_char(')')
     }
     I64Const(c) => {
       logger.write_string("(i64.const ")
-      c.output(logger)
+      Show::output(c, logger)
       logger.write_char(')')
     }
     F32Const(c) => {
       logger.write_string("(f32.const ")
-      c.output(logger)
+      Show::output(c, logger)
       logger.write_char(')')
     }
     F64Const(c) => {
       logger.write_string("(f64.const ")
-      c.output(logger)
+      Show::output(c, logger)
       logger.write_char(')')
     }
     I32Eqz => logger.write_string("i32.eqz")
@@ -1321,109 +1321,109 @@ pub impl Show for Instruction with output(self, logger) {
     I64Extend32S => logger.write_string("i64.extend32s")
     RefNull(rt) => {
       logger.write_string("(ref.null ")
-      rt.output(logger)
+      Show::output(rt, logger)
       logger.write_char(')')
     }
     RefIsNull => logger.write_string("ref.null")
     RefFunc(i) => {
       logger.write_string("(ref.func ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     RefEq => logger.write_string("ref.eq")
     RefAsNonNull => logger.write_string("ref.as_non_null")
     BrOnNull(l) => {
       logger.write_string("(br_on_null ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     BrOnNonNull(l) => {
       logger.write_string("(br_on_non_null ")
-      l.output(logger)
+      Show::output(l, logger)
       logger.write_char(')')
     }
     StructNew(i) => {
       logger.write_string("(struct.new ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     StructNewDefault(i) => {
       logger.write_string("(struct.new_default ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     StructNewDesc(i) => {
       logger.write_string("(struct.new_desc ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     StructNewDefaultDesc(i) => {
       logger.write_string("(struct.new_default_desc ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     StructGet(t, i) => {
       logger.write_string("(struct.get ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     StructGetS(t, i) => {
       logger.write_string("(struct.get_s ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     StructGetU(t, i) => {
       logger.write_string("(struct.get_u ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     StructSet(t, i) => {
       logger.write_string("(struct.set ")
-      t.output(logger)
+      Show::output(t, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     ArrayNew(i) => {
       logger.write_string("(array.new ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     ArrayNewDefault(i) => {
       logger.write_string("(array.new_default ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     ArrayNewFixed(i, n) => {
       logger.write_string("(array.new_fixed ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
-      n.output(logger)
+      Show::output(n, logger)
       logger.write_char(')')
     }
     ArrayNewData(i, n) => {
       logger.write_string("(array.new_data ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
-      n.output(logger)
+      Show::output(n, logger)
       logger.write_char(')')
     }
     ArrayNewElem(i, n) => {
       logger.write_string("(array.new_elem ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
-      n.output(logger)
+      Show::output(n, logger)
       logger.write_char(')')
     }
     StringConst(bytes) => {
       logger.write_string("(string.const ")
-      bytes.output(logger)
+      Show::output(bytes, logger)
       logger.write_char(')')
     }
     StringNewUtf8Array => logger.write_string("string.new_utf8_array")
@@ -1438,54 +1438,54 @@ pub impl Show for Instruction with output(self, logger) {
     StringEncodeWtf8Array => logger.write_string("string.encode_wtf8_array")
     ArrayGet(i) => {
       logger.write_string("(array.get ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     ArrayGetS(i) => {
       logger.write_string("(array.get_s ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     ArrayGetU(i) => {
       logger.write_string("(array.get_u ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     ArraySet(i) => {
       logger.write_string("(array.set ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     ArrayLen => logger.write_string("array.len")
     ArrayFill(i) => {
       logger.write_string("(array.fill ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     ArrayCopy(i, n) => {
       logger.write_string("(array.copy ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
-      n.output(logger)
+      Show::output(n, logger)
       logger.write_char(')')
     }
     ArrayInitData(i, n) => {
       logger.write_string("(array.init_data ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
-      n.output(logger)
+      Show::output(n, logger)
       logger.write_char(')')
     }
     ArrayInitElem(i, n) => {
       logger.write_string("(array.init_elem ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
-      n.output(logger)
+      Show::output(n, logger)
       logger.write_char(')')
     }
     RefGetDesc(ti) => {
       logger.write_string("(ref.get_desc ")
-      ti.output(logger)
+      Show::output(ti, logger)
       logger.write_char(')')
     }
     RefTest(n, ht) => {
@@ -1510,7 +1510,7 @@ pub impl Show for Instruction with output(self, logger) {
     }
     BrOnCast(i, CastOp(l, r), lht, rht) => {
       logger.write_string("(br_on_cast ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
       HeapTypeRefType(l, false, lht).output(logger)
       logger.write_char(' ')
@@ -1519,7 +1519,7 @@ pub impl Show for Instruction with output(self, logger) {
     }
     BrOnCastFail(i, CastOp(l, r), lht, rht) => {
       logger.write_string("(br_on_cast_fail ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
       HeapTypeRefType(l, false, lht).output(logger)
       logger.write_char(' ')
@@ -1541,120 +1541,120 @@ pub impl Show for Instruction with output(self, logger) {
     I64TruncSatF64U => logger.write_string("i64.trunc_sat_f64u")
     MemoryInit(i, m) => {
       logger.write_string("(memory.init ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(' ')
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     DataDrop(i) => {
       logger.write_string("(data.drop ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     MemoryCopy(i0, i1) => {
       logger.write_string("(memory.copy ")
-      i0.output(logger)
+      Show::output(i0, logger)
       logger.write_char(' ')
-      i1.output(logger)
+      Show::output(i1, logger)
       logger.write_char(')')
     }
     MemoryFill(i) => {
       logger.write_string("(memory.fill ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     TableInit(i0, i1) => {
       logger.write_string("(table.init ")
-      i0.output(logger)
+      Show::output(i0, logger)
       logger.write_char(' ')
-      i1.output(logger)
+      Show::output(i1, logger)
       logger.write_char(')')
     }
     ElemDrop(i) => {
       logger.write_string("(elem.drop ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     TableCopy(i0, i1) => {
       logger.write_string("(table.copy ")
-      i0.output(logger)
+      Show::output(i0, logger)
       logger.write_char(' ')
-      i1.output(logger)
+      Show::output(i1, logger)
       logger.write_char(')')
     }
     TableGrow(i) => {
       logger.write_string("(table.grow ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     TableSize(i) => {
       logger.write_string("(table.size ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     TableFill(i) => {
       logger.write_string("(table.fill ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Load(m) => {
       logger.write_string("(v128.load ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load8x8S(m) => {
       logger.write_string("(v128.load8x8s ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load8x8U(m) => {
       logger.write_string("(v128.load8x8u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load16x4S(m) => {
       logger.write_string("(v128.load16x4s ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load16x4U(m) => {
       logger.write_string("(v128.load16x4u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load32x2S(m) => {
       logger.write_string("(v128.load32x2s ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load32x2U(m) => {
       logger.write_string("(v128.load32x2u ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load8Splat(m) => {
       logger.write_string("(v128.load8_splat ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load16Splat(m) => {
       logger.write_string("(v128.load16_splat ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load32Splat(m) => {
       logger.write_string("(v128.load32_splat ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load64Splat(m) => {
       logger.write_string("(v128.load64_splat ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Store(m) => {
       logger.write_string("(v128.store ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Const(
@@ -1713,37 +1713,37 @@ pub impl Show for Instruction with output(self, logger) {
       l15
     ) => {
       logger.write_string("(i8x16.shuffle ")
-      l0.output(logger)
+      Show::output(l0, logger)
       logger.write_char(' ')
-      l1.output(logger)
+      Show::output(l1, logger)
       logger.write_char(' ')
-      l2.output(logger)
+      Show::output(l2, logger)
       logger.write_char(' ')
-      l3.output(logger)
+      Show::output(l3, logger)
       logger.write_char(' ')
-      l4.output(logger)
+      Show::output(l4, logger)
       logger.write_char(' ')
-      l5.output(logger)
+      Show::output(l5, logger)
       logger.write_char(' ')
-      l6.output(logger)
+      Show::output(l6, logger)
       logger.write_char(' ')
-      l7.output(logger)
+      Show::output(l7, logger)
       logger.write_char(' ')
-      l8.output(logger)
+      Show::output(l8, logger)
       logger.write_char(' ')
-      l9.output(logger)
+      Show::output(l9, logger)
       logger.write_char(' ')
-      l10.output(logger)
+      Show::output(l10, logger)
       logger.write_char(' ')
-      l11.output(logger)
+      Show::output(l11, logger)
       logger.write_char(' ')
-      l12.output(logger)
+      Show::output(l12, logger)
       logger.write_char(' ')
-      l13.output(logger)
+      Show::output(l13, logger)
       logger.write_char(' ')
-      l14.output(logger)
+      Show::output(l14, logger)
       logger.write_char(' ')
-      l15.output(logger)
+      Show::output(l15, logger)
       logger.write_char(')')
     }
     I8x16Swizzle => logger.write_string("i8x16.swizzle")
@@ -1755,72 +1755,72 @@ pub impl Show for Instruction with output(self, logger) {
     F64x2Splat => logger.write_string("f64x2.splat")
     I8x16ExtractLaneS(i) => {
       logger.write_string("(i8x16.extract_lane_s ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I8x16ExtractLaneU(i) => {
       logger.write_string("(i8x16.extract_lane_u ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I8x16ReplaceLane(i) => {
       logger.write_string("(i8x16.replace_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I16x8ExtractLaneS(i) => {
       logger.write_string("(i16x8.extract_lane_s ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I16x8ExtractLaneU(i) => {
       logger.write_string("(i16x8.extract_lane_u ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I16x8ReplaceLane(i) => {
       logger.write_string("(i16x8.replace_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I32x4ExtractLane(i) => {
       logger.write_string("(i32x4.extract_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I32x4ReplaceLane(i) => {
       logger.write_string("(i32x4.replace_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I64x2ExtractLane(i) => {
       logger.write_string("(i64x2.extract_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I64x2ReplaceLane(i) => {
       logger.write_string("(i64x2.replace_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     F32x4ExtractLane(i) => {
       logger.write_string("(f32x4.extract_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     F32x4ReplaceLane(i) => {
       logger.write_string("(f32x4.replace_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     F64x2ExtractLane(i) => {
       logger.write_string("(f64x2.extract_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     F64x2ReplaceLane(i) => {
       logger.write_string("(f64x2.replace_lane ")
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     I8x16Eq => logger.write_string("i8x16.eq")
@@ -1874,68 +1874,68 @@ pub impl Show for Instruction with output(self, logger) {
     V128AnyTrue => logger.write_string("v128.any_true")
     V128Load8Lane(m, i) => {
       logger.write_string("(v128.load8_lane ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Load16Lane(m, i) => {
       logger.write_string("(v128.load16_lane ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Load32Lane(m, i) => {
       logger.write_string("(v128.load32_lane ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Load64Lane(m, i) => {
       logger.write_string("(v128.load64_lane ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Store8Lane(m, i) => {
       logger.write_string("(v128.store8_lane ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Store16Lane(m, i) => {
       logger.write_string("(v128.store16_lane ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Store32Lane(m, i) => {
       logger.write_string("(v128.store32_lane ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Store64Lane(m, i) => {
       logger.write_string("(v128.store64_lane ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(' ')
-      i.output(logger)
+      Show::output(i, logger)
       logger.write_char(')')
     }
     V128Load32Zero(m) => {
       logger.write_string("(v128_load32_zero ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     V128Load64Zero(m) => {
       logger.write_string("(v128_load64_zero ")
-      m.output(logger)
+      Show::output(m, logger)
       logger.write_char(')')
     }
     F32x4DemoteF64x2Zero => logger.write_string("f32x4.demote_f64x2_zero")
@@ -2117,7 +2117,7 @@ pub impl Show for Instruction with output(self, logger) {
 pub impl Show for CustomSec with output(self, logger) {
   let CustomSec(name, _) = self
   logger.write_string("[Custom: ")
-  name.output(logger)
+  Show::output(name, logger)
   logger.write_char(']')
 }
 
@@ -2132,7 +2132,7 @@ pub impl Show for TypeSec with output(self, logger) {
   logger.write_string(":\n")
   for ty in tys {
     logger.write_string("  - ")
-    ty.output(logger)
+    Show::output(ty, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2149,7 +2149,7 @@ pub impl Show for ImportSec with output(self, logger) {
   logger.write_string(": \n")
   for i in imports {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2166,7 +2166,7 @@ pub impl Show for FuncSec with output(self, logger) {
   logger.write_string(": \n")
   for i in fns {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2183,7 +2183,7 @@ pub impl Show for TableSec with output(self, logger) {
   logger.write_string(": \n")
   for i in tbls {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2200,7 +2200,7 @@ pub impl Show for MemSec with output(self, logger) {
   logger.write_string(": \n")
   for i in mems {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2217,7 +2217,7 @@ pub impl Show for TagSec with output(self, logger) {
   logger.write_string(": \n")
   for i in mems {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2234,7 +2234,7 @@ pub impl Show for GlobalSec with output(self, logger) {
   logger.write_string(": \n")
   for i in globals {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2251,7 +2251,7 @@ pub impl Show for ExportSec with output(self, logger) {
   logger.write_string(": \n")
   for i in exports {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2261,7 +2261,7 @@ pub impl Show for ExportSec with output(self, logger) {
 pub impl Show for StartSec with output(self, logger) {
   let StartSec(start) = self
   logger.write_string("[Start ")
-  start.output(logger)
+  Show::output(start, logger)
   logger.write_char(']')
 }
 
@@ -2276,7 +2276,7 @@ pub impl Show for ElemSec with output(self, logger) {
   logger.write_string(": \n")
   for i in elems {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2286,7 +2286,7 @@ pub impl Show for ElemSec with output(self, logger) {
 pub impl Show for DataCntSec with output(self, logger) {
   let DataCntSec(start) = self
   logger.write_string("[DataCount ")
-  start.output(logger)
+  Show::output(start, logger)
   logger.write_char(']')
 }
 
@@ -2301,7 +2301,7 @@ pub impl Show for CodeSec with output(self, logger) {
   logger.write_string(": \n")
   for i in codes {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2318,7 +2318,7 @@ pub impl Show for DataSec with output(self, logger) {
   logger.write_string(": \n")
   for i in datas {
     logger.write_string("  - ")
-    i.output(logger)
+    Show::output(i, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2329,7 +2329,7 @@ pub impl Show for FuncAnnotation with output(self, logger) {
   logger.write_string("FuncAnnotation(name=")
   logger.write_string(self.name)
   logger.write_string(", args=")
-  self.args.output(logger)
+  Show::output(self.args, logger)
   logger.write_char(')')
 }
 
@@ -2337,9 +2337,9 @@ pub impl Show for FuncAnnotation with output(self, logger) {
 pub impl Show for FuncAnnotationAssoc with output(self, logger) {
   let FuncAnnotationAssoc(idx, annotations) = self
   logger.write_string("FuncAnnotationAssoc(")
-  idx.output(logger)
+  Show::output(idx, logger)
   logger.write_string(", ")
-  annotations.output(logger)
+  Show::output(annotations, logger)
   logger.write_char(')')
 }
 
@@ -2354,7 +2354,7 @@ pub impl Show for FuncAnnotationSec with output(self, logger) {
   logger.write_string(": \n")
   for entry in entries {
     logger.write_string("  - ")
-    entry.output(logger)
+    Show::output(entry, logger)
     logger.write_char('\n')
   }
   logger.write_char(']')
@@ -2384,58 +2384,58 @@ pub impl Show for Module with output(self, logger) {
   } = self
   logger.write_string("Module[\n")
   logger.write_string("customs: ")
-  customs.output(logger)
+  Show::output(customs, logger)
   logger.write_char('\n')
   logger.write_string("name_sec: ")
-  name_sec.output(logger)
+  logger.write_string(@debug.to_string(name_sec))
   logger.write_char('\n')
   logger.write_string("raw_name_sec_payload: ")
-  raw_name_sec_payload.output(logger)
+  logger.write_string(@debug.to_string(raw_name_sec_payload))
   logger.write_char('\n')
   logger.write_string("type_sec: ")
-  type_sec.output(logger)
+  logger.write_string(@debug.to_string(type_sec))
   logger.write_char('\n')
   logger.write_string("import_sec: ")
-  import_sec.output(logger)
+  logger.write_string(@debug.to_string(import_sec))
   logger.write_char('\n')
   logger.write_string("func_annotation_sec: ")
-  func_annotation_sec.output(logger)
+  logger.write_string(@debug.to_string(func_annotation_sec))
   logger.write_char('\n')
   logger.write_string("func_sec: ")
-  func_sec.output(logger)
+  logger.write_string(@debug.to_string(func_sec))
   logger.write_char('\n')
   logger.write_string("table_sec: ")
-  table_sec.output(logger)
+  logger.write_string(@debug.to_string(table_sec))
   logger.write_char('\n')
   logger.write_string("mem_sec: ")
-  mem_sec.output(logger)
+  logger.write_string(@debug.to_string(mem_sec))
   logger.write_char('\n')
   logger.write_string("tag_sec: ")
-  tag_sec.output(logger)
+  logger.write_string(@debug.to_string(tag_sec))
   logger.write_char('\n')
   logger.write_string("stringrefs_sec: ")
-  stringrefs_sec.output(logger)
+  logger.write_string(@debug.to_string(stringrefs_sec))
   logger.write_char('\n')
   logger.write_string("global_sec: ")
-  global_sec.output(logger)
+  logger.write_string(@debug.to_string(global_sec))
   logger.write_char('\n')
   logger.write_string("export_sec: ")
-  export_sec.output(logger)
+  logger.write_string(@debug.to_string(export_sec))
   logger.write_char('\n')
   logger.write_string("start_sec: ")
-  start_sec.output(logger)
+  logger.write_string(@debug.to_string(start_sec))
   logger.write_char('\n')
   logger.write_string("elem_sec: ")
-  elem_sec.output(logger)
+  logger.write_string(@debug.to_string(elem_sec))
   logger.write_char('\n')
   logger.write_string("data_cnt_sec: ")
-  data_cnt_sec.output(logger)
+  logger.write_string(@debug.to_string(data_cnt_sec))
   logger.write_char('\n')
   logger.write_string("code_sec: ")
-  code_sec.output(logger)
+  logger.write_string(@debug.to_string(code_sec))
   logger.write_char('\n')
   logger.write_string("data_sec: ")
-  data_sec.output(logger)
+  logger.write_string(@debug.to_string(data_sec))
   logger.write_string("]")
 }
 
@@ -2443,8 +2443,8 @@ pub impl Show for Module with output(self, logger) {
 pub impl Show for FuncType with output(self, logger) {
   let FuncType(props, results) = self
   logger.write_string("FuncType {\n  props : ")
-  props.output(logger)
+  Show::output(props, logger)
   logger.write_string("\n  results : ")
-  results.output(logger)
+  Show::output(results, logger)
   logger.write_string("\n}")
 }

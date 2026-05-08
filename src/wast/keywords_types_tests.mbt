@@ -43,7 +43,7 @@ test "wast_to_script parser boundaries for empty and unknown commands" {
     Ok(script) => script
     Err(e) => fail("unexpected parse error for empty script: \{e}")
   }
-  assert_eq(empty_script.commands.length(), 0)
+  @debug.assert_eq(empty_script.commands.length(), 0)
 
   match wast_to_script("(unknown)", filename="script-boundary.wast") {
     Ok(_) => fail("expected parse error for unknown command")

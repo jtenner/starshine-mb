@@ -4059,7 +4059,7 @@ test "parse simple module" {
   let parser = WastParser::new(lexer)
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
-  assert_eq(mod.fields.length(), 1)
+  @debug.assert_eq(mod.fields.length(), 1)
 }
 
 ///|
@@ -4068,7 +4068,7 @@ test "parse error struct can be constructed" {
     location: { filename: "test", line: 1, first_column: 1, last_column: 1 },
     message: "example",
   }
-  assert_eq(err.message, "example")
+  @debug.assert_eq(err.message, "example")
 }
 
 ///|
@@ -4104,7 +4104,7 @@ test "parse function with type reference" {
   let parser = WastParser::new(lexer)
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
-  assert_eq(mod.fields.length(), 2)
+  @debug.assert_eq(mod.fields.length(), 2)
 }
 
 ///|
@@ -4146,8 +4146,8 @@ test "parse empty module" {
   let parser = WastParser::new(lexer)
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
-  assert_eq(mod.id, None)
-  assert_eq(mod.fields.length(), 0)
+  @debug.assert_eq(mod.id, None)
+  @debug.assert_eq(mod.fields.length(), 0)
 }
 
 ///|
@@ -4157,7 +4157,7 @@ test "parse named module" {
   let parser = WastParser::new(lexer)
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
-  assert_eq(mod.id, Some("$my_module"))
+  @debug.assert_eq(mod.id, Some("$my_module"))
 }
 
 // ----------------------------------------------------------------------------
@@ -4171,7 +4171,7 @@ test "parse type with no params no results" {
   let parser = WastParser::new(lexer)
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
-  assert_eq(mod.fields.length(), 1)
+  @debug.assert_eq(mod.fields.length(), 1)
 }
 
 ///|
@@ -4239,21 +4239,21 @@ test "parse struct type defs with subtype metadata and fields" {
   assert_false(parser.has_errors())
   match mod.fields {
     [TypeField(base), TypeField(node), TypeField(node_desc)] => {
-      assert_eq(base.id, Some("$base"))
-      assert_eq(base.is_sub, false)
-      assert_eq(base.final_, false)
-      assert_eq(base.supers, [])
-      assert_eq(base.metadata, { describes: None, descriptor: None })
-      assert_eq(base.body, TypeDefBody::Struct([]))
-      assert_eq(node.id, Some("$node"))
-      assert_eq(node.is_sub, true)
-      assert_eq(node.final_, true)
-      assert_eq(node.supers, [Id("$base")])
-      assert_eq(node.metadata, {
+      @debug.assert_eq(base.id, Some("$base"))
+      @debug.assert_eq(base.is_sub, false)
+      @debug.assert_eq(base.final_, false)
+      @debug.assert_eq(base.supers, [])
+      @debug.assert_eq(base.metadata, { describes: None, descriptor: None })
+      @debug.assert_eq(base.body, TypeDefBody::Struct([]))
+      @debug.assert_eq(node.id, Some("$node"))
+      @debug.assert_eq(node.is_sub, true)
+      @debug.assert_eq(node.final_, true)
+      @debug.assert_eq(node.supers, [Id("$base")])
+      @debug.assert_eq(node.metadata, {
         describes: None,
         descriptor: Some(Id("$node_desc")),
       })
-      assert_eq(
+      @debug.assert_eq(
         node.body,
         TypeDefBody::Struct([
           { storage: Value(I32), mutable_: false },
@@ -4263,15 +4263,15 @@ test "parse struct type defs with subtype metadata and fields" {
           },
         ]),
       )
-      assert_eq(node_desc.id, Some("$node_desc"))
-      assert_eq(node_desc.is_sub, false)
-      assert_eq(node_desc.final_, false)
-      assert_eq(node_desc.supers, [])
-      assert_eq(node_desc.metadata, {
+      @debug.assert_eq(node_desc.id, Some("$node_desc"))
+      @debug.assert_eq(node_desc.is_sub, false)
+      @debug.assert_eq(node_desc.final_, false)
+      @debug.assert_eq(node_desc.supers, [])
+      @debug.assert_eq(node_desc.metadata, {
         describes: Some(Id("$node")),
         descriptor: None,
       })
-      assert_eq(
+      @debug.assert_eq(
         node_desc.body,
         TypeDefBody::Struct([
           {
@@ -4303,20 +4303,20 @@ test "parse array type defs with subtype metadata" {
   assert_false(parser.has_errors())
   match mod.fields {
     [TypeField(bytes), TypeField(arr), TypeField(arr_desc)] => {
-      assert_eq(bytes.id, Some("$bytes"))
-      assert_eq(bytes.is_sub, false)
-      assert_eq(
+      @debug.assert_eq(bytes.id, Some("$bytes"))
+      @debug.assert_eq(bytes.is_sub, false)
+      @debug.assert_eq(
         bytes.body,
         TypeDefBody::Array({ storage: FieldStorage::I8, mutable_: false }),
       )
-      assert_eq(arr.id, Some("$arr"))
-      assert_eq(arr.is_sub, true)
-      assert_eq(arr.supers, [Index::Id("$bytes")])
-      assert_eq(arr.metadata, {
+      @debug.assert_eq(arr.id, Some("$arr"))
+      @debug.assert_eq(arr.is_sub, true)
+      @debug.assert_eq(arr.supers, [Index::Id("$bytes")])
+      @debug.assert_eq(arr.metadata, {
         describes: None,
         descriptor: Some(Index::Id("$arr_desc")),
       })
-      assert_eq(
+      @debug.assert_eq(
         arr.body,
         TypeDefBody::Array({
           storage: FieldStorage::Value(
@@ -4325,12 +4325,12 @@ test "parse array type defs with subtype metadata" {
           mutable_: true,
         }),
       )
-      assert_eq(arr_desc.id, Some("$arr_desc"))
-      assert_eq(arr_desc.metadata, {
+      @debug.assert_eq(arr_desc.id, Some("$arr_desc"))
+      @debug.assert_eq(arr_desc.metadata, {
         describes: Some(Index::Id("$arr")),
         descriptor: None,
       })
-      assert_eq(
+      @debug.assert_eq(
         arr_desc.body,
         TypeDefBody::Array({ storage: FieldStorage::I16, mutable_: false }),
       )
@@ -4357,12 +4357,12 @@ test "parse rec groups with gc type defs" {
   assert_false(parser.has_errors())
   match mod.fields {
     [RecField([node, node_desc]), FuncField(_)] => {
-      assert_eq(node.id, Some("$node"))
-      assert_eq(node.metadata, {
+      @debug.assert_eq(node.id, Some("$node"))
+      @debug.assert_eq(node.metadata, {
         describes: None,
         descriptor: Some(Id("$node_desc")),
       })
-      assert_eq(
+      @debug.assert_eq(
         node.body,
         TypeDefBody::Struct([
           {
@@ -4371,12 +4371,12 @@ test "parse rec groups with gc type defs" {
           },
         ]),
       )
-      assert_eq(node_desc.id, Some("$node_desc"))
-      assert_eq(node_desc.metadata, {
+      @debug.assert_eq(node_desc.id, Some("$node_desc"))
+      @debug.assert_eq(node_desc.metadata, {
         describes: Some(Id("$node")),
         descriptor: None,
       })
-      assert_eq(node_desc.body, TypeDefBody::Struct([]))
+      @debug.assert_eq(node_desc.body, TypeDefBody::Struct([]))
     }
     _ => fail("expected rec group followed by function field")
   }
@@ -4391,7 +4391,7 @@ test "parse empty rec groups" {
   assert_false(parser.has_errors())
   match mod.fields {
     [RecField([]), TypeField(td)] =>
-      assert_eq(td.body, TypeDefBody::Func({ params: [], results: [] }))
+      @debug.assert_eq(td.body, TypeDefBody::Func({ params: [], results: [] }))
     _ => fail("expected empty rec group followed by plain type field")
   }
 }
@@ -5276,7 +5276,7 @@ test "parse struct allocation instruction families" {
   assert_false(parser.has_errors())
   match mod.fields {
     [FuncField(func)] =>
-      assert_eq(func.body, [
+      @debug.assert_eq(func.body, [
         StructNew(Num(0U)),
         Drop,
         StructNewDefault(Num(0U)),
@@ -5384,7 +5384,7 @@ test "parse function annotations on defined functions" {
   assert_false(parser.has_errors())
   match mod.fields {
     [FuncField(func)] =>
-      assert_eq(func.annotations, [
+      @debug.assert_eq(func.annotations, [
         { name: "binaryen.idempotent", args: [] },
         { name: "metadata.code.inline", args: ["\"\\00\""] },
       ])
@@ -5404,7 +5404,9 @@ test "parse function annotations on func imports" {
   assert_false(parser.has_errors())
   match mod.fields {
     [ImportField(im)] => {
-      assert_eq(im.annotations, [{ name: "binaryen.js.called", args: [] }])
+      @debug.assert_eq(im.annotations, [
+        { name: "binaryen.js.called", args: [] },
+      ])
       match im.desc {
         Func(_) => ()
         _ => fail("expected function import descriptor")
@@ -5453,14 +5455,15 @@ test "parse typed-heap value types preserve concrete type references" {
   assert_false(parser.has_errors())
   match mod.fields {
     [TypeField(_), FuncField(func)] => {
-      assert_eq(func.type_use.func_type.params, [
+      @debug.assert_eq(func.type_use.func_type.params, [
         NonNullTypedFuncRef(HeapTypeRef::TypeId("$t")),
       ])
-      assert_eq(func.type_use.func_type.results, [
+      @debug.assert_eq(func.type_use.func_type.results, [
         TypedFuncRef(HeapTypeRef::TypeId("$t")),
       ])
       match func.body {
-        [RefNull(vt)] => assert_eq(vt, TypedFuncRef(HeapTypeRef::TypeId("$t")))
+        [RefNull(vt)] =>
+          @debug.assert_eq(vt, TypedFuncRef(HeapTypeRef::TypeId("$t")))
         _ => fail("expected single ref.null instruction in typed-heap fixture")
       }
     }
@@ -5481,10 +5484,10 @@ test "parse exact typed-heap value types preserve exact concrete references" {
   assert_false(parser.has_errors())
   match mod.fields {
     [TypeField(_), FuncField(func)] => {
-      assert_eq(func.type_use.func_type.params, [
+      @debug.assert_eq(func.type_use.func_type.params, [
         NonNullTypedFuncRef(HeapTypeRef::ExactTypeId("$t")),
       ])
-      assert_eq(func.type_use.func_type.results, [
+      @debug.assert_eq(func.type_use.func_type.results, [
         NonNullTypedFuncRef(HeapTypeRef::ExactTypeId("$t")),
       ])
       match func.body {
@@ -5520,7 +5523,7 @@ test "parse abstract heap ref forms preserve non-func heap kinds" {
   assert_false(parser.has_errors())
   match mod.fields {
     [FuncField(func)] => {
-      assert_eq(func.type_use.func_type.params, [
+      @debug.assert_eq(func.type_use.func_type.params, [
         NonNullTypedFuncRef(HeapTypeRef::Any),
         NonNullTypedFuncRef(HeapTypeRef::Eq),
         NonNullTypedFuncRef(HeapTypeRef::I31),
@@ -5529,7 +5532,7 @@ test "parse abstract heap ref forms preserve non-func heap kinds" {
         NonNullTypedFuncRef(HeapTypeRef::NoExtern),
         NonNullTypedFuncRef(HeapTypeRef::NoExn),
       ])
-      assert_eq(func.type_use.func_type.results, [
+      @debug.assert_eq(func.type_use.func_type.results, [
         TypedFuncRef(HeapTypeRef::Any),
         TypedFuncRef(HeapTypeRef::Eq),
         TypedFuncRef(HeapTypeRef::I31),
@@ -5538,7 +5541,7 @@ test "parse abstract heap ref forms preserve non-func heap kinds" {
         TypedFuncRef(HeapTypeRef::NoExtern),
         TypedFuncRef(HeapTypeRef::NoExn),
       ])
-      assert_eq(func.body, [
+      @debug.assert_eq(func.body, [
         RefNull(TypedFuncRef(HeapTypeRef::Any)),
         RefNull(TypedFuncRef(HeapTypeRef::Eq)),
         RefNull(TypedFuncRef(HeapTypeRef::I31)),
@@ -5569,8 +5572,11 @@ test "parse legacy gc reference aliases and abstract struct array refs" {
   assert_false(parser.has_errors())
   match mod.fields {
     [TableField(table), FuncField(func)] => {
-      assert_eq(table.table_type.elem_type, TypedFuncRef(HeapTypeRef::Any))
-      assert_eq(func.type_use.func_type.params, [
+      @debug.assert_eq(
+        table.table_type.elem_type,
+        TypedFuncRef(HeapTypeRef::Any),
+      )
+      @debug.assert_eq(func.type_use.func_type.params, [
         TypedFuncRef(HeapTypeRef::Any),
         TypedFuncRef(HeapTypeRef::Eq),
         TypedFuncRef(HeapTypeRef::I31),
@@ -5578,13 +5584,13 @@ test "parse legacy gc reference aliases and abstract struct array refs" {
         TypedFuncRef(HeapTypeRef::Array),
         TypedFuncRef(HeapTypeRef::None_),
       ])
-      assert_eq(func.type_use.func_type.results, [
+      @debug.assert_eq(func.type_use.func_type.results, [
         TypedFuncRef(HeapTypeRef::Any),
         TypedFuncRef(HeapTypeRef::Struct),
         TypedFuncRef(HeapTypeRef::Array),
         TypedFuncRef(HeapTypeRef::None_),
       ])
-      assert_eq(func.body, [
+      @debug.assert_eq(func.body, [
         RefNull(TypedFuncRef(HeapTypeRef::Struct)),
         RefNull(TypedFuncRef(HeapTypeRef::Array)),
       ])
@@ -6216,7 +6222,7 @@ test "parse complete module with all sections" {
   let parser = WastParser::new(lexer)
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
-  assert_eq(mod.id, Some("$complete"))
+  @debug.assert_eq(mod.id, Some("$complete"))
 }
 
 // ----------------------------------------------------------------------------
@@ -6269,7 +6275,7 @@ test "parse many fields in module" {
   let parser = WastParser::new(lexer)
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
-  assert_eq(mod.fields.length(), 10)
+  @debug.assert_eq(mod.fields.length(), 10)
 }
 
 ///|

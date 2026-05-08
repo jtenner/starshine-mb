@@ -10,7 +10,7 @@ test "wast_to_module parses imported globals with exact typed ref types" {
   }
   match mod.fields {
     [TypeField(_), ImportField(im)] => {
-      assert_eq(im.id, Some("$g"))
+      @debug.assert_eq(im.id, Some("$g"))
       match im.desc {
         Global(gt) => {
           assert_false(gt.mutable_)
@@ -55,7 +55,7 @@ test "wast_to_binary_module lowers imported globals with exact typed ref types" 
   }
   match lowered.import_sec {
     Some(@lib.ImportSec(imports)) =>
-      assert_eq(imports, [
+      @debug.assert_eq(imports, [
         @lib.Import::new(
           @lib.Name::new("A"),
           @lib.Name::new("b"),

@@ -846,7 +846,7 @@ test "right paren" {
 test "multiple parens" {
   let lexer = make_lexer("(())")
   let tokens = collect_tokens(lexer)
-  assert_eq(tokens.length(), 5) // ( ( ) ) EOF
+  @debug.assert_eq(tokens.length(), 5) // ( ( ) ) EOF
   assert_token_type(tokens[0], Lpar)
   assert_token_type(tokens[1], Lpar)
   assert_token_type(tokens[2], Rpar)
@@ -891,7 +891,7 @@ test "block comment with newlines" {
   let lexer = make_lexer("(; line 1\nline 2\nline 3 ;)(")
   let token = lexer.get_token()
   assert_token_type(token, Lpar)
-  assert_eq(lexer.line, 3)
+  @debug.assert_eq(lexer.line, 3)
 }
 
 // ============================================================================
@@ -904,7 +904,7 @@ test "natural number" {
   let token = lexer.get_token()
   assert_token_type(token, Nat)
   match token.value {
-    Literal(lit) => assert_eq(lit.text, "42")
+    Literal(lit) => @debug.assert_eq(lit.text, "42")
     _ => raise ExpectedLiteral
   }
 }
@@ -922,7 +922,7 @@ test "positive integer" {
   let token = lexer.get_token()
   assert_token_type(token, Int)
   match token.value {
-    Literal(lit) => assert_eq(lit.text, "+123")
+    Literal(lit) => @debug.assert_eq(lit.text, "+123")
     _ => raise ExpectedLiteral
   }
 }
@@ -933,7 +933,7 @@ test "negative integer" {
   let token = lexer.get_token()
   assert_token_type(token, Int)
   match token.value {
-    Literal(lit) => assert_eq(lit.text, "-456")
+    Literal(lit) => @debug.assert_eq(lit.text, "-456")
     _ => raise ExpectedLiteral
   }
 }
@@ -944,7 +944,7 @@ test "hex number" {
   let token = lexer.get_token()
   assert_token_type(token, Nat)
   match token.value {
-    Literal(lit) => assert_eq(lit.text, "0xDEADBEEF")
+    Literal(lit) => @debug.assert_eq(lit.text, "0xDEADBEEF")
     _ => raise ExpectedLiteral
   }
 }
@@ -962,7 +962,7 @@ test "number with underscores" {
   let token = lexer.get_token()
   assert_token_type(token, Nat)
   match token.value {
-    Literal(lit) => assert_eq(lit.text, "1_000_000")
+    Literal(lit) => @debug.assert_eq(lit.text, "1_000_000")
     _ => raise ExpectedLiteral
   }
 }
@@ -981,7 +981,7 @@ test "float decimal" {
   assert_token_type(token, Float)
   match token.value {
     Literal(lit) => {
-      assert_eq(lit.text, "3.14")
+      @debug.assert_eq(lit.text, "3.14")
       match lit.literal_type {
         LiteralType::Float => ()
         _ => raise ExpectedFloatLiteral
@@ -1088,7 +1088,7 @@ test "simple string" {
   let token = lexer.get_token()
   assert_token_type(token, Text)
   match token.value {
-    TokenValue::Text(s) => assert_eq(s, "\"hello\"")
+    TokenValue::Text(s) => @debug.assert_eq(s, "\"hello\"")
     _ => raise ExpectedText
   }
 }
@@ -1152,7 +1152,7 @@ test "variable with dollar" {
   let token = lexer.get_token()
   assert_token_type(token, Var)
   match token.value {
-    TokenValue::Text(s) => assert_eq(s, "$foo")
+    TokenValue::Text(s) => @debug.assert_eq(s, "$foo")
     _ => raise ExpectedText
   }
 }
@@ -1515,7 +1515,7 @@ test "annotation" {
   let token = lexer.get_token()
   assert_token_type(token, LparAnn)
   match token.value {
-    TokenValue::Text(s) => assert_eq(s, "custom")
+    TokenValue::Text(s) => @debug.assert_eq(s, "custom")
     _ => raise ExpectedText
   }
 }
@@ -1530,7 +1530,7 @@ test "align equals nat" {
   let token = lexer.get_token()
   assert_token_type(token, AlignEqNat)
   match token.value {
-    TokenValue::Text(s) => assert_eq(s, "4")
+    TokenValue::Text(s) => @debug.assert_eq(s, "4")
     _ => raise ExpectedText
   }
 }
@@ -1548,7 +1548,7 @@ test "offset equals nat" {
   let token = lexer.get_token()
   assert_token_type(token, OffsetEqNat)
   match token.value {
-    TokenValue::Text(s) => assert_eq(s, "100")
+    TokenValue::Text(s) => @debug.assert_eq(s, "100")
     _ => raise ExpectedText
   }
 }
@@ -1568,10 +1568,10 @@ test "offset equals hex" {
 test "location tracking" {
   let lexer = make_lexer("(func)")
   let token1 = lexer.get_token() // (
-  assert_eq(token1.location.line, 1)
-  assert_eq(token1.location.first_column, 1)
+  @debug.assert_eq(token1.location.line, 1)
+  @debug.assert_eq(token1.location.first_column, 1)
   let token2 = lexer.get_token() // func
-  assert_eq(token2.location.first_column, 2)
+  @debug.assert_eq(token2.location.first_column, 2)
 }
 
 ///|
@@ -1579,9 +1579,9 @@ test "location tracking across newlines" {
   let lexer = make_lexer("(\n  func\n)")
   let _ = lexer.get_token() // (
   let token2 = lexer.get_token() // func
-  assert_eq(token2.location.line, 2)
+  @debug.assert_eq(token2.location.line, 2)
   let token3 = lexer.get_token() // )
-  assert_eq(token3.location.line, 3)
+  @debug.assert_eq(token3.location.line, 3)
 }
 
 // ============================================================================
@@ -1756,5 +1756,5 @@ test "many tokens stress test" {
 test "mixed whitespace" {
   let lexer = make_lexer("(\t\r\n  func  \t)")
   let tokens = collect_tokens(lexer)
-  assert_eq(tokens.length(), 4) // ( func ) EOF
+  @debug.assert_eq(tokens.length(), 4) // ( func ) EOF
 }

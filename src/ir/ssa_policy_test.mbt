@@ -20,13 +20,16 @@ test "ssa policy classifies entry defs and overlay phi metadata" {
     phis=[HotSsaPhi::new(3, 1)],
   )
 
-  assert_eq(ssa_value_type(ssa, 0), @lib.ValType::i32())
-  assert_eq(ssa_value_type(ssa, 1), @lib.ValType::i64())
-  assert_eq(ssa_value_origin(ssa, 0).to_string(), "EntryParamDef(0)")
-  assert_eq(ssa_value_origin(ssa, 1).to_string(), "EntryDefaultInitDef(1)")
-  assert_eq(ssa_value_origin(ssa, 2).to_string(), "LocalSetDef(17)")
-  assert_eq(ssa_phi_block(ssa, 0), 3)
-  assert_eq(ssa_phi_local(ssa, 0), 1)
+  @debug.assert_eq(ssa_value_type(ssa, 0), @lib.ValType::i32())
+  @debug.assert_eq(ssa_value_type(ssa, 1), @lib.ValType::i64())
+  @debug.assert_eq(ssa_value_origin(ssa, 0).to_string(), "EntryParamDef(0)")
+  @debug.assert_eq(
+    ssa_value_origin(ssa, 1).to_string(),
+    "EntryDefaultInitDef(1)",
+  )
+  @debug.assert_eq(ssa_value_origin(ssa, 2).to_string(), "LocalSetDef(17)")
+  @debug.assert_eq(ssa_phi_block(ssa, 0), 3)
+  @debug.assert_eq(ssa_phi_local(ssa, 0), 1)
 }
 
 ///|
@@ -53,7 +56,7 @@ test "ssa policy places phis at live dominance frontiers" {
   let liveness = liveness_build(cfg, use_def)
   let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
 
-  assert_eq(
+  @debug.assert_eq(
     ssa_phi_placement_blocks(
       func,
       cfg,
@@ -70,12 +73,12 @@ test "ssa policy places phis at live dominance frontiers" {
 ///|
 test "ssa policy keeps phi nodes overlay only and documents v1 limits" {
   assert_true(ssa_phi_nodes_are_overlay_only())
-  assert_eq(ssa_rename_policy().to_string(), "DominatorTreeRename")
-  assert_eq(
+  @debug.assert_eq(ssa_rename_policy().to_string(), "DominatorTreeRename")
+  @debug.assert_eq(
     ssa_destruction_policy().to_string(),
     "ParallelCopiesInPredecessors",
   )
-  assert_eq(ssa_policy_test_show_array(ssa_v1_exclusions()), [
+  @debug.assert_eq(ssa_policy_test_show_array(ssa_v1_exclusions()), [
     "ExceptionalEdges", "PersistentHotPhiNodes", "IrOwnedSsaBodies", "NonLocalValues",
   ])
 }
@@ -96,7 +99,7 @@ test "ssa policy skips loop-header phis for locals with no writes" {
   let liveness = liveness_build(cfg, use_def)
   let loop_header = cfg_block_for_node(cfg, loop_id).unwrap()
 
-  assert_eq(
+  @debug.assert_eq(
     ssa_phi_placement_blocks(
       func,
       cfg,
@@ -109,8 +112,8 @@ test "ssa policy skips loop-header phis for locals with no writes" {
     [],
   )
   let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
-  assert_eq(ssa_phis_for_block(ssa, loop_header), [])
-  assert_eq(
+  @debug.assert_eq(ssa_phis_for_block(ssa, loop_header), [])
+  @debug.assert_eq(
     ssa_value_origin(ssa, ssa_value_for_local_get(ssa, loop_get)),
     ssa_default_init_def(0),
   )

@@ -4912,11 +4912,11 @@ test "validate_valid_run_config returns profile attempts and generator config" {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(smoke.profile, "smoke")
-  assert_eq(smoke.attempts, 128)
-  assert_eq(ci.attempts, 5000)
-  assert_eq(stress.attempts, 100000)
-  assert_eq(smoke.generator_config.mode, CoverageForced)
+  @debug.assert_eq(smoke.profile, "smoke")
+  @debug.assert_eq(smoke.attempts, 128)
+  @debug.assert_eq(ci.attempts, 5000)
+  @debug.assert_eq(stress.attempts, 100000)
+  @debug.assert_eq(smoke.generator_config.mode, CoverageForced)
   assert_true(
     ci.generator_config.max_defined_funcs >=
     smoke.generator_config.max_defined_funcs,
@@ -4958,9 +4958,15 @@ test "validate_valid_run_config retunes FZG feature floors by profile" {
     Err(msg) => fail(msg)
   }
   for floor in validate_valid_fzg_feature_floors(1) {
-    assert_eq(validate_valid_test_floor_min(smoke.feature_floors, floor.key), 1)
-    assert_eq(validate_valid_test_floor_min(ci.feature_floors, floor.key), 10)
-    assert_eq(
+    @debug.assert_eq(
+      validate_valid_test_floor_min(smoke.feature_floors, floor.key),
+      1,
+    )
+    @debug.assert_eq(
+      validate_valid_test_floor_min(ci.feature_floors, floor.key),
+      10,
+    )
+    @debug.assert_eq(
       validate_valid_test_floor_min(stress.feature_floors, floor.key),
       100,
     )
@@ -4983,7 +4989,7 @@ test "check_validate_valid_feature_floors reports unmet minimums" {
     calls: 1,
     branch_heavy_control: 0,
   }
-  assert_eq(check_validate_valid_feature_floors(stats, floors), [
+  @debug.assert_eq(check_validate_valid_feature_floors(stats, floors), [
     { key: Imports, min_count: 2, actual_count: 1 },
     { key: BranchHeavyControl, min_count: 3, actual_count: 0 },
   ])
@@ -4999,21 +5005,21 @@ test "validate_valid_feature_ledger reports optional missing FZG surfaces" {
   for entry in ledger {
     if entry.key == Imports {
       saw_imports = true
-      assert_eq(entry.actual_count, 1)
-      assert_eq(entry.required_min, 0)
-      assert_eq(entry.status, Covered)
+      @debug.assert_eq(entry.actual_count, 1)
+      @debug.assert_eq(entry.required_min, 0)
+      @debug.assert_eq(entry.status, Covered)
     }
     if entry.key == NumericFullOps {
       saw_numeric_full_ops = true
-      assert_eq(entry.actual_count, 0)
-      assert_eq(entry.required_min, 0)
-      assert_eq(entry.status, MissingOptional)
+      @debug.assert_eq(entry.actual_count, 0)
+      @debug.assert_eq(entry.required_min, 0)
+      @debug.assert_eq(entry.status, MissingOptional)
     }
     if entry.key == NameCustomSections {
       saw_name_custom_sections = true
-      assert_eq(entry.actual_count, 0)
-      assert_eq(entry.required_min, 0)
-      assert_eq(entry.status, MissingOptional)
+      @debug.assert_eq(entry.actual_count, 0)
+      @debug.assert_eq(entry.required_min, 0)
+      @debug.assert_eq(entry.status, MissingOptional)
     }
   }
   assert_true(saw_imports)
@@ -5024,8 +5030,8 @@ test "validate_valid_feature_ledger reports optional missing FZG surfaces" {
 ///|
 test "check_validate_valid_feature_floors fails future FZG surfaces only when required" {
   let stats = GenValidFeatureStats::empty(Natural)
-  assert_eq(check_validate_valid_feature_floors(stats, []), [])
-  assert_eq(
+  @debug.assert_eq(check_validate_valid_feature_floors(stats, []), [])
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: NumericFullOps, min_count: 1 },
     ]),
@@ -5045,7 +5051,7 @@ test "gen_valid coverage-forced emits expanded scalar numeric surface" {
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, NumericFullOps) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: NumericFullOps, min_count: 1 },
     ]),
@@ -5070,7 +5076,7 @@ test "gen_valid coverage-forced emits core control surface" {
   )
   assert_true(validate_valid_feature_actual_count(stats, LocalTee) > 0)
   assert_true(validate_valid_feature_actual_count(stats, TypedSelect) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: BrTable, min_count: 1 },
       { key: StandaloneUnreachable, min_count: 1 },
@@ -5169,7 +5175,7 @@ test "gen_valid coverage-forced emits tail-call surface" {
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, TailCalls) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: TailCalls, min_count: 1 },
     ]),
@@ -5505,7 +5511,7 @@ test "gen_valid coverage-forced emits scalar memory widths and memarg variation"
     validate_valid_feature_actual_count(stats, ScalarMemoryWidths) > 0,
   )
   assert_true(validate_valid_feature_actual_count(stats, NonzeroMemarg) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ScalarMemoryWidths, min_count: 1 },
       { key: NonzeroMemarg, min_count: 1 },
@@ -5600,7 +5606,7 @@ test "gen_valid coverage-forced emits memory limit and proposal variants" {
   assert_true(
     validate_valid_feature_actual_count(stats, MemoryLimitVariants) > 0,
   )
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: MemoryLimitVariants, min_count: 1 },
     ]),
@@ -5633,7 +5639,10 @@ test "gen_valid memory limit variants obey proposal toggles" {
   assert_false(forms.memory64)
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
-  assert_eq(validate_valid_feature_actual_count(stats, MemoryLimitVariants), 0)
+  @debug.assert_eq(
+    validate_valid_feature_actual_count(stats, MemoryLimitVariants),
+    0,
+  )
 }
 
 ///|
@@ -5735,7 +5744,7 @@ test "gen_valid coverage-forced emits table limit and initializer variants" {
   assert_true(
     validate_valid_feature_actual_count(stats, TableLimitVariants) > 0,
   )
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: TableLimitVariants, min_count: 1 },
     ]),
@@ -5765,7 +5774,10 @@ test "gen_valid table limit variants obey toggle" {
   assert_false(forms.init_expr)
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
-  assert_eq(validate_valid_feature_actual_count(stats, TableLimitVariants), 0)
+  @debug.assert_eq(
+    validate_valid_feature_actual_count(stats, TableLimitVariants),
+    0,
+  )
 }
 
 ///|
@@ -5967,7 +5979,7 @@ test "gen_valid coverage-forced emits const-expression variants" {
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, ConstExprVariants) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ConstExprVariants, min_count: 1 },
     ]),
@@ -6159,7 +6171,7 @@ test "gen_valid coverage-forced emits basic ref instruction surface" {
   assert_true(
     validate_valid_feature_actual_count(stats, BasicRefInstructions) > 0,
   )
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: BasicRefInstructions, min_count: 1 },
     ]),
@@ -6285,7 +6297,7 @@ test "gen_valid coverage-forced emits i31 and extern conversion surface" {
   assert_true(
     validate_valid_feature_actual_count(stats, I31ExternConversions) > 0,
   )
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: I31ExternConversions, min_count: 1 },
     ]),
@@ -6428,7 +6440,7 @@ test "gen_valid coverage-forced emits simd phase 1 surface" {
   assert_true(facts.has_simd_phase1)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, SimdPhase1) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: SimdPhase1, min_count: 1 },
     ]),
@@ -6589,7 +6601,7 @@ test "gen_valid coverage-forced emits simd phase 2 surface" {
   assert_true(facts.has_simd_phase2)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, SimdPhase2) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: SimdPhase2, min_count: 1 },
     ]),
@@ -6741,7 +6753,7 @@ test "gen_valid coverage-forced emits atomic instruction surface" {
   assert_true(facts.has_atomics)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, Atomics) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [{ key: Atomics, min_count: 1 }]),
     [],
   )
@@ -6765,7 +6777,7 @@ test "gen_valid coverage-forced emits simd phase 3 surface" {
   assert_true(facts.has_simd_phase3)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, SimdPhase3) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: SimdPhase3, min_count: 1 },
     ]),
@@ -6949,7 +6961,7 @@ test "gen_valid coverage-forced emits gc constructor and accessor surface" {
   assert_true(validate_valid_feature_actual_count(stats, GcConstructors) > 0)
   assert_true(validate_valid_feature_actual_count(stats, GcAccessors) > 0)
   assert_true(validate_valid_feature_actual_count(stats, StringOps) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: GcConstructors, min_count: 1 },
       { key: GcAccessors, min_count: 1 },
@@ -6974,7 +6986,7 @@ test "gen_valid coverage-forced emits subtyping topology surface" {
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, SubtypingTopology) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: SubtypingTopology, min_count: 1 },
     ]),
@@ -6998,7 +7010,7 @@ test "gen_valid coverage-forced emits rich GC field plans" {
   assert_true(facts.has_rich_gc_field_plans)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, RichGcFieldPlans) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: RichGcFieldPlans, min_count: 1 },
     ]),
@@ -7021,7 +7033,7 @@ test "gen_valid coverage-forced emits exception try_table matrix surface" {
   assert_true(
     validate_valid_feature_actual_count(stats, ExceptionTryTableMatrix) > 0,
   )
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ExceptionTryTableMatrix, min_count: 1 },
     ]),
@@ -7044,7 +7056,7 @@ test "gen_valid coverage-forced emits import/export topology surface" {
   assert_true(
     validate_valid_feature_actual_count(stats, ImportExportTopology) > 0,
   )
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ImportExportTopology, min_count: 1 },
     ]),
@@ -7066,7 +7078,7 @@ test "gen_valid coverage-forced emits element segment range surface" {
   assert_true(
     validate_valid_feature_actual_count(stats, ElementSegmentRange) > 0,
   )
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ElementSegmentRange, min_count: 1 },
     ]),
@@ -7087,7 +7099,7 @@ test "gen_valid coverage-forced emits data segment range surface" {
   assert_true(facts.has_data_segment_range)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, DataSegmentRange) > 0)
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: DataSegmentRange, min_count: 1 },
     ]),
@@ -7119,7 +7131,7 @@ test "gen_valid coverage-forced emits name and custom section surface" {
   assert_true(
     validate_valid_feature_actual_count(stats, NameCustomSections) > 0,
   )
-  assert_eq(
+  @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: NameCustomSections, min_count: 1 },
     ]),
@@ -7145,20 +7157,20 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(first, second)
-  assert_eq(first.attempts, 128)
-  assert_eq(first.validated, 128)
-  assert_eq(first.generator_config.mode, CoverageForced)
-  assert_eq(first.feature_stats.mode, CoverageForced)
-  assert_eq(
+  @debug.assert_eq(first, second)
+  @debug.assert_eq(first.attempts, 128)
+  @debug.assert_eq(first.validated, 128)
+  @debug.assert_eq(first.generator_config.mode, CoverageForced)
+  @debug.assert_eq(first.feature_stats.mode, CoverageForced)
+  @debug.assert_eq(
     first.feature_floors,
     match validate_valid_run_config("smoke") {
       Ok(v) => v.feature_floors
       Err(msg) => fail(msg)
     },
   )
-  assert_eq(first.feature_stats.modules, 128)
-  assert_eq(first.feature_stats.func_exports, 128)
+  @debug.assert_eq(first.feature_stats.modules, 128)
+  @debug.assert_eq(first.feature_stats.func_exports, 128)
   assert_true(first.feature_stats.imports > 0)
   assert_true(first.feature_stats.tables > 0)
   assert_true(first.feature_stats.mems > 0)
@@ -7167,7 +7179,7 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
   assert_true(first.feature_stats.elems > 0)
   assert_true(first.feature_stats.datas > 0)
   assert_true(first.feature_stats.starts > 0)
-  assert_eq(first.feature_stats.lacks_start, 0)
+  @debug.assert_eq(first.feature_stats.lacks_start, 0)
   assert_true(first.feature_stats.ref_types > 0)
   assert_true(first.feature_stats.v128 > 0)
   assert_true(first.feature_stats.calls > 0)
@@ -7186,7 +7198,7 @@ test "gen_valid natural mode organically reaches descriptor/string/exn/cast gc s
       Ok(_) => ()
       Err(err) =>
         fail(
-          "expected natural gen-valid module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+          "expected natural gen-valid module to validate, got \{validation_error_message(err)} func=\{@debug.to_string(validation_error_func_idx(err))} mod=\{mod}",
         )
     }
     combined = gen_valid_gc_surface_facts_merge(
@@ -7234,7 +7246,7 @@ test "gen_valid natural mode reaches exact ref globals locals bulk array ops and
       Ok(_) => ()
       Err(err) =>
         fail(
-          "expected widened natural gen-valid module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+          "expected widened natural gen-valid module to validate, got \{validation_error_message(err)} func=\{@debug.to_string(validation_error_func_idx(err))} mod=\{mod}",
         )
     }
     combined = gen_valid_gc_surface_facts_merge(
@@ -7298,7 +7310,7 @@ test "gen_valid_tfunc returns exact refs through a real natural local flow" {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected exact-result natural tfunc module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+        "expected exact-result natural tfunc module to validate, got \{validation_error_message(err)} func=\{@debug.to_string(validation_error_func_idx(err))} mod=\{mod}",
       )
   }
 }
@@ -7346,7 +7358,7 @@ test "gen_valid_build_func reuses an exact param for natural exact-result return
     assert_false(vt == exact_vt)
   }
   match instrs.last() {
-    Some(LocalGet(idx)) => assert_eq(idx, LocalIdx::new(0U))
+    Some(LocalGet(idx)) => @debug.assert_eq(idx, LocalIdx::new(0U))
     _ =>
       fail("expected exact natural param return flow to end with local.get 0")
   }
@@ -7358,7 +7370,7 @@ test "gen_valid_build_func reuses an exact param for natural exact-result return
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected exact-result natural param module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+        "expected exact-result natural param module to validate, got \{validation_error_message(err)} func=\{@debug.to_string(validation_error_func_idx(err))} mod=\{mod}",
       )
   }
 }
@@ -7412,7 +7424,7 @@ test "gen_valid_build_func can return exact refs through a natural direct call p
     assert_false(vt == exact_vt)
   }
   match instrs.last() {
-    Some(Call(idx)) => assert_eq(idx, FuncIdx::new(0U))
+    Some(Call(idx)) => @debug.assert_eq(idx, FuncIdx::new(0U))
     _ => fail("expected exact natural return flow to end with call")
   }
   let mod = Module::new()
@@ -7432,7 +7444,7 @@ test "gen_valid_build_func can return exact refs through a natural direct call p
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected exact-result natural direct-call module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+        "expected exact-result natural direct-call module to validate, got \{validation_error_message(err)} func=\{@debug.to_string(validation_error_func_idx(err))} mod=\{mod}",
       )
   }
 }
@@ -7494,8 +7506,8 @@ test "gen_valid_build_func can return exact refs through a natural call_ref path
   }
   match instrs.length() {
     n if n >= 2 => {
-      assert_eq(instrs[n - 2], Instruction::ref_func(FuncIdx::new(0U)))
-      assert_eq(instrs[n - 1], Instruction::call_ref(TypeIdx::new(2U)))
+      @debug.assert_eq(instrs[n - 2], Instruction::ref_func(FuncIdx::new(0U)))
+      @debug.assert_eq(instrs[n - 1], Instruction::call_ref(TypeIdx::new(2U)))
     }
     _ =>
       fail(
@@ -7519,7 +7531,7 @@ test "gen_valid_build_func can return exact refs through a natural call_ref path
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected exact-result natural call_ref module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+        "expected exact-result natural call_ref module to validate, got \{validation_error_message(err)} func=\{@debug.to_string(validation_error_func_idx(err))} mod=\{mod}",
       )
   }
 }
@@ -7541,7 +7553,7 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
       Ok(_) => ()
       Err(err) =>
         fail(
-          "expected coverage-forced module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+          "expected coverage-forced module to validate, got \{validation_error_message(err)} func=\{@debug.to_string(validation_error_func_idx(err))} mod=\{mod}",
         )
     }
     feature_stats = feature_stats.record(
@@ -7801,7 +7813,7 @@ test "gen_valid_feature_facts record imports sections exports and instruction fa
       ]),
     )
   let facts = gen_valid_feature_facts(mod, CoverageForced)
-  assert_eq(facts.mode, CoverageForced)
+  @debug.assert_eq(facts.mode, CoverageForced)
   assert_true(facts.has_imports)
   assert_true(facts.has_func_exports)
   assert_true(facts.has_table_exports)
@@ -7841,7 +7853,7 @@ test "validate_module reports typed ValidationError variant" {
     Ok(_) => fail("expected duplicate export validation failure")
     Err(err) => {
       let diag = validation_error_diagnostic(err)
-      assert_eq(diag.func_idx, None)
+      @debug.assert_eq(diag.func_idx, None)
       assert_true(
         validation_error_message(err).contains("duplicate export name"),
       )
@@ -7876,7 +7888,7 @@ test "validate_module requires data count section for memory.init and data.drop"
   match validate_module(mem_init_mod) {
     Ok(_) => fail("expected memory.init without datacount to fail")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       assert_true(
         validation_error_message(err).contains("data count section required"),
       )
@@ -7898,7 +7910,7 @@ test "validate_module requires data count section for memory.init and data.drop"
   match validate_module(data_drop_mod) {
     Ok(_) => fail("expected data.drop without datacount to fail")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       assert_true(
         validation_error_message(err).contains("data count section required"),
       )
@@ -7942,7 +7954,7 @@ test "validate_module reports imported-prefix func idx for missing data count" {
   match validate_module(mod) {
     Ok(_) => fail("expected memory.init without datacount to fail")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
       assert_true(
         validation_error_message(err).contains("data count section required"),
       )
@@ -7970,7 +7982,7 @@ test "validate_module rejects undeclared function reference in body" {
   match validate_module(mod) {
     Ok(_) => fail("expected undeclared function reference to fail validation")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       assert_true(
         validation_error_message(err).contains("undeclared function reference"),
       )
@@ -8008,7 +8020,7 @@ test "validate_module reports imported-prefix func idx for undeclared ref.func i
   match validate_module(mod) {
     Ok(_) => fail("expected undeclared function reference to fail validation")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
       assert_true(
         validation_error_message(err).contains("undeclared function reference"),
       )
@@ -8241,7 +8253,7 @@ test "validate_module rejects mixed declared and undeclared ref.func uses in one
         "expected mixed declared/undeclared ref.func uses to fail validation",
       )
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
       assert_true(
         validation_error_message(err).contains("undeclared function reference"),
       )
@@ -8622,7 +8634,7 @@ test "validate_module rejects tail loop that leaves function result missing" {
         "expected missing i32 function result after tail loop to fail validation",
       )
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       let msg = validation_error_message(err)
       assert_true(msg.contains("function body result stack underflow"))
       assert_true(msg.contains("expected stack="))
@@ -8644,7 +8656,7 @@ test "validate_module reports end-of-body underflow with stack shape" {
   match validate_module(mod) {
     Ok(_) => fail("expected missing function result to fail validation")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       let msg = validation_error_message(err)
       assert_true(msg.contains("function body result stack underflow"))
       assert_true(msg.contains("expected stack="))
@@ -8670,7 +8682,7 @@ test "validate_module reports wrong end-of-body result type with stack shape" {
   match validate_module(mod) {
     Ok(_) => fail("expected wrong function result type to fail validation")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       let msg = validation_error_message(err)
       assert_true(msg.contains("function body result type mismatch"))
       assert_true(msg.contains("expected stack="))
@@ -8695,7 +8707,7 @@ test "validate_module reports end-of-body extra values with stack shape" {
   match validate_module(mod) {
     Ok(_) => fail("expected extra stack values to fail validation")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       let msg = validation_error_message(err)
       assert_true(msg.contains("function body leaves extra values on stack"))
       assert_true(msg.contains("expected stack="))
@@ -8749,7 +8761,7 @@ test "validate_module rejects typed if branch result mismatch hidden behind term
         "expected typed if branch result mismatch after conditional block escape to fail validation",
       )
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       let msg = validation_error_message(err)
       assert_true(msg.contains("type mismatch"), msg~)
     }
@@ -8779,7 +8791,7 @@ test "validate_module rejects concrete stack junk after return inside block" {
     Ok(_) =>
       fail("expected block to reject concrete stack values left after return")
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       assert_true(validation_error_message(err).length() > 0)
     }
   }
@@ -8815,7 +8827,7 @@ test "validate_module rejects wrong concrete loop result after infinite inner lo
         "expected loop to reject wrong concrete result left after an infinite inner loop",
       )
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       assert_true(validation_error_message(err).length() > 0)
     }
   }
@@ -8868,7 +8880,7 @@ test "validate_module rejects outer if result missing after inner current-label 
         "expected missing outer if result after inner current-label branches to fail validation",
       )
     Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
       assert_true(validation_error_message(err).length() > 0)
     }
   }
@@ -9124,10 +9136,10 @@ test "validate_module accepts result if that can either branch to current block 
 ///|
 test "NumType validates successfully" {
   let env = empty_env()
-  assert_eq(Validate::validate(NumType::f32(), env), Ok(()))
-  assert_eq(Validate::validate(NumType::f64(), env), Ok(()))
-  assert_eq(Validate::validate(NumType::i32(), env), Ok(()))
-  assert_eq(Validate::validate(NumType::i64(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(NumType::f32(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(NumType::f64(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(NumType::i32(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(NumType::i64(), env), Ok(()))
 }
 
 // ============ AbsHeapType Tests ============
@@ -9135,18 +9147,18 @@ test "NumType validates successfully" {
 ///|
 test "AbsHeapType validates successfully" {
   let env = empty_env()
-  assert_eq(Validate::validate(AbsHeapType::exn(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::array(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::struct_(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::i31(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::eq(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::any(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::extern_(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::func(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::none(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::no_extern(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::no_func(), env), Ok(()))
-  assert_eq(Validate::validate(AbsHeapType::no_exn(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::exn(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::array(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::struct_(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::i31(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::eq(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::any(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::extern_(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::func(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::none(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::no_extern(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::no_func(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(AbsHeapType::no_exn(), env), Ok(()))
 }
 
 // ============ HeapType Tests ============
@@ -9155,14 +9167,17 @@ test "AbsHeapType validates successfully" {
 test "HeapType with AbsHeapType validates" {
   let env = empty_env()
   let ht = HeapType::abs(AbsHeapType::func())
-  assert_eq(Validate::validate(ht, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ht, env), Ok(()))
 }
 
 ///|
 test "HeapType with invalid TypeIdx fails" {
   let env = empty_env()
   let ht = HeapType::new(TypeIdx::new(0))
-  assert_eq(Validate::validate(ht, env), Err("No type exists for TypeIdx"))
+  @debug.assert_eq(
+    Validate::validate(ht, env),
+    Err("No type exists for TypeIdx"),
+  )
 }
 
 ///|
@@ -9170,7 +9185,7 @@ test "HeapType with valid TypeIdx succeeds" {
   let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let ht = HeapType::new(TypeIdx::new(0))
-  assert_eq(Validate::validate(ht, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ht, env), Ok(()))
 }
 
 // ============ ValType Tests ============
@@ -9179,21 +9194,21 @@ test "HeapType with valid TypeIdx succeeds" {
 test "ValType NumType validates" {
   let env = empty_env()
   let vt = ValType::i32()
-  assert_eq(Validate::validate(vt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(vt, env), Ok(()))
 }
 
 ///|
 test "ValType VecType validates" {
   let env = empty_env()
   let t = ValType::v128()
-  assert_eq(Validate::validate(t, env), Ok(()))
+  @debug.assert_eq(Validate::validate(t, env), Ok(()))
 }
 
 ///|
 test "ValType BotType validates" {
   let env = empty_env()
   let t = ValType::bottom()
-  assert_eq(Validate::validate(t, env), Ok(()))
+  @debug.assert_eq(Validate::validate(t, env), Ok(()))
 }
 
 ///|
@@ -9201,7 +9216,7 @@ test "ValType RefType with AbsHeapType validates" {
   let env = empty_env()
   let rt = RefType::abs(AbsHeapType::func())
   let vt = ValType::ref_type(rt)
-  assert_eq(Validate::validate(vt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(vt, env), Ok(()))
 }
 
 // ============ RefType Tests ============
@@ -9210,7 +9225,7 @@ test "ValType RefType with AbsHeapType validates" {
 test "RefType HeapTypeRefType with valid AbsHeapType validates" {
   let env = empty_env()
   let rt = RefType::new(true, HeapType::abs(AbsHeapType::any()))
-  assert_eq(Validate::validate(rt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
 ///|
@@ -9218,8 +9233,8 @@ test "RefType HeapTypeRefType nullable and non-nullable validate" {
   let env = empty_env()
   let rt_null = RefType::new(true, HeapType::abs(AbsHeapType::func()))
   let rt_non_null = RefType::new(false, HeapType::abs(AbsHeapType::func()))
-  assert_eq(Validate::validate(rt_null, env), Ok(()))
-  assert_eq(Validate::validate(rt_non_null, env), Ok(()))
+  @debug.assert_eq(Validate::validate(rt_null, env), Ok(()))
+  @debug.assert_eq(Validate::validate(rt_non_null, env), Ok(()))
 }
 
 // ============ TypeIdx Tests ============
@@ -9229,14 +9244,17 @@ test "TypeIdx validates when type exists" {
   let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let tidx = TypeIdx::new(0)
-  assert_eq(Validate::validate(tidx, env), Ok(()))
+  @debug.assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TypeIdx fails when type does not exist" {
   let env = empty_env()
   let tidx = TypeIdx::new(0)
-  assert_eq(Validate::validate(tidx, env), Err("No type exists for TypeIdx"))
+  @debug.assert_eq(
+    Validate::validate(tidx, env),
+    Err("No type exists for TypeIdx"),
+  )
 }
 
 ///|
@@ -9244,7 +9262,10 @@ test "TypeIdx fails with out of bounds index" {
   let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let tidx = TypeIdx::new(5)
-  assert_eq(Validate::validate(tidx, env), Err("No type exists for TypeIdx"))
+  @debug.assert_eq(
+    Validate::validate(tidx, env),
+    Err("No type exists for TypeIdx"),
+  )
 }
 
 // ============ LabelIdx Tests ============
@@ -9253,21 +9274,21 @@ test "TypeIdx fails with out of bounds index" {
 test "LabelIdx validates when label exists" {
   let env = empty_env().with_labels([[]])
   let lidx = LabelIdx::new(0)
-  assert_eq(Validate::validate(lidx, env), Ok(()))
+  @debug.assert_eq(Validate::validate(lidx, env), Ok(()))
 }
 
 ///|
 test "LabelIdx fails when label does not exist" {
   let env = empty_env()
   let lidx = LabelIdx::new(0)
-  assert_eq(Validate::validate(lidx, env), Err("Invalid LabelIdx"))
+  @debug.assert_eq(Validate::validate(lidx, env), Err("Invalid LabelIdx"))
 }
 
 ///|
 test "LabelIdx fails with out of bounds index" {
   let env = empty_env().with_labels([[]])
   let lidx = LabelIdx::new(5)
-  assert_eq(Validate::validate(lidx, env), Err("Invalid LabelIdx"))
+  @debug.assert_eq(Validate::validate(lidx, env), Err("Invalid LabelIdx"))
 }
 
 // ============ TagIdx Tests ============
@@ -9279,14 +9300,14 @@ test "TagIdx validates when tag exists" {
     .with_types([st])
     .with_tags([TagType::new(TypeIdx::new(0))])
   let tidx = TagIdx::new(0)
-  assert_eq(Validate::validate(tidx, env), Ok(()))
+  @debug.assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TagIdx fails when tag does not exist" {
   let env = empty_env()
   let tidx = TagIdx::new(0)
-  assert_eq(Validate::validate(tidx, env), Err("Invalid TagIdx"))
+  @debug.assert_eq(Validate::validate(tidx, env), Err("Invalid TagIdx"))
 }
 
 // ============ FuncIdx Tests ============
@@ -9295,14 +9316,14 @@ test "TagIdx fails when tag does not exist" {
 test "FuncIdx validates when func exists" {
   let env = empty_env().with_funcs([FuncType::new([], [])])
   let fidx = FuncIdx::new(0)
-  assert_eq(Validate::validate(fidx, env), Ok(()))
+  @debug.assert_eq(Validate::validate(fidx, env), Ok(()))
 }
 
 ///|
 test "FuncIdx fails when func does not exist" {
   let env = empty_env()
   let fidx = FuncIdx::new(0)
-  assert_eq(Validate::validate(fidx, env), Err("invalid func index"))
+  @debug.assert_eq(Validate::validate(fidx, env), Err("invalid func index"))
 }
 
 // ============ TableIdx Tests ============
@@ -9313,14 +9334,14 @@ test "TableIdx validates when table exists" {
   let tt = TableType::new(rt, Limits::i32(0, None))
   let env = empty_env().with_tables([tt])
   let tidx = TableIdx::new(0)
-  assert_eq(Validate::validate(tidx, env), Ok(()))
+  @debug.assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TableIdx fails when table does not exist" {
   let env = empty_env()
   let tidx = TableIdx::new(0)
-  assert_eq(Validate::validate(tidx, env), Err("invalid table index"))
+  @debug.assert_eq(Validate::validate(tidx, env), Err("invalid table index"))
 }
 
 // ============ MemIdx Tests ============
@@ -9330,14 +9351,14 @@ test "MemIdx validates when memory exists" {
   let mt = MemType::new(Limits::i32(0, None))
   let env = empty_env().with_mems([mt])
   let midx = MemIdx::new(0)
-  assert_eq(Validate::validate(midx, env), Ok(()))
+  @debug.assert_eq(Validate::validate(midx, env), Ok(()))
 }
 
 ///|
 test "MemIdx fails when memory does not exist" {
   let env = empty_env()
   let midx = MemIdx::new(0)
-  assert_eq(Validate::validate(midx, env), Err("invalid mem index"))
+  @debug.assert_eq(Validate::validate(midx, env), Err("invalid mem index"))
 }
 
 // ============ GlobalIdx Tests ============
@@ -9347,14 +9368,14 @@ test "GlobalIdx validates when global exists" {
   let gt = GlobalType::new(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
   let gidx = GlobalIdx::new(0)
-  assert_eq(Validate::validate(gidx, env), Ok(()))
+  @debug.assert_eq(Validate::validate(gidx, env), Ok(()))
 }
 
 ///|
 test "GlobalIdx fails when global does not exist" {
   let env = empty_env()
   let gidx = GlobalIdx::new(0)
-  assert_eq(Validate::validate(gidx, env), Err("invalid global index"))
+  @debug.assert_eq(Validate::validate(gidx, env), Err("invalid global index"))
 }
 
 // ============ Limits Tests (ValidateMax) ============
@@ -9363,21 +9384,21 @@ test "GlobalIdx fails when global does not exist" {
 test "I32Limits validates within max" {
   let env = empty_env()
   let lim = Limits::i32(10, Some(100))
-  assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
+  @debug.assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
 ///|
 test "I32Limits validates with no upper bound" {
   let env = empty_env()
   let lim = Limits::i32(10, None)
-  assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
+  @debug.assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
 ///|
 test "I32Limits fails when n exceeds k" {
   let env = empty_env()
   let lim = Limits::i32(2000, None)
-  assert_eq(
+  @debug.assert_eq(
     ValidateMax::validate_max(lim, env, 1000),
     Err("Invalid range for limits"),
   )
@@ -9387,7 +9408,7 @@ test "I32Limits fails when n exceeds k" {
 test "I32Limits fails when m exceeds k" {
   let env = empty_env()
   let lim = Limits::i32(10, Some(2000))
-  assert_eq(
+  @debug.assert_eq(
     ValidateMax::validate_max(lim, env, 1000),
     Err("Invalid range for limits"),
   )
@@ -9397,7 +9418,7 @@ test "I32Limits fails when m exceeds k" {
 test "I32Limits fails when n exceeds m" {
   let env = empty_env()
   let lim = Limits::i32(100, Some(10))
-  assert_eq(
+  @debug.assert_eq(
     ValidateMax::validate_max(lim, env, 1000),
     Err("Invalid range for limits"),
   )
@@ -9407,7 +9428,7 @@ test "I32Limits fails when n exceeds m" {
 test "I64Limits validates within max" {
   let env = empty_env()
   let lim = Limits::i64(10, Some(100))
-  assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
+  @debug.assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
 // ============ MemType Tests ============
@@ -9416,35 +9437,38 @@ test "I64Limits validates within max" {
 test "MemType validates with valid limits" {
   let env = empty_env()
   let mt = MemType::new(Limits::i32(0, Some(100)))
-  assert_eq(Validate::validate(mt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(mt, env), Ok(()))
 }
 
 ///|
 test "shared MemType validates with valid max" {
   let env = empty_env()
   let mt = MemType::new(Limits::i32(0, Some(100)), shared=true)
-  assert_eq(Validate::validate(mt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(mt, env), Ok(()))
 }
 
 ///|
 test "memory64 MemType validates with large max" {
   let env = empty_env()
   let mt = MemType::new(Limits::i64(5250UL, Some(7098475342658UL)))
-  assert_eq(Validate::validate(mt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(mt, env), Ok(()))
 }
 
 ///|
 test "shared MemType fails without max" {
   let env = empty_env()
   let mt = MemType::new(Limits::i32(0, None), shared=true)
-  assert_eq(Validate::validate(mt, env), Err("shared memories require a max"))
+  @debug.assert_eq(
+    Validate::validate(mt, env),
+    Err("shared memories require a max"),
+  )
 }
 
 ///|
 test "MemType fails when limits exceed 65536" {
   let env = empty_env()
   let mt = MemType::new(Limits::i32(0, Some(100000)))
-  assert_eq(Validate::validate(mt, env), Err("Invalid range for limits"))
+  @debug.assert_eq(Validate::validate(mt, env), Err("Invalid range for limits"))
 }
 
 // ============ TableType Tests ============
@@ -9454,7 +9478,7 @@ test "TableType validates with valid ref type and limits" {
   let env = empty_env()
   let rt = RefType::abs(AbsHeapType::func())
   let tt = TableType::new(rt, Limits::i32(0, Some(100)))
-  assert_eq(Validate::validate(tt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(tt, env), Ok(()))
 }
 
 // ============ GlobalType Tests ============
@@ -9463,14 +9487,14 @@ test "TableType validates with valid ref type and limits" {
 test "GlobalType validates with NumType" {
   let env = empty_env()
   let gt = GlobalType::new(ValType::i32(), false)
-  assert_eq(Validate::validate(gt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(gt, env), Ok(()))
 }
 
 ///|
 test "GlobalType validates mutable" {
   let env = empty_env()
   let gt = GlobalType::new(ValType::i64(), true)
-  assert_eq(Validate::validate(gt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(gt, env), Ok(()))
 }
 
 // ============ StorageType Tests ============
@@ -9479,14 +9503,14 @@ test "GlobalType validates mutable" {
 test "StorageType ValType validates" {
   let env = empty_env()
   let st = StorageType::val_type(ValType::i32())
-  assert_eq(Validate::validate(st, env), Ok(()))
+  @debug.assert_eq(Validate::validate(st, env), Ok(()))
 }
 
 ///|
 test "StorageType PackType validates" {
   let env = empty_env()
   let st = StorageType::pack_type(PackType::i8())
-  assert_eq(Validate::validate(st, env), Ok(()))
+  @debug.assert_eq(Validate::validate(st, env), Ok(()))
 }
 
 // ============ FieldType Tests ============
@@ -9495,7 +9519,7 @@ test "StorageType PackType validates" {
 test "FieldType validates" {
   let env = empty_env()
   let ft = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  assert_eq(Validate::validate(ft, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
 // ============ FuncType Tests ============
@@ -9504,14 +9528,14 @@ test "FieldType validates" {
 test "FuncType with empty params and results validates" {
   let env = empty_env()
   let ft = FuncType::new([], [])
-  assert_eq(Validate::validate(ft, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
 ///|
 test "FuncType with params and results validates" {
   let env = empty_env()
   let ft = FuncType::new([ValType::i32()], [ValType::i64()])
-  assert_eq(Validate::validate(ft, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
 // ============ CompType Tests ============
@@ -9520,7 +9544,7 @@ test "FuncType with params and results validates" {
 test "CompType FuncCompType validates" {
   let env = empty_env()
   let ct = SubType::comp_type(CompType::func([], []))
-  assert_eq(Validate::validate(ct, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 ///|
@@ -9528,7 +9552,7 @@ test "CompType ArrayCompType validates" {
   let env = empty_env()
   let ft = FieldType::new(StorageType::val_type(ValType::i32()), Const)
   let ct = SubType::comp_type(CompType::array(ft))
-  assert_eq(Validate::validate(ct, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 ///|
@@ -9536,14 +9560,14 @@ test "CompType StructCompType validates" {
   let env = empty_env()
   let ft = FieldType::new(StorageType::val_type(ValType::i32()), Const)
   let ct = SubType::comp_type(CompType::struct_([ft]))
-  assert_eq(Validate::validate(ct, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 ///|
 test "CompType StructCompType empty validates" {
   let env = empty_env()
   let ct = SubType::comp_type(CompType::struct_([]))
-  assert_eq(Validate::validate(ct, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 // ============ SubType Tests ============
@@ -9552,7 +9576,7 @@ test "CompType StructCompType empty validates" {
 test "SubType CompTypeSubType validates" {
   let env = empty_env()
   let st = SubType::comp_type(CompType::func([], []))
-  assert_eq(Validate::validate(st, env), Ok(()))
+  @debug.assert_eq(Validate::validate(st, env), Ok(()))
 }
 
 // ============ RecType Tests ============
@@ -9562,7 +9586,7 @@ test "RecType SingleRecType validates" {
   let env = empty_env()
   let st = SubType::comp_type(CompType::func([], []))
   let rt = RecType::new(st)
-  assert_eq(Validate::validate(rt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
 ///|
@@ -9575,7 +9599,7 @@ test "RecType GroupRecType validates" {
     ),
   )
   let rt = RecType::group([st1, st2])
-  assert_eq(Validate::validate(rt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
 // ============ Array[T] Validate Tests ============
@@ -9584,14 +9608,14 @@ test "RecType GroupRecType validates" {
 test "Array of ValType validates" {
   let env = empty_env()
   let arr : Array[ValType] = [ValType::i32(), ValType::i64()]
-  assert_eq(Validate::validate(arr, env), Ok(()))
+  @debug.assert_eq(Validate::validate(arr, env), Ok(()))
 }
 
 ///|
 test "Empty array validates" {
   let env = empty_env()
   let arr : Array[ValType] = []
-  assert_eq(Validate::validate(arr, env), Ok(()))
+  @debug.assert_eq(Validate::validate(arr, env), Ok(()))
 }
 
 // ============ BlockType Tests ============
@@ -9599,14 +9623,14 @@ test "Empty array validates" {
 ///|
 test "BlockType VoidBlockType validates" {
   let env = empty_env()
-  assert_eq(Validate::validate(BlockType::void_(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(BlockType::void_(), env), Ok(()))
 }
 
 ///|
 test "BlockType ValTypeBlockType validates" {
   let env = empty_env()
   let bt = BlockType::val_type(ValType::i32())
-  assert_eq(Validate::validate(bt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(bt, env), Ok(()))
 }
 
 ///|
@@ -9614,14 +9638,17 @@ test "BlockType TypeIdxBlockType with valid func type validates" {
   let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let bt = BlockType::type_idx(TypeIdx::new(0))
-  assert_eq(Validate::validate(bt, env), Ok(()))
+  @debug.assert_eq(Validate::validate(bt, env), Ok(()))
 }
 
 ///|
 test "BlockType TypeIdxBlockType with invalid index fails" {
   let env = empty_env()
   let bt = BlockType::type_idx(TypeIdx::new(0))
-  assert_eq(Validate::validate(bt, env), Err("Invalid TypeIdx for block type"))
+  @debug.assert_eq(
+    Validate::validate(bt, env),
+    Err("Invalid TypeIdx for block type"),
+  )
 }
 
 ///|
@@ -9633,7 +9660,7 @@ test "BlockType TypeIdxBlockType with non-func type fails" {
   )
   let env = empty_env().with_types([st])
   let bt = BlockType::type_idx(TypeIdx::new(0))
-  assert_eq(
+  @debug.assert_eq(
     Validate::validate(bt, env),
     Err("Expected Func Type for block type"),
   )
@@ -9769,7 +9796,7 @@ test "ExternType GlobalExternType validates" {
   let env = empty_env()
   let gt = GlobalType::new(ValType::i32(), false)
   let et = ExternType::global(gt)
-  assert_eq(Validate::validate(et, env), Ok(()))
+  @debug.assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
@@ -9777,7 +9804,7 @@ test "ExternType MemExternType validates" {
   let env = empty_env()
   let mt = MemType::new(Limits::i32(0, Some(10)))
   let et = ExternType::mem(mt)
-  assert_eq(Validate::validate(et, env), Ok(()))
+  @debug.assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
@@ -9786,7 +9813,7 @@ test "ExternType TableExternType validates" {
   let rt = RefType::abs(AbsHeapType::func())
   let tt = TableType::new(rt, Limits::i32(0, Some(100)))
   let et = ExternType::table(tt)
-  assert_eq(Validate::validate(et, env), Ok(()))
+  @debug.assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
@@ -9794,14 +9821,14 @@ test "ExternType FuncExternType validates when func type exists" {
   let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let et = ExternType::func(TypeIdx::new(0))
-  assert_eq(Validate::validate(et, env), Ok(()))
+  @debug.assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
 test "ExternType FuncExternType fails when func type missing" {
   let env = empty_env()
   let et = ExternType::func(TypeIdx::new(0))
-  assert_eq(
+  @debug.assert_eq(
     Validate::validate(et, env),
     Err("Invalid ExternType: Func extern type not found"),
   )
@@ -9813,7 +9840,7 @@ test "ExternType FuncExternType fails when func type missing" {
 test "ExternIdx FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType::new([], [])])
   let ei = ExternIdx::func(FuncIdx::new(0))
-  assert_eq(Validate::validate(ei, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
 ///|
@@ -9822,7 +9849,7 @@ test "ExternIdx TableExternIdx validates" {
   let tt = TableType::new(rt, Limits::i32(0, None))
   let env = empty_env().with_tables([tt])
   let ei = ExternIdx::table(TableIdx::new(0))
-  assert_eq(Validate::validate(ei, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
 ///|
@@ -9830,7 +9857,7 @@ test "ExternIdx MemExternIdx validates" {
   let mt = MemType::new(Limits::i32(0, None))
   let env = empty_env().with_mems([mt])
   let ei = ExternIdx::mem(MemIdx::new(0))
-  assert_eq(Validate::validate(ei, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
 ///|
@@ -9838,7 +9865,7 @@ test "ExternIdx GlobalExternIdx validates" {
   let gt = GlobalType::new(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
   let ei = ExternIdx::global(GlobalIdx::new(0))
-  assert_eq(Validate::validate(ei, env), Ok(()))
+  @debug.assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
 // ============ Export Tests ============
@@ -9847,14 +9874,14 @@ test "ExternIdx GlobalExternIdx validates" {
 test "Export with valid FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType::new([], [])])
   let exp = Export::new(Name::new("test"), ExternIdx::func(FuncIdx::new(0)))
-  assert_eq(Validate::validate(exp, env), Ok(()))
+  @debug.assert_eq(Validate::validate(exp, env), Ok(()))
 }
 
 ///|
 test "Export with invalid index fails" {
   let env = empty_env()
   let exp = Export::new(Name::new("test"), ExternIdx::func(FuncIdx::new(0)))
-  assert_eq(Validate::validate(exp, env), Err("invalid func index"))
+  @debug.assert_eq(Validate::validate(exp, env), Err("invalid func index"))
 }
 
 // ============ Import Tests ============
@@ -9868,7 +9895,7 @@ test "Import with valid GlobalExternType validates" {
     Name::new("name"),
     ExternType::global(gt),
   )
-  assert_eq(Validate::validate(imp, env), Ok(()))
+  @debug.assert_eq(Validate::validate(imp, env), Ok(()))
 }
 
 // ============ DataMode Tests ============
@@ -9876,7 +9903,7 @@ test "Import with valid GlobalExternType validates" {
 ///|
 test "DataMode Passive validates" {
   let env = empty_env()
-  assert_eq(Validate::validate(DataMode::passive(), env), Ok(()))
+  @debug.assert_eq(Validate::validate(DataMode::passive(), env), Ok(()))
 }
 
 // ============ Data Tests ============
@@ -9885,7 +9912,7 @@ test "DataMode Passive validates" {
 test "Data with Passive mode validates" {
   let env = empty_env()
   let d = Data::new(DataMode::passive(), b"hello")
-  assert_eq(Validate::validate(d, env), Ok(()))
+  @debug.assert_eq(Validate::validate(d, env), Ok(()))
 }
 
 // ============ Catch Tests ============
@@ -9894,21 +9921,21 @@ test "Data with Passive mode validates" {
 test "Catch CatchAll validates with valid label" {
   let env = empty_env().with_labels([[]])
   let c = Catch::all(LabelIdx::new(0))
-  assert_eq(Validate::validate(c, env), Ok(()))
+  @debug.assert_eq(Validate::validate(c, env), Ok(()))
 }
 
 ///|
 test "Catch CatchAllRef validates with valid label" {
   let env = empty_env().with_labels([[]])
   let c = Catch::all_ref(LabelIdx::new(0))
-  assert_eq(Validate::validate(c, env), Ok(()))
+  @debug.assert_eq(Validate::validate(c, env), Ok(()))
 }
 
 ///|
 test "Catch CatchAll fails with invalid label" {
   let env = empty_env()
   let c = Catch::all(LabelIdx::new(0))
-  assert_eq(Validate::validate(c, env), Err("Invalid LabelIdx"))
+  @debug.assert_eq(Validate::validate(c, env), Err("Invalid LabelIdx"))
 }
 
 ///|
@@ -10047,7 +10074,7 @@ fn validate_import_name_section_fixture_module() -> Module {
 ///|
 test "validate_module accepts structured name section" {
   let mod = validate_name_section_fixture_module()
-  assert_eq(validate_module(mod), Ok(()))
+  @debug.assert_eq(validate_module(mod), Ok(()))
 }
 
 ///|
@@ -10066,7 +10093,7 @@ test "validate_module rejects out-of-range function name index in name section" 
           "function name index out of range",
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         validation_error_diagnostic(err).issue,
         ValidationIssue::NameSection(
           "function name index out of range: func=1 total_funcs=1",
@@ -10090,7 +10117,7 @@ test "validate_module rejects out-of-range type name index in name section" {
       assert_true(
         validation_error_message(err).contains("type name index out of range"),
       )
-      assert_eq(
+      @debug.assert_eq(
         validation_error_diagnostic(err).issue,
         ValidationIssue::NameSection(
           "type name index out of range: type=3 total_types=3",
@@ -10158,7 +10185,7 @@ test "validate_module rejects out-of-range local name index in name section" {
       assert_true(
         validation_error_message(err).contains("local name index out of range"),
       )
-      assert_eq(
+      @debug.assert_eq(
         validation_error_diagnostic(err).issue,
         ValidationIssue::NameSection(
           "local name index out of range: func=0 local=1 total_locals=1",
@@ -10246,7 +10273,7 @@ test "validate_module rejects out-of-range label name index in name section" {
       assert_true(
         validation_error_message(err).contains("label name index out of range"),
       )
-      assert_eq(
+      @debug.assert_eq(
         validation_error_diagnostic(err).issue,
         ValidationIssue::NameSection(
           "label name index out of range: func=0 label=3 total_labels=3",
@@ -10278,7 +10305,7 @@ test "validate_module rejects imported function label names because imports have
       assert_true(
         validation_error_message(err).contains("label name index out of range"),
       )
-      assert_eq(
+      @debug.assert_eq(
         validation_error_diagnostic(err).issue,
         ValidationIssue::NameSection(
           "label name index out of range: func=0 label=0 total_labels=0",
@@ -10346,7 +10373,7 @@ test "validate_module rejects out-of-range data name index in name section" {
       assert_true(
         validation_error_message(err).contains("data name index out of range"),
       )
-      assert_eq(
+      @debug.assert_eq(
         validation_error_diagnostic(err).issue,
         ValidationIssue::NameSection(
           "data name index out of range: data=1 total_data=1",

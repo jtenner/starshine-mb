@@ -35,11 +35,11 @@ test "cmd_native_get_env reads process environment without shelling out" {
   let name = "STARSHINE_CMD_NATIVE_GET_ENV_TEST"
   let value = " spaced value with punctuation !@# "
   cmd_native_wbtest_unset_env(name)
-  assert_eq(cmd_native_get_env(name), None)
+  @debug.assert_eq(cmd_native_get_env(name), None)
   assert_true(cmd_native_wbtest_set_env(name, value))
-  assert_eq(cmd_native_get_env(name), Some(value))
+  @debug.assert_eq(cmd_native_get_env(name), Some(value))
   cmd_native_wbtest_unset_env(name)
-  assert_eq(cmd_native_get_env(name), None)
+  @debug.assert_eq(cmd_native_get_env(name), None)
 }
 
 ///|
@@ -305,7 +305,7 @@ fn cmd_native_wbtest_canonicalize_func_pretty(pretty : String) -> String {
 #cfg(target="native")
 test "cmd_native_wbtest reorder scalar ladders normalizes reused temp chains" {
   let body = "(local.get (Local 6))(local.set (Local 9))(local.get (Local 8))(local.get (Local 9))(local.get (Local 5))(local.set (Local 10))(local.set (Local 11))(local.tee (Local 12))(local.set (Local 13))"
-  assert_eq(
+  @debug.assert_eq(
     cmd_native_wbtest_reorder_scalar_ladders(body),
     "(local.get (Local 8))(local.get (Local 6))(local.get (Local 5))(local.set (Local 10))(local.set (Local 11))(local.tee (Local 12))(local.set (Local 13))",
   )
@@ -495,11 +495,11 @@ test "run_cmd_with_adapter decodes deep nested wasm on native without stack-limi
   )
   match run_cmd_with_adapter(["--out", "deep-out.wasm", "deep.wasm"], io) {
     Ok(summary) => {
-      assert_eq(summary.input_files, ["deep.wasm"])
-      assert_eq(summary.output_files, ["deep-out.wasm"])
-      assert_eq(writes.length(), 1)
-      assert_eq(writes[0].0, "deep-out.wasm")
-      assert_eq(writes[0].1, wasm)
+      @debug.assert_eq(summary.input_files, ["deep.wasm"])
+      @debug.assert_eq(summary.output_files, ["deep-out.wasm"])
+      @debug.assert_eq(writes.length(), 1)
+      @debug.assert_eq(writes[0].0, "deep-out.wasm")
+      @debug.assert_eq(writes[0].1, wasm)
     }
     Err(err) => fail("expected deep native decode success, got \{err}")
   }
@@ -546,7 +546,7 @@ test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0
     Ok(_) => ()
     Err(e) => fail("unexpected tuple-optimization tail-live0 failure: \{e}")
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
     "call 0", "local.set 8", "local.set 7", "local.tee 6", "local.set 11", "local.get 7",
@@ -601,14 +601,14 @@ test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0
     Err(e) =>
       fail("unexpected tuple-optimization tail-live0 carrier failure: \{e}")
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
     "local.tee 6", "local.set 11", "local.get 7", "local.set 10", "local.tee 3",
     "local.set 15", "local.tee 12", "local.set 16", "local.tee 0", "drop", "local.get 15",
     "drop",
   ])
-  assert_eq(cnw_count_substring(printed, "local.tee "), 4, msg=printed)
+  @debug.assert_eq(cnw_count_substring(printed, "local.tee "), 4, msg=printed)
 }
 
 ///|
@@ -657,10 +657,10 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained host-
         "unexpected tuple-optimization tail-live0 exact parity failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let actual = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 1)
   let expected = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 1)
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -711,12 +711,12 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for mixed scalar-
     Err(e) =>
       fail("unexpected mixed direct-producer tuple-optimization failure: \{e}")
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     wasm, 2,
   )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -769,12 +769,12 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for scrambled tup
         "unexpected scrambled tuple copy carrier tuple-optimization failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     wasm, 2,
   )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -827,12 +827,12 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for root local.se
         "unexpected root local.set tuple copy carrier tuple-optimization failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     wasm, 2,
   )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -885,12 +885,12 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained scala
         "unexpected chained scalar-forward no-host copy tuple-optimization failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     wasm, 1,
   )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 1)
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -943,12 +943,12 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained mixed
         "unexpected chained direct-producer tuple-optimization failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     wasm, 2,
   )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -1001,9 +1001,9 @@ test "run_cmd_with_adapter tuple-optimization keeps no-host exact-copy chains fr
         "unexpected tuple-optimization no-host materialized chain failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
-  assert_eq(cnw_count_substring(printed, "tuple.make"), 0, msg=printed)
+  @debug.assert_eq(cnw_count_substring(printed, "tuple.make"), 0, msg=printed)
 }
 
 ///|
@@ -1056,12 +1056,12 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for two-lane exac
         "unexpected tuple-optimization two-lane exact-copy chain failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     wasm, 0,
   )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 0)
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -1112,7 +1112,7 @@ test "run_cmd_with_adapter tuple-optimization leaves chained terminal drop-only 
         "unexpected tuple-optimization chained no-host drop-only failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
     "call 0", "local.set 8", "local.set 7", "local.set 6", "local.get 8", "local.set 5",
@@ -1120,7 +1120,7 @@ test "run_cmd_with_adapter tuple-optimization leaves chained terminal drop-only 
     "local.get 4", "local.set 1", "local.get 3", "local.set 0", "local.get 1", "drop",
     "local.get 2", "drop", "local.get 0",
   ])
-  assert_eq(cnw_count_substring(printed, "block (type "), 0, msg=printed)
+  @debug.assert_eq(cnw_count_substring(printed, "block (type "), 0, msg=printed)
 }
 
 ///|
@@ -1183,8 +1183,8 @@ test "run_cmd_with_adapter tuple-optimization keeps nested no-host source copy c
     Ok(_) => ()
     Err(e) => fail("unexpected nested no-host tuple-optimization failure: \{e}")
   }
-  assert_eq(no_pass_writes.length(), 1)
-  assert_eq(tuple_writes.length(), 1)
+  @debug.assert_eq(no_pass_writes.length(), 1)
+  @debug.assert_eq(tuple_writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     no_pass_writes[0].1,
     1,
@@ -1193,7 +1193,7 @@ test "run_cmd_with_adapter tuple-optimization keeps nested no-host source copy c
     tuple_writes[0].1,
     1,
   )
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -1253,8 +1253,8 @@ test "run_cmd_with_adapter tuple-optimization matches nested exact copy scalar-r
     Err(e) =>
       fail("unexpected nested exact-copy tuple-optimization failure: \{e}")
   }
-  assert_eq(no_pass_writes.length(), 1)
-  assert_eq(tuple_writes.length(), 1)
+  @debug.assert_eq(no_pass_writes.length(), 1)
+  @debug.assert_eq(tuple_writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     no_pass_writes[0].1,
     1,
@@ -1263,7 +1263,7 @@ test "run_cmd_with_adapter tuple-optimization matches nested exact copy scalar-r
     tuple_writes[0].1,
     1,
   )
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -1308,8 +1308,8 @@ test "run_cmd_with_adapter tuple-optimization leaves debug artifact func 1930 un
     Err(e) =>
       fail("unexpected tuple-optimization debug-artifact replay failure: \{e}")
   }
-  assert_eq(no_pass_writes.length(), 1)
-  assert_eq(tuple_writes.length(), 1)
+  @debug.assert_eq(no_pass_writes.length(), 1)
+  @debug.assert_eq(tuple_writes.length(), 1)
   let no_pass_func = cmd_native_wbtest_normalize_func_by_index(
     no_pass_writes[0].1,
     1930,
@@ -1318,7 +1318,7 @@ test "run_cmd_with_adapter tuple-optimization leaves debug artifact func 1930 un
     tuple_writes[0].1,
     1930,
   )
-  assert_eq(tuple_func, no_pass_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, no_pass_func, msg=tuple_func)
 }
 
 ///|
@@ -1363,8 +1363,8 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for debug artifac
     Err(e) =>
       fail("unexpected tuple-optimization debug-artifact replay failure: \{e}")
   }
-  assert_eq(no_pass_writes.length(), 1)
-  assert_eq(tuple_writes.length(), 1)
+  @debug.assert_eq(no_pass_writes.length(), 1)
+  @debug.assert_eq(tuple_writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     no_pass_writes[0].1,
     3598,
@@ -1373,5 +1373,5 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for debug artifac
     tuple_writes[0].1,
     3598,
   )
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+  @debug.assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }

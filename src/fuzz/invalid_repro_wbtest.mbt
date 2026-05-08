@@ -109,14 +109,14 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(ensured_dirs, [
+  @debug.assert_eq(ensured_dirs, [
     "tmp-invalid-corpus", "tmp-invalid-corpus/validate-invalid-binary", "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index",
     "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2",
   ])
-  assert_eq(
+  @debug.assert_eq(
     meta_path, "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/repro.meta.txt",
   )
-  assert_eq(artifact_paths, [
+  @debug.assert_eq(artifact_paths, [
     "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/original.wasm",
     "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/seed.wasm",
     "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/reduced.wasm",
@@ -201,14 +201,14 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(parsed.suite, "validate-invalid-text")
-  assert_eq(parsed.strategy_id, "invalid-result-stack")
-  assert_eq(invalid_fuzz_source_kind_name(parsed.source_kind), "text")
-  assert_eq(parsed.seed_profile, None)
-  assert_eq(parsed.seed_mode, None)
-  assert_eq(parsed.seed_require_strategy_prereqs, None)
-  assert_eq(parsed.artifacts.length(), 1)
-  assert_eq(parsed.reduced_artifacts.length(), 1)
+  @debug.assert_eq(parsed.suite, "validate-invalid-text")
+  @debug.assert_eq(parsed.strategy_id, "invalid-result-stack")
+  @debug.assert_eq(invalid_fuzz_source_kind_name(parsed.source_kind), "text")
+  @debug.assert_eq(parsed.seed_profile, None)
+  @debug.assert_eq(parsed.seed_mode, None)
+  @debug.assert_eq(parsed.seed_require_strategy_prereqs, None)
+  @debug.assert_eq(parsed.artifacts.length(), 1)
+  @debug.assert_eq(parsed.reduced_artifacts.length(), 1)
 }
 
 ///|
@@ -266,9 +266,9 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted seed metadata" {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(parsed.seed_profile, Some("repro"))
-  assert_eq(parsed.seed_mode, Some("random-valid"))
-  assert_eq(parsed.seed_require_strategy_prereqs, Some(false))
+  @debug.assert_eq(parsed.seed_profile, Some("repro"))
+  @debug.assert_eq(parsed.seed_mode, Some("random-valid"))
+  @debug.assert_eq(parsed.seed_require_strategy_prereqs, Some(false))
 }
 
 ///|
@@ -290,11 +290,11 @@ test "build_invalid_fuzz_ast_failure_report_by_stable_id supports minimal valid 
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.actual_stage, "validate-rejected")
-  assert_eq(report.actual_diagnostic_family, Some("start"))
-  assert_eq(report.artifacts.length(), 2)
-  assert_eq(report.artifacts[0].label, "original")
-  assert_eq(report.artifacts[1].label, "seed")
+  @debug.assert_eq(report.actual_stage, "validate-rejected")
+  @debug.assert_eq(report.actual_diagnostic_family, Some("start"))
+  @debug.assert_eq(report.artifacts.length(), 2)
+  @debug.assert_eq(report.artifacts[0].label, "original")
+  @debug.assert_eq(report.artifacts[1].label, "seed")
 }
 
 ///|
@@ -314,11 +314,11 @@ test "build_invalid_fuzz_binary_failure_report_by_stable_id supports minimal val
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.actual_stage, "decode-rejected")
-  assert_eq(report.actual_diagnostic_family, None)
-  assert_eq(report.artifacts.length(), 2)
-  assert_eq(report.artifacts[0].label, "original")
-  assert_eq(report.artifacts[1].label, "seed")
+  @debug.assert_eq(report.actual_stage, "decode-rejected")
+  @debug.assert_eq(report.actual_diagnostic_family, None)
+  @debug.assert_eq(report.artifacts.length(), 2)
+  @debug.assert_eq(report.artifacts[0].label, "original")
+  @debug.assert_eq(report.artifacts[1].label, "seed")
 }
 
 ///|
@@ -347,12 +347,12 @@ test "default AST invalid report builder uses a compact coverage seed" {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(compact.actual_stage, "validate-rejected")
-  assert_eq(compact.actual_diagnostic_family, Some("export"))
-  assert_eq(compact.seed_profile, Some("repro"))
-  assert_eq(compact.seed_mode, Some("random-valid"))
-  assert_eq(compact.seed_require_strategy_prereqs, Some(true))
-  assert_eq(compact.artifacts.length(), 2)
+  @debug.assert_eq(compact.actual_stage, "validate-rejected")
+  @debug.assert_eq(compact.actual_diagnostic_family, Some("export"))
+  @debug.assert_eq(compact.seed_profile, Some("repro"))
+  @debug.assert_eq(compact.seed_mode, Some("random-valid"))
+  @debug.assert_eq(compact.seed_require_strategy_prereqs, Some(true))
+  @debug.assert_eq(compact.artifacts.length(), 2)
   assert_true(
     compact.artifacts[1].bytes.length() < full.artifacts[1].bytes.length(),
   )
@@ -377,12 +377,12 @@ test "build_invalid_fuzz_ast_failure_report_by_stable_id supports natural seeds"
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.actual_stage, "validate-rejected")
-  assert_eq(report.actual_diagnostic_family, Some("export"))
-  assert_eq(report.seed_profile, Some("natural"))
-  assert_eq(report.seed_mode, Some("random-valid"))
-  assert_eq(report.seed_require_strategy_prereqs, Some(true))
-  assert_eq(report.artifacts.length(), 2)
+  @debug.assert_eq(report.actual_stage, "validate-rejected")
+  @debug.assert_eq(report.actual_diagnostic_family, Some("export"))
+  @debug.assert_eq(report.seed_profile, Some("natural"))
+  @debug.assert_eq(report.seed_mode, Some("random-valid"))
+  @debug.assert_eq(report.seed_require_strategy_prereqs, Some(true))
+  @debug.assert_eq(report.artifacts.length(), 2)
 }
 
 ///|
@@ -409,9 +409,9 @@ test "build_invalid_fuzz_ast_failure_report_by_stable_id records prereq opt-out 
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.seed_profile, Some("repro"))
-  assert_eq(report.seed_mode, Some("random-valid"))
-  assert_eq(report.seed_require_strategy_prereqs, Some(false))
+  @debug.assert_eq(report.seed_profile, Some("repro"))
+  @debug.assert_eq(report.seed_mode, Some("random-valid"))
+  @debug.assert_eq(report.seed_require_strategy_prereqs, Some(false))
 }
 
 ///|
@@ -438,12 +438,12 @@ test "default binary invalid report builder uses a compact coverage seed" {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(compact.actual_stage, "validate-rejected")
-  assert_eq(compact.actual_diagnostic_family, Some("function"))
-  assert_eq(compact.seed_profile, Some("repro"))
-  assert_eq(compact.seed_mode, Some("random-valid"))
-  assert_eq(compact.seed_require_strategy_prereqs, Some(true))
-  assert_eq(compact.artifacts.length(), 2)
+  @debug.assert_eq(compact.actual_stage, "validate-rejected")
+  @debug.assert_eq(compact.actual_diagnostic_family, Some("function"))
+  @debug.assert_eq(compact.seed_profile, Some("repro"))
+  @debug.assert_eq(compact.seed_mode, Some("random-valid"))
+  @debug.assert_eq(compact.seed_require_strategy_prereqs, Some(true))
+  @debug.assert_eq(compact.artifacts.length(), 2)
   assert_true(
     compact.artifacts[1].bytes.length() < full.artifacts[1].bytes.length(),
   )
@@ -466,12 +466,12 @@ test "build_invalid_fuzz_binary_failure_report_by_stable_id supports coverage-fo
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.actual_stage, "validate-rejected")
-  assert_eq(report.actual_diagnostic_family, Some("function"))
-  assert_eq(report.seed_profile, Some("coverage-forced"))
-  assert_eq(report.seed_mode, Some("random-valid"))
-  assert_eq(report.seed_require_strategy_prereqs, Some(true))
-  assert_eq(report.artifacts.length(), 2)
+  @debug.assert_eq(report.actual_stage, "validate-rejected")
+  @debug.assert_eq(report.actual_diagnostic_family, Some("function"))
+  @debug.assert_eq(report.seed_profile, Some("coverage-forced"))
+  @debug.assert_eq(report.seed_mode, Some("random-valid"))
+  @debug.assert_eq(report.seed_require_strategy_prereqs, Some(true))
+  @debug.assert_eq(report.artifacts.length(), 2)
 }
 
 ///|
@@ -496,9 +496,9 @@ test "build_invalid_fuzz_binary_failure_report_by_stable_id records prereq opt-o
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.seed_profile, Some("repro"))
-  assert_eq(report.seed_mode, Some("random-valid"))
-  assert_eq(report.seed_require_strategy_prereqs, Some(false))
+  @debug.assert_eq(report.seed_profile, Some("repro"))
+  @debug.assert_eq(report.seed_mode, Some("random-valid"))
+  @debug.assert_eq(report.seed_require_strategy_prereqs, Some(false))
 }
 
 ///|
@@ -510,12 +510,12 @@ test "build_invalid_fuzz_text_failure_report_by_stable_id preserves source path 
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.actual_stage, "validate-rejected")
-  assert_eq(
+  @debug.assert_eq(report.actual_stage, "validate-rejected")
+  @debug.assert_eq(
     report.source_path,
     Some("inline-text-invalid/invalid-result-stack.wast"),
   )
-  assert_eq(report.artifacts.length(), 1)
+  @debug.assert_eq(report.artifacts.length(), 1)
 }
 
 ///|
@@ -527,9 +527,9 @@ test "build_invalid_fuzz_spec_seed_failure_report_by_stable_id preserves source 
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.actual_stage, "valid-before-link")
-  assert_eq(report.source_path, Some("tests/spec/imports.wast"))
-  assert_eq(report.artifacts.length(), 1)
+  @debug.assert_eq(report.actual_stage, "valid-before-link")
+  @debug.assert_eq(report.source_path, Some("tests/spec/imports.wast"))
+  @debug.assert_eq(report.artifacts.length(), 1)
 }
 
 ///|
@@ -541,7 +541,7 @@ test "build_invalid_fuzz_failure_report_by_suite_and_stable_id accepts suite ali
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(ast.suite, "validate-invalid-ast")
+  @debug.assert_eq(ast.suite, "validate-invalid-ast")
   assert_true(ast.source_kind == invalid_fuzz_ast_source_kind())
   let binary = match
     build_invalid_fuzz_failure_report_by_suite_and_stable_id(
@@ -550,7 +550,7 @@ test "build_invalid_fuzz_failure_report_by_suite_and_stable_id accepts suite ali
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(binary.suite, "validate-invalid-binary")
+  @debug.assert_eq(binary.suite, "validate-invalid-binary")
   assert_true(binary.source_kind == invalid_fuzz_binary_source_kind())
 }
 
@@ -591,8 +591,8 @@ test "replay_invalid_fuzz_failure_report prefers original artifact over later se
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(replay.stage, "validate-rejected")
-  assert_eq(replay.diagnostic_family, Some("function"))
+  @debug.assert_eq(replay.stage, "validate-rejected")
+  @debug.assert_eq(replay.diagnostic_family, Some("function"))
 }
 
 ///|
@@ -605,7 +605,7 @@ test "shrink_invalid_fuzz_failure_report produces replayable AST reduced artifac
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(shrunk.reduced_artifacts.length(), 1)
+  @debug.assert_eq(shrunk.reduced_artifacts.length(), 1)
   assert_true(
     shrunk.reduced_artifacts[0].bytes.length() <
     shrunk.artifacts[0].bytes.length(),
@@ -614,8 +614,8 @@ test "shrink_invalid_fuzz_failure_report produces replayable AST reduced artifac
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(replay.stage, "validate-rejected")
-  assert_eq(replay.diagnostic_family, Some("export"))
+  @debug.assert_eq(replay.stage, "validate-rejected")
+  @debug.assert_eq(replay.diagnostic_family, Some("export"))
 }
 
 ///|
@@ -628,7 +628,7 @@ test "shrink_invalid_fuzz_failure_report produces replayable binary reduced arti
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(shrunk.reduced_artifacts.length(), 1)
+  @debug.assert_eq(shrunk.reduced_artifacts.length(), 1)
   assert_true(
     shrunk.reduced_artifacts[0].bytes.length() <=
     shrunk.artifacts[0].bytes.length(),
@@ -637,8 +637,8 @@ test "shrink_invalid_fuzz_failure_report produces replayable binary reduced arti
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(replay.stage, "validate-rejected")
-  assert_eq(replay.diagnostic_family, Some("function"))
+  @debug.assert_eq(replay.stage, "validate-rejected")
+  @debug.assert_eq(replay.diagnostic_family, Some("function"))
 }
 
 ///|
@@ -651,13 +651,13 @@ test "shrink_invalid_fuzz_failure_report produces replayable inline text reduced
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(shrunk.reduced_artifacts.length(), 1)
+  @debug.assert_eq(shrunk.reduced_artifacts.length(), 1)
   let replay = match replay_invalid_fuzz_failure_report(shrunk) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(replay.stage, "validate-rejected")
-  assert_eq(replay.diagnostic_family, None)
+  @debug.assert_eq(replay.stage, "validate-rejected")
+  @debug.assert_eq(replay.diagnostic_family, None)
 }
 
 ///|
@@ -670,7 +670,7 @@ test "shrink_invalid_fuzz_failure_report produces replayable spec-seed reduced a
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(shrunk.reduced_artifacts.length(), 1)
+  @debug.assert_eq(shrunk.reduced_artifacts.length(), 1)
   assert_true(
     shrunk.reduced_artifacts[0].bytes.length() <
     shrunk.artifacts[0].bytes.length(),
@@ -679,6 +679,6 @@ test "shrink_invalid_fuzz_failure_report produces replayable spec-seed reduced a
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(replay.stage, "valid-before-link")
-  assert_eq(replay.diagnostic_family, None)
+  @debug.assert_eq(replay.stage, "valid-before-link")
+  @debug.assert_eq(replay.diagnostic_family, None)
 }

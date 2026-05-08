@@ -54,15 +54,15 @@ test "run_hot_pipeline applies memory-packing to profitable active zero ranges" 
   }
 
   let segments = mp_test_active_data_segments(optimized)
-  assert_eq(segments.length(), 1)
+  @debug.assert_eq(segments.length(), 1)
   match segments[0] {
     (mem_idx, offset, bytes) => {
-      assert_eq(mem_idx, 0U)
-      assert_eq(offset, 9)
-      assert_eq(bytes.length(), 3)
-      assert_eq(bytes[0], 0x41)
-      assert_eq(bytes[1], 0x42)
-      assert_eq(bytes[2], 0x43)
+      @debug.assert_eq(mem_idx, 0U)
+      @debug.assert_eq(offset, 9)
+      @debug.assert_eq(bytes.length(), 3)
+      @debug.assert_eq(bytes[0], 0x41)
+      @debug.assert_eq(bytes[1], 0x42)
+      @debug.assert_eq(bytes[2], 0x43)
     }
   }
 }
@@ -80,13 +80,13 @@ test "memory-packing preserves trapping active segments by keeping the top byte"
   }
 
   let segments = mp_test_active_data_segments(optimized)
-  assert_eq(segments.length(), 1)
+  @debug.assert_eq(segments.length(), 1)
   match segments[0] {
     (mem_idx, offset, bytes) => {
-      assert_eq(mem_idx, 0U)
-      assert_eq(offset, 65536)
-      assert_eq(bytes.length(), 1)
-      assert_eq(bytes[0], 0x00)
+      @debug.assert_eq(mem_idx, 0U)
+      @debug.assert_eq(offset, 65536)
+      @debug.assert_eq(bytes.length(), 1)
+      @debug.assert_eq(bytes[0], 0x00)
     }
   }
 }
@@ -106,7 +106,7 @@ test "memory-packing bails out when active segments overlap" {
     Err(err) =>
       fail("expected memory-packing overlap bailout success, got \{err}")
   }
-  assert_eq(optimized.data_sec, input.data_sec)
+  @debug.assert_eq(optimized.data_sec, input.data_sec)
 }
 
 ///|
@@ -123,9 +123,9 @@ test "memory-packing drops passive segments referenced only by data.drop" {
     Err(err) => fail("expected memory-packing pipeline success, got \{err}")
   }
 
-  assert_eq(mp_test_data_segments(optimized), [])
-  assert_eq(optimized.data_cnt_sec, None)
-  assert_eq(mp_test_first_func_body(optimized), [@lib.Instruction::nop()])
+  @debug.assert_eq(mp_test_data_segments(optimized), [])
+  @debug.assert_eq(optimized.data_cnt_sec, None)
+  @debug.assert_eq(mp_test_first_func_body(optimized), [@lib.Instruction::nop()])
 }
 
 ///|
@@ -144,7 +144,7 @@ test "memory-packing remaps passive data users after active segment count change
   }
 
   let segments = mp_test_data_segments(optimized)
-  assert_eq(segments.length(), 3)
+  @debug.assert_eq(segments.length(), 3)
   match segments[0] {
     @lib.Data(
       @lib.Active(
@@ -153,9 +153,9 @@ test "memory-packing remaps passive data users after active segment count change
       ),
       bytes
     ) => {
-      assert_eq(mem_idx, 0U)
-      assert_eq(offset, 0)
-      assert_eq(bytes, b"A")
+      @debug.assert_eq(mem_idx, 0U)
+      @debug.assert_eq(offset, 0)
+      @debug.assert_eq(bytes, b"A")
     }
     _ => fail("expected first rewritten segment to be active at offset 0")
   }
@@ -167,18 +167,18 @@ test "memory-packing remaps passive data users after active segment count change
       ),
       bytes
     ) => {
-      assert_eq(mem_idx, 0U)
-      assert_eq(offset, 10)
-      assert_eq(bytes, b"B")
+      @debug.assert_eq(mem_idx, 0U)
+      @debug.assert_eq(offset, 10)
+      @debug.assert_eq(bytes, b"B")
     }
     _ => fail("expected second rewritten segment to be active at offset 10")
   }
   match segments[2] {
-    @lib.Data(@lib.Passive, bytes) => assert_eq(bytes, b"XY")
+    @lib.Data(@lib.Passive, bytes) => @debug.assert_eq(bytes, b"XY")
     _ => fail("expected passive segment to be preserved after active rewrites")
   }
 
-  assert_eq(mp_test_first_func_body(optimized), [
+  @debug.assert_eq(mp_test_first_func_body(optimized), [
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::i32_const(@lib.I32(2)),

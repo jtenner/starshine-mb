@@ -48,22 +48,25 @@ test "ssa local build inserts a join phi for diamond local merges" {
   let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
   let phis = ssa_phis_for_block(ssa, join_block)
 
-  assert_eq(phis.length(), 1)
+  @debug.assert_eq(phis.length(), 1)
   let phi_id = phis[0]
-  assert_eq(ssa_phi_local(ssa, phi_id), 1)
-  assert_eq(
+  @debug.assert_eq(ssa_phi_local(ssa, phi_id), 1)
+  @debug.assert_eq(
     ssa_value_origin(ssa, ssa_value_for_local_get(ssa, join_get)),
     ssa_phi_def(phi_id),
   )
   let inputs = ssa_phi_inputs(ssa, phi_id)
-  assert_eq(inputs.length(), 2)
+  @debug.assert_eq(inputs.length(), 2)
   let then_input = ssa_local_find_phi_input(inputs, then_block)
   let else_input = ssa_local_find_phi_input(inputs, else_block)
-  assert_eq(
+  @debug.assert_eq(
     ssa_value_origin(ssa, then_input.value_id),
     ssa_local_set_def(then_set),
   )
-  assert_eq(ssa_value_origin(ssa, else_input.value_id), ssa_default_init_def(1))
+  @debug.assert_eq(
+    ssa_value_origin(ssa, else_input.value_id),
+    ssa_default_init_def(1),
+  )
 }
 
 ///|
@@ -99,22 +102,22 @@ test "ssa local build inserts a loop-carried phi at loop headers" {
   ).unwrap()
   let phis = ssa_phis_for_block(ssa, loop_header)
 
-  assert_eq(phis.length(), 1)
+  @debug.assert_eq(phis.length(), 1)
   let phi_id = phis[0]
-  assert_eq(ssa_phi_local(ssa, phi_id), 0)
-  assert_eq(
+  @debug.assert_eq(ssa_phi_local(ssa, phi_id), 0)
+  @debug.assert_eq(
     ssa_value_origin(ssa, ssa_value_for_local_get(ssa, loop_get)),
     ssa_phi_def(phi_id),
   )
   let inputs = ssa_phi_inputs(ssa, phi_id)
-  assert_eq(inputs.length(), 2)
+  @debug.assert_eq(inputs.length(), 2)
   let preheader_input = ssa_local_find_phi_input(inputs, preheader_block)
   let backedge_input = ssa_local_find_phi_input(inputs, loop_body)
-  assert_eq(
+  @debug.assert_eq(
     ssa_value_origin(ssa, preheader_input.value_id),
     ssa_local_set_def(entry_set),
   )
-  assert_eq(
+  @debug.assert_eq(
     ssa_value_origin(ssa, backedge_input.value_id),
     ssa_local_set_def(loop_set),
   )
@@ -132,7 +135,7 @@ test "ssa local build resolves uninitialized locals to default-init entry defs" 
   let liveness = liveness_build(cfg, use_def)
   let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
 
-  assert_eq(
+  @debug.assert_eq(
     ssa_value_origin(ssa, ssa_value_for_local_get(ssa, local_get)),
     ssa_default_init_def(0),
   )
@@ -154,8 +157,8 @@ test "ssa local build records local tee defs for later reads" {
   let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
   let tee_value = ssa_def_for_local_set(ssa, tee)
 
-  assert_eq(ssa_value_origin(ssa, tee_value), ssa_local_tee_def(tee))
-  assert_eq(ssa_value_for_local_get(ssa, read), tee_value)
+  @debug.assert_eq(ssa_value_origin(ssa, tee_value), ssa_local_tee_def(tee))
+  @debug.assert_eq(ssa_value_for_local_get(ssa, read), tee_value)
 }
 
 ///|

@@ -2581,7 +2581,7 @@ pub fn run_validate_invalid_ast_fuzz(
 ///|
 test "validate_invalid_ast_registry exposes the curated smoke-required strategies" {
   let registry = validate_invalid_ast_registry()
-  assert_eq(registry.map(fn(spec) { spec.stable_id }), [
+  @debug.assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "duplicate-export-name", "invalid-start-signature", "invalid-imported-start-func-param",
     "invalid-imported-start-func-result", "invalid-imported-start-func-param-result",
     "invalid-imported-start-func-multi-param", "invalid-imported-start-func-f32-param",
@@ -2601,7 +2601,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 19)
+  @debug.assert_eq(smoke_required.length(), 19)
 }
 
 ///|
@@ -3332,7 +3332,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 47)
+  @debug.assert_eq(first.attempts, 47)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)

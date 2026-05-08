@@ -34,7 +34,7 @@ test "run_hot_pipeline applies once-reduction to repeated once calls" {
     Err(err) => fail("expected once-reduction pipeline success, got \{err}")
   }
 
-  assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
     @lib.Instruction::nop(),
   ])
@@ -64,7 +64,7 @@ test "once-reduction keeps globals that are externally visible" {
       fail("expected exported-global once-reduction success, got \{err}")
   }
 
-  assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
   ])
@@ -88,7 +88,7 @@ test "once-reduction collapses trivial once bodies after call optimization" {
     Err(err) => fail("expected once body reduction success, got \{err}")
   }
 
-  assert_eq(try! or_test_defined_func_instrs(optimized, 0), [
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 0), [
     @lib.Instruction::nop(),
   ])
 }
@@ -124,7 +124,7 @@ test "once-reduction tracks multiple independent once globals" {
     Err(err) => fail("expected multi-once reduction success, got \{err}")
   }
 
-  assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
     @lib.Instruction::call(@lib.FuncIdx::new(1U)),
     @lib.Instruction::nop(),

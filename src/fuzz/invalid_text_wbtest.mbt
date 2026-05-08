@@ -1,7 +1,7 @@
 ///|
 test "validate_invalid_text_registry exposes curated stage-aware strategies" {
   let registry = validate_invalid_text_registry()
-  assert_eq(registry.map(fn(spec) { spec.stable_id }), [
+  @debug.assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "malformed-quote-missing-paren", "invalid-result-stack", "unlinkable-unknown-import",
     "malformed-trailing-garbage", "invalid-mutable-global-const-init", "unlinkable-unknown-memory-import",
     "malformed-invalid-const-token", "invalid-start-func-param", "unlinkable-unknown-global-import",
@@ -18,7 +18,7 @@ test "validate_invalid_text_registry exposes curated stage-aware strategies" {
     "unlinkable-incompatible-memory-import-max", "invalid-start-func-out-of-range",
     "unlinkable-incompatible-memory-import-min", "unlinkable-incompatible-table-import-limits",
   ])
-  assert_eq(
+  @debug.assert_eq(
     registry.map(fn(spec) {
       validate_invalid_text_stage_name(spec.expected_stage)
     }),
@@ -36,13 +36,13 @@ test "validate_invalid_text_registry exposes curated stage-aware strategies" {
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 37)
+  @debug.assert_eq(smoke_required.length(), 37)
 }
 
 ///|
 test "validate_invalid_spec_seed_registry exposes curated malformed invalid and unlinkable seeds" {
   let registry = validate_invalid_spec_seed_registry()
-  assert_eq(registry.map(fn(spec) { spec.stable_id }), [
+  @debug.assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "const-malformed-quote-1", "f32-invalid-type-mismatch-1", "imports-unlinkable-unknown-import-1",
     "const-malformed-quote-2", "f32-invalid-type-mismatch-2", "imports-unlinkable-unknown-import-2",
     "const-malformed-quote-3", "f32-invalid-type-mismatch-3", "imports-unlinkable-incompatible-import-type-1",
@@ -57,7 +57,7 @@ test "validate_invalid_spec_seed_registry exposes curated malformed invalid and 
     "const-malformed-quote-12", "store-invalid-type-mismatch-1", "imports-unlinkable-incompatible-import-type-10",
     "const-malformed-quote-13", "store-invalid-type-mismatch-2", "imports-unlinkable-incompatible-import-type-11",
   ])
-  assert_eq(
+  @debug.assert_eq(
     registry.map(fn(spec) {
       validate_invalid_text_stage_name(spec.expected_stage)
     }),
@@ -75,14 +75,14 @@ test "validate_invalid_spec_seed_registry exposes curated malformed invalid and 
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 39)
+  @debug.assert_eq(smoke_required.length(), 39)
 }
 
 ///|
 test "inline malformed text strategy rejects during parse or lower" {
   match
     run_validate_invalid_text_case_by_stable_id("malformed-quote-missing-paren") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -90,7 +90,7 @@ test "inline malformed text strategy rejects during parse or lower" {
 ///|
 test "inline invalid text strategy rejects during validation" {
   match run_validate_invalid_text_case_by_stable_id("invalid-result-stack") {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -99,7 +99,7 @@ test "inline invalid text strategy rejects during validation" {
 test "inline unlinkable text strategy stays valid before link" {
   match
     run_validate_invalid_text_case_by_stable_id("unlinkable-unknown-import") {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -108,7 +108,7 @@ test "inline unlinkable text strategy stays valid before link" {
 test "inline trailing garbage malformed strategy rejects during parse or lower" {
   match
     run_validate_invalid_text_case_by_stable_id("malformed-trailing-garbage") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -119,7 +119,7 @@ test "inline mutable global const-init strategy rejects during validation" {
     run_validate_invalid_text_case_by_stable_id(
       "invalid-mutable-global-const-init",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -130,7 +130,7 @@ test "inline unknown memory import strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-unknown-memory-import",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -139,7 +139,7 @@ test "inline unknown memory import strategy stays valid before link" {
 test "inline malformed invalid const token strategy rejects during parse or lower" {
   match
     run_validate_invalid_text_case_by_stable_id("malformed-invalid-const-token") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -148,7 +148,7 @@ test "inline malformed invalid const token strategy rejects during parse or lowe
 test "inline invalid start func param strategy rejects during validation" {
   match
     run_validate_invalid_text_case_by_stable_id("invalid-start-func-param") {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -159,7 +159,7 @@ test "inline unknown global import strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-unknown-global-import",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -170,7 +170,7 @@ test "inline malformed invalid f64 const token strategy rejects during parse or 
     run_validate_invalid_text_case_by_stable_id(
       "malformed-invalid-f64-const-token",
     ) {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -179,7 +179,7 @@ test "inline malformed invalid f64 const token strategy rejects during parse or 
 test "inline duplicate export name strategy rejects during validation" {
   match
     run_validate_invalid_text_case_by_stable_id("invalid-duplicate-export-name") {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -190,7 +190,7 @@ test "inline unknown table import strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-unknown-table-import",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -201,7 +201,7 @@ test "inline malformed invalid i64 const token strategy rejects during parse or 
     run_validate_invalid_text_case_by_stable_id(
       "malformed-invalid-i64-const-token",
     ) {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -210,7 +210,7 @@ test "inline malformed invalid i64 const token strategy rejects during parse or 
 test "inline invalid start func result strategy rejects during validation" {
   match
     run_validate_invalid_text_case_by_stable_id("invalid-start-func-result") {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -221,7 +221,7 @@ test "inline incompatible func import type strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-func-import-type",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -232,7 +232,7 @@ test "inline malformed invalid i32 hex token strategy rejects during parse or lo
     run_validate_invalid_text_case_by_stable_id(
       "malformed-invalid-i32-hex-token",
     ) {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -243,7 +243,7 @@ test "inline invalid imported start func param strategy rejects during validatio
     run_validate_invalid_text_case_by_stable_id(
       "invalid-imported-start-func-param",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -254,7 +254,7 @@ test "inline incompatible global import type strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-global-import-type",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -265,7 +265,7 @@ test "inline malformed invalid i64 hex token strategy rejects during parse or lo
     run_validate_invalid_text_case_by_stable_id(
       "malformed-invalid-i64-hex-token",
     ) {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -276,7 +276,7 @@ test "inline invalid imported start func result strategy rejects during validati
     run_validate_invalid_text_case_by_stable_id(
       "invalid-imported-start-func-result",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -287,7 +287,7 @@ test "inline incompatible tag import type strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-tag-import-type",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -298,7 +298,7 @@ test "inline malformed invalid i32 bad opcode strategy rejects during parse or l
     run_validate_invalid_text_case_by_stable_id(
       "malformed-invalid-i32-bad-opcode",
     ) {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -309,7 +309,7 @@ test "inline invalid imported start func param-result strategy rejects during va
     run_validate_invalid_text_case_by_stable_id(
       "invalid-imported-start-func-param-result",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -320,7 +320,7 @@ test "inline incompatible global import mutability strategy stays valid before l
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-global-import-mutability",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -331,7 +331,7 @@ test "inline malformed invalid f32 bad opcode strategy rejects during parse or l
     run_validate_invalid_text_case_by_stable_id(
       "malformed-invalid-f32-bad-opcode",
     ) {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -342,7 +342,7 @@ test "inline invalid imported start func multi-param strategy rejects during val
     run_validate_invalid_text_case_by_stable_id(
       "invalid-imported-start-func-multi-param",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -353,7 +353,7 @@ test "inline incompatible global import i64 strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-global-import-i64",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -364,7 +364,7 @@ test "inline malformed invalid i64 bad opcode strategy rejects during parse or l
     run_validate_invalid_text_case_by_stable_id(
       "malformed-invalid-i64-bad-opcode",
     ) {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -375,7 +375,7 @@ test "inline invalid imported start func f32 param strategy rejects during valid
     run_validate_invalid_text_case_by_stable_id(
       "invalid-imported-start-func-f32-param",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -386,7 +386,7 @@ test "inline invalid imported start func externref param strategy rejects during
     run_validate_invalid_text_case_by_stable_id(
       "invalid-imported-start-func-externref-param",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -397,7 +397,7 @@ test "inline malformed invalid f64 bad opcode strategy rejects during parse or l
     run_validate_invalid_text_case_by_stable_id(
       "malformed-invalid-f64-bad-opcode",
     ) {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -408,7 +408,7 @@ test "inline invalid imported start func funcref param strategy rejects during v
     run_validate_invalid_text_case_by_stable_id(
       "invalid-imported-start-func-funcref-param",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -419,7 +419,7 @@ test "inline incompatible global import f64 strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-global-import-f64",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -430,7 +430,7 @@ test "inline incompatible memory import max strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-memory-import-max",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -441,7 +441,7 @@ test "inline start func out of range strategy rejects during validation" {
     run_validate_invalid_text_case_by_stable_id(
       "invalid-start-func-out-of-range",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -452,7 +452,7 @@ test "inline incompatible memory import min strategy stays valid before link" {
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-memory-import-min",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -463,7 +463,7 @@ test "inline incompatible table import limits strategy stays valid before link" 
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-table-import-limits",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -472,7 +472,7 @@ test "inline incompatible table import limits strategy stays valid before link" 
 test "spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-1") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -483,7 +483,7 @@ test "spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-1",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -494,7 +494,7 @@ test "spec-seed unlinkable case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-unknown-import-1",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -503,7 +503,7 @@ test "spec-seed unlinkable case stays valid before link" {
 test "second spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-2") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -514,7 +514,7 @@ test "second spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-2",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -525,7 +525,7 @@ test "second spec-seed unlinkable case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-unknown-import-2",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -534,7 +534,7 @@ test "second spec-seed unlinkable case stays valid before link" {
 test "third spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-3") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -545,7 +545,7 @@ test "third spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-3",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -556,7 +556,7 @@ test "incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-1",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -565,7 +565,7 @@ test "incompatible import type spec-seed case stays valid before link" {
 test "fourth spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-4") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -576,7 +576,7 @@ test "fourth spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-4",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -587,7 +587,7 @@ test "second incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-2",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -596,7 +596,7 @@ test "second incompatible import type spec-seed case stays valid before link" {
 test "fifth spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-5") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -607,7 +607,7 @@ test "fifth spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-5",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -618,7 +618,7 @@ test "third incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-3",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -627,7 +627,7 @@ test "third incompatible import type spec-seed case stays valid before link" {
 test "sixth spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-6") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -638,7 +638,7 @@ test "sixth spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-6",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -649,7 +649,7 @@ test "fourth incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-4",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -658,7 +658,7 @@ test "fourth incompatible import type spec-seed case stays valid before link" {
 test "seventh spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-7") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -669,7 +669,7 @@ test "seventh spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-7",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -680,7 +680,7 @@ test "fifth incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-5",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -689,7 +689,7 @@ test "fifth incompatible import type spec-seed case stays valid before link" {
 test "eighth spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-8") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -700,7 +700,7 @@ test "eighth spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-8",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -711,7 +711,7 @@ test "sixth incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-6",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -720,7 +720,7 @@ test "sixth incompatible import type spec-seed case stays valid before link" {
 test "ninth spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-9") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -731,7 +731,7 @@ test "ninth spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-9",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -742,7 +742,7 @@ test "seventh incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-7",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -751,7 +751,7 @@ test "seventh incompatible import type spec-seed case stays valid before link" {
 test "tenth spec-seed malformed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-10") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -762,7 +762,7 @@ test "tenth spec-seed invalid case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-10",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -773,7 +773,7 @@ test "eighth incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-8",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -782,7 +782,7 @@ test "eighth incompatible import type spec-seed case stays valid before link" {
 test "eleventh malformed quote spec-seed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-11") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -793,7 +793,7 @@ test "eleventh invalid type mismatch spec-seed case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "f32-invalid-type-mismatch-11",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -804,7 +804,7 @@ test "ninth incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-9",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -813,7 +813,7 @@ test "ninth incompatible import type spec-seed case stays valid before link" {
 test "twelfth malformed quote spec-seed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-12") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -824,7 +824,7 @@ test "store invalid type mismatch spec-seed case rejects during validation" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "store-invalid-type-mismatch-1",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -833,7 +833,7 @@ test "store invalid type mismatch spec-seed case rejects during validation" {
 test "thirteenth malformed quote spec-seed case rejects during parse or lower" {
   match
     run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-13") {
-    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -844,7 +844,7 @@ test "second store invalid type mismatch spec-seed case rejects during validatio
     run_validate_invalid_spec_seed_case_by_stable_id(
       "store-invalid-type-mismatch-2",
     ) {
-    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
   }
 }
@@ -855,7 +855,7 @@ test "tenth incompatible import type spec-seed case stays valid before link" {
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-10",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -866,7 +866,7 @@ test "eleventh incompatible import type spec-seed case stays valid before link" 
     run_validate_invalid_spec_seed_case_by_stable_id(
       "imports-unlinkable-incompatible-import-type-11",
     ) {
-    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Ok(stage) => @debug.assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
   }
 }
@@ -882,7 +882,7 @@ test "run_validate_invalid_text_fuzz returns deterministic fixed-seed strategy s
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 37)
+  @debug.assert_eq(first.attempts, 37)
   let mut saw_parse_or_lower = false
   let mut saw_validate = false
   let mut saw_valid_before_link = false
@@ -916,7 +916,7 @@ test "run_validate_invalid_spec_seed_fuzz returns deterministic fixed-seed seed 
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 39)
+  @debug.assert_eq(first.attempts, 39)
   let mut saw_parse_or_lower = false
   let mut saw_validate = false
   let mut saw_valid_before_link = false

@@ -79,7 +79,7 @@ test "mini fs writes and deletes files" {
       fail("read_file_to_bytes failed: \{e}")
     }
   }
-  assert_eq(read_back, payload)
+  @debug.assert_eq(read_back, payload)
 
   match remove_file(path) {
     Ok(_) => ()
@@ -142,7 +142,7 @@ test "mini fs recursively lists nested files for glob candidate expansion" {
   }
 
   match list_files_recursive(root) {
-    Ok(files) => assert_eq(files, [alpha, beta, gamma, delta])
+    Ok(files) => @debug.assert_eq(files, [alpha, beta, gamma, delta])
     Err(e) => fail("expected recursive list success, got \{e}")
   }
 

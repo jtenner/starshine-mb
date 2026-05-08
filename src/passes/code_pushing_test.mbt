@@ -72,20 +72,20 @@ test "code-pushing sinks const local.set into the only using if arm" {
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop end))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
   let if_id = @ir.hot_root_get(func, 1)
   code_pushing_expect_op(func, if_id, "if")
   let then_ref = @ir.hot_region_then_ref(func, if_id)
-  assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
   let pushed_set = @ir.hot_region_get(func, then_ref, 0)
   code_pushing_expect_op(func, pushed_set, "local.set")
-  assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
   let kept_use = @ir.hot_region_get(func, then_ref, 1)
   code_pushing_expect_op(func, kept_use, "drop")
   let kept_get = @ir.hot_child_get(func, kept_use, 0)
   code_pushing_expect_op(func, kept_get, "local.get")
-  assert_eq(@ir.hot_node_get(func, kept_get).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, kept_get).imm0, 1)
 }
 
 ///|
@@ -94,22 +94,22 @@ test "code-pushing sinks const local.set into the only using else arm" {
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if nop else local.get 1 drop end))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
   let if_id = @ir.hot_root_get(func, 1)
   code_pushing_expect_op(func, if_id, "if")
   let then_ref = @ir.hot_region_then_ref(func, if_id)
-  assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
   let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
-  assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
   let pushed_set = @ir.hot_region_get(func, else_ref, 0)
   code_pushing_expect_op(func, pushed_set, "local.set")
-  assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
   let kept_use = @ir.hot_region_get(func, else_ref, 1)
   code_pushing_expect_op(func, kept_use, "drop")
   let kept_get = @ir.hot_child_get(func, kept_use, 0)
   code_pushing_expect_op(func, kept_get, "local.get")
-  assert_eq(@ir.hot_node_get(func, kept_get).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, kept_get).imm0, 1)
 }
 
 ///|
@@ -118,16 +118,16 @@ test "code-pushing keeps const local.set when both if arms use it" {
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop else local.get 1 drop end))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   let kept_set = @ir.hot_root_get(func, 0)
   code_pushing_expect_op(func, kept_set, "local.set")
-  assert_eq(@ir.hot_node_get(func, kept_set).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, kept_set).imm0, 1)
   let if_id = @ir.hot_root_get(func, 1)
   code_pushing_expect_op(func, if_id, "if")
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
-  assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
-  assert_eq(@ir.hot_region_root_count(func, else_ref), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, else_ref), 1)
   let then_drop = @ir.hot_region_get(func, then_ref, 0)
   let else_drop = @ir.hot_region_get(func, else_ref, 0)
   code_pushing_expect_op(func, then_drop, "drop")
@@ -185,7 +185,7 @@ test "code-pushing flattens dead typed block before unreachable" {
   for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
     ops.push(@ir.hot_node_get(func, @ir.hot_root_get(func, idx)).op.to_string())
   }
-  assert_eq(ops, ["Unreachable", "Const", "Const", "Unreachable"])
+  @debug.assert_eq(ops, ["Unreachable", "Const", "Const", "Unreachable"])
 }
 
 ///|
@@ -216,7 +216,7 @@ test "code-pushing keeps dead block with branch before unreachable" {
     "(module (func (block br 0 unreachable) unreachable))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "block")
   code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "unreachable")
 }

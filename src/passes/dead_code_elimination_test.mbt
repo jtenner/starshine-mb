@@ -447,7 +447,7 @@ test "dead-code-elimination removes dead unreachable tails from split payload wr
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_eq(
+  @debug.assert_eq(
     dead_code_elimination_test_count_occurrences(pretty, "unreachable"),
     1,
     msg=pretty,
@@ -573,10 +573,10 @@ test "dead-code-elimination removes split drop roots after nonfallthrough result
       )
   }
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   let root0 = @ir.hot_root_get(func, 0)
-  assert_eq(root0, wrapped)
-  assert_eq(@ir.hot_node_result_arity(func, root0), 0)
+  @debug.assert_eq(root0, wrapped)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, root0), 0)
   let root1 = @ir.hot_root_get(func, 1)
   match @ir.hot_node_get(func, root1).op {
     @ir.HotOp::Unreachable => ()
@@ -645,8 +645,8 @@ test "dead-code-elimination voidifies dropped nonfallthrough value blocks with i
   }
 
   let root0 = @ir.hot_root_get(func, 0)
-  assert_eq(root0, wrapped)
-  assert_eq(@ir.hot_node_result_arity(func, root0), 0)
+  @debug.assert_eq(root0, wrapped)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, root0), 0)
   let root1 = @ir.hot_root_get(func, 1)
   match @ir.hot_node_get(func, root1).op {
     @ir.HotOp::Const => ()
@@ -677,7 +677,7 @@ test "dead-code-elimination preserves consecutive pure drop roots" {
       )
   }
 
-  assert_eq(@ir.hot_root_count(func), 3)
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
   for idx = 0; idx < 3; idx = idx + 1 {
     let root = @ir.hot_root_get(func, idx)
     match @ir.hot_node_get(func, root).op {
@@ -735,7 +735,7 @@ test "dead-code-elimination folds nonfallthrough prefix blocks into branch paylo
     Err(err) =>
       fail("expected prefix-payload fixture control verification, got \{err}")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_region_root_count(func, @ir.hot_region_body_ref(func, mid)),
     2,
   )
@@ -749,7 +749,7 @@ test "dead-code-elimination folds nonfallthrough prefix blocks into branch paylo
   }
 
   let mid_region = @ir.hot_region_body_ref(func, mid)
-  assert_eq(@ir.hot_region_root_count(func, mid_region), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, mid_region), 1)
   let folded_branch = @ir.hot_region_get(func, mid_region, 0)
   match @ir.hot_node_get(func, folded_branch).op {
     @ir.HotOp::Br => ()
@@ -761,9 +761,9 @@ test "dead-code-elimination folds nonfallthrough prefix blocks into branch paylo
     other => fail("expected folded branch payload block, got \{other}")
   }
   let folded_region = @ir.hot_region_body_ref(func, folded_payload)
-  assert_eq(@ir.hot_region_root_count(func, folded_region), 2)
-  assert_eq(@ir.hot_region_get(func, folded_region, 0), prefix)
-  assert_eq(@ir.hot_region_get(func, folded_region, 1), payload_value)
+  @debug.assert_eq(@ir.hot_region_root_count(func, folded_region), 2)
+  @debug.assert_eq(@ir.hot_region_get(func, folded_region, 0), prefix)
+  @debug.assert_eq(@ir.hot_region_get(func, folded_region, 1), payload_value)
 }
 
 ///|
@@ -1326,7 +1326,7 @@ test "dead-code-elimination keeps typed if wrappers with hidden region-label pay
       )
   }
 
-  assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
   match @ir.hot_verify_core(func) {
     Ok(_) => ()
     Err(err) => fail("expected typed if wrapper to remain valid, got \{err}")
@@ -1383,7 +1383,7 @@ test "dead-code-elimination keeps typed if wrappers with hidden br_table payload
       fail("expected dead-code-elimination hidden br_table success, got \{err}")
   }
 
-  assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
   match @ir.hot_verify_core(func) {
     Ok(_) => ()
     Err(err) =>
@@ -1438,8 +1438,8 @@ test "dead-code-elimination keeps detached label owners live after unreachable-t
       )
   }
 
-  assert_eq(@ir.hot_root_count(func), 1)
-  assert_eq(@ir.hot_root_get(func, 0), ret)
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  @debug.assert_eq(@ir.hot_root_get(func, 0), ret)
   assert_true(@ir.hot_node_is_live(func, dead_block))
   match @ir.hot_verify_core(func) {
     Ok(_) => ()
@@ -1478,8 +1478,8 @@ test "dead-code-elimination deletes detached shared subtrees after unreachable t
       fail("expected dead-code-elimination shared-subtree success, got \{err}")
   }
 
-  assert_eq(@ir.hot_root_count(func), 1)
-  assert_eq(@ir.hot_root_get(func, 0), ret)
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  @debug.assert_eq(@ir.hot_root_get(func, 0), ret)
   assert_false(@ir.hot_node_is_live(func, shared))
   assert_false(@ir.hot_node_is_live(func, drop0))
   assert_false(@ir.hot_node_is_live(func, drop1))
@@ -1531,7 +1531,7 @@ test "dead-code-elimination leaves explicit unreachable root after final voidifi
       )
   }
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   let tail_id = @ir.hot_root_get(func, 1)
   match @ir.hot_node_get(func, tail_id).op {
     @ir.HotOp::Unreachable => ()

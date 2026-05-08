@@ -74,8 +74,8 @@ test "RecType equality edge cases" {
   let st = SubType::comp_type(FuncCompType([], []))
 
   // SingleRecType should equal GroupRecType with single element
-  assert_eq(SingleRecType(st), GroupRecType([st]))
-  assert_eq(GroupRecType([st]), SingleRecType(st))
+  @debug.assert_eq(SingleRecType(st), GroupRecType([st]))
+  @debug.assert_eq(GroupRecType([st]), SingleRecType(st))
 
   // But different subtypes should not be equal
   let st2 = SubType::comp_type(FuncCompType([NumTypeValType(I32NumType)], []))
@@ -89,11 +89,11 @@ test "RecType equality edge cases" {
 ///|
 test "RefType equality edge cases" {
   // AbsHeapTypeRefType should equal HeapTypeRefType with nullable + AbsHeapTypeHeapType
-  assert_eq(
+  @debug.assert_eq(
     AbsHeapTypeRefType(FuncAbsHeapType),
     HeapTypeRefType(true, false, AbsHeapTypeHeapType(FuncAbsHeapType)),
   )
-  assert_eq(
+  @debug.assert_eq(
     HeapTypeRefType(true, false, AbsHeapTypeHeapType(ExternAbsHeapType)),
     AbsHeapTypeRefType(ExternAbsHeapType),
   )
@@ -118,11 +118,11 @@ test "RefType equality edge cases" {
 ///|
 test "MemArg equality edge cases" {
   // None memidx should equal Some(MemIdx(0))
-  assert_eq(
+  @debug.assert_eq(
     MemArg(U32(0), None, U64(0)),
     MemArg(U32(0), Some(MemIdx(0)), U64(0)),
   )
-  assert_eq(
+  @debug.assert_eq(
     MemArg(U32(4), None, U64(8)),
     MemArg(U32(4), Some(MemIdx(0)), U64(8)),
   )

@@ -36,15 +36,15 @@ test "postdominators compute shared-exit ipdoms and frontiers" {
   let (cfg, if_header, then_block, else_block, continuation, exit) = postdom_test_shared_exit_fixture()
   let postdom = postdom_build(cfg)
 
-  assert_eq(postdom_ipdom(postdom, exit), None)
-  assert_eq(postdom_ipdom(postdom, continuation), Some(exit))
-  assert_eq(postdom_ipdom(postdom, if_header), Some(continuation))
-  assert_eq(postdom_ipdom(postdom, then_block), Some(continuation))
-  assert_eq(postdom_ipdom(postdom, else_block), Some(continuation))
+  @debug.assert_eq(postdom_ipdom(postdom, exit), None)
+  @debug.assert_eq(postdom_ipdom(postdom, continuation), Some(exit))
+  @debug.assert_eq(postdom_ipdom(postdom, if_header), Some(continuation))
+  @debug.assert_eq(postdom_ipdom(postdom, then_block), Some(continuation))
+  @debug.assert_eq(postdom_ipdom(postdom, else_block), Some(continuation))
   assert_true(postdom_postdominates(postdom, continuation, if_header))
   assert_true(postdom_postdominates(postdom, exit, then_block))
-  assert_eq(postdom_frontier(postdom, then_block), [if_header])
-  assert_eq(postdom_frontier(postdom, else_block), [if_header])
+  @debug.assert_eq(postdom_frontier(postdom, then_block), [if_header])
+  @debug.assert_eq(postdom_frontier(postdom, else_block), [if_header])
 }
 
 ///|
@@ -76,11 +76,14 @@ test "postdominators keep return and exceptional exits separate" {
   let exceptional_exit = cfg_exceptional_exit_block(cfg).unwrap()
   let if_header = cfg_block_for_region_root(cfg, HotRegionRef::root(), 0).unwrap()
 
-  assert_eq(postdom_ipdom(postdom, cfg_exit_block(cfg)), None)
-  assert_eq(postdom_ipdom(postdom, exceptional_exit), None)
-  assert_eq(postdom_ipdom(postdom, then_block), Some(cfg_exit_block(cfg)))
-  assert_eq(postdom_ipdom(postdom, else_block), Some(exceptional_exit))
-  assert_eq(postdom_ipdom(postdom, if_header), None)
+  @debug.assert_eq(postdom_ipdom(postdom, cfg_exit_block(cfg)), None)
+  @debug.assert_eq(postdom_ipdom(postdom, exceptional_exit), None)
+  @debug.assert_eq(
+    postdom_ipdom(postdom, then_block),
+    Some(cfg_exit_block(cfg)),
+  )
+  @debug.assert_eq(postdom_ipdom(postdom, else_block), Some(exceptional_exit))
+  @debug.assert_eq(postdom_ipdom(postdom, if_header), None)
   assert_true(postdom_postdominates(postdom, cfg_exit_block(cfg), then_block))
   assert_true(postdom_postdominates(postdom, exceptional_exit, else_block))
   assert_false(postdom_postdominates(postdom, cfg_exit_block(cfg), if_header))

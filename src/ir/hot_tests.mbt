@@ -22,8 +22,8 @@ test "hot_pop_values preserves stack order without touching prefix" {
   let values = [1, 2, 3, 4]
   let popped = hot_pop_values(values, 3)
 
-  assert_eq(popped, [2, 3, 4])
-  assert_eq(values, [1])
+  @debug.assert_eq(popped, [2, 3, 4])
+  @debug.assert_eq(values, [1])
 }
 
 ///|
@@ -34,7 +34,7 @@ test "hot lift and lower canonicalizes typed bodies" {
     body_result_type=BlockType::val_type(ValType::i32()),
   )
   let lowered = hot_lower_body(func)
-  assert_eq(
+  @debug.assert_eq(
     lowered,
     Expr::new([
       Instruction::block(
@@ -69,7 +69,7 @@ test "hot root slots can be replaced directly" {
   )
   hot_root_set(func, 0, root)
   let lowered = hot_lower_body(func)
-  assert_eq(lowered, Expr::new([Instruction::return_()]))
+  @debug.assert_eq(lowered, Expr::new([Instruction::return_()]))
 }
 
 ///|
@@ -94,7 +94,7 @@ test "hot block children mutate by slot" {
   )
   hot_child_set(func, block, 0, child)
   let lowered = hot_lower_body(func)
-  assert_eq(
+  @debug.assert_eq(
     lowered,
     Expr::new([
       Instruction::block(

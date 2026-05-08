@@ -37,8 +37,8 @@ fn sg_test_global_init_instr(mod_ : @lib.Module, idx : Int) -> @lib.Instruction 
 test "string-gathering registers as an active module pass" {
   match pass_registry_lookup("string-gathering") {
     Some(entry) => {
-      assert_eq(entry.category, HotPassRegistryCategory::module_pass())
-      assert_eq(entry.descriptor, None)
+      @debug.assert_eq(entry.category, HotPassRegistryCategory::module_pass())
+      @debug.assert_eq(entry.descriptor, None)
     }
     None => fail("expected string-gathering registry entry")
   }
@@ -54,7 +54,7 @@ test "string-gathering is a no-op when no string constants exist" {
     Ok(mod_) => mod_
     Err(err) => fail("expected no-op string-gathering success, got \{err}")
   }
-  assert_eq(optimized, input)
+  @debug.assert_eq(optimized, input)
 }
 
 ///|
@@ -67,13 +67,15 @@ test "string-gathering hoists a function string.const to a non-null string globa
       #|
     ),
   )
-  assert_eq(sg_test_global_count(optimized), 1)
-  assert_eq(
+  @debug.assert_eq(sg_test_global_count(optimized), 1)
+  @debug.assert_eq(
     sg_test_global_init_instr(optimized, 0),
     @lib.Instruction::string_const(b"hello"),
   )
   let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
-  assert_eq(instrs, [@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))])
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
 }
 
 ///|
@@ -88,17 +90,17 @@ test "string-gathering deduplicates by bytes and preserves first function-use or
       #|
     ),
   )
-  assert_eq(sg_test_global_count(optimized), 2)
-  assert_eq(
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
+  @debug.assert_eq(
     sg_test_global_init_instr(optimized, 0),
     @lib.Instruction::string_const(b"a"),
   )
-  assert_eq(
+  @debug.assert_eq(
     sg_test_global_init_instr(optimized, 1),
     @lib.Instruction::string_const(b"b"),
   )
   let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
@@ -119,17 +121,17 @@ test "string-gathering inserts after imports and remaps existing defined globals
       #|
     ),
   )
-  assert_eq(sg_test_global_count(optimized), 2)
-  assert_eq(
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
+  @debug.assert_eq(
     sg_test_global_init_instr(optimized, 0),
     @lib.Instruction::string_const(b"x"),
   )
-  assert_eq(
+  @debug.assert_eq(
     sg_test_global_init_instr(optimized, 1),
     @lib.Instruction::i32_const(@lib.I32(0)),
   )
   let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(2U)),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
@@ -153,7 +155,7 @@ test "string-gathering remaps exports of existing defined globals" {
     Some(@lib.ExportSec(exports)) =>
       match exports[0] {
         @lib.Export(_, @lib.GlobalExternIdx(idx)) =>
-          assert_eq(idx, @lib.GlobalIdx::new(2U))
+          @debug.assert_eq(idx, @lib.GlobalIdx::new(2U))
         _ => fail("expected global export")
       }
     None => fail("expected export section")
@@ -172,21 +174,21 @@ test "string-gathering scans function constants before global initializers" {
       #|
     ),
   )
-  assert_eq(sg_test_global_count(optimized), 3)
-  assert_eq(
+  @debug.assert_eq(sg_test_global_count(optimized), 3)
+  @debug.assert_eq(
     sg_test_global_init_instr(optimized, 0),
     @lib.Instruction::string_const(b"func"),
   )
-  assert_eq(
+  @debug.assert_eq(
     sg_test_global_init_instr(optimized, 1),
     @lib.Instruction::string_const(b"global"),
   )
-  assert_eq(
+  @debug.assert_eq(
     sg_test_global_init_instr(optimized, 2),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
   )
   let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(2U)),
   ])
@@ -209,7 +211,7 @@ test "string-gathering rewrites nested structured function bodies" {
       #|
     ),
   )
-  assert_eq(sg_test_global_count(optimized), 2)
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("string.const"), msg=pretty)
   assert_true(pretty.contains("global.get (Global 0)"), msg=pretty)
@@ -251,13 +253,14 @@ test "string-gathering remaps exported defined globals and structured global nam
       @lib.ExportSec(
         [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx)))]
       )
-    ) => assert_eq(idx, 1U)
+    ) => @debug.assert_eq(idx, 1U)
     other => fail("expected rewritten global export, got \{other}")
   }
   match optimized.name_sec {
     Some(sec) =>
       match sec.global_names {
-        Some(@lib.NameMap([@lib.NameAssoc(idx, _)])) => assert_eq(idx, 1U)
+        Some(@lib.NameMap([@lib.NameAssoc(idx, _)])) =>
+          @debug.assert_eq(idx, 1U)
         other => fail("expected rewritten global name, got \{other}")
       }
     None => fail("expected name section")
@@ -270,5 +273,5 @@ test "string-gathering clears stale raw name payload when global indices change"
     "(module (global (mut i32) (i32.const 0)) (func (result stringref) (string.const \"x\")))",
   ).with_raw_name_sec_payload(b"raw")
   let optimized = string_gathering_run_module_pass(input)
-  assert_eq(optimized.raw_name_sec_payload, None)
+  @debug.assert_eq(optimized.raw_name_sec_payload, None)
 }

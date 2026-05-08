@@ -14,8 +14,8 @@ fn lcse_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func {
 test "local-cse registers as an active module pass" {
   match pass_registry_lookup("local-cse") {
     Some(entry) => {
-      assert_eq(entry.category, HotPassRegistryCategory::module_pass())
-      assert_eq(entry.descriptor, None)
+      @debug.assert_eq(entry.category, HotPassRegistryCategory::module_pass())
+      @debug.assert_eq(entry.descriptor, None)
     }
     None => fail("expected local-cse registry entry")
   }
@@ -36,7 +36,7 @@ test "local-cse reuses repeated same-window arithmetic trees" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   assert_true(
     instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(2U))),
   )
@@ -60,7 +60,7 @@ test "local-cse prefers repeated parent trees over child trees" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   assert_true(
     instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(2U))),
   )
@@ -84,7 +84,7 @@ test "local-cse reuses repeated load trees until a store barrier" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   assert_true(
     instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(1U))),
   )
@@ -106,7 +106,7 @@ test "local-cse clears the reuse window across writes to read locals" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
   assert_false(
     instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(2U))),
   )

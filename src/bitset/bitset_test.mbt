@@ -15,7 +15,7 @@ fn bitset_test_mark(values : BitSet, index : Int, value : Bool) -> Unit {
 ///|
 test "bitset supports indexed reads and writes across word boundaries" {
   let values = BitSet::new(130)
-  assert_eq(values.length(), 130)
+  @debug.assert_eq(values.length(), 130)
   assert_false(values[0])
   assert_false(values[64])
   assert_false(values[129])
@@ -42,8 +42,8 @@ test "bitset copy keeps independent packed values" {
   copied[1] = true
   copied[3] = false
 
-  assert_eq(values.length(), 130)
-  assert_eq(copied.length(), 130)
+  @debug.assert_eq(values.length(), 130)
+  @debug.assert_eq(copied.length(), 130)
   assert_false(values[1])
   assert_true(copied[1])
   assert_true(values[3])
@@ -53,7 +53,7 @@ test "bitset copy keeps independent packed values" {
 ///|
 test "bitset make true masks unused trailing bits" {
   let values = BitSet::make(70, true)
-  assert_eq(bitset_test_collect(values), Array::make(70, true))
+  @debug.assert_eq(bitset_test_collect(values), Array::make(70, true))
   values[69] = false
   assert_false(values[69])
 }

@@ -32,8 +32,8 @@ test "differential_validate_wasm returns report when all validators agree" {
     Err(e) => fail("expected differential agreement, got \{e}")
   }
   assert_true(report.internal_valid)
-  assert_eq(report.wasm_tools_valid, Some(true))
-  assert_eq(report.binaryen_valid, Some(true))
+  @debug.assert_eq(report.wasm_tools_valid, Some(true))
+  @debug.assert_eq(report.binaryen_valid, Some(true))
 }
 
 ///|
@@ -59,9 +59,9 @@ test "run_cmd_fuzz_harness supports zero-target configuration" {
     Ok(v) => v
     Err(e) => fail("expected zero-target harness success, got \{e}")
   }
-  assert_eq(stats.attempts, 0)
-  assert_eq(stats.generated_valid, 0)
-  assert_eq(stats.generated_invalid, 0)
+  @debug.assert_eq(stats.attempts, 0)
+  @debug.assert_eq(stats.generated_valid, 0)
+  @debug.assert_eq(stats.generated_invalid, 0)
 }
 
 ///|
@@ -78,7 +78,7 @@ test "minimize_fuzz_passes greedily removes non-essential pass names" {
     ["flatten", "vacuum", "de-nan", "vacuum"],
     fn(passes) { passes.contains("de-nan") },
   )
-  assert_eq(minimized, ["de-nan"])
+  @debug.assert_eq(minimized, ["de-nan"])
 }
 
 ///|
@@ -110,13 +110,13 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
     Ok(v) => v
     Err(e) => fail("expected artifact persistence success, got \{e}")
   }
-  assert_eq(ensured_dirs, ["tmp-corpus"])
+  @debug.assert_eq(ensured_dirs, ["tmp-corpus"])
   assert_true(meta_path.contains("seed-24301"))
   match wasm_path {
     Some(path) => assert_true(path.contains(".wasm"))
     None => fail("expected wasm artifact path")
   }
-  assert_eq(writes.length(), 2)
+  @debug.assert_eq(writes.length(), 2)
   let mut saw_meta = false
   let mut saw_wasm = false
   for entry in writes {
@@ -162,11 +162,11 @@ test "run_cmd_fuzz_harness emits failure report on differential mismatch" {
       assert_true(msg.contains("module #1"))
     }
   }
-  assert_eq(reports.length(), 1)
+  @debug.assert_eq(reports.length(), 1)
   let report = reports[0]
-  assert_eq(report.seed, 0x5eedUL)
-  assert_eq(report.stage, "differential")
-  assert_eq(report.optimize_passes, [])
+  @debug.assert_eq(report.seed, 0x5eedUL)
+  @debug.assert_eq(report.stage, "differential")
+  @debug.assert_eq(report.optimize_passes, [])
   match report.wasm {
     Some(bytes) => assert_true(bytes.length() > 0)
     None => fail("expected captured failing wasm bytes")
@@ -216,9 +216,11 @@ test "run_cmd_fuzz_harness reports explicit hot pass names on optimize failure" 
       assert_true(msg.contains("boundary-only"))
     }
   }
-  assert_eq(reports.length(), 1)
-  assert_eq(reports[0].stage, "optimize")
-  assert_eq(reports[0].optimize_passes, ["global-struct-inference-desc-cast"])
+  @debug.assert_eq(reports.length(), 1)
+  @debug.assert_eq(reports[0].stage, "optimize")
+  @debug.assert_eq(reports[0].optimize_passes, [
+    "global-struct-inference-desc-cast",
+  ])
 }
 
 ///|
@@ -235,9 +237,9 @@ test "differential_validate_wasm agrees with installed wasm-tools and binaryen v
   }
   assert_true(report.internal_valid)
   if has_wasm_tools {
-    assert_eq(report.wasm_tools_valid, Some(true))
+    @debug.assert_eq(report.wasm_tools_valid, Some(true))
   }
   if has_binaryen {
-    assert_eq(report.binaryen_valid, Some(true))
+    @debug.assert_eq(report.binaryen_valid, Some(true))
   }
 }

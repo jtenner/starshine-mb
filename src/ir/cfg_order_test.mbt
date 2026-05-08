@@ -31,13 +31,13 @@ test "cfg reverse postorder stays deterministic on a diamond" {
   let then_block = cfg_block_for_region_root(cfg, then_region, 0).unwrap()
   let else_block = cfg_block_for_region_root(cfg, else_region, 0).unwrap()
 
-  assert_eq(cfg_preorder(cfg), [
+  @debug.assert_eq(cfg_preorder(cfg), [
     entry, if_header, then_block, continuation, exit, else_block,
   ])
-  assert_eq(cfg_reverse_postorder(cfg), [
+  @debug.assert_eq(cfg_reverse_postorder(cfg), [
     entry, if_header, else_block, then_block, continuation, exit,
   ])
-  assert_eq(cfg_block_worklist_seed(cfg), cfg_reverse_postorder(cfg))
+  @debug.assert_eq(cfg_block_worklist_seed(cfg), cfg_reverse_postorder(cfg))
 }
 
 ///|
@@ -58,7 +58,7 @@ test "cfg exceptional-inclusive rpo reaches catch-list entry blocks" {
   let outer_continuation = cfg_successors(cfg, body_continuation)[0].block
 
   assert_false(cfg_reverse_postorder(cfg).contains(catch_list_block))
-  assert_eq(cfg_reverse_postorder_with_exceptions(cfg), [
+  @debug.assert_eq(cfg_reverse_postorder_with_exceptions(cfg), [
     cfg_entry_block(cfg),
     root_block,
     try_table_block,
@@ -85,7 +85,7 @@ test "cfg region order keeps direct blocks and root unreachable tails explicit" 
   ).unwrap()
 
   assert_false(cfg_preorder(cfg).contains(unreachable_block))
-  assert_eq(cfg_region_blocks_in_rpo(cfg, HotRegionRef::root()), [
+  @debug.assert_eq(cfg_region_blocks_in_rpo(cfg, HotRegionRef::root()), [
     return_block, unreachable_block,
   ])
 }

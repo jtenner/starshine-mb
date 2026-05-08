@@ -59,11 +59,11 @@ test "pass registry cache indexes known flags and prefilters help entries" {
     Some(idx) => idx
     None => fail("expected simplify-locals registry index")
   }
-  assert_eq(
+  @debug.assert_eq(
     pass_registry_cache.entries[simplify_locals_idx].name,
     "simplify-locals",
   )
-  assert_eq(pass_registry_lookup_index("not-a-real-pass"), None)
+  @debug.assert_eq(pass_registry_lookup_index("not-a-real-pass"), None)
 
   let mut saw_optimize = false
   let mut saw_memory_packing = false
@@ -133,7 +133,7 @@ test "pass registry public lookup stays detached from cached descriptors" {
   }
   match fresh_lookup.descriptor {
     Some(descriptor) =>
-      assert_eq(descriptor.requires.length(), baseline_requires_len)
+      @debug.assert_eq(descriptor.requires.length(), baseline_requires_len)
     None => fail("expected vacuum descriptor on second lookup")
   }
 }
@@ -293,18 +293,18 @@ test "raw simplify-locals adjacent local tees preserve writes read inside later 
     instrs,
   )
 
-  assert_eq(rewrite_count, 1)
-  assert_eq(rewritten.length(), 3)
-  assert_eq(rewritten[0], @lib.Instruction::local_tee(local_7))
-  assert_eq(
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(rewritten.length(), 3)
+  @debug.assert_eq(rewritten[0], @lib.Instruction::local_tee(local_7))
+  @debug.assert_eq(
     rewritten[1],
     @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 12UL)),
   )
   match rewritten[2] {
     @lib.If(_, then_body, _) => {
-      assert_eq(then_body.length(), 2)
-      assert_eq(then_body[0], @lib.Instruction::local_get(local_7))
-      assert_eq(then_body[1], @lib.Instruction::drop())
+      @debug.assert_eq(then_body.length(), 2)
+      @debug.assert_eq(then_body[0], @lib.Instruction::local_get(local_7))
+      @debug.assert_eq(then_body[1], @lib.Instruction::drop())
     }
     _ => fail("expected rewritten if body, got \{rewritten[2]}")
   }
@@ -436,23 +436,32 @@ test "raw simplify-locals rewrites dupable copies into the next escaping if cond
       [250],
     ) {
     Some((rewritten, consumed_len)) => {
-      assert_eq(consumed_len, 9)
+      @debug.assert_eq(consumed_len, 9)
       rewritten
     }
     None => fail("expected escaping if-condition copy rewrite candidate")
   }
 
-  assert_eq(rewritten[0], @lib.Instruction::local_get(@lib.LocalIdx::new(250U)))
-  assert_eq(rewritten[1], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
-  assert_eq(rewritten[2], @lib.Instruction::local_get(@lib.LocalIdx::new(250U)))
+  @debug.assert_eq(
+    rewritten[0],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(250U)),
+  )
+  @debug.assert_eq(
+    rewritten[1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    rewritten[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(250U)),
+  )
   match rewritten[8] {
     @lib.If(_, then_body, else_body) => {
-      assert_eq(
+      @debug.assert_eq(
         then_body[0],
         @lib.Instruction::local_get(@lib.LocalIdx::new(250U)),
       )
-      assert_eq(then_body[1], @lib.Instruction::return_())
-      assert_eq(else_body, Some([@lib.Instruction::nop()]))
+      @debug.assert_eq(then_body[1], @lib.Instruction::return_())
+      @debug.assert_eq(else_body, Some([@lib.Instruction::nop()]))
     }
     _ => fail("expected rewritten trailing if, got \{rewritten[8]}")
   }
@@ -502,18 +511,21 @@ test "raw simplify-locals batches dupable middle copy statements into the same f
     outer_instrs.length(),
   )
 
-  assert_eq(rewrite_count, 3)
-  assert_eq(rewritten_middle.length(), 4)
-  assert_eq(rewritten_middle[0], @lib.Instruction::nop())
-  assert_eq(rewritten_middle[1], @lib.Instruction::nop())
-  assert_eq(rewritten_middle[2], @lib.Instruction::nop())
-  assert_eq(rewritten_middle[3], @lib.Instruction::nop())
-  assert_eq(rewritten_statement[0], @lib.Instruction::i32_const(@lib.I32(0)))
-  assert_eq(
+  @debug.assert_eq(rewrite_count, 3)
+  @debug.assert_eq(rewritten_middle.length(), 4)
+  @debug.assert_eq(rewritten_middle[0], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten_middle[1], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten_middle[2], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten_middle[3], @lib.Instruction::nop())
+  @debug.assert_eq(
+    rewritten_statement[0],
+    @lib.Instruction::i32_const(@lib.I32(0)),
+  )
+  @debug.assert_eq(
     rewritten_statement[1],
     @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
   )
-  assert_eq(
+  @debug.assert_eq(
     rewritten_statement[2],
     @lib.Instruction::i32_const(@lib.I32(10000)),
   )
@@ -535,11 +547,11 @@ test "raw simplify-locals pure suffix collapses terminal dupable const wrappers"
     instrs, env,
   )
 
-  assert_eq(rewrite_count, 1)
-  assert_eq(rewritten.length(), 3)
-  assert_eq(rewritten[0], @lib.Instruction::nop())
-  assert_eq(rewritten[1], @lib.Instruction::nop())
-  assert_eq(rewritten[2], @lib.Instruction::i32_const(@lib.I32(0)))
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(rewritten.length(), 3)
+  @debug.assert_eq(rewritten[0], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten[1], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten[2], @lib.Instruction::i32_const(@lib.I32(0)))
 }
 
 ///|
@@ -564,12 +576,21 @@ test "raw simplify-locals pure suffix collapses terminal dupable local wrappers 
     instrs, env,
   )
 
-  assert_eq(rewrite_count, 1)
-  assert_eq(rewritten.length(), 4)
-  assert_eq(rewritten[0], @lib.Instruction::nop())
-  assert_eq(rewritten[1], @lib.Instruction::local_get(@lib.LocalIdx::new(2U)))
-  assert_eq(rewritten[2], @lib.Instruction::local_set(@lib.LocalIdx::new(3U)))
-  assert_eq(rewritten[3], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(rewritten.length(), 4)
+  @debug.assert_eq(rewritten[0], @lib.Instruction::nop())
+  @debug.assert_eq(
+    rewritten[1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    rewritten[2],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+  )
+  @debug.assert_eq(
+    rewritten[3],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
 }
 
 ///|
@@ -597,15 +618,27 @@ test "raw simplify-locals pure suffix rewrites copy carriers into branch-termina
     instrs, env,
   )
 
-  assert_eq(rewrite_count, 1)
-  assert_eq(rewritten.length(), 7)
-  assert_eq(rewritten[0], @lib.Instruction::nop())
-  assert_eq(rewritten[1], @lib.Instruction::nop())
-  assert_eq(rewritten[2], @lib.Instruction::local_get(@lib.LocalIdx::new(2U)))
-  assert_eq(rewritten[3], @lib.Instruction::local_set(@lib.LocalIdx::new(3U)))
-  assert_eq(rewritten[4], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
-  assert_eq(rewritten[5], @lib.Instruction::local_set(@lib.LocalIdx::new(2U)))
-  assert_eq(rewritten[6], @lib.Instruction::br(@lib.LabelIdx::new(0U)))
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(rewritten.length(), 7)
+  @debug.assert_eq(rewritten[0], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten[1], @lib.Instruction::nop())
+  @debug.assert_eq(
+    rewritten[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    rewritten[3],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+  )
+  @debug.assert_eq(
+    rewritten[4],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    rewritten[5],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(rewritten[6], @lib.Instruction::br(@lib.LabelIdx::new(0U)))
 }
 
 ///|
@@ -622,12 +655,15 @@ test "lowered simplify-locals cleanup hoists nops ahead of dupable value runs" {
     instrs,
   )
 
-  assert_eq(rewritten.length(), 5)
-  assert_eq(rewritten[0], @lib.Instruction::nop())
-  assert_eq(rewritten[1], @lib.Instruction::i32_const(@lib.I32(0)))
-  assert_eq(rewritten[2], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
-  assert_eq(rewritten[3], @lib.Instruction::i32_const(@lib.I32(2)))
-  assert_eq(rewritten[4], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  @debug.assert_eq(rewritten.length(), 5)
+  @debug.assert_eq(rewritten[0], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten[1], @lib.Instruction::i32_const(@lib.I32(0)))
+  @debug.assert_eq(
+    rewritten[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(rewritten[3], @lib.Instruction::i32_const(@lib.I32(2)))
+  @debug.assert_eq(rewritten[4], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
 }
 
 ///|
@@ -997,7 +1033,7 @@ test "raw simplify-locals gate accepts debug artifact Func 409" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
+  @debug.assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
 }
 
 ///|
@@ -1037,7 +1073,7 @@ test "raw simplify-locals gate still accepts debug artifact Func 409 with cached
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
+  @debug.assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
 }
 
 ///|
@@ -1076,7 +1112,7 @@ test "raw simplify-locals skips decode-shaped debug artifact Func 1950" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "decode-structured-call-heavy")
+  @debug.assert_eq(pipeline_result.reason, "decode-structured-call-heavy")
 }
 
 ///|
@@ -1116,7 +1152,7 @@ test "raw simplify-locals skips straight-line builder debug artifact Func 262" {
     msg="reason=\{pipeline_result.reason}",
   )
   assert_true(pipeline_result.unchanged_original)
-  assert_eq(pipeline_result.reason, "straight-line-builder-churn")
+  @debug.assert_eq(pipeline_result.reason, "straight-line-builder-churn")
 }
 
 ///|
@@ -1156,7 +1192,7 @@ test "raw simplify-locals skips huge straight-line call builder debug artifact F
     msg="reason=\{pipeline_result.reason}",
   )
   assert_true(pipeline_result.unchanged_original)
-  assert_eq(pipeline_result.reason, "huge-straight-line-call-builder")
+  @debug.assert_eq(pipeline_result.reason, "huge-straight-line-call-builder")
 }
 
 ///|
@@ -1195,7 +1231,7 @@ test "raw simplify-locals skips encode-shaped debug artifact Func 2053" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "encode-structured-call-heavy")
+  @debug.assert_eq(pipeline_result.reason, "encode-structured-call-heavy")
 }
 
 ///|
@@ -1234,7 +1270,10 @@ test "raw simplify-locals skips branchy decode debug artifact Func 1949" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "branchy-decode-structured-call-heavy")
+  @debug.assert_eq(
+    pipeline_result.reason,
+    "branchy-decode-structured-call-heavy",
+  )
 }
 
 ///|
@@ -1273,7 +1312,7 @@ test "raw simplify-locals skips stringview trim-end debug artifact Func 4238" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "stringview-trim-loop-churn")
+  @debug.assert_eq(pipeline_result.reason, "stringview-trim-loop-churn")
 }
 
 ///|
@@ -1312,7 +1351,7 @@ test "raw simplify-locals skips stringview trim-start debug artifact Func 4239" 
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "stringview-trim-loop-churn")
+  @debug.assert_eq(pipeline_result.reason, "stringview-trim-loop-churn")
 }
 
 ///|
@@ -1351,7 +1390,10 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1409" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "transformer-catch-structured-call-heavy")
+  @debug.assert_eq(
+    pipeline_result.reason,
+    "transformer-catch-structured-call-heavy",
+  )
 }
 
 ///|
@@ -1390,7 +1432,10 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1410" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "transformer-catch-structured-call-heavy")
+  @debug.assert_eq(
+    pipeline_result.reason,
+    "transformer-catch-structured-call-heavy",
+  )
 }
 
 ///|
@@ -1429,7 +1474,10 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1411" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "transformer-catch-structured-call-heavy")
+  @debug.assert_eq(
+    pipeline_result.reason,
+    "transformer-catch-structured-call-heavy",
+  )
 }
 
 ///|
@@ -1475,7 +1523,7 @@ test "raw simplify-locals gate accepts debug artifact Func 414" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
+  @debug.assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
 }
 
 ///|
@@ -1521,7 +1569,7 @@ test "raw simplify-locals gate accepts debug artifact Func 370" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
+  @debug.assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
 }
 
 ///|
@@ -1553,7 +1601,7 @@ test "raw simplify-locals gate accepts debug artifact Func 473" {
     msg="reason=\{pipeline_result.reason}",
   )
   assert_false(pipeline_result.unchanged_original)
-  assert_eq(pipeline_result.reason, "straight-line-adjacent-local-tee")
+  @debug.assert_eq(pipeline_result.reason, "straight-line-adjacent-local-tee")
 }
 
 ///|
@@ -1585,7 +1633,7 @@ test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
     msg="reason=\{pipeline_result.reason}",
   )
   assert_false(pipeline_result.unchanged_original)
-  assert_eq(pipeline_result.reason, "straight-line-lane-builder")
+  @debug.assert_eq(pipeline_result.reason, "straight-line-lane-builder")
 }
 
 ///|
@@ -1621,7 +1669,7 @@ test "raw simplify-locals skips branchy structured debug artifact funcs" {
       pipeline_result.unchanged_original,
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
     )
-    assert_eq(
+    @debug.assert_eq(
       pipeline_result.reason,
       "branchy-structured-call-heavy",
       msg="func=\{raw_idx}",
@@ -1674,7 +1722,7 @@ test "raw simplify-locals rewrites structured debug artifact Func 225" {
     msg="reason=\{pipeline_result.reason}",
   )
   assert_false(pipeline_result.unchanged_original)
-  assert_eq(pipeline_result.reason, "structured-pure-copy-call-tail")
+  @debug.assert_eq(pipeline_result.reason, "structured-pure-copy-call-tail")
 }
 
 ///|
@@ -1857,7 +1905,7 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 const fanout
     pipeline_result.trace_skip_raw,
     msg="unexpected raw skip reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
+  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
   assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
@@ -1991,7 +2039,7 @@ test "simplify-locals full pipeline keeps debug artifact Func 71 block-result ca
     pipeline_result.trace_skip_raw,
     msg="expected raw skip path, got reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
+  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
   assert_false(pipeline_result.unchanged_original)
   assert_true(pretty.contains("call_indirect"), msg=pretty)
   assert_true(pretty.contains("local.tee (Local 7)"), msg=pretty)
@@ -2037,7 +2085,7 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 returning co
     pipeline_result.trace_skip_raw,
     msg="expected raw skip path, got reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
+  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
   assert_false(
     pass_manager_test_instrs_contain_func71_returning_condition_copy_carrier(
       rewritten_instrs,
@@ -2082,7 +2130,7 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 split value 
     pipeline_result.trace_skip_raw,
     msg="expected raw skip path, got reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
+  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
   assert_false(
     pass_manager_test_instrs_contain_func71_split_value_wrapper(
       rewritten_instrs,
@@ -2166,7 +2214,7 @@ test "raw simplify-locals skips giant debug artifact Func 501" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "giant-local-func-noop")
+  @debug.assert_eq(pipeline_result.reason, "giant-local-func-noop")
 }
 
 ///|
@@ -2208,7 +2256,7 @@ test "raw simplify-locals skips large structured call-heavy debug artifact funcs
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
     )
     assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    assert_eq(pipeline_result.reason, "giant-structured-call-heavy")
+    @debug.assert_eq(pipeline_result.reason, "giant-structured-call-heavy")
   }
 }
 
@@ -2242,7 +2290,7 @@ test "raw simplify-locals skips read-only local debug artifact funcs" {
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
     )
     assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    assert_eq(pipeline_result.reason, "no-local-writes")
+    @debug.assert_eq(pipeline_result.reason, "no-local-writes")
   }
 }
 
@@ -2285,7 +2333,7 @@ test "raw simplify-locals skips medium structured call-heavy debug artifact func
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
     )
     assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    assert_eq(pipeline_result.reason, "medium-structured-call-heavy")
+    @debug.assert_eq(pipeline_result.reason, "medium-structured-call-heavy")
   }
 }
 
@@ -2332,7 +2380,10 @@ test "raw simplify-locals skips transformer structured call-heavy debug artifact
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
     )
     assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    assert_eq(pipeline_result.reason, "transformer-structured-call-heavy")
+    @debug.assert_eq(
+      pipeline_result.reason,
+      "transformer-structured-call-heavy",
+    )
   }
 }
 
@@ -2375,7 +2426,7 @@ test "raw simplify-locals skips dense structured call-heavy debug artifact funcs
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
     )
     assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    assert_eq(pipeline_result.reason, "dense-structured-call-heavy")
+    @debug.assert_eq(pipeline_result.reason, "dense-structured-call-heavy")
   }
 }
 
@@ -2409,7 +2460,7 @@ test "raw simplify-locals skips small-loop call-heavy debug artifact funcs" {
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
     )
     assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    assert_eq(pipeline_result.reason, "small-loop-call-heavy")
+    @debug.assert_eq(pipeline_result.reason, "small-loop-call-heavy")
   }
 }
 
@@ -2452,7 +2503,7 @@ test "raw simplify-locals skips loop-heavy structured call-heavy debug artifact 
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
     )
     assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    assert_eq(pipeline_result.reason, "loop-heavy-structured-call-heavy")
+    @debug.assert_eq(pipeline_result.reason, "loop-heavy-structured-call-heavy")
   }
 }
 
@@ -2493,7 +2544,7 @@ test "raw simplify-locals skips giant structured local churn debug artifact Func
     msg="reason=\{pipeline_result.reason}",
   )
   assert_true(pipeline_result.unchanged_original)
-  assert_eq(pipeline_result.reason, "giant-structured-local-churn")
+  @debug.assert_eq(pipeline_result.reason, "giant-structured-local-churn")
 }
 
 ///|
@@ -2589,7 +2640,7 @@ test "raw simplify-locals gate accepts multivalue status debug artifact Func 376
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
+  @debug.assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
 }
 
 ///|
@@ -2635,7 +2686,7 @@ test "raw simplify-locals rewrites small multivalue debug artifact Func 353" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
+  @debug.assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
 }
 
 ///|

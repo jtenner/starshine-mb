@@ -59,8 +59,8 @@ test "ssa-nomerge keeps straight-line local traffic on the canonical slot" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(instrs, [
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(5)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -79,7 +79,7 @@ test "ssa-nomerge keeps the latest straight-line local alias live" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::f64(),
@@ -87,7 +87,7 @@ test "ssa-nomerge keeps the latest straight-line local alias live" {
       @lib.ValType::f64(),
     ]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::f64_const(@lib.F64(69.0)),
     @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
     @lib.Instruction::drop(),
@@ -110,8 +110,8 @@ test "ssa-nomerge rewrites dead param sets through fresh locals" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
-  assert_eq(instrs, [
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i64_const(@lib.I64(756L)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
     @lib.Instruction::i32_const(@lib.I32(700)),
@@ -130,8 +130,8 @@ test "ssa-nomerge rewrites dead param tees through fresh locals" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::f64()]))
-  assert_eq(instrs, [
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::f64()]))
+  @debug.assert_eq(instrs, [
     @lib.Instruction::f64_const(@lib.F64(17.0)),
     @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
     @lib.Instruction::drop(),
@@ -167,8 +167,8 @@ test "ssa-nomerge keeps structured param writes on the canonical slot" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([]))
-  assert_eq(instrs, [
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::if_(
       @lib.BlockType::void_(),
@@ -211,7 +211,7 @@ test "ssa-nomerge lowers branch joins through predecessor copies" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -220,7 +220,7 @@ test "ssa-nomerge lowers branch joins through predecessor copies" {
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(1)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
     @lib.Instruction::i32_const(@lib.I32(1)),
@@ -268,7 +268,7 @@ test "ssa-nomerge lowers loop-carried locals before the backedge" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -276,7 +276,7 @@ test "ssa-nomerge lowers loop-carried locals before the backedge" {
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(1)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
@@ -328,11 +328,11 @@ test "ssa-nomerge skips synthetic entry copies for root loop headers" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::loop_(
       @lib.BlockType::void_(),
       @lib.Expr::new([
@@ -381,11 +381,11 @@ test "ssa-nomerge rewrites structured early-return local traffic without hot lif
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::if_(
       @lib.BlockType::void_(),
@@ -431,7 +431,7 @@ test "ssa-nomerge rewrites block-target branches through canonical locals" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -440,7 +440,7 @@ test "ssa-nomerge rewrites block-target branches through canonical locals" {
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
     @lib.Instruction::block(
@@ -491,7 +491,7 @@ test "ssa-nomerge rewrites block-target br_if through canonical locals" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -499,7 +499,7 @@ test "ssa-nomerge rewrites block-target br_if through canonical locals" {
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
     @lib.Instruction::block(
@@ -553,7 +553,7 @@ test "ssa-nomerge rewrites structured branch merges with result-typed ifs" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -565,7 +565,7 @@ test "ssa-nomerge rewrites structured branch merges with result-typed ifs" {
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -620,8 +620,8 @@ test "ssa-nomerge keeps canonical param slots across typed if branch merges" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([]))
-  assert_eq(instrs, [
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(instrs, [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::if_(
       @lib.BlockType::val_type(@lib.ValType::i32()),
@@ -705,11 +705,11 @@ test "ssa-nomerge hot path preserves Binaryen temp locals for unreachable dead t
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(instrs, [
+  @debug.assert_eq(instrs, [
     @lib.Instruction::block(
       @lib.BlockType::void_(),
       @lib.Expr::new([@lib.Instruction::unreachable_()]),
@@ -768,7 +768,7 @@ test "ssa-nomerge preserves unreachable dead tee temps before later control" {
   }
 
   let (locals, _) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
 }
 
 ///|
@@ -825,7 +825,7 @@ test "ssa-nomerge keeps canonical locals for if-result unreachable tee carriers"
   }
 
   let (locals, _) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
 }
 
 ///|
@@ -867,7 +867,7 @@ test "ssa-nomerge keeps canonical locals when unreachable reads stay behind late
   }
 
   let (locals, _) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
 }
 
 ///|

@@ -43,7 +43,7 @@ test "rse replaces same-value local.set shell with drop" {
     "(module (func (local i32) i32.const 1 local.set 0 i32.const 1 local.set 0))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   rse_expect_op(func, @ir.hot_root_get(func, 0), "local.set")
   let rewritten = @ir.hot_root_get(func, 1)
   rse_expect_op(func, rewritten, "drop")
@@ -56,7 +56,7 @@ test "rse replaces same-value local.tee shell with its value" {
     "(module (func (local i32) i32.const 1 local.set 0 i32.const 1 local.tee 0 drop))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   rse_expect_op(func, @ir.hot_root_get(func, 0), "local.set")
   let drop = @ir.hot_root_get(func, 1)
   rse_expect_op(func, drop, "drop")
@@ -69,7 +69,7 @@ test "rse keeps different overwritten values" {
     "(module (func (local i32) i32.const 1 local.set 0 i32.const 2 local.set 0))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
   rse_expect_op(func, @ir.hot_root_get(func, 0), "local.set")
   rse_expect_op(func, @ir.hot_root_get(func, 1), "local.set")
 }

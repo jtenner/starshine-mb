@@ -7,18 +7,18 @@ test "root region helpers support insert remove and splice" {
   let root_region = HotRegionRef::root()
 
   hot_region_insert(func, root_region, 0, [first, second])
-  assert_eq(hot_region_root_count(func, root_region), 2)
-  assert_eq(hot_region_get(func, root_region, 0), first)
-  assert_eq(hot_region_get(func, root_region, 1), second)
+  @debug.assert_eq(hot_region_root_count(func, root_region), 2)
+  @debug.assert_eq(hot_region_get(func, root_region, 0), first)
+  @debug.assert_eq(hot_region_get(func, root_region, 1), second)
 
   let removed = hot_region_remove(func, root_region, 0, 1)
-  assert_eq(removed, [first])
-  assert_eq(hot_region_root_count(func, root_region), 1)
-  assert_eq(hot_region_get(func, root_region, 0), second)
+  @debug.assert_eq(removed, [first])
+  @debug.assert_eq(hot_region_root_count(func, root_region), 1)
+  @debug.assert_eq(hot_region_get(func, root_region, 0), second)
 
   let spliced = hot_region_splice(func, root_region, 1, 0, [third])
-  assert_eq(spliced, [])
-  assert_eq(hot_root_span(func), [second, third])
+  @debug.assert_eq(spliced, [])
+  @debug.assert_eq(hot_root_span(func), [second, third])
 }
 
 ///|
@@ -31,14 +31,14 @@ test "body region helpers rewrite direct block and loop bodies" {
   let loop_id = hot_build_loop(func, @lib.BlockType::void_(), [second])
 
   let block_region = hot_region_body_ref(func, block_id)
-  assert_eq(hot_region_root_count(func, block_region), 1)
+  @debug.assert_eq(hot_region_root_count(func, block_region), 1)
   hot_region_replace_body(func, block_region, [second, third])
-  assert_eq(hot_child_span(func, block_id), [second, third])
+  @debug.assert_eq(hot_child_span(func, block_id), [second, third])
 
   let loop_region = hot_region_body_ref(func, loop_id)
   let removed = hot_region_splice(func, loop_region, 0, 1, [first, third])
-  assert_eq(removed, [second])
-  assert_eq(hot_child_span(func, loop_id), [first, third])
+  @debug.assert_eq(removed, [second])
+  @debug.assert_eq(hot_child_span(func, loop_id), [first, third])
 }
 
 ///|
@@ -73,12 +73,12 @@ test "structured region refs rewrite if and try wrapper bodies" {
   let removed_else = hot_region_splice(func, else_region, 0, 1, [else_b, else_a])
   let replaced_catch = hot_region_set(func, catch_region, 0, catch_b)
 
-  assert_eq(removed_else, [else_a])
-  assert_eq(replaced_catch, catch_a)
-  assert_eq(hot_region_root_count(func, then_region), 1)
-  assert_eq(hot_region_get(func, then_region, 0), then_b)
-  assert_eq(hot_region_root_count(func, else_region), 2)
-  assert_eq(hot_region_get(func, else_region, 0), else_b)
-  assert_eq(hot_region_get(func, else_region, 1), else_a)
-  assert_eq(hot_region_get(func, catch_region, 0), catch_b)
+  @debug.assert_eq(removed_else, [else_a])
+  @debug.assert_eq(replaced_catch, catch_a)
+  @debug.assert_eq(hot_region_root_count(func, then_region), 1)
+  @debug.assert_eq(hot_region_get(func, then_region, 0), then_b)
+  @debug.assert_eq(hot_region_root_count(func, else_region), 2)
+  @debug.assert_eq(hot_region_get(func, else_region, 0), else_b)
+  @debug.assert_eq(hot_region_get(func, else_region, 1), else_a)
+  @debug.assert_eq(hot_region_get(func, catch_region, 0), catch_b)
 }

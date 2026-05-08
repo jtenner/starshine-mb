@@ -822,7 +822,7 @@ test "Typecheck unreachable pop1 returns bot (polymorphic stack)" {
   // In unreachable code, pop1 should succeed and return BotValType
   let result = state.pop1()
   match result {
-    Ok((_, v)) => assert_eq(v, ValType::bottom())
+    Ok((_, v)) => @debug.assert_eq(v, ValType::bottom())
     Err(e) => fail("Expected Ok with BotValType, got Err: \{e}")
   }
 }
@@ -927,7 +927,7 @@ test "Typecheck inner if branches to current label still reaches outer merge" {
   match result {
     Ok(st) => {
       assert_true(st.reachable)
-      assert_eq(st.stack, [ValType::i32()])
+      @debug.assert_eq(st.stack, [ValType::i32()])
     }
     Err(e) =>
       fail(

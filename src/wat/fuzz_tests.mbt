@@ -140,7 +140,7 @@ test "wast module conversion basic roundtrip" {
   let text1 = module_to_wat(mod1).unwrap()
   let mod2 = wat_to_module(text1).unwrap()
   let text2 = module_to_wat(mod2).unwrap()
-  assert_eq(
+  @debug.assert_eq(
     normalize_text_for_compare(text1),
     normalize_text_for_compare(text2),
   )

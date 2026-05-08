@@ -793,15 +793,15 @@ test "run_hot_pipeline applies remove-unused-nonfunction-module-elements without
   }
 
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
     None => fail("expected function section to keep both defined functions")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
     None => fail("expected code section to keep both function bodies")
   }
   match optimized.global_sec {
-    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
     None => fail("expected only the function-referenced global to remain")
   }
   match optimized.code_sec {
@@ -812,7 +812,7 @@ test "run_hot_pipeline applies remove-unused-nonfunction-module-elements without
           _,
         ]
       )
-    ) => assert_eq(global_idx, 0U)
+    ) => @debug.assert_eq(global_idx, 0U)
     _ => fail("expected surviving global use to be remapped to index 0")
   }
 }
@@ -834,15 +834,15 @@ test "remove-unused-nonfunction-module-elements keeps active segments with globa
   }
 
   match optimized.global_sec {
-    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
     None => fail("expected active offset global to remain")
   }
   match optimized.mem_sec {
-    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 1)
     None => fail("expected active data memory to remain")
   }
   match optimized.data_sec {
-    Some(@lib.DataSec(datas)) => assert_eq(datas.length(), 1)
+    Some(@lib.DataSec(datas)) => @debug.assert_eq(datas.length(), 1)
     None => fail("expected active data segment to remain")
   }
 }
@@ -884,10 +884,10 @@ test "remove-unused-module-elements drops empty const-offset active elems on liv
   }
 
   match optimized.table_sec {
-    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    Some(@lib.TableSec(tables)) => @debug.assert_eq(tables.length(), 1)
     None => fail("expected exported table to remain")
   }
-  assert_eq(optimized.elem_sec, None)
+  @debug.assert_eq(optimized.elem_sec, None)
 }
 
 ///|
@@ -941,15 +941,15 @@ test "remove-unused-module-elements keeps active elem segments with global offse
   }
 
   match optimized.global_sec {
-    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
     None => fail("expected active offset global to remain")
   }
   match optimized.table_sec {
-    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    Some(@lib.TableSec(tables)) => @debug.assert_eq(tables.length(), 1)
     None => fail("expected active elem table to remain")
   }
   match optimized.elem_sec {
-    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 1)
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 1)
     None => fail("expected active elem segment to remain")
   }
 }
@@ -970,11 +970,11 @@ test "remove-unused-nonfunction-module-elements keeps out-of-bounds active data 
   }
 
   match optimized.mem_sec {
-    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 1)
     None => fail("expected trapping active data memory to remain")
   }
   match optimized.data_sec {
-    Some(@lib.DataSec(datas)) => assert_eq(datas.length(), 1)
+    Some(@lib.DataSec(datas)) => @debug.assert_eq(datas.length(), 1)
     None => fail("expected trapping active data segment to remain")
   }
 }
@@ -1021,9 +1021,9 @@ test "remove-unused-nonfunction-module-elements drops empty const-offset active 
       )
   }
 
-  assert_eq(optimized.elem_sec, None)
+  @debug.assert_eq(optimized.elem_sec, None)
   match optimized.import_sec {
-    Some(@lib.ImportSec(imports)) => assert_eq(imports.length(), 1)
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 1)
     None => fail("expected live imported table to remain")
   }
 }
@@ -1044,13 +1044,13 @@ test "remove-unused-nonfunction-module-elements removes unused imported function
       )
   }
 
-  assert_eq(optimized.import_sec, None)
+  @debug.assert_eq(optimized.import_sec, None)
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
     None => fail("expected defined function to remain")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
     None => fail("expected defined function body to remain")
   }
 }
@@ -1072,14 +1072,14 @@ test "remove-unused-nonfunction-module-elements drops noop start section but kee
   }
 
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
     None => fail("expected function section to keep noop start and unused func")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
     None => fail("expected code section to keep noop start and unused func")
   }
-  assert_eq(optimized.start_sec, None)
+  @debug.assert_eq(optimized.start_sec, None)
 }
 
 ///|
@@ -1096,31 +1096,31 @@ test "run_hot_pipeline applies remove-unused-module-elements and rewrites module
   }
 
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
     None => fail("expected func section")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
     None => fail("expected code section")
   }
   match optimized.global_sec {
-    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
     None => fail("expected global section")
   }
   match optimized.table_sec {
-    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    Some(@lib.TableSec(tables)) => @debug.assert_eq(tables.length(), 1)
     None => fail("expected table section")
   }
   match optimized.mem_sec {
-    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 1)
     None => fail("expected memory section")
   }
   let (global_idx, mem_idx, table_idx) = try! rume_test_live_access_targets(
     optimized,
   )
-  assert_eq(global_idx, 0U)
-  assert_eq(mem_idx, 0U)
-  assert_eq(table_idx, 0U)
+  @debug.assert_eq(global_idx, 0U)
+  @debug.assert_eq(mem_idx, 0U)
+  @debug.assert_eq(table_idx, 0U)
   match optimized.export_sec {
     Some(
       @lib.ExportSec(
@@ -1135,15 +1135,16 @@ test "run_hot_pipeline applies remove-unused-module-elements and rewrites module
         ]
       )
     ) => {
-      assert_eq(func_idx, 0U)
-      assert_eq(table_export_idx, 0U)
-      assert_eq(mem_export_idx, 0U)
-      assert_eq(global_export_idx, 0U)
+      @debug.assert_eq(func_idx, 0U)
+      @debug.assert_eq(table_export_idx, 0U)
+      @debug.assert_eq(mem_export_idx, 0U)
+      @debug.assert_eq(global_export_idx, 0U)
     }
     _ => fail("expected rewritten export section")
   }
   match optimized.start_sec {
-    Some(@lib.StartSec(@lib.FuncIdx(func_idx))) => assert_eq(func_idx, 0U)
+    Some(@lib.StartSec(@lib.FuncIdx(func_idx))) =>
+      @debug.assert_eq(func_idx, 0U)
     _ => fail("expected rewritten start section")
   }
   match optimized.elem_sec {
@@ -1157,8 +1158,8 @@ test "run_hot_pipeline applies remove-unused-module-elements and rewrites module
         ]
       )
     ) => {
-      assert_eq(table_idx, 0U)
-      assert_eq(func_idx, 0U)
+      @debug.assert_eq(table_idx, 0U)
+      @debug.assert_eq(func_idx, 0U)
     }
     _ => fail("expected rewritten element section")
   }
@@ -1172,10 +1173,13 @@ test "run_hot_pipeline applies remove-unused-module-elements and rewrites module
           ),
         ]
       )
-    ) => assert_eq(mem_idx, 0U)
+    ) => @debug.assert_eq(mem_idx, 0U)
     _ => fail("expected rewritten data section")
   }
-  assert_eq(optimized.data_cnt_sec, Some(@lib.DataCntSec::new(@lib.U32(1U))))
+  @debug.assert_eq(
+    optimized.data_cnt_sec,
+    Some(@lib.DataCntSec::new(@lib.U32(1U))),
+  )
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -1199,11 +1203,11 @@ test "remove-unused-module-elements rewrites explicit memarg memory indices" {
   }
 
   match optimized.mem_sec {
-    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 1)
     None => fail("expected memory section")
   }
   let mem_idx = try! rume_test_memarg_target(optimized)
-  assert_eq(mem_idx, 0U)
+  @debug.assert_eq(mem_idx, 0U)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -1229,7 +1233,7 @@ test "remove-unused-module-elements keeps active segments that initialize import
   }
 
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
     None => fail("expected code section")
   }
   match optimized.elem_sec {
@@ -1243,8 +1247,8 @@ test "remove-unused-module-elements keeps active segments that initialize import
         ]
       )
     ) => {
-      assert_eq(table_idx, 0U)
-      assert_eq(func_idx, 0U)
+      @debug.assert_eq(table_idx, 0U)
+      @debug.assert_eq(func_idx, 0U)
     }
     _ => fail("expected kept imported-table element segment")
   }
@@ -1258,7 +1262,7 @@ test "remove-unused-module-elements keeps active segments that initialize import
           ),
         ]
       )
-    ) => assert_eq(mem_idx, 0U)
+    ) => @debug.assert_eq(mem_idx, 0U)
     _ => fail("expected kept imported-memory data segment")
   }
   match @validate.validate_module(optimized) {
@@ -1296,10 +1300,10 @@ test "remove-unused-module-elements drops unused imported module elements and re
         ]
       )
     ) => {
-      assert_eq(live_table, @lib.Name::from_string("live_table"))
-      assert_eq(live_mem, @lib.Name::from_string("live_mem"))
-      assert_eq(live_global, @lib.Name::from_string("live_global"))
-      assert_eq(live_tag, @lib.Name::from_string("live_tag"))
+      @debug.assert_eq(live_table, @lib.Name::from_string("live_table"))
+      @debug.assert_eq(live_mem, @lib.Name::from_string("live_mem"))
+      @debug.assert_eq(live_global, @lib.Name::from_string("live_global"))
+      @debug.assert_eq(live_tag, @lib.Name::from_string("live_tag"))
     }
     _ => fail("expected only live imported table/mem/global/tag entries")
   }
@@ -1325,14 +1329,14 @@ test "remove-unused-module-elements drops unused imported module elements and re
         ]
       )
     ) => {
-      assert_eq(table_import_idx, 0U)
-      assert_eq(table_defined_idx, 1U)
-      assert_eq(mem_import_idx, 0U)
-      assert_eq(mem_defined_idx, 1U)
-      assert_eq(global_import_idx, 0U)
-      assert_eq(global_defined_idx, 1U)
-      assert_eq(tag_import_idx, 0U)
-      assert_eq(tag_defined_idx, 1U)
+      @debug.assert_eq(table_import_idx, 0U)
+      @debug.assert_eq(table_defined_idx, 1U)
+      @debug.assert_eq(mem_import_idx, 0U)
+      @debug.assert_eq(mem_defined_idx, 1U)
+      @debug.assert_eq(global_import_idx, 0U)
+      @debug.assert_eq(global_defined_idx, 1U)
+      @debug.assert_eq(tag_import_idx, 0U)
+      @debug.assert_eq(tag_defined_idx, 1U)
     }
     _ =>
       fail("expected rewritten export indices after imported-element removal")
@@ -1347,8 +1351,11 @@ test "remove-unused-module-elements drops unused imported module elements and re
             [@lib.NameAssoc(0U, table_live), @lib.NameAssoc(1U, table_defined)]
           )
         ) => {
-          assert_eq(table_live, @lib.Name::from_string("live_table"))
-          assert_eq(table_defined, @lib.Name::from_string("defined_table"))
+          @debug.assert_eq(table_live, @lib.Name::from_string("live_table"))
+          @debug.assert_eq(
+            table_defined,
+            @lib.Name::from_string("defined_table"),
+          )
         }
         _ => fail("expected rewritten table names")
       }
@@ -1358,8 +1365,8 @@ test "remove-unused-module-elements drops unused imported module elements and re
             [@lib.NameAssoc(0U, mem_live), @lib.NameAssoc(1U, mem_defined)]
           )
         ) => {
-          assert_eq(mem_live, @lib.Name::from_string("live_mem"))
-          assert_eq(mem_defined, @lib.Name::from_string("defined_mem"))
+          @debug.assert_eq(mem_live, @lib.Name::from_string("live_mem"))
+          @debug.assert_eq(mem_defined, @lib.Name::from_string("defined_mem"))
         }
         _ => fail("expected rewritten memory names")
       }
@@ -1372,8 +1379,11 @@ test "remove-unused-module-elements drops unused imported module elements and re
             ]
           )
         ) => {
-          assert_eq(global_live, @lib.Name::from_string("live_global"))
-          assert_eq(global_defined, @lib.Name::from_string("defined_global"))
+          @debug.assert_eq(global_live, @lib.Name::from_string("live_global"))
+          @debug.assert_eq(
+            global_defined,
+            @lib.Name::from_string("defined_global"),
+          )
         }
         _ => fail("expected rewritten global names")
       }
@@ -1383,8 +1393,8 @@ test "remove-unused-module-elements drops unused imported module elements and re
             [@lib.NameAssoc(0U, tag_live), @lib.NameAssoc(1U, tag_defined)]
           )
         ) => {
-          assert_eq(tag_live, @lib.Name::from_string("live_tag"))
-          assert_eq(tag_defined, @lib.Name::from_string("defined_tag"))
+          @debug.assert_eq(tag_live, @lib.Name::from_string("live_tag"))
+          @debug.assert_eq(tag_defined, @lib.Name::from_string("defined_tag"))
         }
         _ => fail("expected rewritten tag names")
       }
@@ -1416,7 +1426,7 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
       )
   }
 
-  assert_eq(optimized.import_sec, None)
+  @debug.assert_eq(optimized.import_sec, None)
   match optimized.type_sec {
     Some(
       @lib.TypeSec(
@@ -1426,12 +1436,13 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
     _ => fail("expected dead imported-function type to be removed")
   }
   match optimized.func_sec {
-    Some(@lib.FuncSec([@lib.TypeIdx(type_idx)])) => assert_eq(type_idx, 0U)
+    Some(@lib.FuncSec([@lib.TypeIdx(type_idx)])) =>
+      @debug.assert_eq(type_idx, 0U)
     _ => fail("expected only the live defined function to remain")
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
-      assert_eq(body, [@lib.Instruction::nop()])
+      @debug.assert_eq(body, [@lib.Instruction::nop()])
     _ => fail("expected only the live defined function body to remain")
   }
   match optimized.export_sec {
@@ -1443,12 +1454,12 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
         ]
       )
     ) => {
-      assert_eq(main_idx, 0U)
-      assert_eq(table_idx, 0U)
+      @debug.assert_eq(main_idx, 0U)
+      @debug.assert_eq(table_idx, 0U)
     }
     _ => fail("expected rewritten exported function and table indices")
   }
-  assert_eq(optimized.start_sec, None)
+  @debug.assert_eq(optimized.start_sec, None)
   match optimized.elem_sec {
     Some(
       @lib.ElemSec(
@@ -1460,8 +1471,8 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
         ]
       )
     ) => {
-      assert_eq(table_idx, 0U)
-      assert_eq(elem_func_idx, 0U)
+      @debug.assert_eq(table_idx, 0U)
+      @debug.assert_eq(elem_func_idx, 0U)
     }
     _ => fail("expected rewritten active elem segment function index")
   }
@@ -1470,7 +1481,7 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
       let { func_names, .. } = sec
       match func_names {
         Some(@lib.NameMap([@lib.NameAssoc(0U, func_name)])) =>
-          assert_eq(func_name, @lib.Name::from_string("main_func"))
+          @debug.assert_eq(func_name, @lib.Name::from_string("main_func"))
         _ =>
           fail(
             "expected imported function names to be dropped and live name remapped",
@@ -1504,7 +1515,7 @@ test "remove-unused-module-elements drops no-op start sections while keeping oth
       )
   }
 
-  assert_eq(optimized.import_sec, None)
+  @debug.assert_eq(optimized.import_sec, None)
   match optimized.export_sec {
     Some(
       @lib.ExportSec(
@@ -1514,12 +1525,12 @@ test "remove-unused-module-elements drops no-op start sections while keeping oth
         ]
       )
     ) => {
-      assert_eq(main_idx, 0U)
-      assert_eq(table_idx, 0U)
+      @debug.assert_eq(main_idx, 0U)
+      @debug.assert_eq(table_idx, 0U)
     }
     _ => fail("expected rewritten exports for the live no-op start fixture")
   }
-  assert_eq(optimized.start_sec, None)
+  @debug.assert_eq(optimized.start_sec, None)
   match optimized.elem_sec {
     Some(
       @lib.ElemSec(
@@ -1531,8 +1542,8 @@ test "remove-unused-module-elements drops no-op start sections while keeping oth
         ]
       )
     ) => {
-      assert_eq(table_idx, 0U)
-      assert_eq(elem_func_idx, 0U)
+      @debug.assert_eq(table_idx, 0U)
+      @debug.assert_eq(elem_func_idx, 0U)
     }
     _ =>
       fail(
@@ -1541,7 +1552,7 @@ test "remove-unused-module-elements drops no-op start sections while keeping oth
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
-      assert_eq(body, [@lib.Instruction::nop()])
+      @debug.assert_eq(body, [@lib.Instruction::nop()])
     _ => fail("expected the live no-op start function body to remain")
   }
 
@@ -1575,10 +1586,10 @@ test "remove-unused-module-elements drops no-op start sections even when the kep
       )
   }
 
-  assert_eq(optimized.start_sec, None)
+  @debug.assert_eq(optimized.start_sec, None)
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(body))])) => {
-      assert_eq(
+      @debug.assert_eq(
         locals,
         @lib.Locals::new([
           @lib.LocalRun::new(1U, @lib.ValType::i64()),
@@ -1586,7 +1597,7 @@ test "remove-unused-module-elements drops no-op start sections even when the kep
           @lib.LocalRun::new(1U, @lib.ValType::f64()),
         ]),
       )
-      assert_eq(body, [@lib.Instruction::nop()])
+      @debug.assert_eq(body, [@lib.Instruction::nop()])
     }
     _ => fail("expected the live locals+nop start function body to remain")
   }
@@ -1616,7 +1627,8 @@ test "remove-unused-module-elements keeps empty-body start sections" {
   }
 
   match optimized.start_sec {
-    Some(@lib.StartSec(@lib.FuncIdx(start_idx))) => assert_eq(start_idx, 0U)
+    Some(@lib.StartSec(@lib.FuncIdx(start_idx))) =>
+      @debug.assert_eq(start_idx, 0U)
     _ => fail("expected empty-body start section to remain")
   }
   match @validate.validate_module(optimized) {
@@ -1643,9 +1655,9 @@ test "remove-unused-module-elements drops start-only no-op functions entirely" {
       )
   }
 
-  assert_eq(optimized.start_sec, None)
-  assert_eq(optimized.func_sec, None)
-  assert_eq(optimized.code_sec, None)
+  @debug.assert_eq(optimized.start_sec, None)
+  @debug.assert_eq(optimized.func_sec, None)
+  @debug.assert_eq(optimized.code_sec, None)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -1670,15 +1682,21 @@ test "remove-unused-module-elements drops empty active data on live memories" {
       )
   }
 
-  assert_eq(optimized.mem_sec, Some(@lib.MemSec::new([rume_test_mem_type()])))
+  @debug.assert_eq(
+    optimized.mem_sec,
+    Some(@lib.MemSec::new([rume_test_mem_type()])),
+  )
   match optimized.export_sec {
     Some(
       @lib.ExportSec([@lib.Export(_, @lib.MemExternIdx(@lib.MemIdx(mem_idx)))])
-    ) => assert_eq(mem_idx, 0U)
+    ) => @debug.assert_eq(mem_idx, 0U)
     _ => fail("expected rewritten memory export")
   }
-  assert_eq(optimized.data_sec, None)
-  assert_eq(optimized.data_cnt_sec, Some(@lib.DataCntSec::new(@lib.U32(0U))))
+  @debug.assert_eq(optimized.data_sec, None)
+  @debug.assert_eq(
+    optimized.data_cnt_sec,
+    Some(@lib.DataCntSec::new(@lib.U32(0U))),
+  )
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -1710,11 +1728,14 @@ test "remove-unused-module-elements drops empty active data on imported memories
   match optimized.export_sec {
     Some(
       @lib.ExportSec([@lib.Export(_, @lib.MemExternIdx(@lib.MemIdx(mem_idx)))])
-    ) => assert_eq(mem_idx, 0U)
+    ) => @debug.assert_eq(mem_idx, 0U)
     _ => fail("expected imported memory export")
   }
-  assert_eq(optimized.data_sec, None)
-  assert_eq(optimized.data_cnt_sec, Some(@lib.DataCntSec::new(@lib.U32(0U))))
+  @debug.assert_eq(optimized.data_sec, None)
+  @debug.assert_eq(
+    optimized.data_cnt_sec,
+    Some(@lib.DataCntSec::new(@lib.U32(0U))),
+  )
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -1740,14 +1761,14 @@ test "remove-unused-module-elements keeps nonempty active nullref elem segments 
   }
 
   match optimized.import_sec {
-    Some(@lib.ImportSec(imports)) => assert_eq(imports.length(), 1)
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 1)
     None =>
       fail(
         "expected imported table with nonempty active nullref elems to remain",
       )
   }
   match optimized.elem_sec {
-    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 2)
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 2)
     None => fail("expected nonempty active nullref elem segments to remain")
   }
   match @validate.validate_module(optimized) {
@@ -1785,8 +1806,8 @@ test "remove-unused-module-elements keeps nullfuncref active elem segments on li
         ]
       )
     ) => {
-      assert_eq(table_idx, 0U)
-      assert_eq(exprs.length(), 3)
+      @debug.assert_eq(table_idx, 0U)
+      @debug.assert_eq(exprs.length(), 3)
     }
     _ =>
       fail("expected active nullfuncref elem segment to remain on live table")

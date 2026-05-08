@@ -73,8 +73,8 @@ fn cl_test_local_subtyping_fixture() -> @lib.Module {
 test "coalesce-locals registers as an active module pass" {
   match pass_registry_lookup("coalesce-locals") {
     Some(entry) => {
-      assert_eq(entry.category, HotPassRegistryCategory::module_pass())
-      assert_eq(entry.descriptor, None)
+      @debug.assert_eq(entry.category, HotPassRegistryCategory::module_pass())
+      @debug.assert_eq(entry.descriptor, None)
     }
     None => fail("expected coalesce-locals registry entry")
   }
@@ -100,11 +100,23 @@ test "coalesce-locals merges non-overlapping same-typed body locals" {
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[2], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[5], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[6], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[5],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
 }
 
 ///|
@@ -127,14 +139,26 @@ test "coalesce-locals keeps overlapping different values separate" {
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[3], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
-  assert_eq(instrs[4], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[6], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[3],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[4],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
 }
 
 ///|
@@ -159,15 +183,30 @@ test "coalesce-locals keeps locals live after an early read when read again late
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[2], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[5], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
-  assert_eq(instrs[6], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[7], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[5],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[7],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
 }
 
 ///|
@@ -188,8 +227,8 @@ test "coalesce-locals removes redundant copies after index sharing" {
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(instrs, [
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(11)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
     @lib.Instruction::nop(),
@@ -213,8 +252,8 @@ test "coalesce-locals drops ineffective sets but preserves values" {
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(instrs, [
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(11)),
     @lib.Instruction::drop(),
     @lib.Instruction::i32_const(@lib.I32(7)),
@@ -257,10 +296,10 @@ test "coalesce-locals uses local-subtyping's exact slot before local-cse and sim
       sl_idx = idx
     }
   }
-  assert_eq(ls_idx, 0, msg=starts.to_string())
-  assert_eq(cl_idx, 1, msg=starts.to_string())
-  assert_eq(cse_idx, 2, msg=starts.to_string())
-  assert_eq(sl_idx, 3, msg=starts.to_string())
+  @debug.assert_eq(ls_idx, 0, msg=starts.to_string())
+  @debug.assert_eq(cl_idx, 1, msg=starts.to_string())
+  @debug.assert_eq(cse_idx, 2, msg=starts.to_string())
+  @debug.assert_eq(sl_idx, 3, msg=starts.to_string())
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -285,11 +324,26 @@ test "coalesce-locals narrows a base ref local to the child slot before merging"
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([cl_test_ref_child_nullable()]))
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[2], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[5], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[6], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([cl_test_ref_child_nullable()]),
+  )
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[5],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
 }
 
 ///|
@@ -337,15 +391,36 @@ test "coalesce-locals replays the reorder-locals sandwich and reorders the merge
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
-  assert_eq(instrs[3], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[4], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[6], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[8], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
-  assert_eq(instrs[11], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[12], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[3],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[4],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[8],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[11],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[12],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
 }

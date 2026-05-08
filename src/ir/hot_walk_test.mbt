@@ -122,41 +122,41 @@ test "root child subtree and worklist walkers keep stable order" {
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(roots, [root, extra_root])
+  @debug.assert_eq(roots, [root, extra_root])
 
   let children = match
     hot_for_each_child(func, root, [], hot_walk_collect_child) {
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(children, [first, drop_second])
+  @debug.assert_eq(children, [first, drop_second])
 
   let preorder = match
     hot_walk_subtree_preorder(func, root, [], hot_walk_collect_node) {
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(preorder, [root, first, drop_second, second])
+  @debug.assert_eq(preorder, [root, first, drop_second, second])
 
   let postorder = match
     hot_walk_subtree_postorder(func, root, [], hot_walk_collect_node) {
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(postorder, [first, second, drop_second, root])
+  @debug.assert_eq(postorder, [first, second, drop_second, root])
 
   let region = match hot_walk_region(func, root, [], hot_walk_collect_child) {
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(region, [first, drop_second])
+  @debug.assert_eq(region, [first, drop_second])
 
   let worklist = match
     hot_worklist_walk(func, [root, extra_root], [], hot_walk_collect_node) {
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(worklist, [root, first, drop_second, second, extra_root])
+  @debug.assert_eq(worklist, [root, first, drop_second, second, extra_root])
 }
 
 ///|
@@ -180,14 +180,14 @@ test "skip and stop semantics short circuit shared traversal helpers" {
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(skipped.seen, [root, first, drop_second])
+  @debug.assert_eq(skipped.seen, [root, first, drop_second])
 
   let stopped_roots = match
     hot_for_each_root(func, [], hot_walk_stop_after_first_root) {
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(stopped_roots, [root])
+  @debug.assert_eq(stopped_roots, [root])
 }
 
 ///|
@@ -215,8 +215,8 @@ test "control region and rewrite walkers expose slots and optional child edits" 
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(control_regions.slots, [1, 2])
-  assert_eq(control_regions.region_ids.length(), 2)
+  @debug.assert_eq(control_regions.slots, [1, 2])
+  @debug.assert_eq(control_regions.region_ids.length(), 2)
 
   let rewritten = match
     hot_rewrite_children_by_slot(
@@ -228,7 +228,7 @@ test "control region and rewrite walkers expose slots and optional child edits" 
     Ok(v) => v
     Err(e) => fail(e)
   }
-  assert_eq(rewritten.touched_slots, [0, 1, 2])
-  assert_eq(hot_child_get(func, if_id, 0), replacement_condition)
+  @debug.assert_eq(rewritten.touched_slots, [0, 1, 2])
+  @debug.assert_eq(hot_child_get(func, if_id, 0), replacement_condition)
   assert_false(hot_node_is_live(func, hot_child_get(func, if_id, 2)))
 }

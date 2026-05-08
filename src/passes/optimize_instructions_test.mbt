@@ -4,13 +4,13 @@ test "optimize-instructions keeps i32.eqz on constant zero" {
     "(module (func (result i32) i32.const 0 i32.eqz))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_eqz()),
   )
-  assert_eq(@ir.hot_child_count(func, root), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 1)
   let operand = @ir.hot_child_get(func, root, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, operand).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
@@ -106,13 +106,13 @@ test "optimize-instructions keeps shared eqz constant children live" {
   }
 
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_eqz()),
   )
-  assert_eq(@ir.hot_child_get(func, root, 0), shared)
+  @debug.assert_eq(@ir.hot_child_get(func, root, 0), shared)
   assert_true(@ir.hot_node_is_live(func, shared))
-  assert_eq(@ir.hot_child_get(func, drop_, 0), shared)
+  @debug.assert_eq(@ir.hot_child_get(func, drop_, 0), shared)
 }
 
 ///|
@@ -121,13 +121,13 @@ test "optimize-instructions keeps i64.eqz on non-zero constants" {
     "(module (func (result i32) i64.const 9 i64.eqz))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i64_eqz()),
   )
-  assert_eq(@ir.hot_child_count(func, root), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 1)
   let operand = @ir.hot_child_get(func, root, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, operand).imm0),
     @ir.HotConstPayload::i64_const(@lib.I64(9L)),
   )
@@ -139,7 +139,7 @@ test "optimize-instructions rewrites eqz on sub into eq" {
     "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.sub i32.eqz))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_eq()),
   )
@@ -161,12 +161,12 @@ test "optimize-instructions rewrites eqz on add const into eq negated const" {
     "(module (func (param i32) (result i32) local.get 0 i32.const 5 i32.add i32.eqz))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_eq()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(-5)),
   )
@@ -210,11 +210,11 @@ test "optimize-instructions canonicalizes i32.eq zero into eqz" {
     "(module (func (param i32) (result i32) local.get 0 i32.const 0 i32.eq))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_eqz()),
   )
-  assert_eq(@ir.hot_child_count(func, root), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 1)
 }
 
 ///|
@@ -223,11 +223,11 @@ test "optimize-instructions canonicalizes i64.eq zero into eqz" {
     "(module (func (param i64) (result i32) local.get 0 i64.const 0 i64.eq))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i64_eqz()),
   )
-  assert_eq(@ir.hot_child_count(func, root), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 1)
 }
 
 ///|
@@ -236,11 +236,11 @@ test "optimize-instructions keeps i32.rem zero compares in eq form" {
     "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.rem_s i32.const 0 i32.eq))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_eq()),
   )
-  assert_eq(@ir.hot_child_count(func, root), 2)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
 }
 
 ///|
@@ -249,12 +249,12 @@ test "optimize-instructions rewrites add with a negative constant into sub" {
     "(module (func (param i32) (result i32) local.get 0 i32.const -5 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_sub()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(5)),
   )
@@ -266,12 +266,12 @@ test "optimize-instructions preserves signed-leb-friendly negative adds" {
     "(module (func (param i32) (result i32) local.get 0 i32.const -64 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_add()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(-64)),
   )
@@ -283,12 +283,12 @@ test "optimize-instructions preserves positive add immediates for parity" {
     "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_add()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(64)),
   )
@@ -300,7 +300,7 @@ test "optimize-instructions keeps canonicalized positive adds in add form" {
     "(module (func (param i32) (result i32) i32.const 64 local.get 0 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_add()),
   )
@@ -310,7 +310,7 @@ test "optimize-instructions keeps canonicalized positive adds in add form" {
     @ir.HotOp::LocalGet => ()
     _ => fail("expected chained rewrite to leave the non-constant on the lhs")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(64)),
   )
@@ -322,7 +322,7 @@ test "optimize-instructions rewrites add with trailing zero-sub into sub" {
     "(module (func (param i32 i32) (result i32) local.get 0 i32.const 0 local.get 1 i32.sub i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_sub()),
   )
@@ -344,7 +344,7 @@ test "optimize-instructions rewrites leading zero-sub add into sub" {
     "(module (func (param i32 i32) (result i32) i32.const 0 local.get 0 i32.sub local.get 1 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_sub()),
   )
@@ -366,7 +366,7 @@ test "optimize-instructions removes neutral add and sub zero" {
     "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.add i32.const 0 i32.add))",
   )
   let add_root = @ir.hot_root_get(add_func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(add_func, add_root),
     Some(@lib.Instruction::i32_add()),
   )
@@ -376,7 +376,7 @@ test "optimize-instructions removes neutral add and sub zero" {
     @ir.HotOp::LocalGet => ()
     _ => fail("expected neutral i32.add rewrite to expose the original lhs")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(add_func, @ir.hot_node_get(add_func, add_rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(8)),
   )
@@ -399,11 +399,11 @@ test "optimize-instructions canonicalizes if eq zero into eqz without else" {
   )
   let if_ = @ir.hot_root_get(func, 0)
   let cond = @ir.hot_child_get(func, if_, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, cond),
     Some(@lib.Instruction::i32_eqz()),
   )
-  assert_eq(@ir.hot_child_count(func, cond), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, cond), 1)
   match @ir.hot_node_get(func, @ir.hot_child_get(func, cond, 0)).op {
     @ir.HotOp::LocalGet => ()
     _ => fail("expected if-condition eqz operand to remain the original value")
@@ -465,7 +465,7 @@ test "optimize-instructions collapses duplicate branch ifs in then regions after
   }
 
   let then_region = @ir.hot_region_then_ref(func, outer_if)
-  assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_region), 1)
   let then_root = @ir.hot_region_get(func, then_region, 0)
   match @ir.hot_node_get(func, then_root).op {
     @ir.HotOp::Br => ()
@@ -530,7 +530,7 @@ test "optimize-instructions collapses duplicate branch ifs in single-root then r
   }
 
   let then_region = @ir.hot_region_then_ref(func, outer_if)
-  assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_region), 1)
   let then_root = @ir.hot_region_get(func, then_region, 0)
   match @ir.hot_node_get(func, then_root).op {
     @ir.HotOp::Br => ()
@@ -587,7 +587,7 @@ test "optimize-instructions replaces dead block fallthroughs after escaping ifs 
   }
 
   let body = @ir.hot_region_body_ref(func, outer_block)
-  assert_eq(@ir.hot_region_root_count(func, body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
   let tail = @ir.hot_region_get(func, body, 1)
   match @ir.hot_node_get(func, tail).op {
     @ir.HotOp::Unreachable => ()
@@ -654,7 +654,7 @@ test "optimize-instructions replaces dead block fallback branches after escaping
   }
 
   let body = @ir.hot_region_body_ref(func, carrier)
-  assert_eq(@ir.hot_region_root_count(func, body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
   let tail = @ir.hot_region_get(func, body, 1)
   match @ir.hot_node_get(func, tail).op {
     @ir.HotOp::Unreachable => ()
@@ -725,7 +725,7 @@ test "optimize-instructions keeps outer fallthrough when inner branches only exi
   }
 
   let outer_body = @ir.hot_region_body_ref(func, outer_block)
-  assert_eq(@ir.hot_region_root_count(func, outer_body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, outer_body), 2)
   let outer_tail = @ir.hot_region_get(func, outer_body, 1)
   match @ir.hot_node_get(func, outer_tail).op {
     @ir.HotOp::Const => ()
@@ -792,16 +792,16 @@ test "optimize-instructions preserves mixed-label fallback branches after non-fa
   }
 
   let middle_body = @ir.hot_region_body_ref(func, middle)
-  assert_eq(@ir.hot_region_root_count(func, middle_body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, middle_body), 2)
   let middle_tail = @ir.hot_region_get(func, middle_body, 1)
   match @ir.hot_node_get(func, middle_tail).op {
     @ir.HotOp::Br => ()
     _ =>
       fail("expected mixed-label fallback branch to remain a value-carrying br")
   }
-  assert_eq(@ir.hot_node_get(func, middle_tail).imm0, carrier_label)
+  @debug.assert_eq(@ir.hot_node_get(func, middle_tail).imm0, carrier_label)
   let middle_tail_value = @ir.hot_child_get(func, middle_tail, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, middle_tail_value).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
@@ -858,15 +858,15 @@ test "optimize-instructions preserves outer fallback branches after nested retur
   }
 
   let carrier_body = @ir.hot_region_body_ref(func, carrier)
-  assert_eq(@ir.hot_region_root_count(func, carrier_body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, carrier_body), 2)
   let carrier_tail = @ir.hot_region_get(func, carrier_body, 1)
   match @ir.hot_node_get(func, carrier_tail).op {
     @ir.HotOp::Br => ()
     _ => fail("expected outer fallback branch to remain a value-carrying br")
   }
-  assert_eq(@ir.hot_node_get(func, carrier_tail).imm0, carrier_label)
+  @debug.assert_eq(@ir.hot_node_get(func, carrier_tail).imm0, carrier_label)
   let carrier_tail_value = @ir.hot_child_get(func, carrier_tail, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, carrier_tail_value).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
@@ -924,16 +924,16 @@ test "optimize-instructions preserves value fallback branches after return-or-in
   }
 
   let middle_body = @ir.hot_region_body_ref(func, middle)
-  assert_eq(@ir.hot_region_root_count(func, middle_body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, middle_body), 2)
   let middle_tail = @ir.hot_region_get(func, middle_body, 1)
   match @ir.hot_node_get(func, middle_tail).op {
     @ir.HotOp::Br => ()
     _ =>
       fail("expected inner-label fallback branch to remain a value-carrying br")
   }
-  assert_eq(@ir.hot_node_get(func, middle_tail).imm0, carrier_label)
+  @debug.assert_eq(@ir.hot_node_get(func, middle_tail).imm0, carrier_label)
   let middle_tail_value = @ir.hot_child_get(func, middle_tail, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, middle_tail_value).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
@@ -996,7 +996,7 @@ test "optimize-instructions preserves zero sentinels under dropped value carrier
   }
 
   let outer_else = @ir.hot_region_else_ref(func, outer_if).unwrap()
-  assert_eq(@ir.hot_region_root_count(func, outer_else), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, outer_else), 2)
   let outer_else_tail = @ir.hot_region_get(func, outer_else, 1)
   match @ir.hot_node_get(func, outer_else_tail).op {
     @ir.HotOp::Drop => ()
@@ -1007,7 +1007,7 @@ test "optimize-instructions preserves zero sentinels under dropped value carrier
   }
 
   let carrier_body = @ir.hot_region_body_ref(func, carrier)
-  assert_eq(@ir.hot_region_root_count(func, carrier_body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, carrier_body), 2)
   let carrier_tail = @ir.hot_region_get(func, carrier_body, 1)
   match @ir.hot_node_get(func, carrier_tail).op {
     @ir.HotOp::Const => ()
@@ -1079,7 +1079,7 @@ test "optimize-instructions does not add unreachable tails to escaping if arms" 
   }
 
   let then_region = @ir.hot_region_then_ref(func, outer_if)
-  assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_region), 1)
   let tail = @ir.hot_region_get(func, then_region, 0)
   match @ir.hot_node_get(func, tail).op {
     @ir.HotOp::If => ()
@@ -1116,7 +1116,7 @@ test "optimize-instructions inverts nested boolean if conditions with live else 
     @ir.HotOp::LocalGet => ()
     _ => fail("expected nested then arm to negate i32.eqz into the raw operand")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, inner_else_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
@@ -1131,7 +1131,7 @@ test "optimize-instructions inverts nested boolean if conditions with live else 
     @ir.HotOp::If => ()
     _ => fail("expected outer then arm to become the flipped nested branch")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, outer_else_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
@@ -1144,7 +1144,7 @@ test "optimize-instructions wraps then-only nested boolean if conditions in eqz"
   )
   let outer_if = @ir.hot_root_get(func, 0)
   let outer_cond = @ir.hot_child_get(func, outer_if, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, outer_cond),
     Some(@lib.Instruction::i32_eqz()),
   )
@@ -1164,7 +1164,7 @@ test "optimize-instructions wraps then-only nested boolean if conditions in eqz"
     @ir.HotOp::LocalGet => ()
     _ => fail("expected nested then arm to negate i32.eqz into the raw operand")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, inner_else_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
@@ -1177,7 +1177,7 @@ test "optimize-instructions recursively negates then-only nested boolean if cond
   )
   let outer_if = @ir.hot_root_get(func, 0)
   let outer_cond = @ir.hot_child_get(func, outer_if, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, outer_cond),
     Some(@lib.Instruction::i32_eqz()),
   )
@@ -1200,7 +1200,7 @@ test "optimize-instructions recursively negates then-only nested boolean if cond
         "expected recursive negation to keep the nested boolean tree in the then arm",
       )
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, top_else_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
@@ -1210,7 +1210,7 @@ test "optimize-instructions recursively negates then-only nested boolean if cond
     Some(region) => region
     None => fail("expected inner nested if to keep an else region")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(
       func,
       @ir.hot_node_get(func, @ir.hot_region_get(func, inner_then, 0)).imm0,
@@ -1305,7 +1305,7 @@ test "optimize-instructions truncates dead suffixes after direct returns" {
   }
 
   let body = @ir.hot_region_body_ref(func, block)
-  assert_eq(@ir.hot_region_root_count(func, body), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 1)
   match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 0)).op {
     @ir.HotOp::Return => ()
     _ => fail("expected dead roots after return to be truncated")
@@ -1328,7 +1328,7 @@ test "optimize-instructions keeps unreachable sentinels after looped escaping if
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("(loop (Void)"), msg=pretty)
-  assert_eq(
+  @debug.assert_eq(
     optimize_instructions_test_count_substring(pretty, "unreachable"),
     4,
     msg=pretty,
@@ -1353,7 +1353,7 @@ test "optimize-instructions canonicalizes commutative constants onto the rhs" {
     @ir.HotOp::Const => ()
     _ => fail("expected commutative constant to move into the rhs")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, rhs_node.imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(7)),
   )
@@ -1365,12 +1365,12 @@ test "optimize-instructions rewrites i32.mul by a power of two into shl" {
     "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.mul))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_shl()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(3)),
   )
@@ -1382,7 +1382,7 @@ test "optimize-instructions chains const canonicalization into i64.mul shl rewri
     "(module (func (param i64) (result i64) i64.const 4 local.get 0 i64.mul))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i64_shl()),
   )
@@ -1392,7 +1392,7 @@ test "optimize-instructions chains const canonicalization into i64.mul shl rewri
     @ir.HotOp::LocalGet => ()
     _ => fail("expected non-constant operand to stay on the lhs after rewrite")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i64_const(@lib.I64(2L)),
   )
@@ -1408,7 +1408,7 @@ test "optimize-instructions folds exact i32 const adds" {
     @ir.HotOp::Const => ()
     _ => fail("expected exact const add to fold into a const node")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(249399)),
   )
@@ -1425,7 +1425,7 @@ test "optimize-instructions folds exact i32 const adds under and" {
     @ir.HotOp::Const => ()
     _ => fail("expected const-add child to fold before the enclosing and")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, lhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(249399)),
   )
@@ -1457,8 +1457,8 @@ test "optimize-instructions keeps tlsf-style local plus shifted-local ordering c
     @ir.HotOp::LocalGet => ()
     _ => fail("expected tlsf-style plain local term on the lhs")
   }
-  assert_eq(@ir.hot_node_get(func, inner_lhs).imm0, 3)
-  assert_eq(
+  @debug.assert_eq(@ir.hot_node_get(func, inner_lhs).imm0, 3)
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, inner_rhs),
     Some(@lib.Instruction::i32_shl()),
   )
@@ -1470,13 +1470,13 @@ test "optimize-instructions canonicalizes commutative local gets after independe
     "(module (func (param i32 i32) (result i32) (local i32) local.get 0 local.get 1 local.tee 2 i32.const 1 i32.shl i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_add()),
   )
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, lhs),
     Some(@lib.Instruction::i32_shl()),
   )
@@ -1486,7 +1486,7 @@ test "optimize-instructions canonicalizes commutative local gets after independe
     _ =>
       fail("expected independent local.get to move to the canonical rhs slot")
   }
-  assert_eq(rhs_node.imm0, 0)
+  @debug.assert_eq(rhs_node.imm0, 0)
 }
 
 ///|
@@ -1502,8 +1502,8 @@ test "optimize-instructions canonicalizes commutative rhs local gets by node kin
     _ =>
       fail("expected rhs local.get to move into the lhs after node-kind sort")
   }
-  assert_eq(@ir.hot_node_get(func, lhs).imm0, 0)
-  assert_eq(
+  @debug.assert_eq(@ir.hot_node_get(func, lhs).imm0, 0)
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, rhs),
     Some(@lib.Instruction::i32_shl()),
   )
@@ -1560,7 +1560,7 @@ test "optimize-instructions canonicalizes commutative local gets across shared p
 
   let lhs = @ir.hot_child_get(func, add, 0)
   let rhs = @ir.hot_child_get(func, add, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, lhs),
     Some(@lib.Instruction::i32_shl()),
   )
@@ -1585,7 +1585,7 @@ test "optimize-instructions canonicalizes commutative rhs local gets ahead of lo
     @ir.HotOp::LocalGet => ()
     _ => fail("expected rhs local.get to move ahead of local.tee")
   }
-  assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
   match @ir.hot_node_get(func, rhs).op {
     @ir.HotOp::LocalTee => ()
     _ => fail("expected local.tee subtree to move behind the local.get")
@@ -1610,8 +1610,8 @@ test "optimize-instructions canonicalizes commutative local get pairs by index" 
     _ =>
       fail("expected rhs to stay a local.get after local-pair canonicalization")
   }
-  assert_eq(@ir.hot_node_get(func, lhs).imm0, 1)
-  assert_eq(@ir.hot_node_get(func, rhs).imm0, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, lhs).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 2)
 }
 
 ///|
@@ -1620,7 +1620,7 @@ test "optimize-instructions keeps relational local gets against calls when relat
     "(module (func (param i32 i32 i32) (result i32) local.get 2 local.get 0 local.get 1 local.get 2 call 0 i32.lt_s))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_lt_s()),
   )
@@ -1634,7 +1634,7 @@ test "optimize-instructions keeps relational local gets against calls when relat
     @ir.HotOp::Call => ()
     _ => fail("expected rhs call to remain in place")
   }
-  assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
 }
 
 ///|
@@ -1673,7 +1673,7 @@ test "optimize-instructions flips if i32.eqz conditions with live else arms" {
     @ir.HotOp::LocalGet => ()
     _ => fail("expected else arm to flip to the original then payload")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, then_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(7)),
   )
@@ -1688,7 +1688,7 @@ test "optimize-instructions keeps i64.eq zero if conditions in compare form" {
   let then_region = @ir.hot_region_then_ref(func, outer_if)
   let inner_if = @ir.hot_region_get(func, then_region, 0)
   let inner_cond = @ir.hot_child_get(func, inner_if, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, inner_cond),
     Some(@lib.Instruction::i64_eq()),
   )
@@ -1701,7 +1701,7 @@ test "optimize-instructions wraps boolean value ifs in eqz at unique child uses"
   )
   let set_ = @ir.hot_root_get(func, 0)
   let wrapped = @ir.hot_child_get(func, set_, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, wrapped),
     Some(@lib.Instruction::i32_eqz()),
   )
@@ -1721,8 +1721,8 @@ test "optimize-instructions wraps boolean value ifs in eqz at unique child uses"
     @ir.HotOp::LocalGet => ()
     _ => fail("expected wrapped value if then arm to expose the local")
   }
-  assert_eq(@ir.hot_node_get(func, then_root).imm0, 1)
-  assert_eq(
+  @debug.assert_eq(@ir.hot_node_get(func, then_root).imm0, 1)
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, else_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
@@ -1746,11 +1746,11 @@ test "optimize-instructions keeps boolean value ifs unwrapped when they feed if 
   }
   let then_root = @ir.hot_region_get(func, outer_then, 0)
   let else_root = @ir.hot_region_get(func, outer_else, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, then_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(7)),
   )
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, else_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(8)),
   )
@@ -1816,7 +1816,7 @@ test "optimize-instructions keeps zero sentinels after returning ifs in result b
   )
   let block = @ir.hot_root_get(func, 0)
   let body = @ir.hot_region_body_ref(func, block)
-  assert_eq(@ir.hot_region_root_count(func, body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
   let tail = @ir.hot_region_get(func, body, 1)
   match @ir.hot_node_get(func, tail).op {
     @ir.HotOp::Const => ()
@@ -1836,7 +1836,7 @@ test "optimize-instructions keeps zero sentinels after wrapped returning ifs in 
   let outer_body = @ir.hot_region_body_ref(func, outer)
   let inner = @ir.hot_region_get(func, outer_body, 0)
   let inner_body = @ir.hot_region_body_ref(func, inner)
-  assert_eq(@ir.hot_region_root_count(func, inner_body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, inner_body), 2)
   let tail = @ir.hot_region_get(func, inner_body, 1)
   match @ir.hot_node_get(func, tail).op {
     @ir.HotOp::Const => ()
@@ -1854,7 +1854,7 @@ test "optimize-instructions keeps zero sentinels after returning ifs with dead a
   )
   let block = @ir.hot_root_get(func, 0)
   let body = @ir.hot_region_body_ref(func, block)
-  assert_eq(@ir.hot_region_root_count(func, body), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
   let tail = @ir.hot_region_get(func, body, 1)
   match @ir.hot_node_get(func, tail).op {
     @ir.HotOp::Const => ()
@@ -1900,7 +1900,7 @@ test "optimize-instructions does not reorder across the same local" {
         "expected same-local read to stay ahead of a conflicting tee subtree",
       )
   }
-  assert_eq(lhs_node.imm0, 0)
+  @debug.assert_eq(lhs_node.imm0, 0)
 }
 
 ///|
@@ -1920,7 +1920,7 @@ test "optimize-instructions canonicalizes commutative local gets after trapping 
     @ir.HotOp::LocalGet => ()
     _ => fail("expected pure local.get to move behind a trapping load subtree")
   }
-  assert_eq(@ir.hot_node_get(func, rhs).imm0, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 0)
 }
 
 ///|
@@ -1929,7 +1929,7 @@ test "optimize-instructions removes redundant shift masks" {
     "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.const 31 i32.and i32.shl))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_shl()),
   )
@@ -1958,7 +1958,7 @@ test "optimize-instructions canonicalizes non-negative signed const ops to unsig
     "(module (func (result i32) i32.const 84 i32.const 3 i32.div_s))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_div_u()),
   )
@@ -1967,7 +1967,7 @@ test "optimize-instructions canonicalizes non-negative signed const ops to unsig
     "(module (func (result i32) i32.const 11 i32.const 3 i32.lt_s))",
   )
   let compare_root = @ir.hot_root_get(compare_func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(compare_func, compare_root),
     Some(@lib.Instruction::i32_lt_u()),
   )
@@ -1979,7 +1979,7 @@ test "optimize-instructions keeps signed ops with negative constants signed" {
     "(module (func (result i32) i32.const -84 i32.const 3 i32.div_s))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_div_s()),
   )
@@ -1996,7 +1996,7 @@ test "optimize-instructions folds unsigned ge zero on pure values" {
     @ir.HotOp::Const => ()
     _ => fail("expected unsigned ge zero to fold to a const")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, root_node.imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
@@ -2008,7 +2008,7 @@ test "optimize-instructions canonicalizes relational constants onto the rhs" {
     "(module (func (param i32) (result i32) i32.const 9 local.get 0 i32.gt_u))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_lt_u()),
   )
@@ -2018,7 +2018,7 @@ test "optimize-instructions canonicalizes relational constants onto the rhs" {
     @ir.HotOp::LocalGet => ()
     _ => fail("expected non-constant compare operand on the lhs")
   }
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(9)),
   )
@@ -2030,12 +2030,12 @@ test "optimize-instructions canonicalizes unsigned compare-to-one" {
     "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.lt_u))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_eq()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
@@ -2047,12 +2047,12 @@ test "optimize-instructions canonicalizes signed compare to zero" {
     "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.ge_s))",
   )
   let root = @ir.hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
     Some(@lib.Instruction::i32_gt_s()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
@@ -2087,7 +2087,7 @@ test "optimize-instructions does not reorder relational operands across shared t
       fail("expected optimize-instructions shared-tee success, got \{err}")
   }
 
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, compare),
     Some(@lib.Instruction::i32_lt_s()),
   )
@@ -2097,11 +2097,11 @@ test "optimize-instructions does not reorder relational operands across shared t
   }
   let lowered = @ir.hot_lower_func(func)
   let @lib.Func(locals, body) = lowered
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
@@ -2155,7 +2155,7 @@ test "optimize-instructions does not allocate scratch locals for shared relation
 
   let lowered = @ir.hot_lower_func(func)
   let @lib.Func(locals, _) = lowered
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
@@ -2194,7 +2194,7 @@ test "optimize-instructions does not allocate scratch locals for shared tee payl
 
   let lowered = @ir.hot_lower_func(func)
   let @lib.Func(locals, _) = lowered
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
@@ -2238,7 +2238,7 @@ test "optimize-instructions does not reorder relational local gets across contro
       fail("expected optimize-instructions control-tee success, got \{err}")
   }
 
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, compare),
     Some(@lib.Instruction::i32_lt_s()),
   )
@@ -2274,7 +2274,7 @@ test "optimize-instructions does not reorder relational local gets across loop-c
       fail("expected optimize-instructions loop-carried success, got \{err}")
   }
 
-  assert_eq(
+  @debug.assert_eq(
     @ir.hot_node_exact_instr(func, compare),
     Some(@lib.Instruction::i32_lt_s()),
   )
@@ -2309,5 +2309,5 @@ test "optimize-instructions visits shared dags once" {
   }
 
   let counters = perf_counters(perf)
-  assert_eq(counters.traversal_visits, node_count)
+  @debug.assert_eq(counters.traversal_visits, node_count)
 }

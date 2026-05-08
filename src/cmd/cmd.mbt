@@ -668,13 +668,13 @@ test "cmd_path_has_ascii_suffix_ignore_case is case-insensitive for ascii extens
 
 ///|
 test "cmd dump and extract target parsers use exact textual dispatch" {
-  assert_eq(cmd_dump_pass_target("dump=out.wasm"), Some("out.wasm"))
-  assert_eq(cmd_dump_pass_target("x-dump=out.wasm"), None)
-  assert_eq(
+  @debug.assert_eq(cmd_dump_pass_target("dump=out.wasm"), Some("out.wasm"))
+  @debug.assert_eq(cmd_dump_pass_target("x-dump=out.wasm"), None)
+  @debug.assert_eq(
     cmd_extract_functions_pass_target("extract-functions=1,2,3"),
     Some("1,2,3"),
   )
-  assert_eq(cmd_extract_functions_pass_target("extract-functions"), None)
+  @debug.assert_eq(cmd_extract_functions_pass_target("extract-functions"), None)
 }
 
 ///|
@@ -721,20 +721,23 @@ fn parse_olevel_text(raw : String) -> CliOptimizationFlag? {
 
 ///|
 test "parse_olevel_text parses direct raw O-level forms" {
-  assert_eq(parse_olevel_text("O"), Some(CliOptimizationFlag::olevel(2, false)))
-  assert_eq(
+  @debug.assert_eq(
+    parse_olevel_text("O"),
+    Some(CliOptimizationFlag::olevel(2, false)),
+  )
+  @debug.assert_eq(
     parse_olevel_text("-O"),
     Some(CliOptimizationFlag::olevel(2, false)),
   )
-  assert_eq(
+  @debug.assert_eq(
     parse_olevel_text("  O3z  "),
     Some(CliOptimizationFlag::olevel(3, true)),
   )
-  assert_eq(
+  @debug.assert_eq(
     parse_olevel_text("-Oz"),
     Some(CliOptimizationFlag::olevel(2, true)),
   )
-  assert_eq(
+  @debug.assert_eq(
     parse_olevel_text("-O10"),
     Some(CliOptimizationFlag::olevel(10, false)),
   )
@@ -742,11 +745,11 @@ test "parse_olevel_text parses direct raw O-level forms" {
 
 ///|
 test "parse_olevel_text rejects invalid raw O-level forms" {
-  assert_eq(parse_olevel_text(""), None)
-  assert_eq(parse_olevel_text("optimize"), None)
-  assert_eq(parse_olevel_text("o3"), None)
-  assert_eq(parse_olevel_text("-O3zz"), None)
-  assert_eq(parse_olevel_text("-O3Z"), None)
+  @debug.assert_eq(parse_olevel_text(""), None)
+  @debug.assert_eq(parse_olevel_text("optimize"), None)
+  @debug.assert_eq(parse_olevel_text("o3"), None)
+  @debug.assert_eq(parse_olevel_text("-O3zz"), None)
+  @debug.assert_eq(parse_olevel_text("-O3Z"), None)
 }
 
 ///|
@@ -762,9 +765,9 @@ test "normalize_parse_result_paths caches normalized cli config and output paths
     ],
   )
   let normalized = normalize_parse_result_paths(parsed)
-  assert_eq(normalized.config_path, Some("starshine.json"))
-  assert_eq(normalized.input_globs, ["src/**/*.wasm"])
-  assert_eq(normalized.output_targets, [
+  @debug.assert_eq(normalized.config_path, Some("starshine.json"))
+  @debug.assert_eq(normalized.input_globs, ["src/**/*.wasm"])
+  @debug.assert_eq(normalized.output_targets, [
     CliOutputTarget::file("out/main.wasm"),
     CliOutputTarget::dir("build"),
   ])
@@ -772,32 +775,32 @@ test "normalize_parse_result_paths caches normalized cli config and output paths
 
 ///|
 test "normalized output path helpers reuse normalized startup paths" {
-  assert_eq(
+  @debug.assert_eq(
     output_path_for_normalized_default_target(
       "src/main/module.wasm",
       CliInputFormat::wasm(),
     ),
     "src/main/module.wasm",
   )
-  assert_eq(
+  @debug.assert_eq(
     output_path_for_normalized_default_target(
       "src/main/module.wat",
       CliInputFormat::wat(),
     ),
     "src/main/module.wasm",
   )
-  assert_eq(
+  @debug.assert_eq(
     output_basename_for_normalized_input(
       "src/main/module.wat",
       CliInputFormat::wat(),
     ),
     "module.wasm",
   )
-  assert_eq(
+  @debug.assert_eq(
     join_normalized_cli_path("dist/out", "module.wasm"),
     "dist/out/module.wasm",
   )
-  assert_eq(join_normalized_cli_path(".", "module.wasm"), "module.wasm")
+  @debug.assert_eq(join_normalized_cli_path(".", "module.wasm"), "module.wasm")
 }
 
 ///|
@@ -3122,9 +3125,9 @@ test "limit_pass_flags_by_max_passes keeps all flags when max is absent" {
     ["optimize", "vacuum"],
     None,
   )
-  assert_eq(limited.length(), 2)
-  assert_eq(limited[0], "optimize")
-  assert_eq(limited[1], "vacuum")
+  @debug.assert_eq(limited.length(), 2)
+  @debug.assert_eq(limited[0], "optimize")
+  @debug.assert_eq(limited[1], "vacuum")
   assert_false(truncated)
 }
 
@@ -3134,7 +3137,7 @@ test "limit_pass_flags_by_max_passes supports zero as decode-encode baseline" {
     ["optimize", "vacuum"],
     Some(0),
   )
-  assert_eq(limited.length(), 0)
+  @debug.assert_eq(limited.length(), 0)
   assert_true(truncated)
 }
 
@@ -3144,9 +3147,9 @@ test "limit_pass_flags_by_max_passes truncates to requested prefix length" {
     ["a", "b", "c"],
     Some(2),
   )
-  assert_eq(limited.length(), 2)
-  assert_eq(limited[0], "a")
-  assert_eq(limited[1], "b")
+  @debug.assert_eq(limited.length(), 2)
+  @debug.assert_eq(limited[0], "a")
+  @debug.assert_eq(limited[1], "b")
   assert_true(truncated)
 }
 

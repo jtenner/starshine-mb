@@ -36,18 +36,18 @@ test "dominators compute diamond idoms and frontiers" {
   let (cfg, if_header, then_block, else_block, continuation, exit) = dom_test_diamond_fixture()
   let dom = dom_build(cfg)
 
-  assert_eq(dom_idom(dom, cfg_entry_block(cfg)), None)
-  assert_eq(dom_idom(dom, if_header), Some(cfg_entry_block(cfg)))
-  assert_eq(dom_idom(dom, then_block), Some(if_header))
-  assert_eq(dom_idom(dom, else_block), Some(if_header))
-  assert_eq(dom_idom(dom, continuation), Some(if_header))
-  assert_eq(dom_idom(dom, exit), Some(continuation))
+  @debug.assert_eq(dom_idom(dom, cfg_entry_block(cfg)), None)
+  @debug.assert_eq(dom_idom(dom, if_header), Some(cfg_entry_block(cfg)))
+  @debug.assert_eq(dom_idom(dom, then_block), Some(if_header))
+  @debug.assert_eq(dom_idom(dom, else_block), Some(if_header))
+  @debug.assert_eq(dom_idom(dom, continuation), Some(if_header))
+  @debug.assert_eq(dom_idom(dom, exit), Some(continuation))
   assert_true(dom_dominates(dom, if_header, continuation))
   assert_true(dom_strictly_dominates(dom, if_header, then_block))
   assert_false(dom_strictly_dominates(dom, then_block, then_block))
-  assert_eq(dom_frontier(dom, then_block), [continuation])
-  assert_eq(dom_frontier(dom, else_block), [continuation])
-  assert_eq(dom_frontier(dom, if_header), [])
+  @debug.assert_eq(dom_frontier(dom, then_block), [continuation])
+  @debug.assert_eq(dom_frontier(dom, else_block), [continuation])
+  @debug.assert_eq(dom_frontier(dom, if_header), [])
 }
 
 ///|
@@ -84,12 +84,12 @@ test "dominators compute loop header self-frontiers from backedges" {
   let continuation = cfg_block_for_region_root(cfg, body_region, 1).unwrap()
   let dom = dom_build(cfg)
 
-  assert_eq(dom_idom(dom, loop_header), Some(root_block))
-  assert_eq(dom_idom(dom, loop_body), Some(loop_header))
-  assert_eq(dom_idom(dom, continuation), Some(loop_body))
+  @debug.assert_eq(dom_idom(dom, loop_header), Some(root_block))
+  @debug.assert_eq(dom_idom(dom, loop_body), Some(loop_header))
+  @debug.assert_eq(dom_idom(dom, continuation), Some(loop_body))
   assert_true(dom_dominates(dom, loop_header, continuation))
-  assert_eq(dom_frontier(dom, loop_header), [loop_header])
-  assert_eq(dom_frontier(dom, loop_body), [loop_header])
+  @debug.assert_eq(dom_frontier(dom, loop_header), [loop_header])
+  @debug.assert_eq(dom_frontier(dom, loop_body), [loop_header])
 }
 
 ///|
@@ -107,10 +107,10 @@ test "dominators exclude unreachable blocks from dominance queries" {
     1,
   ).unwrap()
 
-  assert_eq(dom_idom(dom, return_block), Some(cfg_entry_block(cfg)))
-  assert_eq(dom_idom(dom, unreachable_block), None)
+  @debug.assert_eq(dom_idom(dom, return_block), Some(cfg_entry_block(cfg)))
+  @debug.assert_eq(dom_idom(dom, unreachable_block), None)
   assert_false(dom_dominates(dom, cfg_entry_block(cfg), unreachable_block))
-  assert_eq(dom_frontier(dom, unreachable_block), [])
+  @debug.assert_eq(dom_frontier(dom, unreachable_block), [])
   assert_false(
     dom_children(dom, cfg_entry_block(cfg)).contains(unreachable_block),
   )

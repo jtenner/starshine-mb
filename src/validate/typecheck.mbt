@@ -3917,7 +3917,7 @@ pub fn tc_state_normalize_untyped_if_branch_exit(
 test "tc_state_validate_end_stack reports reachable underflow on empty stack" {
   let state = tc_state_new(empty_env(), [], true, NoTcEscape)
   let result = tc_state_validate_end_stack(state, [ValType::i32()])
-  assert_eq(result, Err("stack underflow"))
+  @debug.assert_eq(result, Err("stack underflow"))
 }
 
 ///|
@@ -3929,7 +3929,7 @@ test "tc_state_validate_end_stack accepts unreachable virtual-bottom suffixes" {
     escape: NoTcEscape,
   }
   let result = tc_state_validate_end_stack(state, [ValType::i32()])
-  assert_eq(result, Ok(()))
+  @debug.assert_eq(result, Ok(()))
 }
 
 ///|
@@ -3960,7 +3960,7 @@ test "Typecheck Unreachable" {
   let state = make_state(empty_env(), [])
   let t = Instruction::unreachable_()
   let new_state = assert_ok(Typecheck::typecheck(t, state))
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 ///|
@@ -4085,7 +4085,7 @@ test "Typecheck Br" {
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::br(LabelIdx::new(0)), state),
   )
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 ///|
@@ -4095,7 +4095,7 @@ test "Typecheck Br with values" {
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::br(LabelIdx::new(0)), state),
   )
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 ///|
@@ -4130,7 +4130,7 @@ test "Typecheck BrTable" {
   let state = make_state(env, [ValType::i32()])
   let br_table = Instruction::br_table([LabelIdx::new(0)], LabelIdx::new(1))
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 ///|
@@ -4141,7 +4141,7 @@ test "Typecheck BrTable with values" {
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let br_table = Instruction::br_table([LabelIdx::new(0)], LabelIdx::new(1))
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 ///|
@@ -4155,7 +4155,7 @@ test "Typecheck BrTable with multiple values" {
   let state = make_state(env, [ValType::i32(), ValType::i64(), ValType::i32()])
   let br_table = Instruction::br_table([LabelIdx::new(0)], LabelIdx::new(1))
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 ///|
@@ -4168,7 +4168,7 @@ test "Typecheck BrTable multiple targets" {
     LabelIdx::new(3),
   )
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 ///|
@@ -4239,7 +4239,7 @@ test "Typecheck Return" {
   let state = make_state(env, [])
   let t = Instruction::return_()
   let new_state = assert_ok(Typecheck::typecheck(t, state))
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 ///|
@@ -4248,7 +4248,7 @@ test "Typecheck Return with value" {
   let state = make_state(env, [ValType::i32()])
   let t = Instruction::return_()
   let new_state = assert_ok(Typecheck::typecheck(t, state))
-  assert_eq(new_state.reachable, false)
+  @debug.assert_eq(new_state.reachable, false)
 }
 
 // =============================================================================
@@ -5624,7 +5624,7 @@ test "Typecheck RefAsNonNull" {
   let state = make_state(empty_env(), [nullable_funcref()])
   let result = Typecheck::typecheck(Instruction::ref_as_non_null(), state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack.length(), 1)
+    Ok(new_state) => @debug.assert_eq(new_state.stack.length(), 1)
     Err(_) => ()
   }
 }
@@ -5677,7 +5677,7 @@ test "Typecheck BrOnNonNull rejects empty label payloads" {
   )
   match result {
     Ok(_) => fail("expected empty br_on_non_null label payloads to fail")
-    Err(msg) => assert_eq(msg, "br_on_non_null label type too short")
+    Err(msg) => @debug.assert_eq(msg, "br_on_non_null label type too short")
   }
 }
 
@@ -5735,7 +5735,7 @@ test "Typecheck BrOnNull with externref" {
 test "Typecheck RefI31" {
   let state = make_state(empty_env(), [ValType::i32()])
   let new_state = assert_ok(Typecheck::typecheck(Instruction::ref_i31(), state))
-  assert_eq(new_state.stack.length(), 1)
+  @debug.assert_eq(new_state.stack.length(), 1)
 }
 
 ///|
@@ -5761,7 +5761,7 @@ test "Typecheck AnyConvertExtern" {
   let state = make_state(empty_env(), [nullable_externref()])
   let result = Typecheck::typecheck(Instruction::any_convert_extern(), state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack.length(), 1)
+    Ok(new_state) => @debug.assert_eq(new_state.stack.length(), 1)
     Err(_) => ()
   }
 }
@@ -5774,7 +5774,7 @@ test "Typecheck ExternConvertAny" {
   let state = make_state(empty_env(), [any_ref])
   let result = Typecheck::typecheck(Instruction::extern_convert_any(), state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack.length(), 1)
+    Ok(new_state) => @debug.assert_eq(new_state.stack.length(), 1)
     Err(_) => ()
   }
 }
@@ -5789,7 +5789,7 @@ test "Typecheck I32Const pushes i32" {
   let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let result = Typecheck::typecheck(Instruction::i32_const(I32(42)), state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack, [ValType::i32()])
+    Ok(new_state) => @debug.assert_eq(new_state.stack, [ValType::i32()])
     Err(e) => fail("I32Const should typecheck: \{e}")
   }
 }
@@ -5805,7 +5805,7 @@ test "Typecheck I32Add consumes two i32s and produces one" {
   }
   let result = Typecheck::typecheck(Instruction::i32_add(), state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack, [ValType::i32()])
+    Ok(new_state) => @debug.assert_eq(new_state.stack, [ValType::i32()])
     Err(e) => fail("I32Add should typecheck: \{e}")
   }
 }
@@ -5832,7 +5832,7 @@ test "Typecheck Drop removes top of stack" {
   }
   let result = Typecheck::typecheck(Instruction::drop(), state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack, [])
+    Ok(new_state) => @debug.assert_eq(new_state.stack, [])
     Err(e) => fail("Drop should typecheck: \{e}")
   }
 }
@@ -5843,7 +5843,7 @@ test "Typecheck Unreachable makes state unreachable" {
   let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let result = Typecheck::typecheck(Instruction::unreachable_(), state)
   match result {
-    Ok(new_state) => assert_eq(new_state.reachable, false)
+    Ok(new_state) => @debug.assert_eq(new_state.reachable, false)
     Err(e) => fail("Unreachable should typecheck: \{e}")
   }
 }
@@ -5855,7 +5855,7 @@ test "Typecheck empty Expr" {
   let expr = Expr::new([])
   let result = Typecheck::typecheck(expr, state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack, [])
+    Ok(new_state) => @debug.assert_eq(new_state.stack, [])
     Err(e) => fail("Empty Expr should typecheck: \{e}")
   }
 }
@@ -5871,7 +5871,7 @@ test "Typecheck Expr sequence" {
   ])
   let result = Typecheck::typecheck(expr, state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack, [ValType::i32()])
+    Ok(new_state) => @debug.assert_eq(new_state.stack, [ValType::i32()])
     Err(e) => fail("Expr sequence should typecheck: \{e}")
   }
 }
@@ -5882,7 +5882,7 @@ test "Typecheck I64Const pushes i64" {
   let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let result = Typecheck::typecheck(Instruction::i64_const(I64(100L)), state)
   match result {
-    Ok(new_state) => assert_eq(new_state.stack, [ValType::i64()])
+    Ok(new_state) => @debug.assert_eq(new_state.stack, [ValType::i64()])
     Err(e) => fail("I64Const should typecheck: \{e}")
   }
 }
@@ -6366,7 +6366,7 @@ test "Typecheck ReturnCall" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.reachable, false)
+  @debug.assert_eq(final_state.reachable, false)
 }
 
 ///|
@@ -6387,7 +6387,7 @@ test "Typecheck ReturnCallIndirect" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.reachable, false)
+  @debug.assert_eq(final_state.reachable, false)
 }
 
 ///|
@@ -6425,7 +6425,7 @@ test "Typecheck ReturnCallRef" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.reachable, false)
+  @debug.assert_eq(final_state.reachable, false)
 }
 
 // =============================================================================
@@ -6442,7 +6442,7 @@ test "Typecheck RefFunc" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -6574,7 +6574,7 @@ test "Typecheck RefCast non-nullable" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -6618,7 +6618,7 @@ test "Typecheck RefCastDescEq stack effect" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -6655,7 +6655,7 @@ test "Typecheck BrOnCast rejects empty label payloads" {
   let result = Typecheck::typecheck(t, state)
   match result {
     Ok(_) => fail("expected empty br_on_cast label payloads to fail")
-    Err(msg) => assert_eq(msg, "br_on_cast label type too short")
+    Err(msg) => @debug.assert_eq(msg, "br_on_cast label type too short")
   }
 }
 
@@ -6690,7 +6690,7 @@ test "Typecheck BrOnCastFail rejects empty label payloads" {
   let result = Typecheck::typecheck(t, state)
   match result {
     Ok(_) => fail("expected empty br_on_cast_fail label payloads to fail")
-    Err(msg) => assert_eq(msg, "br_on_cast_fail label type too short")
+    Err(msg) => @debug.assert_eq(msg, "br_on_cast_fail label type too short")
   }
 }
 
@@ -6707,7 +6707,7 @@ test "Typecheck Throw" {
   let state = make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(Instruction::throw_(TagIdx::new(0)), state)
   let final_state = assert_ok(result)
-  assert_eq(final_state.reachable, false)
+  @debug.assert_eq(final_state.reachable, false)
 }
 
 ///|
@@ -6727,7 +6727,7 @@ test "Typecheck ThrowRef" {
   let state = make_state(env, [exnref])
   let result = Typecheck::typecheck(Instruction::throw_ref(), state)
   let final_state = assert_ok(result)
-  assert_eq(final_state.reachable, false)
+  @debug.assert_eq(final_state.reachable, false)
 }
 
 ///|
@@ -6882,7 +6882,7 @@ test "Typecheck StructNew" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -6899,7 +6899,7 @@ test "Typecheck StructNewDefault" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -7018,7 +7018,7 @@ test "Typecheck ArrayNew" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -7033,7 +7033,7 @@ test "Typecheck ArrayNewDefault" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -7048,7 +7048,7 @@ test "Typecheck ArrayNewFixed" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -7064,7 +7064,7 @@ test "Typecheck ArrayNewData" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|
@@ -7083,7 +7083,7 @@ test "Typecheck ArrayNewElem" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_eq(final_state.stack.length(), 1)
+  @debug.assert_eq(final_state.stack.length(), 1)
 }
 
 ///|

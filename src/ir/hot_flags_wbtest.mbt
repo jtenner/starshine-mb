@@ -50,7 +50,10 @@ test "node construction and replacement always canonicalize flags" {
     ),
   )
 
-  assert_eq(hot_node_flags(func, node), hot_default_flags_for_op(HotOp::Nop))
+  @debug.assert_eq(
+    hot_node_flags(func, node),
+    hot_default_flags_for_op(HotOp::Nop),
+  )
   assert_false(hot_has_side_effect(func, node))
 
   hot_replace_node(func, node, {
@@ -63,7 +66,10 @@ test "node construction and replacement always canonicalize flags" {
     child_count: 0,
   })
 
-  assert_eq(hot_node_flags(func, node), hot_default_flags_for_op(HotOp::Return))
+  @debug.assert_eq(
+    hot_node_flags(func, node),
+    hot_default_flags_for_op(HotOp::Return),
+  )
   assert_true(hot_is_terminator_node(func, node))
   assert_true(hot_has_side_effect(func, node))
 }

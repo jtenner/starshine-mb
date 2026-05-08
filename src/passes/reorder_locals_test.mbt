@@ -218,25 +218,28 @@ test "reorder-locals handles multiple defined functions with distinct param arit
     Err(err) =>
       fail("expected reorder-locals multi-defined fixture success, got \{err}")
   }
-  assert_eq(optimized.raw_name_sec_payload, None)
+  @debug.assert_eq(optimized.raw_name_sec_payload, None)
   match optimized.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let @lib.Func(first_locals, @lib.Expr(first_instrs)) = funcs[0]
-      assert_eq(first_locals, @lib.Locals::from_types([@lib.ValType::i64()]))
-      assert_eq(
+      @debug.assert_eq(
+        first_locals,
+        @lib.Locals::from_types([@lib.ValType::i64()]),
+      )
+      @debug.assert_eq(
         first_instrs[3],
         @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
       )
       let @lib.Func(second_locals, @lib.Expr(second_instrs)) = funcs[1]
-      assert_eq(
+      @debug.assert_eq(
         second_locals,
         @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i64()]),
       )
-      assert_eq(
+      @debug.assert_eq(
         second_instrs[1],
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       )
-      assert_eq(
+      @debug.assert_eq(
         second_instrs[2],
         @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
       )
@@ -247,8 +250,8 @@ test "reorder-locals handles multiple defined functions with distinct param arit
     Some(name_sec) =>
       match name_sec.local_names {
         Some(@lib.IndirectNameMap(entries)) => {
-          assert_eq(entries.length(), 2)
-          assert_eq(
+          @debug.assert_eq(entries.length(), 2)
+          @debug.assert_eq(
             entries[0],
             @lib.IndirectNameAssoc::new(
               1U,
@@ -259,7 +262,7 @@ test "reorder-locals handles multiple defined functions with distinct param arit
               ]),
             ),
           )
-          assert_eq(
+          @debug.assert_eq(
             entries[1],
             @lib.IndirectNameAssoc::new(
               2U,
@@ -286,7 +289,7 @@ test "reorder-locals is a no-op when a function has only params" {
     Ok(mod_) => mod_
     Err(err) => fail("expected reorder-locals params-only success, got \{err}")
   }
-  assert_eq(optimized, input)
+  @debug.assert_eq(optimized, input)
 }
 
 ///|
@@ -309,7 +312,7 @@ test "run_hot_pipeline applies reorder-locals by Binaryen access count and first
   let @lib.Func(locals, @lib.Expr(instrs)) = rl_test_first_defined_func(
     optimized,
   )
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -317,11 +320,23 @@ test "run_hot_pipeline applies reorder-locals by Binaryen access count and first
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(instrs.length(), 7)
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(2U)))
-  assert_eq(instrs[3], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
-  assert_eq(instrs[4], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
-  assert_eq(instrs[6], @lib.Instruction::local_get(@lib.LocalIdx::new(3U)))
+  @debug.assert_eq(instrs.length(), 7)
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    instrs[3],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[4],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  )
 }
 
 ///|
@@ -340,8 +355,11 @@ test "reorder-locals keeps write-only locals and drops only zero-access body loc
   let @lib.Func(locals, @lib.Expr(instrs)) = rl_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
 }
 
 ///|
@@ -361,9 +379,15 @@ test "reorder-locals drops unused trailing locals without rewriting stable live 
   let @lib.Func(locals, @lib.Expr(instrs)) = rl_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-  assert_eq(instrs[2], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
 }
 
 ///|
@@ -383,8 +407,11 @@ test "reorder-locals counts local.tee as an access" {
   let @lib.Func(locals, @lib.Expr(instrs)) = rl_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(instrs[1], @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+  )
 }
 
 ///|
@@ -400,7 +427,7 @@ test "reorder-locals rewrites nested block loop if and try_table local indices" 
   let @lib.Func(locals, @lib.Expr(instrs)) = rl_test_first_defined_func(
     optimized,
   )
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i64(),
@@ -408,33 +435,36 @@ test "reorder-locals rewrites nested block loop if and try_table local indices" 
       @lib.ValType::i32(),
     ]),
   )
-  assert_eq(instrs.length(), 1)
+  @debug.assert_eq(instrs.length(), 1)
   match instrs[0] {
     @lib.Block(_, @lib.Expr(block_instrs)) => {
-      assert_eq(block_instrs.length(), 1)
+      @debug.assert_eq(block_instrs.length(), 1)
       match block_instrs[0] {
         @lib.Loop(_, @lib.Expr(loop_instrs)) => {
-          assert_eq(
+          @debug.assert_eq(
             loop_instrs[0],
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
           )
-          assert_eq(loop_instrs[1], @lib.Instruction::drop())
-          assert_eq(loop_instrs[2], @lib.Instruction::i32_const(@lib.I32(1)))
+          @debug.assert_eq(loop_instrs[1], @lib.Instruction::drop())
+          @debug.assert_eq(
+            loop_instrs[2],
+            @lib.Instruction::i32_const(@lib.I32(1)),
+          )
           match loop_instrs[3] {
             @lib.If(_, then_body, Some(else_body)) => {
-              assert_eq(
+              @debug.assert_eq(
                 then_body[1],
                 @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
               )
               match then_body[2] {
                 @lib.TryTable(_, [], @lib.Expr(try_body)) =>
-                  assert_eq(try_body, [
+                  @debug.assert_eq(try_body, [
                     @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
                     @lib.Instruction::drop(),
                   ])
                 _ => fail("expected rewritten try_table in then body")
               }
-              assert_eq(else_body, [
+              @debug.assert_eq(else_body, [
                 @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
                 @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
                 @lib.Instruction::drop(),
@@ -459,18 +489,21 @@ test "reorder-locals rewrites local names for changed defined functions and clea
     Ok(mod_) => mod_
     Err(err) => fail("expected reorder-locals name rewrite success, got \{err}")
   }
-  assert_eq(optimized.raw_name_sec_payload, None)
+  @debug.assert_eq(optimized.raw_name_sec_payload, None)
   let @lib.Func(locals, @lib.Expr(instrs)) = rl_test_first_defined_func(
     optimized,
   )
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
-  assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
   match optimized.name_sec {
     Some(name_sec) =>
       match name_sec.local_names {
         Some(@lib.IndirectNameMap(entries)) => {
-          assert_eq(entries.length(), 2)
-          assert_eq(
+          @debug.assert_eq(entries.length(), 2)
+          @debug.assert_eq(
             entries[0],
             @lib.IndirectNameAssoc::new(
               0U,
@@ -479,7 +512,7 @@ test "reorder-locals rewrites local names for changed defined functions and clea
               ]),
             ),
           )
-          assert_eq(
+          @debug.assert_eq(
             entries[1],
             @lib.IndirectNameAssoc::new(
               1U,
@@ -609,5 +642,5 @@ test "reorder-locals sorts a Binaryen-materialized carrier fixture by access cou
     #|     call 1)
     #| )
     #|
-  assert_eq(optimized, pass_test_module_from_wat(expected))
+  @debug.assert_eq(optimized, pass_test_module_from_wat(expected))
 }

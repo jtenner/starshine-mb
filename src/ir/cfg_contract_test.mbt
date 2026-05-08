@@ -91,27 +91,30 @@ fn cfg_test_builder_ops_fixture() -> Array[HotOp] {
 ///|
 test "cfg control successor policy distinguishes current structured control families" {
   let ops = cfg_test_builder_ops_fixture()
-  assert_eq(
+  @debug.assert_eq(
     cfg_test_show_text(cfg_control_successor_policy(ops[0])),
     "Some(InlineBodyRegion)",
   )
-  assert_eq(
+  @debug.assert_eq(
     cfg_test_show_text(cfg_control_successor_policy(ops[1])),
     "Some(InlineBodyRegion)",
   )
-  assert_eq(
+  @debug.assert_eq(
     cfg_test_show_text(cfg_control_successor_policy(ops[2])),
     "Some(SplitThenElse)",
   )
-  assert_eq(
+  @debug.assert_eq(
     cfg_test_show_text(cfg_control_successor_policy(ops[3])),
     "Some(SplitBodyCatch)",
   )
-  assert_eq(
+  @debug.assert_eq(
     cfg_test_show_text(cfg_control_successor_policy(ops[4])),
     "Some(SplitBodyCatchList)",
   )
-  assert_eq(cfg_test_show_text(cfg_control_successor_policy(ops[5])), "None")
+  @debug.assert_eq(
+    cfg_test_show_text(cfg_control_successor_policy(ops[5])),
+    "None",
+  )
 }
 
 ///|
@@ -124,41 +127,45 @@ test "cfg boundary classification marks control entries and terminators" {
   let else_region = hot_child_get(func, if_id, 2)
   let return_id = hot_child_get(func, else_region, 0)
 
-  assert_eq(cfg_test_show_array(cfg_block_boundary_reasons(func, block_id)), [
-    "RootEntry", "ControlHeader", "BodyRegionEntry", "Terminator",
-  ])
-  assert_eq(cfg_test_show_array(cfg_block_boundary_reasons(func, if_id)), [
-    "ControlHeader", "ThenRegionEntry", "ElseRegionEntry", "Terminator",
-  ])
-  assert_eq(cfg_test_show_array(cfg_block_boundary_reasons(func, loop_id)), [
-    "ControlHeader", "BodyRegionEntry", "LoopHeader", "Terminator",
-  ])
-  assert_eq(cfg_test_show_array(cfg_block_boundary_reasons(func, return_id)), [
-    "Terminator",
-  ])
+  @debug.assert_eq(
+    cfg_test_show_array(cfg_block_boundary_reasons(func, block_id)),
+    ["RootEntry", "ControlHeader", "BodyRegionEntry", "Terminator"],
+  )
+  @debug.assert_eq(
+    cfg_test_show_array(cfg_block_boundary_reasons(func, if_id)),
+    ["ControlHeader", "ThenRegionEntry", "ElseRegionEntry", "Terminator"],
+  )
+  @debug.assert_eq(
+    cfg_test_show_array(cfg_block_boundary_reasons(func, loop_id)),
+    ["ControlHeader", "BodyRegionEntry", "LoopHeader", "Terminator"],
+  )
+  @debug.assert_eq(
+    cfg_test_show_array(cfg_block_boundary_reasons(func, return_id)),
+    ["Terminator"],
+  )
 }
 
 ///|
 test "cfg terminator edge kinds and exception policies stay explicit" {
   let ops = cfg_test_builder_ops_fixture()
-  assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[6])), [
+  @debug.assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[6])), [
     "BranchEdge", "FallthroughEdge",
   ])
-  assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[7])), [
+  @debug.assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[7])), [
     "ReturnEdge",
   ])
-  assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[8])), [
+  @debug.assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[8])), [
     "ExceptionalEdge",
   ])
-  assert_eq(
+  @debug.assert_eq(
     cfg_test_show_text(cfg_exception_target_policy(ops[4])),
     "ToCatchListRegion",
   )
-  assert_eq(
+  @debug.assert_eq(
     cfg_test_show_text(cfg_exception_target_policy(ops[9])),
     "DelegateToTarget",
   )
-  assert_eq(
+  @debug.assert_eq(
     cfg_test_show_text(cfg_exception_target_policy(ops[10])),
     "NoExceptionEdge",
   )

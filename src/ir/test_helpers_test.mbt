@@ -19,7 +19,7 @@ fn ir_test_fixture_wat() -> String {
 test "ir test helpers produce deterministic cfg dom liveness and ssa dumps" {
   let fixture = ir_test_build_hot_from_wat(ir_test_fixture_wat())
 
-  assert_eq(
+  @debug.assert_eq(
     ir_test_dump_cfg(fixture.hot_func),
     ir_test_join_lines([
       "entry=0 exit=1 exceptional=-", "block=0 synthetic=true holder=-1 span=-1..-1 nodes=[] preds=[] succs=[fallthrough:2]",
@@ -30,7 +30,7 @@ test "ir test helpers produce deterministic cfg dom liveness and ssa dumps" {
       "block=5 synthetic=false holder=6 span=0..1 nodes=[5] preds=[fallthrough:2] succs=[fallthrough:3]",
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     ir_test_dump_dom(fixture.hot_func),
     ir_test_join_lines([
       "entry=0", "block=0 idom=None children=[2] frontier=[]", "block=1 idom=Some(3) children=[] frontier=[]",
@@ -38,7 +38,7 @@ test "ir test helpers produce deterministic cfg dom liveness and ssa dumps" {
       "block=4 idom=Some(2) children=[] frontier=[3]", "block=5 idom=Some(2) children=[] frontier=[3]",
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     ir_test_dump_liveness(fixture.hot_func),
     ir_test_join_lines([
       "include_exceptional_edges=false", "block=0 in=[0, 1] out=[0, 1]", "block=1 in=[] out=[]",
@@ -46,7 +46,7 @@ test "ir test helpers produce deterministic cfg dom liveness and ssa dumps" {
       "block=5 in=[1] out=[1]",
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     ir_test_dump_ssa(fixture.hot_func),
     ir_test_join_lines([
       "entry_defs=[0, 1]", "value=0 origin=param(0) uses=[get(0)]", "value=1 origin=init(1) uses=[phi(0<-5)]",

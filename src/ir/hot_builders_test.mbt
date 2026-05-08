@@ -22,9 +22,9 @@ test "typed if builder owns label and region setup" {
     IfLabel => ()
     _ => fail("expected if label")
   }
-  assert_eq(hot_label_owner(func, if_label), if_id)
-  assert_eq(hot_label_branch_arity(func, if_label), 1)
-  assert_eq(hot_child_count(func, if_id), 3)
+  @debug.assert_eq(hot_label_owner(func, if_label), if_id)
+  @debug.assert_eq(hot_label_branch_arity(func, if_label), 1)
+  @debug.assert_eq(hot_child_count(func, if_id), 3)
 
   let then_region = hot_child_get(func, if_id, 1)
   let else_region = hot_child_get(func, if_id, 2)
@@ -36,8 +36,8 @@ test "typed if builder owns label and region setup" {
     RegionLabel => ()
     _ => fail("expected else region label")
   }
-  assert_eq(hot_child_get(func, then_region, 0), then_value)
-  assert_eq(hot_child_get(func, else_region, 0), else_value)
+  @debug.assert_eq(hot_child_get(func, then_region, 0), then_value)
+  @debug.assert_eq(hot_child_get(func, else_region, 0), else_value)
 }
 
 ///|
@@ -76,31 +76,31 @@ test "branch call and memory builders wire side tables" {
     callee_ref,
   )
 
-  assert_eq(hot_node_get(func, br_if_id).imm0, target)
+  @debug.assert_eq(hot_node_get(func, br_if_id).imm0, target)
   match hot_node_get(func, load_id).op {
     Load => ()
     _ => fail("expected load node")
   }
-  assert_eq(
+  @debug.assert_eq(
     hot_memarg_get(func, hot_node_get(func, load_id).imm0),
     HotMemArg::new(memarg),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_memarg_get(func, hot_node_get(func, store_id).imm0),
     HotMemArg::new(memarg),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_branch_table_targets(func, hot_node_get(func, br_table_id).imm0),
     [target],
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_call_sig_get(func, hot_node_get(func, call_indirect_id).imm0),
     HotCallSig::new(
       @lib.TypeIdx::new(3U),
       table_idx=Some(@lib.TableIdx::new(1U)),
     ),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_call_sig_get(func, hot_node_get(func, call_ref_id).imm0),
     HotCallSig::new(@lib.TypeIdx::new(5U)),
   )
@@ -225,13 +225,13 @@ test "select builder wires exact instruction payload" {
     Select => ()
     _ => fail("expected select node")
   }
-  assert_eq(
+  @debug.assert_eq(
     hot_node_exact_instr(func, select_id),
     Some(@lib.Instruction::select()),
   )
-  assert_eq(hot_child_get(func, select_id, 0), if_true)
-  assert_eq(hot_child_get(func, select_id, 1), if_false)
-  assert_eq(hot_child_get(func, select_id, 2), condition)
+  @debug.assert_eq(hot_child_get(func, select_id, 0), if_true)
+  @debug.assert_eq(hot_child_get(func, select_id, 1), if_false)
+  @debug.assert_eq(hot_child_get(func, select_id, 2), condition)
 }
 
 ///|
@@ -243,7 +243,7 @@ test "builder created nodes can replace roots and lower through existing hot low
   let replacement = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(9)))
   hot_root_set(func, 0, replacement)
 
-  assert_eq(
+  @debug.assert_eq(
     hot_lower_body(func),
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(9)),

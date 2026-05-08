@@ -1,9 +1,9 @@
 ///|
 test "LabelStack.new starts empty" {
   let stack = LabelStack::new()
-  assert_eq(stack.length(), 0)
-  assert_eq(stack.get(-1), None)
-  assert_eq(stack.get(0), None)
+  @debug.assert_eq(stack.length(), 0)
+  @debug.assert_eq(stack.get(-1), None)
+  @debug.assert_eq(stack.get(0), None)
 }
 
 ///|
@@ -12,10 +12,10 @@ test "LabelStack.push preserves direct declaration-order indexing" {
   stack.push([ValType::i32()])
   stack.push([ValType::i64()])
 
-  assert_eq(stack.length(), 2)
-  assert_eq(stack.get(0), Some([ValType::i32()]))
-  assert_eq(stack.get(1), Some([ValType::i64()]))
-  assert_eq(stack.get(2), None)
+  @debug.assert_eq(stack.length(), 2)
+  @debug.assert_eq(stack.get(0), Some([ValType::i32()]))
+  @debug.assert_eq(stack.get(1), Some([ValType::i64()]))
+  @debug.assert_eq(stack.get(2), None)
 }
 
 ///|
@@ -26,11 +26,11 @@ test "LabelStack.from_labels reconstructs the same direct-index view" {
     [ValType::f32()],
   ])
 
-  assert_eq(stack.length(), 3)
-  assert_eq(stack.get(0), Some([ValType::i32()]))
-  assert_eq(stack.get(1), Some([ValType::i64()]))
-  assert_eq(stack.get(2), Some([ValType::f32()]))
-  assert_eq(stack.get(3), None)
+  @debug.assert_eq(stack.length(), 3)
+  @debug.assert_eq(stack.get(0), Some([ValType::i32()]))
+  @debug.assert_eq(stack.get(1), Some([ValType::i64()]))
+  @debug.assert_eq(stack.get(2), Some([ValType::f32()]))
+  @debug.assert_eq(stack.get(3), None)
 }
 
 ///|
@@ -44,18 +44,24 @@ test "LabelStack.copy keeps branch-local declaration order after divergent pushe
   let right = base.copy()
   right.push([ValType::f32()])
 
-  assert_eq(left.get(0), Some([ValType::i32()]))
-  assert_eq(left.get(1), Some([ValType::i64()]))
-  assert_eq(right.get(0), Some([ValType::i32()]))
-  assert_eq(right.get(1), Some([ValType::f32()]))
+  @debug.assert_eq(left.get(0), Some([ValType::i32()]))
+  @debug.assert_eq(left.get(1), Some([ValType::i64()]))
+  @debug.assert_eq(right.get(0), Some([ValType::i32()]))
+  @debug.assert_eq(right.get(1), Some([ValType::f32()]))
 }
 
 ///|
 test "Env.get_label_types uses stack-from-top indexing" {
   let env = Env::new().with_label([ValType::i32()]).with_label([ValType::i64()])
-  assert_eq(env.get_label_types(LabelIdx::new(0)), Some([ValType::i64()]))
-  assert_eq(env.get_label_types(LabelIdx::new(1)), Some([ValType::i32()]))
-  assert_eq(env.get_label_types(LabelIdx::new(2)), None)
+  @debug.assert_eq(
+    env.get_label_types(LabelIdx::new(0)),
+    Some([ValType::i64()]),
+  )
+  @debug.assert_eq(
+    env.get_label_types(LabelIdx::new(1)),
+    Some([ValType::i32()]),
+  )
+  @debug.assert_eq(env.get_label_types(LabelIdx::new(2)), None)
 }
 
 ///|
@@ -66,8 +72,8 @@ test "Env.expand_blocktype resolves function type indices" {
   let env = Env::new().with_rectype(rec_type)
   match env.expand_blocktype(BlockType::type_idx(TypeIdx::new(0))) {
     Ok((params, results)) => {
-      assert_eq(params, [ValType::i32()])
-      assert_eq(results, [ValType::i64()])
+      @debug.assert_eq(params, [ValType::i32()])
+      @debug.assert_eq(results, [ValType::i64()])
     }
     Err(e) => fail("unexpected expand_blocktype error: \{e}")
   }
@@ -78,7 +84,8 @@ test "Env.expand_blocktype reports missing function type" {
   let env = Env::new()
   match env.expand_blocktype(BlockType::type_idx(TypeIdx::new(0))) {
     Ok(_) => fail("expected error for unknown function type index")
-    Err(msg) => assert_eq(msg, "blocktype type index is not a function type")
+    Err(msg) =>
+      @debug.assert_eq(msg, "blocktype type index is not a function type")
   }
 }
 
@@ -88,7 +95,7 @@ test "Env.resolve_heaptype_subtype handles abstract and indexed heap types" {
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let env = Env::new().with_rectype(rec_type)
-  assert_eq(
+  @debug.assert_eq(
     env.resolve_heaptype_subtype(HeapType::abs(AbsHeapType::func())),
     None,
   )
@@ -108,8 +115,8 @@ fn env_test_func_subtype(
 ///|
 test "Env.resolve_subtype and resolve_typeidx_subtype return none for RecIdx without rec stack" {
   let env = Env::new()
-  assert_eq(env.resolve_subtype(TypeIdx::rec(0)), None)
-  assert_eq(env.resolve_typeidx_subtype(TypeIdx::rec(0)), None)
+  @debug.assert_eq(env.resolve_subtype(TypeIdx::rec(0)), None)
+  @debug.assert_eq(env.resolve_typeidx_subtype(TypeIdx::rec(0)), None)
 }
 
 ///|
@@ -118,8 +125,8 @@ test "Env type index resolution falls back to globals while RecIdx is none witho
   let env = Env::new().with_types([subtype])
   assert_true(env.resolve_subtype(TypeIdx::new(0)) is Some(_))
   assert_true(env.resolve_typeidx_subtype(TypeIdx::new(0)) is Some(_))
-  assert_eq(env.resolve_subtype(TypeIdx::rec(0)), None)
-  assert_eq(env.resolve_typeidx_subtype(TypeIdx::rec(0)), None)
+  @debug.assert_eq(env.resolve_subtype(TypeIdx::rec(0)), None)
+  @debug.assert_eq(env.resolve_typeidx_subtype(TypeIdx::rec(0)), None)
 }
 
 ///|
@@ -130,31 +137,37 @@ test "Env.with_rectype group supports RecIdx lookups and function resolution" {
 
   assert_true(env.resolve_subtype(TypeIdx::rec(0)) is Some(_))
   assert_true(env.resolve_subtype(TypeIdx::rec(1)) is Some(_))
-  assert_eq(env.resolve_subtype(TypeIdx::rec(2)), None)
+  @debug.assert_eq(env.resolve_subtype(TypeIdx::rec(2)), None)
 
   assert_true(env.resolve_functype(TypeIdx::rec(0)) is Some(_))
-  assert_eq(env.resolve_functype(TypeIdx::rec(1)), None)
+  @debug.assert_eq(env.resolve_functype(TypeIdx::rec(1)), None)
 }
 
 ///|
 test "Env.get_label uses direct indexing while get_label_types uses stack-from-top indexing" {
   let env = Env::new().with_label([ValType::i32()]).with_label([ValType::i64()])
-  assert_eq(env.get_label(LabelIdx::new(0)), Some([ValType::i32()]))
-  assert_eq(env.get_label(LabelIdx::new(1)), Some([ValType::i64()]))
-  assert_eq(env.get_label_types(LabelIdx::new(0)), Some([ValType::i64()]))
-  assert_eq(env.get_label_types(LabelIdx::new(1)), Some([ValType::i32()]))
+  @debug.assert_eq(env.get_label(LabelIdx::new(0)), Some([ValType::i32()]))
+  @debug.assert_eq(env.get_label(LabelIdx::new(1)), Some([ValType::i64()]))
+  @debug.assert_eq(
+    env.get_label_types(LabelIdx::new(0)),
+    Some([ValType::i64()]),
+  )
+  @debug.assert_eq(
+    env.get_label_types(LabelIdx::new(1)),
+    Some([ValType::i32()]),
+  )
 }
 
 ///|
 test "Env.resolve_tag_functype returns none for missing tag and non-function tag type" {
   let env_missing = Env::new()
-  assert_eq(env_missing.resolve_tag_functype(TagIdx::new(0)), None)
+  @debug.assert_eq(env_missing.resolve_tag_functype(TagIdx::new(0)), None)
 
   let struct_subtype = SubType::comp_type(CompType::struct_([]))
   let env_non_func = Env::new()
     .with_types([struct_subtype])
     .push_tag(TagType::new(TypeIdx::new(0)))
-  assert_eq(env_non_func.resolve_tag_functype(TagIdx::new(0)), None)
+  @debug.assert_eq(env_non_func.resolve_tag_functype(TagIdx::new(0)), None)
 }
 
 ///|
@@ -170,18 +183,18 @@ test "Env.resolve_struct_fields reports unknown and wrong-kind types" {
   let env = Env::new().with_types([struct_subtype, array_subtype])
 
   match env.resolve_struct_fields(TypeIdx::new(0)) {
-    Ok(fields) => assert_eq(fields.length(), 1)
+    Ok(fields) => @debug.assert_eq(fields.length(), 1)
     Err(e) => fail("unexpected struct field resolution error: \{e}")
   }
 
   match env.resolve_struct_fields(TypeIdx::new(1)) {
     Ok(_) => fail("expected non-struct type to fail")
-    Err(e) => assert_eq(e, "type is not a struct")
+    Err(e) => @debug.assert_eq(e, "type is not a struct")
   }
 
   match env.resolve_struct_fields(TypeIdx::new(99)) {
     Ok(_) => fail("expected unknown type index to fail")
-    Err(e) => assert_eq(e, "unknown type index")
+    Err(e) => @debug.assert_eq(e, "unknown type index")
   }
 }
 
@@ -197,18 +210,18 @@ test "Env.resolve_array_field reports unknown and wrong-kind types" {
   let env = Env::new().with_types([struct_subtype, array_subtype])
 
   match env.resolve_array_field(TypeIdx::new(1)) {
-    Ok(field) => assert_eq(field, array_field)
+    Ok(field) => @debug.assert_eq(field, array_field)
     Err(e) => fail("unexpected array field resolution error: \{e}")
   }
 
   match env.resolve_array_field(TypeIdx::new(0)) {
     Ok(_) => fail("expected non-array type to fail")
-    Err(e) => assert_eq(e, "type is not an array")
+    Err(e) => @debug.assert_eq(e, "type is not an array")
   }
 
   match env.resolve_array_field(TypeIdx::new(99)) {
     Ok(_) => fail("expected unknown type index to fail")
-    Err(e) => assert_eq(e, "unknown type index")
+    Err(e) => @debug.assert_eq(e, "unknown type index")
   }
 }
 
@@ -337,11 +350,11 @@ test "Env.with_module skips imports and funcs whose type indices are not functio
   assert_false(env.has_func(FuncIdx::new(2)))
 
   match env.get_functype_by_funcidx(FuncIdx::new(0)) {
-    Some(FuncType(params, _)) => assert_eq(params, [ValType::i64()])
+    Some(FuncType(params, _)) => @debug.assert_eq(params, [ValType::i64()])
     _ => fail("expected first resolved function type")
   }
   match env.get_functype_by_funcidx(FuncIdx::new(1)) {
-    Some(FuncType(params, _)) => assert_eq(params, [ValType::i64()])
+    Some(FuncType(params, _)) => @debug.assert_eq(params, [ValType::i64()])
     _ => fail("expected second resolved function type")
   }
 }

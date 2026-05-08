@@ -20,7 +20,7 @@ test "pass_require helpers build and reuse derived analyses" {
   let _liveness = pass_require_liveness(ctx, func)
   let _ssa = pass_require_ssa(ctx, func)
 
-  assert_eq(cfg0, cfg1)
+  @debug.assert_eq(cfg0, cfg1)
   assert_true(ctx.cache.cfg is Some(_))
   assert_true(ctx.cache.dom is Some(_))
   assert_true(ctx.cache.liveness is Some(_))
@@ -43,7 +43,7 @@ test "pass_splice_region and pass_delete_detached_nodes mark mutation" {
   pass_delete_detached_nodes(ctx, func, removed)
 
   assert_true(@ir.hot_revision_current(func) > rev0)
-  assert_eq(@ir.hot_root_count(func), 1)
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
     Err(err) => fail("expected helper-mutated function to verify, got \{err}")

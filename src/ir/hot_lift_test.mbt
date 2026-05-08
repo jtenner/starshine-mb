@@ -67,27 +67,27 @@ test "hot lift can preserve representative exact-payload families in module cont
   let atomic_id = hot_child_get(func, atomic_drop, 0)
 
   assert_true(hot_node_kind_is_memory(func, load_id))
-  assert_eq(
+  @debug.assert_eq(
     hot_node_exact_instr(func, load_id),
     Some(@lib.Instruction::i32_load(memarg)),
   )
   assert_true(hot_node_kind_is_numeric(func, add_id))
-  assert_eq(
+  @debug.assert_eq(
     hot_node_exact_instr(func, add_id),
     Some(@lib.Instruction::i32_add()),
   )
   assert_true(hot_node_kind_is_heap(func, array_id))
-  assert_eq(
+  @debug.assert_eq(
     hot_node_exact_instr(func, array_id),
     Some(@lib.Instruction::array_len()),
   )
   assert_true(hot_node_kind_is_simd(func, simd_id))
-  assert_eq(
+  @debug.assert_eq(
     hot_node_exact_instr(func, simd_id),
     Some(@lib.Instruction::i8x16_extract_lane_s(@lib.LaneIdx::new(b'\x00'))),
   )
   assert_true(hot_node_kind_is_atomic(func, atomic_id))
-  assert_eq(
+  @debug.assert_eq(
     hot_node_exact_instr(func, atomic_id),
     Some(@lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_add(), memarg)),
   )
@@ -241,13 +241,13 @@ fn hot_lift_test_deep_branch_body(depth : Int) -> @lib.Expr {
 test "hot lift func derives locals and direct call metadata from the module" {
   let func = hot_lift_func(hot_lift_test_func_module(), @lib.FuncIdx::new(1U))
 
-  assert_eq(hot_local_param_count(func), 1)
-  assert_eq(hot_local_body_count(func), 1)
-  assert_eq(hot_root_count(func), 1)
+  @debug.assert_eq(hot_local_param_count(func), 1)
+  @debug.assert_eq(hot_local_body_count(func), 1)
+  @debug.assert_eq(hot_root_count(func), 1)
 
   let call_id = hot_root_get(func, 0)
   assert_true(hot_node_kind_is_call(func, call_id))
-  assert_eq(
+  @debug.assert_eq(
     hot_node_type(func, call_id),
     hot_type_intern_value(func, @lib.ValType::i32()),
   )
@@ -278,11 +278,11 @@ test "hot lift maps try_table catches onto hot labels" {
     hot_node_get(func, try_table_id).imm1,
   )
 
-  assert_eq(hot_node_get(func, try_table_id).op.to_string(), "TryTable")
-  assert_eq(catch_info.catches.length(), 1)
+  @debug.assert_eq(hot_node_get(func, try_table_id).op.to_string(), "TryTable")
+  @debug.assert_eq(catch_info.catches.length(), 1)
   match catch_info.catches[0] {
     HotCatchArm::CatchAllArm(label_id) =>
-      assert_eq(label_id, hot_control_node_label(func, block_id))
+      @debug.assert_eq(label_id, hot_control_node_label(func, block_id))
     other => fail("expected catch_all arm, got \{other}")
   }
 }
@@ -307,8 +307,8 @@ test "hot lift resolves deep branch labels without copying full label stacks" {
   let inner_region = hot_region_body_ref(func, current)
   let br_id = hot_region_get(func, inner_region, 0)
 
-  assert_eq(hot_node_get(func, br_id).op.to_string(), "Br")
-  assert_eq(hot_node_get(func, br_id).imm0, outer_label)
+  @debug.assert_eq(hot_node_get(func, br_id).op.to_string(), "Br")
+  @debug.assert_eq(hot_node_get(func, br_id).imm0, outer_label)
 }
 
 ///|
@@ -323,19 +323,22 @@ test "hot lift preserves live prefixes across repeated stack types" {
     HotLocals::new(),
   )
 
-  assert_eq(hot_root_count(func), 2)
+  @debug.assert_eq(hot_root_count(func), 2)
 
   let prefix = hot_root_get(func, 0)
   let sub = hot_root_get(func, 1)
 
   assert_true(hot_node_kind_is_numeric(func, prefix))
-  assert_eq(hot_child_count(func, prefix), 0)
-  assert_eq(hot_node_exact_instr(func, sub), Some(@lib.Instruction::i32_sub()))
-  assert_eq(hot_child_count(func, sub), 2)
+  @debug.assert_eq(hot_child_count(func, prefix), 0)
+  @debug.assert_eq(
+    hot_node_exact_instr(func, sub),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  @debug.assert_eq(hot_child_count(func, sub), 2)
   assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, sub, 0)))
   assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, sub, 1)))
-  assert_eq(hot_child_count(func, hot_child_get(func, sub, 0)), 0)
-  assert_eq(hot_child_count(func, hot_child_get(func, sub, 1)), 0)
+  @debug.assert_eq(hot_child_count(func, hot_child_get(func, sub, 0)), 0)
+  @debug.assert_eq(hot_child_count(func, hot_child_get(func, sub, 1)), 0)
 }
 
 ///|
@@ -354,21 +357,21 @@ test "hot lift seeds loop param values into nested regions" {
     ctx,
   )
 
-  assert_eq(hot_root_count(func), 1)
+  @debug.assert_eq(hot_root_count(func), 1)
 
   let loop_id = hot_root_get(func, 0)
-  assert_eq(
+  @debug.assert_eq(
     hot_label_branch_arity(func, hot_control_node_label(func, loop_id)),
     1,
   )
-  assert_eq(hot_child_count(func, loop_id), 2)
+  @debug.assert_eq(hot_child_count(func, loop_id), 2)
   let body_region = hot_region_body_ref(func, loop_id)
   let tee_id = hot_region_get(func, body_region, 0)
 
   assert_true(hot_node_kind_is_local(func, tee_id))
-  assert_eq(hot_child_count(func, tee_id), 1)
+  @debug.assert_eq(hot_child_count(func, tee_id), 1)
   assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, tee_id, 0)))
-  assert_eq(hot_child_count(func, hot_child_get(func, tee_id, 0)), 0)
+  @debug.assert_eq(hot_child_count(func, hot_child_get(func, tee_id, 0)), 0)
 }
 
 ///|
@@ -383,18 +386,18 @@ test "hot lift preserves concrete unreachable stack prefixes for local.get" {
     HotLocals::new(locals=[@lib.ValType::i32()]),
   )
 
-  assert_eq(hot_root_count(func), 4)
+  @debug.assert_eq(hot_root_count(func), 4)
 
   let trap = hot_root_get(func, 0)
   let left = hot_root_get(func, 1)
   let right = hot_root_get(func, 2)
   let local_get = hot_root_get(func, 3)
 
-  assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
+  @debug.assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
   assert_true(hot_node_kind_is_numeric(func, left))
   assert_true(hot_node_kind_is_numeric(func, right))
   assert_true(hot_node_kind_is_local(func, local_get))
-  assert_eq(hot_child_count(func, local_get), 0)
+  @debug.assert_eq(hot_child_count(func, local_get), 0)
 }
 
 ///|
@@ -407,10 +410,10 @@ test "hot lift tolerates polymorphic unreachable operands with no concrete value
     HotLocals::new(locals=[@lib.ValType::i32()]),
   )
 
-  assert_eq(hot_root_count(func), 1)
+  @debug.assert_eq(hot_root_count(func), 1)
 
   let trap = hot_root_get(func, 0)
-  assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
+  @debug.assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
 }
 
 ///|
@@ -431,17 +434,17 @@ test "hot lift preserves surviving results from multi-result producers" {
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
 
-  assert_eq(hot_root_count(func), 2)
+  @debug.assert_eq(hot_root_count(func), 2)
 
   let local_set = hot_root_get(func, 0)
   let if_id = hot_root_get(func, 1)
   let call_id = hot_child_get(func, local_set, 0)
 
   assert_true(hot_node_kind_is_local(func, local_set))
-  assert_eq(hot_node_get(func, if_id).op.to_string(), "If")
+  @debug.assert_eq(hot_node_get(func, if_id).op.to_string(), "If")
   assert_true(hot_node_kind_is_call(func, call_id))
-  assert_eq(hot_node_result_arity(func, call_id), 2)
-  assert_eq(hot_child_get(func, if_id, 0), call_id)
+  @debug.assert_eq(hot_node_result_arity(func, call_id), 2)
+  @debug.assert_eq(hot_child_get(func, if_id, 0), call_id)
 }
 
 ///|
@@ -491,7 +494,7 @@ test "hot lift preserves explicit triple-result spill bridges" {
     ctx,
   )
 
-  assert_eq(hot_root_count(func), 7)
+  @debug.assert_eq(hot_root_count(func), 7)
 
   let set2 = hot_root_get(func, 0)
   let set1 = hot_root_get(func, 1)
@@ -501,26 +504,26 @@ test "hot lift preserves explicit triple-result spill bridges" {
   let set7 = hot_root_get(func, 5)
   let drop_id = hot_root_get(func, 6)
 
-  assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set2).imm0, 2)
-  assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set1).imm0, 1)
-  assert_eq(hot_node_get(func, set0).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set0).imm0, 0)
+  @debug.assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set2).imm0, 2)
+  @debug.assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set1).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, set0).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set0).imm0, 0)
 
   let producer = hot_child_get(func, set2, 0)
-  assert_eq(hot_child_get(func, set1, 0), producer)
-  assert_eq(hot_child_get(func, set0, 0), producer)
-  assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
-  assert_eq(hot_node_result_arity(func, producer), 3)
+  @debug.assert_eq(hot_child_get(func, set1, 0), producer)
+  @debug.assert_eq(hot_child_get(func, set0, 0), producer)
+  @debug.assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
+  @debug.assert_eq(hot_node_result_arity(func, producer), 3)
 
-  assert_eq(hot_node_get(func, set4).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set4).imm0, 4)
-  assert_eq(hot_node_get(func, set5).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set5).imm0, 5)
-  assert_eq(hot_node_get(func, set7).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set7).imm0, 7)
-  assert_eq(hot_node_get(func, drop_id).op.to_string(), "Drop")
+  @debug.assert_eq(hot_node_get(func, set4).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set4).imm0, 4)
+  @debug.assert_eq(hot_node_get(func, set5).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set5).imm0, 5)
+  @debug.assert_eq(hot_node_get(func, set7).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set7).imm0, 7)
+  @debug.assert_eq(hot_node_get(func, drop_id).op.to_string(), "Drop")
 }
 
 ///|
@@ -532,12 +535,12 @@ test "hot lift preserves nested outer-block spill lanes after a triple-result br
   let func = fixture.hot_func
   let use_def = use_def_build(func)
 
-  assert_eq(local_write_nodes_borrowed(use_def, 0).length(), 1)
-  assert_eq(local_write_nodes_borrowed(use_def, 1).length(), 1)
-  assert_eq(local_write_nodes_borrowed(use_def, 2).length(), 1)
-  assert_eq(local_read_nodes_borrowed(use_def, 0).length(), 1)
-  assert_eq(local_read_nodes_borrowed(use_def, 1).length(), 1)
-  assert_eq(local_read_nodes_borrowed(use_def, 2).length(), 1)
+  @debug.assert_eq(local_write_nodes_borrowed(use_def, 0).length(), 1)
+  @debug.assert_eq(local_write_nodes_borrowed(use_def, 1).length(), 1)
+  @debug.assert_eq(local_write_nodes_borrowed(use_def, 2).length(), 1)
+  @debug.assert_eq(local_read_nodes_borrowed(use_def, 0).length(), 1)
+  @debug.assert_eq(local_read_nodes_borrowed(use_def, 1).length(), 1)
+  @debug.assert_eq(local_read_nodes_borrowed(use_def, 2).length(), 1)
 }
 
 ///|
@@ -604,24 +607,24 @@ test "hot lift preserves branchy triple-result spill bridges" {
     ctx,
   )
 
-  assert_eq(hot_root_count(func), 7)
+  @debug.assert_eq(hot_root_count(func), 7)
 
   let set2 = hot_root_get(func, 0)
   let set1 = hot_root_get(func, 1)
   let set0 = hot_root_get(func, 2)
 
-  assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set2).imm0, 2)
-  assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set1).imm0, 1)
-  assert_eq(hot_node_get(func, set0).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set0).imm0, 0)
+  @debug.assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set2).imm0, 2)
+  @debug.assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set1).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, set0).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set0).imm0, 0)
 
   let producer = hot_child_get(func, set2, 0)
-  assert_eq(hot_child_get(func, set1, 0), producer)
-  assert_eq(hot_child_get(func, set0, 0), producer)
-  assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
-  assert_eq(hot_node_result_arity(func, producer), 3)
+  @debug.assert_eq(hot_child_get(func, set1, 0), producer)
+  @debug.assert_eq(hot_child_get(func, set0, 0), producer)
+  @debug.assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
+  @debug.assert_eq(hot_node_result_arity(func, producer), 3)
 }
 
 ///|
@@ -698,24 +701,24 @@ test "hot lift preserves spill bridges after branchy local-get result blocks" {
     ctx,
   )
 
-  assert_eq(hot_root_count(func), 7)
+  @debug.assert_eq(hot_root_count(func), 7)
 
   let set5 = hot_root_get(func, 0)
   let set4 = hot_root_get(func, 1)
   let set3 = hot_root_get(func, 2)
 
-  assert_eq(hot_node_get(func, set5).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set5).imm0, 5)
-  assert_eq(hot_node_get(func, set4).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set4).imm0, 4)
-  assert_eq(hot_node_get(func, set3).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set3).imm0, 3)
+  @debug.assert_eq(hot_node_get(func, set5).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set5).imm0, 5)
+  @debug.assert_eq(hot_node_get(func, set4).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set4).imm0, 4)
+  @debug.assert_eq(hot_node_get(func, set3).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set3).imm0, 3)
 
   let producer = hot_child_get(func, set5, 0)
-  assert_eq(hot_child_get(func, set4, 0), producer)
-  assert_eq(hot_child_get(func, set3, 0), producer)
-  assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
-  assert_eq(hot_node_result_arity(func, producer), 3)
+  @debug.assert_eq(hot_child_get(func, set4, 0), producer)
+  @debug.assert_eq(hot_child_get(func, set3, 0), producer)
+  @debug.assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
+  @debug.assert_eq(hot_node_result_arity(func, producer), 3)
 }
 
 ///|
@@ -767,27 +770,27 @@ test "hot lift preserves branchy triple-result bridges ending in local.tee" {
     ctx,
   )
 
-  assert_eq(hot_root_count(func), 5)
+  @debug.assert_eq(hot_root_count(func), 5)
 
   let set2 = hot_root_get(func, 0)
   let set1 = hot_root_get(func, 1)
   let call_id = hot_root_get(func, 2)
 
-  assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set2).imm0, 2)
-  assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
-  assert_eq(hot_node_get(func, set1).imm0, 1)
-  assert_eq(hot_node_get(func, call_id).op.to_string(), "Call")
+  @debug.assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set2).imm0, 2)
+  @debug.assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, set1).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, call_id).op.to_string(), "Call")
 
   let producer = hot_child_get(func, set2, 0)
-  assert_eq(hot_child_get(func, set1, 0), producer)
-  assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
-  assert_eq(hot_node_result_arity(func, producer), 3)
+  @debug.assert_eq(hot_child_get(func, set1, 0), producer)
+  @debug.assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
+  @debug.assert_eq(hot_node_result_arity(func, producer), 3)
 
   let tee0 = hot_child_get(func, call_id, 0)
-  assert_eq(hot_node_get(func, tee0).op.to_string(), "LocalTee")
-  assert_eq(hot_node_get(func, tee0).imm0, 0)
-  assert_eq(hot_child_get(func, tee0, 0), producer)
+  @debug.assert_eq(hot_node_get(func, tee0).op.to_string(), "LocalTee")
+  @debug.assert_eq(hot_node_get(func, tee0).imm0, 0)
+  @debug.assert_eq(hot_child_get(func, tee0, 0), producer)
 }
 
 ///|
@@ -813,11 +816,14 @@ test "hot lift tolerates unreachable br payloads with no concrete values" {
     Err(err) => fail(err.to_string())
   }
 
-  assert_eq(hot_root_count(func), 1)
+  @debug.assert_eq(hot_root_count(func), 1)
   let block_id = hot_root_get(func, 0)
-  assert_eq(hot_node_get(func, block_id).op.to_string(), "Block")
-  assert_eq(hot_node_result_arity(func, block_id), 1)
-  assert_eq(hot_region_root_count(func, hot_region_body_ref(func, block_id)), 2)
+  @debug.assert_eq(hot_node_get(func, block_id).op.to_string(), "Block")
+  @debug.assert_eq(hot_node_result_arity(func, block_id), 1)
+  @debug.assert_eq(
+    hot_region_root_count(func, hot_region_body_ref(func, block_id)),
+    2,
+  )
 }
 
 ///|
@@ -876,17 +882,20 @@ test "hot lift keeps unreachable compare conditions wired to typed block results
     Err(err) => fail(err.to_string())
   }
 
-  assert_eq(hot_root_count(func), 2)
+  @debug.assert_eq(hot_root_count(func), 2)
   let if_id = hot_root_get(func, 1)
-  assert_eq(hot_node_get(func, if_id).op.to_string(), "If")
+  @debug.assert_eq(hot_node_get(func, if_id).op.to_string(), "If")
 
   let cond = hot_child_get(func, if_id, 0)
-  assert_eq(hot_node_get(func, cond).op.to_string(), "Compare")
-  assert_eq(hot_node_exact_instr(func, cond), Some(@lib.Instruction::i64_eq()))
+  @debug.assert_eq(hot_node_get(func, cond).op.to_string(), "Compare")
+  @debug.assert_eq(
+    hot_node_exact_instr(func, cond),
+    Some(@lib.Instruction::i64_eq()),
+  )
 
   let lhs = hot_child_get(func, cond, 0)
   let rhs = hot_child_get(func, cond, 1)
-  assert_eq(hot_node_get(func, lhs).op.to_string(), "Block")
-  assert_eq(hot_node_result_arity(func, lhs), 1)
-  assert_eq(hot_node_get(func, rhs).op.to_string(), "Const")
+  @debug.assert_eq(hot_node_get(func, lhs).op.to_string(), "Block")
+  @debug.assert_eq(hot_node_result_arity(func, lhs), 1)
+  @debug.assert_eq(hot_node_get(func, rhs).op.to_string(), "Const")
 }

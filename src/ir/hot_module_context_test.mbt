@@ -73,31 +73,31 @@ fn hot_test_module_context_fixture() -> HotModuleContext {
 test "hot module context resolves imported and defined boundary indices" {
   let ctx = hot_test_module_context_fixture()
 
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_func_type(ctx, @lib.FuncIdx::new(0U)),
     Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i64()])),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_func_type(ctx, @lib.FuncIdx::new(1U)),
     Some(@lib.FuncType::new([], [@lib.ValType::i32()])),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_global_type(ctx, @lib.GlobalIdx::new(0U)),
     Some(@lib.GlobalType::new(@lib.ValType::i64(), false)),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_global_const_init(ctx, @lib.GlobalIdx::new(0U)),
     None,
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_mem_index_type(ctx, @lib.MemIdx::new(0U)),
     Some(@lib.ValType::i32()),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_table_index_type(ctx, @lib.TableIdx::new(0U)),
     Some(@lib.ValType::i32()),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_tag_type(ctx, @lib.TagIdx::new(0U)),
     Some(@lib.TagType::new(@lib.TypeIdx::new(1U))),
   )
@@ -107,14 +107,14 @@ test "hot module context resolves imported and defined boundary indices" {
 test "hot module context expands type-index block results and aggregate fields" {
   let ctx = hot_test_module_context_fixture()
 
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_block_results(
       ctx,
       @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
     ),
     Some([@lib.ValType::i32()]),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_struct_fields(ctx, @lib.TypeIdx::new(2U)),
     Some([
       @lib.FieldType::new(
@@ -123,7 +123,7 @@ test "hot module context expands type-index block results and aggregate fields" 
       ),
     ]),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_array_field(ctx, @lib.TypeIdx::new(3U)),
     Some(
       @lib.FieldType::new(
@@ -154,15 +154,15 @@ test "hot module context resolves immutable global const initializers" {
   )
   let ctx = hot_module_context_from_module(mod_)
 
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_global_const_init(ctx, @lib.GlobalIdx::new(0U)),
     Some(HotConstPayload::i32_const(@lib.I32(7))),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_global_const_init(ctx, @lib.GlobalIdx::new(1U)),
     None,
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_module_resolve_global_const_init(ctx, @lib.GlobalIdx::new(2U)),
     Some(HotConstPayload::i32_const(@lib.I32(7))),
   )
@@ -177,7 +177,7 @@ test "hot type resolution can expand type-index block types through module conte
     @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_type_resolve_results(func, ctx, type_id),
     Some([@lib.ValType::i32()]),
   )

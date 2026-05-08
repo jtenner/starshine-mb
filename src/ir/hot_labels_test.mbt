@@ -31,9 +31,9 @@ test "lifted control nodes expose label ownership and branch arity" {
   let if_label = hot_control_node_label(func, if_)
   let loop_label = hot_control_node_label(func, loop_)
 
-  assert_eq(hot_label_owner(func, block_label), block)
-  assert_eq(hot_label_owner(func, if_label), if_)
-  assert_eq(hot_label_owner(func, loop_label), loop_)
+  @debug.assert_eq(hot_label_owner(func, block_label), block)
+  @debug.assert_eq(hot_label_owner(func, if_label), if_)
+  @debug.assert_eq(hot_label_owner(func, loop_label), loop_)
 
   match hot_label_kind(func, block_label) {
     BlockLabel => ()
@@ -48,16 +48,19 @@ test "lifted control nodes expose label ownership and branch arity" {
     _ => fail("expected loop label")
   }
 
-  assert_eq(hot_label_branch_arity(func, block_label), 0)
-  assert_eq(hot_label_branch_arity(func, if_label), 0)
-  assert_eq(hot_label_branch_arity(func, loop_label), 0)
+  @debug.assert_eq(hot_label_branch_arity(func, block_label), 0)
+  @debug.assert_eq(hot_label_branch_arity(func, if_label), 0)
+  @debug.assert_eq(hot_label_branch_arity(func, loop_label), 0)
 
-  assert_eq(
+  @debug.assert_eq(
     hot_label_result_type(func, block_label),
     hot_node_get(func, block).ty,
   )
-  assert_eq(hot_label_result_type(func, if_label), hot_node_get(func, if_).ty)
-  assert_eq(
+  @debug.assert_eq(
+    hot_label_result_type(func, if_label),
+    hot_node_get(func, if_).ty,
+  )
+  @debug.assert_eq(
     hot_label_result_type(func, loop_label),
     hot_node_get(func, loop_).ty,
   )

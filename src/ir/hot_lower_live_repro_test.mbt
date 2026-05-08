@@ -245,8 +245,8 @@ test "hot lower live repro keeps call result spills behind mixed-typed call oper
   let fixture = ir_test_build_hot_from_wat(source)
   let lowered = hot_lower_func(fixture.hot_func)
   let @lib.Func(locals, body) = lowered
-  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  assert_eq(
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
     body,
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),

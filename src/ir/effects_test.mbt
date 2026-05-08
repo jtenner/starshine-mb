@@ -113,5 +113,5 @@ test "effect cache handles shared dags without changing masks" {
 
   assert_true(effects_reads_memory(node_mask))
   assert_true(effects_reads_memory(region_mask))
-  assert_eq(node_mask, region_mask)
+  @debug.assert_eq(node_mask, region_mask)
 }

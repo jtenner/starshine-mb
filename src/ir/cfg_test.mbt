@@ -55,17 +55,17 @@ test "cfg build maps nested block if and loop regions deterministically" {
   let loop_body_block = cfg_block_for_region_root(cfg, loop_body, 0).unwrap()
   let return_block = cfg_block_for_region_root(cfg, else_region, 0).unwrap()
 
-  assert_eq(cfg_test_show_edges(cfg_successors(cfg, entry_block)), [
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, entry_block)), [
     "{kind: FallthroughEdge, block: \{block_header}}",
   ])
-  assert_eq(cfg_test_show_edges(cfg_successors(cfg, block_header)), [
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, block_header)), [
     "{kind: FallthroughEdge, block: \{if_header}}",
   ])
-  assert_eq(cfg_test_show_edges(cfg_successors(cfg, if_header)), [
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, if_header)), [
     "{kind: FallthroughEdge, block: \{loop_header}}",
     "{kind: FallthroughEdge, block: \{return_block}}",
   ])
-  assert_eq(cfg_test_show_edges(cfg_successors(cfg, loop_header)), [
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, loop_header)), [
     "{kind: FallthroughEdge, block: \{loop_body_block}}",
   ])
 }
@@ -103,17 +103,17 @@ test "cfg build materializes try_table body and exceptional catch-list edges" {
   let continuation_block = cfg_block_for_region_root(cfg, block_body, 1).unwrap()
   let succs = cfg_successors(cfg, try_table_block)
 
-  assert_eq(succs.length(), 2)
-  assert_eq(
+  @debug.assert_eq(succs.length(), 2)
+  @debug.assert_eq(
     cfg_test_show_one(succs[0]),
     "{kind: FallthroughEdge, block: \{body_block}}",
   )
-  assert_eq(cfg_test_show_one(succs[1].kind), "ExceptionalEdge")
+  @debug.assert_eq(cfg_test_show_one(succs[1].kind), "ExceptionalEdge")
   assert_true(cfg_block_get(cfg, succs[1].block).is_synthetic)
-  assert_eq(cfg_test_show_edges(cfg_successors(cfg, body_block)), [
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, body_block)), [
     "{kind: FallthroughEdge, block: \{continuation_block}}",
   ])
-  assert_eq(cfg_exceptional_exit_block(cfg), None)
+  @debug.assert_eq(cfg_exceptional_exit_block(cfg), None)
 }
 
 ///|
@@ -127,10 +127,10 @@ test "cfg build keeps unreachable roots in distinct predless blocks" {
   let return_block = cfg_block_for_region_root(cfg, root_region, 0).unwrap()
   let nop_block = cfg_block_for_region_root(cfg, root_region, 1).unwrap()
 
-  assert_eq(cfg_test_show_edges(cfg_successors(cfg, return_block)), [
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, return_block)), [
     "{kind: ReturnEdge, block: \{cfg_exit_block(cfg)}}",
   ])
-  assert_eq(cfg_predecessors(cfg, nop_block), [])
+  @debug.assert_eq(cfg_predecessors(cfg, nop_block), [])
 }
 
 ///|

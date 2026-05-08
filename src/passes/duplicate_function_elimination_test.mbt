@@ -165,29 +165,29 @@ test "run_hot_pipeline applies duplicate-function-elimination and rewrites funct
   }
 
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
     None => fail("expected func section")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
     None => fail("expected code section")
   }
-  assert_eq(try! dfe_test_call_target(optimized, 0), 2U)
-  assert_eq(try! dfe_test_ref_func_target(optimized, 0), 2U)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 2U)
+  @debug.assert_eq(try! dfe_test_ref_func_target(optimized, 0), 2U)
   match optimized.export_sec {
     Some(
       @lib.ExportSec([@lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(target)))])
-    ) => assert_eq(target, 2U)
+    ) => @debug.assert_eq(target, 2U)
     _ => fail("expected rewritten function export")
   }
   match optimized.start_sec {
-    Some(@lib.StartSec(@lib.FuncIdx(target))) => assert_eq(target, 2U)
+    Some(@lib.StartSec(@lib.FuncIdx(target))) => @debug.assert_eq(target, 2U)
     _ => fail("expected rewritten start section")
   }
   match optimized.elem_sec {
     Some(
       @lib.ElemSec([@lib.Elem(_, @lib.FuncsElemKind([@lib.FuncIdx(target)]))])
-    ) => assert_eq(target, 2U)
+    ) => @debug.assert_eq(target, 2U)
     _ => fail("expected rewritten elem section")
   }
 }
@@ -242,12 +242,12 @@ test "duplicate-function-elimination is single-pass when callee dedup unlocks mo
   }
 
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 4)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 4)
     None => fail("expected code section")
   }
-  assert_eq(try! dfe_test_call_target(optimized, 0), 1U)
-  assert_eq(try! dfe_test_call_target(optimized, 1), 3U)
-  assert_eq(try! dfe_test_call_target(optimized, 2), 3U)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 1), 3U)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 2), 3U)
 }
 
 ///|
@@ -302,17 +302,17 @@ test "duplicate-function-elimination canonicalizes duplicate simple type indices
   }
 
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 2)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 2)
     None => fail("expected type section")
   }
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) => {
-      assert_eq(type_idxs.length(), 1)
-      assert_eq(type_idxs[0], @lib.TypeIdx::new(1U))
+      @debug.assert_eq(type_idxs.length(), 1)
+      @debug.assert_eq(type_idxs[0], @lib.TypeIdx::new(1U))
     }
     None => fail("expected func section")
   }
-  assert_eq(try! dfe_test_block_type(optimized, 0), 0U)
+  @debug.assert_eq(try! dfe_test_block_type(optimized, 0), 0U)
 }
 
 ///|
@@ -359,8 +359,8 @@ test "duplicate-function-elimination does not compact duplicate simple type indi
       )
   }
 
-  assert_eq(optimized.type_sec, input.type_sec)
-  assert_eq(optimized.func_sec, input.func_sec)
+  @debug.assert_eq(optimized.type_sec, input.type_sec)
+  @debug.assert_eq(optimized.func_sec, input.func_sec)
 }
 
 ///|
@@ -426,17 +426,17 @@ test "duplicate-function-elimination canonicalizes non-adjacent duplicate simple
   }
 
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 3)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
     None => fail("expected type section")
   }
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) => {
-      assert_eq(type_idxs.length(), 1)
-      assert_eq(type_idxs[0], @lib.TypeIdx::new(0U))
+      @debug.assert_eq(type_idxs.length(), 1)
+      @debug.assert_eq(type_idxs[0], @lib.TypeIdx::new(0U))
     }
     None => fail("expected func section")
   }
-  assert_eq(try! dfe_test_block_type(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_block_type(optimized, 0), 1U)
 }
 
 ///|
@@ -494,17 +494,17 @@ test "duplicate-function-elimination rewrites kept canonical block type indices 
   }
 
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 3)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
     None => fail("expected type section")
   }
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) => {
-      assert_eq(type_idxs.length(), 1)
-      assert_eq(type_idxs[0], @lib.TypeIdx::new(2U))
+      @debug.assert_eq(type_idxs.length(), 1)
+      @debug.assert_eq(type_idxs[0], @lib.TypeIdx::new(2U))
     }
     None => fail("expected func section")
   }
-  assert_eq(try! dfe_test_block_type(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_block_type(optimized, 0), 1U)
 }
 
 ///|
@@ -612,13 +612,13 @@ test "duplicate-function-elimination rewrites typed select and valtype block for
   }
 
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 3)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
     None => fail("expected type section")
   }
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) => {
-      assert_eq(type_idxs.length(), 1)
-      assert_eq(type_idxs[0], @lib.TypeIdx::new(2U))
+      @debug.assert_eq(type_idxs.length(), 1)
+      @debug.assert_eq(type_idxs[0], @lib.TypeIdx::new(2U))
     }
     None => fail("expected func section")
   }
@@ -644,12 +644,12 @@ test "duplicate-function-elimination rewrites typed select and valtype block for
               ..,
             ]
           )
-        ) => assert_eq(block_type, 1U)
+        ) => @debug.assert_eq(block_type, 1U)
         _ => fail("expected leading block with concrete ref valtype")
       }
     None => fail("expected code section")
   }
-  assert_eq(try! dfe_test_select_ref_type_idx(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_select_ref_type_idx(optimized, 0), 1U)
 }
 
 ///|
@@ -691,7 +691,7 @@ test "duplicate-function-elimination keeps annotated duplicates distinct" {
   }
 
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
     None => fail("expected code section")
   }
 }
@@ -755,8 +755,8 @@ test "duplicate-function-elimination canonicalizes compactable function element 
         ]
       )
     ) => {
-      assert_eq(table_idx, 1U)
-      assert_eq(target, 0U)
+      @debug.assert_eq(table_idx, 1U)
+      @debug.assert_eq(target, 0U)
     }
     _ => fail("expected compact canonical elem segment")
   }
@@ -839,13 +839,13 @@ test "duplicate-function-elimination strips names and rewrites annotation maps t
   }
 
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
     None => fail("expected code section")
   }
-  assert_eq(optimized.name_sec, None)
+  @debug.assert_eq(optimized.name_sec, None)
   match optimized.func_annotation_sec {
     Some(@lib.FuncAnnotationSec(entries)) =>
-      assert_eq(entries, [
+      @debug.assert_eq(entries, [
         @lib.FuncAnnotationAssoc::new(1U, [
           @lib.FuncAnnotation::new("binaryen.idempotent"),
         ]),

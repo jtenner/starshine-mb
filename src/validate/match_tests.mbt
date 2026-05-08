@@ -3,7 +3,7 @@ test "descriptor compatibility is symmetric for abstract refs" {
   let env = empty_env()
   let funcref = RefType::abs(AbsHeapType::func())
   let nofuncref = RefType::abs(AbsHeapType::no_func())
-  assert_eq(
+  @debug.assert_eq(
     descriptor_compatible(funcref, nofuncref, env),
     descriptor_compatible(nofuncref, funcref, env),
   )

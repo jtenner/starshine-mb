@@ -1528,9 +1528,9 @@ fn run_optimize_wat_fixture_regression(
     Ok(v) => v
     Err(e) => fail("expected --optimize success for \{path}, got \{e}")
   }
-  assert_eq(summary.resolved_passes, ["optimize"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "out.wasm")
+  @debug.assert_eq(summary.resolved_passes, ["optimize"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, "out.wasm")
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -1630,11 +1630,11 @@ test "run_cmd_with_adapter infers optimize preset from -O level flags" {
     Ok(v) => v
     Err(e) => fail("expected -O3 success, got \{e}")
   }
-  assert_eq(summary.resolved_passes, ["optimize"])
-  assert_eq(summary.optimize_level, 3)
-  assert_eq(summary.shrink_level, 0)
-  assert_eq(summary.output_files, ["out.wasm"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["optimize"])
+  @debug.assert_eq(summary.optimize_level, 3)
+  @debug.assert_eq(summary.shrink_level, 0)
+  @debug.assert_eq(summary.output_files, ["out.wasm"])
+  @debug.assert_eq(writes.length(), 1)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -1662,11 +1662,11 @@ test "run_cmd_with_adapter infers shrink preset from -O level with z bias" {
     Ok(v) => v
     Err(e) => fail("expected -O3z success, got \{e}")
   }
-  assert_eq(summary.resolved_passes, ["shrink"])
-  assert_eq(summary.optimize_level, 3)
-  assert_eq(summary.shrink_level, 3)
-  assert_eq(summary.output_files, ["out.wasm"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["shrink"])
+  @debug.assert_eq(summary.optimize_level, 3)
+  @debug.assert_eq(summary.shrink_level, 3)
+  @debug.assert_eq(summary.output_files, ["out.wasm"])
+  @debug.assert_eq(writes.length(), 1)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -1695,9 +1695,10 @@ test "run_cmd_with_adapter rejects unknown pass flags once the hot pass registry
       io,
     ) {
     Ok(summary) => fail("expected unknown pass rejection, got \{summary}")
-    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("not-a-real-pass"))
+    Err(err) =>
+      @debug.assert_eq(err, CmdError::unknown_pass_flag("not-a-real-pass"))
   }
-  assert_eq(writes.length(), 0)
+  @debug.assert_eq(writes.length(), 0)
 }
 
 ///|
@@ -1727,9 +1728,9 @@ test "run_cmd_with_adapter processes every input through generated optimize pipe
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["optimize"])
-  assert_eq(summary.output_files, ["dist/a.wasm", "dist/b.wasm"])
-  assert_eq(writes.length(), 2)
+  @debug.assert_eq(summary.resolved_passes, ["optimize"])
+  @debug.assert_eq(summary.output_files, ["dist/a.wasm", "dist/b.wasm"])
+  @debug.assert_eq(writes.length(), 2)
   for entry in writes {
     ignore(decode_module_bytes(entry.1))
   }
@@ -1767,9 +1768,9 @@ test "run_cmd_with_adapter transforms every resolved input file and writes each 
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.input_files, ["a.wasm", "b.wasm"])
-  assert_eq(summary.output_files, ["dist/a.wasm", "dist/b.wasm"])
-  assert_eq(writes.length(), 2)
+  @debug.assert_eq(summary.input_files, ["a.wasm", "b.wasm"])
+  @debug.assert_eq(summary.output_files, ["dist/a.wasm", "dist/b.wasm"])
+  @debug.assert_eq(writes.length(), 2)
 }
 
 ///|
@@ -1804,12 +1805,12 @@ test "run_cmd_with_adapter lowers wat and wast inputs through text-module adapte
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(lower_calls, [
+  @debug.assert_eq(lower_calls, [
     ("a.wat", CliInputFormat::wat()),
     ("b.wast", CliInputFormat::wast()),
   ])
-  assert_eq(summary.output_files, ["dist/a.wasm", "dist/b.wasm"])
-  assert_eq(writes.length(), 2)
+  @debug.assert_eq(summary.output_files, ["dist/a.wasm", "dist/b.wasm"])
+  @debug.assert_eq(writes.length(), 2)
 }
 
 ///|
@@ -1835,11 +1836,12 @@ test "run_cmd_with_adapter lowers wat through in-process fallback when adapter i
     Err(e) =>
       fail("expected in-process wat lowering fallback success, got \{e}")
   }
-  assert_eq(summary.output_files, ["m.wasm"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.output_files, ["m.wasm"])
+  @debug.assert_eq(writes.length(), 1)
   let mod = decode_module_bytes(writes[0].1)
   match mod.code_sec {
-    Some(CodeSec([Func(_, Expr([I32Const(I32(v))]))])) => assert_eq(v, 41)
+    Some(CodeSec([Func(_, Expr([I32Const(I32(v))]))])) =>
+      @debug.assert_eq(v, 41)
     _ => fail("expected decoded wasm output from in-process wat fallback")
   }
 }
@@ -1867,12 +1869,12 @@ test "run_cmd_with_adapter lowers wast through in-process fallback when adapter 
     Err(e) =>
       fail("expected in-process wast lowering fallback success, got \{e}")
   }
-  assert_eq(summary.output_files, ["n.wasm"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.output_files, ["n.wasm"])
+  @debug.assert_eq(writes.length(), 1)
   let mod = decode_module_bytes(writes[0].1)
   match (mod.mem_sec, mod.data_sec) {
     (Some(_), Some(DataSec([Data(_, bytes)]))) =>
-      assert_eq(bytes_to_ascii_string(bytes), "A")
+      @debug.assert_eq(bytes_to_ascii_string(bytes), "A")
     _ => fail("expected decoded wasm output from in-process wast fallback")
   }
 }
@@ -1904,7 +1906,7 @@ test "run_cmd_with_adapter runs supported hot passes over multiple inputs" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(writes.length(), 2)
+  @debug.assert_eq(writes.length(), 2)
   for entry in writes {
     ignore(decode_module_bytes(entry.1))
   }
@@ -1939,13 +1941,13 @@ test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
     Ok(v) => v
     Err(e) => fail("unexpected ssa-nomerge run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["ssa-nomerge"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["ssa-nomerge"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
     Some(CodeSec([Func(locals, Expr(instrs))])) => {
-      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-      assert_eq(instrs, [
+      @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(5)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -1986,8 +1988,8 @@ test "run_cmd_with_adapter accepts merge-blocks" {
     Ok(v) => v
     Err(e) => fail("unexpected merge-blocks run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["merge-blocks"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["merge-blocks"])
+  @debug.assert_eq(writes.length(), 1)
   match @validate.validate_module(decode_module_bytes(writes[0].1)) {
     Ok(_) => ()
     Err(err) => fail("expected merge-blocks output to validate, got \{err}")
@@ -2025,8 +2027,8 @@ test "run_cmd_with_adapter accepts tuple-optimization" {
     Ok(v) => v
     Err(e) => fail("unexpected tuple-optimization run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["tuple-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["tuple-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   match @validate.validate_module(decode_module_bytes(writes[0].1)) {
     Ok(_) => ()
     Err(err) =>
@@ -2065,7 +2067,7 @@ test "run_cmd_with_adapter tuple-optimization keeps host tee repro outputs scala
     Ok(_) => ()
     Err(e) => fail("unexpected tuple-optimization host-tee repro failure: \{e}")
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(pretty.contains("call (Func 1)"), msg=pretty)
@@ -2075,7 +2077,7 @@ test "run_cmd_with_adapter tuple-optimization keeps host tee repro outputs scala
     ),
     msg=pretty,
   )
-  assert_eq(count_substring(pretty, "local.tee"), 0, msg=pretty)
+  @debug.assert_eq(count_substring(pretty, "local.tee"), 0, msg=pretty)
   match @validate.validate_module(out) {
     Ok(_) => ()
     Err(err) =>
@@ -2128,12 +2130,12 @@ test "run_cmd_with_adapter tuple-optimization rewrites scrambled tuple copy carr
         "unexpected tuple-optimization scrambled tuple copy carrier failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
   match out.type_sec {
-    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 4)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 4)
     None => fail("expected scrambled tuple copy carrier output type sec")
   }
   assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
@@ -2187,12 +2189,12 @@ test "run_cmd_with_adapter tuple-optimization rewrites root local.set copy group
         "unexpected tuple-optimization root local.set tuple copy carrier failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
   match out.type_sec {
-    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 4)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 4)
     None => fail("expected root local.set tuple copy carrier output type sec")
   }
   assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
@@ -2247,7 +2249,7 @@ test "run_cmd_with_adapter tuple-optimization keeps mixed scalar-forward bridges
         "unexpected tuple-optimization mixed direct-producer bridge failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(pretty.contains("call (Func 0)"), msg=pretty)
@@ -2308,7 +2310,7 @@ test "run_cmd_with_adapter tuple-optimization keeps chained mixed scalar-forward
         "unexpected tuple-optimization chained direct-producer bridge failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(pretty.contains("call (Func 0)"), msg=pretty)
@@ -2369,7 +2371,7 @@ test "run_cmd_with_adapter tuple-optimization stages chained host-copy tail-live
         "unexpected tuple-optimization chained host-copy repro failure: \{e}",
       )
   }
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(count_substring(pretty, "local.tee") >= 2, msg=pretty)
@@ -2422,10 +2424,10 @@ test "run_cmd_with_adapter validates ssa-nomerge on debug artifact" {
     Ok(v) => v
     Err(e) => fail("expected ssa-nomerge artifact replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -2471,10 +2473,12 @@ test "run_cmd_with_adapter ssa-nomerge extracted func 523 avoids writeback type-
     Err(e) =>
       fail("expected extracted func 523 ssa-nomerge replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["extract-functions=523", "ssa-nomerge"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
+    "extract-functions=523", "ssa-nomerge",
+  ])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
@@ -2517,8 +2521,8 @@ test "run_cmd_with_adapter folds HSO readonly mutable-global prefixes into struc
     Ok(v) => v
     Err(e) => fail("unexpected heap-store-optimization run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.get"), msg=pretty)
@@ -2555,8 +2559,8 @@ test "run_cmd_with_adapter folds tee HSO readonly mutable-global prefixes into s
     Ok(v) => v
     Err(e) => fail("unexpected tee heap-store-optimization run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.get"), msg=pretty)
@@ -2594,8 +2598,8 @@ test "run_cmd_with_adapter folds tee HSO pure multi-root block values into struc
         "unexpected tee pure-block heap-store-optimization run failure: \{e}",
       )
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
@@ -2638,8 +2642,8 @@ test "run_cmd_with_adapter folds tee HSO pure multi-root block ref results into 
         "unexpected tee pure-block ref-result heap-store-optimization run failure: \{e}",
       )
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
@@ -2678,8 +2682,8 @@ test "run_cmd_with_adapter folds direct HSO pure prefix blocks into struct.new" 
         "unexpected direct pure-prefix heap-store-optimization run failure: \{e}",
       )
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
@@ -2721,8 +2725,8 @@ test "run_cmd_with_adapter folds direct HSO pure prefix ref results into struct.
         "unexpected direct pure-prefix ref-result heap-store-optimization run failure: \{e}",
       )
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
@@ -2757,8 +2761,8 @@ test "run_cmd_with_adapter trims unreachable tails in folded HSO branch values" 
     Ok(v) => v
     Err(e) => fail("unexpected branch-fold HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.new"), msg=pretty)
@@ -2795,8 +2799,8 @@ test "run_cmd_with_adapter trims unreachable tails in non-folded HSO local branc
     Ok(v) => v
     Err(e) => fail("unexpected local-branch HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.set"), msg=pretty)
@@ -2832,8 +2836,8 @@ test "run_cmd_with_adapter folds HSO memory-size branch values" {
     Ok(v) => v
     Err(e) => fail("unexpected memory-branch HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
@@ -2873,8 +2877,8 @@ test "run_cmd_with_adapter folds tee HSO memory-size branch values" {
     Ok(v) => v
     Err(e) => fail("unexpected tee memory-branch HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
@@ -2914,8 +2918,8 @@ test "run_cmd_with_adapter trims tails after nested branch exits in folded HSO v
     Ok(v) => v
     Err(e) => fail("unexpected nested-branch HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.new"), msg=pretty)
@@ -2950,8 +2954,8 @@ test "run_cmd_with_adapter trims loop tails after folded HSO exits to the outer 
     Ok(v) => v
     Err(e) => fail("unexpected loop-exit HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.new"), msg=pretty)
@@ -2988,8 +2992,8 @@ test "run_cmd_with_adapter drops stale label names after HSO relowers named cont
     Ok(v) => v
     Err(e) => fail("unexpected named-label HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.name_sec {
     Some(name_sec) => assert_true(name_sec.label_names is None)
@@ -3026,8 +3030,8 @@ test "run_cmd_with_adapter preserves label names when HSO raw-skips every functi
     Ok(v) => v
     Err(e) => fail("unexpected raw-skip named-label HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.name_sec {
     Some(name_sec) => assert_true(name_sec.label_names is Some(_))
@@ -3065,8 +3069,8 @@ test "run_cmd_with_adapter folds swapped-root HSO readonly mutable-global prefix
     Err(e) =>
       fail("unexpected swapped heap-store-optimization run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.set"), msg=pretty)
@@ -3102,8 +3106,8 @@ test "run_cmd_with_adapter keeps swapped HSO peeled prefix roots valid after nop
     Ok(v) => v
     Err(e) => fail("unexpected swapped-nop HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("local.set"), msg=pretty)
@@ -3146,8 +3150,8 @@ test "run_cmd_with_adapter flattens nested if-tail wrappers inside folded HSO va
     Ok(v) => v
     Err(e) => fail("unexpected nested-if-tail HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("if I32"), msg=pretty)
@@ -3193,8 +3197,8 @@ test "run_cmd_with_adapter keeps wrapped-ref if conditions outside HSO scratch b
     Ok(v) => v
     Err(e) => fail("unexpected wrapped-ref if-branch HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("local.set"), msg=pretty)
@@ -3230,8 +3234,8 @@ test "run_cmd_with_adapter keeps struct.set for HSO readonly ref-prefix memory.s
     Ok(v) => v
     Err(e) => fail("unexpected memory ref-prefix HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
@@ -3267,8 +3271,8 @@ test "run_cmd_with_adapter keeps struct.set for HSO pure ref-prefix ref-result w
     Ok(v) => v
     Err(e) => fail("unexpected pure ref-result HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
@@ -3304,8 +3308,8 @@ test "run_cmd_with_adapter keeps struct.set for HSO tee pure ref-prefix ref-resu
     Ok(v) => v
     Err(e) => fail("unexpected tee pure ref-result HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
@@ -3340,8 +3344,8 @@ test "run_cmd_with_adapter folds HSO readonly value-prefix memory.size wasm inpu
     Ok(v) => v
     Err(e) => fail("unexpected memory value-prefix HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
@@ -3376,8 +3380,8 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix table.s
     Ok(v) => v
     Err(e) => fail("unexpected table value-prefix HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("table.size"), msg=pretty)
@@ -3411,8 +3415,8 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix local.g
     Ok(v) => v
     Err(e) => fail("unexpected local value-prefix HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
@@ -3449,8 +3453,8 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix immutab
     Err(e) =>
       fail("unexpected immutable-global value-prefix HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.get"), msg=pretty)
@@ -3487,8 +3491,8 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix mutable
     Err(e) =>
       fail("unexpected mutable-global value-prefix HSO run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.get"), msg=pretty)
@@ -3529,19 +3533,19 @@ test "run_cmd_with_adapter interleaves dump validate and optimize steps in cli o
     Ok(v) => v
     Err(e) => fail("unexpected dump/validate pipeline failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.resolved_passes, [
     "dump=before.wasm", "ssa-nomerge", "dump=after.wasm", "validate",
   ])
-  assert_eq(writes.length(), 3)
-  assert_eq(writes[0].0, "before.wasm")
-  assert_eq(writes[1].0, "after.wasm")
-  assert_eq(writes[2].0, "out.wasm")
+  @debug.assert_eq(writes.length(), 3)
+  @debug.assert_eq(writes[0].0, "before.wasm")
+  @debug.assert_eq(writes[1].0, "after.wasm")
+  @debug.assert_eq(writes[2].0, "out.wasm")
 
   let before = decode_module_bytes(writes[0].1)
   match before.code_sec {
     Some(CodeSec([Func(locals, Expr(instrs))])) => {
-      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-      assert_eq(instrs, [
+      @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(5)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -3553,8 +3557,8 @@ test "run_cmd_with_adapter interleaves dump validate and optimize steps in cli o
   let after = decode_module_bytes(writes[1].1)
   match after.code_sec {
     Some(CodeSec([Func(locals, Expr(instrs))])) => {
-      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-      assert_eq(instrs, [
+      @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(5)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -3564,7 +3568,7 @@ test "run_cmd_with_adapter interleaves dump validate and optimize steps in cli o
   }
 
   let final_mod = decode_module_bytes(writes[2].1)
-  assert_eq(final_mod, after)
+  @debug.assert_eq(final_mod, after)
 }
 
 ///|
@@ -3594,8 +3598,8 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
     Ok(v) => v
     Err(e) => fail("unexpected extract-functions pipeline failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["extract-functions=4,3"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["extract-functions=4,3"])
+  @debug.assert_eq(writes.length(), 1)
 
   let optimized = decode_module_bytes(writes[0].1)
   match @validate.validate_module(optimized) {
@@ -3605,12 +3609,12 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
 
   match optimized.import_sec {
     Some(@lib.ImportSec(imports)) => {
-      assert_eq(imports.length(), 1)
+      @debug.assert_eq(imports.length(), 1)
       match imports[0] {
         @lib.Import(module_name, field_name, @lib.FuncExternType(type_idx)) => {
-          assert_eq(module_name, @lib.Name::new("env"))
-          assert_eq(field_name, @lib.Name::new("keep_import"))
-          assert_eq(type_idx, @lib.TypeIdx::new(0U))
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(field_name, @lib.Name::new("keep_import"))
+          @debug.assert_eq(type_idx, @lib.TypeIdx::new(0U))
         }
         other => fail("expected single live func import, got \{other}")
       }
@@ -3621,13 +3625,13 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
 
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) =>
-      assert_eq(type_idxs, [@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)])
+      @debug.assert_eq(type_idxs, [@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)])
     other => fail("expected two extracted defined functions, got \{other}")
   }
   match optimized.export_sec {
     Some(@lib.ExportSec(exports)) => {
-      assert_eq(exports.length(), 2)
-      assert_eq(exports, [
+      @debug.assert_eq(exports.length(), 2)
+      @debug.assert_eq(exports, [
         @lib.Export::new(
           @lib.Name::new("helper"),
           @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
@@ -3640,8 +3644,8 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
     }
     other => fail("expected extracted function exports, got \{other}")
   }
-  assert_eq(optimized.start_sec, None)
-  assert_eq(
+  @debug.assert_eq(optimized.start_sec, None)
+  @debug.assert_eq(
     optimized.table_sec,
     Some(
       @lib.TableSec::new([
@@ -3658,21 +3662,24 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
       ]),
     ),
   )
-  assert_eq(
+  @debug.assert_eq(
     optimized.mem_sec,
     Some(@lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))])),
   )
   match optimized.global_sec {
-    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
     other => fail("expected single live global, got \{other}")
   }
   match optimized.elem_sec {
-    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 1)
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 1)
     other => fail("expected single live elem segment, got \{other}")
   }
-  assert_eq(optimized.data_cnt_sec, Some(@lib.DataCntSec::new(@lib.U32(1U))))
+  @debug.assert_eq(
+    optimized.data_cnt_sec,
+    Some(@lib.DataCntSec::new(@lib.U32(1U))),
+  )
   match optimized.data_sec {
-    Some(@lib.DataSec(datas)) => assert_eq(datas.length(), 1)
+    Some(@lib.DataSec(datas)) => @debug.assert_eq(datas.length(), 1)
     other => fail("expected single live data segment, got \{other}")
   }
 
@@ -3720,9 +3727,9 @@ test "run_cmd_with_adapter writes wat dumps as text" {
     Ok(v) => v
     Err(e) => fail("unexpected wat dump failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["dump=snapshot.wat"])
-  assert_eq(writes.length(), 2)
-  assert_eq(writes[0].0, "snapshot.wat")
+  @debug.assert_eq(summary.resolved_passes, ["dump=snapshot.wat"])
+  @debug.assert_eq(writes.length(), 2)
+  @debug.assert_eq(writes[0].0, "snapshot.wat")
   let wat = bytes_to_ascii_string(writes[0].1)
   assert_true(wat.contains("(module"))
   assert_true(wat.contains("i32.const 41"))
@@ -3760,8 +3767,8 @@ test "run_cmd_with_adapter dumps current module before explicit validate fails" 
       assert_true(msg.contains("validate"), msg~)
     Err(err) => fail("expected validate failure, got \{err}")
   }
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "before-invalid.wasm")
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, "before-invalid.wasm")
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -3800,11 +3807,11 @@ test "run_cmd_with_adapter prints ordered log entries to stderr and sees post-pa
     Ok(v) => v
     Err(e) => fail("unexpected print pipeline failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.resolved_passes, [
     "print-type=(0)", "ssa-nomerge", "print-func=main", "print-elem=elist",
   ])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "out.wasm")
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, "out.wasm")
 
   let stderr_text = concat_ascii_bytes(stderr_writes)
   assert_true(stderr_text.contains("Log: printable.wasm"), msg=stderr_text)
@@ -3842,9 +3849,9 @@ test "run_cmd_with_adapter rejects removed compatibility-only pass names" {
   match
     run_cmd_with_adapter(["--re-reloop", "--out", "out.wasm", "a.wasm"], io) {
     Ok(summary) => fail("expected removed pass rejection, got \{summary}")
-    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("re-reloop"))
+    Err(err) => @debug.assert_eq(err, CmdError::unknown_pass_flag("re-reloop"))
   }
-  assert_eq(writes.length(), 0)
+  @debug.assert_eq(writes.length(), 0)
 }
 
 ///|
@@ -3875,9 +3882,9 @@ test "run_cmd_with_adapter accepts remove-unused-brs" {
     Ok(summary) => summary
     Err(err) => fail("expected remove-unused-brs cli success, got \{err}")
   }
-  assert_eq(summary.resolved_passes, ["remove-unused-brs"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "out.wasm")
+  @debug.assert_eq(summary.resolved_passes, ["remove-unused-brs"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, "out.wasm")
 }
 
 ///|
@@ -3908,9 +3915,9 @@ test "run_cmd_with_adapter accepts code-pushing" {
     Ok(summary) => summary
     Err(err) => fail("expected code-pushing cli success, got \{err}")
   }
-  assert_eq(summary.resolved_passes, ["code-pushing"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "out.wasm")
+  @debug.assert_eq(summary.resolved_passes, ["code-pushing"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, "out.wasm")
   let optimized = decode_module_bytes(writes[0].1)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
@@ -3950,9 +3957,9 @@ test "run_cmd_with_adapter accepts redundant-set-elimination" {
     Err(err) =>
       fail("expected redundant-set-elimination cli success, got \{err}")
   }
-  assert_eq(summary.resolved_passes, ["redundant-set-elimination"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "out.wasm")
+  @debug.assert_eq(summary.resolved_passes, ["redundant-set-elimination"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, "out.wasm")
   match @validate.validate_module(decode_module_bytes(writes[0].1)) {
     Ok(_) => ()
     Err(err) =>
@@ -4051,9 +4058,9 @@ test "run_cmd_with_adapter dumps lowered remove-unused-brs carried guard wrapper
         "expected carried guard wrapper remove-unused-brs cli success, got \{err}",
       )
   }
-  assert_eq(summary.resolved_passes, ["remove-unused-brs"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "out.wasm")
+  @debug.assert_eq(summary.resolved_passes, ["remove-unused-brs"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, "out.wasm")
   let wat = match native_normalize_wasm_bytes_to_wat_for_test(writes[0].1) {
     Ok(text) => text
     Err(err) =>
@@ -4083,7 +4090,7 @@ test "run_cmd_with_adapter preserves repeated pass flags in cli order" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["vacuum", "optimize", "vacuum"])
+  @debug.assert_eq(summary.resolved_passes, ["vacuum", "optimize", "vacuum"])
 }
 
 ///|
@@ -4113,11 +4120,11 @@ test "run_cmd_with_adapter applies duplicate-function-elimination to wasm inputs
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["duplicate-function-elimination"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["duplicate-function-elimination"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
-    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    Some(CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
     None => fail("expected code section")
   }
 }
@@ -4157,8 +4164,8 @@ test "run_cmd_with_adapter applies duplicate-import-elimination to wasm inputs" 
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["duplicate-import-elimination"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["duplicate-import-elimination"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.import_sec {
     Some(ImportSec([Import(_, _, FuncExternType(_))])) => ()
@@ -4198,8 +4205,8 @@ test "run_cmd_with_adapter accepts string-gathering as an active module pass" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["string-gathering"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["string-gathering"])
+  @debug.assert_eq(writes.length(), 1)
 }
 
 ///|
@@ -4236,8 +4243,8 @@ test "run_cmd_with_adapter accepts reorder-globals as an active module pass" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["reorder-globals"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["reorder-globals"])
+  @debug.assert_eq(writes.length(), 1)
 }
 
 ///|
@@ -4267,11 +4274,11 @@ test "run_cmd_with_adapter applies remove-unused-module-elements to wasm inputs"
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["remove-unused-module-elements"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["remove-unused-module-elements"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
-    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    Some(CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
     None => fail("expected code section")
   }
 }
@@ -4304,8 +4311,8 @@ test "run_cmd_with_adapter accepts untee as an active module pass" {
     Ok(v) => v
     Err(e) => fail("unexpected untee run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["untee"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["untee"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
     Some(
@@ -4359,13 +4366,16 @@ test "run_cmd_with_adapter applies reorder-locals to wasm inputs" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["reorder-locals"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["reorder-locals"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
     Some(CodeSec([Func(locals, Expr(instrs))])) => {
-      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
-      assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
+      @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
+      @debug.assert_eq(
+        instrs[1],
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      )
     }
     Some(_) => fail("expected single defined function")
     None => fail("expected code section")
@@ -4434,12 +4444,12 @@ test "run_cmd_with_adapter applies local-subtyping to wasm inputs" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["local-subtyping"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["local-subtyping"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
     Some(CodeSec([Func(locals, _)])) =>
-      assert_eq(locals, @lib.Locals::from_types([child_nullable]))
+      @debug.assert_eq(locals, @lib.Locals::from_types([child_nullable]))
     Some(_) => fail("expected single defined function")
     None => fail("expected code section")
   }
@@ -4476,14 +4486,20 @@ test "run_cmd_with_adapter applies coalesce-locals to wasm inputs" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["coalesce-locals"])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(summary.resolved_passes, ["coalesce-locals"])
+  @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
     Some(CodeSec([Func(locals, Expr(instrs))])) => {
-      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-      assert_eq(instrs[5], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
-      assert_eq(instrs[6], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+      @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      @debug.assert_eq(
+        instrs[5],
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      )
+      @debug.assert_eq(
+        instrs[6],
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      )
     }
     Some(_) => fail("expected single defined function")
     None => fail("expected code section")
@@ -4522,8 +4538,8 @@ test "run_cmd_with_adapter reuses original wasm bytes when RUME is unchanged" {
     Ok(v) => v
     Err(e) => fail("expected unchanged RUME success, got \{e}")
   }
-  assert_eq(summary.output_files, ["out.wasm"])
-  assert_eq(writes, [("out.wasm", wasm)])
+  @debug.assert_eq(summary.output_files, ["out.wasm"])
+  @debug.assert_eq(writes, [("out.wasm", wasm)])
 }
 
 ///|
@@ -4554,8 +4570,8 @@ test "run_cmd_with_adapter still encodes changed RUME outputs" {
     Ok(v) => v
     Err(e) => fail("expected changed RUME success, got \{e}")
   }
-  assert_eq(summary.output_files, ["out.wasm"])
-  assert_eq(writes, [("out.wasm", b"encoded-changed-rume")])
+  @debug.assert_eq(summary.output_files, ["out.wasm"])
+  @debug.assert_eq(writes, [("out.wasm", b"encoded-changed-rume")])
 }
 
 ///|
@@ -4607,13 +4623,13 @@ test "run_cmd_with_adapter uses config passes when cli does not provide pass fla
   assert_true(has_string(summary.input_files, "cfg.wasm"))
   assert_true(has_string(summary.input_files, "cli.wasm"))
   assert_true(has_string(summary.resolved_passes, "vacuum"))
-  assert_eq(summary.resolved_passes, ["vacuum"])
-  assert_eq(summary.optimize_level, 1)
-  assert_eq(summary.traps_never_happen, false)
-  assert_eq(summary.monomorphize_min_benefit, 11)
-  assert_eq(summary.closed_world, false)
-  assert_eq(summary.low_memory_unused, false)
-  assert_eq(summary.low_memory_bound, 2048UL)
+  @debug.assert_eq(summary.resolved_passes, ["vacuum"])
+  @debug.assert_eq(summary.optimize_level, 1)
+  @debug.assert_eq(summary.traps_never_happen, false)
+  @debug.assert_eq(summary.monomorphize_min_benefit, 11)
+  @debug.assert_eq(summary.closed_world, false)
+  @debug.assert_eq(summary.low_memory_unused, false)
+  @debug.assert_eq(summary.low_memory_bound, 2048UL)
   for entry in writes {
     let (path, _) = entry
     assert_true(path.has_prefix("cli-dist/"))
@@ -4645,7 +4661,7 @@ test "run_cmd_with_adapter lets cli pass flags override config pass lists" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["vacuum"])
+  @debug.assert_eq(summary.resolved_passes, ["vacuum"])
 }
 
 ///|
@@ -4676,7 +4692,7 @@ test "run_cmd_with_adapter ignores unknown config pass flags when cli pass flags
         "config pass list should be ignored once cli pass flags are set, got error \{e}",
       )
   }
-  assert_eq(summary.resolved_passes, ["vacuum"])
+  @debug.assert_eq(summary.resolved_passes, ["vacuum"])
 }
 
 ///|
@@ -4702,9 +4718,9 @@ test "run_cmd_with_adapter uses input paths when no explicit outputs are set" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.output_files, ["a.wasm"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "a.wasm")
+  @debug.assert_eq(summary.output_files, ["a.wasm"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, "a.wasm")
 }
 
 ///|
@@ -4723,7 +4739,8 @@ test "run_cmd_with_adapter rejects a single --out target for multiple inputs" {
   )
   match run_cmd_with_adapter(["--out", "one.wasm", "a.wasm", "b.wasm"], io) {
     Ok(summary) => fail("expected ambiguous output error, got \{summary}")
-    Err(err) => assert_eq(err, CmdError::ambiguous_output_file("one.wasm"))
+    Err(err) =>
+      @debug.assert_eq(err, CmdError::ambiguous_output_file("one.wasm"))
   }
 }
 
@@ -4756,8 +4773,8 @@ test "run_cmd_with_adapter loads default config path when present" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.input_files, ["cfg.wasm"])
-  assert_eq(summary.output_files, ["cfg-out/cfg.wasm"])
+  @debug.assert_eq(summary.input_files, ["cfg.wasm"])
+  @debug.assert_eq(summary.output_files, ["cfg-out/cfg.wasm"])
   assert_true(has_string(summary.resolved_passes, "vacuum"))
 }
 
@@ -4788,8 +4805,8 @@ test "run_cmd_with_adapter accepts optional inline json config in the same call"
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.output_files, ["inline-out/a.wasm"])
-  assert_eq(summary.resolved_passes, ["vacuum"])
+  @debug.assert_eq(summary.output_files, ["inline-out/a.wasm"])
+  @debug.assert_eq(summary.resolved_passes, ["vacuum"])
   assert_true(summary.traps_never_happen)
 }
 
@@ -4830,7 +4847,7 @@ test "run_cmd_with_adapter reports decode failures with DecodeFailed" {
   match run_cmd_with_adapter(["bad.wasm"], io) {
     Ok(summary) => fail("expected decode failure, got summary \{summary}")
     Err(CmdError::DecodeFailed(path, err)) => {
-      assert_eq(path, "bad.wasm")
+      @debug.assert_eq(path, "bad.wasm")
       match err {
         @binary.DecodeError::Decode(
           @binary.BinaryDecodeError::InvalidMagicHeader
@@ -4885,8 +4902,8 @@ test "run_cmd_with_adapter reports encode failures with EncodeFailed" {
   match run_cmd_with_adapter(["a.wasm"], io) {
     Ok(summary) => fail("expected encode failure, got summary \{summary}")
     Err(CmdError::EncodeFailed(path, err)) => {
-      assert_eq(path, "a.wasm")
-      assert_eq(err, CmdEncodeError::adapter("forced encode failure"))
+      @debug.assert_eq(path, "a.wasm")
+      @debug.assert_eq(err, CmdEncodeError::adapter("forced encode failure"))
     }
     Err(err) => fail("expected EncodeFailed, got \{err}")
   }
@@ -4915,10 +4932,10 @@ test "run_cmd_with_adapter skips post-encode validation outside debug mode" {
   )
   match run_cmd_with_adapter(["-o", "out.wasm", "a.wasm"], io) {
     Ok(summary) => {
-      assert_eq(summary.output_files, ["out.wasm"])
-      assert_eq(writes.length(), 1)
-      assert_eq(writes[0].0, "out.wasm")
-      assert_eq(writes[0].1, invalid_bytes)
+      @debug.assert_eq(summary.output_files, ["out.wasm"])
+      @debug.assert_eq(writes.length(), 1)
+      @debug.assert_eq(writes[0].0, "out.wasm")
+      @debug.assert_eq(writes[0].1, invalid_bytes)
     }
     Err(err) =>
       fail("expected success without debug post-encode validation, got \{err}")
@@ -4952,7 +4969,7 @@ test "run_cmd_with_adapter keeps post-encode validation in debug mode" {
     Ok(summary) =>
       fail("expected debug post-encode validation failure, got \{summary}")
     Err(CmdError::EncodeFailed(path, Adapter(msg))) => {
-      assert_eq(path, "a.wasm")
+      @debug.assert_eq(path, "a.wasm")
       assert_true(msg.contains("post-encode decode failed"))
     }
     Err(err) => fail("expected EncodeFailed in debug mode, got \{err}")
@@ -4990,7 +5007,7 @@ test "config pass flags take precedence over env pass overlays when cli pass fla
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["vacuum"])
+  @debug.assert_eq(summary.resolved_passes, ["vacuum"])
 }
 
 ///|
@@ -5025,8 +5042,8 @@ test "env optimize and trap overlays take precedence over config values when cli
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["optimize"])
-  assert_eq(summary.optimize_level, 3)
+  @debug.assert_eq(summary.resolved_passes, ["optimize"])
+  @debug.assert_eq(summary.optimize_level, 3)
   assert_true(summary.traps_never_happen)
   assert_true(summary.closed_world)
 }
@@ -5055,9 +5072,9 @@ test "env olevel overlay accepts dash-prefixed trimmed text" {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["shrink"])
-  assert_eq(summary.optimize_level, 2)
-  assert_eq(summary.shrink_level, 2)
+  @debug.assert_eq(summary.resolved_passes, ["shrink"])
+  @debug.assert_eq(summary.optimize_level, 2)
+  @debug.assert_eq(summary.shrink_level, 2)
 }
 
 ///|
@@ -5071,9 +5088,9 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
     Ok(v) => v
     Err(e) => fail("expected help success, got \{e}")
   }
-  assert_eq(summary.input_files, [])
-  assert_eq(summary.output_files, [])
-  assert_eq(stdout_writes.length(), 1)
+  @debug.assert_eq(summary.input_files, [])
+  @debug.assert_eq(summary.output_files, [])
+  @debug.assert_eq(stdout_writes.length(), 1)
   let help = bytes_to_ascii_string(stdout_writes[0])
   assert_true(help.contains("Starshine Wasm Binary Toolkit"))
   assert_true(help.contains("v0.1.0"))
@@ -5113,8 +5130,8 @@ test "run_cmd_with_adapter fast-paths bare --help without env probing" {
     Ok(_) => ()
     Err(e) => fail("expected help success, got \{e}")
   }
-  assert_eq(env_lookups, [])
-  assert_eq(stdout_writes.length(), 1)
+  @debug.assert_eq(env_lookups, [])
+  @debug.assert_eq(stdout_writes.length(), 1)
 }
 
 ///|
@@ -5135,8 +5152,8 @@ test "run_cmd_with_adapter exits on parsed help before STARSHINE_INPUT probing" 
     Ok(_) => ()
     Err(e) => fail("expected parsed help success, got \{e}")
   }
-  assert_eq(env_lookups, [])
-  assert_eq(stdout_writes.length(), 1)
+  @debug.assert_eq(env_lookups, [])
+  @debug.assert_eq(stdout_writes.length(), 1)
 }
 
 ///|
@@ -5172,9 +5189,11 @@ test "run_cmd_with_adapter skips irrelevant env overlay probes when cli already 
     Ok(v) => v
     Err(e) => fail("expected run success, got \{e}")
   }
-  assert_eq(summary.resolved_passes, ["vacuum"])
-  assert_eq(summary.output_files, ["out.wasm"])
-  assert_eq(env_lookups, ["STARSHINE_INPUT", "STARSHINE_OPTIMIZE_MAX_PASSES"])
+  @debug.assert_eq(summary.resolved_passes, ["vacuum"])
+  @debug.assert_eq(summary.output_files, ["out.wasm"])
+  @debug.assert_eq(env_lookups, [
+    "STARSHINE_INPUT", "STARSHINE_OPTIMIZE_MAX_PASSES",
+  ])
 }
 
 ///|
@@ -5188,10 +5207,10 @@ test "run_cmd_with_adapter prints version and exits successfully for --version" 
     Ok(v) => v
     Err(e) => fail("expected version success, got \{e}")
   }
-  assert_eq(summary.input_files, [])
-  assert_eq(summary.output_files, [])
-  assert_eq(stdout_writes.length(), 1)
-  assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
+  @debug.assert_eq(summary.input_files, [])
+  @debug.assert_eq(summary.output_files, [])
+  @debug.assert_eq(stdout_writes.length(), 1)
+  @debug.assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
 }
 
 ///|
@@ -5212,8 +5231,8 @@ test "run_cmd_with_adapter fast-paths bare --version without env probing" {
     Ok(_) => ()
     Err(e) => fail("expected version success, got \{e}")
   }
-  assert_eq(env_lookups, [])
-  assert_eq(stdout_writes.length(), 1)
+  @debug.assert_eq(env_lookups, [])
+  @debug.assert_eq(stdout_writes.length(), 1)
 }
 
 ///|
@@ -5227,10 +5246,10 @@ test "run_cmd_with_adapter prints version and exits successfully for -V" {
     Ok(v) => v
     Err(e) => fail("expected version success, got \{e}")
   }
-  assert_eq(summary.input_files, [])
-  assert_eq(summary.output_files, [])
-  assert_eq(stdout_writes.length(), 1)
-  assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
+  @debug.assert_eq(summary.input_files, [])
+  @debug.assert_eq(summary.output_files, [])
+  @debug.assert_eq(stdout_writes.length(), 1)
+  @debug.assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
 }
 
 ///|
@@ -5255,9 +5274,9 @@ test "run_cmd_with_adapter spec subcommand runs wast spec suite" {
     Ok(v) => v
     Err(e) => fail("expected spec run success, got \{e}")
   }
-  assert_eq(summary.input_files, ["ok.wast"])
-  assert_eq(summary.resolved_passes, ["spec"])
-  assert_eq(stdout_writes.length(), 1)
+  @debug.assert_eq(summary.input_files, ["ok.wast"])
+  @debug.assert_eq(summary.resolved_passes, ["spec"])
+  @debug.assert_eq(stdout_writes.length(), 1)
   assert_true(bytes_to_ascii_string(stdout_writes[0]).contains("failed=0"))
 }
 
@@ -5286,7 +5305,7 @@ test "run_cmd_with_adapter spec subcommand only expands wildcard inputs with --g
     Ok(v) => v
     Err(e) => fail("expected glob-enabled spec success, got \{e}")
   }
-  assert_eq(summary.input_files, ["ok.wast"])
+  @debug.assert_eq(summary.input_files, ["ok.wast"])
 }
 
 ///|
@@ -5312,7 +5331,7 @@ test "run_cmd_with_adapter spec subcommand reports failures" {
     Err(CmdError::SpecFailed(msg)) => assert_true(msg.contains("broken.wast"))
     Err(err) => fail("expected SpecFailed, got \{err}")
   }
-  assert_eq(stdout_writes.length(), 2)
+  @debug.assert_eq(stdout_writes.length(), 2)
   assert_true(bytes_to_ascii_string(stdout_writes[0]).contains("failed=1"))
 }
 
@@ -5332,21 +5351,21 @@ test "run_cmd_exit_code_with_adapter returns zero for successful runs" {
     write_file=fn(_, _) { Ok(()) },
   )
   let code = run_cmd_exit_code_with_adapter(["a.wasm"], io)
-  assert_eq(code, 0)
+  @debug.assert_eq(code, 0)
 }
 
 ///|
 test "run_cmd_exit_code_with_adapter returns zero for --help" {
   let io = CmdIO::new(write_stdout=fn(_) { Ok(()) })
   let code = run_cmd_exit_code_with_adapter(["--help"], io)
-  assert_eq(code, 0)
+  @debug.assert_eq(code, 0)
 }
 
 ///|
 test "run_cmd_exit_code_with_adapter returns zero for --version" {
   let io = CmdIO::new(write_stdout=fn(_) { Ok(()) })
   let code = run_cmd_exit_code_with_adapter(["--version"], io)
-  assert_eq(code, 0)
+  @debug.assert_eq(code, 0)
 }
 
 ///|
@@ -5365,7 +5384,7 @@ test "run_cmd_exit_code_with_adapter returns non-zero for failures" {
     write_file=fn(_, _) { Ok(()) },
   )
   let code = run_cmd_exit_code_with_adapter(["--stdin"], io)
-  assert_eq(code, 1)
+  @debug.assert_eq(code, 1)
 }
 
 ///|
@@ -5389,8 +5408,8 @@ test "run_cmd_exit_code_with_adapter writes CmdError details to stderr on parse 
     },
   )
   let code = run_cmd_exit_code_with_adapter(["--stdin"], io)
-  assert_eq(code, 1)
-  assert_eq(stderr_writes.length(), 1)
+  @debug.assert_eq(code, 1)
+  @debug.assert_eq(stderr_writes.length(), 1)
   let stderr_text = bytes_to_ascii_string(stderr_writes[0])
   assert_true(stderr_text.contains("error:"))
   assert_true(stderr_text.contains("stdin requires"))
@@ -5417,8 +5436,8 @@ test "run_cmd_exit_code_with_adapter does not write stderr on success" {
     },
   )
   let code = run_cmd_exit_code_with_adapter(["a.wasm"], io)
-  assert_eq(code, 0)
-  assert_eq(stderr_writes.length(), 0)
+  @debug.assert_eq(code, 0)
+  @debug.assert_eq(stderr_writes.length(), 0)
 }
 
 ///|
@@ -5793,7 +5812,7 @@ test "run_cmd native child process does not crash for file rewrite" {
     native_remove_if_exists(output_path)
     fail("expected child to exit normally, got signal \{status}")
   }
-  assert_eq(status, 0)
+  @debug.assert_eq(status, 0)
   match native_read_bytes(output_path) {
     Some(bytes) => ignore(decode_module_bytes(bytes))
     None => fail("expected native output file at \{output_path}")
@@ -5822,7 +5841,7 @@ test "run_cmd native child process does not crash for --optimize" {
     native_remove_if_exists(output_path)
     fail("expected child to exit normally, got signal \{status}")
   }
-  assert_eq(status, 0)
+  @debug.assert_eq(status, 0)
   match native_read_bytes(output_path) {
     Some(bytes) => ignore(decode_module_bytes(bytes))
     None => fail("expected optimized output file at \{output_path}")
@@ -5857,7 +5876,7 @@ test "run_cmd native child process dumps final-invalid module on validate failur
     native_remove_if_exists(invalid_func_dump_path)
     fail("expected child to exit normally, got signal \{status}")
   }
-  assert_eq(status, 1)
+  @debug.assert_eq(status, 1)
   match native_read_bytes(invalid_dump_path) {
     Some(bytes) => ignore(decode_module_bytes(bytes))
     None => fail("expected invalid final-module dump at \{invalid_dump_path}")
@@ -5889,8 +5908,8 @@ test "run_cmd uses native default io to read inputs and write outputs" {
     Ok(v) => v
     Err(e) => fail("expected native run_cmd success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
 
   match native_read_bytes(output_path) {
     Some(bytes) => ignore(decode_module_bytes(bytes))
@@ -5922,8 +5941,8 @@ test "run_cmd reads STARSHINE_INPUT from native environment" {
         "expected native STARSHINE_INPUT wiring to provide inputs, got error \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
 
   native_remove_if_exists(input_path)
   native_remove_if_exists(output_path)
@@ -5994,7 +6013,7 @@ test "run_cmd uses native default candidate enumeration for wildcard input globs
       )
     }
   }
-  assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.input_files, [input_path])
 
   native_remove_if_exists(input_path)
 }
@@ -6012,8 +6031,8 @@ test "run_cmd wires native default text-lowering hook for wat inputs" {
   let result = run_cmd([wat_path])
   match result {
     Ok(summary) => {
-      assert_eq(summary.input_files, [wat_path])
-      assert_eq(summary.output_files, [out_path])
+      @debug.assert_eq(summary.input_files, [wat_path])
+      @debug.assert_eq(summary.output_files, [out_path])
       match native_read_bytes(out_path) {
         Some(bytes) => ignore(decode_module_bytes(bytes))
         None => fail("expected lowered wasm output at \{out_path}")
@@ -6062,10 +6081,10 @@ test "run_cmd_with_adapter validates dead-code-elimination on debug artifact" {
     Err(e) =>
       fail("expected dead-code-elimination artifact replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -6111,12 +6130,12 @@ test "run_cmd pre-skips dead-code-elimination suspicious original carriers" {
     Err(e) =>
       fail("expected extracted suspicious-carrier DCE replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=950", "dead-code-elimination",
   ])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   ignore(decode_module_bytes(writes[0].1))
   let stderr = concat_ascii_bytes(stderr_chunks)
   assert_true(
@@ -6167,12 +6186,12 @@ test "run_cmd pre-skips dead-code-elimination large local artifact noops" {
     Err(e) =>
       fail("expected extracted large-local DCE replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=517", "dead-code-elimination",
   ])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   ignore(decode_module_bytes(writes[0].1))
   let stderr = concat_ascii_bytes(stderr_chunks)
   assert_true(stderr.contains("reason=large-local-dce-noop"), msg=stderr)
@@ -6250,7 +6269,7 @@ test "run_cmd native child process validates extracted optimize-instructions deb
     native_remove_if_exists(invalid_func_dump_path)
     fail("expected child to exit normally, got signal \{status}")
   }
-  assert_eq(status, 0)
+  @debug.assert_eq(status, 0)
   match native_read_bytes(output_path) {
     Some(bytes) => ignore(decode_module_bytes(bytes))
     None => fail("expected optimized output at \{output_path}")
@@ -6393,10 +6412,10 @@ test "run_cmd_with_adapter validates remove-unused-brs on debug artifact" {
     Err(e) =>
       fail("expected remove-unused-brs artifact replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -6436,10 +6455,10 @@ test "run_cmd_with_adapter validates remove-unused-brs on generated O4z slot14 p
         "expected remove-unused-brs ordered O4z predecessor replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -6482,13 +6501,13 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot14 remove-unused-br
         "expected extracted remove-unused-brs ordered O4z predecessor replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=1354", "remove-unused-brs",
   ])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -6537,13 +6556,13 @@ test "run_cmd_with_adapter keeps extracted debug artifact func 2244 remove-unuse
         "expected extracted debug artifact func 2244 remove-unused-brs replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=2244", "remove-unused-brs",
   ])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -6592,13 +6611,13 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot40 remove-unused-br
         "expected extracted remove-unused-brs ordered O4z slot40 replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=3863", "remove-unused-brs",
   ])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -6652,12 +6671,12 @@ test "run_cmd_with_adapter traces remove-unused-brs medium branchy hot skip on e
         "expected extracted func 1547 remove-unused-brs replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=1547", "remove-unused-brs",
   ])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   ignore(decode_module_bytes(writes[0].1))
   let stderr = concat_ascii_bytes(stderr_chunks)
   assert_true(
@@ -6712,12 +6731,12 @@ test "run_cmd_with_adapter traces remove-unused-brs call-heavy mixed-if mesh hot
         "expected extracted func 408 remove-unused-brs replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=408", "remove-unused-brs",
   ])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   ignore(decode_module_bytes(writes[0].1))
   let stderr = concat_ascii_bytes(stderr_chunks)
   assert_true(
@@ -6772,12 +6791,12 @@ test "run_cmd_with_adapter traces remove-unused-brs localset-heavy value-if mesh
         "expected extracted func 3021 remove-unused-brs replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=3021", "remove-unused-brs",
   ])
-  assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes.length(), 1)
   ignore(decode_module_bytes(writes[0].1))
   let stderr = concat_ascii_bytes(stderr_chunks)
   assert_true(
@@ -6822,14 +6841,14 @@ test "run_cmd_with_adapter validates optimize-instructions on debug artifact" {
     Err(e) =>
       fail("expected optimize-instructions artifact replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["optimize-instructions"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["optimize-instructions"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(29U))
-  assert_eq(count_substring(pretty, "unreachable"), 4, msg=pretty)
+  @debug.assert_eq(count_substring(pretty, "unreachable"), 4, msg=pretty)
   assert_true(pretty.contains("(br (Label 2))"), msg=pretty)
 }
 
@@ -6869,11 +6888,11 @@ test "run_cmd_with_adapter validates optimize-instructions on generated O4z slot
         "expected optimize-instructions ordered O4z slot16 predecessor replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["optimize-instructions"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["optimize-instructions"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -6922,13 +6941,13 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot16 optimize-instruc
         "expected extracted generated O4z slot16 optimize-instructions func1818 replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=1818", "optimize-instructions",
   ])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -6974,11 +6993,11 @@ test "run_cmd_with_adapter validates optimize-instructions on generated O4z slot
         "expected optimize-instructions ordered O4z slot44 predecessor replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["optimize-instructions"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["optimize-instructions"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -7027,13 +7046,13 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot44 optimize-instruc
         "expected extracted generated O4z slot44 optimize-instructions func1818 replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "extract-functions=1818", "optimize-instructions",
   ])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -7077,11 +7096,11 @@ test "run_cmd_with_adapter validates heap-store-optimization on debug artifact" 
     Err(e) =>
       fail("expected heap-store-optimization artifact replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -7118,11 +7137,11 @@ test "run_cmd_with_adapter validates pick-load-signs on debug artifact" {
     Ok(v) => v
     Err(e) => fail("expected pick-load-signs artifact replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["pick-load-signs"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["pick-load-signs"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -7159,11 +7178,11 @@ test "run_cmd_with_adapter validates precompute on generated O4z slot19 predeces
         "expected precompute ordered O4z slot19 predecessor replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["precompute"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["precompute"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -7211,11 +7230,13 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot19 precompute func1
         "expected extracted precompute ordered O4z slot19 func108 replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["extract-functions=108", "precompute"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
+    "extract-functions=108", "precompute",
+  ])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -7258,11 +7279,11 @@ test "run_cmd_with_adapter validates vacuum on generated O4z slot23 predecessor"
         "expected vacuum ordered O4z slot23 predecessor replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["vacuum"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["vacuum"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -7308,11 +7329,11 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot23 vacuum func652 o
         "expected extracted generated O4z slot23 vacuum func652 replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["extract-functions=652", "vacuum"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["extract-functions=652", "vacuum"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -7355,11 +7376,11 @@ test "run_cmd_with_adapter validates vacuum on generated O4z slot33 predecessor"
         "expected vacuum ordered O4z slot33 predecessor replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["vacuum"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["vacuum"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -7405,11 +7426,11 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot33 vacuum func4142 
         "expected extracted generated O4z slot33 vacuum func4142 replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["extract-functions=4142", "vacuum"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["extract-functions=4142", "vacuum"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
     Ok(_) => ()
     Err(err) =>
@@ -7449,11 +7470,11 @@ test "run_cmd_with_adapter validates precompute on debug artifact" {
     Ok(v) => v
     Err(e) => fail("expected precompute artifact replay success, got \{e}")
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["precompute"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["precompute"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -7496,13 +7517,13 @@ test "run_cmd_with_adapter validates post-ssa cleanup mini-chain on debug artifa
         "expected post-ssa cleanup mini-chain artifact replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
   ])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -7547,15 +7568,15 @@ test "run_cmd_with_adapter validates modeled post-ssa cleanup prefix on debug ar
         "expected modeled post-ssa cleanup prefix artifact replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, [
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, [
     "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
     "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization",
     "pick-load-signs", "simplify-locals",
   ])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
 }
 
@@ -7602,11 +7623,11 @@ test "run_cmd_with_adapter print-func sees simplify-locals remove debug artifact
         "expected simplify-locals print-func artifact replay success, got \{e}",
       )
   }
-  assert_eq(summary.input_files, [input_path])
-  assert_eq(summary.output_files, [output_path])
-  assert_eq(summary.resolved_passes, ["simplify-locals", "print-func=71"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, output_path)
+  @debug.assert_eq(summary.input_files, [input_path])
+  @debug.assert_eq(summary.output_files, [output_path])
+  @debug.assert_eq(summary.resolved_passes, ["simplify-locals", "print-func=71"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].0, output_path)
 
   let stderr_text = concat_ascii_bytes(stderr_writes)
   assert_true(stderr_text.contains("Func[71 "), msg=stderr_text)

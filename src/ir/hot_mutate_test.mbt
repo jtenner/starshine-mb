@@ -7,33 +7,33 @@ test "root mutation helpers splice insert remove and bump revision once per edit
 
   let rev0 = hot_revision_current(func)
   hot_root_append(func, first)
-  assert_eq(hot_revision_current(func), rev0 + 1)
-  assert_eq(hot_root_count(func), 1)
-  assert_eq(hot_root_get(func, 0), first)
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
+  @debug.assert_eq(hot_root_count(func), 1)
+  @debug.assert_eq(hot_root_get(func, 0), first)
 
   let rev1 = hot_revision_current(func)
   hot_root_insert(func, 0, second)
-  assert_eq(hot_revision_current(func), rev1 + 1)
-  assert_eq(hot_root_count(func), 2)
-  assert_eq(hot_root_get(func, 0), second)
-  assert_eq(hot_root_get(func, 1), first)
+  @debug.assert_eq(hot_revision_current(func), rev1 + 1)
+  @debug.assert_eq(hot_root_count(func), 2)
+  @debug.assert_eq(hot_root_get(func, 0), second)
+  @debug.assert_eq(hot_root_get(func, 1), first)
 
   let rev2 = hot_revision_current(func)
   let removed = hot_root_splice(func, 1, 1, [third, first])
-  assert_eq(hot_revision_current(func), rev2 + 1)
-  assert_eq(removed, [first])
-  assert_eq(hot_root_count(func), 3)
-  assert_eq(hot_root_get(func, 0), second)
-  assert_eq(hot_root_get(func, 1), third)
-  assert_eq(hot_root_get(func, 2), first)
+  @debug.assert_eq(hot_revision_current(func), rev2 + 1)
+  @debug.assert_eq(removed, [first])
+  @debug.assert_eq(hot_root_count(func), 3)
+  @debug.assert_eq(hot_root_get(func, 0), second)
+  @debug.assert_eq(hot_root_get(func, 1), third)
+  @debug.assert_eq(hot_root_get(func, 2), first)
 
   let rev3 = hot_revision_current(func)
   let removed_root = hot_root_remove(func, 0)
-  assert_eq(hot_revision_current(func), rev3 + 1)
-  assert_eq(removed_root, second)
-  assert_eq(hot_root_count(func), 2)
-  assert_eq(hot_root_get(func, 0), third)
-  assert_eq(hot_root_get(func, 1), first)
+  @debug.assert_eq(hot_revision_current(func), rev3 + 1)
+  @debug.assert_eq(removed_root, second)
+  @debug.assert_eq(hot_root_count(func), 2)
+  @debug.assert_eq(hot_root_get(func, 0), third)
+  @debug.assert_eq(hot_root_get(func, 1), first)
 }
 
 ///|
@@ -46,12 +46,12 @@ test "child span replacement rewires node children and returns replaced slots" {
 
   let rev0 = hot_revision_current(func)
   let replaced = hot_replace_child_span(func, block, [first, second, third])
-  assert_eq(hot_revision_current(func), rev0 + 1)
-  assert_eq(replaced, [first])
-  assert_eq(hot_child_count(func, block), 3)
-  assert_eq(hot_child_get(func, block, 0), first)
-  assert_eq(hot_child_get(func, block, 1), second)
-  assert_eq(hot_child_get(func, block, 2), third)
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
+  @debug.assert_eq(replaced, [first])
+  @debug.assert_eq(hot_child_count(func, block), 3)
+  @debug.assert_eq(hot_child_get(func, block, 0), first)
+  @debug.assert_eq(hot_child_get(func, block, 1), second)
+  @debug.assert_eq(hot_child_get(func, block, 2), third)
 }
 
 ///|
@@ -77,10 +77,10 @@ test "batched child span replacement and control result updates bump revision on
     hot_type_void(func),
     [HotChildSpanRewrite::new(branch, [])],
   )
-  assert_eq(hot_revision_current(func), rev0 + 1)
-  assert_eq(hot_child_count(func, branch), 0)
-  assert_eq(hot_node_result_arity(func, if_id), 0)
-  assert_eq(
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
+  @debug.assert_eq(hot_child_count(func, branch), 0)
+  @debug.assert_eq(hot_node_result_arity(func, if_id), 0)
+  @debug.assert_eq(
     hot_label_branch_arity(func, hot_control_node_label(func, if_id)),
     0,
   )
@@ -95,16 +95,16 @@ test "node deletion records tombstones without immediate free-list reuse" {
   hot_root_append(func, survivor)
   let rev0 = hot_revision_current(func)
   hot_delete_node(func, deleted)
-  assert_eq(hot_revision_current(func), rev0 + 1)
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
   assert_false(hot_node_is_live(func, deleted))
   assert_true(hot_node_is_live(func, survivor))
 
   let next = hot_build_unreachable(func)
-  assert_eq(next, 2)
+  @debug.assert_eq(next, 2)
 
   let rev1 = hot_revision_current(func)
   hot_revision_bump(func)
-  assert_eq(hot_revision_current(func), rev1 + 1)
+  @debug.assert_eq(hot_revision_current(func), rev1 + 1)
 }
 
 ///|
@@ -139,19 +139,19 @@ test "body local append helper returns the next local id and bumps revision" {
 
   let rev0 = hot_revision_current(func)
   let first = hot_append_body_local(func, @lib.ValType::f32())
-  assert_eq(first, 2)
-  assert_eq(hot_revision_current(func), rev0 + 1)
-  assert_eq(hot_local_count(func), 3)
-  assert_eq(hot_local_body_count(func), 2)
-  assert_eq(hot_local_type(func, first), Some(@lib.ValType::f32()))
+  @debug.assert_eq(first, 2)
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
+  @debug.assert_eq(hot_local_count(func), 3)
+  @debug.assert_eq(hot_local_body_count(func), 2)
+  @debug.assert_eq(hot_local_type(func, first), Some(@lib.ValType::f32()))
 
   let rev1 = hot_revision_current(func)
   let second = hot_append_body_local(func, @lib.ValType::i32())
-  assert_eq(second, 3)
-  assert_eq(hot_revision_current(func), rev1 + 1)
-  assert_eq(hot_local_count(func), 4)
-  assert_eq(hot_local_body_count(func), 3)
-  assert_eq(hot_local_type(func, second), Some(@lib.ValType::i32()))
+  @debug.assert_eq(second, 3)
+  @debug.assert_eq(hot_revision_current(func), rev1 + 1)
+  @debug.assert_eq(hot_local_count(func), 4)
+  @debug.assert_eq(hot_local_body_count(func), 3)
+  @debug.assert_eq(hot_local_type(func, second), Some(@lib.ValType::i32()))
 }
 
 ///|
@@ -163,12 +163,12 @@ test "detached node deletion fast path records tombstones without immediate free
   hot_root_append(func, survivor)
   let rev0 = hot_revision_current(func)
   hot_delete_detached_node(func, deleted)
-  assert_eq(hot_revision_current(func), rev0 + 1)
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
   assert_false(hot_node_is_live(func, deleted))
   assert_true(hot_node_is_live(func, survivor))
 
   let next = hot_build_unreachable(func)
-  assert_eq(next, 2)
+  @debug.assert_eq(next, 2)
 }
 
 ///|
@@ -186,7 +186,7 @@ test "label owner helper rehomes built control labels to replacement node ids" {
   hot_root_append(func, replacement)
   hot_delete_node(func, temp_block)
 
-  assert_eq(hot_label_owner(func, label_id), replacement)
+  @debug.assert_eq(hot_label_owner(func, label_id), replacement)
   match hot_verify_control(func) {
     Ok(_) => ()
     Err(err) =>
@@ -203,7 +203,7 @@ test "appended body locals lower in append order" {
   let lowered = hot_lower_func(func)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
+  @debug.assert_eq(
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
@@ -211,5 +211,5 @@ test "appended body locals lower in append order" {
       @lib.ValType::i64(),
     ]),
   )
-  assert_eq(body, @lib.Expr::new([]))
+  @debug.assert_eq(body, @lib.Expr::new([]))
 }

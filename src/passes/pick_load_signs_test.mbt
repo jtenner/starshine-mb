@@ -145,7 +145,7 @@ test "pick-load-signs is idempotent" {
 
   let once_pretty = once.pretty_print_func(@lib.FuncIdx::new(0U))
   let twice_pretty = twice.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_eq(once_pretty, twice_pretty)
+  @debug.assert_eq(once_pretty, twice_pretty)
 }
 
 ///|

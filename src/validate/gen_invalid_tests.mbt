@@ -18,10 +18,10 @@ test "gen_invalid_ast_seed_config widens missing-datacount prerequisites" {
   let adjusted = gen_invalid_ast_seed_config(
     GenInvalidAstParams::new(MissingDataCount, generator_config=restrictive),
   )
-  assert_eq(adjusted.max_mems, 1)
-  assert_eq(adjusted.max_datas, 1)
-  assert_eq(adjusted.section_bias.mems_percent, 100)
-  assert_eq(adjusted.section_bias.datas_percent, 100)
+  @debug.assert_eq(adjusted.max_mems, 1)
+  @debug.assert_eq(adjusted.max_datas, 1)
+  @debug.assert_eq(adjusted.section_bias.mems_percent, 100)
+  @debug.assert_eq(adjusted.section_bias.datas_percent, 100)
   assert_true(adjusted.features.allow_mems)
   assert_true(adjusted.features.allow_datas)
 }
@@ -89,11 +89,11 @@ test "gen_invalid_ast natural_seed uses natural defaults" {
   let params = GenInvalidAstParams::natural_seed(DuplicateExportName)
   assert_true(params.seed_mode == RandomValidSeed)
   assert_true(params.generator_config.mode == Natural)
-  assert_eq(
+  @debug.assert_eq(
     params.generator_config.section_bias,
     GenValidSectionBias::natural_default(),
   )
-  assert_eq(
+  @debug.assert_eq(
     params.generator_config.features,
     GenValidFeatureToggles::natural_default(),
   )
@@ -104,11 +104,11 @@ test "gen_invalid_ast coverage_forced_seed uses coverage-forced defaults" {
   let params = GenInvalidAstParams::coverage_forced_seed(DuplicateExportName)
   assert_true(params.seed_mode == RandomValidSeed)
   assert_true(params.generator_config.mode == CoverageForced)
-  assert_eq(
+  @debug.assert_eq(
     params.generator_config.section_bias,
     GenValidSectionBias::coverage_forced_default(),
   )
-  assert_eq(
+  @debug.assert_eq(
     params.generator_config.features,
     GenValidFeatureToggles::coverage_forced_default(),
   )
@@ -141,10 +141,10 @@ test "gen_invalid_require_memory_data_gen_valid_config widens memory and data pr
     },
   }
   let adjusted = gen_invalid_require_memory_data_gen_valid_config(restrictive)
-  assert_eq(adjusted.max_mems, 1)
-  assert_eq(adjusted.max_datas, 1)
-  assert_eq(adjusted.section_bias.mems_percent, 100)
-  assert_eq(adjusted.section_bias.datas_percent, 100)
+  @debug.assert_eq(adjusted.max_mems, 1)
+  @debug.assert_eq(adjusted.max_datas, 1)
+  @debug.assert_eq(adjusted.section_bias.mems_percent, 100)
+  @debug.assert_eq(adjusted.section_bias.datas_percent, 100)
   assert_true(adjusted.features.allow_mems)
   assert_true(adjusted.features.allow_datas)
 }
@@ -157,8 +157,8 @@ test "gen_invalid_require_defined_func_gen_valid_config widens type and func min
     max_defined_funcs: 0,
   }
   let adjusted = gen_invalid_require_defined_func_gen_valid_config(restrictive)
-  assert_eq(adjusted.max_type_defs, 1)
-  assert_eq(adjusted.max_defined_funcs, 1)
+  @debug.assert_eq(adjusted.max_type_defs, 1)
+  @debug.assert_eq(adjusted.max_defined_funcs, 1)
 }
 
 ///|
@@ -211,10 +211,10 @@ test "gen_invalid_ast small_natural_seed still widens missing-datacount prereqs"
   let adjusted = gen_invalid_ast_seed_config(
     GenInvalidAstParams::small_natural_seed(MissingDataCount),
   )
-  assert_eq(adjusted.max_mems, 1)
-  assert_eq(adjusted.max_datas, 1)
-  assert_eq(adjusted.section_bias.mems_percent, 100)
-  assert_eq(adjusted.section_bias.datas_percent, 100)
+  @debug.assert_eq(adjusted.max_mems, 1)
+  @debug.assert_eq(adjusted.max_datas, 1)
+  @debug.assert_eq(adjusted.section_bias.mems_percent, 100)
+  @debug.assert_eq(adjusted.section_bias.datas_percent, 100)
   assert_true(adjusted.features.allow_mems)
   assert_true(adjusted.features.allow_datas)
 }
@@ -956,43 +956,43 @@ test "gen_invalid_ast_generate supports datacount mismatch too-large strategy" {
 
 ///|
 test "gen_invalid_ast_params_profile_name identifies named and custom profiles" {
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_ast_params_profile_name(
       GenInvalidAstParams::natural_seed(DuplicateExportName),
     ),
     "natural",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_ast_params_profile_name(
       GenInvalidAstParams::coverage_forced_seed(DuplicateExportName),
     ),
     "coverage-forced",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_ast_params_profile_name(
       GenInvalidAstParams::small_natural_seed(DuplicateExportName),
     ),
     "small-natural",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_ast_params_profile_name(
       GenInvalidAstParams::small_coverage_forced_seed(DuplicateExportName),
     ),
     "small-coverage-forced",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_ast_params_profile_name(
       GenInvalidAstParams::repro_seed(DuplicateExportName),
     ),
     "repro",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_ast_params_profile_name(
       GenInvalidAstParams::minimal_seed(DuplicateExportName),
     ),
     "minimal",
   )
-  assert_eq(
+  @debug.assert_eq(
     gen_invalid_ast_params_profile_name(
       GenInvalidAstParams::new(DuplicateExportName, generator_config=GenValidConfig::{
         ..GenValidConfig::natural_default(),

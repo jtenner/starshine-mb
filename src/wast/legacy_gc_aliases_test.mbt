@@ -14,7 +14,7 @@ test "wast_to_binary_module lowers legacy gc reference aliases" {
   }
   match lowered.table_sec {
     Some(@lib.TableSec([@lib.Table(@lib.TableType(elem_type, _), _)])) =>
-      assert_eq(
+      @debug.assert_eq(
         elem_type,
         @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
       )
@@ -23,7 +23,7 @@ test "wast_to_binary_module lowers legacy gc reference aliases" {
   let env = @validate.Env::new().with_module(lowered)
   match env.resolve_functype(@lib.TypeIdx::new(0U)) {
     Some(@lib.FuncType(params, results)) => {
-      assert_eq(params, [
+      @debug.assert_eq(params, [
         @lib.ValType::ref_type(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
         ),
@@ -46,7 +46,7 @@ test "wast_to_binary_module lowers legacy gc reference aliases" {
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::none())),
         ),
       ])
-      assert_eq(results, [
+      @debug.assert_eq(results, [
         @lib.ValType::ref_type(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
         ),

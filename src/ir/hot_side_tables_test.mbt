@@ -27,30 +27,30 @@ test "typed side tables roundtrip payloads and classify opcode families" {
     HotInstrPayload::new(@lib.Instruction::i32_add()),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     hot_const_get(func, const_id),
     HotConstPayload::i32_const(@lib.I32(7)),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_const_get(func, f32_const_id),
     HotConstPayload::f32_const(@lib.F32(3.5)),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_const_get(func, f64_const_id),
     HotConstPayload::f64_const(@lib.F64(7.25)),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_memarg_get(func, memarg_id),
     HotMemArg::new(@lib.MemArg::new(@lib.U32(2), None, @lib.U64(8))),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_call_sig_get(func, call_sig_id),
     HotCallSig::new(
       @lib.TypeIdx::new(3U),
       table_idx=Some(@lib.TableIdx::new(1U)),
     ),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_instr_payload_get(func, instr_payload_id),
     HotInstrPayload::new(@lib.Instruction::i32_add()),
   )
@@ -69,7 +69,7 @@ test "exact instruction payload helpers expose opcode identity for generic famil
     @lib.Instruction::array_len(),
     [ref_null],
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_node_exact_instr(func, heap),
     Some(@lib.Instruction::array_len()),
   )
@@ -95,11 +95,11 @@ test "exact instruction setter updates load payload without clobbering memarg" {
   hot_node_exact_instr_set(func, load_id, @lib.Instruction::i32_load8u(memarg))
 
   assert_true(hot_node_kind_is_memory(func, load_id))
-  assert_eq(
+  @debug.assert_eq(
     hot_memarg_get(func, hot_node_get(func, load_id).imm0),
     HotMemArg::new(memarg),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_node_exact_instr(func, load_id),
     Some(@lib.Instruction::i32_load8u(memarg)),
   )
@@ -146,9 +146,14 @@ test "branch table and catch side tables expose typed target metadata" {
     ]),
   )
 
-  assert_eq(hot_branch_table_targets(func, branch_table_id), [label0, label1])
-  assert_eq(hot_branch_table_default_target(func, branch_table_id), label2)
-  assert_eq(
+  @debug.assert_eq(hot_branch_table_targets(func, branch_table_id), [
+    label0, label1,
+  ])
+  @debug.assert_eq(
+    hot_branch_table_default_target(func, branch_table_id),
+    label2,
+  )
+  @debug.assert_eq(
     hot_catch_info_get(func, catch_info_id),
     HotCatchInfo::new([
       HotCatchArm::catch_(@lib.TagIdx::new(4U), label1),

@@ -34,7 +34,7 @@ test "vacuum removes dropped pure scalar expressions" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
-      assert_eq(instrs, [
+      @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(4)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       ])
@@ -59,7 +59,7 @@ test "vacuum removes empty void blocks" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
-      assert_eq(instrs, [
+      @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(5)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       ])
@@ -77,7 +77,7 @@ test "vacuum matches Binaryen empty function nop canonicalization" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
-      assert_eq(instrs, [@lib.Instruction::nop()])
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
     other =>
       fail("expected vacuumed empty function to contain one nop, got \{other}")
   }
@@ -151,7 +151,7 @@ test "vacuum repeated-slot matrix drops detached pure residues" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
-      assert_eq(instrs, [
+      @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(4)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       ])
@@ -238,8 +238,8 @@ test "run_hot_pipeline keeps tuple-optimization as a no-op on scalar-only input"
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(instrs))])) => {
-      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-      assert_eq(instrs, [
+      @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(5)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -271,7 +271,7 @@ test "run_hot_pipeline lowers scrambled tuple copy carriers through a typed mult
       )
   }
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 4)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 4)
     None => fail("expected scrambled tuple-optimization output type sec")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
@@ -357,7 +357,7 @@ test "tuple-optimization exact preset prereqs see no-structure pass but presets 
 
 ///|
 test "simplify-locals-nostructure exact slot helper exposes the ordered replay lane" {
-  assert_eq(simplify_locals_nostructure_exact_slot_passes(), [
+  @debug.assert_eq(simplify_locals_nostructure_exact_slot_passes(), [
     "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
   ])
   assert_false(
@@ -390,7 +390,7 @@ test "optimize preset replays remove-unused-names in all RUN slots" {
   let run_starts = trace.filter(fn(line) {
     line.contains("pass[remove-unused-names]:start")
   })
-  assert_eq(run_starts.length(), 3)
+  @debug.assert_eq(run_starts.length(), 3)
 }
 
 ///|
@@ -415,7 +415,7 @@ test "optimize preset replays remove-unused-brs in all RUB slots" {
   let rub_starts = trace.filter(fn(line) {
     line.contains("pass[remove-unused-brs]:start")
   })
-  assert_eq(rub_starts.length(), 4)
+  @debug.assert_eq(rub_starts.length(), 4)
 }
 
 ///|
@@ -440,7 +440,7 @@ test "shrink preset replays remove-unused-brs in all RUB slots" {
   let rub_starts = trace.filter(fn(line) {
     line.contains("pass[remove-unused-brs]:start")
   })
-  assert_eq(rub_starts.length(), 4)
+  @debug.assert_eq(rub_starts.length(), 4)
 }
 
 ///|
@@ -466,7 +466,7 @@ test "optimize preset replays precompute in both PC slots" {
     line.contains("pass[precompute]:start") ||
     line.contains("pass[precompute]:skip-raw")
   })
-  assert_eq(pc_runs.length(), 2)
+  @debug.assert_eq(pc_runs.length(), 2)
 }
 
 ///|
@@ -492,7 +492,7 @@ test "shrink preset replays precompute in both PC slots" {
     line.contains("pass[precompute]:start") ||
     line.contains("pass[precompute]:skip-raw")
   })
-  assert_eq(pc_runs.length(), 2)
+  @debug.assert_eq(pc_runs.length(), 2)
 }
 
 ///|
@@ -517,7 +517,7 @@ test "optimize preset replays merge-blocks in both late MB slots" {
   let mb_starts = trace.filter(fn(line) {
     line.contains("pass[merge-blocks]:start")
   })
-  assert_eq(mb_starts.length(), 2)
+  @debug.assert_eq(mb_starts.length(), 2)
 }
 
 ///|
@@ -542,7 +542,7 @@ test "shrink preset replays merge-blocks in both late MB slots" {
   let mb_starts = trace.filter(fn(line) {
     line.contains("pass[merge-blocks]:start")
   })
-  assert_eq(mb_starts.length(), 2)
+  @debug.assert_eq(mb_starts.length(), 2)
 }
 
 ///|
@@ -556,15 +556,15 @@ test "optimize and shrink presets do not schedule reorder-locals before its neig
 ///|
 test "simplify-locals-notee-nostructure exact neighborhood waits for flatten" {
   assert_false(simplify_locals_notee_nostructure_exact_neighborhood_ready())
-  assert_eq(
+  @debug.assert_eq(
     pass_registry_category("simplify-locals-notee-nostructure"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
-  assert_eq(
+  @debug.assert_eq(
     pass_registry_category("flatten"),
     Some(HotPassRegistryCategory::removed()),
   )
-  assert_eq(
+  @debug.assert_eq(
     pass_registry_category("local-cse"),
     Some(HotPassRegistryCategory::module_pass()),
   )
@@ -577,13 +577,13 @@ test "simplify-locals-notee-nostructure exact neighborhood waits for flatten" {
 ///|
 test "optimize preset schedules the proven optimize-casts GC/local cleanup neighborhood" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
-  assert_eq(optimize[15], "remove-unused-brs")
-  assert_eq(optimize[16], "heap2local")
-  assert_eq(optimize[17], "optimize-casts")
-  assert_eq(optimize[18], "local-subtyping")
-  assert_eq(optimize[19], "coalesce-locals")
-  assert_eq(optimize[20], "local-cse")
-  assert_eq(optimize[21], "simplify-locals")
+  @debug.assert_eq(optimize[15], "remove-unused-brs")
+  @debug.assert_eq(optimize[16], "heap2local")
+  @debug.assert_eq(optimize[17], "optimize-casts")
+  @debug.assert_eq(optimize[18], "local-subtyping")
+  @debug.assert_eq(optimize[19], "coalesce-locals")
+  @debug.assert_eq(optimize[20], "local-cse")
+  @debug.assert_eq(optimize[21], "simplify-locals")
 }
 
 ///|
@@ -620,7 +620,7 @@ test "optimize preset hands simplify-locals output to the late merge-blocks clea
       sl_idx = idx
     }
   }
-  assert_eq(sl_count, 1)
+  @debug.assert_eq(sl_count, 1)
   assert_true(sl_idx > 0, msg=starts.to_string())
   assert_true(
     starts[sl_idx - 1].contains("pass[local-cse]:start"),

@@ -69,10 +69,10 @@ test "simplify-locals-notee-nostructure preserves Binaryen const-nop loop shape"
         [@lib.Func(locals, @lib.Expr([@lib.Loop(_, @lib.Expr(body))]))]
       )
     ) => {
-      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::f64()]))
-      assert_eq(body.length(), 3)
-      assert_eq(body[0], @lib.Instruction::nop())
-      assert_eq(body[1], @lib.Instruction::nop())
+      @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::f64()]))
+      @debug.assert_eq(body.length(), 3)
+      @debug.assert_eq(body[0], @lib.Instruction::nop())
+      @debug.assert_eq(body[1], @lib.Instruction::nop())
       match body[2] {
         @lib.F64Const(_) => ()
         other => fail("expected trailing f64 const after nops, got \{other}")
@@ -148,7 +148,7 @@ test "simplify-locals-nostructure exact slot replays tuple cleanup before vacuum
 
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
-      assert_eq(locals, @lib.Locals::empty())
+      @debug.assert_eq(locals, @lib.Locals::empty())
     other =>
       fail("expected exact slot replay single-function output, got \{other}")
   }

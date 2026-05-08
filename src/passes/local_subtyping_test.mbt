@@ -41,8 +41,8 @@ fn ls_test_first_body_local(mod_ : @lib.Module) -> @lib.ValType {
 test "local-subtyping registers as an active module pass" {
   match pass_registry_lookup("local-subtyping") {
     Some(entry) => {
-      assert_eq(entry.category, HotPassRegistryCategory::module_pass())
-      assert_eq(entry.descriptor, None)
+      @debug.assert_eq(entry.category, HotPassRegistryCategory::module_pass())
+      @debug.assert_eq(entry.descriptor, None)
     }
     None => fail("expected local-subtyping registry entry")
   }
@@ -67,7 +67,7 @@ test "local-subtyping narrows body locals to assigned child heap type" {
     Ok(mod_) => mod_
     Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
   }
-  assert_eq(ls_test_first_body_local(optimized), child_nullable)
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nullable)
 }
 
 ///|
@@ -90,5 +90,5 @@ test "local-subtyping keeps common supertype for mixed sibling assignments" {
     Ok(mod_) => mod_
     Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
   }
-  assert_eq(ls_test_first_body_local(optimized), base_nullable)
+  @debug.assert_eq(ls_test_first_body_local(optimized), base_nullable)
 }

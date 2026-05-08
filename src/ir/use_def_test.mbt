@@ -17,11 +17,12 @@ test "use-def tracks child-edge use sites for expression trees" {
 
   let use_def = use_def_build(func)
 
-  assert_eq(use_def_test_show_sites(node_use_sites(use_def, local_get)), [
-    "{ user: \{add}, slot: 0, kind: ChildUseSlot }",
-  ])
-  assert_eq(node_use_count(use_def, const_), 1)
-  assert_eq(use_def_test_show_sites(node_use_sites(use_def, add)), [
+  @debug.assert_eq(
+    use_def_test_show_sites(node_use_sites(use_def, local_get)),
+    ["{ user: \{add}, slot: 0, kind: ChildUseSlot }"],
+  )
+  @debug.assert_eq(node_use_count(use_def, const_), 1)
+  @debug.assert_eq(use_def_test_show_sites(node_use_sites(use_def, add)), [
     "{ user: -1, slot: 0, kind: RootUseSlot }",
   ])
 }
@@ -35,10 +36,11 @@ test "use-def distinguishes root-slot uses from child-slot uses" {
 
   let use_def = use_def_build(func)
 
-  assert_eq(use_def_test_show_sites(node_use_sites(use_def, local_get)), [
-    "{ user: \{block_id}, slot: 0, kind: RootUseSlot }",
-  ])
-  assert_eq(use_def_test_show_sites(node_use_sites(use_def, block_id)), [
+  @debug.assert_eq(
+    use_def_test_show_sites(node_use_sites(use_def, local_get)),
+    ["{ user: \{block_id}, slot: 0, kind: RootUseSlot }"],
+  )
+  @debug.assert_eq(use_def_test_show_sites(node_use_sites(use_def, block_id)), [
     "{ user: -1, slot: 0, kind: RootUseSlot }",
   ])
 }
@@ -76,8 +78,8 @@ test "use-def builds block-local defs and uses across a CFG join" {
   assert_false(bitset_contains(block_local_uses(use_def, then_block), 1))
   assert_false(bitset_contains(block_local_defs(use_def, join_block), 1))
   assert_true(bitset_contains(block_local_uses(use_def, join_block), 1))
-  assert_eq(local_read_nodes(use_def, 1), [local_get])
-  assert_eq(local_write_nodes(use_def, 1), [local_set])
+  @debug.assert_eq(local_read_nodes(use_def, 1), [local_get])
+  @debug.assert_eq(local_write_nodes(use_def, 1), [local_set])
 }
 
 ///|
@@ -89,8 +91,8 @@ test "use-def records shared local reads once even with multiple use sites" {
 
   let use_def = use_def_build(func)
 
-  assert_eq(local_read_nodes(use_def, 0), [local_get])
-  assert_eq(node_use_count(use_def, local_get), 2)
+  @debug.assert_eq(local_read_nodes(use_def, 0), [local_get])
+  @debug.assert_eq(node_use_count(use_def, local_get), 2)
 }
 
 ///|
@@ -119,10 +121,13 @@ test "use-def lightweight build preserves node uses and local traffic" {
   let if_id = hot_root_get(func, 0)
   let join_get = hot_root_get(func, 1)
 
-  assert_eq(node_use_sites(light, if_id), node_use_sites(full, if_id))
-  assert_eq(node_use_sites(light, join_get), node_use_sites(full, join_get))
-  assert_eq(local_read_nodes(light, 0), local_read_nodes(full, 0))
-  assert_eq(local_write_nodes(light, 1), local_write_nodes(full, 1))
-  assert_eq(local_write_block_ids(light, 0), [])
-  assert_eq(local_write_block_ids(light, 1), [])
+  @debug.assert_eq(node_use_sites(light, if_id), node_use_sites(full, if_id))
+  @debug.assert_eq(
+    node_use_sites(light, join_get),
+    node_use_sites(full, join_get),
+  )
+  @debug.assert_eq(local_read_nodes(light, 0), local_read_nodes(full, 0))
+  @debug.assert_eq(local_write_nodes(light, 1), local_write_nodes(full, 1))
+  @debug.assert_eq(local_write_block_ids(light, 0), [])
+  @debug.assert_eq(local_write_block_ids(light, 1), [])
 }

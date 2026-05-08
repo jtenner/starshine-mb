@@ -3594,7 +3594,7 @@ test "wast_to_binary_module lowers simple function module" {
   }
   match lowered.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.I32Const(@lib.I32(v))]))])) =>
-      assert_eq(v, 5)
+      @debug.assert_eq(v, 5)
     _ => fail("expected lowered module code section")
   }
 }
@@ -3608,7 +3608,7 @@ test "wast_to_binary_module lowers memory and data segments" {
   }
   match (lowered.mem_sec, lowered.data_sec) {
     (Some(_), Some(@lib.DataSec([@lib.Data(_, bytes)]))) =>
-      assert_eq(bytes.length(), 1)
+      @debug.assert_eq(bytes.length(), 1)
     _ => fail("expected lowered memory/data sections")
   }
 }
@@ -3627,7 +3627,7 @@ test "wast_to_binary_module resolves named locals after type-index params" {
       @lib.CodeSec(
         [@lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(i)), _]))]
       )
-    ) => assert_eq(i, 1U)
+    ) => @debug.assert_eq(i, 1U)
     _ => fail("expected local.get on lowered named local")
   }
 }
@@ -3644,7 +3644,7 @@ test "wast_to_binary_module resolves named params in function bodies" {
       @lib.CodeSec(
         [@lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(i)), _]))]
       )
-    ) => assert_eq(i, 0U)
+    ) => @debug.assert_eq(i, 0U)
     _ => fail("expected local.get on lowered named param")
   }
 }
@@ -3661,7 +3661,7 @@ test "wast_to_binary_module resolves named params after explicit type use" {
   match lowered.code_sec {
     Some(
       @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(i))]))])
-    ) => assert_eq(i, 0U)
+    ) => @debug.assert_eq(i, 0U)
     _ => fail("expected named type-use param to lower to local index 0")
   }
 }
@@ -3695,7 +3695,7 @@ test "wast_to_binary_module lowers text align bytes to exponent memargs" {
         [@lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr]))]
       )
     ) =>
-      assert_eq(
+      @debug.assert_eq(
         instr,
         @lib.Instruction::i32_load(
           @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0)),
@@ -3716,7 +3716,7 @@ test "wt_type_param_count supports grouped recursive function entries" {
   )
   ctx.type_recs.push(@lib.RecType::group([st0, st1]))
   match wt_type_param_count(ctx, 1U) {
-    Ok(count) => assert_eq(count, 2U)
+    Ok(count) => @debug.assert_eq(count, 2U)
     Err(e) => fail("expected grouped rec param count resolution, got \{e}")
   }
 }
@@ -3736,11 +3736,11 @@ test "wast_to_binary_module lowers SIMD extract/replace lane ops" {
         [@lib.Func(_, @lib.Expr([_, extract_lane, _, _, _, replace_lane]))]
       )
     ) => {
-      assert_eq(
+      @debug.assert_eq(
         extract_lane,
         @lib.Instruction::i8x16_extract_lane_u(@lib.LaneIdx::new(7)),
       )
-      assert_eq(
+      @debug.assert_eq(
         replace_lane,
         @lib.Instruction::i8x16_replace_lane(@lib.LaneIdx::new(3)),
       )
@@ -3769,14 +3769,14 @@ test "wast_to_binary_module lowers SIMD load/store lane ops" {
         ]
       )
     ) => {
-      assert_eq(
+      @debug.assert_eq(
         load_lane_instr,
         @lib.Instruction::v128_load8_lane(
           @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0)),
           @lib.LaneIdx::new(5),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         store_lane_instr,
         @lib.Instruction::v128_store8_lane(
           @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0)),
@@ -3804,11 +3804,11 @@ test "wast_to_binary_module lowers SIMD v128.const shapes" {
   }
   match lowered.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      assert_eq(funcs.length(), 6)
+      @debug.assert_eq(funcs.length(), 6)
 
       match funcs[0] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0).to_byte(),
@@ -3834,7 +3834,7 @@ test "wast_to_binary_module lowers SIMD v128.const shapes" {
 
       match funcs[1] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (1).to_byte(),
@@ -3860,7 +3860,7 @@ test "wast_to_binary_module lowers SIMD v128.const shapes" {
 
       match funcs[2] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (1).to_byte(),
@@ -3886,7 +3886,7 @@ test "wast_to_binary_module lowers SIMD v128.const shapes" {
 
       match funcs[3] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (1).to_byte(),
@@ -3912,7 +3912,7 @@ test "wast_to_binary_module lowers SIMD v128.const shapes" {
 
       match funcs[4] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0).to_byte(),
@@ -3938,7 +3938,7 @@ test "wast_to_binary_module lowers SIMD v128.const shapes" {
 
       match funcs[5] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0).to_byte(),
@@ -3996,83 +3996,83 @@ test "wast_to_binary_module lowers SIMD non-lane memory prefixed ops" {
   let ma1 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
   match lowered.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      assert_eq(funcs.length(), 14)
+      @debug.assert_eq(funcs.length(), 14)
 
       match funcs[0] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load(ma16))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load(ma16))
         _ => fail("expected v128.load lowered body")
       }
 
       match funcs[1] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load8x8s(ma8))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load8x8s(ma8))
         _ => fail("expected v128.load8x8_s lowered body")
       }
 
       match funcs[2] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load8x8u(ma8))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load8x8u(ma8))
         _ => fail("expected v128.load8x8_u lowered body")
       }
 
       match funcs[3] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load16x4s(ma8))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load16x4s(ma8))
         _ => fail("expected v128.load16x4_s lowered body")
       }
 
       match funcs[4] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load16x4u(ma8))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load16x4u(ma8))
         _ => fail("expected v128.load16x4_u lowered body")
       }
 
       match funcs[5] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load32x2s(ma8))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load32x2s(ma8))
         _ => fail("expected v128.load32x2_s lowered body")
       }
 
       match funcs[6] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load32x2u(ma8))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load32x2u(ma8))
         _ => fail("expected v128.load32x2_u lowered body")
       }
 
       match funcs[7] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load8_splat(ma1))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load8_splat(ma1))
         _ => fail("expected v128.load8_splat lowered body")
       }
 
       match funcs[8] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load16_splat(ma2))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load16_splat(ma2))
         _ => fail("expected v128.load16_splat lowered body")
       }
 
       match funcs[9] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load32_splat(ma4))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load32_splat(ma4))
         _ => fail("expected v128.load32_splat lowered body")
       }
 
       match funcs[10] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load64_splat(ma8))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load64_splat(ma8))
         _ => fail("expected v128.load64_splat lowered body")
       }
 
       match funcs[11] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load32_zero(ma4))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load32_zero(ma4))
         _ => fail("expected v128.load32_zero lowered body")
       }
 
       match funcs[12] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::v128_load64_zero(ma8))
+          @debug.assert_eq(instr, @lib.Instruction::v128_load64_zero(ma8))
         _ => fail("expected v128.load64_zero lowered body")
       }
 
@@ -4088,10 +4088,10 @@ test "wast_to_binary_module lowers SIMD non-lane memory prefixed ops" {
             ]
           )
         ) => {
-          assert_eq(i0, 0U)
-          assert_eq(i1, 1U)
-          assert_eq(i2, 1U)
-          assert_eq(store_instr, @lib.Instruction::v128_store(ma16))
+          @debug.assert_eq(i0, 0U)
+          @debug.assert_eq(i1, 1U)
+          @debug.assert_eq(i2, 1U)
+          @debug.assert_eq(store_instr, @lib.Instruction::v128_store(ma16))
         }
         _ => fail("expected v128.store lowered body")
       }
@@ -4137,7 +4137,7 @@ test "wast_to_binary_module lowers SIMD shuffle and swizzle ops" {
         ]
       )
     ) => {
-      assert_eq(
+      @debug.assert_eq(
         shuffle_instr,
         @lib.Instruction::i8x16_shuffle(
           @lib.LaneIdx::new(0),
@@ -4158,7 +4158,7 @@ test "wast_to_binary_module lowers SIMD shuffle and swizzle ops" {
           @lib.LaneIdx::new(15),
         ),
       )
-      assert_eq(swizzle_instr, @lib.Instruction::i8x16_swizzle())
+      @debug.assert_eq(swizzle_instr, @lib.Instruction::i8x16_swizzle())
     }
     _ => fail("expected lowered module shuffle/swizzle function body")
   }
@@ -4180,36 +4180,36 @@ test "wast_to_binary_module lowers SIMD splat ops" {
   }
   match lowered.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      assert_eq(funcs.length(), 6)
+      @debug.assert_eq(funcs.length(), 6)
 
       match funcs[0] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::i8x16_splat())
+          @debug.assert_eq(instr, @lib.Instruction::i8x16_splat())
         _ => fail("expected i8x16.splat lowered body")
       }
       match funcs[1] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::i16x8_splat())
+          @debug.assert_eq(instr, @lib.Instruction::i16x8_splat())
         _ => fail("expected i16x8.splat lowered body")
       }
       match funcs[2] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::i32x4_splat())
+          @debug.assert_eq(instr, @lib.Instruction::i32x4_splat())
         _ => fail("expected i32x4.splat lowered body")
       }
       match funcs[3] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::i64x2_splat())
+          @debug.assert_eq(instr, @lib.Instruction::i64x2_splat())
         _ => fail("expected i64x2.splat lowered body")
       }
       match funcs[4] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::f32x4_splat())
+          @debug.assert_eq(instr, @lib.Instruction::f32x4_splat())
         _ => fail("expected f32x4.splat lowered body")
       }
       match funcs[5] {
         @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
-          assert_eq(instr, @lib.Instruction::f64x2_splat())
+          @debug.assert_eq(instr, @lib.Instruction::f64x2_splat())
         _ => fail("expected f64x2.splat lowered body")
       }
     }
@@ -4387,7 +4387,7 @@ test "wast_to_binary_module lowers SIMD i8x16 no-immediate ops" {
           _ => lowered_ops.push(instr)
         }
       }
-      assert_eq(lowered_ops, expected)
+      @debug.assert_eq(lowered_ops, expected)
     }
     _ => fail("expected lowered module code section for i8x16 no-immediate ops")
   }
@@ -4560,7 +4560,7 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
   }
   match lowered.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      assert_eq(funcs.length(), 5)
+      @debug.assert_eq(funcs.length(), 5)
 
       match funcs[0] {
         @lib.Func(_, @lib.Expr(body)) => {
@@ -4571,11 +4571,14 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
               _ => lowered_ops.push(instr)
             }
           }
-          assert_eq(lowered_ops[0], @lib.Instruction::i16x8_eq())
-          assert_eq(lowered_ops[12], @lib.Instruction::i16x8q15mulr_sat_s())
-          assert_eq(lowered_ops[21], @lib.Instruction::i16x8_shl())
-          assert_eq(lowered_ops[35], @lib.Instruction::i16x8_avgr_u())
-          assert_eq(
+          @debug.assert_eq(lowered_ops[0], @lib.Instruction::i16x8_eq())
+          @debug.assert_eq(
+            lowered_ops[12],
+            @lib.Instruction::i16x8q15mulr_sat_s(),
+          )
+          @debug.assert_eq(lowered_ops[21], @lib.Instruction::i16x8_shl())
+          @debug.assert_eq(lowered_ops[35], @lib.Instruction::i16x8_avgr_u())
+          @debug.assert_eq(
             lowered_ops[39],
             @lib.Instruction::i16x8_extmul_high_i8x16u(),
           )
@@ -4591,11 +4594,17 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
               _ => lowered_ops.push(instr)
             }
           }
-          assert_eq(lowered_ops[0], @lib.Instruction::i32x4_eq())
-          assert_eq(lowered_ops[18], @lib.Instruction::i32x4_shl())
-          assert_eq(lowered_ops[28], @lib.Instruction::i32x4_dot_i16x8s())
-          assert_eq(lowered_ops[33], @lib.Instruction::i32x4_trunc_sat_f32x4s())
-          assert_eq(
+          @debug.assert_eq(lowered_ops[0], @lib.Instruction::i32x4_eq())
+          @debug.assert_eq(lowered_ops[18], @lib.Instruction::i32x4_shl())
+          @debug.assert_eq(
+            lowered_ops[28],
+            @lib.Instruction::i32x4_dot_i16x8s(),
+          )
+          @debug.assert_eq(
+            lowered_ops[33],
+            @lib.Instruction::i32x4_trunc_sat_f32x4s(),
+          )
+          @debug.assert_eq(
             lowered_ops[36],
             @lib.Instruction::i32x4_trunc_sat_f64x2u_zero(),
           )
@@ -4611,10 +4620,10 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
               _ => lowered_ops.push(instr)
             }
           }
-          assert_eq(lowered_ops[0], @lib.Instruction::i64x2_eq())
-          assert_eq(lowered_ops[14], @lib.Instruction::i64x2_shl())
-          assert_eq(lowered_ops[19], @lib.Instruction::i64x2_mul())
-          assert_eq(
+          @debug.assert_eq(lowered_ops[0], @lib.Instruction::i64x2_eq())
+          @debug.assert_eq(lowered_ops[14], @lib.Instruction::i64x2_shl())
+          @debug.assert_eq(lowered_ops[19], @lib.Instruction::i64x2_mul())
+          @debug.assert_eq(
             lowered_ops[23],
             @lib.Instruction::i64x2_extmul_high_i32x4u(),
           )
@@ -4630,11 +4639,11 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
               _ => lowered_ops.push(instr)
             }
           }
-          assert_eq(lowered_ops[0], @lib.Instruction::f32x4_eq())
-          assert_eq(lowered_ops[8], @lib.Instruction::f32x4_sqrt())
-          assert_eq(lowered_ops[15], @lib.Instruction::f32x4_pmin())
-          assert_eq(lowered_ops[20], @lib.Instruction::f32x4_nearest())
-          assert_eq(
+          @debug.assert_eq(lowered_ops[0], @lib.Instruction::f32x4_eq())
+          @debug.assert_eq(lowered_ops[8], @lib.Instruction::f32x4_sqrt())
+          @debug.assert_eq(lowered_ops[15], @lib.Instruction::f32x4_pmin())
+          @debug.assert_eq(lowered_ops[20], @lib.Instruction::f32x4_nearest())
+          @debug.assert_eq(
             lowered_ops[23],
             @lib.Instruction::f32x4_demote_f64x2_zero(),
           )
@@ -4650,11 +4659,11 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
               _ => lowered_ops.push(instr)
             }
           }
-          assert_eq(lowered_ops[0], @lib.Instruction::f64x2_eq())
-          assert_eq(lowered_ops[8], @lib.Instruction::f64x2_sqrt())
-          assert_eq(lowered_ops[15], @lib.Instruction::f64x2_pmin())
-          assert_eq(lowered_ops[20], @lib.Instruction::f64x2_nearest())
-          assert_eq(
+          @debug.assert_eq(lowered_ops[0], @lib.Instruction::f64x2_eq())
+          @debug.assert_eq(lowered_ops[8], @lib.Instruction::f64x2_sqrt())
+          @debug.assert_eq(lowered_ops[15], @lib.Instruction::f64x2_pmin())
+          @debug.assert_eq(lowered_ops[20], @lib.Instruction::f64x2_nearest())
+          @debug.assert_eq(
             lowered_ops[23],
             @lib.Instruction::f64x2_promote_low_f32x4(),
           )
@@ -4706,22 +4715,34 @@ test "wast_to_binary_module lowers relaxed SIMD no-immediate ops" {
           _ => lowered_ops.push(instr)
         }
       }
-      assert_eq(lowered_ops.length(), 20)
-      assert_eq(lowered_ops[0], @lib.Instruction::i8x16_relaxed_swizzle())
-      assert_eq(lowered_ops[2], @lib.Instruction::i16x8_relaxed_laneselect())
-      assert_eq(lowered_ops[5], @lib.Instruction::i32x4_relaxed_trunc_f32x4s())
-      assert_eq(
+      @debug.assert_eq(lowered_ops.length(), 20)
+      @debug.assert_eq(
+        lowered_ops[0],
+        @lib.Instruction::i8x16_relaxed_swizzle(),
+      )
+      @debug.assert_eq(
+        lowered_ops[2],
+        @lib.Instruction::i16x8_relaxed_laneselect(),
+      )
+      @debug.assert_eq(
+        lowered_ops[5],
+        @lib.Instruction::i32x4_relaxed_trunc_f32x4s(),
+      )
+      @debug.assert_eq(
         lowered_ops[7],
         @lib.Instruction::i32x4_relaxed_trunc_zero_f64x2s(),
       )
-      assert_eq(lowered_ops[9], @lib.Instruction::f32x4_relaxed_madd())
-      assert_eq(lowered_ops[12], @lib.Instruction::f64x2_relaxed_nmadd())
-      assert_eq(lowered_ops[17], @lib.Instruction::i16x8_relaxed_q15mulr_s())
-      assert_eq(
+      @debug.assert_eq(lowered_ops[9], @lib.Instruction::f32x4_relaxed_madd())
+      @debug.assert_eq(lowered_ops[12], @lib.Instruction::f64x2_relaxed_nmadd())
+      @debug.assert_eq(
+        lowered_ops[17],
+        @lib.Instruction::i16x8_relaxed_q15mulr_s(),
+      )
+      @debug.assert_eq(
         lowered_ops[18],
         @lib.Instruction::i16x8_relaxed_dot_i8x16i7x16s(),
       )
-      assert_eq(
+      @debug.assert_eq(
         lowered_ops[19],
         @lib.Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(),
       )
@@ -4751,8 +4772,8 @@ test "wast_text_binary_roundtrip returns validator-clean module for core fixture
     Some(
       @lib.ExportSec([@lib.Export(name, @lib.FuncExternIdx(@lib.FuncIdx(idx)))])
     ) => {
-      assert_eq(name.0, "inc")
-      assert_eq(idx, 0U)
+      @debug.assert_eq(name.0, "inc")
+      @debug.assert_eq(idx, 0U)
     }
     _ => fail("expected roundtripped core fixture to preserve export shape")
   }
@@ -4806,7 +4827,10 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     Ok(instr) => instr
     Err(e) => fail("expected struct.new lowering success: \{e}")
   }
-  assert_eq(struct_new, @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)))
+  @debug.assert_eq(
+    struct_new,
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+  )
   let struct_new_default = match
     wt_instr_to_lib(
       ctx,
@@ -4818,7 +4842,7 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     Ok(instr) => instr
     Err(e) => fail("expected struct.new_default lowering success: \{e}")
   }
-  assert_eq(
+  @debug.assert_eq(
     struct_new_default,
     @lib.Instruction::struct_new_default(@lib.TypeIdx::new(0U)),
   )
@@ -4833,7 +4857,7 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     Ok(instr) => instr
     Err(e) => fail("expected struct.new_desc lowering success: \{e}")
   }
-  assert_eq(
+  @debug.assert_eq(
     struct_new_desc,
     @lib.Instruction::struct_new_desc(@lib.TypeIdx::new(1U)),
   )
@@ -4848,7 +4872,7 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     Ok(instr) => instr
     Err(e) => fail("expected struct.new_default_desc lowering success: \{e}")
   }
-  assert_eq(
+  @debug.assert_eq(
     struct_new_default_desc,
     @lib.Instruction::struct_new_default_desc(@lib.TypeIdx::new(1U)),
   )
@@ -4886,7 +4910,7 @@ test "wast_to_binary_module lowers struct type defs with forward descriptor meta
         @lib.SingleRecType(node_desc_sub) => node_desc_sub
         _ => fail("expected second lowered type to be a single rec subtype")
       }
-      assert_eq(
+      @debug.assert_eq(
         node_sub,
         @lib.SubType::comp_type(
           @lib.CompType::struct_([
@@ -4911,7 +4935,7 @@ test "wast_to_binary_module lowers struct type defs with forward descriptor meta
           ),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         node_desc_sub,
         @lib.SubType::comp_type(
           @lib.CompType::struct_([]),
@@ -4977,7 +5001,7 @@ test "wast_to_binary_module lowers array type defs with descriptor metadata" {
         @lib.SingleRecType(arr_desc_sub) => arr_desc_sub
         _ => fail("expected third lowered type to be a single rec subtype")
       }
-      assert_eq(
+      @debug.assert_eq(
         bytes_sub,
         @lib.SubType::comp_type(
           @lib.CompType::array(
@@ -4988,7 +5012,7 @@ test "wast_to_binary_module lowers array type defs with descriptor metadata" {
           ),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         arr_sub,
         @lib.SubType::new(
           false,
@@ -5011,7 +5035,7 @@ test "wast_to_binary_module lowers array type defs with descriptor metadata" {
           ),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         arr_desc_sub,
         @lib.SubType::comp_type(
           @lib.CompType::array(
@@ -5056,7 +5080,7 @@ test "wast_to_binary_module lowers rec groups into grouped type entries" {
         ]
       )
     ) => {
-      assert_eq(
+      @debug.assert_eq(
         node_sub,
         @lib.SubType::comp_type(
           @lib.CompType::struct_([
@@ -5077,14 +5101,14 @@ test "wast_to_binary_module lowers rec groups into grouped type entries" {
           ),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         node_desc_sub,
         @lib.SubType::comp_type(
           @lib.CompType::struct_([]),
           metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         sig_sub,
         @lib.SubType::comp_type(
           @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
@@ -5115,7 +5139,7 @@ test "wast_to_binary_module validates descriptor final-subtype pair from text" {
   }
   match lowered.type_sec {
     Some(@lib.TypeSec([@lib.GroupRecType([base, base_desc, leaf, leaf_desc])])) => {
-      assert_eq(
+      @debug.assert_eq(
         base,
         @lib.SubType::new(
           false,
@@ -5126,7 +5150,7 @@ test "wast_to_binary_module validates descriptor final-subtype pair from text" {
           ),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         base_desc,
         @lib.SubType::new(
           false,
@@ -5135,7 +5159,7 @@ test "wast_to_binary_module validates descriptor final-subtype pair from text" {
           metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         leaf,
         @lib.SubType::new(
           true,
@@ -5151,7 +5175,7 @@ test "wast_to_binary_module validates descriptor final-subtype pair from text" {
           ),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         leaf_desc,
         @lib.SubType::new(
           true,
@@ -5265,8 +5289,8 @@ test "wast_to_binary_module supports imported funcs exported via explicit export
         [@lib.Export(name, @lib.FuncExternIdx(@lib.FuncIdx(func_idx)))]
       )
     ) => {
-      assert_eq(name.0, "f")
-      assert_eq(func_idx, 0U)
+      @debug.assert_eq(name.0, "f")
+      @debug.assert_eq(func_idx, 0U)
     }
     _ =>
       fail("expected lowered export section for explicit import+export fixture")
@@ -5296,10 +5320,10 @@ test "wast_to_binary_module lowers function annotations for imports and defs" {
         ]
       )
     ) => {
-      assert_eq(import_annotations, [
+      @debug.assert_eq(import_annotations, [
         @lib.FuncAnnotation::new("binaryen.js.called"),
       ])
-      assert_eq(func_annotations, [
+      @debug.assert_eq(func_annotations, [
         @lib.FuncAnnotation::new("binaryen.idempotent"),
         @lib.FuncAnnotation::new("metadata.code.inline", args=["\"\\00\""]),
       ])
@@ -5324,7 +5348,7 @@ test "wast_to_binary_module lowers legacy gc reference aliases" {
   }
   match lowered.table_sec {
     Some(@lib.TableSec([@lib.Table(@lib.TableType(elem_type, _), _)])) =>
-      assert_eq(
+      @debug.assert_eq(
         elem_type,
         @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
       )
@@ -5333,7 +5357,7 @@ test "wast_to_binary_module lowers legacy gc reference aliases" {
   let env = @validate.Env::new().with_module(lowered)
   match env.resolve_functype(@lib.TypeIdx::new(0U)) {
     Some(@lib.FuncType(params, results)) => {
-      assert_eq(params, [
+      @debug.assert_eq(params, [
         @lib.ValType::ref_type(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
         ),
@@ -5356,7 +5380,7 @@ test "wast_to_binary_module lowers legacy gc reference aliases" {
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::none())),
         ),
       ])
-      assert_eq(results, [
+      @debug.assert_eq(results, [
         @lib.ValType::ref_type(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
         ),
@@ -5407,7 +5431,7 @@ test "wast_to_binary_module supports imported tags exported via explicit export 
       @lib.ImportSec(
         [@lib.Import(_, _, @lib.TagExternType(@lib.TagType(@lib.TypeIdx(idx))))]
       )
-    ) => assert_eq(idx, 0U)
+    ) => @debug.assert_eq(idx, 0U)
     _ => fail("expected lowered import section containing one imported tag")
   }
   match lowered.export_sec {
@@ -5416,8 +5440,8 @@ test "wast_to_binary_module supports imported tags exported via explicit export 
         [@lib.Export(name, @lib.TagExternIdx(@lib.TagIdx(tag_idx)))]
       )
     ) => {
-      assert_eq(name.0, "e")
-      assert_eq(tag_idx, 0U)
+      @debug.assert_eq(name.0, "e")
+      @debug.assert_eq(tag_idx, 0U)
     }
     _ =>
       fail(
@@ -5445,7 +5469,7 @@ test "wast_to_binary_module lowers table elem-abbreviation with func keyword and
     @lib.ElemKind::funcs([@lib.FuncIdx::new(0)]),
   )
   match lowered.elem_sec {
-    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    Some(@lib.ElemSec([elem])) => @debug.assert_eq(elem, expected)
     _ =>
       fail(
         "expected lowered elem section for func-keyword table abbreviation fixture",
@@ -5483,7 +5507,7 @@ test "wast_to_binary_module lowers table elem-abbreviation typed ref.func items"
     ),
   )
   match lowered.elem_sec {
-    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    Some(@lib.ElemSec([elem])) => @debug.assert_eq(elem, expected)
     _ =>
       fail(
         "expected lowered elem section for typed table elem-abbreviation fixture",
@@ -5524,7 +5548,7 @@ test "wast_to_binary_module lowers explicit typed ref.func-only elem segments as
     ),
   )
   match lowered.elem_sec {
-    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    Some(@lib.ElemSec([elem])) => @debug.assert_eq(elem, expected)
     _ =>
       fail(
         "expected lowered typed expr elem section for explicit typed ref.func-only fixture",
@@ -5566,7 +5590,7 @@ test "wast_to_binary_module lowers table elem-abbreviation explicit item ref.fun
     ),
   )
   match lowered.elem_sec {
-    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    Some(@lib.ElemSec([elem])) => @debug.assert_eq(elem, expected)
     _ =>
       fail(
         "expected lowered typed expr elem section for explicit-item table abbreviation fixture",
@@ -5609,7 +5633,7 @@ test "wast_to_binary_module lowers explicit elem segment explicit item ref.func-
     ),
   )
   match lowered.elem_sec {
-    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    Some(@lib.ElemSec([elem])) => @debug.assert_eq(elem, expected)
     _ =>
       fail(
         "expected lowered typed expr elem section for explicit-item elem segment fixture",
@@ -5653,7 +5677,7 @@ test "wast_to_binary_module lowers table elem-abbreviation typed ref.null items"
     ),
   )
   match lowered.elem_sec {
-    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    Some(@lib.ElemSec([elem])) => @debug.assert_eq(elem, expected)
     _ =>
       fail(
         "expected lowered typed elem section for table abbreviation ref.null fixture",
@@ -5698,7 +5722,7 @@ test "wast_to_binary_module lowers explicit elem segments with typed item expres
     ),
   )
   match lowered.elem_sec {
-    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    Some(@lib.ElemSec([elem])) => @debug.assert_eq(elem, expected)
     _ => fail("expected lowered typed explicit elem section fixture")
   }
   match @validate.validate_module(lowered) {
@@ -5721,8 +5745,8 @@ test "wast_to_binary_module lowers typed-heap value types to concrete TypeIdx re
   }
   match lowered.type_sec {
     Some(@lib.TypeSec(types)) => {
-      assert_eq(types.length(), 2)
-      assert_eq(
+      @debug.assert_eq(types.length(), 2)
+      @debug.assert_eq(
         types[1],
         @lib.RecType::new(
           @lib.SubType::comp_type(
@@ -5755,7 +5779,7 @@ test "wast_to_binary_module lowers typed-heap value types to concrete TypeIdx re
   }
   match lowered.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([instr]))])) =>
-      assert_eq(
+      @debug.assert_eq(
         instr,
         @lib.Instruction::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(0))),
       )
@@ -5784,8 +5808,8 @@ test "wast_to_binary_module lowers exact typed-heap value types to exact refs" {
   }
   match lowered.type_sec {
     Some(@lib.TypeSec(types)) => {
-      assert_eq(types.length(), 2)
-      assert_eq(
+      @debug.assert_eq(types.length(), 2)
+      @debug.assert_eq(
         types[1],
         @lib.RecType::new(
           @lib.SubType::comp_type(
@@ -5817,7 +5841,10 @@ test "wast_to_binary_module lowers exact typed-heap value types to exact refs" {
   }
   match lowered.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([instr]))])) =>
-      assert_eq(instr, @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+      @debug.assert_eq(
+        instr,
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      )
     _ => fail("expected exact typed ref.null instruction lowering")
   }
   match @validate.validate_module(lowered) {
@@ -5858,7 +5885,7 @@ test "wast_to_binary_module lowers abstract heap ref kinds without collapsing to
         ]
       )
     ) => {
-      assert_eq(params, [
+      @debug.assert_eq(params, [
         @lib.ValType::ref_type(
           @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::any())),
         ),
@@ -5890,7 +5917,7 @@ test "wast_to_binary_module lowers abstract heap ref kinds without collapsing to
           ),
         ),
       ])
-      assert_eq(results, [
+      @debug.assert_eq(results, [
         @lib.ValType::ref_type(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
         ),
@@ -5930,7 +5957,7 @@ test "wast_to_binary_module lowers abstract heap ref kinds without collapsing to
   }
   match lowered.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
-      assert_eq(instrs, [
+      @debug.assert_eq(instrs, [
         @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
         @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
         @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::i31())),
@@ -5971,8 +5998,8 @@ test "wast_to_binary_module lowers abstract heap refs across table global tag an
 
   match lowered.type_sec {
     Some(@lib.TypeSec(types)) => {
-      assert_eq(types.length(), 1)
-      assert_eq(
+      @debug.assert_eq(types.length(), 1)
+      @debug.assert_eq(
         types[0],
         @lib.RecType::new(
           @lib.SubType::comp_type(
@@ -6005,7 +6032,7 @@ test "wast_to_binary_module lowers abstract heap refs across table global tag an
         ]
       )
     ) => {
-      assert_eq(
+      @debug.assert_eq(
         import_table_ty,
         @lib.TableType::new(
           @lib.RefType::new(
@@ -6015,7 +6042,7 @@ test "wast_to_binary_module lowers abstract heap refs across table global tag an
           @lib.Limits::i32(1, None),
         ),
       )
-      assert_eq(
+      @debug.assert_eq(
         import_global_ty,
         @lib.GlobalType::new(
           @lib.ValType::ref_type(
@@ -6024,7 +6051,7 @@ test "wast_to_binary_module lowers abstract heap refs across table global tag an
           true,
         ),
       )
-      assert_eq(import_tag_ty, @lib.TagType::new(@lib.TypeIdx::new(0)))
+      @debug.assert_eq(import_tag_ty, @lib.TagType::new(@lib.TypeIdx::new(0)))
     }
     _ =>
       fail(
@@ -6034,7 +6061,7 @@ test "wast_to_binary_module lowers abstract heap refs across table global tag an
 
   match lowered.table_sec {
     Some(@lib.TableSec([table])) =>
-      assert_eq(
+      @debug.assert_eq(
         table,
         @lib.Table::new(
           @lib.TableType::new(
@@ -6052,7 +6079,7 @@ test "wast_to_binary_module lowers abstract heap refs across table global tag an
 
   match lowered.global_sec {
     Some(@lib.GlobalSec([global])) =>
-      assert_eq(
+      @debug.assert_eq(
         global,
         @lib.Global::new(
           @lib.GlobalType::new(
@@ -6076,7 +6103,7 @@ test "wast_to_binary_module lowers abstract heap refs across table global tag an
 
   match lowered.tag_sec {
     Some(@lib.TagSec([tag])) =>
-      assert_eq(tag, @lib.TagType::new(@lib.TypeIdx::new(0)))
+      @debug.assert_eq(tag, @lib.TagType::new(@lib.TypeIdx::new(0)))
     _ => fail("expected lowered tag section for abstract heap-kind fixture")
   }
 }
@@ -6120,7 +6147,7 @@ test "wast_to_binary_module keeps implicit table-abbrev elem order ahead of expl
     ),
   ]
   match lowered.elem_sec {
-    Some(@lib.ElemSec(elems)) => assert_eq(elems, expected)
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems, expected)
     _ => fail("expected lowered elem section in table-abbrev ordering fixture")
   }
   match @validate.validate_module(lowered) {
@@ -6234,17 +6261,20 @@ test "wast_to_binary_module lowers advanced reference no-immediate instructions"
         ]
       )
     ) => {
-      assert_eq(ref_eq_instr, @lib.Instruction::ref_eq())
-      assert_eq(ref_as_non_null_instr, @lib.Instruction::ref_as_non_null())
-      assert_eq(ref_i31_s_instr, @lib.Instruction::ref_i31())
-      assert_eq(i31_get_s_instr, @lib.Instruction::i31_get_s())
-      assert_eq(ref_i31_u_instr, @lib.Instruction::ref_i31())
-      assert_eq(i31_get_u_instr, @lib.Instruction::i31_get_u())
-      assert_eq(
+      @debug.assert_eq(ref_eq_instr, @lib.Instruction::ref_eq())
+      @debug.assert_eq(
+        ref_as_non_null_instr,
+        @lib.Instruction::ref_as_non_null(),
+      )
+      @debug.assert_eq(ref_i31_s_instr, @lib.Instruction::ref_i31())
+      @debug.assert_eq(i31_get_s_instr, @lib.Instruction::i31_get_s())
+      @debug.assert_eq(ref_i31_u_instr, @lib.Instruction::ref_i31())
+      @debug.assert_eq(i31_get_u_instr, @lib.Instruction::i31_get_u())
+      @debug.assert_eq(
         any_convert_extern_instr,
         @lib.Instruction::any_convert_extern(),
       )
-      assert_eq(
+      @debug.assert_eq(
         extern_convert_any_instr,
         @lib.Instruction::extern_convert_any(),
       )
@@ -6279,7 +6309,7 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
 
   match lowered.tag_sec {
     Some(@lib.TagSec([@lib.TagType(@lib.TypeIdx(tag_type_idx))])) =>
-      assert_eq(tag_type_idx, 0U)
+      @debug.assert_eq(tag_type_idx, 0U)
     _ => fail("expected lowered tag section for exception fixture")
   }
 
@@ -6309,9 +6339,9 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
           [@lib.Catch(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
-          assert_eq(catch_tag, 0U)
-          assert_eq(catch_label, 0U)
-          assert_eq(throw_tag, 0U)
+          @debug.assert_eq(catch_tag, 0U)
+          @debug.assert_eq(catch_label, 0U)
+          @debug.assert_eq(throw_tag, 0U)
         }
         _ => fail("expected try_table catch lowering shape")
       }
@@ -6322,8 +6352,8 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
           [@lib.CatchRef(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.ThrowRef])
         ) => {
-          assert_eq(catch_tag, 0U)
-          assert_eq(catch_label, 0U)
+          @debug.assert_eq(catch_tag, 0U)
+          @debug.assert_eq(catch_label, 0U)
         }
         _ => fail("expected try_table catch_ref lowering shape")
       }
@@ -6333,7 +6363,7 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
           _,
           [@lib.CatchAll(@lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Unreachable])
-        ) => assert_eq(catch_label, 0U)
+        ) => @debug.assert_eq(catch_label, 0U)
         _ => fail("expected try_table catch_all lowering shape")
       }
 
@@ -6342,7 +6372,7 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
           _,
           [@lib.CatchAllRef(@lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Unreachable])
-        ) => assert_eq(catch_label, 0U)
+        ) => @debug.assert_eq(catch_label, 0U)
         _ => fail("expected try_table catch_all_ref lowering shape")
       }
     }
@@ -6398,8 +6428,8 @@ test "wast_to_binary_module resolves try_table catch labels across nested numeri
         ]
       )
     ) => {
-      assert_eq(catches.length(), 5)
-      assert_eq(catches, [
+      @debug.assert_eq(catches.length(), 5)
+      @debug.assert_eq(catches, [
         @lib.Catch::new(@lib.TagIdx::new(0), @lib.LabelIdx::new(0)),
         @lib.Catch::new(@lib.TagIdx::new(1), @lib.LabelIdx::new(1)),
         @lib.Catch::new(@lib.TagIdx::new(2), @lib.LabelIdx::new(2)),
@@ -6471,8 +6501,8 @@ test "wast_to_binary_module reuses matching function type for implicit typeuse" 
   }
   match lowered.func_sec {
     Some(@lib.FuncSec([@lib.TypeIdx(t0), @lib.TypeIdx(t1)])) => {
-      assert_eq(t0, 0U)
-      assert_eq(t1, 0U)
+      @debug.assert_eq(t0, 0U)
+      @debug.assert_eq(t1, 0U)
     }
     _ => fail("expected two defined functions with stable type indices")
   }
@@ -6497,7 +6527,7 @@ test "wast_to_binary_module lowers inline tag exports into export section" {
   }
   match lowered.tag_sec {
     Some(@lib.TagSec([@lib.TagType(@lib.TypeIdx(type_idx))])) =>
-      assert_eq(type_idx, 0U)
+      @debug.assert_eq(type_idx, 0U)
     _ => fail("expected lowered tag section for inline-export tag fixture")
   }
   match lowered.export_sec {
@@ -6509,10 +6539,10 @@ test "wast_to_binary_module lowers inline tag exports into export section" {
         ]
       )
     ) => {
-      assert_eq(name0.0, "e0")
-      assert_eq(name1.0, "e0_alias")
-      assert_eq(tag_idx0, 0U)
-      assert_eq(tag_idx1, 0U)
+      @debug.assert_eq(name0.0, "e0")
+      @debug.assert_eq(name1.0, "e0_alias")
+      @debug.assert_eq(tag_idx0, 0U)
+      @debug.assert_eq(tag_idx1, 0U)
     }
     _ => fail("expected lowered export section containing inline tag exports")
   }
@@ -6548,14 +6578,14 @@ test "wast_to_binary_module lowers inline exports across func table memory and g
         ]
       )
     ) => {
-      assert_eq(fname.0, "f")
-      assert_eq(tname.0, "t")
-      assert_eq(mname.0, "m")
-      assert_eq(gname.0, "g")
-      assert_eq(fidx, 1U)
-      assert_eq(tidx, 1U)
-      assert_eq(midx, 1U)
-      assert_eq(gidx, 1U)
+      @debug.assert_eq(fname.0, "f")
+      @debug.assert_eq(tname.0, "t")
+      @debug.assert_eq(mname.0, "m")
+      @debug.assert_eq(gname.0, "g")
+      @debug.assert_eq(fidx, 1U)
+      @debug.assert_eq(tidx, 1U)
+      @debug.assert_eq(midx, 1U)
+      @debug.assert_eq(gidx, 1U)
     }
     _ =>
       fail(
@@ -6613,9 +6643,9 @@ test "wast_to_binary_module validates catch_ref and catch_all_ref exnref label f
           [@lib.CatchRef(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
-          assert_eq(catch_tag, 0U)
-          assert_eq(catch_label, 0U)
-          assert_eq(throw_tag, 0U)
+          @debug.assert_eq(catch_tag, 0U)
+          @debug.assert_eq(catch_label, 0U)
+          @debug.assert_eq(throw_tag, 0U)
         }
         _ => fail("expected catch_ref exnref-flow lowering shape")
       }
@@ -6625,8 +6655,8 @@ test "wast_to_binary_module validates catch_ref and catch_all_ref exnref label f
           [@lib.CatchAllRef(@lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
-          assert_eq(catch_label, 0U)
-          assert_eq(throw_tag, 0U)
+          @debug.assert_eq(catch_label, 0U)
+          @debug.assert_eq(throw_tag, 0U)
         }
         _ => fail("expected catch_all_ref exnref-flow lowering shape")
       }
@@ -6679,9 +6709,9 @@ test "wast_to_binary_module keeps imported-tag wiring stable across catch and th
           [@lib.Catch(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
-          assert_eq(catch_tag, 0U)
-          assert_eq(catch_label, 0U)
-          assert_eq(throw_tag, 1U)
+          @debug.assert_eq(catch_tag, 0U)
+          @debug.assert_eq(catch_label, 0U)
+          @debug.assert_eq(throw_tag, 1U)
         }
         _ => fail("expected first imported-tag try_table lowering shape")
       }
@@ -6691,9 +6721,9 @@ test "wast_to_binary_module keeps imported-tag wiring stable across catch and th
           [@lib.Catch(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
-          assert_eq(catch_tag, 2U)
-          assert_eq(catch_label, 0U)
-          assert_eq(throw_tag, 2U)
+          @debug.assert_eq(catch_tag, 2U)
+          @debug.assert_eq(catch_label, 0U)
+          @debug.assert_eq(throw_tag, 2U)
         }
         _ => fail("expected second imported/local-tag try_table lowering shape")
       }
@@ -6769,22 +6799,22 @@ test "wast_to_binary_module enforces i64x2 unsigned literal boundaries" {
         ]
       )
     ) => {
-      assert_eq(b0, (0xff).to_byte())
-      assert_eq(b1, (0xff).to_byte())
-      assert_eq(b2, (0xff).to_byte())
-      assert_eq(b3, (0xff).to_byte())
-      assert_eq(b4, (0xff).to_byte())
-      assert_eq(b5, (0xff).to_byte())
-      assert_eq(b6, (0xff).to_byte())
-      assert_eq(b7, (0xff).to_byte())
-      assert_eq(b8, (0x00).to_byte())
-      assert_eq(b9, (0x00).to_byte())
-      assert_eq(b10, (0x00).to_byte())
-      assert_eq(b11, (0x00).to_byte())
-      assert_eq(b12, (0x00).to_byte())
-      assert_eq(b13, (0x00).to_byte())
-      assert_eq(b14, (0x00).to_byte())
-      assert_eq(b15, (0x00).to_byte())
+      @debug.assert_eq(b0, (0xff).to_byte())
+      @debug.assert_eq(b1, (0xff).to_byte())
+      @debug.assert_eq(b2, (0xff).to_byte())
+      @debug.assert_eq(b3, (0xff).to_byte())
+      @debug.assert_eq(b4, (0xff).to_byte())
+      @debug.assert_eq(b5, (0xff).to_byte())
+      @debug.assert_eq(b6, (0xff).to_byte())
+      @debug.assert_eq(b7, (0xff).to_byte())
+      @debug.assert_eq(b8, (0x00).to_byte())
+      @debug.assert_eq(b9, (0x00).to_byte())
+      @debug.assert_eq(b10, (0x00).to_byte())
+      @debug.assert_eq(b11, (0x00).to_byte())
+      @debug.assert_eq(b12, (0x00).to_byte())
+      @debug.assert_eq(b13, (0x00).to_byte())
+      @debug.assert_eq(b14, (0x00).to_byte())
+      @debug.assert_eq(b15, (0x00).to_byte())
     }
     _ => fail("expected lowered i64x2 max-literal v128.const function body")
   }
@@ -6999,11 +7029,11 @@ test "wast_to_binary_module preserves hexadecimal integer v128.const literals" {
   }
   match lowered.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      assert_eq(funcs.length(), 4)
+      @debug.assert_eq(funcs.length(), 4)
 
       match funcs[0] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0x00).to_byte(),
@@ -7029,7 +7059,7 @@ test "wast_to_binary_module preserves hexadecimal integer v128.const literals" {
 
       match funcs[1] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0x02).to_byte(),
@@ -7055,7 +7085,7 @@ test "wast_to_binary_module preserves hexadecimal integer v128.const literals" {
 
       match funcs[2] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0x04).to_byte(),
@@ -7081,7 +7111,7 @@ test "wast_to_binary_module preserves hexadecimal integer v128.const literals" {
 
       match funcs[3] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0xff).to_byte(),
@@ -7124,11 +7154,11 @@ test "wast_to_binary_module preserves NaN payload lanes in v128.const" {
   }
   match lowered.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      assert_eq(funcs.length(), 2)
+      @debug.assert_eq(funcs.length(), 2)
 
       match funcs[0] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0x01).to_byte(),
@@ -7154,7 +7184,7 @@ test "wast_to_binary_module preserves NaN payload lanes in v128.const" {
 
       match funcs[1] {
         @lib.Func(_, @lib.Expr([instr])) =>
-          assert_eq(
+          @debug.assert_eq(
             instr,
             @lib.Instruction::v128_const(
               (0x01).to_byte(),
@@ -7204,14 +7234,14 @@ test "wast_to_binary_module lowers string array instructions and stringref types
   }
   match lowered.type_sec {
     Some(@lib.TypeSec(types)) => {
-      assert_eq(types.length(), 4)
+      @debug.assert_eq(types.length(), 4)
       match types[2] {
         @lib.RecType::SingleRecType(
           @lib.SubType::CompTypeSubType(
             _,
             @lib.CompType::FuncCompType(_, [result])
           )
-        ) => assert_eq(result, @lib.ValType::stringref())
+        ) => @debug.assert_eq(result, @lib.ValType::stringref())
         _ => fail("expected lowered string builder functype")
       }
     }
@@ -7223,8 +7253,8 @@ test "wast_to_binary_module lowers string array instructions and stringref types
         [@lib.Func(_, @lib.Expr(build)), @lib.Func(_, @lib.Expr(encode))]
       )
     ) => {
-      assert_eq(build[3], @lib.Instruction::string_new_wtf16_array())
-      assert_eq(encode[3], @lib.Instruction::string_encode_utf8_array())
+      @debug.assert_eq(build[3], @lib.Instruction::string_new_wtf16_array())
+      @debug.assert_eq(encode[3], @lib.Instruction::string_encode_utf8_array())
     }
     _ => fail("expected lowered code section for string array fixture")
   }
@@ -7247,12 +7277,12 @@ test "wast_to_binary_module lowers string.const literals" {
   }
   match lowered.global_sec {
     Some(@lib.GlobalSec([@lib.Global(_, @lib.Expr([instr]))])) =>
-      assert_eq(instr, @lib.Instruction::string_const(b"hello"))
+      @debug.assert_eq(instr, @lib.Instruction::string_const(b"hello"))
     _ => fail("expected lowered global string.const initializer")
   }
   match lowered.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([instr]))])) =>
-      assert_eq(instr, @lib.Instruction::string_const(b"hello"))
+      @debug.assert_eq(instr, @lib.Instruction::string_const(b"hello"))
     _ => fail("expected lowered function string.const body")
   }
   match @validate.validate_module(lowered) {

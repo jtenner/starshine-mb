@@ -58,7 +58,7 @@ test "hot lift preserves duplicated multivalue control-entry stacks without reco
   let then_call = hot_child_get(hot, then_drop, 0)
   let else_call = hot_child_get(hot, else_drop, 0)
 
-  assert_eq(hot_node_get(hot, if_id).op.to_string(), "If")
+  @debug.assert_eq(hot_node_get(hot, if_id).op.to_string(), "If")
   assert_true(hot_node_kind_is_call(hot, then_call))
-  assert_eq(then_call, else_call)
+  @debug.assert_eq(then_call, else_call)
 }

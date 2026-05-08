@@ -44,13 +44,13 @@ test "query helpers classify representative node families and expose node result
   assert_true(hot_node_kind_is_call(func, call))
   assert_true(hot_node_kind_is_control(func, block))
 
-  assert_eq(
+  @debug.assert_eq(
     hot_node_type(func, local_get),
     hot_type_intern_value(func, @lib.ValType::i32()),
   )
-  assert_eq(hot_node_result_arity(func, local_get), 1)
-  assert_eq(hot_node_result_arity(func, tuple), 2)
-  assert_eq(
+  @debug.assert_eq(hot_node_result_arity(func, local_get), 1)
+  @debug.assert_eq(hot_node_result_arity(func, tuple), 2)
+  @debug.assert_eq(
     hot_node_exact_instr(func, heap),
     Some(@lib.Instruction::array_len()),
   )
@@ -68,11 +68,11 @@ test "branch queries expose single-target and branch-table metadata" {
   let br_table = hot_build_br_table(func, [target], target, condition)
   let delegate = hot_build_delegate(func, target)
 
-  assert_eq(hot_branch_target(func, br_if), Some(target))
-  assert_eq(hot_branch_target(func, br_table), Some(target))
-  assert_eq(hot_branch_target(func, delegate), Some(target))
-  assert_eq(hot_branch_table_targets_for_node(func, br_table), [target])
-  assert_eq(hot_branch_table_targets_for_node(func, br_if).length(), 0)
+  @debug.assert_eq(hot_branch_target(func, br_if), Some(target))
+  @debug.assert_eq(hot_branch_target(func, br_table), Some(target))
+  @debug.assert_eq(hot_branch_target(func, delegate), Some(target))
+  @debug.assert_eq(hot_branch_table_targets_for_node(func, br_table), [target])
+  @debug.assert_eq(hot_branch_table_targets_for_node(func, br_if).length(), 0)
 }
 
 ///|
@@ -91,15 +91,15 @@ test "root child local and tombstone queries stay read only" {
   hot_delete_node(func, deleted)
 
   let rev0 = hot_revision_current(func)
-  assert_eq(hot_root_span(func), [block])
-  assert_eq(hot_child_span(func, block), [first, second])
-  assert_eq(hot_local_param_count(func), 1)
-  assert_eq(hot_local_body_count(func), 2)
+  @debug.assert_eq(hot_root_span(func), [block])
+  @debug.assert_eq(hot_child_span(func, block), [first, second])
+  @debug.assert_eq(hot_local_param_count(func), 1)
+  @debug.assert_eq(hot_local_body_count(func), 2)
   assert_true(hot_local_is_param(func, 0))
   assert_false(hot_local_is_param(func, 1))
   assert_true(hot_node_is_deleted(func, deleted))
   assert_false(hot_node_is_deleted(func, block))
-  assert_eq(hot_revision_current(func), rev0)
+  @debug.assert_eq(hot_revision_current(func), rev0)
 }
 
 ///|
@@ -120,14 +120,15 @@ test "simple value queries compare semantic leaf identity" {
 
   match hot_simple_value_key(func, const7a) {
     Some(HotSimpleValueKey::ConstValue(HotConstPayload::I32Const(value))) =>
-      assert_eq(value, @lib.I32(7))
+      @debug.assert_eq(value, @lib.I32(7))
     other => fail("expected i32 const simple value key, got \{other}")
   }
   match hot_simple_value_key(func, local0a) {
-    Some(HotSimpleValueKey::LocalGetValue(local_id)) => assert_eq(local_id, 0)
+    Some(HotSimpleValueKey::LocalGetValue(local_id)) =>
+      @debug.assert_eq(local_id, 0)
     other => fail("expected local.get simple value key, got \{other}")
   }
-  assert_eq(hot_simple_value_key(func, drop_local0), None)
+  @debug.assert_eq(hot_simple_value_key(func, drop_local0), None)
 }
 
 ///|
@@ -154,23 +155,32 @@ test "single-root wrapper queries peel canonical block wrappers" {
   let inner_body = hot_region_single_live_block_body(func, outer_body).unwrap()
   let payload = hot_region_single_live_root(func, inner_body).unwrap()
 
-  assert_eq(hot_region_single_live_root(func, root_ref), Some(root_block))
-  assert_eq(hot_region_single_live_block_root(func, root_ref), Some(root_block))
-  assert_eq(hot_region_single_live_block_body(func, root_ref), Some(outer_body))
-  assert_eq(
+  @debug.assert_eq(
+    hot_region_single_live_root(func, root_ref),
+    Some(root_block),
+  )
+  @debug.assert_eq(
+    hot_region_single_live_block_root(func, root_ref),
+    Some(root_block),
+  )
+  @debug.assert_eq(
+    hot_region_single_live_block_body(func, root_ref),
+    Some(outer_body),
+  )
+  @debug.assert_eq(
     hot_region_single_live_block_body_or_self(func, root_ref),
     outer_body,
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_region_single_live_block_root(func, outer_body),
     Some(inner_block),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_region_single_live_block_body_or_self(func, outer_body),
     inner_body,
   )
-  assert_eq(hot_region_single_live_root(func, inner_body), Some(payload))
-  assert_eq(
+  @debug.assert_eq(hot_region_single_live_root(func, inner_body), Some(payload))
+  @debug.assert_eq(
     hot_region_single_live_block_body_or_self(func, inner_body),
     inner_body,
   )
@@ -208,16 +218,22 @@ test "holder and single-if queries expose canonical lifted control entry points"
   let then_holder = then_ref.holder
   let else_holder = else_ref.holder
 
-  assert_eq(hot_region_holder_block_root(func, body_ref), Some(block_id))
-  assert_eq(hot_region_holder_block_label(func, body_ref), Some(target))
-  assert_eq(hot_region_single_live_if_root(func, body_ref), Some(if_id))
-  assert_eq(hot_region_holder_block_root(func, then_ref), Some(then_holder))
-  assert_eq(
+  @debug.assert_eq(hot_region_holder_block_root(func, body_ref), Some(block_id))
+  @debug.assert_eq(hot_region_holder_block_label(func, body_ref), Some(target))
+  @debug.assert_eq(hot_region_single_live_if_root(func, body_ref), Some(if_id))
+  @debug.assert_eq(
+    hot_region_holder_block_root(func, then_ref),
+    Some(then_holder),
+  )
+  @debug.assert_eq(
     hot_region_holder_block_label(func, then_ref),
     Some(hot_control_node_label(func, then_holder)),
   )
-  assert_eq(hot_region_holder_block_root(func, else_ref), Some(else_holder))
-  assert_eq(
+  @debug.assert_eq(
+    hot_region_holder_block_root(func, else_ref),
+    Some(else_holder),
+  )
+  @debug.assert_eq(
     hot_region_holder_block_label(func, else_ref),
     Some(hot_control_node_label(func, else_holder)),
   )
@@ -253,13 +269,16 @@ test "plain-branch arm queries expose single plain branch roots canonically" {
   let else_ref = hot_region_else_ref(func, if_id).unwrap()
   let then_root = hot_region_get(func, then_ref, 0)
 
-  assert_eq(
+  @debug.assert_eq(
     hot_region_single_plain_br_target(func, then_ref),
     hot_branch_target(func, then_root),
   )
-  assert_eq(hot_region_single_plain_br_root(func, then_ref), Some(then_root))
-  assert_eq(hot_region_single_plain_br_root(func, else_ref), None)
-  assert_eq(hot_region_single_plain_br_target(func, else_ref), None)
+  @debug.assert_eq(
+    hot_region_single_plain_br_root(func, then_ref),
+    Some(then_root),
+  )
+  @debug.assert_eq(hot_region_single_plain_br_root(func, else_ref), None)
+  @debug.assert_eq(hot_region_single_plain_br_target(func, else_ref), None)
 }
 
 ///|
@@ -290,8 +309,8 @@ test "single-exit-arm queries expose return and plain branch arms canonically" {
   let then_root = hot_region_get(func, then_ref, 0)
   let else_root = hot_region_get(func, else_ref, 0)
 
-  assert_eq(hot_region_single_exit_root(func, then_ref), Some(then_root))
-  assert_eq(hot_region_single_exit_root(func, else_ref), Some(else_root))
+  @debug.assert_eq(hot_region_single_exit_root(func, then_ref), Some(then_root))
+  @debug.assert_eq(hot_region_single_exit_root(func, else_ref), Some(else_root))
 }
 
 ///|
@@ -311,26 +330,26 @@ test "trailing plain-branch split queries expose prefix roots and tail target ca
 
   match hot_region_split_trailing_plain_br_root(func, body_ref) {
     Some((prefix, split_tail)) => {
-      assert_eq(prefix, [prefix0, prefix1])
-      assert_eq(split_tail, tail)
+      @debug.assert_eq(prefix, [prefix0, prefix1])
+      @debug.assert_eq(split_tail, tail)
     }
     None => fail("expected trailing plain br split for region roots")
   }
   match hot_region_split_trailing_plain_br_target(func, body_ref) {
     Some((prefix, target)) => {
-      assert_eq(prefix, [prefix0, prefix1])
-      assert_eq(target, 7)
+      @debug.assert_eq(prefix, [prefix0, prefix1])
+      @debug.assert_eq(target, 7)
     }
     None => fail("expected trailing plain br target split for region roots")
   }
-  assert_eq(
+  @debug.assert_eq(
     hot_region_split_trailing_plain_br_root(
       func,
       hot_region_body_ref(func, mixed),
     ),
     None,
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_region_split_trailing_plain_br_target(
       func,
       hot_region_body_ref(func, mixed),
@@ -353,21 +372,21 @@ test "payload split queries expose trailing result roots canonically" {
   let roots = [prefix, payload_a, payload_b]
   match hot_split_trailing_payload_roots(func, roots, 2) {
     Some((split_prefix, split_payload)) => {
-      assert_eq(split_prefix, [prefix])
-      assert_eq(split_payload, [payload_a, payload_b])
+      @debug.assert_eq(split_prefix, [prefix])
+      @debug.assert_eq(split_payload, [payload_a, payload_b])
     }
     None => fail("expected payload split for direct roots")
   }
 
   match hot_region_split_trailing_payload_roots(func, body_ref, 2) {
     Some((split_prefix, split_payload)) => {
-      assert_eq(split_prefix, [prefix])
-      assert_eq(split_payload, [payload_a, payload_b])
+      @debug.assert_eq(split_prefix, [prefix])
+      @debug.assert_eq(split_payload, [payload_a, payload_b])
     }
     None => fail("expected payload split for region roots")
   }
 
-  assert_eq(hot_split_trailing_payload_roots(func, roots, 3), None)
+  @debug.assert_eq(hot_split_trailing_payload_roots(func, roots, 3), None)
 }
 
 ///|
@@ -403,49 +422,55 @@ test "repeated-shape queries expose repeated live children and region roots cano
     repeated_br, mixed_br,
   ])
 
-  assert_eq(hot_node_repeated_live_child(func, repeated_br), Some(payload_if))
-  assert_eq(hot_region_repeated_live_root(func, body_ref), Some(repeated_br))
-  assert_eq(
+  @debug.assert_eq(
+    hot_node_repeated_live_child(func, repeated_br),
+    Some(payload_if),
+  )
+  @debug.assert_eq(
+    hot_region_repeated_live_root(func, body_ref),
+    Some(repeated_br),
+  )
+  @debug.assert_eq(
     hot_region_repeated_live_if_root(
       func,
       hot_region_body_ref(func, repeated_if_block),
     ),
     Some(payload_if),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_region_repeated_live_block_root(
       func,
       hot_region_body_ref(func, repeated_blocks),
     ),
     Some(repeated_inner_block),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_region_repeated_live_block_body(
       func,
       hot_region_body_ref(func, repeated_blocks),
     ),
     Some(hot_region_body_ref(func, repeated_inner_block)),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_region_repeated_live_block_body_or_self(
       func,
       hot_region_body_ref(func, repeated_blocks),
     ),
     hot_region_body_ref(func, repeated_inner_block),
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_region_repeated_live_block_body_or_self(
       func,
       hot_region_body_ref(func, mixed_block),
     ),
     hot_region_body_ref(func, mixed_block),
   )
-  assert_eq(hot_node_repeated_live_child(func, mixed_br), None)
-  assert_eq(
+  @debug.assert_eq(hot_node_repeated_live_child(func, mixed_br), None)
+  @debug.assert_eq(
     hot_region_repeated_live_root(func, hot_region_body_ref(func, mixed_block)),
     None,
   )
-  assert_eq(
+  @debug.assert_eq(
     hot_region_repeated_live_if_root(
       func,
       hot_region_body_ref(func, mixed_block),

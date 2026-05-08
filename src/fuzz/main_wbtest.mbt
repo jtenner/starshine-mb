@@ -1,39 +1,39 @@
 ///|
 test "parse_fuzz_cli_args defaults to all smoke seed" {
   let parsed = parse_fuzz_cli_args([])
-  assert_eq(parsed.suite, "all")
-  assert_eq(parsed.profile, "smoke")
+  @debug.assert_eq(parsed.suite, "all")
+  @debug.assert_eq(parsed.profile, "smoke")
   match parsed.output_mode {
     Text => ()
     _ => fail("expected text output mode")
   }
-  assert_eq(parsed.seed, parsed.seed_i64.reinterpret_as_uint64())
+  @debug.assert_eq(parsed.seed, parsed.seed_i64.reinterpret_as_uint64())
 }
 
 ///|
 test "parse_fuzz_cli_args accepts suite profile and hex seed" {
   let parsed = parse_fuzz_cli_args(["wat-roundtrip", "ci", "0x1234"])
-  assert_eq(parsed.suite, "wat-roundtrip")
-  assert_eq(parsed.profile, "ci")
-  assert_eq(parsed.seed_i64, 0x1234L)
-  assert_eq(parsed.seed, 0x1234UL)
+  @debug.assert_eq(parsed.suite, "wat-roundtrip")
+  @debug.assert_eq(parsed.profile, "ci")
+  @debug.assert_eq(parsed.seed_i64, 0x1234L)
+  @debug.assert_eq(parsed.seed, 0x1234UL)
 }
 
 ///|
 test "parse_fuzz_cli_args accepts --seed with equals" {
   let parsed = parse_fuzz_cli_args(["wat-roundtrip", "ci", "--seed=0x99"])
-  assert_eq(parsed.suite, "wat-roundtrip")
-  assert_eq(parsed.profile, "ci")
-  assert_eq(parsed.seed_i64, 0x99L)
+  @debug.assert_eq(parsed.suite, "wat-roundtrip")
+  @debug.assert_eq(parsed.profile, "ci")
+  @debug.assert_eq(parsed.seed_i64, 0x99L)
 }
 
 ///|
 test "parse_fuzz_cli_args accepts --seed and negative value" {
   let parsed = parse_fuzz_cli_args(["validate-valid", "smoke", "--seed", "-42"])
-  assert_eq(parsed.suite, "validate-valid")
-  assert_eq(parsed.profile, "smoke")
-  assert_eq(parsed.seed_i64, -42L)
-  assert_eq(parsed.seed, (-42L).reinterpret_as_uint64())
+  @debug.assert_eq(parsed.suite, "validate-valid")
+  @debug.assert_eq(parsed.profile, "smoke")
+  @debug.assert_eq(parsed.seed_i64, -42L)
+  @debug.assert_eq(parsed.seed, (-42L).reinterpret_as_uint64())
 }
 
 ///|
@@ -84,9 +84,9 @@ test "parse_fuzz_cli_command detects emit-gen-valid-batch command" {
       "tmp/gen-valid",
     ]) {
     EmitGenValidBatch(args) => {
-      assert_eq(args.count, 2)
-      assert_eq(args.seed, 0x5eedUL)
-      assert_eq(args.out_dir, "tmp/gen-valid")
+      @debug.assert_eq(args.count, 2)
+      @debug.assert_eq(args.seed, 0x5eedUL)
+      @debug.assert_eq(args.out_dir, "tmp/gen-valid")
     }
     _ => fail("expected emit-gen-valid-batch command")
   }
@@ -101,12 +101,12 @@ test "parse_fuzz_cli_command detects emit-invalid-repro command" {
       "ci",
     ]) {
     EmitInvalidRepro(args) => {
-      assert_eq(args.suite, "binary")
-      assert_eq(args.strategy_id, "trailing-garbage")
-      assert_eq(args.seed, 0x5eedUL)
-      assert_eq(args.attempt, 7)
-      assert_eq(args.profile, "ci")
-      assert_eq(args.out_dir, "tmp/invalid")
+      @debug.assert_eq(args.suite, "binary")
+      @debug.assert_eq(args.strategy_id, "trailing-garbage")
+      @debug.assert_eq(args.seed, 0x5eedUL)
+      @debug.assert_eq(args.attempt, 7)
+      @debug.assert_eq(args.profile, "ci")
+      @debug.assert_eq(args.out_dir, "tmp/invalid")
     }
     _ => fail("expected emit-invalid-repro command")
   }
@@ -123,12 +123,12 @@ test "emit_invalid_repro_report builds a persisted-report-ready case" {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  assert_eq(report.suite, "validate-invalid-ast")
-  assert_eq(report.strategy_id, "duplicate-export-name")
-  assert_eq(report.profile, "smoke")
-  assert_eq(report.seed_profile, Some("repro"))
-  assert_eq(report.seed_mode, Some("random-valid"))
-  assert_eq(report.artifacts.length(), 2)
+  @debug.assert_eq(report.suite, "validate-invalid-ast")
+  @debug.assert_eq(report.strategy_id, "duplicate-export-name")
+  @debug.assert_eq(report.profile, "smoke")
+  @debug.assert_eq(report.seed_profile, Some("repro"))
+  @debug.assert_eq(report.seed_mode, Some("random-valid"))
+  @debug.assert_eq(report.artifacts.length(), 2)
 }
 
 ///|
@@ -141,10 +141,10 @@ test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files"
     Ok(v) => v
     Err(e) => fail("expected second gen-valid artifacts success, got \{e}")
   }
-  assert_eq(first.length(), 2)
-  assert_eq(first, second)
-  assert_eq(first[0].0, "gen-valid-000001.wasm")
-  assert_eq(first[1].0, "gen-valid-000002.wasm")
+  @debug.assert_eq(first.length(), 2)
+  @debug.assert_eq(first, second)
+  @debug.assert_eq(first[0].0, "gen-valid-000001.wasm")
+  @debug.assert_eq(first[1].0, "gen-valid-000002.wasm")
   for artifact in first {
     assert_true(artifact.1.length() > 0)
     let decoded = match decode_module(artifact.1) {
@@ -164,13 +164,13 @@ test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files"
 ///|
 test "emit_gen_valid_batch_artifacts matches the pinned Binaryen-oracle generator config" {
   let config = emit_gen_valid_batch_config()
-  assert_eq(config.max_imports, 0)
-  assert_eq(config.max_tables, 0)
-  assert_eq(config.max_mems, 0)
-  assert_eq(config.max_globals, 0)
-  assert_eq(config.max_tags, 0)
-  assert_eq(config.max_elems, 0)
-  assert_eq(config.max_datas, 0)
+  @debug.assert_eq(config.max_imports, 0)
+  @debug.assert_eq(config.max_tables, 0)
+  @debug.assert_eq(config.max_mems, 0)
+  @debug.assert_eq(config.max_globals, 0)
+  @debug.assert_eq(config.max_tags, 0)
+  @debug.assert_eq(config.max_elems, 0)
+  @debug.assert_eq(config.max_datas, 0)
   assert_false(config.features.allow_imports)
   assert_false(config.features.allow_tables)
   assert_false(config.features.allow_mems)
@@ -198,18 +198,18 @@ test "emit_gen_valid_batch_artifacts matches the pinned Binaryen-oracle generato
         "expected direct Binaryen-oracle gen-valid module to encode, got \{e}",
       )
   }
-  assert_eq(artifacts[0].1, encoded)
+  @debug.assert_eq(artifacts[0].1, encoded)
 }
 
 ///|
 test "fuzz suite inventory separates active and reserved suite ids" {
-  assert_eq(fuzz_active_suite_names(), [
+  @debug.assert_eq(fuzz_active_suite_names(), [
     "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid-ast",
     "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
     "binary-roundtrip", "cmd-harness",
   ])
-  assert_eq(fuzz_reserved_suite_names(), [])
-  assert_eq(fuzz_suite_inventory_lines(), [
+  @debug.assert_eq(fuzz_reserved_suite_names(), [])
+  @debug.assert_eq(fuzz_suite_inventory_lines(), [
     "active\twast-roundtrip", "active\twat-roundtrip", "active\tvalidate-valid",
     "active\tvalidate-invalid-ast", "active\tvalidate-invalid-binary", "active\tvalidate-invalid-text",
     "active\tvalidate-invalid-spec-seed", "active\tbinary-roundtrip", "active\tcmd-harness",

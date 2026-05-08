@@ -56,8 +56,8 @@ test "hot verify control reports invalid branch targets and payload arity" {
   hot_root_append(invalid_target, branch)
   match hot_verify_control(invalid_target) {
     Err(HotVerifyError::InvalidBranchTarget(node_id, label_id)) => {
-      assert_eq(node_id, branch)
-      assert_eq(label_id, 99)
+      @debug.assert_eq(node_id, branch)
+      @debug.assert_eq(label_id, 99)
     }
     other => fail("expected invalid branch target, got \{other}")
   }
@@ -80,10 +80,10 @@ test "hot verify control reports invalid branch targets and payload arity" {
   hot_root_append(invalid_arity, block)
   match hot_verify_control(invalid_arity) {
     Err(HotVerifyError::InvalidBranchArity(node_id, label_id, actual, expected)) => {
-      assert_eq(node_id, bad_branch)
-      assert_eq(label_id, hot_control_node_label(invalid_arity, block))
-      assert_eq(actual, 0)
-      assert_eq(expected, 1)
+      @debug.assert_eq(node_id, bad_branch)
+      @debug.assert_eq(label_id, hot_control_node_label(invalid_arity, block))
+      @debug.assert_eq(actual, 0)
+      @debug.assert_eq(expected, 1)
     }
     other => fail("expected invalid branch arity, got \{other}")
   }

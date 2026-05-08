@@ -10,9 +10,9 @@ test "hot core allocation exposes predictable dense counts and liveness" {
   let nop_id = hot_root_get(func, 0)
   let const_id = hot_root_get(func, 1)
 
-  assert_eq(nop_id, 0)
-  assert_eq(const_id, 1)
-  assert_eq(hot_node_count(func), 2)
+  @debug.assert_eq(nop_id, 0)
+  @debug.assert_eq(const_id, 1)
+  @debug.assert_eq(hot_node_count(func), 2)
   assert_true(hot_node_is_live(func, nop_id))
   assert_true(hot_node_is_live(func, const_id))
   assert_false(hot_node_is_live(func, 2))
@@ -32,16 +32,16 @@ test "hot core storage counters and body result type roundtrip through accessors
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
 
-  assert_eq(hot_root_count(func), 2)
-  assert_eq(hot_root_storage_count(func), 2)
-  assert_eq(hot_node_count(func), 3)
-  assert_eq(hot_child_storage_count(func), 1)
+  @debug.assert_eq(hot_root_count(func), 2)
+  @debug.assert_eq(hot_root_storage_count(func), 2)
+  @debug.assert_eq(hot_node_count(func), 3)
+  @debug.assert_eq(hot_child_storage_count(func), 1)
 
   let lifted_result_ty = hot_body_result_type(func)
   let void_ty = hot_type_void(func)
   assert_true(lifted_result_ty != void_ty)
   hot_body_result_type_set(func, void_ty)
-  assert_eq(hot_body_result_type(func), void_ty)
+  @debug.assert_eq(hot_body_result_type(func), void_ty)
 
   let dump = hot_debug_dump_core(func)
   assert_true(dump.contains("nodes=3"), msg=dump)
@@ -60,7 +60,7 @@ test "hot core keeps uncommon variant constructors reachable" {
     HotOp::Catch,
     HotOp::CatchAll,
   ]
-  assert_eq(ops.length(), 7)
+  @debug.assert_eq(ops.length(), 7)
 
   match HotStringBuiltin::NewWtf16Array {
     HotStringBuiltin::NewWtf16Array => ()

@@ -81,11 +81,11 @@ fn rg_test_first_body_global_get(mod_ : @lib.Module) -> UInt raise {
 
 ///|
 test "reorder-globals is an active module pass in the registry" {
-  assert_eq(
+  @debug.assert_eq(
     pass_registry_category("reorder-globals"),
     Some(HotPassRegistryCategory::module_pass()),
   )
-  assert_eq(
+  @debug.assert_eq(
     pass_registry_category("reorder-globals-always"),
     Some(HotPassRegistryCategory::boundary_only()),
   )
@@ -103,9 +103,9 @@ test "reorder-globals public pass no-ops below 128 globals" {
     Err(err) => fail("expected reorder-globals success, got \{err}")
   }
 
-  assert_eq(try! rg_test_global_const_value(optimized, 0), 0)
-  assert_eq(try! rg_test_global_const_value(optimized, 1), 1)
-  assert_eq(try! rg_test_first_body_global_get(optimized), 1U)
+  @debug.assert_eq(try! rg_test_global_const_value(optimized, 0), 0)
+  @debug.assert_eq(try! rg_test_global_const_value(optimized, 1), 1)
+  @debug.assert_eq(try! rg_test_first_body_global_get(optimized), 1U)
 }
 
 ///|
@@ -116,8 +116,8 @@ test "reorder-globals moves a hot 129th global to a one-byte index and remaps us
   )
   let optimized = reorder_globals_run_module_pass(mod_)
 
-  assert_eq(try! rg_test_global_const_value(optimized, 0), 128)
-  assert_eq(try! rg_test_first_body_global_get(optimized), 0U)
+  @debug.assert_eq(try! rg_test_global_const_value(optimized, 0), 128)
+  @debug.assert_eq(try! rg_test_first_body_global_get(optimized), 0U)
 }
 
 ///|
@@ -127,17 +127,17 @@ test "reorder-globals preserves initializer dependencies while moving hot depend
   let mod_ = rg_test_module(globals, rg_test_body_using_global(128U, 8))
   let optimized = reorder_globals_run_module_pass(mod_)
 
-  assert_eq(try! rg_test_global_const_value(optimized, 0), 0)
+  @debug.assert_eq(try! rg_test_global_const_value(optimized, 0), 0)
   match optimized.global_sec {
     Some(@lib.GlobalSec(globals)) =>
       match globals[1] {
         @lib.Global(_, @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(dep))])) =>
-          assert_eq(dep, 0U)
+          @debug.assert_eq(dep, 0U)
         other => fail("expected dependent global at slot 1, got \{other}")
       }
     None => fail("expected global section")
   }
-  assert_eq(try! rg_test_first_body_global_get(optimized), 1U)
+  @debug.assert_eq(try! rg_test_first_body_global_get(optimized), 1U)
 }
 
 ///|
@@ -170,13 +170,14 @@ test "reorder-globals remaps exported global indices and global names" {
       @lib.ExportSec(
         [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx)))]
       )
-    ) => assert_eq(idx, 0U)
+    ) => @debug.assert_eq(idx, 0U)
     other => fail("expected rewritten global export, got \{other}")
   }
   match optimized.name_sec {
     Some(sec) =>
       match sec.global_names {
-        Some(@lib.NameMap([@lib.NameAssoc(idx, _)])) => assert_eq(idx, 0U)
+        Some(@lib.NameMap([@lib.NameAssoc(idx, _)])) =>
+          @debug.assert_eq(idx, 0U)
         other => fail("expected rewritten global name, got \{other}")
       }
     None => fail("expected name section")
@@ -236,7 +237,7 @@ test "string-gathering reorder-globals directize preserve late-tail order" {
       @lib.ExportSec(
         [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx)))]
       )
-    ) => assert_eq(idx, 0U)
+    ) => @debug.assert_eq(idx, 0U)
     other => fail("expected hot export after late-tail replay, got \{other}")
   }
 

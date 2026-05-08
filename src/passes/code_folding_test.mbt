@@ -51,7 +51,10 @@ test "code-folding hoists identical if-arm suffixes" {
   assert_true(pretty.contains("if"), msg=pretty)
   assert_true(pretty.contains("i32.const I32(1)"), msg=pretty)
   assert_true(pretty.contains("i32.const I32(2)"), msg=pretty)
-  assert_eq(code_folding_test_count_substring(pretty, "i32.const I32(7)"), 1)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+  )
 }
 
 ///|
@@ -94,7 +97,7 @@ test "code-folding flattens exiting dead value blocks" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("block"), msg=pretty)
   assert_true(pretty.contains("f64.const"), msg=pretty)
-  assert_eq(
+  @debug.assert_eq(
     code_folding_test_count_substring(pretty, "unreachable"),
     1,
     msg=pretty,
