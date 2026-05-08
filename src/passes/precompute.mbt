@@ -1532,6 +1532,73 @@ fn precompute_raw_instrs_have_label_relative_branch(
 }
 
 ///|
+fn precompute_raw_label_matches_depth(
+  label_idx : @lib.LabelIdx,
+  depth : Int,
+) -> Bool {
+  let @lib.LabelIdx(raw) = label_idx
+  raw.reinterpret_as_int() == depth
+}
+
+///|
+fn precompute_raw_instr_has_branch_to_depth(
+  instr : @lib.Instruction,
+  depth : Int,
+) -> Bool {
+  match instr {
+    @lib.Br(label_idx)
+    | @lib.BrIf(label_idx)
+    | @lib.BrOnNull(label_idx)
+    | @lib.BrOnNonNull(label_idx)
+    | @lib.BrOnCast(label_idx, _, _, _)
+    | @lib.BrOnCastFail(label_idx, _, _, _) =>
+      precompute_raw_label_matches_depth(label_idx, depth)
+    @lib.BrTable(labels, fallback) => {
+      for label_idx in labels {
+        if precompute_raw_label_matches_depth(label_idx, depth) {
+          return true
+        }
+      }
+      precompute_raw_label_matches_depth(fallback, depth)
+    }
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_branch_to_depth(body, depth + 1)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_branch_to_depth(then_body, depth + 1) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          precompute_raw_instrs_have_branch_to_depth(body, depth + 1)
+        None => false
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(_)) => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_branch_to_depth(
+  instrs : Array[@lib.Instruction],
+  depth : Int,
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_branch_to_depth(instr, depth) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_instrs_have_branch_to_current_label(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  precompute_raw_instrs_have_branch_to_depth(instrs, 0)
+}
+
+///|
 fn precompute_raw_try_fold_const_if_tail(out : Array[@lib.Instruction]) -> Bool {
   if out.length() < 2 {
     return false
@@ -1564,6 +1631,31 @@ fn precompute_raw_try_fold_const_if_tail(out : Array[@lib.Instruction]) -> Bool 
 }
 
 ///|
+fn precompute_raw_try_void_dropped_result_block(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let body = match instr {
+    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => body
+    _ => return None
+  }
+  if precompute_raw_instrs_have_branch_to_current_label(body) {
+    return None
+  }
+  let void_body = body.copy()
+  void_body.push(@lib.Instruction::drop())
+  let mut changed = false
+  while precompute_raw_fold_output_tail(void_body) {
+    changed = true
+  }
+  if !changed || precompute_raw_instrs_have_drop_needing_hot(void_body) {
+    return None
+  }
+  Some(
+    @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(void_body)),
+  )
+}
+
+///|
 fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
   if precompute_raw_try_fold_const_if_tail(out) {
     return true
@@ -1571,6 +1663,16 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
   if out.length() >= 2 {
     match out[out.length() - 1] {
       @lib.Drop => {
+        match
+          precompute_raw_try_void_dropped_result_block(out[out.length() - 2]) {
+          Some(rewritten) => {
+            ignore(out.pop())
+            ignore(out.pop())
+            out.push(rewritten)
+            return true
+          }
+          None => ()
+        }
         if precompute_raw_instr_is_flat_discardable_value(out[out.length() - 2]) {
           ignore(out.pop())
           ignore(out.pop())
@@ -1596,6 +1698,23 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
           ignore(out.pop())
           out.push(@lib.Instruction::nop())
           return true
+        }
+        if out.length() >= 5 &&
+          precompute_raw_instr_is_flat_discardable_value(out[out.length() - 3]) &&
+          precompute_raw_instr_is_flat_discardable_value(out[out.length() - 4]) &&
+          precompute_raw_instr_is_flat_discardable_value(out[out.length() - 5]) {
+          match out[out.length() - 2] {
+            @lib.Select(_) => {
+              ignore(out.pop())
+              ignore(out.pop())
+              ignore(out.pop())
+              ignore(out.pop())
+              ignore(out.pop())
+              out.push(@lib.Instruction::nop())
+              return true
+            }
+            _ => ()
+          }
         }
       }
       _ => ()

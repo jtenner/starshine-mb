@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-07] parity | extend `precompute` raw dropped-value shortcuts
+
+- Extended the direct `precompute` raw stack-level shortcut so dropped pure `select` tails and dropped single-result `block`s with no branch to the rewritten block label can be rewritten before HOT lift/lower.
+- Added perf trace regressions proving both shapes use `pass[precompute]:skip-raw reason=raw-scalar-folds` while avoiding `lift` and `pass:precompute` timers.
+- Replayed focused proof lanes: TDD failures before implementation; `moon test src/passes/perf_test.mbt`; `moon test src/passes`; `bun scripts/pass-fuzz-compare.ts --count 200 --seed 0xa11d --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-dropped-block-smoke` (`200` compared, `200` matches, `0` mismatches); `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass precompute --max-failures 20 --out-dir .tmp/pass-fuzz-precompute-dropped-block-raw` (`6759` compared, `6759` matches, `0` mismatches, `20` known Binaryen/tool command failures); and direct debug-artifact compare at `.tmp/pc-artifact-branch-blockdrop-raw` (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`, Starshine pass time about `117ms`, Binaryen pass time about `157ms`, whole command about `5.05s`).
+- Refreshed the living `precompute` pages and `[PC]001`; remaining work is still raw canonical wasm/text representation drift and whole-command runtime relative to Binaryen.
+
 ## [2026-05-07] parity | let `precompute` raw-skip nested nop-only control
 
 - Relaxed the direct `precompute` raw stack-level shortcut so nested `nop`-only control is treated as no-candidate work instead of forcing HOT lift/lower only to report `changed=false`.

@@ -3857,6 +3857,91 @@ test "precompute raw-removes dropped pure scalar expressions without hot lift" {
 }
 
 ///|
+test "precompute raw-removes dropped pure block results with nested branch without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) block (result i32) block br 0 end local.get 0 end drop))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected raw precompute nested-branch dropped block success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
+test "precompute raw-defers dropped result blocks with branch to rewritten label" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func block (result i32) i32.const 1 br 0 i32.const 2 end drop))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected hot precompute branch-target dropped block success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_false(text.contains("pass[precompute]:skip-raw"), msg=text)
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
+test "precompute raw-removes dropped pure block results without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) block (result i32) local.get 0 end drop))",
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected raw precompute dropped block success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
+}
+
+///|
 test "precompute raw-folds constants after effectful dropped load without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -3888,7 +3973,7 @@ test "precompute raw-folds constants after effectful dropped load without hot li
 }
 
 ///|
-test "precompute raw-defers unsupported pure select drops to hot lift" {
+test "precompute raw-removes dropped pure select expressions without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -3900,16 +3985,19 @@ test "precompute raw-defers unsupported pure select drops to hot lift" {
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected hot precompute select-drop success, got \{err}")
+    Err(err) => fail("expected raw precompute select-drop success, got \{err}")
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("select"), msg=pretty)
   assert_false(pretty.contains("drop"), msg=pretty)
   let text = perf_test_join_lines(lines)
-  assert_false(text.contains("pass[precompute]:skip-raw"), msg=text)
-  assert_true(text.contains("perf:timer name=lift"), msg=text)
-  assert_true(text.contains("perf:timer name=pass:precompute"), msg=text)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
 }
 
 ///|
