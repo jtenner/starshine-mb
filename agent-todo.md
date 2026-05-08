@@ -51,12 +51,6 @@ Observed unique-pass order
 
 - No active threading work for v0.1.0. Parallel hot-batch execution is deferred until MoonBit exposes threading support that is suitable for Starshine's native runtime.
 
-#### DCE - Dead Code Elimination
-
-- [DCE]003 - Runtime Budget and Oracle Refresh
-  - Deliverables: rerun single-pass and ordered-prefix DCE parity on a valid baseline/oracle path; measure Starshine and Binaryen on the same artifact; reduce representation drift after the direct pass-time fixes.
-  - Current status: refreshed on 2026-05-08. Direct fuzz parity is green on the valid oracle path (`9975 / 10000` compared, `0` mismatches, `25` known Binaryen/tool command failures, seed `0x5eed`, out dir `.tmp/pass-fuzz-dce-refresh-10k`). Ordered-prefix fuzz proof through `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference -> ssa-nomerge -> dead-code-elimination` is green (`9972 / 10000` compared, `0` mismatches, `28` command failures, `.tmp/pass-fuzz-dce-prefix-10k`). Direct debug-artifact compare remains representation drift, not semantic fuzz drift: `.tmp/dce-artifact-direct-refresh` reports canonical wasm/text unequal, first differing function `defined=201 abs=218` with identical body but Binaryen-renumbered type index; direct pass time is close to Binaryen (`111.047ms` vs `104.640ms`). A 5-roundtrip Binaryen no-pass baseline (`.tmp/dce-artifact-direct-nopstable`) did not converge or remove the type-index drift. Remaining pass-local work is canonical wasm/text-form drift; aggregate whole-command timing belongs to [WALL]001.
-
 #### PC - Precompute
 
 - [PC]001 - Runtime And Representation Drift

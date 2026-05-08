@@ -58,7 +58,8 @@ if (args[0] === "--print-func") {
   process.stderr.write("Log: " + args[2] + "\\n");
   process.stderr.write("0: Func[" + args[1] + "]\\n");
   process.stderr.write("  func code[0] abs[" + args[1] + "]\\n");
-  process.stderr.write("    type_idx: (Type 0 (Func [] -> [I32]))\\n");
+  const typeIndex = args[2].endsWith("binaryen.wasm") ? 1 : 0;
+  process.stderr.write("    type_idx: (Type " + typeIndex + " (Func [] -> [I32]))\\n");
   process.stderr.write("    params: []\\n");
   process.stderr.write("    results: [I32]\\n");
   process.stderr.write("    locals:\\n");

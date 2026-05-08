@@ -400,10 +400,11 @@ function canonicalizeFuncPretty(pretty: string): string {
   let inBody = false;
   for (const rawLine of pretty.replace(/\r\n/g, "\n").split("\n")) {
     const line = rawLine;
+    const trimmedLine = line.trimStart();
     if (
-      line.startsWith("  type_idx:") ||
-      line === "  locals:" ||
-      line.startsWith("    [")
+      trimmedLine.startsWith("type_idx:") ||
+      trimmedLine === "locals:" ||
+      /^\[\d+\]/.test(trimmedLine)
     ) {
       continue;
     }

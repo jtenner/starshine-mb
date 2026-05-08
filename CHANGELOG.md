@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-08 Tooling: narrow DCE debug-artifact drift
+
+- **teach the self-opt compare canonical-function fallback to ignore pretty-printer type-index and local-declaration noise regardless of indentation, reclassify direct `dead-code-elimination` debug-artifact drift at `.tmp/dce-artifact-direct-typeidx-canon`, and close `[DCE]003` with remaining whole-command timing owned by `[WALL]001`** by **@OpenAI**. Updated [`scripts/lib/self-optimize-compare-task.ts`](./scripts/lib/self-optimize-compare-task.ts), [`scripts/test/self-optimize-compare-canonical-func-command.ts`](./scripts/test/self-optimize-compare-canonical-func-command.ts), [`docs/wiki/binaryen/passes/dead-code-elimination/index.md`](./docs/wiki/binaryen/passes/dead-code-elimination/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-08 Backlog: centralize wall-time ownership
 
 - **move aggregate whole-command wall-time follow-up out of individual pass slices and the pass implementation skill into top-level `[WALL]001`, leaving pass work focused on correctness, representation drift, and pass-local timing unless a pass is clearly the root cause** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md), [`.pi/skills/starshine-pass-implementation/SKILL.md`](./.pi/skills/starshine-pass-implementation/SKILL.md), and [`CHANGELOG.md`](./CHANGELOG.md).

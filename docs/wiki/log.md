@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-08] tooling | narrow `dead-code-elimination` debug-artifact drift
+
+- Tightened the self-opt compare canonical-function fallback so Starshine pretty-printer `type_idx` and local declaration lines are ignored regardless of indentation.
+- Added script coverage with deliberately different canonical function type indices, then reran direct `dead-code-elimination` on the debug artifact at `.tmp/dce-artifact-direct-typeidx-canon`.
+- Reclassified the current DCE artifact status: the previous first diff at `defined=201 abs=218` was type-index-only noise; the first remaining body-shape drift is `defined=208 abs=225`, a representation-level typed-control print difference (`if I32` versus `if (Void)`) while direct and ordered-prefix fuzz parity remain green.
+- Pruned `[DCE]003` from the active backlog; aggregate whole-command runtime remains attributed to `[WALL]001`.
+
 ## [2026-05-08] tooling | classify `precompute` representation drift
 
 - Fixed the self-opt compare canonical-function fallback so `lineParenDelta` ignores parentheses inside WAT string literals and comments; this prevents large data lines containing escaped bytes such as `\\00(` from hiding all following defined functions.

@@ -138,8 +138,11 @@ Those older claims were the main documentation gap this follow-up closes.
 
 The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
 A 2026-05-05 current-main recheck on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative `dce` lit files did not surface a new teaching-relevant contract drift.
-A 2026-05-06 refreshed-harness direct revalidation then ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --out-dir .tmp/pass-fuzz-dead-code-elimination`, reporting 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
-So the tagged source remains a strong current oracle for this folder, and the active Starshine direct pass is re-proven under the refreshed mixed-generator compare lane.
+A 2026-05-08 refreshed-harness direct revalidation reported `9975 / 10000` compared cases, `0` semantic mismatches, and `25` known Binaryen/tool command failures at seed `0x5eed` in `.tmp/pass-fuzz-dce-refresh-10k`. The ordered prefix through `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference -> ssa-nomerge -> dead-code-elimination` also stayed green with `9972 / 10000` compared cases, `0` semantic mismatches, and `28` command failures in `.tmp/pass-fuzz-dce-prefix-10k`.
+
+The same date's direct debug-artifact compare first exposed type-index-only canonical-function drift at `defined=201 abs=218`; the compare-tool canonical-function fallback now ignores pretty-printer `type_idx` and local declaration lines regardless of indentation, moving the first real body-shape drift to `defined=208 abs=225` in `.tmp/dce-artifact-direct-typeidx-canon`. That remaining drift is representation-level typed-control printing (`if I32` versus `if (Void)`) on the debug artifact, not a semantic fuzz mismatch. Direct pass-local timing on that run was Starshine `111.752ms` versus Binaryen `114.480ms`; aggregate whole-command timing remains owned by `[WALL]001`.
+
+So the tagged source remains a strong current oracle for this folder, and the active Starshine direct pass plus the ordered DCE prefix are re-proven under the refreshed mixed-generator compare lane.
 
 ## Current maintenance rule
 
