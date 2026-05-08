@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-08 Docs: close precompute representation-drift slice
+
+- **close `[PC]001` after final direct `precompute` rechecks kept semantic parity green, confirmed pass-local Starshine remains faster than Binaryen on the debug artifact, and classified the remaining type-order plus temporary-local expression-stack differences as representation drift rather than small raw shortcut work; unresolved whole-command timing remains with `[WALL]001`** by **@OpenAI**. Updated [`docs/wiki/binaryen/passes/precompute/index.md`](./docs/wiki/binaryen/passes/precompute/index.md), [`docs/wiki/binaryen/passes/precompute/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/precompute/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-08 Tooling: narrow DCE debug-artifact drift
 
 - **teach the self-opt compare canonical-function fallback to ignore pretty-printer type-index and local-declaration noise regardless of indentation, reclassify direct `dead-code-elimination` debug-artifact drift at `.tmp/dce-artifact-direct-typeidx-canon`, and close `[DCE]003` with remaining whole-command timing owned by `[WALL]001`** by **@OpenAI**. Updated [`scripts/lib/self-optimize-compare-task.ts`](./scripts/lib/self-optimize-compare-task.ts), [`scripts/test/self-optimize-compare-canonical-func-command.ts`](./scripts/test/self-optimize-compare-canonical-func-command.ts), [`docs/wiki/binaryen/passes/dead-code-elimination/index.md`](./docs/wiki/binaryen/passes/dead-code-elimination/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

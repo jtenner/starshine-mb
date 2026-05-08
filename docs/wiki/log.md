@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-08] validation | close `precompute` representation-drift slice
+
+- Reran direct `precompute` on `tests/node/dist/starshine-debug-wasi.wasm` at `.tmp/pc001-final-recheck`: canonical wasm/text and normalized WAT remain unequal with first differing function `defined=4 abs=21`, Starshine pass-local time was about `118ms` versus Binaryen about `164ms`, and Starshine raw skipping remained enabled.
+- Reran the standard direct fuzz lane at `.tmp/pass-fuzz-precompute-pc001-final`: `6759 / 10000` cases compared, `6759` normalized matches, `0` semantic mismatches, and the known `20` Binaryen/tool command failures stopped the run.
+- Closed `[PC]001` in the active backlog because the remaining Binaryen temporary-local / expression-stack shaping plus type-order drift is representation-only and not a small safe raw shortcut candidate; aggregate whole-command runtime remains owned by `[WALL]001`.
+
 ## [2026-05-08] tooling | narrow `dead-code-elimination` debug-artifact drift
 
 - Tightened the self-opt compare canonical-function fallback so Starshine pretty-printer `type_idx` and local declaration lines are ignored regardless of indentation.
