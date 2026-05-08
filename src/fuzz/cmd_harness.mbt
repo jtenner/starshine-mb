@@ -95,7 +95,7 @@ fn run_fuzz_cmd_harness_profile(
   profile : String,
   seed : UInt64,
 ) -> Result[Int, String] {
-  let normalized = fuzz_cmd_harness_ascii_lower(profile.trim().to_string())
+  let normalized = fuzz_cmd_harness_ascii_lower(profile.trim().to_owned())
   let valid_target = match normalized {
     "smoke" => 128
     "ci" => 4096

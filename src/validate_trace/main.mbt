@@ -79,7 +79,7 @@ fn validate_trace_tail_string(input : String, start : Int) -> String {
 
 ///|
 fn validate_trace_parse_positive_int(raw : String) -> Int {
-  let text = raw.trim().to_string()
+  let text = raw.trim().to_owned()
   if text.length() == 0 {
     abort("repeat must not be empty")
   }
@@ -476,7 +476,7 @@ pub fn parse_validate_trace_cli_command(
   let corpora : Array[String] = []
   let mut i = 0
   while i < args.length() {
-    let arg = args[i].trim().to_string()
+    let arg = args[i].trim().to_owned()
     match validate_trace_ascii_lower(arg) {
       "--help" | "-h" => {
         if args.length() != 1 {
@@ -502,7 +502,7 @@ pub fn parse_validate_trace_cli_command(
         if i + 1 >= args.length() {
           abort("missing value for --corpus")
         }
-        corpora.push(validate_trace_ascii_lower(args[i + 1].trim().to_string()))
+        corpora.push(validate_trace_ascii_lower(args[i + 1].trim().to_owned()))
         i += 2
         continue
       }

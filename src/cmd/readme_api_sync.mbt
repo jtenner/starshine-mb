@@ -22,7 +22,7 @@ fn ras_has_prefix(text : String, prefix : String) -> Bool {
   if text.length() < prefix.length() {
     return false
   }
-  let head = text.sub(end=prefix.length()).to_string()
+  let head = text.sub(end=prefix.length()).to_owned()
   head == prefix
 }
 
@@ -32,13 +32,13 @@ fn ras_has_suffix(text : String, suffix : String) -> Bool {
     return false
   }
   let start = text.length() - suffix.length()
-  let tail = text.sub(start~).to_string()
+  let tail = text.sub(start~).to_owned()
   tail == suffix
 }
 
 ///|
 fn ras_extract_marker_path(line : String) -> String? {
-  let marker = line.trim().to_string()
+  let marker = line.trim().to_owned()
   let prefix = "<!-- README_API_VERIFY "
   let suffix = " -->"
   if !ras_has_prefix(marker, prefix) {
@@ -52,8 +52,8 @@ fn ras_extract_marker_path(line : String) -> String? {
   if end <= start {
     return None
   }
-  let path = marker.sub(start~, end~).to_string()
-  let normalized = path.trim().to_string()
+  let path = marker.sub(start~, end~).to_owned()
+  let normalized = path.trim().to_owned()
   if normalized.length() == 0 {
     None
   } else {
@@ -88,7 +88,7 @@ fn parse_readme_api_verify_blocks(
 ) -> Result[Array[ReadmeApiVerifyBlock], String] {
   let lines : Array[String] = []
   for line in readme_text.split("\n") {
-    lines.push(line.to_string())
+    lines.push(line.to_owned())
   }
   let blocks : Array[ReadmeApiVerifyBlock] = []
   let mut i = 0
@@ -97,10 +97,10 @@ fn parse_readme_api_verify_blocks(
     match ras_extract_marker_path(line) {
       Some(interface_path) => {
         i += 1
-        while i < lines.length() && lines[i].trim().to_string().length() == 0 {
+        while i < lines.length() && lines[i].trim().to_owned().length() == 0 {
           i += 1
         }
-        if i >= lines.length() || lines[i].trim().to_string() != "```mbti" {
+        if i >= lines.length() || lines[i].trim().to_owned() != "```mbti" {
           return Err(
             "README_API_VERIFY marker for \{interface_path} must be followed by a ```mbti code block",
           )
@@ -108,7 +108,7 @@ fn parse_readme_api_verify_blocks(
         i += 1
         let signatures : Array[String] = []
         while i < lines.length() {
-          let sig = lines[i].trim().to_string()
+          let sig = lines[i].trim().to_owned()
           if sig == "```" {
             break
           }
@@ -180,7 +180,7 @@ pub fn verify_readme_api_signatures_with_required_blocks(
   }
   let diagnostics : Array[String] = []
   for raw_path in required_block_paths {
-    let path = raw_path.trim().to_string()
+    let path = raw_path.trim().to_owned()
     if path.length() == 0 {
       continue
     }

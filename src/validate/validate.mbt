@@ -2182,7 +2182,7 @@ fn validate_exportsec_unique(
         let Export(name, _) = e
         for existing in names {
           if existing == name {
-            return Err("duplicate export name: " + name.0.to_string())
+            return Err("duplicate export name: " + name.0.to_owned())
           }
         }
         names.push(name)
@@ -3905,7 +3905,7 @@ fn validate_valid_feature_floors_for_profile(
 pub fn validate_valid_run_config(
   profile : String,
 ) -> Result[ValidateValidRunConfig, String] {
-  let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
+  let normalized = validate_fuzz_ascii_lower(profile.trim().to_owned())
   let attempts = match normalized {
     "smoke" => 128
     "ci" => 5000

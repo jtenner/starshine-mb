@@ -285,8 +285,8 @@ pub fn Module::pretty_print_func(self : Module, func_idx : FuncIdx) -> String {
     md_write_line(out, 0, "func abs[\{abs_idx}] import")
     match ctx.func_imports.get(abs_idx) {
       Some(Import(module_name, field_name, FuncExternType(type_idx))) => {
-        md_write_line(out, 2, "module: \"" + module_name.0.to_string() + "\"")
-        md_write_line(out, 2, "field: \"" + field_name.0.to_string() + "\"")
+        md_write_line(out, 2, "module: \"" + module_name.0.to_owned() + "\"")
+        md_write_line(out, 2, "field: \"" + field_name.0.to_owned() + "\"")
         md_write_line(out, 2, "type_idx: " + md_format_type_idx(ctx, type_idx))
       }
       _ => md_write_line(out, 2, "<missing import metadata>")

@@ -575,7 +575,7 @@ fn validate_invalid_ast_required_strategies(
 pub fn validate_invalid_ast_run_config(
   profile : String,
 ) -> Result[ValidateInvalidAstRunConfig, String] {
-  let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
+  let normalized = validate_fuzz_ascii_lower(profile.trim().to_owned())
   let attempts = match normalized {
     "smoke" => 47
     "ci" => 470

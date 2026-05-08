@@ -40,7 +40,7 @@ pub fn run_wat_roundtrip_fuzz(
   profile : String,
   seed : UInt64,
 ) -> Result[WatRoundtripFuzzStats, String] {
-  let normalized = wat_ascii_lower(profile.trim().to_string())
+  let normalized = wat_ascii_lower(profile.trim().to_owned())
   let (max_attempts, success_target, min_successes, min_stable, script_iters) = match
     normalized {
     "smoke" => (120, 16, 8, 1, 24)

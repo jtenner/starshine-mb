@@ -624,7 +624,7 @@ fn validate_invalid_text_required_strategies(
 pub fn validate_invalid_text_run_config(
   profile : String,
 ) -> Result[ValidateInvalidTextRunConfig, String] {
-  let normalized = validate_invalid_text_ascii_lower(profile.trim().to_string())
+  let normalized = validate_invalid_text_ascii_lower(profile.trim().to_owned())
   let attempts = match normalized {
     "smoke" => 37
     "ci" => 370
@@ -1631,7 +1631,7 @@ fn validate_invalid_spec_seed_required_seeds(
 pub fn validate_invalid_spec_seed_run_config(
   profile : String,
 ) -> Result[ValidateInvalidSpecSeedRunConfig, String] {
-  let normalized = validate_invalid_text_ascii_lower(profile.trim().to_string())
+  let normalized = validate_invalid_text_ascii_lower(profile.trim().to_owned())
   let attempts = match normalized {
     "smoke" => 39
     "ci" => 390

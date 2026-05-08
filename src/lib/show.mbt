@@ -651,7 +651,7 @@ pub impl Show for Data with output(self, logger) {
 pub impl Show for Name with output(self, logger) {
   let Name(sv) = self
   logger.write_char('"')
-  sv.to_string().output(logger)
+  sv.to_owned().output(logger)
   logger.write_char('"')
 }
 

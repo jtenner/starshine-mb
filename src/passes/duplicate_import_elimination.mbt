@@ -12,7 +12,7 @@ priv struct DieSeenImport {
 ///|
 fn die_name_to_string(name : @lib.Name) -> String {
   let @lib.Name(text) = name
-  text.to_string()
+  text.to_owned()
 }
 
 ///|

@@ -82,8 +82,8 @@ fn wrap_line(line : String, ctx : PrettyPrintContext) -> String {
       break
     }
   }
-  let prefix = line.sub(end=leading).to_string()
-  let body = line.sub(start=leading).to_string()
+  let prefix = line.sub(end=leading).to_owned()
+  let body = line.sub(start=leading).to_owned()
   if body.length() == 0 {
     return line
   }
@@ -97,7 +97,7 @@ fn wrap_line(line : String, ctx : PrettyPrintContext) -> String {
   let mut has_word = false
 
   for word_view in words {
-    let word = word_view.to_string()
+    let word = word_view.to_owned()
     if word.length() == 0 {
       continue
     }
@@ -152,7 +152,7 @@ fn normalize_indent(line : String, ctx : PrettyPrintContext) -> String {
     ctx.source_indent_width.reinterpret_as_int()
   }
   let levels = tabs + spaces / source_unit
-  let content = line.sub(start=leading).to_string()
+  let content = line.sub(start=leading).to_owned()
   ctx.indent(levels.reinterpret_as_uint()) + content
 }
 
@@ -164,7 +164,7 @@ pub fn apply_pretty_context(text : String, ctx : PrettyPrintContext) -> String {
     if !first {
       out.write_char('\n')
     }
-    out.write_string(wrap_line(normalize_indent(line.to_string(), ctx), ctx))
+    out.write_string(wrap_line(normalize_indent(line.to_owned(), ctx), ctx))
     first = false
   }
   out.to_string()

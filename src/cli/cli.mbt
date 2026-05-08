@@ -348,7 +348,7 @@ fn trimmed_ascii_eq_ignore_case(input : String, expected : String) -> Bool {
 ///|
 fn trimmed_string(input : String) -> String {
   let (start, end) = trimmed_bounds(input)
-  input.sub(start~, end~).to_string()
+  input.sub(start~, end~).to_owned()
 }
 
 ///|
@@ -449,7 +449,7 @@ fn parse_print_pass_value(
 fn parse_extract_functions_value(raw : String) -> Result[String, CliParseError] {
   let normalized_parts : Array[String] = []
   for part in raw.split(",") {
-    match parse_non_negative_decimal(part.to_string()) {
+    match parse_non_negative_decimal(part.to_owned()) {
       Some(idx) => normalized_parts.push("\{idx}")
       None => return Err(CliParseError::invalid_function_index_list(raw))
     }
@@ -509,13 +509,13 @@ fn split_long_flag_token(token : String) -> (String, String?) {
   let mut i = 2
   while i < token.length() {
     if token[i] == '=' {
-      let name = token.sub(start=2, end=i).to_string()
-      let value = token.sub(start=i + 1).to_string()
+      let name = token.sub(start=2, end=i).to_owned()
+      let value = token.sub(start=i + 1).to_owned()
       return (name, Some(value))
     }
     i += 1
   }
-  (token.sub(start=2).to_string(), None)
+  (token.sub(start=2).to_owned(), None)
 }
 
 ///|
@@ -611,7 +611,7 @@ fn parse_short_option_cluster(
         i += 1
       }
       'c' => {
-        let attached = token.sub(start=i + 1).to_string()
+        let attached = token.sub(start=i + 1).to_owned()
         if attached.length() > 0 {
           parsed.config_path = Some(attached)
           return Ok(index + 1)
@@ -625,7 +625,7 @@ fn parse_short_option_cluster(
         return Ok(index + 1)
       }
       'o' => {
-        let attached = token.sub(start=i + 1).to_string()
+        let attached = token.sub(start=i + 1).to_owned()
         if attached.length() > 0 {
           push_unique_output_target(
             parsed.output_targets,
@@ -644,7 +644,7 @@ fn parse_short_option_cluster(
         return Err(CliParseError::missing_flag_value("-o"))
       }
       'd' => {
-        let attached = token.sub(start=i + 1).to_string()
+        let attached = token.sub(start=i + 1).to_owned()
         if attached.length() > 0 {
           push_unique_output_target(
             parsed.output_targets,
@@ -674,7 +674,7 @@ pub fn parse_starshine_input_env(raw : String?) -> Array[String] {
   match raw {
     Some(text) =>
       for part in text.split(",") {
-        append_input_glob(out, part.to_string())
+        append_input_glob(out, part.to_owned())
       }
     None => ()
   }
@@ -698,7 +698,7 @@ pub fn infer_input_format(path : String) -> CliInputFormat? {
   if last_dot < 0 || last_dot <= last_sep || last_dot + 1 >= normalized.length() {
     return None
   }
-  let ext = normalized.sub(start=last_dot + 1).to_string()
+  let ext = normalized.sub(start=last_dot + 1).to_owned()
   parse_input_format(ext)
 }
 

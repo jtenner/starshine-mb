@@ -226,7 +226,7 @@ fn fuzz_seed_digit(c : UInt16, base : Int) -> Int? {
 
 ///|
 fn fuzz_parse_seed(raw : String) -> Result[Int64, String] {
-  let text = raw.trim().to_string()
+  let text = raw.trim().to_owned()
   if text.length() == 0 {
     return Err("seed must not be empty")
   }
@@ -290,7 +290,7 @@ fn fuzz_parse_seed(raw : String) -> Result[Int64, String] {
 
 ///|
 fn fuzz_parse_output_mode(raw : String) -> Result[FuzzOutputMode, String] {
-  let normalized = fuzz_ascii_lower(raw.trim().to_string())
+  let normalized = fuzz_ascii_lower(raw.trim().to_owned())
   match normalized {
     "text" => Ok(FuzzOutputMode::Text)
     "jsonl" => Ok(FuzzOutputMode::Jsonl)
@@ -389,7 +389,7 @@ fn fuzz_parse_non_negative_decimal_or_abort(
   label : String,
   raw : String,
 ) -> Int {
-  let text = raw.trim().to_string()
+  let text = raw.trim().to_owned()
   if text.length() == 0 {
     abort("\{label} must not be empty")
   }
@@ -413,7 +413,7 @@ fn fuzz_parse_emit_gen_valid_batch_args(
   let mut out_dir : String? = None
   let mut i = 1
   while i < args.length() {
-    let arg = args[i].trim().to_string()
+    let arg = args[i].trim().to_owned()
     if arg == "--count" {
       if i + 1 >= args.length() {
         abort("missing value for --count")
@@ -490,7 +490,7 @@ fn fuzz_parse_emit_gen_valid_batch_args(
   }
   let resolved_out_dir = match out_dir {
     Some(v) =>
-      if v.trim().to_string().length() == 0 {
+      if v.trim().to_owned().length() == 0 {
         abort("--out-dir must not be empty")
       } else {
         v
@@ -512,7 +512,7 @@ fn fuzz_parse_emit_invalid_repro_args(
   let mut out_dir : String? = None
   let mut i = 1
   while i < args.length() {
-    let arg = args[i].trim().to_string()
+    let arg = args[i].trim().to_owned()
     if arg == "--suite" {
       if i + 1 >= args.length() {
         abort("missing value for --suite")
@@ -603,7 +603,7 @@ fn fuzz_parse_emit_invalid_repro_args(
       if profile is Some(_) {
         abort("duplicate --profile flag")
       }
-      profile = Some(fuzz_ascii_lower(args[i + 1].trim().to_string()))
+      profile = Some(fuzz_ascii_lower(args[i + 1].trim().to_owned()))
       i += 2
       continue
     }
@@ -612,7 +612,7 @@ fn fuzz_parse_emit_invalid_repro_args(
         abort("duplicate --profile flag")
       }
       profile = Some(
-        fuzz_ascii_lower(fuzz_tail_string(arg, 10).trim().to_string()),
+        fuzz_ascii_lower(fuzz_tail_string(arg, 10).trim().to_owned()),
       )
       i += 1
       continue
@@ -640,7 +640,7 @@ fn fuzz_parse_emit_invalid_repro_args(
   }
   let resolved_suite = match suite {
     Some(v) =>
-      if v.trim().to_string().length() == 0 {
+      if v.trim().to_owned().length() == 0 {
         abort("--suite must not be empty")
       } else {
         v
@@ -649,7 +649,7 @@ fn fuzz_parse_emit_invalid_repro_args(
   }
   let resolved_strategy_id = match strategy_id {
     Some(v) =>
-      if v.trim().to_string().length() == 0 {
+      if v.trim().to_owned().length() == 0 {
         abort("--strategy must not be empty")
       } else {
         v
@@ -666,7 +666,7 @@ fn fuzz_parse_emit_invalid_repro_args(
   }
   let resolved_out_dir = match out_dir {
     Some(v) =>
-      if v.trim().to_string().length() == 0 {
+      if v.trim().to_owned().length() == 0 {
         abort("--out-dir must not be empty")
       } else {
         v
@@ -689,7 +689,7 @@ fn fuzz_parse_emit_invalid_repro_args(
 
 ///|
 fn fuzz_parse_control_command(arg : String) -> FuzzCliCommand? {
-  let normalized = fuzz_ascii_lower(arg.trim().to_string())
+  let normalized = fuzz_ascii_lower(arg.trim().to_owned())
   match normalized {
     "--help" => Some(FuzzCliCommand::Help)
     "-h" => Some(FuzzCliCommand::Help)
@@ -702,7 +702,7 @@ fn fuzz_parse_control_command(arg : String) -> FuzzCliCommand? {
 ///|
 pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
   if args.length() > 0 {
-    let command = fuzz_ascii_lower(args[0].trim().to_string())
+    let command = fuzz_ascii_lower(args[0].trim().to_owned())
     if command == "--emit-gen-valid-batch" {
       return FuzzCliCommand::EmitGenValidBatch(
         fuzz_parse_emit_gen_valid_batch_args(args),
@@ -746,7 +746,7 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
   let mut output_mode : FuzzOutputMode? = None
   let mut i = 0
   while i < args.length() {
-    let arg = args[i].trim().to_string()
+    let arg = args[i].trim().to_owned()
     if arg == "--seed" {
       if i + 1 >= args.length() {
         abort("missing value for --seed")
@@ -803,12 +803,12 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
     abort("\{fuzz_usage_text()}")
   }
   let suite = if positional.length() >= 1 {
-    fuzz_ascii_lower(positional[0].trim().to_string())
+    fuzz_ascii_lower(positional[0].trim().to_owned())
   } else {
     "all"
   }
   let profile = if positional.length() >= 2 {
-    fuzz_ascii_lower(positional[1].trim().to_string())
+    fuzz_ascii_lower(positional[1].trim().to_owned())
   } else {
     "smoke"
   }
@@ -1031,8 +1031,8 @@ pub fn run_fuzz_suite(
   profile : String,
   seed_i64 : Int64,
 ) -> Result[Array[FuzzSuiteResult], String] {
-  let suite_name = fuzz_ascii_lower(suite.trim().to_string())
-  let profile_name = fuzz_ascii_lower(profile.trim().to_string())
+  let suite_name = fuzz_ascii_lower(suite.trim().to_owned())
+  let profile_name = fuzz_ascii_lower(profile.trim().to_owned())
   if suite_name == "all" {
     let suites = fuzz_active_suite_names()
     let out : Array[FuzzSuiteResult] = []

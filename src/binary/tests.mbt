@@ -81,7 +81,7 @@ pub fn run_binary_roundtrip_fuzz(
   profile : String,
   seed : UInt64,
 ) -> Result[BinaryRoundtripFuzzStats, String] {
-  let normalized = binary_fuzz_ascii_lower(profile.trim().to_string())
+  let normalized = binary_fuzz_ascii_lower(profile.trim().to_owned())
   let (
     small,
     medium,

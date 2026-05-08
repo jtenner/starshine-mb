@@ -838,7 +838,7 @@ fn wt_parse_u64_decimal(text : String, kind : String) -> Result[UInt64, String] 
 
 ///|
 fn wt_parse_u64_literal(text : String, kind : String) -> Result[UInt64, String] {
-  let trimmed = text.trim().to_string()
+  let trimmed = text.trim().to_owned()
   let parsed_signed = @string.parse_int64(trimmed) catch {
     _ =>
       if trimmed.has_prefix("0x") || trimmed.has_prefix("0X") {
@@ -852,7 +852,7 @@ fn wt_parse_u64_literal(text : String, kind : String) -> Result[UInt64, String] 
 
 ///|
 fn wt_parse_f64(text : String) -> Result[@lib.F64, String] {
-  let lowered = text.trim().to_string()
+  let lowered = text.trim().to_owned()
   if lowered.has_prefix("nan:") ||
     lowered == "nan" ||
     lowered == "+nan" ||
@@ -893,17 +893,17 @@ fn wt_parse_nan_payload_bits(
   sign_mask : UInt64,
   kind : String,
 ) -> Result[UInt64?, String] {
-  let trimmed = text.trim().to_string()
+  let trimmed = text.trim().to_owned()
   if trimmed.length() == 0 {
     return Ok(None)
   }
   let mut negative = false
   let mut body = trimmed
   if body[0] == '+' {
-    body = body.sub(start=1, end=body.length()).to_string()
+    body = body.sub(start=1, end=body.length()).to_owned()
   } else if body[0] == '-' {
     negative = true
-    body = body.sub(start=1, end=body.length()).to_string()
+    body = body.sub(start=1, end=body.length()).to_owned()
   }
   if body == "nan" {
     let mut bits = exp_bits | quiet_payload
@@ -913,7 +913,7 @@ fn wt_parse_nan_payload_bits(
     return Ok(Some(bits))
   }
   if body.has_prefix("nan:") {
-    let payload_text = body.sub(start=4, end=body.length()).to_string()
+    let payload_text = body.sub(start=4, end=body.length()).to_owned()
     let payload = match wt_parse_hex_u64(payload_text, "\{kind} NaN payload") {
       Ok(v) => v
       Err(_) => return Err("invalid \{kind} NaN payload literal: \{text}")

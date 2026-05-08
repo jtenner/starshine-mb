@@ -325,7 +325,7 @@ fn trimmed_bounds(input : String) -> (Int, Int) {
 ///|
 fn trimmed_string(input : String) -> String {
   let (start, end) = trimmed_bounds(input)
-  input.sub(start~, end~).to_string()
+  input.sub(start~, end~).to_owned()
 }
 
 ///|
@@ -512,7 +512,7 @@ fn basename_of_normalized_path(path : String) -> String {
   if last_sep < 0 {
     return path
   }
-  path.sub(start=last_sep + 1).to_string()
+  path.sub(start=last_sep + 1).to_owned()
 }
 
 ///|
@@ -528,7 +528,7 @@ fn path_with_wasm_extension_normalized(path : String) -> String {
     i += 1
   }
   if last_dot >= 0 {
-    let stem = path.sub(end=last_dot).to_string()
+    let stem = path.sub(end=last_dot).to_owned()
     "\{stem}.wasm"
   } else {
     "\{path}.wasm"
@@ -807,7 +807,7 @@ test "normalized output path helpers reuse normalized startup paths" {
 fn parse_pass_list(raw : String) -> Array[String] {
   let out = Array::new()
   for part in raw.split(",") {
-    let lowered = trimmed_ascii_lower_string(part.to_string())
+    let lowered = trimmed_ascii_lower_string(part.to_owned())
     if lowered.length() > 0 {
       out.push(lowered)
     }
@@ -1797,7 +1797,7 @@ fn cmd_dump_pass_target(flag : String) -> String? {
     flag[4] != '=' {
     return None
   }
-  Some(flag.sub(start=5).to_string())
+  Some(flag.sub(start=5).to_owned())
 }
 
 ///|
@@ -1825,14 +1825,14 @@ fn cmd_extract_functions_pass_target(flag : String) -> String? {
     flag[17] != '=' {
     return None
   }
-  Some(flag.sub(start=18).to_string())
+  Some(flag.sub(start=18).to_owned())
 }
 
 ///|
 fn cmd_parse_function_index_list(raw : String) -> Array[UInt]? {
   let out : Array[UInt] = []
   for part in raw.split(",") {
-    match parse_non_negative_decimal(part.to_string()) {
+    match parse_non_negative_decimal(part.to_owned()) {
       Some(idx) => out.push(idx.reinterpret_as_uint())
       None => return None
     }
@@ -1852,8 +1852,8 @@ fn cmd_print_pass_target(flag : String) -> (String, String)? {
   let mut i = 6
   while i < flag.length() {
     if flag[i] == '=' {
-      let kind = flag.sub(start=6, end=i).to_string()
-      let selector = flag.sub(start=i + 1).to_string()
+      let kind = flag.sub(start=6, end=i).to_owned()
+      let selector = flag.sub(start=i + 1).to_owned()
       if kind.length() == 0 || selector.length() == 0 {
         return None
       }
@@ -1890,7 +1890,7 @@ fn cmd_parse_print_selector(raw : String) -> CmdPipelinePrintSelector? {
   if trimmed.length() >= 2 &&
     trimmed[0] == '(' &&
     trimmed[trimmed.length() - 1] == ')' {
-    let inner = trimmed.sub(start=1, end=trimmed.length() - 1).to_string()
+    let inner = trimmed.sub(start=1, end=trimmed.length() - 1).to_owned()
     match parse_non_negative_decimal(inner) {
       Some(idx) =>
         return Some(CmdPipelinePrintSelector::Index(idx.reinterpret_as_uint()))
@@ -2150,7 +2150,7 @@ fn run_extract_functions_step(
 ///|
 fn cmd_name_to_string(name : @lib.Name) -> String {
   let @lib.Name(sv) = name
-  sv.to_string()
+  sv.to_owned()
 }
 
 ///|
@@ -3022,7 +3022,7 @@ fn parse_spec_cmd_args(
         if arg.length() > 0 && arg[0] == '-' {
           return Err(
             CmdError::CliParse(
-              CliParseError::invalid_long_flag(arg.sub(start=1).to_string()),
+              CliParseError::invalid_long_flag(arg.sub(start=1).to_owned()),
             ),
           )
         }
@@ -3113,7 +3113,7 @@ fn run_spec_cmd_with_adapter(
           CmdError::OutputWriteFailed("stdout for spec failure preview: \{e}"),
         )
     }
-    return Err(CmdError::SpecFailed(preview_line.trim().to_string()))
+    return Err(CmdError::SpecFailed(preview_line.trim().to_owned()))
   }
 
   Ok(CmdRunSummary::new(input_files~, resolved_passes=["spec"]))

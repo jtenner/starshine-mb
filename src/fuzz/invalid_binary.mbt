@@ -791,7 +791,7 @@ pub fn validate_invalid_binary_run_config(
   profile : String,
 ) -> Result[ValidateInvalidBinaryRunConfig, String] {
   let normalized = validate_invalid_binary_ascii_lower(
-    profile.trim().to_string(),
+    profile.trim().to_owned(),
   )
   let attempts = match normalized {
     "smoke" => 40

@@ -396,7 +396,7 @@ pub fn persist_invalid_fuzz_failure_report(
   io : InvalidFuzzPersistIO,
   corpus_dir? : String = "fuzz-corpus/invalid",
 ) -> Result[(String, Array[String]), String] {
-  let root = corpus_dir.trim().to_string()
+  let root = corpus_dir.trim().to_owned()
   let corpus_root = if root.length() == 0 {
     "fuzz-corpus/invalid"
   } else {
@@ -467,7 +467,7 @@ fn invalid_fuzz_parse_meta_line(line : String) -> (String, String)? {
   if idx < 0 {
     return None
   }
-  Some((line.sub(end=idx).to_string(), line.sub(start=idx + 1).to_string()))
+  Some((line.sub(end=idx).to_owned(), line.sub(start=idx + 1).to_owned()))
 }
 
 ///|
@@ -475,7 +475,7 @@ fn invalid_fuzz_parse_uint64(
   raw : String,
   field : String,
 ) -> Result[UInt64, String] {
-  let text = raw.trim().to_string()
+  let text = raw.trim().to_owned()
   if text.length() == 0 {
     return Err("missing \{field}")
   }
@@ -491,7 +491,7 @@ fn invalid_fuzz_parse_uint64(
 
 ///|
 fn invalid_fuzz_parse_int(raw : String, field : String) -> Result[Int, String] {
-  let text = raw.trim().to_string()
+  let text = raw.trim().to_owned()
   if text.length() == 0 {
     return Err("missing \{field}")
   }
@@ -510,7 +510,7 @@ fn invalid_fuzz_parse_bool(
   raw : String,
   field : String,
 ) -> Result[Bool, String] {
-  let text = raw.trim().to_string()
+  let text = raw.trim().to_owned()
   match text {
     "true" => Ok(true)
     "false" => Ok(false)
@@ -535,8 +535,8 @@ fn invalid_fuzz_parse_artifact_entry(
   if sep <= 0 || sep + 1 >= raw.length() {
     return Err("invalid artifact entry '\{raw}'")
   }
-  let label = raw.sub(end=sep).trim().to_string()
-  let file_name = raw.sub(start=sep + 1).trim().to_string()
+  let label = raw.sub(end=sep).trim().to_owned()
+  let file_name = raw.sub(start=sep + 1).trim().to_owned()
   if label.length() == 0 || file_name.length() == 0 {
     return Err("invalid artifact entry '\{raw}'")
   }
@@ -568,7 +568,7 @@ pub fn parse_invalid_fuzz_failure_report(
   let artifacts : Array[InvalidFuzzArtifact] = []
   let reduced_artifacts : Array[InvalidFuzzArtifact] = []
   for raw_line in meta_text.split("\n") {
-    let line = raw_line.trim().to_string()
+    let line = raw_line.trim().to_owned()
     if line.length() == 0 {
       continue
     }
@@ -716,7 +716,7 @@ pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(
   attempt : Int,
   profile? : String = "smoke",
 ) -> Result[InvalidFuzzFailureReport, String] {
-  let normalized = invalid_fuzz_ascii_lower(suite.trim().to_string())
+  let normalized = invalid_fuzz_ascii_lower(suite.trim().to_owned())
   let source_kind = match invalid_fuzz_source_kind_from_name(normalized) {
     Some(v) => v
     None => return Err("unknown invalid fuzz suite '\{suite}'")

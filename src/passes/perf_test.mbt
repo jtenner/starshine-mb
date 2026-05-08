@@ -21,7 +21,7 @@ fn perf_test_count_occurrences(text : String, needle : String) -> Int {
     let mut found : Int? = None
     let mut i = start
     while i <= text.length() - needle.length() {
-      if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
         found = Some(i)
         break
       }

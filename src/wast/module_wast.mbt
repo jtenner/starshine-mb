@@ -104,8 +104,8 @@ fn split_first_underscore(s : String) -> (String, String?) {
   let mut i = 0
   while i < s.length() {
     if s[i] == '_' {
-      let head = s.sub(end=i).to_string()
-      let tail = s.sub(start=i + 1).to_string()
+      let head = s.sub(end=i).to_owned()
+      let tail = s.sub(start=i + 1).to_owned()
       return (head, Some(tail))
     }
     i += 1
@@ -1111,7 +1111,7 @@ fn render_command(cmd : WastCommand) -> String raise WastTextError {
 ///|
 fn render_module_def(mod_def : WastModuleDef) -> String raise WastTextError {
   match mod_def {
-    Inline(mod) => render_module(mod).trim().to_string()
+    Inline(mod) => render_module(mod).trim().to_owned()
     Binary(bytes) => "(module binary \{quote_wast_bytes(bytes)})"
     Quote(lines) => {
       let out = StringBuilder::new()

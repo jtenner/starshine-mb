@@ -171,7 +171,7 @@ fn fuzz_has_prefix(text : String, prefix : String) -> Bool {
   if text.length() < prefix.length() {
     return false
   }
-  let head = text.sub(end=prefix.length()).to_string()
+  let head = text.sub(end=prefix.length()).to_owned()
   head == prefix
 }
 
@@ -181,7 +181,7 @@ fn fuzz_has_suffix(text : String, suffix : String) -> Bool {
     return false
   }
   let start = text.length() - suffix.length()
-  let tail = text.sub(start~).to_string()
+  let tail = text.sub(start~).to_owned()
   tail == suffix
 }
 
@@ -243,12 +243,12 @@ fn fuzz_slug(value : String) -> String {
   }
   let raw = out.to_string()
   let trimmed = if fuzz_has_prefix(raw, "-") {
-    raw.sub(start=1).to_string()
+    raw.sub(start=1).to_owned()
   } else {
     raw
   }
   let cleaned = if fuzz_has_suffix(trimmed, "-") {
-    trimmed.sub(end=trimmed.length() - 1).to_string()
+    trimmed.sub(end=trimmed.length() - 1).to_owned()
   } else {
     trimmed
   }
@@ -280,7 +280,7 @@ pub fn persist_fuzz_failure_report(
   io : FuzzFailurePersistIO,
   corpus_dir? : String = "fuzz-corpus",
 ) -> Result[(String, String?), String] {
-  let trimmed = corpus_dir.trim().to_string()
+  let trimmed = corpus_dir.trim().to_owned()
   let dir = if trimmed.length() == 0 { "fuzz-corpus" } else { trimmed }
   match (io.ensure_dir)(dir) {
     Ok(_) => ()
@@ -612,7 +612,7 @@ pub fn run_cmd_fuzz_harness_profile(
   profile : String,
   seed : UInt64,
 ) -> Result[CmdFuzzStats, String] {
-  let normalized = fuzz_profile_ascii_lower(profile.trim().to_string())
+  let normalized = fuzz_profile_ascii_lower(profile.trim().to_owned())
   let valid_target = match normalized {
     "smoke" => 128
     "ci" => 4096

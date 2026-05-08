@@ -1063,7 +1063,7 @@ fn[T : Decode] decode_section_vector_payload(
   if payload_end > bytes.length() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
-  let payload = bytes[payload_start:payload_end].to_bytes()
+  let payload = bytes[payload_start:payload_end].to_owned()
   let (content, consumed) = match Decode::decode(payload, 0) {
     Ok(t) => t
     Err(t) => return Err(t)
@@ -1093,7 +1093,7 @@ fn[T : Decode] decode_section_payload(
   if payload_end > bytes.length() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
-  let payload = bytes[payload_start:payload_end].to_bytes()
+  let payload = bytes[payload_start:payload_end].to_owned()
   let (content, consumed) = match Decode::decode(payload, 0) {
     Ok(t) => t
     Err(t) => return Err(t)
@@ -1162,7 +1162,7 @@ fn decode_custom_sections_with_detail(
     let section_start = i
     match decode_custom_section_header(bytes, i) {
       Ok((name, payload_start, next)) => {
-        let payload = bytes[payload_start:next].to_bytes()
+        let payload = bytes[payload_start:next].to_owned()
         if name == Name::new("name") {
           if name_out.length() > 0 {
             return Err(
@@ -1862,7 +1862,7 @@ pub impl Decode for StringRefsSec with decode(bytes, i) {
   if payload_end > bytes.length() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
-  let payload = bytes[payload_start:payload_end].to_bytes()
+  let payload = bytes[payload_start:payload_end].to_owned()
   if payload.length() == 0 || payload[0] != 0x00 {
     return Err(BinaryDecodeError::InvalidStringRefSection)
   }
@@ -1882,7 +1882,7 @@ pub impl Decode for StringRefsSec with decode(bytes, i) {
 pub impl Decode for CustomSec with decode(bytes, i) {
   match decode_custom_section_header(bytes, i) {
     Ok((name, payload_start, end)) =>
-      Ok((CustomSec::new(name, bytes[payload_start:end].to_bytes()), end))
+      Ok((CustomSec::new(name, bytes[payload_start:end].to_owned()), end))
     Err(err) => Err(err)
   }
 }
@@ -2302,7 +2302,7 @@ pub impl Decode for Bytes with decode(bytes, i) {
     Ok((@lib.U32(len), i)) if len + i.reinterpret_as_uint() <=
       bytes.length().reinterpret_as_uint() => {
       let next = i + len.reinterpret_as_int()
-      let val = bytes[i:next].to_bytes()
+      let val = bytes[i:next].to_owned()
       Ok((val, next))
     }
     Ok(_) => Err(BinaryDecodeError::InvalidOffset)
