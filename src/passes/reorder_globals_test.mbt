@@ -75,7 +75,7 @@ fn rg_test_first_body_global_get(mod_ : @lib.Module) -> UInt raise {
         [@lib.Func(_, @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(raw)), ..]))]
       )
     ) => raw
-    other => fail("expected leading global.get, got \{other}")
+    other => fail("expected leading global.get, got \{@debug.to_string(other)}")
   }
 }
 
@@ -171,14 +171,16 @@ test "reorder-globals remaps exported global indices and global names" {
         [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx)))]
       )
     ) => @debug.assert_eq(idx, 0U)
-    other => fail("expected rewritten global export, got \{other}")
+    other =>
+      fail("expected rewritten global export, got \{@debug.to_string(other)}")
   }
   match optimized.name_sec {
     Some(sec) =>
       match sec.global_names {
         Some(@lib.NameMap([@lib.NameAssoc(idx, _)])) =>
           @debug.assert_eq(idx, 0U)
-        other => fail("expected rewritten global name, got \{other}")
+        other =>
+          fail("expected rewritten global name, got \{@debug.to_string(other)}")
       }
     None => fail("expected name section")
   }
@@ -238,7 +240,10 @@ test "string-gathering reorder-globals directize preserve late-tail order" {
         [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx)))]
       )
     ) => @debug.assert_eq(idx, 0U)
-    other => fail("expected hot export after late-tail replay, got \{other}")
+    other =>
+      fail(
+        "expected hot export after late-tail replay, got \{@debug.to_string(other)}",
+      )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))

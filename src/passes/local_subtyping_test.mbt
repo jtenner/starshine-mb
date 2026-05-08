@@ -33,7 +33,10 @@ fn ls_test_module(
 fn ls_test_first_body_local(mod_ : @lib.Module) -> @lib.ValType {
   match mod_.code_sec {
     Some(@lib.CodeSec([@lib.Func(locals, _)])) => locals[0]
-    other => abort("expected one function with one body local, got \{other}")
+    other =>
+      abort(
+        "expected one function with one body local, got \{@debug.to_string(other)}",
+      )
   }
 }
 

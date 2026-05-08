@@ -299,7 +299,7 @@ pub fn dom_debug_dump(dom : HotDominators) -> String {
       continue
     }
     lines.push(
-      "block=\{block_id} idom=\{dom_idom(dom, block_id)} children=\{dom.children[block_id]} frontier=\{dom.frontiers[block_id]}",
+      "block=\{block_id} idom=\{@debug.to_string(dom_idom(dom, block_id))} children=\{dom.children[block_id]} frontier=\{dom.frontiers[block_id]}",
     )
   }
   dom_join_lines(lines)

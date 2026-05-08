@@ -3620,13 +3620,18 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
       }
     }
     other =>
-      fail("expected extracted module to keep one func import, got \{other}")
+      fail(
+        "expected extracted module to keep one func import, got \{@debug.to_string(other)}",
+      )
   }
 
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) =>
       @debug.assert_eq(type_idxs, [@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)])
-    other => fail("expected two extracted defined functions, got \{other}")
+    other =>
+      fail(
+        "expected two extracted defined functions, got \{@debug.to_string(other)}",
+      )
   }
   match optimized.export_sec {
     Some(@lib.ExportSec(exports)) => {
@@ -3642,7 +3647,10 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
         ),
       ])
     }
-    other => fail("expected extracted function exports, got \{other}")
+    other =>
+      fail(
+        "expected extracted function exports, got \{@debug.to_string(other)}",
+      )
   }
   @debug.assert_eq(optimized.start_sec, None)
   @debug.assert_eq(
@@ -3668,11 +3676,12 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
   )
   match optimized.global_sec {
     Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
-    other => fail("expected single live global, got \{other}")
+    other => fail("expected single live global, got \{@debug.to_string(other)}")
   }
   match optimized.elem_sec {
     Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 1)
-    other => fail("expected single live elem segment, got \{other}")
+    other =>
+      fail("expected single live elem segment, got \{@debug.to_string(other)}")
   }
   @debug.assert_eq(
     optimized.data_cnt_sec,
@@ -3680,7 +3689,8 @@ test "run_cmd_with_adapter extracts requested functions into a safe minimal modu
   )
   match optimized.data_sec {
     Some(@lib.DataSec(datas)) => @debug.assert_eq(datas.length(), 1)
-    other => fail("expected single live data segment, got \{other}")
+    other =>
+      fail("expected single live data segment, got \{@debug.to_string(other)}")
   }
 
   let helper_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
@@ -4169,7 +4179,10 @@ test "run_cmd_with_adapter applies duplicate-import-elimination to wasm inputs" 
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.import_sec {
     Some(ImportSec([Import(_, _, FuncExternType(_))])) => ()
-    other => fail("expected one surviving function import, got \{other}")
+    other =>
+      fail(
+        "expected one surviving function import, got \{@debug.to_string(other)}",
+      )
   }
 }
 
@@ -4331,7 +4344,8 @@ test "run_cmd_with_adapter accepts untee as an active module pass" {
         ]
       )
     ) => ()
-    other => fail("expected untee-expanded output, got \{other}")
+    other =>
+      fail("expected untee-expanded output, got \{@debug.to_string(other)}")
   }
 }
 

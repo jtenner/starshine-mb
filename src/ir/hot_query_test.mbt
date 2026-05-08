@@ -121,12 +121,18 @@ test "simple value queries compare semantic leaf identity" {
   match hot_simple_value_key(func, const7a) {
     Some(HotSimpleValueKey::ConstValue(HotConstPayload::I32Const(value))) =>
       @debug.assert_eq(value, @lib.I32(7))
-    other => fail("expected i32 const simple value key, got \{other}")
+    other =>
+      fail(
+        "expected i32 const simple value key, got \{@debug.to_string(other)}",
+      )
   }
   match hot_simple_value_key(func, local0a) {
     Some(HotSimpleValueKey::LocalGetValue(local_id)) =>
       @debug.assert_eq(local_id, 0)
-    other => fail("expected local.get simple value key, got \{other}")
+    other =>
+      fail(
+        "expected local.get simple value key, got \{@debug.to_string(other)}",
+      )
   }
   @debug.assert_eq(hot_simple_value_key(func, drop_local0), None)
 }

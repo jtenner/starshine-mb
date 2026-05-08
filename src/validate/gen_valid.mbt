@@ -1417,7 +1417,6 @@ priv struct GenValidBodyEnv {
   tags : Array[TagType]
   funcs : Array[GenValidFuncSig]
   data_idxs : Array[DataIdx]
-  elem_idxs : Array[ElemIdx]
   passive_elem_idxs : Array[ElemIdx]
   bulk_elem_seed_idx : ElemIdx?
   gc_type_plan : GenValidGcTypePlan
@@ -4503,7 +4502,7 @@ fn gen_valid_build_func(
   tags : Array[TagType],
   funcs : Array[GenValidFuncSig],
   data_idxs : Array[DataIdx],
-  elem_idxs : Array[ElemIdx],
+  _elem_idxs : Array[ElemIdx],
   passive_elem_idxs : Array[ElemIdx],
   bulk_elem_seed_idx : ElemIdx?,
   gc_type_plan : GenValidGcTypePlan,
@@ -4573,7 +4572,6 @@ fn gen_valid_build_func(
     tags,
     funcs,
     data_idxs,
-    elem_idxs,
     passive_elem_idxs,
     bulk_elem_seed_idx,
     gc_type_plan,

@@ -326,7 +326,7 @@ pub fn postdom_debug_dump(postdom : HotPostDominators) -> String {
       continue
     }
     lines.push(
-      "block=\{block_id} ipdom=\{postdom_ipdom(postdom, block_id)} children=\{postdom.children[block_id]} frontier=\{postdom.frontiers[block_id]}",
+      "block=\{block_id} ipdom=\{@debug.to_string(postdom_ipdom(postdom, block_id))} children=\{postdom.children[block_id]} frontier=\{postdom.frontiers[block_id]}",
     )
   }
   postdom_join_lines(lines)

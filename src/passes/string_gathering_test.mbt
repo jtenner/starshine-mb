@@ -254,14 +254,16 @@ test "string-gathering remaps exported defined globals and structured global nam
         [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx)))]
       )
     ) => @debug.assert_eq(idx, 1U)
-    other => fail("expected rewritten global export, got \{other}")
+    other =>
+      fail("expected rewritten global export, got \{@debug.to_string(other)}")
   }
   match optimized.name_sec {
     Some(sec) =>
       match sec.global_names {
         Some(@lib.NameMap([@lib.NameAssoc(idx, _)])) =>
           @debug.assert_eq(idx, 1U)
-        other => fail("expected rewritten global name, got \{other}")
+        other =>
+          fail("expected rewritten global name, got \{@debug.to_string(other)}")
       }
     None => fail("expected name section")
   }

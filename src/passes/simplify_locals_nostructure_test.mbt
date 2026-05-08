@@ -80,7 +80,7 @@ test "simplify-locals-notee-nostructure preserves Binaryen const-nop loop shape"
     }
     other =>
       fail(
-        "expected one loop body after no-tee no-structure pass, got \{other}",
+        "expected one loop body after no-tee no-structure pass, got \{@debug.to_string(other)}",
       )
   }
 }
@@ -150,7 +150,9 @@ test "simplify-locals-nostructure exact slot replays tuple cleanup before vacuum
     Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
       @debug.assert_eq(locals, @lib.Locals::empty())
     other =>
-      fail("expected exact slot replay single-function output, got \{other}")
+      fail(
+        "expected exact slot replay single-function output, got \{@debug.to_string(other)}",
+      )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("I32(10)"), msg=pretty)

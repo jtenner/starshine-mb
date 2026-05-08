@@ -61,7 +61,10 @@ test "avoid-reinterprets rewrites all full-width load reinterpret pairs" {
         ]
       )
     ) => ()
-    other => fail("expected rewritten load-only functions, got \{other}")
+    other =>
+      fail(
+        "expected rewritten load-only functions, got \{@debug.to_string(other)}",
+      )
   }
 }
 

@@ -1,6 +1,6 @@
 ///|
-fn[S : Show] cfg_test_show_text(value : S) -> String {
-  value.to_string()
+fn[S : @debug.Debug] cfg_test_show_text(value : S) -> String {
+  @debug.to_string(value)
 }
 
 ///|
@@ -112,7 +112,7 @@ test "cfg control successor policy distinguishes current structured control fami
     "Some(SplitBodyCatchList)",
   )
   @debug.assert_eq(
-    cfg_test_show_text(cfg_control_successor_policy(ops[5])),
+    @debug.to_string(cfg_control_successor_policy(ops[5])),
     "None",
   )
 }

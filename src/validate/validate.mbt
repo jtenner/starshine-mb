@@ -6615,7 +6615,7 @@ priv struct ValidateTestSimdPhase3Forms {
   shuffle_swizzle : Bool
   narrow_widen_dot_pairwise : Bool
   float_demote_promote : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 fn validate_test_simd_phase3_forms_empty() -> ValidateTestSimdPhase3Forms {

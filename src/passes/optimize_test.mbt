@@ -38,7 +38,10 @@ test "vacuum removes dropped pure scalar expressions" {
         @lib.Instruction::i32_const(@lib.I32(4)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       ])
-    other => fail("expected single vacuumed function output, got \{other}")
+    other =>
+      fail(
+        "expected single vacuumed function output, got \{@debug.to_string(other)}",
+      )
   }
 }
 
@@ -63,7 +66,8 @@ test "vacuum removes empty void blocks" {
         @lib.Instruction::i32_const(@lib.I32(5)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       ])
-    other => fail("expected empty block to be removed, got \{other}")
+    other =>
+      fail("expected empty block to be removed, got \{@debug.to_string(other)}")
   }
 }
 
@@ -79,7 +83,9 @@ test "vacuum matches Binaryen empty function nop canonicalization" {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
       @debug.assert_eq(instrs, [@lib.Instruction::nop()])
     other =>
-      fail("expected vacuumed empty function to contain one nop, got \{other}")
+      fail(
+        "expected vacuumed empty function to contain one nop, got \{@debug.to_string(other)}",
+      )
   }
 }
 
@@ -97,7 +103,10 @@ test "vacuum unwraps block that only contains unreachable" {
         @lib.Instruction::Unreachable => ()
         other => fail("expected unwrapped unreachable, got \{other}")
       }
-    other => fail("expected single vacuumed unreachable output, got \{other}")
+    other =>
+      fail(
+        "expected single vacuumed unreachable output, got \{@debug.to_string(other)}",
+      )
   }
 }
 
@@ -130,7 +139,9 @@ test "repeated vacuum slots keep empty cleanup byte-stable" {
           )
       }
     other =>
-      fail("expected single repeated-vacuum function output, got \{other}")
+      fail(
+        "expected single repeated-vacuum function output, got \{@debug.to_string(other)}",
+      )
   }
 }
 
@@ -156,7 +167,9 @@ test "vacuum repeated-slot matrix drops detached pure residues" {
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       ])
     other =>
-      fail("expected single residue-cleaned function output, got \{other}")
+      fail(
+        "expected single residue-cleaned function output, got \{@debug.to_string(other)}",
+      )
   }
 }
 
@@ -247,7 +260,7 @@ test "run_hot_pipeline keeps tuple-optimization as a no-op on scalar-only input"
     }
     other =>
       fail(
-        "expected scalar-only tuple-optimization single-function output, got \{other}",
+        "expected scalar-only tuple-optimization single-function output, got \{@debug.to_string(other)}",
       )
   }
 }

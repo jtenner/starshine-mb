@@ -238,7 +238,9 @@ test "preset expansion stays on implemented active pass names" {
     match pass_registry_category(name) {
       Some(HotPass) | Some(ModulePass) => ()
       other =>
-        fail("expected optimize preset pass category for \{name}, got \{other}")
+        fail(
+          "expected optimize preset pass category for \{name}, got \{@debug.to_string(other)}",
+        )
     }
   }
 }
@@ -275,6 +277,8 @@ test "run_hot_pipeline accepts tuple-optimization as an active hot pass" {
     Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
       @debug.assert_eq(locals.length(), 2)
     other =>
-      fail("expected single-function tuple-optimization module, got \{other}")
+      fail(
+        "expected single-function tuple-optimization module, got \{@debug.to_string(other)}",
+      )
   }
 }

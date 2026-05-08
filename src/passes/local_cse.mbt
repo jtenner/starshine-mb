@@ -38,13 +38,7 @@ priv struct LcseRawExpr {
   reads_locals : Array[Int]
   reads_memory : Bool
   mut repeat_of : Int
-  active : Bool
   mut local_id : Int
-}
-
-///|
-fn lcse_instr_text(instr : @lib.Instruction) -> String {
-  @debug.to_string(instr)
 }
 
 ///|
@@ -408,7 +402,6 @@ fn lcse_raw_rewrite_instrs(
           reads_locals,
           reads_memory,
           repeat_of: -1,
-          active: true,
           local_id: -1,
         }
         exprs.push(expr)

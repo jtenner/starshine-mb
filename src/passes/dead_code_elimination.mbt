@@ -1185,7 +1185,7 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
   if !then_is_br || !else_is_br {
     trace_shape(
       "payload-forwarder-arm-shape",
-      "node=\{node_id} payload_if=\{payload_if} then_tail=\{@ir.hot_node_get(func, then_tail).op}#\{then_tail} then_target=\{@ir.hot_branch_target(func, then_tail)} else_tail=\{@ir.hot_node_get(func, else_tail).op}#\{else_tail} else_target=\{@ir.hot_branch_target(func, else_tail)} stacked=\{stacked_tail}",
+      "node=\{node_id} payload_if=\{payload_if} then_tail=\{@ir.hot_node_get(func, then_tail).op}#\{then_tail} then_target=\{@debug.to_string(@ir.hot_branch_target(func, then_tail))} else_tail=\{@ir.hot_node_get(func, else_tail).op}#\{else_tail} else_target=\{@debug.to_string(@ir.hot_branch_target(func, else_tail))} stacked=\{@debug.to_string(stacked_tail)}",
     )
     if !stacked_tail || then_is_br == else_is_br {
       trace_reason("if-tail-not-br")

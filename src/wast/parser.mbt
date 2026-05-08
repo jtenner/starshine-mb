@@ -35,7 +35,7 @@ pub impl Show for Limits with output(self, logger) {
   logger.write_string("Limits {min: ")
   self.min.output(logger)
   logger.write_string(", max:")
-  self.max.output(logger)
+  logger.write_string(@debug.to_string(self.max))
   logger.write_char('}')
 }
 
