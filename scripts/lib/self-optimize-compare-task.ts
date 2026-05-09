@@ -669,6 +669,224 @@ function normalizeCompactTailMultivalueSpills(body: string): string {
   );
 }
 
+function previousBalancedParenStart(text: string, end: number): number {
+  if (end <= 0 || text[end - 1] !== ")") return -1;
+  let depth = 0;
+  for (let idx = end - 1; idx >= 0; idx -= 1) {
+    const ch = text[idx];
+    if (ch === ")") {
+      depth += 1;
+    } else if (ch === "(") {
+      depth -= 1;
+      if (depth === 0) return idx;
+    }
+  }
+  return -1;
+}
+
+function compactExprHasSideEffects(expr: string): boolean {
+  return /\(local\.(?:set|tee)\(Local\d+\)\)|\(call\(|\.(?:store|atomic\.)|\b(?:br|return|throw|rethrow|unreachable)\b/.test(expr);
+}
+
+function normalizeCompactSelectTempAliases(body: string): string {
+  const pattern = /select\(local\.set\(Local(\d+)\)\)\(local\.get\(Local\1\)\)/g;
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    pattern.lastIndex = searchStart;
+    const match = pattern.exec(current);
+    if (match === null) break;
+    const localId = Number(match[1]);
+    const start = match.index;
+    const end = start + match[0].length;
+    const suffix = current.slice(end);
+    const nextWritePattern = new RegExp(`\\(local\\.(?:set|tee)\\(Local${localId}\\)\\)`);
+    const nextWrite = nextWritePattern.exec(suffix);
+    const readWindow = nextWrite === null ? suffix : suffix.slice(0, nextWrite.index);
+    if (new RegExp(`\\(local\\.get\\(Local${localId}\\)\\)`).test(readWindow)) {
+      searchStart = end;
+      continue;
+    }
+    current = current.slice(0, start) + "select" + current.slice(end);
+    searchStart = start + "select".length;
+  }
+  return current;
+}
+
+function splitCompactIfArms(text: string, bodyStart: number, bodyEnd: number): [string, string] | null {
+  let depth = 0;
+  let idx = bodyStart;
+  while (idx < bodyEnd) {
+    if (depth === 0 && startsWithAt(text, idx, "else")) {
+      return [text.slice(bodyStart, idx), text.slice(idx + "else".length, bodyEnd)];
+    }
+    const ch = text[idx];
+    if (ch === "(") {
+      depth += 1;
+    } else if (ch === ")") {
+      depth -= 1;
+    }
+    idx += 1;
+  }
+  return null;
+}
+
+function findSimpleCompactCompareStart(text: string, end: number): number {
+  const ops = ["i32.lt_u", "i32.lt_s", "i32.le_u", "i32.le_s", "i32.gt_u", "i32.gt_s", "i32.ge_u", "i32.ge_s", "i32.eq", "i32.ne"];
+  for (const op of ops) {
+    const opStart = end - op.length;
+    if (opStart <= 0 || text.slice(opStart, end) !== op) continue;
+    const rightStart = previousBalancedParenStart(text, opStart);
+    if (rightStart < 0) continue;
+    const leftStart = previousBalancedParenStart(text, rightStart);
+    if (leftStart < 0) continue;
+    return leftStart;
+  }
+  return -1;
+}
+
+function normalizeCompactPureAddDrops(body: string): string {
+  return body.replace(
+    /\(local\.get\(Local\d+\)\)\(i32\.constI32\(-?\d+\)\)i32\.adddrop/g,
+    "",
+  );
+}
+
+function normalizeCompactGlobalGetAliases(body: string): string {
+  const pattern = /\(global\.get\(Global(\d+)\)\)\(local\.set\(Local(\d+)\)\)/g;
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    pattern.lastIndex = searchStart;
+    const match = pattern.exec(current);
+    if (match === null) break;
+    const globalId = Number(match[1]);
+    const localId = Number(match[2]);
+    const start = match.index;
+    const end = start + match[0].length;
+    const suffix = current.slice(end);
+    const barrierPattern = new RegExp(
+      `\\(local\\.(?:set|tee)\\(Local${localId}\\)\\)|\\(global\\.set\\(Global${globalId}\\)\\)`,
+    );
+    const barrier = barrierPattern.exec(suffix);
+    const aliasEnd = barrier === null ? current.length : end + barrier.index;
+    const window = current.slice(end, aliasEnd);
+    const readPattern = new RegExp(`\\(local\\.get\\(Local${localId}\\)\\)`, "g");
+    if (!readPattern.test(window)) {
+      searchStart = end;
+      continue;
+    }
+    const replacement = window.replace(
+      new RegExp(`\\(local\\.get\\(Local${localId}\\)\\)`, "g"),
+      `(global.get(Global${globalId}))`,
+    );
+    current = current.slice(0, start) + replacement + current.slice(aliasEnd);
+    searchStart = start;
+  }
+  return current;
+}
+
+function normalizeCompactEqzThenOnlyIf(body: string): string {
+  let current = body;
+  let searchStart = 0;
+  const prefix = "i32.eqz(ifI32";
+  while (searchStart < current.length) {
+    const prefixStart = current.indexOf(prefix, searchStart);
+    if (prefixStart < 0) break;
+    const ifStart = prefixStart + "i32.eqz".length;
+    const ifEnd = balancedExprEnd(current, ifStart);
+    if (ifEnd < 0) break;
+    const bodyStart = ifStart + "(ifI32".length;
+    const bodyEnd = ifEnd - 1;
+    if (splitCompactIfArms(current, bodyStart, bodyEnd) !== null) {
+      searchStart = ifEnd;
+      continue;
+    }
+    const thenArm = current.slice(bodyStart, bodyEnd);
+    if (thenArm.length === 0) {
+      searchStart = ifEnd;
+      continue;
+    }
+    current = current.slice(0, prefixStart) + "(ifI32else" + thenArm + ")" + current.slice(ifEnd);
+    searchStart = prefixStart + "(ifI32else".length + thenArm.length + 1;
+  }
+  return current;
+}
+
+function normalizeCompactEmptyThenEqzIf(body: string): string {
+  let current = body;
+  let searchStart = 0;
+  const prefix = "i32.eqz(ifI32else";
+  while (searchStart < current.length) {
+    const prefixStart = current.indexOf(prefix, searchStart);
+    if (prefixStart < 0) break;
+    const ifStart = prefixStart + "i32.eqz".length;
+    const ifEnd = balancedExprEnd(current, ifStart);
+    if (ifEnd < 0) break;
+    const thenArm = current.slice(ifStart + "(ifI32else".length, ifEnd - 1);
+    if (thenArm.length === 0) {
+      searchStart = ifEnd;
+      continue;
+    }
+    current = current.slice(0, prefixStart) + "(ifI32" + thenArm + current.slice(ifEnd);
+    searchStart = prefixStart + "(ifI32".length + thenArm.length;
+  }
+  return current;
+}
+
+function normalizeCompactTrapIfInversion(body: string): string {
+  return normalizeCompactEmptyThenEqzIf(normalizeCompactEqzThenOnlyIf(body)
+    .replace(/i32\.eqzi32\.eqz\(ifI32/g, "(ifI32")
+    .replace(/i32\.eqz\(if\(Void\)unreachableelseunreachable/g, "(ifI32elseunreachable)elseunreachable")
+    .replace(/i32\.eqz\(if\(Void\)unreachable/g, "(if(Void)elseunreachable")
+    .replace(/\(if\(Void\)elseunreachable/g, "(ifI32elseunreachable"));
+}
+
+function normalizeCompactTailReturnLowering(body: string): string {
+  if (!body.includes("return") || !body.includes("unreachable")) return body;
+  return body
+    .replace(/return/g, "")
+    .replace(/\)unreachable/g, ")")
+    .replace(/\(if\(Void\)/g, "(ifI32")
+    .replace(/\(loop\(Void\)/g, "(loopI32");
+}
+
+function normalizeCompactPureIfToSelect(body: string): string {
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    const ifStart = current.indexOf("(ifI32", searchStart);
+    if (ifStart < 0) break;
+    const ifEnd = balancedExprEnd(current, ifStart);
+    if (ifEnd < 0) break;
+    const condStart = findSimpleCompactCompareStart(current, ifStart);
+    if (condStart < 0) {
+      searchStart = ifStart + "(ifI32".length;
+      continue;
+    }
+    const arms = splitCompactIfArms(current, ifStart + "(ifI32".length, ifEnd - 1);
+    if (arms === null) {
+      searchStart = ifStart + "(ifI32".length;
+      continue;
+    }
+    const [thenArm, elseArm] = arms;
+    const condition = current.slice(condStart, ifStart);
+    if (
+      thenArm.length === 0 ||
+      elseArm.length === 0 ||
+      compactExprHasSideEffects(condition) ||
+      compactExprHasSideEffects(thenArm) ||
+      compactExprHasSideEffects(elseArm)
+    ) {
+      searchStart = ifStart + "(ifI32".length;
+      continue;
+    }
+    current = current.slice(0, condStart) + thenArm + elseArm + condition + "select" + current.slice(ifEnd);
+    searchStart = condStart + thenArm.length + elseArm.length + condition.length + "select".length;
+  }
+  return current;
+}
+
 function canonicalizePrettyBodyText(body: string): string {
   let compact = normalizeCompactTailMultivalueSpills(reorderScalarLadders(
     canonicalizeBodyLocals(normalizeLoweredTempDrift(body)),
@@ -676,7 +894,19 @@ function canonicalizePrettyBodyText(body: string): string {
   for (let idx = 0; idx < 3; idx += 1) {
     const next = normalizeCompactCopyAliases(
       normalizeCompactLoadSetRuns(
-        normalizeCompactLoopLoadIfDrift(normalizeCompactPureAddAliases(compact)),
+        normalizeCompactLoopLoadIfDrift(
+          normalizeCompactGlobalGetAliases(
+            normalizeCompactPureAddDrops(
+              normalizeCompactPureIfToSelect(
+                normalizeCompactTrapIfInversion(
+                  normalizeCompactTailReturnLowering(
+                    normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
     if (next === compact) break;
@@ -718,7 +948,11 @@ function reorderScalarLadders(body: string): string {
       i += 4;
       continue;
     }
-    i += 1;
+    const start = i;
+    while (i < body.length && body[i] !== "(" && body[i] !== " " && body[i] !== "\n" && body[i] !== "\t") {
+      i += 1;
+    }
+    tokens.push(body.slice(start, i));
   }
 
   let out = "";

@@ -101,7 +101,8 @@ The branch is already in good shape on these fronts:
 Direct explicit-pass parity is signed off under the refreshed 2026-05-09 harness, and the public preset slot is now enabled. These broader lanes remain open:
 
 - exact-slot debug-artifact replay is still canonically red in `.tmp/to-exact-slot-artifact`
-- first differing function in that replay is `defined=0 abs=17`, with apparent `select`/`if` representation drift after `code-pushing` and no-structure cleanup
+- the initial `defined=0 abs=17` `select`/`if` temporary-local representation drift is now classified in the compare tool, along with follow-on pure dropped-add, global-get alias, tail-return lowering, and simple trap-if inversion shapes
+- the current first differing function in that replay is `defined=29 abs=46`, with remaining nested `eqz`/empty-then `if` and tail-return/control-shape representation drift after `code-pushing` and no-structure cleanup
 - feature-off preset coverage is still pending explicit Starshine feature options
 - full debug-artifact replay and tuple-only runtime remain active TO005 debt
 
@@ -199,11 +200,21 @@ Fresh exact-slot artifact evidence on `2026-05-09`:
   - `Normalized WAT text equal: no`
   - `Normalized WAT equal: no`
   - `Canonical function compare equal: no`
-  - first differing function: `defined=0 abs=17`
+  - first differing function before this compare-tool normalization slice: `defined=0 abs=17`
   - `Starshine pass runtime (ms): 2485.260`
   - `Binaryen pass runtime (ms): 488565.000`
   - `Starshine pass at least as fast: yes`
-- The first differing function appears to be representation drift in the `select`/`if` family after the `code-pushing` + no-structure cleanup neighborhood, but this is an inference from the saved pretty-print pair and still needs a focused classification before TO005 can close.
+- Follow-up exact-slot artifact evidence after expanding canonical-function normalization on `2026-05-09`:
+  - command: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing --tuple-optimization --simplify-locals-nostructure --vacuum --reorder-locals --remove-unused-brs --out-dir .tmp/to-exact-slot-artifact`
+  - `Canonical wasm equal: no`
+  - `Normalized WAT text equal: no`
+  - `Normalized WAT equal: no`
+  - `Canonical function compare equal: no`
+  - current first differing function: `defined=29 abs=46`
+  - `Starshine pass runtime (ms): 2536.225` on one rerun and `2449.313` on the final rerun in this slice
+  - `Binaryen pass runtime (ms): 512680.000` on one rerun and `483573.000` on the final rerun in this slice
+  - `Starshine pass at least as fast: yes`
+- The original first differing function was representation drift in the `select`/`if` family after the `code-pushing` + no-structure cleanup neighborhood. The remaining red function appears to be deeper control-shape representation drift, not an isolated tuple scalarization mismatch, but TO005 remains open until exact-slot artifact canonical comparison is green or the residual drift is explicitly accepted.
 
 The older backlog entry that treated `/tmp/self-opt-tuple-current` as a tuple-pass blocker is now retired as a parity blocker.
 

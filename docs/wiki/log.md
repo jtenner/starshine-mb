@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] tooling | narrow tuple exact-slot artifact drift
+
+- Extended the self-opt compare canonical-function fallback for tuple exact-slot replay representation drift: pure `if`/`select` lowering with temporary locals, dropped pure `i32.add` tails, global-get temp aliases, simple tail-return lowering, and trap-if inversion/empty-then forms.
+- Added script coverage in `scripts/test/self-optimize-compare-canonical-func-command.ts` for those canonical fallback shapes; focused script test, `moon info`, `moon fmt`, and `moon test` passed.
+- Replayed the exact slot on `tests/node/dist/starshine-debug-wasi.wasm` at `.tmp/to-exact-slot-artifact`; the previous first diff at `defined=0 abs=17` is classified by the compare tool, and the current first diff is `defined=29 abs=46` in deeper nested `eqz` / tail-return control-shape drift. `[TO]005` remains open until canonical artifact compare is green or the residual representation drift is explicitly accepted.
+
 ## [2026-05-09] scheduler | enable tuple exact local slot after `code-pushing`
 
 - Added `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` to the exact local helper and public `optimize` / `shrink` preset path, so `code-pushing` now occupies the documented Binaryen slot immediately before tuple optimization.
