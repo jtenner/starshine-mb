@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-09
 sources:
   - ../../../raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md
   - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
@@ -29,9 +29,9 @@ related:
 ## Durable Conclusions
 
 - Starshine's tuple-opt should be judged first against Binaryen, not against a home-grown notion of "reasonable multivalue cleanup."
-- The explicit pass surface is real and useful today, but it is not yet preset-slot parity.
-- The isolated pass has fresh direct parity evidence under the 2026-05-06 refreshed `pass-fuzz-compare` harness.
-- The old white-box exact-shape reds were stale expectation debt and are now rebaselined to the current Binaryen-backed scalarization contract; full artifact parity is still not signed off.
+- The explicit pass surface is real and useful today, and the exact in-tree preset slot is now scheduled in `optimize` and `shrink`.
+- The isolated pass has fresh direct parity evidence under the 2026-05-09 refreshed `pass-fuzz-compare` harness.
+- The old white-box exact-shape reds were stale expectation debt and are now rebaselined to the current Binaryen-backed scalarization contract; full exact-slot artifact parity is still not signed off.
 
 ## Current In-Tree Status
 
@@ -39,11 +39,23 @@ related:
 - Focused white-box coverage lives in [`../../../../../src/passes/tuple_optimization_wbtest.mbt`](../../../../../src/passes/tuple_optimization_wbtest.mbt).
 - CLI and emitted-module shape checks live in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
 - Direct native Binaryen comparison lives in [`../../../../../src/cmd/cmd_native_wbtest.mbt`](../../../../../src/cmd/cmd_native_wbtest.mbt).
-- Preset placement is still intentionally deferred in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- Preset placement now lives in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt): `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs -> heap2local`.
 
 ## Current Direct Test Evidence
 
-Fresh direct revalidation taken for this doc update on `2026-05-06`:
+Fresh direct revalidation taken for this doc update on `2026-05-09`:
+
+- `moon test src/passes`
+  - result: `806 / 806` passed after the preset-slot scheduling tests were updated
+- `moon test src/cmd`
+  - result: `130 / 130` passed
+- `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-tuple-optimization-slot`
+  - result: `6759 / 10000` compared, `6759` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `20` command failures
+  - command-failure classification: `binaryen-rec-group-zero` (`17`), `binaryen-bad-section-size` (`1`), `binaryen-table-index-out-of-range` (`1`), `binaryen-invalid-tag-index` (`1`)
+- `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 --seed 0x5eed --generator gen-valid --max-failures 20 --out-dir .tmp/pass-fuzz-tuple-optimization-gen-valid-slot`
+  - result: `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
+
+Previous direct revalidation taken on `2026-05-06`:
 
 - `moon info`
   - result: completed with existing warnings only
@@ -86,10 +98,11 @@ The branch is already in good shape on these fronts:
 
 ## Current Red Surface
 
-Direct explicit-pass parity is signed off under the refreshed 2026-05-06 harness, but these broader lanes are still open:
+Direct explicit-pass parity is signed off under the refreshed 2026-05-09 harness, and the public preset slot is now enabled. These broader lanes remain open:
 
-- preset slot still not enabled in the real Binaryen neighborhood
-- exact `code-pushing -> tuple-optimization -> simplify-locals-nostructure` slot proof is still pending
+- exact-slot debug-artifact replay is still canonically red in `.tmp/to-exact-slot-artifact`
+- first differing function in that replay is `defined=0 abs=17`, with apparent `select`/`if` representation drift after `code-pushing` and no-structure cleanup
+- feature-off preset coverage is still pending explicit Starshine feature options
 - full debug-artifact replay and tuple-only runtime remain active TO005 debt
 
 ## 2026-04-11 Health Rerun
@@ -167,17 +180,30 @@ These results are still not enough for final signoff because:
   - the same `10000`-case lane is clean when the harness calls the built native binary directly via `--starshine-bin _build/native/release/build/cmd/cmd.exe`
   - `pass-fuzz-compare` now retries that narrow successful-but-no-output `moon run` launcher churn, so the historical stop remains launcher evidence rather than a standing tuple-opt workaround or semantic mismatch
 
-## Preset And Scheduler Gap
+## Preset And Scheduler Status
 
-The pass is still absent from `optimize` and `shrink`.
+The pass is now present in `optimize` and `shrink`.
 
-That is intentional, not an oversight:
+Current scheduled neighborhood:
 
-- Binaryen wants `code-pushing -> tuple-optimization -> simplify-locals-nostructure`
-- Starshine does not yet have that exact neighborhood represented in public presets
-- enabling tuple-opt in an approximate slot would blur the difference between "explicit pass parity" and "preset parity"
+- `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs -> heap2local`
+
+This intentionally matches Binaryen's local no-DWARF slot rather than an approximate placement. The remaining scheduler gap is no longer pass availability; it is exact-slot artifact proof plus feature-off coverage.
 
 ## Artifact And Performance Gap
+
+Fresh exact-slot artifact evidence on `2026-05-09`:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing --tuple-optimization --simplify-locals-nostructure --vacuum --reorder-locals --remove-unused-brs --out-dir .tmp/to-exact-slot-artifact`
+  - `Canonical wasm equal: no`
+  - `Normalized WAT text equal: no`
+  - `Normalized WAT equal: no`
+  - `Canonical function compare equal: no`
+  - first differing function: `defined=0 abs=17`
+  - `Starshine pass runtime (ms): 2485.260`
+  - `Binaryen pass runtime (ms): 488565.000`
+  - `Starshine pass at least as fast: yes`
+- The first differing function appears to be representation drift in the `select`/`if` family after the `code-pushing` + no-structure cleanup neighborhood, but this is an inference from the saved pretty-print pair and still needs a focused classification before TO005 can close.
 
 The older backlog entry that treated `/tmp/self-opt-tuple-current` as a tuple-pass blocker is now retired as a parity blocker.
 

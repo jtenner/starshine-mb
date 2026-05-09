@@ -104,7 +104,7 @@ test "simplify-locals-nostructure does not synthesize if results" {
 }
 
 ///|
-test "simplify-locals-nostructure exact slot replays tuple cleanup before vacuum and reorder-locals" {
+test "simplify-locals-nostructure exact slot replays code-pushing and tuple cleanup before vacuum and reorder-locals" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
     "(module (func (result i32) (local i32 i32 i32) block (result i32 i32 i32) i32.const 10 i32.const 20 i32.const 30 end local.set 2 local.set 1 local.set 0 local.get 0))",
@@ -131,18 +131,22 @@ test "simplify-locals-nostructure exact slot replays tuple cleanup before vacuum
   let starts = trace.filter(fn(line) {
     line.contains("pass[") && line.contains(":start")
   })
-  assert_true(starts.length() >= 4, msg=starts.to_string())
+  assert_true(starts.length() >= 5, msg=starts.to_string())
   assert_true(
-    starts[0].contains("pass[tuple-optimization]:start"),
+    starts[0].contains("pass[code-pushing]:start"),
     msg=starts.to_string(),
   )
   assert_true(
-    starts[1].contains("pass[simplify-locals-nostructure]:start"),
+    starts[1].contains("pass[tuple-optimization]:start"),
     msg=starts.to_string(),
   )
-  assert_true(starts[2].contains("pass[vacuum]:start"), msg=starts.to_string())
   assert_true(
-    starts[3].contains("pass[reorder-locals]:start"),
+    starts[2].contains("pass[simplify-locals-nostructure]:start"),
+    msg=starts.to_string(),
+  )
+  assert_true(starts[3].contains("pass[vacuum]:start"), msg=starts.to_string())
+  assert_true(
+    starts[4].contains("pass[reorder-locals]:start"),
     msg=starts.to_string(),
   )
 
@@ -190,7 +194,7 @@ test "simplify-locals-nostructure exact slot keeps the no-structure if boundary"
   let starts = trace.filter(fn(line) {
     line.contains("pass[") && line.contains(":start")
   })
-  assert_true(starts.length() >= 4, msg=starts.to_string())
+  assert_true(starts.length() >= 5, msg=starts.to_string())
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("if I32"), msg=pretty)
   assert_true(pretty.contains("if (Void)"), msg=pretty)

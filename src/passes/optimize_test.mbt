@@ -354,31 +354,34 @@ test "run_hot_pipeline stages nested branch-exit triple-result roots through spl
 }
 
 ///|
-test "tuple-optimization exact preset prereqs see no-structure pass but presets stay conservative" {
+test "tuple-optimization exact preset prereqs place code-pushing before the tuple slot" {
   assert_true(tuple_optimization_exact_slot_prereqs_ready())
-  assert_false(
-    optimize_preset_passes(HotPipelineOptions::new()).contains(
-      "tuple-optimization",
-    ),
-  )
-  assert_false(
-    shrink_preset_passes(HotPipelineOptions::new()).contains(
-      "tuple-optimization",
-    ),
-  )
+  let optimize = optimize_preset_passes(HotPipelineOptions::new())
+  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  for preset in [optimize, shrink] {
+    @debug.assert_eq(preset[14], "precompute")
+    @debug.assert_eq(preset[15], "code-pushing")
+    @debug.assert_eq(preset[16], "tuple-optimization")
+    @debug.assert_eq(preset[17], "simplify-locals-nostructure")
+    @debug.assert_eq(preset[18], "vacuum")
+    @debug.assert_eq(preset[19], "reorder-locals")
+    @debug.assert_eq(preset[20], "remove-unused-brs")
+    @debug.assert_eq(preset[21], "heap2local")
+  }
 }
 
 ///|
 test "simplify-locals-nostructure exact slot helper exposes the ordered replay lane" {
   @debug.assert_eq(simplify_locals_nostructure_exact_slot_passes(), [
-    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+    "code-pushing", "tuple-optimization", "simplify-locals-nostructure", "vacuum",
+    "reorder-locals", "remove-unused-brs",
   ])
-  assert_false(
+  assert_true(
     optimize_preset_passes(HotPipelineOptions::new()).contains(
       "simplify-locals-nostructure",
     ),
   )
-  assert_false(
+  assert_true(
     shrink_preset_passes(HotPipelineOptions::new()).contains("reorder-locals"),
   )
 }
@@ -559,11 +562,20 @@ test "shrink preset replays merge-blocks in both late MB slots" {
 }
 
 ///|
-test "optimize and shrink presets do not schedule reorder-locals before its neighboring local passes land" {
+test "optimize and shrink presets schedule reorder-locals only inside the tuple no-structure slot" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
-  assert_false(optimize.contains("reorder-locals"))
-  assert_false(shrink.contains("reorder-locals"))
+  for preset in [optimize, shrink] {
+    let reorder_slots : Array[Int] = []
+    for idx = 0; idx < preset.length(); idx = idx + 1 {
+      if preset[idx] == "reorder-locals" {
+        reorder_slots.push(idx)
+      }
+    }
+    @debug.assert_eq(reorder_slots, [19])
+    @debug.assert_eq(preset[reorder_slots[0] - 1], "vacuum")
+    @debug.assert_eq(preset[reorder_slots[0] + 1], "remove-unused-brs")
+  }
 }
 
 ///|
@@ -590,13 +602,13 @@ test "simplify-locals-notee-nostructure exact neighborhood waits for flatten" {
 ///|
 test "optimize preset schedules the proven optimize-casts GC/local cleanup neighborhood" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
-  @debug.assert_eq(optimize[15], "remove-unused-brs")
-  @debug.assert_eq(optimize[16], "heap2local")
-  @debug.assert_eq(optimize[17], "optimize-casts")
-  @debug.assert_eq(optimize[18], "local-subtyping")
-  @debug.assert_eq(optimize[19], "coalesce-locals")
-  @debug.assert_eq(optimize[20], "local-cse")
-  @debug.assert_eq(optimize[21], "simplify-locals")
+  @debug.assert_eq(optimize[20], "remove-unused-brs")
+  @debug.assert_eq(optimize[21], "heap2local")
+  @debug.assert_eq(optimize[22], "optimize-casts")
+  @debug.assert_eq(optimize[23], "local-subtyping")
+  @debug.assert_eq(optimize[24], "coalesce-locals")
+  @debug.assert_eq(optimize[25], "local-cse")
+  @debug.assert_eq(optimize[26], "simplify-locals")
 }
 
 ///|

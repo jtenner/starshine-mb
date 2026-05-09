@@ -51,8 +51,8 @@ Completed direct-pass slices
 #### TO - Tuple Optimization
 
 - [TO]005 - Exact Slot Gate And Oracle Proof
-  - Deliverables: place the pass after `code-pushing` and before `simplify-locals-nostructure` once that slot exists in-tree; add feature-off preset coverage; prove the landed HOT-native rewrite with `pass-fuzz` and debug-artifact compare.
-  - Remaining TODOs: retire pre-lower carrier debt in chained host-copy `tail-live0`; keep full debug-artifact compare canonically green while reducing tuple runtime, especially candidate-heavy functions such as `Func 1673`.
+  - Current status: `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` is now represented in the exact helper and public `optimize` / `shrink` presets; direct `tuple-optimization` proof was refreshed on 2026-05-09 with both mixed-generator and `gen-valid` `pass-fuzz` lanes.
+  - Remaining TODOs: classify and close the exact-slot debug-artifact canonical-function drift first seen at `.tmp/to-exact-slot-artifact` (`defined=0 abs=17`, apparent `select`/`if` representation drift after `code-pushing` + no-structure cleanup); add any missing feature-off preset coverage if/when Starshine gains explicit feature options; retire pre-lower carrier debt in chained host-copy `tail-live0`; keep full debug-artifact compare canonically green while reducing tuple runtime, especially candidate-heavy functions such as `Func 1673`.
 
 #### SL - Simplify Locals
 

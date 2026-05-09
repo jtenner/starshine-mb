@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] scheduler | enable tuple exact local slot after `code-pushing`
+
+- Added `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` to the exact local helper and public `optimize` / `shrink` preset path, so `code-pushing` now occupies the documented Binaryen slot immediately before tuple optimization.
+- Updated preset and ordered-slot tests in `src/passes/optimize_test.mbt`, `src/passes/registry_test.mbt`, and `src/passes/simplify_locals_nostructure_test.mbt`; focused checks passed with `moon test src/passes` (`806 / 806`) and `moon test src/cmd` (`130 / 130`).
+- Refreshed direct tuple proof: mixed-generator fuzz at `.tmp/pass-fuzz-tuple-optimization-slot` had `6759 / 10000` compared, `6759` matches, `0` mismatches, and `20` Binaryen/tool command failures; gen-valid fuzz at `.tmp/pass-fuzz-tuple-optimization-gen-valid-slot` had `10000 / 10000` compared, `10000` matches, and no failures.
+- Replayed the exact slot on `tests/node/dist/starshine-debug-wasi.wasm` at `.tmp/to-exact-slot-artifact`; canonical function compare is still red at `defined=0 abs=17`, apparently `select`/`if` representation drift after the code-pushing/no-structure neighborhood, so `[TO]005` remains open for artifact classification and feature-off coverage.
+
 ## [2026-05-09] passes | accept direct `code-pushing`
 
 - Accepted direct `code-pushing` under the pass-wide criteria of Binaryen semantic parity, valid wasm output, and Starshine pass-local timing at least 50% of Binaryen (`starshine_time <= 2 * binaryen_time`).

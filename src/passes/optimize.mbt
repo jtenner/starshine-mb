@@ -294,9 +294,10 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
         "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-        "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-        "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
-        "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing",
+        "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+        "remove-unused-brs", "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals",
+        "local-cse", "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
         "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
       ],
     ),
@@ -307,9 +308,10 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
         "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-        "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-        "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
-        "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing",
+        "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+        "remove-unused-brs", "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals",
+        "local-cse", "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
         "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
       ],
     ),
@@ -443,15 +445,13 @@ pub fn simplify_locals_notee_nostructure_exact_neighborhood_ready() -> Bool {
 ///|
 pub fn simplify_locals_nostructure_exact_slot_passes() -> Array[String] {
   [
-    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+    "code-pushing", "tuple-optimization", "simplify-locals-nostructure", "vacuum",
+    "reorder-locals", "remove-unused-brs",
   ]
 }
 
 ///|
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
-  // Keep tuple-optimization off the public presets until its exact Binaryen
-  // slot is representable in-tree. The explicit pass surface stays active.
-  ignore(tuple_optimization_exact_slot_prereqs_ready())
   // Keep the aggressive flatten -> simplify-locals-notee-nostructure ->
   // local-cse neighborhood off public presets until both neighbors are active.
   ignore(simplify_locals_notee_nostructure_exact_neighborhood_ready())
@@ -459,7 +459,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
+    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "tuple-optimization",
+    "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
     "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
     "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
     "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
@@ -468,13 +469,13 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
 
 ///|
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
-  ignore(tuple_optimization_exact_slot_prereqs_ready())
   ignore(simplify_locals_notee_nostructure_exact_neighborhood_ready())
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
+    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "tuple-optimization",
+    "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
     "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
     "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
     "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",

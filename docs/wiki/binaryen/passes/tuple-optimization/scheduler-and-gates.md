@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-09
 sources:
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
@@ -56,31 +56,27 @@ Why the gate is exact and important:
 
 For the in-tree code map, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./implementation-map.md`](./implementation-map.md).
 
-Starshine currently has two different truths at once:
-
-- the explicit pass exists and is fully registered
-- the public presets still omit it
-
-What is already live:
+Starshine now has the explicit pass and the public preset slot live:
 
 - `tuple-optimization` is a real hot pass registry entry in `src/passes/optimize.mbt`
 - `run_hot_pipeline(..., ["tuple-optimization"])` works
 - CLI invocation through `--tuple-optimization` works
 - pass-manager dispatch exists in `src/passes/pass_manager.mbt`
+- `optimize` and `shrink` schedule the exact in-tree neighborhood `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs -> heap2local`
+- `simplify_locals_nostructure_exact_slot_passes()` exposes `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` for focused replay tests
 
-What is intentionally still missing:
+What remains intentionally tracked as unfinished:
 
-- preset inclusion in `optimize`
-- preset inclusion in `shrink`
-- exact preset-level multivalue slot coverage and ordered replay proof for the surrounding Binaryen neighborhood
+- explicit feature-off preset coverage once Starshine has feature options that can model Binaryen's multivalue gate
+- exact-slot debug-artifact canonical compare closure for the current representation drift in `.tmp/to-exact-slot-artifact`
 
-## Why Presets Still Omit The Pass
+## Preset Slot Status
 
 Starshine has an explicit helper:
 
 - `tuple_optimization_exact_slot_prereqs_ready()`
 
-Today that helper checks the two neighbor passes and now resolves true in-tree:
+That helper checks the two critical neighbor passes and resolves true in-tree:
 
 - `code-pushing`
 - `simplify-locals-no-structure` / `simplify-locals-nostructure`
@@ -88,13 +84,13 @@ Today that helper checks the two neighbor passes and now resolves true in-tree:
 Current result:
 
 - the helper no longer blocks on pass availability
-- the `optimize` and `shrink` preset builders still intentionally ignore it pending ordered-neighborhood replay and exact slot proof
+- the `optimize` and `shrink` preset builders now include the exact local neighborhood rather than an approximate slot
+- `remove-unused-brs` remains after `reorder-locals`, matching the documented Binaryen no-DWARF top-level shape for this lane
 
-Why this is the correct temporary behavior:
+Why this is still not full scheduler signoff:
 
-- approximate placement would give false confidence about Binaryen pathway parity
-- tuple-opt is unusually order-sensitive because it is meant to sit between an earlier tuple-removing peephole neighborhood and later local cleanup passes
-- correctness proof on the explicit pass surface is valuable, but it is not the same thing as preset parity
+- Starshine does not yet expose feature options that can prove the multivalue-off preset omission branch directly
+- the exact-slot debug-artifact replay is still canonically red on current head, first differing at `defined=0 abs=17` with apparent `select`/`if` representation drift after `code-pushing` and no-structure cleanup
 
 ## Current Starshine Gate Behavior
 
@@ -147,19 +143,19 @@ Practical consequence on the debug artifact:
   - inside `pass:tuple-optimization`, `Func 1673` now dominates at roughly `101831 us`, with the next tier far behind (`148` at `14719 us`, `2389` at `10152 us`, `1905` at `6557 us`, `3660` at `5725 us`, `147` at `5556 us`)
   - outside the pass timer, `analysis:use-def` still spends most of its time in different functions (`3612`, `1553`, `1525`), so future tuple runtime work should keep those two costs separate instead of treating aggregate wall time as pure tuple-pass debt
 
-## Required Future Conditions Before Preset Enablement
+## Remaining Scheduler Conditions
 
-Before tuple-opt should move into public presets, the branch still needs all of:
+After preset enablement, the branch still needs all of:
 
-- exact `code-pushing -> tuple-optimization -> simplify-locals-nostructure` slot representation
-- feature-off preset coverage
-- direct pass parity proof still green
+- feature-off preset coverage once feature flags are representable in Starshine options
+- direct pass parity proof to stay green
 - artifact replay evidence from the real preset neighborhood, not just the isolated explicit pass
+- classification or normalization of the current `defined=0 abs=17` exact-slot artifact drift without hiding a semantic bug
 
 ## Practical Rule
 
 - Treat explicit-pass success as a prerequisite, not as final scheduler signoff.
-- Do not sneak tuple-opt into a nearby preset slot just because the direct pass is mostly correct.
+- Keep tuple-opt in the exact `code-pushing -> tuple-optimization -> simplify-locals-nostructure` neighborhood; do not move it to a nearby approximate slot.
 - If a future parity bug appears only under the real preset neighborhood, classify it as a scheduler-neighbor bug first, not automatically as a tuple rewrite bug.
 
 ## Sources
