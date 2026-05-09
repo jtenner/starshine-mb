@@ -34,6 +34,26 @@ test "simplify-locals-notee-nostructure accepts O4z spelling" {
 }
 
 ///|
+test "simplify-locals-nostructure folds dead exact-slot set-copy local" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32 i32) (local.set 2 (block $block (result i32) (if (local.get 0) (then (i32.const 7) (br $block))) (i32.const 9))) (local.set 1 (local.get 2)) (i32.add (local.get 1) (local.get 1))))",
+      ["simplify-locals-nostructure", "reorder-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure set-copy fold success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("Local 1"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
 test "simplify-locals-notee-nostructure does not create tees for multi-use locals" {
   let optimized = match
     pass_test_run_pipeline(

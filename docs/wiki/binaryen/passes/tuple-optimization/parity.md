@@ -102,7 +102,7 @@ Direct explicit-pass parity is signed off under the refreshed 2026-05-09 harness
 
 - exact-slot debug-artifact replay is still canonically red in `.tmp/to-exact-slot-artifact`
 - the initial `defined=0 abs=17` `select`/`if` temporary-local representation drift is now classified in the compare tool, along with follow-on pure dropped-add, global-get alias, tail-return lowering, and simple trap-if inversion shapes
-- the current first differing function in that replay is `defined=29 abs=46`, with remaining nested `eqz`/empty-then `if` and tail-return/control-shape representation drift after `code-pushing` and no-structure cleanup
+- the current first differing function in that replay is `defined=29 abs=46`; the actual Starshine output now avoids the tail `return` + trailing `unreachable` and empty-then `if` inversions, so the remaining byte-efficiency/code-quality gap is the extra block-result local materialization before `local.set $2`
 - feature-off preset coverage is still pending explicit Starshine feature options
 - full debug-artifact replay and tuple-only runtime remain active TO005 debt
 
@@ -204,17 +204,17 @@ Fresh exact-slot artifact evidence on `2026-05-09`:
   - `Starshine pass runtime (ms): 2485.260`
   - `Binaryen pass runtime (ms): 488565.000`
   - `Starshine pass at least as fast: yes`
-- Follow-up exact-slot artifact evidence after expanding canonical-function normalization on `2026-05-09`:
+- Follow-up exact-slot artifact evidence after fixing actual output code-quality gaps on `2026-05-09`:
   - command: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing --tuple-optimization --simplify-locals-nostructure --vacuum --reorder-locals --remove-unused-brs --out-dir .tmp/to-exact-slot-artifact`
   - `Canonical wasm equal: no`
   - `Normalized WAT text equal: no`
   - `Normalized WAT equal: no`
   - `Canonical function compare equal: no`
   - current first differing function: `defined=29 abs=46`
-  - `Starshine pass runtime (ms): 2536.225` on one rerun and `2449.313` on the final rerun in this slice
-  - `Binaryen pass runtime (ms): 512680.000` on one rerun and `483573.000` on the final rerun in this slice
+  - `Starshine pass runtime (ms): 2618.045`
+  - `Binaryen pass runtime (ms): 482170.000`
   - `Starshine pass at least as fast: yes`
-- The original first differing function was representation drift in the `select`/`if` family after the `code-pushing` + no-structure cleanup neighborhood. The remaining red function appears to be deeper control-shape representation drift, not an isolated tuple scalarization mismatch, but TO005 remains open until exact-slot artifact canonical comparison is green or the residual drift is explicitly accepted.
+- The original first differing function was representation drift in the `select`/`if` family after the `code-pushing` + no-structure cleanup neighborhood. The latest pass work fixed the real byte-efficiency issues around tail fallthrough and empty-then inversion in Starshine output. TO005 remains open because the same function still has a real extra-local materialization gap: Binaryen lowers the block result directly into `$2`, while Starshine still routes it through an extra local before copying to `$2`.
 
 The older backlog entry that treated `/tmp/self-opt-tuple-current` as a tuple-pass blocker is now retired as a parity blocker.
 

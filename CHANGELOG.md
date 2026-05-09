@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-09 Passes: narrow tuple exact-slot code-quality drift
+
+- **fix actual Starshine output for the tuple exact-slot tail-fallthrough and empty-then `if` byte-efficiency gaps, add focused `remove-unused-brs` and `simplify-locals-nostructure` regressions, and narrow `[TO]005` to the remaining real extra-local block-result materialization at `defined=29 abs=46`** by **@OpenAI**. Updated [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt), [`src/passes/simplify_locals.mbt`](./src/passes/simplify_locals.mbt), [`src/passes/simplify_locals_nostructure_test.mbt`](./src/passes/simplify_locals_nostructure_test.mbt), [`docs/wiki/binaryen/passes/tuple-optimization/parity.md`](./docs/wiki/binaryen/passes/tuple-optimization/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-09 Tooling: narrow tuple exact-slot artifact drift
 
 - **extend the self-opt compare canonical-function fallback for tuple exact-slot representation drift, classify the original `defined=0 abs=17` `select`/`if` temp-local mismatch, and move the remaining exact-slot debug-artifact blocker to `defined=29 abs=46` nested `eqz` / tail-return control-shape drift while keeping `[TO]005` open** by **@OpenAI**. Updated [`scripts/lib/self-optimize-compare-task.ts`](./scripts/lib/self-optimize-compare-task.ts), [`scripts/test/self-optimize-compare-canonical-func-command.ts`](./scripts/test/self-optimize-compare-canonical-func-command.ts), [`docs/wiki/binaryen/passes/tuple-optimization/parity.md`](./docs/wiki/binaryen/passes/tuple-optimization/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

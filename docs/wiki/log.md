@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] passes | narrow tuple exact-slot code-quality drift
+
+- Fixed actual Starshine output for the current tuple exact-slot `defined=29 abs=46` code-quality gaps: `remove-unused-brs` now lets void tail-loop `return` arms fall through at function exit instead of emitting `return` plus trailing `unreachable`, and it inverts empty-then `if` forms into one-arm payload `if`s.
+- Added a no-structure simplify-locals regression for dead set-copy locals so exact-slot cleanup can fold stack-style value spills when they appear before reorder-locals.
+- Replayed the exact slot on `tests/node/dist/starshine-debug-wasi.wasm` at `.tmp/to-exact-slot-artifact`; canonical function compare remains red at `defined=29 abs=46`, now narrowed to a byte-efficiency/code-quality local materialization gap where Starshine still copies a block result through an extra local before setting `$2`.
+
 ## [2026-05-09] tooling | narrow tuple exact-slot artifact drift
 
 - Extended the self-opt compare canonical-function fallback for tuple exact-slot replay representation drift: pure `if`/`select` lowering with temporary locals, dropped pure `i32.add` tails, global-get temp aliases, simple tail-return lowering, and trap-if inversion/empty-then forms.

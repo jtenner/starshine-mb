@@ -84,6 +84,43 @@ test "remove-unused-brs removes trailing multi-value return at function exit" {
 }
 
 ///|
+test "remove-unused-brs lets tail loop return fall through void function exit" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (loop $outer (loop $inner (br $outer)) (if (local.get 0) (then (return)) (else (br $outer))) unreachable) unreachable))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs tail-loop return success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("(loop (Void)"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs inverts empty-then ifs into one-arm payload ifs" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (if (i32.eqz (local.get 0)) (then) (else (drop (i32.const 9))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs empty-then success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("else"), msg=pretty)
+  assert_true(pretty.contains("i32.eqz"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites one-armed if break into br_if" {
   let optimized = match
     pass_test_run_pipeline(
@@ -514,7 +551,7 @@ test "remove-unused-brs restructures one-arm return ifs with nonfallthrough suff
 }
 
 ///|
-test "remove-unused-brs restructures loop-body one-arm return ifs with nonfallthrough suffixes into else arms" {
+test "remove-unused-brs lets loop-body one-arm return ifs fall through at void function exit" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32 i32 i32) (loop $loop (if (local.get 0) (then (return))) (local.set 1 (local.get 2)) (local.set 2 (i32.add (local.get 1) (i32.const 1))) (br $loop)) unreachable))",
@@ -530,8 +567,8 @@ test "remove-unused-brs restructures loop-body one-arm return ifs with nonfallth
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_true(pretty.contains("else"), msg=pretty)
-  assert_true(pretty.contains("return"), msg=pretty)
-  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
 }
 
 ///|

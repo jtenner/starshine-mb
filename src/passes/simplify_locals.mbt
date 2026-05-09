@@ -4307,13 +4307,230 @@ fn simplify_locals_equivalent_candidate_count(
 }
 
 ///|
+fn simplify_locals_fold_dead_set_copy_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  get_counts : Array[Int],
+  detached : Array[Int],
+) -> Bool {
+  let mut changed = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        changed = simplify_locals_fold_dead_set_copy_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            get_counts,
+            detached,
+          ) ||
+          changed
+      @ir.HotOp::If => {
+        changed = simplify_locals_fold_dead_set_copy_region(
+            ctx,
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+            get_counts,
+            detached,
+          ) ||
+          changed
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            changed = simplify_locals_fold_dead_set_copy_region(
+                ctx, func, else_ref, get_counts, detached,
+              ) ||
+              changed
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        changed = simplify_locals_fold_dead_set_copy_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            get_counts,
+            detached,
+          ) ||
+          changed
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            changed = simplify_locals_fold_dead_set_copy_region(
+                ctx, func, catch_ref, get_counts, detached,
+              ) ||
+              changed
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable => {
+        changed = simplify_locals_fold_dead_set_copy_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            get_counts,
+            detached,
+          ) ||
+          changed
+        changed = simplify_locals_fold_dead_set_copy_region(
+            ctx,
+            func,
+            @ir.hot_region_catch_list_ref(func, node_id),
+            get_counts,
+            detached,
+          ) ||
+          changed
+      }
+      _ => ()
+    }
+  }
+  let mut idx = 0
+  while idx + 3 < @ir.hot_region_root_count(func, region_ref) {
+    let value_id = @ir.hot_region_get(func, region_ref, idx)
+    let spill_set_id = @ir.hot_region_get(func, region_ref, idx + 1)
+    let reload_id = @ir.hot_region_get(func, region_ref, idx + 2)
+    let target_set_id = @ir.hot_region_get(func, region_ref, idx + 3)
+    if value_id >= 0 &&
+      spill_set_id >= 0 &&
+      reload_id >= 0 &&
+      target_set_id >= 0 &&
+      @ir.hot_node_is_live(func, value_id) &&
+      @ir.hot_node_is_live(func, spill_set_id) &&
+      @ir.hot_node_is_live(func, reload_id) &&
+      @ir.hot_node_is_live(func, target_set_id) {
+      let spill_set = @ir.hot_node_get(func, spill_set_id)
+      let reload = @ir.hot_node_get(func, reload_id)
+      let target_set = @ir.hot_node_get(func, target_set_id)
+      match (spill_set.op, reload.op, target_set.op) {
+        (@ir.HotOp::LocalSet, @ir.HotOp::LocalGet, @ir.HotOp::LocalSet) => {
+          let scratch = spill_set.imm0
+          if @ir.hot_node_result_arity(func, value_id) == 1 &&
+            spill_set.child_count == 0 &&
+            reload.child_count == 0 &&
+            target_set.child_count == 0 &&
+            scratch >= 0 &&
+            scratch < get_counts.length() &&
+            scratch != target_set.imm0 &&
+            reload.imm0 == scratch &&
+            get_counts[scratch] == 1 {
+            let replacement_set = @ir.hot_build_local_set(
+              func,
+              target_set.imm0,
+              value_id,
+            )
+            let removed = @ir.hot_region_splice(func, region_ref, idx, 4, [
+              replacement_set,
+            ])
+            for removed_id in removed {
+              if removed_id != value_id {
+                detached.push(removed_id)
+              }
+            }
+            changed = true
+            idx += 1
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
+    idx += 1
+  }
+  idx = 0
+  while idx + 1 < @ir.hot_region_root_count(func, region_ref) {
+    let first_id = @ir.hot_region_get(func, region_ref, idx)
+    let second_id = @ir.hot_region_get(func, region_ref, idx + 1)
+    if first_id < 0 ||
+      second_id < 0 ||
+      !@ir.hot_node_is_live(func, first_id) ||
+      !@ir.hot_node_is_live(func, second_id) {
+      idx += 1
+      continue
+    }
+    let first = @ir.hot_node_get(func, first_id)
+    let second = @ir.hot_node_get(func, second_id)
+    match first.op {
+      @ir.HotOp::LocalSet => ()
+      _ => {
+        idx += 1
+        continue
+      }
+    }
+    match second.op {
+      @ir.HotOp::LocalSet => ()
+      _ => {
+        idx += 1
+        continue
+      }
+    }
+    if first.child_count != 1 || second.child_count != 1 {
+      idx += 1
+      continue
+    }
+    let scratch = first.imm0
+    if scratch < 0 ||
+      scratch >= get_counts.length() ||
+      scratch == second.imm0 ||
+      get_counts[scratch] != 1 {
+      idx += 1
+      continue
+    }
+    let get_id = @ir.hot_child_get(func, second_id, 0)
+    if get_id < 0 || !@ir.hot_node_is_live(func, get_id) {
+      idx += 1
+      continue
+    }
+    let get_node = @ir.hot_node_get(func, get_id)
+    match get_node.op {
+      @ir.HotOp::LocalGet => ()
+      _ => {
+        idx += 1
+        continue
+      }
+    }
+    if get_node.imm0 != scratch {
+      idx += 1
+      continue
+    }
+    if pass_node_use_count(ctx, func, get_id) != 1 {
+      idx += 1
+      continue
+    }
+    @ir.hot_replace_node(
+      func,
+      first_id,
+      simplify_locals_make_local_set(
+        func,
+        second.imm0,
+        @ir.hot_child_get(func, first_id, 0),
+      ),
+    )
+    @ir.hot_replace_node(func, second_id, simplify_locals_make_nop(func))
+    detached.push(get_id)
+    changed = true
+    idx += 2
+  }
+  changed
+}
+
+///|
 fn simplify_locals_run_dead_cleanup(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   detached : Array[Int],
   rehomed_owners : Array[SimplifyLocalsDetachedControlOwner],
 ) -> Bool {
   let get_counts = simplify_locals_count_local_gets(func)
-  let mut changed = false
+  let mut changed = simplify_locals_fold_dead_set_copy_region(
+    ctx,
+    func,
+    @ir.HotRegionRef::root(),
+    get_counts,
+    detached,
+  )
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -4450,7 +4667,7 @@ fn simplify_locals_run_with_options(
     let cleanup_detached : Array[Int] = []
     let cleanup_rehomed_owners : Array[SimplifyLocalsDetachedControlOwner] = []
     let cleanup_changed = simplify_locals_run_dead_cleanup(
-      func, cleanup_detached, cleanup_rehomed_owners,
+      ctx, func, cleanup_detached, cleanup_rehomed_owners,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -4549,7 +4766,7 @@ fn simplify_locals_run_with_options(
     let late_cleanup_detached : Array[Int] = []
     let late_cleanup_rehomed_owners : Array[SimplifyLocalsDetachedControlOwner] = []
     let late_cleanup_changed = simplify_locals_run_dead_cleanup(
-      func, late_cleanup_detached, late_cleanup_rehomed_owners,
+      ctx, func, late_cleanup_detached, late_cleanup_rehomed_owners,
     )
     perf_stop_timer_opt(
       ctx.perf,
