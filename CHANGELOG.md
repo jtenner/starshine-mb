@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-09 Passes: narrow tuple exact-slot artifact drift
+
+- **fix the tuple exact-slot `defined=29`, `defined=31`, `defined=33`, and `defined=200` pass-shape drifts by folding cleanup-nop local copies, accepting table-size select conditions, dropping nontrapping pure dropped trees, and stripping return-vs-block-exit unreachable wrappers while keeping `[TO]005` open for the remaining local.tee artifact drift** by **@OpenAI**. Updated [`src/passes/simplify_locals.mbt`](./src/passes/simplify_locals.mbt), [`src/passes/simplify_locals_nostructure_test.mbt`](./src/passes/simplify_locals_nostructure_test.mbt), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-09 Passes: narrow tuple exact-slot code-quality drift
 
 - **fix actual Starshine output for the tuple exact-slot tail-fallthrough and empty-then `if` byte-efficiency gaps, add focused `remove-unused-brs` and `simplify-locals-nostructure` regressions, and narrow `[TO]005` to the remaining real extra-local block-result materialization at `defined=29 abs=46`** by **@OpenAI**. Updated [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt), [`src/passes/simplify_locals.mbt`](./src/passes/simplify_locals.mbt), [`src/passes/simplify_locals_nostructure_test.mbt`](./src/passes/simplify_locals_nostructure_test.mbt), [`docs/wiki/binaryen/passes/tuple-optimization/parity.md`](./docs/wiki/binaryen/passes/tuple-optimization/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

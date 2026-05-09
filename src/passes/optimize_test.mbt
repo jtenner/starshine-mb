@@ -46,6 +46,26 @@ test "vacuum removes dropped pure scalar expressions" {
 }
 
 ///|
+test "vacuum removes dropped nontrapping local-read expressions" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (local i32) (drop (i32.add (local.get 0) (i32.const 1))) (local.set 1 (i32.const 4))))",
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected local-read vacuum pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected local-read vacuumed module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
 test "vacuum removes empty void blocks" {
   let input = pass_test_module_from_wat(
     "(module (func (local i32) block end i32.const 5 local.set 0))",

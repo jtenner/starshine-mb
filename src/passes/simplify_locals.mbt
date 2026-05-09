@@ -4391,8 +4391,24 @@ fn simplify_locals_fold_dead_set_copy_region(
   while idx + 3 < @ir.hot_region_root_count(func, region_ref) {
     let value_id = @ir.hot_region_get(func, region_ref, idx)
     let spill_set_id = @ir.hot_region_get(func, region_ref, idx + 1)
-    let reload_id = @ir.hot_region_get(func, region_ref, idx + 2)
-    let target_set_id = @ir.hot_region_get(func, region_ref, idx + 3)
+    let mut reload_idx = idx + 2
+    while reload_idx < @ir.hot_region_root_count(func, region_ref) {
+      let maybe_nop_id = @ir.hot_region_get(func, region_ref, reload_idx)
+      if maybe_nop_id < 0 || !@ir.hot_node_is_live(func, maybe_nop_id) {
+        break
+      }
+      match @ir.hot_node_get(func, maybe_nop_id).op {
+        @ir.HotOp::Nop => reload_idx += 1
+        _ => break
+      }
+    }
+    let target_idx = reload_idx + 1
+    if target_idx >= @ir.hot_region_root_count(func, region_ref) {
+      idx += 1
+      continue
+    }
+    let reload_id = @ir.hot_region_get(func, region_ref, reload_idx)
+    let target_set_id = @ir.hot_region_get(func, region_ref, target_idx)
     if value_id >= 0 &&
       spill_set_id >= 0 &&
       reload_id >= 0 &&
@@ -4421,9 +4437,13 @@ fn simplify_locals_fold_dead_set_copy_region(
               target_set.imm0,
               value_id,
             )
-            let removed = @ir.hot_region_splice(func, region_ref, idx, 4, [
-              replacement_set,
-            ])
+            let removed = @ir.hot_region_splice(
+              func,
+              region_ref,
+              idx,
+              target_idx - idx + 1,
+              [replacement_set],
+            )
             for removed_id in removed {
               if removed_id != value_id {
                 detached.push(removed_id)
@@ -4442,7 +4462,22 @@ fn simplify_locals_fold_dead_set_copy_region(
   idx = 0
   while idx + 1 < @ir.hot_region_root_count(func, region_ref) {
     let first_id = @ir.hot_region_get(func, region_ref, idx)
-    let second_id = @ir.hot_region_get(func, region_ref, idx + 1)
+    let mut second_idx = idx + 1
+    while second_idx < @ir.hot_region_root_count(func, region_ref) {
+      let maybe_nop_id = @ir.hot_region_get(func, region_ref, second_idx)
+      if maybe_nop_id < 0 || !@ir.hot_node_is_live(func, maybe_nop_id) {
+        break
+      }
+      match @ir.hot_node_get(func, maybe_nop_id).op {
+        @ir.HotOp::Nop => second_idx += 1
+        _ => break
+      }
+    }
+    if second_idx >= @ir.hot_region_root_count(func, region_ref) {
+      idx += 1
+      continue
+    }
+    let second_id = @ir.hot_region_get(func, region_ref, second_idx)
     if first_id < 0 ||
       second_id < 0 ||
       !@ir.hot_node_is_live(func, first_id) ||
@@ -4511,7 +4546,7 @@ fn simplify_locals_fold_dead_set_copy_region(
     @ir.hot_replace_node(func, second_id, simplify_locals_make_nop(func))
     detached.push(get_id)
     changed = true
-    idx += 2
+    idx = second_idx + 1
   }
   changed
 }

@@ -1013,6 +1013,7 @@ fn remove_unused_brs_condition_is_select_safe_over_value_arms(
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefIsNull
     | @ir.HotOp::RefFunc
+    | @ir.HotOp::TableSize
     | @ir.HotOp::Nop
     | @ir.HotOp::Drop
     | @ir.HotOp::Unary
@@ -4567,6 +4568,294 @@ fn remove_unused_brs_try_invert_empty_then_if(
 }
 
 ///|
+fn remove_unused_brs_trim_plain_block_exit_arm(
+  func : @ir.HotFunc,
+  arm_ref : @ir.HotRegionRef,
+  target_label : Int,
+) -> Array[Int]? {
+  let root_count = @ir.hot_region_root_count(func, arm_ref)
+  if root_count == 0 {
+    return None
+  }
+  let tail_id = @ir.hot_region_get(func, arm_ref, root_count - 1)
+  if tail_id < 0 || !@ir.hot_node_is_live(func, tail_id) {
+    return None
+  }
+  let tail = @ir.hot_node_get(func, tail_id)
+  match tail.op {
+    @ir.HotOp::Br if @ir.hot_branch_target(func, tail_id) == Some(target_label) &&
+      tail.child_count == 0 => ()
+    _ => return None
+  }
+  let body : Array[Int] = []
+  for idx = 0; idx < root_count - 1; idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, arm_ref, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    body.push(root_id)
+  }
+  Some(body)
+}
+
+///|
+fn remove_unused_brs_return_arm_roots_are_void_safe(
+  func : @ir.HotFunc,
+  arm_ref : @ir.HotRegionRef,
+  return_tail : Int,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, arm_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, arm_ref, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    if root_id == return_tail {
+      continue
+    }
+    if @ir.hot_node_result_arity(func, root_id) != 0 {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn remove_unused_brs_region_suffix_is_unreachable_only(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  start_idx : Int,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if start_idx < 0 || start_idx >= root_count {
+    return false
+  }
+  let mut saw_unreachable = false
+  for idx = start_idx; idx < root_count; idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Nop => ()
+      @ir.HotOp::Unreachable => saw_unreachable = true
+      _ => return false
+    }
+  }
+  saw_unreachable
+}
+
+///|
+fn remove_unused_brs_try_voidify_if_block_exit_unreachable_suffix(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_refs : Array[Int],
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if idx < 0 || idx >= root_count - 1 {
+    return false
+  }
+  if !remove_unused_brs_region_suffix_is_unreachable_only(
+      func,
+      region_ref,
+      idx + 1,
+    ) {
+    return false
+  }
+  let if_id = @ir.hot_region_get(func, region_ref, idx)
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, if_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  let target_label = match remove_unused_brs_tail_target(func, region_ref) {
+    BranchTarget(label_id) => label_id
+    _ => return false
+  }
+  let _ = label_refs
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return false
+  }
+  let arm_keep_body = fn(arm_ref : @ir.HotRegionRef) -> Array[Int]? {
+    if !remove_unused_brs_tail_is_nonfallthrough(func, arm_ref) {
+      return None
+    }
+    let tail_id = remove_unused_brs_region_tail_id(func, arm_ref)
+    if tail_id < 0 || !@ir.hot_node_is_live(func, tail_id) {
+      return None
+    }
+    let tail = @ir.hot_node_get(func, tail_id)
+    match tail.op {
+      @ir.HotOp::Return if tail.child_count > 0 => ()
+      _ => return None
+    }
+    if !remove_unused_brs_return_arm_roots_are_void_safe(func, arm_ref, tail_id) {
+      return None
+    }
+    Some(remove_unused_brs_region_roots(func, arm_ref))
+  }
+  let try_build = fn(
+    keep_ref : @ir.HotRegionRef,
+    exit_ref : @ir.HotRegionRef,
+    keep_is_then : Bool,
+  ) -> Bool {
+    let keep_body = match arm_keep_body(keep_ref) {
+      Some(body) => body
+      None => return false
+    }
+    let exit_body = match
+      remove_unused_brs_trim_plain_block_exit_arm(func, exit_ref, target_label) {
+      Some(body) => body
+      None => return false
+    }
+    let replacement = if keep_is_then {
+      @ir.hot_build_if(
+        func,
+        @lib.BlockType::void_(),
+        @ir.hot_child_get(func, if_id, 0),
+        keep_body,
+        else_body=Some(exit_body),
+      )
+    } else {
+      @ir.hot_build_if(
+        func,
+        @lib.BlockType::void_(),
+        @ir.hot_child_get(func, if_id, 0),
+        exit_body,
+        else_body=Some(keep_body),
+      )
+    }
+    let removed = pass_splice_region(
+      ctx,
+      func,
+      region_ref,
+      idx,
+      root_count - idx,
+      [replacement],
+    )
+    remove_unused_brs_delete_unused_nodes(
+      ctx,
+      func,
+      [if_id, then_ref.holder, else_ref.holder] + removed,
+    )
+    true
+  }
+  try_build(then_ref, else_ref, true) || try_build(else_ref, then_ref, false)
+}
+
+///|
+fn remove_unused_brs_try_voidify_tail_value_if_block_exit(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  label_refs : Array[Int],
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count < 2 {
+    return false
+  }
+  let if_idx = root_count - 1
+  let if_id = @ir.hot_region_get(func, region_ref, if_idx)
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, if_id) != 1 {
+    return false
+  }
+  let payload_idx = if_idx - 1
+  let payload_id = @ir.hot_region_get(func, region_ref, payload_idx)
+  if payload_id < 0 || !@ir.hot_node_is_live(func, payload_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, payload_id).op {
+    @ir.HotOp::Unreachable => ()
+    _ => return false
+  }
+  let target_label = match remove_unused_brs_tail_target(func, region_ref) {
+    BranchTarget(label_id) => label_id
+    _ => return false
+  }
+  let _ = label_refs
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return false
+  }
+  let arm_keep_body = fn(arm_ref : @ir.HotRegionRef) -> Array[Int]? {
+    if !remove_unused_brs_tail_is_nonfallthrough(func, arm_ref) {
+      return None
+    }
+    let tail_id = remove_unused_brs_region_tail_id(func, arm_ref)
+    if tail_id < 0 || !@ir.hot_node_is_live(func, tail_id) {
+      return None
+    }
+    let tail = @ir.hot_node_get(func, tail_id)
+    match tail.op {
+      @ir.HotOp::Return if tail.child_count > 0 => ()
+      _ => return None
+    }
+    if !remove_unused_brs_return_arm_roots_are_void_safe(func, arm_ref, tail_id) {
+      return None
+    }
+    Some(remove_unused_brs_region_roots(func, arm_ref))
+  }
+  let try_build = fn(
+    keep_ref : @ir.HotRegionRef,
+    exit_ref : @ir.HotRegionRef,
+    keep_is_then : Bool,
+  ) -> Bool {
+    let keep_body = match arm_keep_body(keep_ref) {
+      Some(body) => body
+      None => return false
+    }
+    let exit_body = match
+      remove_unused_brs_trim_plain_block_exit_arm(func, exit_ref, target_label) {
+      Some(body) => body
+      None => return false
+    }
+    let replacement = if keep_is_then {
+      @ir.hot_build_if(
+        func,
+        @lib.BlockType::void_(),
+        @ir.hot_child_get(func, if_id, 0),
+        keep_body,
+        else_body=Some(exit_body),
+      )
+    } else {
+      @ir.hot_build_if(
+        func,
+        @lib.BlockType::void_(),
+        @ir.hot_child_get(func, if_id, 0),
+        exit_body,
+        else_body=Some(keep_body),
+      )
+    }
+    let removed = pass_splice_region(ctx, func, region_ref, payload_idx, 2, [
+      replacement,
+    ])
+    remove_unused_brs_delete_unused_nodes(
+      ctx,
+      func,
+      [payload_id, if_id, then_ref.holder, else_ref.holder] + removed,
+    )
+    true
+  }
+  try_build(then_ref, else_ref, true) || try_build(else_ref, then_ref, false)
+}
+
+///|
 fn remove_unused_brs_try_restructure_one_arm_return_if_suffix(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5326,6 +5615,10 @@ fn remove_unused_brs_visit_node(
         let body_tail_op = @ir.hot_node_get(func, body_tail_id).op
         match body_tail_op {
           @ir.HotOp::If => {
+            changed = remove_unused_brs_try_voidify_tail_value_if_block_exit(
+                ctx, func, body_ref, label_refs,
+              ) ||
+              changed
             changed = remove_unused_brs_try_strip_tail_if_exits(
                 ctx, func, body_ref,
               ) ||
@@ -5624,6 +5917,10 @@ fn remove_unused_brs_visit_node(
         let body_tail_op = @ir.hot_node_get(func, body_tail_id).op
         match body_tail_op {
           @ir.HotOp::If => {
+            changed = remove_unused_brs_try_voidify_tail_value_if_block_exit(
+                ctx, func, body_ref, label_refs,
+              ) ||
+              changed
             changed = remove_unused_brs_try_strip_tail_if_exits(
                 ctx, func, body_ref,
               ) ||
@@ -5736,6 +6033,10 @@ fn remove_unused_brs_visit_node(
         let body_tail_op = @ir.hot_node_get(func, body_tail_id).op
         match body_tail_op {
           @ir.HotOp::If => {
+            changed = remove_unused_brs_try_voidify_tail_value_if_block_exit(
+                ctx, func, body_ref, label_refs,
+              ) ||
+              changed
             changed = remove_unused_brs_try_strip_tail_if_exits(
                 ctx, func, body_ref,
               ) ||
@@ -5931,6 +6232,12 @@ fn remove_unused_brs_visit_region(
       @ir.HotOp::If => {
         if remove_unused_brs_try_invert_empty_then_if(
             ctx, func, node_id, label_refs,
+          ) {
+          changed = true
+          continue
+        }
+        if remove_unused_brs_try_voidify_if_block_exit_unreachable_suffix(
+            ctx, func, region_ref, idx, label_refs,
           ) {
           changed = true
           continue

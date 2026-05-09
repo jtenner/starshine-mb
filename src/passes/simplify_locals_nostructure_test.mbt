@@ -54,6 +54,26 @@ test "simplify-locals-nostructure folds dead exact-slot set-copy local" {
 }
 
 ///|
+test "simplify-locals-nostructure folds exact-slot set-copy across cleanup nop" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32 i32) loop $l block $block (result i32) (if (local.get 0) (then (return (i32.const 0)))) (i32.const 9) end local.set 2 nop local.get 2 local.set 1 (br_if $l (local.get 0)) end (i32.add (local.get 1) (local.get 1))))",
+      ["simplify-locals-nostructure", "vacuum", "reorder-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure nop-separated set-copy fold success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("Local 1"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
 test "simplify-locals-notee-nostructure does not create tees for multi-use locals" {
   let optimized = match
     pass_test_run_pipeline(

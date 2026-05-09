@@ -17,6 +17,44 @@ test "remove-unused-brs prunes suffix after br-table then unreachable block" {
 }
 
 ///|
+test "remove-unused-brs voidifies tail value-if with block-exit arm" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block $exit (if (result i32) (local.get 0) (then (return (i32.const 0))) (else (drop (i32.const 1)) (br $exit))) unreachable) (i32.const 1)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs value-if exit-arm success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs strips void tail-if block-exit arm before unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $sink (param i32)) (func (param i32) (result i32) (block $exit (call $sink (local.get 0)) (if (local.get 0) (then (return (i32.const 0))) (else (drop (i32.const 1)) (br $exit))) unreachable) (i32.const 1)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs void-if exit-arm success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("br"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs removes trailing branch to the enclosing block" {
   let optimized = match
     pass_test_run_pipeline(
@@ -328,6 +366,26 @@ test "remove-unused-brs rewrites pure local.get ifs into select" {
   assert_true(pretty.contains("select"), msg=pretty)
   assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
   assert_true(pretty.contains("(local.get (Local 2))"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites table.grow size child if into select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (table 0 externref) (func (param i32) (result i32) (local i32) (table.grow (ref.null extern) (if (result i32) (i32.eqz (local.tee 1 (table.size))) (then (i32.const 16)) (else (i32.shl (local.get 0) (i32.const 1)))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs table.grow child-if select success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("table.grow"), msg=pretty)
 }
 
 ///|

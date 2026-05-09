@@ -327,22 +327,40 @@ fn vacuum_can_remove_dropped_node(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
 ) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
   let node = @ir.hot_node_get(func, node_id)
   let is_removable_shape = match node.op {
     @ir.HotOp::Const
+    | @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::TableSize
     | @ir.HotOp::Unary
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefIsNull
     | @ir.HotOp::RefFunc
+    | @ir.HotOp::Select
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract => true
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     _ => false
   }
-  is_removable_shape && @ir.effects_is_pure(@ir.effects_for_node(func, node_id))
+  if !is_removable_shape {
+    return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if !vacuum_can_remove_dropped_node(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
