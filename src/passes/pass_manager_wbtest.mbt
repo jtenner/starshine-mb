@@ -311,6 +311,32 @@ test "raw simplify-locals adjacent local tees preserve writes read inside later 
 }
 
 ///|
+test "simplify-locals lowered cleanup preserves tees read by later if arms" {
+  let local_12 = @lib.LocalIdx::new(12U)
+  let stale_counts = Array::make(13, 0)
+  let cleaned = run_hot_pipeline_simplify_locals_lowered_cleanup_body(
+    [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+      @lib.Instruction::local_tee(local_12),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_gt_s(),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [@lib.Instruction::local_get(local_12), @lib.Instruction::drop()],
+        Some([@lib.Instruction::local_get(local_12), @lib.Instruction::drop()]),
+      ),
+    ],
+    stale_counts,
+  )
+
+  assert_true(
+    cleaned.any(fn(instr) { instr == @lib.Instruction::local_tee(local_12) }),
+    msg=cleaned.to_string(),
+  )
+}
+
+///|
 test "raw simplify-locals nested pure call-tail scan sees returning branch copy shuttles" {
   let instrs = [
     @lib.Instruction::if_(

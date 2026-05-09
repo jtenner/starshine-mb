@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-09 Passes: preserve tuple exact-slot refcount tees
+
+- **fix the remaining real `defined=200 abs=217` tuple exact-slot shape drift by preserving lowered cleanup `local.tee` writes that are read by later `if` arms, add focused raw-cleanup and simplify-locals regressions, and narrow `[TO]005` to the helper-visible raw/debug outer-block representation drift** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/pass_manager_wbtest.mbt`](./src/passes/pass_manager_wbtest.mbt), [`src/passes/simplify_locals_nostructure_test.mbt`](./src/passes/simplify_locals_nostructure_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-09 Passes: narrow tuple exact-slot artifact drift
 
 - **fix the tuple exact-slot `defined=29`, `defined=31`, `defined=33`, and `defined=200` pass-shape drifts by folding cleanup-nop local copies, accepting table-size select conditions, dropping nontrapping pure dropped trees, and stripping return-vs-block-exit unreachable wrappers while keeping `[TO]005` open for the remaining local.tee artifact drift** by **@OpenAI**. Updated [`src/passes/simplify_locals.mbt`](./src/passes/simplify_locals.mbt), [`src/passes/simplify_locals_nostructure_test.mbt`](./src/passes/simplify_locals_nostructure_test.mbt), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

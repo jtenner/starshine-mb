@@ -8047,7 +8047,26 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
   counts : Array[Int],
 ) -> Array[@lib.Instruction] {
   let cleaned : Array[@lib.Instruction] = []
-  for instr in body {
+  for idx = 0; idx < body.length(); idx = idx + 1 {
+    let instr = body[idx]
+    let preserve_suffix_read_tee = match instr {
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        local_id >= 0 &&
+        local_id < counts.length() &&
+        counts[local_id] == 0 &&
+        run_hot_pipeline_raw_instrs_have_later_local_read(
+          body,
+          idx + 1,
+          local_id,
+        )
+      }
+      _ => false
+    }
+    if preserve_suffix_read_tee {
+      cleaned.push(instr)
+      continue
+    }
     match
       run_hot_pipeline_simplify_locals_lowered_cleanup_instr(instr, counts) {
       Some(rewritten) => cleaned.push(rewritten)

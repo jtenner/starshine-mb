@@ -1,4 +1,13 @@
 ///|
+fn simplify_locals_nostructure_test_many_i32_locals(count : Int) -> String {
+  let out = StringBuilder::new()
+  for i = 0; i < count; i = i + 1 {
+    out.write_string(" (local i32)")
+  }
+  out.to_string()
+}
+
+///|
 test "simplify-locals-nostructure sinks straight-line single-use sets" {
   let optimized = match
     pass_test_run_pipeline(
@@ -71,6 +80,27 @@ test "simplify-locals-nostructure folds exact-slot set-copy across cleanup nop" 
   assert_true(pretty.contains("Local 1"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
+test "simplify-locals-nostructure preserves used condition load tee" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $incref (param i32)) (func $decref (param i32)) (func $free (param i32)) (func (param $io i32) (result i32) (local $field i32)" +
+      simplify_locals_nostructure_test_many_i32_locals(110) +
+      " (local $cnt i32) (block $block (if (i32.const 0) (then (return (i32.const 0))) (else (br $block))) (unreachable)) (local.set $field (i32.load offset=32 align=1 (local.get $io))) (if (i32.gt_s (local.tee $cnt (i32.load align=1 (local.get $io))) (i32.const 1)) (then nop (i32.store align=1 (local.get $io) (i32.sub (local.get $cnt) (i32.const 1))) (call $incref (local.get $field))) (else (if (i32.eq (local.get $cnt) (i32.const 1)) (then (call $decref (i32.load offset=40 align=1 (local.get $io))) (call $free (local.get $io)))))) (call $decref (local.get $field)) (i32.const 1)))",
+      ["simplify-locals-nostructure"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure condition tee preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 112)"), msg=pretty)
 }
 
 ///|
