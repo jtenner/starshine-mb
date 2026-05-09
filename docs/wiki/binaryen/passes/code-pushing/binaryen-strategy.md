@@ -123,7 +123,7 @@ The core rule is effect invalidation: a candidate can move only when intervening
 
 ## Starshine implication
 
-Starshine's current direct pass is a small, safe subset: const-like `local.set` sinking into one consuming `if` arm plus a local dead-block flattening helper. A faithful widening should first port the SFA-local analyzer and effect-checked segment model before adding broader `if`, branch, GC, or EH cases. See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Starshine's current direct pass is an accepted safe subset under semantic / validity / 50%-speed criteria: single-consuming-arm `local.set` sinking, guarded `global.get` and local-copy setup movement, plus a local dead-block flattening helper. A future source-level widening should first port the SFA-local analyzer and effect-checked segment model before adding broader `if`, branch, GC, or EH cases. See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Sources
 

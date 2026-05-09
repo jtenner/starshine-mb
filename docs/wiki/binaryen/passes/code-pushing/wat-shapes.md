@@ -90,7 +90,7 @@ Conceptual after:
     (nop)))
 ```
 
-This is close to Starshine's current positive subset when the value is const-like and all local reads are in one arm.
+This is close to Starshine's current positive subset when the value passes the strict movable-value gate and all local reads are in one arm.
 
 ## Shape 3: post-if use can be safe when the other arm is unreachable
 
@@ -160,7 +160,7 @@ Why it is sensitive:
 
 - moving the division can change when the trap occurs;
 - Binaryen has tests for ignore-implicit-traps and TNH modes;
-- Starshine's current subset avoids this by moving only const-like values.
+- Starshine's current subset avoids this with an explicit nontrapping gate for movable values.
 
 ## Shape 7: `switch` and conditional branch push points
 

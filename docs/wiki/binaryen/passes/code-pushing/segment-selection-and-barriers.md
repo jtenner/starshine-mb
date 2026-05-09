@@ -50,7 +50,7 @@ Starshine currently approximates a tiny part of this with whole-root get/write c
 
 `isPushable(...)` checks the set's value effects. Values with unremovable side effects do not move. Values with removable side effects may move only when the segment proof keeps behavior valid.
 
-Current Starshine is stricter: it only moves `Const`, `RefNull`, and `RefFunc` values for the arm-sinking family.
+Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it moves pure nontrapping values plus guarded `global.get` and local-copy setup shapes only when local/effect barriers prove the delayed computation safe.
 
 ## Barrier 3: intervening effects must not invalidate the value
 
@@ -58,7 +58,7 @@ Current Starshine is stricter: it only moves `Const`, `RefNull`, and `RefFunc` v
 
 Beginner rule: even if the value looks simple, it cannot cross a sibling that can make computing it later observe a different world.
 
-Advanced rule: future Starshine parity needs a local effect-invalidation predicate before it can safely widen beyond const-like values.
+Advanced rule: future Starshine widening should keep extending the local effect-invalidation predicate before admitting broader value families.
 
 ## Barrier 4: push points are specific
 
@@ -111,7 +111,7 @@ A future broader Starshine port should preserve these rules before widening moti
 2. discover block-local candidate segments and push points;
 3. keep one-arm `if` sinking separate from generic segment movement;
 4. preserve order among multiple moved sets;
-5. implement effect-invalidation before moving non-const-like values;
+5. extend effect-invalidation before moving broader value families;
 6. keep trap options explicit;
 7. test GC and EH as first-class boundaries;
 8. document Starshine-local helper families separately from upstream Binaryen behavior.

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-09
 sources:
   - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
@@ -50,10 +50,13 @@ The current source-backed Binaryen mental model is:
 - sink into the one `if` arm that reads the local, with an important unreachable-arm post-use allowance;
 - rely on later optimizer cycles for deeper recursive opportunities.
 
-The current Starshine implementation is a conservative subset:
+The current Starshine implementation is an accepted direct-pass subset under Starshine's pass-wide completion criteria:
 
-- const-like `local.set` sinking into the single `if` arm that contains all reads of that local;
-- plus one Starshine-local typed/dead-block flattening helper near unreachable context.
+- safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
+- guarded movement of selected `global.get` and local-copy setup shapes across safe intervening roots;
+- one Starshine-local typed/dead-block flattening helper near unreachable context.
+
+Acceptance does **not** require raw wasm/text or transform-for-transform parity. The direct pass is complete when it preserves Binaryen semantics, produces valid wasm, and stays at least 50% as fast as Binaryen on comparable pass-local measurements.
 
 ## 2026-04-26 correction
 
@@ -113,6 +116,7 @@ The 2026-05-05 current-main recheck refreshed the same owner and scheduler surfa
 - Preserve function validity after structural mutation.
 - Keep Starshine-local dead-block flattening documented separately from upstream Binaryen behavior.
 - Do not claim public preset parity until the exact scheduler neighborhood is implemented and validated.
+- Do not treat raw wasm/text drift as a blocker when normalized/canonical semantic comparison is green.
 
 ## Notable edge cases
 
@@ -126,7 +130,14 @@ The 2026-05-05 current-main recheck refreshed the same owner and scheduler surfa
 
 ## Validation
 
-The 2026-05-06 AUD002 direct revalidation is green for the explicit `--pass code-pushing` lane: `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. See [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md).
+The direct `--pass code-pushing` lane is accepted as complete for v0.1.0 direct-pass purposes. The 2026-05-09 evidence is:
+
+- `moon info`, `moon fmt`, and `moon test` green;
+- `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures;
+- direct debug-artifact replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1687067` reported `Normalized WAT equal: yes` and `Canonical function compare equal: yes`;
+- pass-local timing was about 1658ms for Starshine versus about 1311ms for Binaryen, which is above the required 50%-of-Binaryen speed floor.
+
+Raw canonical wasm/text still differs, but that is accepted representation drift rather than active `code-pushing` work.
 
 For docs maintenance:
 
@@ -134,14 +145,14 @@ For docs maintenance:
 - search for stale “no `Pusher`,” “no segment selection,” or “no local profitability” wording in this folder;
 - keep the no-two-live-arm-duplication warning, but do not erase Binaryen's real `Pusher` model.
 
-For future code work:
+For future optional widening:
 
 1. add focused tests in `src/passes/code_pushing_test.mbt` before widening behavior;
 2. build an analyzer/segment-discovery slice before broad mutation;
 3. validate direct pass execution through registry and command surfaces;
 4. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
-5. then run pass-fuzz / artifact comparisons for the `CP` backlog slice;
-6. only after that revisit preset placement.
+5. then run pass-fuzz / artifact comparisons under the standard pass signoff criteria;
+6. only after ordered-neighborhood proof revisit public preset placement.
 
 ## Page map
 

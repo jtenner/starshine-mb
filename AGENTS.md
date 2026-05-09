@@ -34,8 +34,9 @@
 ## Working On Passes
 
 - Correctness first.
-- Match oracle Binaryen at minimum.
-- Target `< 1s` or `>= 50%` of Binaryen wall time where possible.
+- Match oracle Binaryen semantics at minimum; byte-for-byte wasm, raw canonical wasm/text, or transform-for-transform parity is not required when normalized/canonical semantic evidence proves equivalence.
+- Every transform must be safe and produce a valid wasm module.
+- Target `< 1s` or `>= 50%` of Binaryen pass-local wall time where possible.
 - Verify parity with `bun fuzz compare-pass ...` or `bun scripts/pass-fuzz-compare.ts ...` at `10000` comparisons.
 - Prefer `--pass <name>` with canonical pass names and treat the harness as pass-targeted before expanding to combined-pass runs.
 - Use `.pi/skills/starshine-pass-implementation/SKILL.md` as the detailed pass creation, porting, parity-fix, registry-wiring, and signoff workflow.

@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] passes | accept direct `code-pushing`
+
+- Accepted direct `code-pushing` under the pass-wide criteria of Binaryen semantic parity, valid wasm output, and Starshine pass-local timing at least 50% of Binaryen (`starshine_time <= 2 * binaryen_time`).
+- Reclassified the current raw canonical wasm/text difference as non-blocking representation drift because the direct debug-artifact lane at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1687067` reports `Normalized WAT equal: yes` and `Canonical function compare equal: yes`, while the standard 10k fuzz lane has `0` semantic mismatches.
+- Recorded the accepted pass-local timing from the latest replay: Starshine about `1658ms` versus Binaryen about `1311ms`, safely above the 50%-of-Binaryen speed floor.
+- Pruned `[CP]002` from `agent-todo.md`; public preset scheduling remains deferred to the ordered-neighborhood / tuple-slot work rather than a direct `code-pushing` blocker.
+- Updated the pass implementation skill plus mirrored `AGENTS.md` / `docs/README.md` guidance so future pass signoffs use the same semantic parity, valid-wasm, and 50%-of-Binaryen-speed acceptance rule.
+
 ## [2026-05-09] tooling | close direct `code-pushing` canonical artifact parity
 
 - Guarded Starshine's local-copy sink so `local.get -> local.set` copies are not moved across value-producing `if` nodes, preserving multivalue stack materialization order for the direct debug artifact.

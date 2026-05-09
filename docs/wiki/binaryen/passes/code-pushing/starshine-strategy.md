@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-09
 sources:
   - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
@@ -39,31 +39,35 @@ The owner file is:
 
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
 
-The current implementation is deliberately narrower than Binaryen:
+The current implementation is deliberately narrower than Binaryen's full source-level `Pusher` model, but accepted as complete for direct-pass purposes under Starshine's semantic criteria:
 
-1. **Const-like single-consuming-arm local-set sinking**
-   - A root `local.set` immediately before a void `if` can be replaced with `nop`.
+1. **Safe single-consuming-arm local-set sinking**
+   - A root `local.set` before a void `if` can be replaced with `nop`.
    - A cloned `local.set` is inserted into the one `if` arm that contains all reads of that local.
-   - Values are limited to const-like HOT ops: `Const`, `RefNull`, and `RefFunc`.
-2. **Starshine-local typed/dead-block flattening near unreachable context**
+   - Values are limited to pure nontrapping HOT values plus guarded `global.get` and local-copy setup shapes.
+2. **Guarded setup movement across later roots**
+   - Selected `global.get` and local-copy `local.set` roots can move later when intervening roots do not invalidate the source value or local proof.
+   - Value-producing `if`, source writes, branchy/unreachable control, and effectful invalidation remain conservative barriers.
+3. **Starshine-local typed/dead-block flattening near unreachable context**
    - A block next to an `unreachable` parent context can be flattened when branch and multivalue guards prove the splice safe.
    - This is local cleanup bundled in the current pass, not a source-confirmed upstream Binaryen `code-pushing` family.
 
-The pass is **not** in the public `optimize` / `shrink` presets yet. That is intentional: the exact Binaryen scheduler slot still depends on broader `code-pushing` parity and ordered replay around `simplify-locals-nostructure`, which is now active locally.
+The pass is **not** in the public `optimize` / `shrink` presets yet. That is intentional: public preset placement requires ordered-neighborhood proof around `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`, and is no longer a direct `code-pushing` completion blocker.
 
-The 2026-05-06 refreshed direct pass-fuzz lane is green for this explicit subset: `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. See [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md).
+The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The debug-artifact replay reached `Normalized WAT equal: yes` and `Canonical function compare equal: yes`; raw wasm/text drift is accepted representation drift. Pass-local timing was about 1658ms for Starshine versus about 1311ms for Binaryen, clearing the 50%-of-Binaryen floor. See [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md).
 
 ## Exact local code map
 
 | File | Role |
 | --- | --- |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 2-18 | Active HOT pass descriptor and summary |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 20-29 | Const-like value gate (`Const`, `RefNull`, `RefFunc`) |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 31-181 | Local get/write counting helpers and local-set clone helper |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 184-318 | Branch/multivalue guard plus dead-block flattening helper |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 320-389 | Current single-consuming-arm `local.set` into `if` rewrite |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 391-493 | Recursive region scan and fixed-point driver |
-| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) lines 70-263 | Focused positives and negatives for current behavior |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 20-86 | Pure/nontrapping movable-value gate plus `global.get` / `local.get` recognizers |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 87-429 | Effect, local get/write, branch, unreachable, and multivalue guards |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 430-518 | Starshine-local dead-block flattening helper |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 519-669 | Guarded `global.get` and local-copy setup movement across later roots |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 670-784 | Current single-consuming-arm `local.set` into `if` rewrite |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 786-900 | Recursive region scan and fixed-point driver |
+| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and negatives for current behavior |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 212-220 | Registry entry as `HotPass` |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 382-419 | Tuple exact-slot prerequisite and preset omission |
 | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification and descriptor coverage |
@@ -75,8 +79,8 @@ The 2026-05-06 refreshed direct pass-fuzz lane is green for this explicit subset
 | Binaryen source-backed family | Current Starshine status |
 | --- | --- |
 | Function-local `LocalAnalyzer` SFA scan | Not implemented generally; local subset has per-candidate get/write counting |
-| `Pusher` block segment scan | Not implemented generally; only immediate `local.set` before `if` |
-| `isPushable(...)` removable-effect value gate | Replaced by stricter const-like gate |
+| `Pusher` block segment scan | Not implemented generally; bounded root lookahead covers selected `if` and later-barrier shapes |
+| `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get` and local-copy cases |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Only void `if` path is supported |
 | `optimizeSegment(...)` ordered multi-set movement | Not implemented generally |
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm and no post-if reads |
@@ -108,7 +112,7 @@ The pass refuses to move when:
 - the local is read after the `if`;
 - there is more than one write;
 - the `if` has a result;
-- the source value is not const-like;
+- the source value is not movable under the strict pure/nontrapping or guarded setup gates;
 - the source value may trap;
 - or the target arm does not exist.
 
@@ -138,23 +142,23 @@ Reason:
 So the honest local status is:
 
 - direct pass flag: active;
-- focused HOT subset: implemented;
+- focused HOT subset: accepted complete under semantic / validity / 50%-speed criteria;
 - exact Binaryen preset slot: not claimed;
-- broader parity: still backlog work.
+- broader source-level `Pusher` coverage: optional future widening, not active v0.1.0 direct-pass work.
 
-## Remaining port work
+## Optional future widening
 
-Read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the detailed first-slice ladder.
+Read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the detailed optional first-slice ladder.
 
 The short version:
 
 1. add an analyzer-only SFA candidate classifier;
 2. add segment-window and push-point discovery without mutation;
-3. expand const-like segment movement before widening value effects;
+3. expand safe segment movement before widening value effects;
 4. add unreachable-arm post-use support;
 5. only then widen to Binaryen's broader effect-checked value movement;
 6. test GC, EH, trap-option, switch, and conditional-branch families explicitly;
-7. revisit public preset placement last.
+7. revisit public preset placement only with ordered-neighborhood proof.
 
 ## Related local dossiers
 
@@ -169,7 +173,7 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is neither absent nor a full Binaryen port. It is active as a direct HOT pass, useful for a narrow const-like single-arm local-set sinking subset, carrying one Starshine-local dead-block cleanup helper, intentionally outside public presets, and now has a source-correct first-slice plan for broader Binaryen parity.
+Current Starshine `code-pushing` is active and accepted as a completed direct HOT pass under semantic / validity / 50%-speed criteria. It remains intentionally outside public presets until ordered-neighborhood proof lands; broader source-level `Pusher` work is optional future widening rather than active direct-pass debt.
 
 ## Sources
 

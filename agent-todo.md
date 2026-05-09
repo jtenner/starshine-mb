@@ -9,7 +9,7 @@
 ## Current Parity Focus
 - Keep the Binaryen no-DWARF default optimize path as the v0.1.0 parity target.
 - Canonical order and nested-shape notes live in `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` and `docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`.
-- Prefer exact direct-pass parity first, then ordered-neighborhood replay, then preset scheduling.
+- Prefer direct-pass semantic parity first, then ordered-neighborhood replay, then preset scheduling.
 - Do not widen public `optimize` / `shrink` slots until the surrounding Binaryen neighborhood is representable and oracle-proven.
 
 ## v0.1.0 Active Slices
@@ -41,15 +41,12 @@ Suggested Tests
 Observed unique-pass order
 - `DFE -> RUME -> MP -> OR -> GR -> GSI -> SSA -> DCE -> RUN -> RUB -> OI -> HSO -> PLS -> PC -> CP -> TO -> SLNS -> VQ -> RL -> H2L -> OC -> LS -> CL -> LCSE -> SL -> CF -> MB -> RSE -> DAE -> INL -> DIE -> SGO -> SG -> RG -> DIR`
 
+Completed direct-pass slices
+- `code-pushing` / `[CP]002`: accepted on 2026-05-09 under the pass-wide criteria of Binaryen semantic parity, valid wasm output, and pass-local speed at least 50% of Binaryen. Raw wasm/text drift is representation-only and not an active blocker; public preset scheduling remains part of the ordered-neighborhood / tuple-slot work, not a code-pushing direct-pass blocker.
+
 #### Ordered-prefix / hot-pipeline blockers
 
 - No active threading work for v0.1.0. Parallel hot-batch execution is deferred until MoonBit exposes threading support that is suitable for Starshine's native runtime.
-
-#### CP - Code Pushing
-
-- [CP]002 - Rewrite Coverage and Artifact Validation
-  - Deliverables: continue profiling the optimized-artifact lane; decide whether to expand the Binaryen surface or keep the pass direct-only after performance is better understood; do not schedule publicly until performance and slot proof are acceptable.
-  - Current status: direct debug-artifact compare for `--code-pushing` is canonically green through the self-opt compare fallback (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`) after guarding local-copy sinking across value `if` and normalizing lowered temporary-local / stack-shaping drift. Raw canonical wasm/text still differs, and pass-local timing remains slower than Binaryen on the debug artifact; keep runtime ownership under `[WALL]001` unless a pass-local hotspot is isolated.
 
 #### TO - Tuple Optimization
 

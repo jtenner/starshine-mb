@@ -1,6 +1,6 @@
 ---
 name: starshine-pass-implementation
-description: Implement, port, or sign off Starshine optimizer passes with the repo-standard TDD, registry, Binaryen parity, performance, and documentation workflow. Use when working on pass creation, pass porting, pass parity, pass fuzz compare failures, optimizer registry wiring, preset changes, or pass signoff.
+description: Implement, port, or sign off Starshine optimizer passes with the repo-standard TDD, registry, Binaryen semantic parity, performance, validity, and documentation workflow. Use when working on pass creation, pass porting, pass parity, pass fuzz compare failures, optimizer registry wiring, preset changes, or pass signoff.
 ---
 
 # Starshine Pass Implementation
@@ -27,7 +27,10 @@ Read the relevant sources before substantial pass work:
 ## Non-Negotiables
 
 - Correctness first.
-- Match Binaryen oracle behavior at minimum, unless a deliberate divergence is explicitly documented.
+- Match Binaryen oracle semantics at minimum, unless a deliberate semantic divergence is explicitly documented and approved.
+- Do not require byte-for-byte wasm, raw canonical wasm/text, or transform-for-transform parity when normalized/canonical semantic evidence proves equivalence.
+- Every transform must be safe and must produce a valid wasm module.
+- Pass-local performance target: Starshine should be at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`) unless a slower result is explicitly accepted or attributed outside the pass.
 - Use TDD: add or update tests first and confirm the intended failure when practical.
 - Prefer canonical `--pass <name>` harness runs over broad combined-pass runs during pass development.
 - Unknown pass names must reject; never land silent no-op behavior for missing passes.
@@ -113,10 +116,11 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-n
 
 Required result:
 
-- Binaryen parity at minimum.
+- Binaryen semantic parity at minimum.
 - `10000` compared cases when the harness can complete that many valid comparisons.
 - Zero semantic mismatches.
 - Command failures classified separately from semantic mismatches.
+- Raw wasm/text or transform-shape differences are not failures when normalized/canonical semantic comparison is green.
 - Replayable failure dirs preserved until fixed, documented, or intentionally discarded after triage.
 
 ### Performance and artifact signoff
@@ -124,9 +128,10 @@ Required result:
 Add when the pass affects hot paths, a preset, or a known artifact:
 
 1. Record pass-local Starshine and Binaryen timings where the harness reports them.
-2. Attribute aggregate whole-command wall-time gaps to the top-level `[WALL]001` backlog slice unless the root cause is clearly inside the pass implementation.
-3. Compare the relevant artifact, ordered prefix, or preset run when the pass participates in a documented optimize path.
-4. Ask before running long self-optimize commands, especially:
+2. Treat pass-local performance as acceptable when Starshine is at least 50% as fast as Binaryen (`starshine_time <= 2 * binaryen_time`), unless the user sets a stricter target for the pass.
+3. Attribute aggregate whole-command wall-time gaps to the top-level `[WALL]001` backlog slice unless the root cause is clearly inside the pass implementation.
+4. Compare the relevant artifact, ordered prefix, or preset run when the pass participates in a documented optimize path; prefer semantic/canonical equality over raw wasm/text equality unless raw bytes are explicitly in scope.
+5. Ask before running long self-optimize commands, especially:
 
 ```sh
 bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize
@@ -176,7 +181,8 @@ A pass is done only when:
 
 - public behavior is protected by tests
 - registry, dispatcher, CLI, and preset surfaces are wired or explicitly out of scope
-- direct pass execution matches Binaryen on the standard compare-pass run or any divergence is approved and documented
-- relevant performance/artifact evidence is captured when applicable
+- direct pass execution matches Binaryen semantics on the standard compare-pass run or any semantic divergence is approved and documented
+- every transform is covered as safe and valid, with validation evidence for changed modules when applicable
+- relevant performance/artifact evidence is captured when applicable, and pass-local Starshine timing is at least 50% of Binaryen speed unless explicitly accepted
 - docs/changelog/backlog updates are complete
 - the final report states exact evidence instead of broad claims
