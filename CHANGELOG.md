@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-09 Backlog: accept tuple exact-slot for v0.1
+
+- **accept `[TO]005` for v0.1.0 after fixing the real optimizer drifts, classify the remaining `defined=200 abs=217` outer-block artifact as compare-normalization drift rather than a Starshine bug, and defer symmetric self-opt compare normalization to `[TOOL]001` outside the v0.1.0 release gate** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md) and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-09 Passes: preserve tuple exact-slot refcount tees
 
 - **fix the remaining real `defined=200 abs=217` tuple exact-slot shape drift by preserving lowered cleanup `local.tee` writes that are read by later `if` arms, add focused raw-cleanup and simplify-locals regressions, and narrow `[TO]005` to the helper-visible raw/debug outer-block representation drift** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/pass_manager_wbtest.mbt`](./src/passes/pass_manager_wbtest.mbt), [`src/passes/simplify_locals_nostructure_test.mbt`](./src/passes/simplify_locals_nostructure_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

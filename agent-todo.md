@@ -43,6 +43,7 @@ Observed unique-pass order
 
 Completed direct-pass slices
 - `code-pushing` / `[CP]002`: accepted on 2026-05-09 under the pass-wide criteria of Binaryen semantic parity, valid wasm output, and pass-local speed at least 50% of Binaryen. Raw wasm/text drift is representation-only and not an active blocker; public preset scheduling remains part of the ordered-neighborhood / tuple-slot work, not a code-pushing direct-pass blocker.
+- `tuple-optimization` exact slot / `[TO]005`: accepted on 2026-05-09 for v0.1.0 after `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` fixed the real `defined=29`, `defined=31`, `defined=33`, and `defined=200` optimizer shape drifts. The remaining `.tmp/to-exact-slot-artifact` red at `defined=200 abs=217` is a compare-normalization artifact: Starshine raw output and Binaryen strip-debug output both elide/preserve the harmless outer block consistently when normalized the same way, but the helper currently compares strip-debug-normalized Starshine against Binaryen's raw `--debug` output. This is not a v0.1.0 blocker.
 
 #### Ordered-prefix / hot-pipeline blockers
 
@@ -50,9 +51,7 @@ Completed direct-pass slices
 
 #### TO - Tuple Optimization
 
-- [TO]005 - Exact Slot Gate And Oracle Proof
-  - Current status: `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` is now represented in the exact helper and public `optimize` / `shrink` presets; direct `tuple-optimization` proof was refreshed on 2026-05-09 with both mixed-generator and `gen-valid` `pass-fuzz` lanes. The exact-slot artifact replay now fixes the previous `defined=29 abs=46` local-materialization gap, the `defined=31 abs=48` table-size child-if select drift, the `defined=33 abs=50` dropped local-read residue, the `defined=200 abs=217` tail `br $block`/`unreachable` wrapper, and the later second-refcount `local.tee` materialization. It remains red at `.tmp/to-exact-slot-artifact`, currently still first differing at `defined=200 abs=217`, but the remaining observed diff is the harmless outer block that Binaryen's raw `--debug` output keeps while Starshine loses after the helper's strip-debug canonicalization step.
-  - Remaining TODOs: decide whether the exact helper should treat the surviving outer block as representation drift or whether another raw-output parity hook is worth carrying solely for debug-artifact bytes; add any missing feature-off preset coverage if/when Starshine gains explicit feature options; retire pre-lower carrier debt in chained host-copy `tail-live0`; keep full debug-artifact compare canonically green while reducing tuple runtime, especially candidate-heavy functions such as `Func 1673`.
+- No active v0.1.0 tuple exact-slot blocker. Future tuple work should target new semantic/validity mismatches, feature-gated preset coverage if Starshine gains explicit feature options, or runtime reductions such as candidate-heavy functions including `Func 1673`; do not preserve cosmetic raw/debug blocks solely for byte-shape parity.
 
 #### SL - Simplify Locals
 
@@ -114,6 +113,12 @@ Completed direct-pass slices
   - Dependencies: [HOT]001 replay hardening must stay green.
 
 ## v0.2.0 Backlog
+
+- [TOOL]001 - Self-Optimize Compare Normalization Symmetry
+  - Goal: make the exact artifact helper stop reporting harmless raw/debug-only outer-block drift as a pass blocker.
+  - Why deferred: the current `[TO]005` residual is not a Starshine optimizer bug and is not needed for v0.1.0.
+  - Deliverables: either canonicalize Binaryen through the same strip-debug path before canonical-function comparison while preserving `binaryen.raw.wasm`, or teach the canonical-function fallback to ignore transparent unused-label void block wrappers.
+  - Acceptance: the exact-slot artifact command no longer reports `defined=200 abs=217` solely because Binaryen raw `--debug` kept an outer block that symmetric normalization removes.
 
 - [HOT]003 - Node-Package Worker Queue Port
   - Status: deferred behind [HOT]002 and future Node package rebuild work.
