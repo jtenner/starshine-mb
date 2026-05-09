@@ -449,6 +449,56 @@ test "code-pushing sinks local.get set after immediately following effectful if"
 }
 
 ///|
+test "code-pushing keeps local.get set before multivalue value if" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "env" "triple" (func (param i32 i32) (result i32 i32 i32)))
+        #|  (func (param i32 i32) (local i32 i32)
+        #|    local.get 0
+        #|    local.set 3
+        #|    local.get 3
+        #|    local.set 2
+        #|    local.get 0
+        #|    i32.const 10000
+        #|    call 0
+        #|    local.get 0
+        #|    i32.const 10000
+        #|    call 0
+        #|    local.get 1
+        #|    if (result i32)
+        #|      i32.const 20
+        #|    else
+        #|      i32.const 30
+        #|    end
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    local.get 2
+        #|    drop))
+        #|,
+      ),
+      ["code-pushing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected code-pushing pipeline success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 3))(local.set (Local 2))(local.get (Local 0))(i32.const I32(10000))(call (Func 0))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "code-pushing does not sink trapping computations" {
   let trace : Array[String] = []
   let optimized = match

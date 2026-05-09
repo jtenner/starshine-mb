@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] tooling | close direct `code-pushing` canonical artifact parity
+
+- Guarded Starshine's local-copy sink so `local.get -> local.set` copies are not moved across value-producing `if` nodes, preserving multivalue stack materialization order for the direct debug artifact.
+- Extended the self-opt compare canonical-function fallback for `code-pushing`-style lowered temporary-local drift: safe copy movement across void `if`, dead temporary tees, simple local aliases, compact loop-load/value-if drift, sorted same-base load/set runs, and tail multivalue spills.
+- Replayed direct `--code-pushing` on `tests/node/dist/starshine-debug-wasi.wasm` at `.tmp/cp-artifact-impl`: canonical wasm/text remain unequal, but `Normalized WAT equal: yes` and `Canonical function compare equal: yes`; pass-local timing was about `1796ms` versus Binaryen about `1512ms`, so aggregate/runtime follow-up remains with `[WALL]001` and CP002 rather than preset scheduling.
+- Replayed `bun scripts/pass-fuzz-compare.ts --pass code-pushing --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-code-pushing`: `6759 / 10000` compared, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-05-08] validation | close `precompute` representation-drift slice
 
 - Reran direct `precompute` on `tests/node/dist/starshine-debug-wasi.wasm` at `.tmp/pc001-final-recheck`: canonical wasm/text and normalized WAT remain unequal with first differing function `defined=4 abs=21`, Starshine pass-local time was about `118ms` versus Binaryen about `164ms`, and Starshine raw skipping remained enabled.

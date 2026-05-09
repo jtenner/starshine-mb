@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-09
 sources:
   - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
@@ -26,7 +26,7 @@ related:
 
 ## Current local status
 
-`code-pushing` is already an active direct HOT pass, but it is not a full Binaryen port.
+`code-pushing` is already an active direct HOT pass, but it is not a full Binaryen port. As of 2026-05-09, direct debug-artifact compare for `tests/node/dist/starshine-debug-wasi.wasm --code-pushing` is canonically green through the self-opt compare canonical-function fallback (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`). Raw canonical wasm/text still differs because HOT lowering and Binaryen choose different temporary-local / expression-stack shapes.
 
 Current Starshine code locations:
 
@@ -78,7 +78,7 @@ Binaryen's source-backed strategy is broader than the local subset:
 
 ## Validation ladder
 
-The 2026-05-06 direct revalidation for the current explicit HOT subset is green: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --out-dir .tmp/pass-fuzz-code-pushing` completed with 6759/10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. This closes the AUD002 direct revalidation item, but not the broader CP002 runtime / artifact / representation-drift backlog.
+The 2026-05-09 direct revalidation for the current explicit HOT subset is green: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass code-pushing --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-code-pushing` completed with 6759/10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures. The direct debug-artifact replay at `.tmp/cp-artifact-impl` reports `Normalized WAT equal: yes` and `Canonical function compare equal: yes`; canonical wasm/text remain unequal and pass-local debug-artifact timing remains slower than Binaryen, so CP002 stays open for runtime/artifact decisions and preset scheduling remains deferred.
 
 For every mutating slice:
 

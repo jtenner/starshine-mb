@@ -49,7 +49,7 @@ Observed unique-pass order
 
 - [CP]002 - Rewrite Coverage and Artifact Validation
   - Deliverables: continue profiling the optimized-artifact lane; decide whether to expand the Binaryen surface or keep the pass direct-only after performance is better understood; do not schedule publicly until performance and slot proof are acceptable.
-  - Current status: direct debug-artifact compare now advances past the original `defined=6 abs=23` global-get mismatch and the local-get sink mismatch at `defined=219 abs=236`; remaining first diff is `defined=220 abs=237`, where the visible `$120 -> $122` copy appears after HOT lowering rather than as a direct `code-pushing` root.
+  - Current status: direct debug-artifact compare for `--code-pushing` is canonically green through the self-opt compare fallback (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`) after guarding local-copy sinking across value `if` and normalizing lowered temporary-local / stack-shaping drift. Raw canonical wasm/text still differs, and pass-local timing remains slower than Binaryen on the debug artifact; keep runtime ownership under `[WALL]001` unless a pass-local hotspot is isolated.
 
 #### TO - Tuple Optimization
 

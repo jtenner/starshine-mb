@@ -637,6 +637,9 @@ fn code_pushing_try_sink_local_get_set_after_if(
     }
     match @ir.hot_node_get(func, candidate_id).op {
       @ir.HotOp::If => {
+        if @ir.hot_node_result_arity(func, candidate_id) != 0 {
+          return false
+        }
         if code_pushing_node_has_branch(func, candidate_id) ||
           code_pushing_node_has_unreachable(func, candidate_id) {
           return false

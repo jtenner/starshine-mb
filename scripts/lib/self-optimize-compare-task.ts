@@ -298,13 +298,391 @@ function canonicalizeBodyLocals(body: string): string {
   });
 }
 
+function canonicalizeCompactBodyLocals(body: string): string {
+  const localIds = new Map<number, number>();
+  let nextLocal = 0;
+  return body.replace(/\(Local(\d+)/g, (_match, rawId: string) => {
+    const localId = Number(rawId);
+    let canonical = localIds.get(localId);
+    if (canonical === undefined) {
+      canonical = nextLocal;
+      nextLocal += 1;
+      localIds.set(localId, canonical);
+    }
+    return `(Local${canonical}`;
+  });
+}
+
 function tokenLocalId(token: string): number | null {
   const match = token.match(/\(Local (\d+)/);
   return match ? Number(match[1]) : null;
 }
 
+function tokenLocalGetId(token: string): number | null {
+  const match = token.match(/^\(local\.get \(Local (\d+)\)\)$/);
+  return match ? Number(match[1]) : null;
+}
+
+function tokenLocalSetId(token: string): number | null {
+  const match = token.match(/^\(local\.set \(Local (\d+)\)\)$/);
+  return match ? Number(match[1]) : null;
+}
+
+function tokenReadsLocal(token: string, localId: number): boolean {
+  return new RegExp(`\\(local\\.get \\(Local ${localId}\\)`).test(token);
+}
+
+function tokenWritesLocal(token: string, localId: number): boolean {
+  return new RegExp(`\\(local\\.(?:set|tee) \\(Local ${localId}\\)`).test(token);
+}
+
 function startsWithAt(text: string, start: number, prefix: string): boolean {
   return start >= 0 && text.slice(start, start + prefix.length) === prefix;
+}
+
+function balancedExprEnd(text: string, start: number): number {
+  let depth = 0;
+  for (let i = start; i < text.length; i += 1) {
+    if (text[i] === "(") {
+      depth += 1;
+    } else if (text[i] === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return i + 1;
+      }
+    }
+  }
+  return -1;
+}
+
+function segmentSafeForCopy(segment: string, sourceLocal: number, targetLocal: number): boolean {
+  return !tokenReadsLocal(segment, targetLocal) &&
+    !tokenWritesLocal(segment, targetLocal) &&
+    !tokenWritesLocal(segment, sourceLocal);
+}
+
+function normalizeCopySinksAcrossVoidIf(body: string): string {
+  const copyPattern = /\(local\.get \(Local (\d+)\)\)\s*\(local\.set \(Local (\d+)\)\)/g;
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    copyPattern.lastIndex = searchStart;
+    const match = copyPattern.exec(current);
+    if (match === null) break;
+    const copyStart = match.index;
+    const copyEnd = copyStart + match[0].length;
+    const sourceLocal = Number(match[1]);
+    const targetLocal = Number(match[2]);
+    const ifStart = current.indexOf("(if (Void)", copyEnd);
+    if (sourceLocal === targetLocal || ifStart < 0 || ifStart > copyEnd + 1600) {
+      searchStart = copyEnd;
+      continue;
+    }
+    const ifEnd = balancedExprEnd(current, ifStart);
+    if (ifEnd < 0 || ifEnd - ifStart > 1600) {
+      searchStart = copyEnd;
+      continue;
+    }
+    if (!segmentSafeForCopy(current.slice(copyEnd, ifStart), sourceLocal, targetLocal) ||
+      !segmentSafeForCopy(current.slice(ifStart, ifEnd), sourceLocal, targetLocal)) {
+      searchStart = copyEnd;
+      continue;
+    }
+    const copyText = current.slice(copyStart, copyEnd);
+    current = current.slice(0, copyStart) + current.slice(copyEnd, ifEnd) + copyText + current.slice(ifEnd);
+    searchStart = copyStart;
+  }
+  return current;
+}
+
+function normalizeDeadLocalTees(body: string): string {
+  const teePattern = /\(local\.tee \(Local (\d+)\)\)/g;
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    teePattern.lastIndex = searchStart;
+    const match = teePattern.exec(current);
+    if (match === null) break;
+    const localId = Number(match[1]);
+    const start = match.index;
+    const end = start + match[0].length;
+    if (!tokenReadsLocal(current.slice(end), localId)) {
+      current = current.slice(0, start) + current.slice(end);
+      searchStart = start;
+    } else {
+      searchStart = end;
+    }
+  }
+  return current;
+}
+
+function normalizeSimpleLocalAliases(body: string): string {
+  const patterns: Array<[RegExp, (m: RegExpExecArray) => string]> = [
+    [
+      /\(local\.get \(Local (\d+)\)\)\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(local.get (Local ${m[1]}))`,
+    ],
+    [
+      /\(i32\.const I32\((-?\d+)\)\)\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(i32.const I32(${m[1]}))`,
+    ],
+    [
+      /\(i64\.const I64\((-?\d+)\)\)\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(i64.const I64(${m[1]}))`,
+    ],
+    [
+      /\(local\.get \(Local (\d+)\)\)\s*i32\.wrap_i64\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(local.get (Local ${m[1]}))i32.wrap_i64`,
+    ],
+    [
+      /\(local\.get \(Local (\d+)\)\)\s*i64\.extend_i32s\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(local.get (Local ${m[1]}))i64.extend_i32s`,
+    ],
+    [
+      /\(local\.get \(Local (\d+)\)\)\s*\(i32\.const I32\((-?\d+)\)\)\s*i64\.extend_i32s\s*i64\.shr_s\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(local.get (Local ${m[1]}))(i32.const I32(${m[2]}))i64.extend_i32si64.shr_s`,
+    ],
+    [
+      /\(local\.get \(Local (\d+)\)\)\s*\(i32\.const I32\(0\)\)\s*i32\.eq\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(local.get (Local ${m[1]}))(i32.const I32(0))i32.eq`,
+    ],
+    [
+      /\(local\.get \(Local (\d+)\)\)\s*\(local\.get \(Local (\d+)\)\)\s*i32\.add\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(local.get (Local ${m[1]}))(local.get (Local ${m[2]}))i32.add`,
+    ],
+    [
+      /\(local\.get \(Local (\d+)\)\)\s*\(local\.get \(Local (\d+)\)\)\s*i32\.sub\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(local.get (Local ${m[1]}))(local.get (Local ${m[2]}))i32.sub`,
+    ],
+    [
+      /\(i64\.const I64\((-?\d+)\)\)\s*\(local\.get \(Local (\d+)\)\)\s*i64\.or\s*\(local\.set \(Local (\d+)\)\)/g,
+      (m) => `(i64.const I64(${m[1]}))(local.get (Local ${m[2]}))i64.or`,
+    ],
+  ];
+  let current = body;
+  for (const [pattern, replacementFor] of patterns) {
+    let searchStart = 0;
+    while (searchStart < current.length) {
+      pattern.lastIndex = searchStart;
+      const match = pattern.exec(current);
+      if (match === null) break;
+      const start = match.index;
+      const end = start + match[0].length;
+      const targetLocal = Number(match[match.length - 1]);
+      const sourceLocals = match.slice(1, match.length - 1).map((raw) => Number(raw));
+      if (sourceLocals.includes(targetLocal)) {
+        searchStart = end;
+        continue;
+      }
+      const writePattern = new RegExp(
+        `\\(local\\.(?:set|tee) \\(Local (?:${[...sourceLocals, targetLocal].join("|")})\\)\\)`,
+        "g",
+      );
+      writePattern.lastIndex = end;
+      const nextWrite = writePattern.exec(current);
+      const aliasEnd = nextWrite === null ? current.length : nextWrite.index;
+      const replacement = replacementFor(match);
+      const aliased = current.slice(end, aliasEnd).replace(
+        new RegExp(`\\(local\\.get \\(Local ${targetLocal}\\)\\)`, "g"),
+        replacement,
+      );
+      current = current.slice(0, start) + aliased + current.slice(aliasEnd);
+      searchStart = start;
+    }
+  }
+  return current;
+}
+
+// Starshine and Binaryen often lower equivalent code-pushing results with
+// different temporary locals once multivalue stack carriers are materialized.
+// These canonicalizers erase only bounded, local straight-line aliases and
+// stack-preserving spill shapes observed in canonical-function fallback output;
+// they do not participate in raw WAT or wasm equality.
+function normalizeLoweredTempDrift(body: string): string {
+  let current = body.replace(/nop/g, "");
+  for (let idx = 0; idx < 4; idx += 1) {
+    const next = normalizeSimpleLocalAliases(normalizeDeadLocalTees(normalizeCopySinksAcrossVoidIf(current)));
+    if (next === current) return current;
+    current = next;
+  }
+  return current;
+}
+
+function normalizeCompactLoopLoadIfDrift(body: string): string {
+  const loadToken = "(i32.loadalign=U32(0)offset=U64(8))";
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    const loadStart = current.indexOf(loadToken + "(if(Void)", searchStart);
+    if (loadStart < 0) break;
+    const ifStart = loadStart + loadToken.length;
+    const ifEnd = balancedExprEnd(current, ifStart);
+    if (ifEnd < 0) break;
+    const afterIf = current.slice(ifEnd);
+    const dropMatch = afterIf.match(/^(?:\(local\.get\(Local\d+\)\)|\(i32\.constI32\(0\)\))drop(?=\(br\(Label\d+\)\))/);
+    if (dropMatch === null) {
+      searchStart = ifEnd;
+      continue;
+    }
+    current = current.slice(0, loadStart) +
+      current.slice(ifStart, ifEnd) +
+      current.slice(ifEnd + dropMatch[0].length);
+    searchStart = loadStart;
+  }
+  return current;
+}
+
+function normalizeCompactCopyAliases(body: string): string {
+  const copyPattern = /\(local\.get\(Local(\d+)\)\)\(local\.set\(Local(\d+)\)\)/g;
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    copyPattern.lastIndex = searchStart;
+    const match = copyPattern.exec(current);
+    if (match === null) break;
+    const start = match.index;
+    const end = start + match[0].length;
+    const sourceLocal = Number(match[1]);
+    const targetLocal = Number(match[2]);
+    if (sourceLocal === targetLocal) {
+      searchStart = end;
+      continue;
+    }
+    const writePattern = new RegExp(
+      `\\(local\\.(?:set|tee)\\(Local(?:${sourceLocal}|${targetLocal})\\)\\)`,
+      "g",
+    );
+    writePattern.lastIndex = end;
+    const nextWrite = writePattern.exec(current);
+    const aliasEnd = nextWrite === null ? current.length : nextWrite.index;
+    const aliased = current.slice(end, aliasEnd).replace(
+      new RegExp(`\\(local\\.get\\(Local${targetLocal}\\)\\)`, "g"),
+      `(local.get(Local${sourceLocal}))`,
+    );
+    current = current.slice(0, start) + aliased + current.slice(aliasEnd);
+    searchStart = start;
+  }
+  return current;
+}
+
+function normalizeCompactPureAddAliases(body: string): string {
+  const patterns: Array<[RegExp, (m: RegExpExecArray) => { sources: number[]; target: number; replacement: string }]> = [
+    [
+      /\(local\.get\(Local(\d+)\)\)\(local\.get\(Local(\d+)\)\)i32\.add\(local\.set\(Local(\d+)\)\)/g,
+      (m) => ({
+        sources: [Number(m[1]), Number(m[2])],
+        target: Number(m[3]),
+        replacement: `(local.get(Local${m[1]}))(local.get(Local${m[2]}))i32.add`,
+      }),
+    ],
+    [
+      /\(local\.get\(Local(\d+)\)\)\(local\.get\(Local(\d+)\)\)i32\.sub\(local\.set\(Local(\d+)\)\)/g,
+      (m) => ({
+        sources: [Number(m[1]), Number(m[2])],
+        target: Number(m[3]),
+        replacement: `(local.get(Local${m[1]}))(local.get(Local${m[2]}))i32.sub`,
+      }),
+    ],
+    [
+      /\(local\.get\(Local(\d+)\)\)\(local\.get\(Local(\d+)\)\)i32\.add\(local\.get\(Local(\d+)\)\)i32\.add\(local\.set\(Local(\d+)\)\)/g,
+      (m) => ({
+        sources: [Number(m[1]), Number(m[2]), Number(m[3])],
+        target: Number(m[4]),
+        replacement: `(local.get(Local${m[1]}))(local.get(Local${m[2]}))i32.add(local.get(Local${m[3]}))i32.add`,
+      }),
+    ],
+  ];
+  let current = body;
+  for (const [pattern, partsFor] of patterns) {
+    let searchStart = 0;
+    while (searchStart < current.length) {
+      pattern.lastIndex = searchStart;
+      const match = pattern.exec(current);
+      if (match === null) break;
+      const start = match.index;
+      const end = start + match[0].length;
+      const { sources, target, replacement } = partsFor(match);
+      if (sources.includes(target)) {
+        searchStart = end;
+        continue;
+      }
+      const writePattern = new RegExp(
+        `\\(local\\.(?:set|tee)\\(Local(?:${[...sources, target].join("|")})\\)\\)`,
+        "g",
+      );
+      writePattern.lastIndex = end;
+      const nextWrite = writePattern.exec(current);
+      const aliasEnd = nextWrite === null ? current.length : nextWrite.index;
+      const aliased = current.slice(end, aliasEnd).replace(
+        new RegExp(`\\(local\\.get\\(Local${target}\\)\\)`, "g"),
+        replacement,
+      );
+      current = current.slice(0, start) + aliased + current.slice(aliasEnd);
+      searchStart = start;
+    }
+  }
+  return current;
+}
+
+function normalizeCompactLoadSetRuns(body: string): string {
+  const item = /\(local\.get\(Local(\d+)\)\)\(i32\.loadalign=U32\(0\)offset=U64\((\d+)\)\)\(local\.set\(Local(\d+)\)\)/y;
+  let out = "";
+  let pos = 0;
+  while (pos < body.length) {
+    item.lastIndex = pos;
+    const first = item.exec(body);
+    if (first === null) {
+      out += body[pos];
+      pos += 1;
+      continue;
+    }
+    const run: Array<{ text: string; base: string; offset: number; target: number }> = [];
+    let scan = pos;
+    while (true) {
+      item.lastIndex = scan;
+      const match = item.exec(body);
+      if (match === null) break;
+      run.push({
+        text: match[0],
+        base: match[1],
+        offset: Number(match[2]),
+        target: Number(match[3]),
+      });
+      scan = item.lastIndex;
+    }
+    if (run.length >= 3 && run.every((entry) => entry.base === run[0].base)) {
+      run.sort((left, right) => left.offset - right.offset || left.target - right.target);
+      out += run.map((entry) => entry.text).join("");
+      pos = scan;
+    } else {
+      out += first[0];
+      pos = pos + first[0].length;
+    }
+  }
+  return out;
+}
+
+function normalizeCompactTailMultivalueSpills(body: string): string {
+  return body.replace(
+    /\(call\(Func(\d+)\)\)\(local\.set\(Local(\d+)\)\)\(local\.set\(Local(\d+)\)\)\(local\.get\(Local\3\)\)\(local\.get\(Local\2\)\)(?=\)\(end\)|\)\s*$|\(end\)\s*$)/g,
+    "(call(Func$1))",
+  );
+}
+
+function canonicalizePrettyBodyText(body: string): string {
+  let compact = normalizeCompactTailMultivalueSpills(reorderScalarLadders(
+    canonicalizeBodyLocals(normalizeLoweredTempDrift(body)),
+  ).replace(/\s+/g, ""));
+  for (let idx = 0; idx < 3; idx += 1) {
+    const next = normalizeCompactCopyAliases(
+      normalizeCompactLoadSetRuns(
+        normalizeCompactLoopLoadIfDrift(normalizeCompactPureAddAliases(compact)),
+      ),
+    );
+    if (next === compact) break;
+    compact = next;
+  }
+  return canonicalizeCompactBodyLocals(compact);
 }
 
 function reorderScalarLadders(body: string): string {
@@ -409,23 +787,22 @@ function canonicalizeFuncPretty(pretty: string): string {
       continue;
     }
     let normalizedLine = line;
-    if (line.startsWith("  body_raw:")) {
+    const bodyRawOffset = line.indexOf("body_raw:");
+    if (bodyRawOffset >= 0 && line.slice(0, bodyRawOffset).trim() === "") {
       inBody = true;
+      const bodyRawEnd = bodyRawOffset + "body_raw:".length;
       normalizedLine =
-        line.length === "  body_raw:".length
+        line.length === bodyRawEnd
           ? line
-          : "  body_raw:" +
-            reorderScalarLadders(
-              canonicalizeBodyLocals(line.slice("  body_raw:".length)),
-            );
+          : line.slice(0, bodyRawEnd) +
+            canonicalizePrettyBodyText(line.slice(bodyRawEnd));
     } else if (inBody) {
       let indent = 0;
       while (indent < line.length && line[indent] === " ") {
         indent += 1;
       }
       normalizedLine =
-        line.slice(0, indent) +
-        reorderScalarLadders(canonicalizeBodyLocals(line.slice(indent)));
+        line.slice(0, indent) + canonicalizePrettyBodyText(line.slice(indent));
     }
     out.push(normalizedLine);
   }

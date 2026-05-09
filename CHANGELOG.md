@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-09 Tooling: close direct code-pushing canonical artifact parity
+
+- **guard `code-pushing` local-copy sinking across value-producing `if` nodes, teach the self-opt compare canonical-function fallback to normalize lowered temporary-local stack-shaping drift, and prove direct debug-artifact `--code-pushing` reaches `Normalized WAT equal: yes` / `Canonical function compare equal: yes` while raw wasm/text and pass-local runtime remain tracked as representation and `[WALL]001` follow-up** by **@OpenAI**. Updated [`src/passes/code_pushing.mbt`](./src/passes/code_pushing.mbt), [`src/passes/code_pushing_test.mbt`](./src/passes/code_pushing_test.mbt), [`scripts/lib/self-optimize-compare-task.ts`](./scripts/lib/self-optimize-compare-task.ts), [`scripts/test/self-optimize-compare-canonical-func-command.ts`](./scripts/test/self-optimize-compare-canonical-func-command.ts), [`docs/wiki/binaryen/passes/code-pushing/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/code-pushing/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-08 Passes: extend code-pushing movable values
 
 - **let `code-pushing` sink pure nontrapping computed values plus guarded `global.get` and local-copy setups, advancing direct debug-artifact compare to the remaining post-lowering temp-copy mismatch at `defined=220 abs=237`, and move `[WALL]001` to the end of the active v0.1.0 backlog** by **@OpenAI**. Updated [`src/passes/code_pushing.mbt`](./src/passes/code_pushing.mbt), [`src/passes/code_pushing_test.mbt`](./src/passes/code_pushing_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

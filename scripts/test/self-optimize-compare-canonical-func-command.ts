@@ -65,7 +65,11 @@ if (args[0] === "--print-func") {
   process.stderr.write("    locals:\\n");
   process.stderr.write("      [0] I32 (local)\\n");
   process.stderr.write("    body_raw:\\n");
-  process.stderr.write("      (local.get (Local 9))(local.set (Local 4))(local.get (Local 4))(end)\\n");
+  if (args[2].endsWith("binaryen.wasm")) {
+    process.stderr.write("      (local.get (Local 1))(call (Func 9))(if (Void) (local.get (Local 0)) drop )(local.get (Local 9))(local.set (Local 4))(local.get (Local 4))(end)\\n");
+  } else {
+    process.stderr.write("      (local.get (Local 9))(local.set (Local 4))(local.get (Local 1))(call (Func 9))(if (Void) (local.get (Local 0)) drop )(local.get (Local 4))(end)\\n");
+  }
   process.exit(0);
 }
 const outIndex = args.indexOf("--out");
