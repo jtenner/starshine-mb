@@ -482,6 +482,51 @@ test "rse raw path preserves branch disagreement as a merge value for self sets"
 }
 
 ///|
+test "rse raw path keeps br_on_null block-exit disagreement final const set" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::anyref()], [])),
+  )
+  let optimized = rse_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32::new(1)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::Block(_, _),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::LocalSet(_),
+    ] => ()
+    other =>
+      fail(
+        "expected final const set to survive br_on_null block-exit disagreement, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "rse raw path keeps post-loop set after outer loop exit" {
   let input =
     #|(module

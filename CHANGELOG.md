@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: extend RSE GC branch exits
+
+- **teach raw `redundant-set-elimination` to merge GC conditional branch exits for `br_on_null` / `br_on_non_null` / `br_on_cast` / `br_on_cast_fail`, add a `br_on_null` block-exit disagreement regression, and keep direct compare-pass semantic parity green at `.tmp/pass-fuzz-rse-rse002-gc-branch-exits`** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: cover RSE cast wrappers and loop skips
 
 - **broaden `redundant-set-elimination` coverage with lowered `ref.cast` / `ref.cast_desc_eq` refined-get fixtures, document the current conservative loop-exit skip contract with a raw outer-exit regression, and keep direct compare-pass semantic parity green at `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`** by **@OpenAI**. Updated [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

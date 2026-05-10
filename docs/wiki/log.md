@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | extend RSE GC branch exits
+
+- Added a focused raw `redundant-set-elimination` regression for `br_on_null` block-exit disagreement: when the null branch can bypass a block-local `i32.const 1; local.set`, the later post-block same-const set must remain a `local.set` rather than folding to `drop`.
+- Raw RSE now records `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as conditional label exits and conservatively clears expression-stack facts on fallthrough, extending the structured label-exit merge lane to the GC branch families.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-gc-branch-exits`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the living RSE pages and backlog to keep remaining HOT/control-family label flow, fixed-point loop convergence, broader official `rse-gc.wast` breadth, and preset scheduling open.
+
 ## [2026-05-10] passes | cover RSE cast wrappers and loop skips
 
 - Added focused `redundant-set-elimination` regressions for concrete-heap strict-subtype retargeting through lowered `ref.cast` and `ref.cast_desc_eq` instructions, using programmatic fixtures because the WAT parser does not yet expose ordinary `ref.cast` syntax.

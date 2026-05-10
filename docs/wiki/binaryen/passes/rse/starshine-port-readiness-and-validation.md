@@ -52,7 +52,7 @@ The implemented surface:
 
 Remaining full-parity work is still real:
 
-- replace the current documented conservative loop-exit fact drop with Binaryen-style fixed-point CFG merge values where needed, and carry the same start/end identities through the remaining HOT/control-label families beyond the landed raw block/if exit lane;
+- replace the current documented conservative loop-exit fact drop with Binaryen-style fixed-point CFG merge values where needed, and carry the same start/end identities through the remaining HOT/control-label families beyond the landed raw block/if and `br_on_*` exit lanes;
 - broaden strict-subtype equivalent-local `local.get` retargeting beyond the landed reduced abs-heap plus concrete-heap `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` wrapper fixtures to the remaining official `rse-gc.wast` families and any required refinalization/writeback repair;
 - keep the classified `rse -> vacuum` cleanup-slot replay from regressing before scheduling the late no-DWARF slot.
 
@@ -115,12 +115,13 @@ Only then should the pass enter public preset scheduling.
 - [x] Same-block repeated `local.tee` positive.
 - [x] Different overwritten value negative.
 - [x] RHS trap/effect preservation by replacing the shell, not the value expression.
-- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002-gc-refinement`, `.tmp/pass-fuzz-rse-rse002-next-followup`, `.tmp/pass-fuzz-rse-rse002-final`, `.tmp/pass-fuzz-rse-rse002-next`, `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
+- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002-gc-branch-exits` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`, `.tmp/pass-fuzz-rse-rse002-gc-refinement`, `.tmp/pass-fuzz-rse-rse002-next-followup`, `.tmp/pass-fuzz-rse-rse002-final`, `.tmp/pass-fuzz-rse-rse002-next`, `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
 - [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
 - [x] 2026-05-05 current-main recheck stayed aligned with the same CFG/value-flow and refined-get split.
 - [x] Branch-join same-value/self-set coverage for structured HOT and raw paths, including disagreement represented as a merge identity for self-set folding.
 - [ ] Branch-join different-value negative beyond the focused local tests.
 - [x] Raw block-exit disagreement negative keeps the final const set after `br_if` exits a block on one path and a later fallthrough path writes the same const.
+- [x] Raw GC branch-exit disagreement negative keeps the final const set after `br_on_null` exits a block on one path and a later fallthrough path writes the same const; the implementation now records `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as conditional label exits while conservatively clearing expression-stack facts on fallthrough.
 - [x] Conservative loop skip behavior documented and tested: the raw path keeps a post-loop `local.set` alive when an outer loop exit can bypass the loop's local write; full fixed-point loop convergence remains future work.
 - [x] Reduced refined local-get retargeting with a strict-subtype local (`anyref` read retargeted to equivalent `eqref`).
 - [x] Concrete-heap refined local-get retargeting through `ref.as_non_null` value-preserving wrappers, including a branch-merge positive and a strict-subtype negative where the nullable local must not replace the non-null source.

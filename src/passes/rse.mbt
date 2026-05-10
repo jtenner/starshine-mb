@@ -885,7 +885,11 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_clear_values(state)
         state.reachable = false
       }
-      @lib.Instruction::BrIf(label_idx) => {
+      @lib.Instruction::BrIf(label_idx)
+      | @lib.Instruction::BrOnNull(label_idx)
+      | @lib.Instruction::BrOnNonNull(label_idx)
+      | @lib.Instruction::BrOnCast(label_idx, _, _, _)
+      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _) => {
         ignore(rse_raw_pop(state))
         rse_raw_record_branch_exit(
           state,
