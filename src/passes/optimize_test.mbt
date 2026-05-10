@@ -100,6 +100,51 @@ test "vacuum removes nested if branch pure debris inside value expression" {
 }
 
 ///|
+test "vacuum flips empty then with live else" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (if
+    #|      (i32.eqz (local.get 0))
+    #|      (then)
+    #|      (else
+    #|        (local.set 1 (i32.const 1))
+    #|      )
+    #|    )
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected empty-then vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected empty-then vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_eqz(),
+        @lib.Instruction::i32_eqz(),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          ],
+          None,
+        ),
+      ])
+    other =>
+      fail(
+        "expected single empty-then vacuum function output, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum removes empty void blocks" {
   let input = pass_test_module_from_wat(
     "(module (func (local i32) block end i32.const 5 local.set 0))",

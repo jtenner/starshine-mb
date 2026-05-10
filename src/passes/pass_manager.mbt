@@ -364,6 +364,67 @@ fn vacuum_can_remove_dropped_node(
 }
 
 ///|
+fn vacuum_build_i32_eqz(func : @ir.HotFunc, operand : @ir.NodeId) -> @ir.NodeId {
+  let inverted = @ir.hot_build_unary(func, @lib.ValType::i32(), operand)
+  @ir.hot_node_exact_instr_set(func, inverted, @lib.Instruction::i32_eqz())
+  inverted
+}
+
+///|
+fn vacuum_region_roots(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Array[@ir.NodeId] {
+  let roots : Array[@ir.NodeId] = []
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    roots.push(@ir.hot_region_get(func, region_ref, idx))
+  }
+  roots
+}
+
+///|
+fn hot_pass_vacuum_flip_empty_then_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_type_result_arity(func, node.ty) != 0 ||
+    @ir.hot_child_count(func, node_id) < 3 {
+    return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, node_id)
+  if @ir.hot_region_root_count(func, then_ref) != 0 {
+    return false
+  }
+  let else_ref = match @ir.hot_region_else_ref(func, node_id) {
+    Some(ref_) => ref_
+    None => return false
+  }
+  let else_roots = vacuum_region_roots(func, else_ref)
+  if else_roots.length() == 0 {
+    return false
+  }
+  let condition = @ir.hot_child_get(func, node_id, 0)
+  let else_holder = @ir.hot_child_get(func, node_id, 2)
+  let inverted = vacuum_build_i32_eqz(func, condition)
+  @ir.hot_region_replace_body(func, else_ref, [])
+  @ir.hot_region_replace_body(func, then_ref, else_roots)
+  @ir.hot_child_set(func, node_id, 0, inverted)
+  @ir.hot_child_set(func, node_id, 2, -1)
+  pass_mark_mutated(ctx, func)
+  pass_delete_detached_nodes(ctx, func, [else_holder])
+  true
+}
+
+///|
 fn hot_pass_remove_node_nested_region_nops(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -419,6 +480,8 @@ fn hot_pass_remove_node_nested_region_nops(
             changed
         None => ()
       }
+      changed = hot_pass_vacuum_flip_empty_then_if(ctx, func, node_id) ||
+        changed
     }
     @ir.HotOp::Try => {
       changed = hot_pass_remove_region_nops(
@@ -589,6 +652,8 @@ fn hot_pass_remove_region_nops(
               changed
           None => ()
         }
+        changed = hot_pass_vacuum_flip_empty_then_if(ctx, func, node_id) ||
+          changed
       }
       @ir.HotOp::Try => {
         changed = hot_pass_remove_region_nops(
@@ -7843,7 +7908,12 @@ fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
         if run_hot_pipeline_raw_vacuum_has_candidate_instrs(body) {
           return true
         }
-      @lib.If(_, then_body, else_body) => {
+      @lib.If(block_type, then_body, else_body) => {
+        match (block_type, then_body.length(), else_body) {
+          (@lib.VoidBlockType, 0, Some(body)) if body.length() > 0 =>
+            return true
+          _ => ()
+        }
         if run_hot_pipeline_raw_vacuum_has_candidate_instrs(then_body) {
           return true
         }

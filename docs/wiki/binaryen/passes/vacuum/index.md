@@ -75,6 +75,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - dropped pure scalar result pruning for nontrapping numeric/ref/tuple shapes
   - removing empty void blocks
   - unwrapping blocks whose only payload is `unreachable`
+  - flipping empty-then/live-else void `if`s to Binaryen's one-armed double-`eqz` form
   - Binaryen-style single-`nop` function-body canonicalization when `vacuum` rewrites or re-lowers an otherwise empty function body
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
   - the 2026-02-27 explicit-`unreachable` preservation change belongs to Chromium commit `f284d54...`, not `9ee4a25...`
@@ -116,7 +117,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, and empty-function single-`nop` canonicalization slice.
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, empty-then/live-else `if` inversion, and empty-function single-`nop` canonicalization slice.
 
 ## Sources
 

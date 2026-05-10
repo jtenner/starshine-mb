@@ -64,16 +64,17 @@ The real rewrite logic is one recursive HOT helper in `src/passes/pass_manager.m
 
 - `hot_pass_remove_region_nops(ctx, func, region_ref)`
 
-That helper walks a region root list and now does four things:
+That helper walks a region root list and now does five things:
 
 1. if the current root is `HotOp::Nop`, it splices that root out of the region and deletes the detached node
 2. if the current root is `drop` of a removable nontrapping pure scalar/ref/tuple expression, it removes the dropped expression while preserving potentially trapping conversions such as non-saturating float-to-int truncations
 3. if the current root is an empty `block` with zero result arity, it removes the block while preserving typed/result blocks
 4. if the current root is a `block` whose only payload is `unreachable`, it unwraps the block to the payload `unreachable`
+5. if the current root is a void `if` with an empty then arm and a live else arm, it moves the else payload into a one-armed then arm and wraps the condition in `i32.eqz`
 
 The hot-pipeline writeback path also has a `vacuum`-specific empty-function canonicalization shim: if an otherwise unchanged or lowered `vacuum` body is empty, Starshine emits Binaryen's single `nop` function body rather than serializing an empty expression list.
 
-Then, if the current root owns nested regions, the helper recurses into them.
+Then, if the current root owns nested regions, the helper recurses into them. For small functions it also traverses nested value-expression children so RSE-exposed pure debris and empty-arm shapes inside value-producing controls are cleaned before lowering.
 
 The recursion surface is explicit and limited:
 
@@ -101,6 +102,7 @@ It already gives the repo a few concrete wins:
 - honest invalidation of broad HOT analyses after mutation
 - stable tracing and perf observability in the main hot pipeline
 - a practical replay boundary for validation/writeback issues found during generated-artifact audits
+- Binaryen-style cleanup of the empty-then/live-else `if` family without waiting for `remove-unused-brs`
 
 So the right teaching stance is not “this pass is fake.”
 It is:
@@ -120,6 +122,8 @@ The local tests are small but meaningful.
   - proves the effect-aware dropped-result slice removes pure arithmetic while preserving local writes
 - `vacuum removes empty void blocks`
   - proves empty zero-result block residue is deleted and the resulting module still validates
+- `vacuum flips empty then with live else`
+  - proves the Binaryen-style empty-then/live-else void `if` inversion and validates the lowered double-`eqz` form
 - `vacuum unwraps block that only contains unreachable`
   - proves the block-only-`unreachable` cleanup shape Binaryen emits on the generated scalar corpus
 - `vacuum matches Binaryen empty function nop canonicalization`
@@ -165,20 +169,20 @@ That is the concrete proof surface behind the older artifact notes that retired 
 The safest one-line contrast is:
 
 - **Binaryen `vacuum`:** effect-aware unused-result pruning plus structural cleanup, TNH handling, and mandatory refinalization
-- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, Binaryen-style empty-function single-`nop` canonicalization, and pipeline-level validation/writeback hygiene around those rewrites
+- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, empty-then/live-else `if` inversion, Binaryen-style empty-function single-`nop` canonicalization, and pipeline-level validation/writeback hygiene around those rewrites
 
 Direct oracle evidence for the current slice:
 
-- `.tmp/pass-fuzz-vacuum`: after the 2026-05-06 empty-function canonicalization fix, mixed-generator replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen empty-recursion-group parser/canonicalization command failures
+- `.tmp/pass-fuzz-vacuum-empty-then-final`: after the 2026-05-10 empty-then/live-else inversion, mixed-generator replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen empty-recursion-group parser/canonicalization command failures
 - `.tmp/pass-fuzz-vacuum-gen-valid`: `10000/10000` direct `gen-valid` normalized matches, `0` mismatches, `0` validation failures, `0` command failures after the empty-void-block cleanup landed
-- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --vacuum`: normalized WAT and canonical function compare equal; raw/canonical wasm bytes still differ, while Starshine pass time was `99.859ms` versus Binaryen pass time `222.616ms`
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --vacuum --out-dir .tmp/rse002-vacuum-baseline`: the direct artifact replay is now exact-red at the accepted `defined=208 abs=225` value-carrier / typed-wrapper representation family, while pass-local timing remains green (`172.697ms` Starshine vs `252.935ms` Binaryen)
 
 Current Starshine does **not** yet model upstream behaviors such as:
 
 - generalized effect-aware dropped-wrapper elimination beyond the current nontrapping pure scalar/ref/tuple subset
 - multi-child effect preservation through dropped-child rebuilding
 - constant or unreachable `if` collapse
-- branch-hint flips when an `if` is inverted
+- branch-hint metadata updates when an `if` is inverted
 - `drop(local.tee(...)) -> local.set(...)`
 - block-result popping with label-safety checks
 - non-throwing `try` / `try_table` collapse
@@ -219,7 +223,7 @@ For the current implementation, they are part of the honest contract.
 
 If Starshine wants closer Binaryen parity, the likely path is still staged:
 
-1. keep the current recursive `nop`, empty-void-block, dropped-pure-result, and block-only-`unreachable` slice green
+1. keep the current recursive `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, and empty-then/live-else `if` inversion slice green
 2. move the pass into a dedicated owner file once the helper surface grows further
 3. broaden effect-aware dropped-wrapper elimination
 4. add the remaining easy structural cases
@@ -242,5 +246,5 @@ Its exact local implementation is now easy to follow:
 
 That makes the local subset easy to teach honestly:
 
-- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, and keep the pipeline safe
+- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, flip empty-then/live-else void `if`s, and keep the pipeline safe
 - **what it does not do yet:** the broader Binaryen `vacuum` rewrite family

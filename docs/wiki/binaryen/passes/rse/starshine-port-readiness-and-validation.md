@@ -54,7 +54,7 @@ Remaining full-parity work is still real:
 
 - complete Binaryen-style fixed-point CFG merge values through arbitrary blocks and loops;
 - broaden strict-subtype equivalent-local `local.get` retargeting to the official `rse-gc.wast` families and any required refinalization/writeback repair;
-- classify or fix the `rse -> vacuum` cleanup-slot replay before scheduling the late no-DWARF slot.
+- keep the classified `rse -> vacuum` cleanup-slot replay from regressing before scheduling the late no-DWARF slot.
 
 ## Exact local status
 
@@ -65,7 +65,7 @@ Remaining full-parity work is still real:
 | Owner file | `src/passes/rse.mbt` owns descriptor, summary, raw value identities, branch merge sentinels, body-local default identities, and strict-subtype raw get retargeting. | Keep new behavior beside this owner with focused tests. |
 | HOT local surfaces | [`src/ir/use_def.mbt:1-120`](../../../../../src/ir/use_def.mbt) records local reads/writes, but no value-number CFG flow. | Reuse only the collection pieces that fit; add explicit value identity and merge logic. |
 | Type context | [`src/ir/hot_module_context.mbt:1-58`](../../../../../src/ir/hot_module_context.mbt) and later helpers expose module subtype/function type context. | Use this for strict-subtype retargeting checks. |
-| Backlog | [`agent-todo.md:481-491`](../../../../../agent-todo.md) tracks `RSE`. | Keep the backlog aligned with this CFG-aware contract. |
+| Backlog | [`agent-todo.md`](../../../../../agent-todo.md) tracks `RSE`. | Keep the backlog aligned with this CFG-aware contract. |
 
 ## First viable slice
 
@@ -115,7 +115,7 @@ Only then should the pass enter public preset scheduling.
 - [x] Same-block repeated `local.tee` positive.
 - [x] Different overwritten value negative.
 - [x] RHS trap/effect preservation by replacing the shell, not the value expression.
-- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002-next` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
+- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002-final` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002-next`, `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
 - [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
 - [x] 2026-05-05 current-main recheck stayed aligned with the same CFG/value-flow and refined-get split.
 - [x] Branch-join same-value/self-set coverage for structured HOT and raw paths, including disagreement represented as a merge identity for self-set folding.
@@ -124,8 +124,9 @@ Only then should the pass enter public preset scheduling.
 - [x] Reduced refined local-get retargeting with a strict-subtype local (`anyref` read retargeted to equivalent `eqref`).
 - [x] One-armed terminating `if` fallthrough facts preserve default-local identities before later loop conditions.
 - [x] Paired vacuum removes nested pure `drop` / `nop` debris exposed by RSE in small value-expression control regions.
+- [x] Vacuum flips empty-then/live-else void `if`s to the Binaryen-style one-armed double-`eqz` form.
 - [x] No changes to globals, memory stores, struct stores, or array stores.
-- [ ] Late `--rse --vacuum` lane: 2026-05-10 replay at `.tmp/rse002-rse-vacuum-next2` remains red but moved to `defined=29 abs=46`; the former `defined=0 abs=17` nested `drop(...)` / `nop` debris is fixed, and the remaining visible delta is empty-then / double-`eqz` control-shape representation drift.
+- [x] Late `--rse --vacuum` lane classified for RSE002: 2026-05-10 replay at `.tmp/rse002-rse-vacuum-final` remains exact-red at `defined=208 abs=225`, but the former `defined=0 abs=17` nested `drop(...)` / `nop` debris and `defined=29 abs=46` empty-then / double-`eqz` drift are fixed. The remaining first diff is inherited from direct `--vacuum`: `.tmp/rse002-vacuum-baseline` has the same first differing function, and the focused Starshine WAT/pretty files are byte-identical with and without RSE.
 
 ## Open design questions
 

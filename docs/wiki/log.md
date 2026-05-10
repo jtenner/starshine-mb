@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | classify RSE vacuum replay frontier
+
+- Added `vacuum flips empty then with live else`, covering Binaryen-style inversion of empty-then/live-else void `if`s into a one-armed double-`eqz` form.
+- Refreshed direct `vacuum` compare-pass at `.tmp/pass-fuzz-vacuum-empty-then-final`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-final`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum-final`: the earlier `defined=29 abs=46` empty-then / double-`eqz` residual is fixed, and the current first diff is `defined=208 abs=225`.
+- Classified the current `rse -> vacuum` first diff as inherited direct-`vacuum` representation drift rather than an RSE-specific blocker: `.tmp/rse002-vacuum-baseline` has the same first differing function, and Starshine's focused `func-defined208-abs225` WAT/pretty files are byte-identical with and without RSE.
+
 ## [2026-05-10] passes | move RSE vacuum replay frontier
 
 - Added focused regressions for paired vacuum cleanup of nested pure `drop` / `nop` debris inside value-expression control and for RSE preserving default-local facts after one-armed terminating `if`s.
