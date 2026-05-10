@@ -44,6 +44,7 @@ Observed unique-pass order
 Completed direct-pass slices
 - `code-pushing` / `[CP]002`: accepted on 2026-05-09 under the pass-wide criteria of Binaryen semantic parity, valid wasm output, and pass-local speed at least 50% of Binaryen. Raw wasm/text drift is representation-only and not an active blocker; public preset scheduling remains part of the ordered-neighborhood / tuple-slot work, not a code-pushing direct-pass blocker.
 - `tuple-optimization` exact slot / `[TO]005`: accepted on 2026-05-09 for v0.1.0 after `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` fixed the real `defined=29`, `defined=31`, `defined=33`, and `defined=200` optimizer shape drifts. The remaining `.tmp/to-exact-slot-artifact` red at `defined=200 abs=217` is a compare-normalization artifact: Starshine raw output and Binaryen strip-debug output both elide/preserve the harmless outer block consistently when normalized the same way, but the helper currently compares strip-debug-normalized Starshine against Binaryen's raw `--debug` output. This is not a v0.1.0 blocker.
+- `simplify-locals` / `[SL]004`: accepted on 2026-05-09 for v0.1.0 under the direct-pass criteria of Binaryen semantic parity, Binaryen-accepted wasm output, and pass-local speed at least 50% of Binaryen. The exact debug-artifact helper remains red at `defined=208 abs=225`, but the inspected diff is representation-only stackification/carrier drift: Binaryen keeps an inline value-producing block/extra wrappers and Starshine spills that value to a local before reusing it. No semantic mismatch or validation failure is currently attributed to `simplify-locals`; future exact-helper normalization belongs with `[TOOL]001` or a new cosmetic parity task, not the v0.1.0 gate.
 
 #### Ordered-prefix / hot-pipeline blockers
 
@@ -55,9 +56,7 @@ Completed direct-pass slices
 
 #### SL - Simplify Locals
 
-- [SL]004 - Slot Validation and Artifact Replay
-  - Deliverables: keep the late-slot regression suite green; reduce the remaining non-adjacent nested exact-expression drift and branchy internal-helper hotspot cluster; keep direct and ordered artifact compares canonically green while runtime work lands.
-  - Current evidence: 2026-05-09 refreshed direct `simplify-locals` semantics are green (`moon test`, `10000/10000` gen-valid compare, and mixed-generator `9975` normalized matches with only Binaryen/tool command failures). A focused `self-optimize-compare` canonicalizer now accepts the semantic-equivalent dropped value-producing `if` versus void-`if` shape and adjacent `local.set`/`local.get` versus `local.tee`; the direct debug-artifact frontier moved from `defined=5 abs=22` to `defined=208 abs=225` in `.tmp/sl-artifact-direct-after-setget-canon`. `[SL]004` remains open because the new first diff is still canonical-red: Binaryen keeps an extra typed block/void-block wrapper around the same internal-helper body while Starshine emits the body directly.
+- No active v0.1.0 direct `simplify-locals` blocker. Future work should target new semantic or validity mismatches, pass-local runtime regressions proven inside `simplify-locals`, or narrow compare-normalization improvements for cosmetic value-carrier drift; do not preserve debug-only wrappers solely for byte/shape parity.
 
 #### CF - Code Folding
 

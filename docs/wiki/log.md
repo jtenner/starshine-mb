@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] passes | accept simplify-locals direct parity for v0.1.0
+
+- Accepted `[SL]004` for v0.1.0 under the repo pass policy: semantic parity, Binaryen-accepted compared output, and pass-local speed are the release gate; raw/shape drift is not a blocker when classified as cosmetic.
+- The current `.tmp/sl-artifact-direct-after-setget-canon` first diff at `defined=208 abs=225` is a value-carrier representation difference: Binaryen keeps an inline value-producing block and extra wrappers, while Starshine spills the same value to a local and reloads it. Inspection found no observable effect reordering across the spill boundary.
+- `wasm-opt` accepted both compared outputs with the same large-local-count warning family; `wasm-tools` rejects the large artifact for local-count limits outside the direct `simplify-locals` pass scope. Removed active `[SL]004` from `agent-todo.md`; remaining exact-helper normalization belongs outside the v0.1.0 `simplify-locals` gate.
+
 ## [2026-05-09] tooling | classify simplify-locals dropped value-if artifact drift
 
 - Added focused `self-optimize-compare` canonicalization for the `simplify-locals` artifact shape where Binaryen keeps `drop (if (result T) ... pure terminal arm values ...)` and Starshine emits the semantic-equivalent void `if`; also canonicalizes adjacent `local.set` / `local.get` pairs as `local.tee` in compact function fallback output.

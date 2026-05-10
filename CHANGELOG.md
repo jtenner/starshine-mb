@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-09 Passes: accept simplify-locals direct parity for v0.1.0
+
+- **accept `[SL]004` for v0.1.0 after classifying the remaining direct debug-artifact diff as cosmetic value-carrier drift, keep `simplify-locals` signed off on semantic pass-fuzz parity, Binaryen-accepted output, and pass-local speed, and move any future exact-helper normalization outside the release gate** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md), [`docs/wiki/binaryen/passes/simplify-locals/parity.md`](./docs/wiki/binaryen/passes/simplify-locals/parity.md), [`docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md`](./docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-09 Tooling: classify simplify-locals dropped value-if drift
 
 - **teach `self-optimize-compare` to canonicalize the focused `simplify-locals` debug-artifact shape where Binaryen preserves a dropped value-producing `if` while Starshine emits the equivalent void `if`, add a script regression for that compare fallback, and move the direct artifact frontier from `defined=5 abs=22` to the remaining `defined=208 abs=225` typed-block wrapper drift while keeping `[SL]004` open** by **@OpenAI**. Updated [`scripts/lib/self-optimize-compare-task.ts`](./scripts/lib/self-optimize-compare-task.ts), [`scripts/test/self-optimize-compare-dropped-value-if-command.ts`](./scripts/test/self-optimize-compare-dropped-value-if-command.ts), [`docs/wiki/binaryen/passes/simplify-locals/parity.md`](./docs/wiki/binaryen/passes/simplify-locals/parity.md), [`docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md`](./docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
