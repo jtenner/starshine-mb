@@ -251,6 +251,11 @@ fn rse_visit_control(
     @ir.HotOp::If => rse_visit_if(ctx, func, state, node_id)
     @ir.HotOp::Block => {
       rse_visit_region(ctx, func, state, @ir.hot_region_body_ref(func, node_id))
+      // The HOT fallback does not yet model label-exit merge facts. Raw RSE
+      // handles structured label exits precisely; keep HOT block exits safe by
+      // dropping post-block local facts instead of trusting the fallthrough-only
+      // body state after conditional branches to the block label.
+      rse_clear_all_local_values(state)
       rse_fresh_value(state, node_id)
     }
     @ir.HotOp::Loop => {
@@ -357,6 +362,12 @@ fn rse_visit_node(
       value
     }
     @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
     | @ir.HotOp::Return
     | @ir.HotOp::Unreachable
     | @ir.HotOp::Throw

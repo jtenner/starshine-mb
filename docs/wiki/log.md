@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | guard RSE HOT block exits
+
+- Added a focused HOT fallback `redundant-set-elimination` regression for block-exit disagreement: when `br_if` can bypass a block-local `i32.const 1; local.set`, the later post-block same-const set must remain a `local.set` rather than folding to `drop`.
+- HOT RSE now treats conditional branch op families as local-fact barriers and conservatively drops post-block local facts until full HOT label-exit merging lands. The raw lowered path remains the precise block/if/GC-branch label-exit lane.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-hot-block-exits`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the living RSE pages and backlog to keep replacement of the conservative HOT block-exit fact drop with real HOT label-exit flow as remaining `[RSE]002` work.
+
 ## [2026-05-10] passes | extend RSE GC branch exits
 
 - Added a focused raw `redundant-set-elimination` regression for `br_on_null` block-exit disagreement: when the null branch can bypass a block-local `i32.const 1; local.set`, the later post-block same-const set must remain a `local.set` rather than folding to `drop`.

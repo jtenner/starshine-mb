@@ -446,6 +446,16 @@ test "rse removes default local tee in loop conditions" {
 }
 
 ///|
+test "rse hot path keeps block-exit disagreement final const set" {
+  let func = rse_test_run_hot(
+    "(module (func (param i32) (local i32) block local.get 0 br_if 0 i32.const 1 local.set 1 end i32.const 1 local.set 1))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  rse_expect_op(func, @ir.hot_root_get(func, 1), "local.set")
+}
+
+///|
 test "rse raw path preserves branch disagreement as a merge value for self sets" {
   let input =
     #|(module
