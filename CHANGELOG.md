@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: narrow code-folding branch-payload diff
+
+- **share duplicated `code-folding` block-exit tails nested inside value-carrying branch payloads, add focused regression coverage, keep direct fuzz semantic parity green, and narrow the remaining direct debug-artifact `defined=220 abs=237` diff to helper-block / branch-payload wrapper shape while recording the new pass-local runtime blocker** by **@OpenAI**. Updated [`src/passes/code_folding.mbt`](./src/passes/code_folding.mbt), [`src/passes/code_folding_test.mbt`](./src/passes/code_folding_test.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-09 Passes: narrow code-folding artifact diff
 
 - **match Binaryen's tiny full-void `if` profitability behavior in direct `code-folding`, add a conservative block-exit/fallthrough suffix hoist for plain zero-payload branch exits, keep 10k direct fuzz semantic parity green, and move the direct debug-artifact frontier from `defined=213 abs=230` to remaining helper-block expression-exit drift at `defined=220 abs=237` while staying within the pass-local <=2x speed floor** by **@OpenAI**. Updated [`src/passes/code_folding.mbt`](./src/passes/code_folding.mbt), [`src/passes/code_folding_test.mbt`](./src/passes/code_folding_test.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

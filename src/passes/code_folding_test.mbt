@@ -263,6 +263,45 @@ test "code-folding hoists block-exit tail shared with fallthrough" {
 }
 
 ///|
+test "code-folding hoists block-exit tail before outer branch fallthrough" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32 i32 i32)
+      #|    (drop
+      #|      (block $outer (result i32)
+      #|        (block
+      #|          (br $outer
+      #|            (block $mid (result i32)
+      #|              (block $out
+      #|                (if (local.get 0)
+      #|                  (then
+      #|                    (local.get 2)
+      #|                    (call $sink)
+      #|                    (br $out))
+      #|                  (else
+      #|                    (if (local.get 1)
+      #|                      (then
+      #|                        (local.get 2)
+      #|                        (call $sink)
+      #|                        (br $out)))))
+      #|                (br $mid (i32.const 0)))
+      #|              (i32.const 1)))))))
+      #|  (func $sink (param i32)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding removes trailing unreachable after exiting root without crashing" {
   let optimized = code_folding_test_run(
     (

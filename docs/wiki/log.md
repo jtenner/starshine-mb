@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | narrow code-folding branch-payload helper diff
+
+- Added focused `code-folding` coverage for block-exit tails nested inside a value-carrying branch payload, matching the `defined=220 abs=237` family where Binaryen shares repeated cleanup calls before branches out of embedded blocks.
+- Replayed direct fuzz at `.tmp/pass-fuzz-code-folding-cf002-defined220-wip`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen command failures.
+- Replayed direct debug-artifact `--code-folding` at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3423645`: first diff remains `defined=220 abs=237`, but the visible duplicated `call $28(local.get $6)` branch-exit tails are now shared. The remaining difference is helper-block / value-carrying branch-payload wrapper shape. Pass-local timing regressed to `644.393ms` Starshine vs `181.997ms` Binaryen, above the <=2x speed floor, so `[CF]002` remains open for runtime recovery and exact helper-shape closure/classification.
+
 ## [2026-05-09] passes | narrow code-folding artifact diff
 
 - Matched Binaryen's small full-void `if` profitability behavior for direct `code-folding`: tiny identical full void arms are left in place, while profitable full void tails still collapse to one shared suffix.
