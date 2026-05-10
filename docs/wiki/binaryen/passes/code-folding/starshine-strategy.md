@@ -42,9 +42,9 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 `code-folding` is now an active Starshine HOT pass with owner file `src/passes/code_folding.mbt`, focused tests in `src/passes/code_folding_test.mbt`, registry coverage, and a dispatcher arm.
 
-The active implementation is still a narrow direct-pass subset, not the full Binaryen tail-sharing surface. It currently focuses on void `if`-arm suffix hoisting / identical full-arm cleanup and a small exiting dead-value block flattening family; broader branchy tails, function-ending helper-label sharing, EH movement, and exact late-slot artifact replay remain `[CF]002` follow-up work.
+The active implementation is still a narrowed direct-pass subset, not the full Binaryen tail-sharing surface. It now covers void and typed/value `if`-arm suffix hoisting, branch-free structured suffix hoisting, branch-to-outer-label full-tail hoisting, unprofitable full-void `if` skips, conservative block-exit/fallthrough tail hoisting, and a small exiting dead-value block cleanup family. It also guards against moving live-label blocks or deleting trailing `unreachable` sentinels that typed result regions still need. Broader Binaryen expression-exit helper-block sharing, function-ending helper-label sharing, EH movement, and exact late-slot artifact parity remain `[CF]002` follow-up work.
 
-On 2026-05-06, the refreshed direct lane for `--pass code-folding` reported `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group command failures; see [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md).
+On 2026-05-09, the refreshed direct lane for `--pass code-folding` reported `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group command failures. The debug artifact `--code-folding` command now runs to comparison and moves past the former `defined=213 abs=230` diff. The latest replay reports `297.891ms` Starshine pass-local time vs `184.662ms` Binaryen, still within the repo speed floor (`starshine_time <= 2 * binaryen_time`), but canonical function compare still differs first at `defined=220 abs=237`; see [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md) for the prior direct-lane baseline.
 
 ## Exact local code map today
 
@@ -52,10 +52,10 @@ The fastest read-along path through the current Starshine status is:
 
 - active pass owner
   - `src/passes/code_folding.mbt`
-    - descriptor, summary, structural equality, void-tail candidate logic, mutation helpers, and run function for the current narrow HOT subset
+    - descriptor, summary, structural equality, suffix movement guards, typed/value `if` suffix logic, conservative block-exit/fallthrough suffix logic, mutation helpers, and run function for the current narrowed HOT subset
 - focused direct tests
   - `src/passes/code_folding_test.mbt`
-    - identical if-arm suffix hoist, identical full void arm cleanup, value-if bailout, and exiting dead-value block flattening coverage
+    - identical void and typed/value if-arm suffix hoists, structured suffix hoists, outer-branch full-tail hoists, unprofitable full-void if skips, block-exit/fallthrough suffix hoists, live-label block safety, result-region `unreachable` safety, and exiting dead-value block flattening coverage
 - active registry and dispatcher status
   - `src/passes/optimize.mbt`
     - `code-folding` is a hot-pass registry entry, not a removed-name placeholder
@@ -94,8 +94,13 @@ Today Starshine's behavior for `code-folding` is deliberately active but narrow.
 `src/passes/code_folding_test.mbt` covers the current reduced surface:
 
 - identical void `if`-arm suffixes are hoisted once
-- identical full void arms collapse to condition evaluation plus one shared suffix
-- value-producing `if` arms stay unchanged
+- profitable identical full void arms collapse to condition evaluation plus one shared suffix, while tiny unprofitable full-void arms stay in place like Binaryen
+- typed/value `if` suffixes can be hoisted when the moved suffix provides the original result
+- branch-free structured suffixes can be hoisted through alpha-equivalent unused labels
+- full tails ending in a branch to an outer live label can be hoisted safely
+- a conservative named block-exit tail shared by branch exits and fallthrough can be hoisted after the block
+- live-label exiting blocks are not flattened out from under their branch targets
+- result-region trailing `unreachable` sentinels are preserved when they still provide the required bottom-typed result
 - an exiting dead-value block shape is flattened without duplicating unreachable residue
 
 ### 3. The direct oracle lane is fresh
@@ -107,10 +112,10 @@ It produced zero semantic mismatches across all compared cases.
 
 `agent-todo.md` still keeps `[CF]002` open because direct parity evidence does not prove the exact late-slot neighborhood or artifact lane. The remaining deliverables are framed around the right upstream concerns:
 
-- branchy and structured-control tail coverage
-- typed/value `if` folding decisions
+- broader expression-exit helper-block sharing and function-ending tail coverage
+- the first remaining debug-artifact diff at `defined=220 abs=237`
 - late-pipeline slot replay around neighboring cleanup passes
-- debug-artifact `--code-folding` parity evidence
+- final debug-artifact `--code-folding` parity evidence
 
 ## The right next Starshine implementation shape
 
@@ -244,7 +249,7 @@ So the right mental model today is:
 - **active direct transform**
 - **fresh direct parity evidence**
 - **clear slot in the pipeline**
-- **broader branchy/artifact proof still open**
+- **broader expression-exit / function-ending artifact proof still open**
 
 ## Sources
 

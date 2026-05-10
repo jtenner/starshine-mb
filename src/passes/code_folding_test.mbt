@@ -58,25 +58,314 @@ test "code-folding hoists identical if-arm suffixes" {
 }
 
 ///|
-test "code-folding replaces identical full void arms with condition drop plus shared suffix" {
+test "code-folding keeps unprofitable full void if arms" {
   let optimized = code_folding_test_run(
     "(module (func (param i32) local.get 0 if i32.const 7 drop else i32.const 7 drop end))",
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("if"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
-  assert_true(pretty.contains("i32.const I32(7)"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
 }
 
 ///|
-test "code-folding keeps value if arms unchanged" {
+test "code-folding replaces worthwhile identical full void arms with condition drop plus shared suffix" {
   let optimized = code_folding_test_run(
-    "(module (func (param i32) (result i32) local.get 0 if (result i32) i32.const 7 else i32.const 7 end))",
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    local.get 0
+      #|    if
+      #|      i32.const 7
+      #|      drop
+      #|      i32.const 8
+      #|      drop
+      #|    else
+      #|      i32.const 7
+      #|      drop
+      #|      i32.const 8
+      #|      drop
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(8)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists identical full value if arms" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    local.get 0
+      #|    if (result i32)
+      #|      block (result i32)
+      #|        i32.const 7
+      #|      end
+      #|    else
+      #|      block (result i32)
+      #|        i32.const 7
+      #|      end
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists identical partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1
+      #|      drop
+      #|      i32.const 9
+      #|    else
+      #|      i32.const 2
+      #|      drop
+      #|      i32.const 9
+      #|    end))
+      #|,
+    ),
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(9)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists identical structured suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    local.get 0
+      #|    if
+      #|      i32.const 1
+      #|      drop
+      #|      block
+      #|        i32.const 7
+      #|        drop
+      #|      end
+      #|    else
+      #|      i32.const 2
+      #|      drop
+      #|      block
+      #|        i32.const 7
+      #|        drop
+      #|      end
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists identical outer-branch tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    block $out
+      #|      local.get 0
+      #|      if
+      #|        i32.const 7
+      #|        drop
+      #|        br $out
+      #|      else
+      #|        i32.const 7
+      #|        drop
+      #|        br $out
+      #|      end
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists block-exit tail shared with fallthrough" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    block $out
+      #|      local.get 0
+      #|      if
+      #|        i32.const 7
+      #|        drop
+      #|        br $out
+      #|      end
+      #|      i32.const 7
+      #|      drop
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding removes trailing unreachable after exiting root without crashing" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    local.get 0
+      #|    if
+      #|      return
+      #|    else
+      #|      return
+      #|    end
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "code-folding removes nested loop trailing unreachable after exiting control" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    local.get 0
+      #|    if
+      #|      loop $again
+      #|        local.get 0
+      #|        if
+      #|          br $again
+      #|        else
+      #|          i32.const 1
+      #|          return
+      #|        end
+      #|        unreachable
+      #|      end
+      #|      unreachable
+      #|    else
+      #|      i32.const 0
+      #|      return
+      #|    end
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "unreachable"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps root trailing unreachable for exiting result functions" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    local.get 0
+      #|    if
+      #|      i32.const 1
+      #|      return
+      #|    else
+      #|      i32.const 2
+      #|      return
+      #|    end
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "code-folding keeps exiting blocks with live branch labels" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    block $out
+      #|      local.get 0
+      #|      if
+      #|        i32.const 1
+      #|        return
+      #|      else
+      #|        br $out
+      #|      end
+      #|      unreachable
+      #|    end
+      #|    i32.const 2))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
 }
 
 ///|

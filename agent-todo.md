@@ -62,7 +62,8 @@ Completed direct-pass slices
 #### CF - Code Folding
 
 - [CF]002 - Late-Slot Regression and Artifact Compare
-  - Deliverables: expand beyond the landed branch-free identical void suffix slice; cover branchy tails, structured-control suffixes, and typed/value `if` folding; verify late-pipeline slot and replay `--code-folding` artifact parity.
+  - Current status: partially narrowed on 2026-05-09. Direct `code-folding` now covers typed/value `if` suffix hoists, branch-to-outer-label full-tail hoists, branch-free structured suffix hoists, unprofitable full-void `if` skips, a conservative block-exit/fallthrough tail hoist, and safety guards for live block labels / result-region trailing `unreachable`. Direct fuzz remains semantic-green (`6759` compared, `0` mismatches, `20` Binaryen command failures), and the debug artifact `--code-folding` command now moves past the former `defined=213 abs=230` diff, but artifact parity is still red at `defined=220 abs=237`. Latest pass-local timing stayed within the repo speed floor (`297.891ms` Starshine vs `184.662ms` Binaryen; <= 2x), while whole-command wall time remains `[WALL]001`.
+  - Remaining deliverables: close the first remaining `defined=220 abs=237` artifact diff, now in broader Binaryen expression-exit helper-block / helper-label sharing; implement function-ending helper-label sharing as needed; keep branch-scope and EH movement guards conservative; rerun late-pipeline slot and `--code-folding` artifact parity.
 
 #### RSE - Redundant Set Elimination
 

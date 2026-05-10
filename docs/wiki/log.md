@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] passes | narrow code-folding artifact diff
+
+- Matched Binaryen's small full-void `if` profitability behavior for direct `code-folding`: tiny identical full void arms are left in place, while profitable full void tails still collapse to one shared suffix.
+- Added a conservative named block-exit/fallthrough suffix fold for plain zero-payload branches to a block label, with unsupported branch forms, EH regions, non-void label payloads, duplicate-region rewrites, and existing branch-scope movement hazards kept as bailouts.
+- Replayed direct fuzz at `.tmp/pass-fuzz-code-folding-cf002-next2`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen command failures. Replayed direct debug-artifact `--code-folding` at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2583272`: the former `defined=213 abs=230` diff is gone, pass-local timing is `297.891ms` Starshine vs `184.662ms` Binaryen (within the <=2x speed floor), and the first remaining canonical diff is `defined=220 abs=237` in broader helper-block expression-exit sharing.
+
+## [2026-05-09] passes | expand code-folding direct tails
+
+- Extended direct `code-folding` beyond branch-free void suffixes: typed/value `if` suffixes can now be hoisted when the hoisted suffix supplies the original result, branch-free structured suffixes can move through unused labels, and identical full tails ending in a branch to an outer label can collapse to `drop(condition)` plus one shared tail.
+- Added safety regressions for two artifact-found hazards: do not flatten exiting blocks whose labels are still live branch targets, and do not remove trailing `unreachable` sentinels from typed result regions when they still provide the required bottom-typed result.
+- Replayed direct fuzz at `.tmp/pass-fuzz-code-folding-cf002`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen command failures. Replayed direct debug-artifact `--code-folding`: the command now reaches comparison, Starshine pass-local time was `67.871ms` vs Binaryen `188.082ms`, and the first remaining canonical diff is `defined=213 abs=230`.
+
 ## [2026-05-09] passes | shrink simplify-locals value-carrier drift
 
 - Added a raw `simplify-locals` control-carrier cleanup for skipped functions: typed-control value roots followed by `local.set`, optional `nop`s, and a same-local leading read now become inline carriers or `local.tee` carriers without moving across non-`nop` side effects.
