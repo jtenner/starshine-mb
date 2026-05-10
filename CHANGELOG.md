@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: recover code-folding embedded-payload runtime
+
+- **restore direct `code-folding` pass-local timing to the repo <=2x Binaryen floor by budget-limiting embedded branch/drop payload scans and avoiding expensive exiting-block checks until a direct `unreachable` sentinel is present, while keeping branch-payload regression coverage and direct fuzz semantic parity green** by **@OpenAI**. Updated [`src/passes/code_folding.mbt`](./src/passes/code_folding.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: narrow code-folding branch-payload diff
 
 - **share duplicated `code-folding` block-exit tails nested inside value-carrying branch payloads, add focused regression coverage, keep direct fuzz semantic parity green, and narrow the remaining direct debug-artifact `defined=220 abs=237` diff to helper-block / branch-payload wrapper shape while recording the new pass-local runtime blocker** by **@OpenAI**. Updated [`src/passes/code_folding.mbt`](./src/passes/code_folding.mbt), [`src/passes/code_folding_test.mbt`](./src/passes/code_folding_test.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

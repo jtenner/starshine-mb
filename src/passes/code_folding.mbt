@@ -448,9 +448,6 @@ fn code_folding_try_flatten_exiting_block_at_region(
   if pass_label_is_used(label_id, label_used) {
     return false
   }
-  if !code_folding_node_always_exits(func, block_id) {
-    return false
-  }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let body_count = @ir.hot_region_root_count(func, body_ref)
   let mut unreachable_idx = -1
@@ -467,6 +464,9 @@ fn code_folding_try_flatten_exiting_block_at_region(
     }
   }
   if unreachable_idx != 0 && unreachable_idx != body_count - 1 {
+    return false
+  }
+  if !code_folding_node_always_exits(func, block_id) {
     return false
   }
   let roots : Array[Int] = []
@@ -653,6 +653,200 @@ fn code_folding_branch_table_has_target(
     }
   }
   false
+}
+
+///|
+fn code_folding_node_has_direct_control_child(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
+      match @ir.hot_node_get(func, child_id).op {
+        @ir.HotOp::Block
+        | @ir.HotOp::Loop
+        | @ir.HotOp::If
+        | @ir.HotOp::Try
+        | @ir.HotOp::TryTable => return true
+        _ => ()
+      }
+    }
+  }
+  false
+}
+
+///|
+fn code_folding_embedded_control_visit_budget() -> Int {
+  512
+}
+
+///|
+fn code_folding_node_embedded_size_within_budget(
+  func : @ir.HotFunc,
+  node_id : Int,
+  seen : Array[Int],
+  budget : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return true
+  }
+  seen[0] = seen[0] + 1
+  if seen[0] > budget {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        if !code_folding_node_embedded_size_within_budget(
+            func,
+            @ir.hot_region_get(func, body_ref, idx),
+            seen,
+            budget,
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    @ir.HotOp::If => {
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        if !code_folding_node_embedded_size_within_budget(
+            func,
+            @ir.hot_region_get(func, then_ref, idx),
+            seen,
+            budget,
+          ) {
+          return false
+        }
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => {
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            if !code_folding_node_embedded_size_within_budget(
+                func,
+                @ir.hot_region_get(func, else_ref, idx),
+                seen,
+                budget,
+              ) {
+              return false
+            }
+          }
+          true
+        }
+        None => true
+      }
+    }
+    _ => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !code_folding_node_embedded_size_within_budget(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+            seen,
+            budget,
+          ) {
+          return false
+        }
+      }
+      true
+    }
+  }
+}
+
+///|
+fn code_folding_node_has_embedded_branch_control_payload(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br => code_folding_node_has_direct_control_child(func, node_id)
+    @ir.HotOp::Try | @ir.HotOp::TryTable => false
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        if code_folding_node_has_embedded_branch_control_payload(
+            func,
+            @ir.hot_region_get(func, body_ref, idx),
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    @ir.HotOp::If => {
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        if code_folding_node_has_embedded_branch_control_payload(
+            func,
+            @ir.hot_region_get(func, then_ref, idx),
+          ) {
+          return true
+        }
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => {
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            if code_folding_node_has_embedded_branch_control_payload(
+                func,
+                @ir.hot_region_get(func, else_ref, idx),
+              ) {
+              return true
+            }
+          }
+          false
+        }
+        None => false
+      }
+    }
+    _ => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if code_folding_node_has_embedded_branch_control_payload(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn code_folding_should_visit_drop_embedded_controls(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let seen = [0]
+  code_folding_node_embedded_size_within_budget(
+    func,
+    node_id,
+    seen,
+    code_folding_embedded_control_visit_budget(),
+  ) &&
+  code_folding_node_has_embedded_branch_control_payload(func, node_id)
 }
 
 ///|
@@ -1207,8 +1401,24 @@ fn code_folding_visit_region(
             ) {
             changed = true
           }
-        @ir.HotOp::Br | @ir.HotOp::Drop =>
-          if code_folding_visit_embedded_controls(
+        @ir.HotOp::Br => {
+          let seen = [0]
+          if code_folding_node_has_direct_control_child(func, current_id) &&
+            code_folding_node_embedded_size_within_budget(
+              func,
+              current_id,
+              seen,
+              code_folding_embedded_control_visit_budget(),
+            ) &&
+            code_folding_visit_embedded_controls(
+              ctx, func, current_id, label_used,
+            ) {
+            changed = true
+          }
+        }
+        @ir.HotOp::Drop =>
+          if code_folding_should_visit_drop_embedded_controls(func, current_id) &&
+            code_folding_visit_embedded_controls(
               ctx, func, current_id, label_used,
             ) {
             changed = true

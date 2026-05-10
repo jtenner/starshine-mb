@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | recover code-folding embedded-payload runtime
+
+- Narrowed `code-folding` embedded branch/drop payload traversal to small control payloads and reordered exiting-block flattening so the expensive `always_exits` walk only runs after a direct `unreachable` sentinel is found.
+- Replayed direct fuzz at `.tmp/pass-fuzz-code-folding-cf002-embedded-budget`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen command failures.
+- Replayed direct debug-artifact `--code-folding` at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-841296`: first diff remains `defined=220 abs=237` in helper-block / value-carrying branch-payload wrapper shape, but pass-local timing recovered to `333.075ms` Starshine vs `176.973ms` Binaryen, inside the <=2x speed floor.
+
 ## [2026-05-10] passes | narrow code-folding branch-payload helper diff
 
 - Added focused `code-folding` coverage for block-exit tails nested inside a value-carrying branch payload, matching the `defined=220 abs=237` family where Binaryen shares repeated cleanup calls before branches out of embedded blocks.
