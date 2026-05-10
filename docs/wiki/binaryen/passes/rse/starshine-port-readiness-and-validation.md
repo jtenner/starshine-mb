@@ -44,7 +44,7 @@ The implemented surface:
 - registers `redundant-set-elimination` as an active hot pass and CLI flag;
 - keeps Binaryen `--rse` aliasing in the compare harnesses;
 - removes same-value `local.set` shells as `drop(value)` and same-value `local.tee` shells as the original value;
-- tracks simple value identities through constants, local copies, selected integer operations, structured `if` agreement, branch-disagreement merge sentinels for self-set folding, raw block/if label-exit merges, default body-local values, fallthrough facts after one-armed terminating `if`s, and identity-preserving refinement wrappers such as `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`;
+- tracks simple value identities through constants, local copies, selected integer operations, structured `if` agreement, branch-disagreement merge sentinels for self-set folding, raw block/if label-exit merges, HOT block/if label-exit merges, default body-local values, fallthrough facts after one-armed terminating `if`s, and identity-preserving refinement wrappers such as `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`;
 - retargets raw lowered `local.get` reads to an equivalent local with a strict subtype, now covered by a reduced `anyref` / `eqref` fixture, concrete-heap `ref.as_non_null` straight-line / branch-merge fixtures, and programmatic `ref.cast` / `ref.cast_desc_eq` wrapper fixtures for parser-gap-free coverage;
 - uses a raw fast path for lowered functions plus a HOT fallback for direct hot-pass tests;
 - relies on paired vacuum cleanup for pure `drop` / `nop` debris exposed by redundant set removal;
@@ -52,7 +52,7 @@ The implemented surface:
 
 Remaining full-parity work is still real:
 
-- replace the current documented conservative loop-exit and HOT block-exit fact drops with Binaryen-style fixed-point / label-exit CFG merge values where needed, and carry the same start/end identities through the remaining HOT/control-label families beyond the landed raw block/if and `br_on_*` exit lanes;
+- replace the current documented conservative loop-exit fact drops with Binaryen-style fixed-point CFG merge values where needed, and carry the same start/end identities through the remaining HOT/control-label families beyond the landed block/if and raw `br_on_*` exit lanes;
 - broaden strict-subtype equivalent-local `local.get` retargeting beyond the landed reduced abs-heap plus concrete-heap `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` wrapper fixtures to the remaining official `rse-gc.wast` families and any required refinalization/writeback repair;
 - keep the classified `rse -> vacuum` cleanup-slot replay from regressing before scheduling the late no-DWARF slot.
 
@@ -62,7 +62,7 @@ Remaining full-parity work is still real:
 | --- | --- | --- |
 | Registry | `src/passes/optimize.mbt:253-256` now has an active `"redundant-set-elimination"` hot-pass entry. | Keep it direct-only until the late preset slot is proven. |
 | Dispatcher | `src/passes/pass_manager.mbt` dispatches `"redundant-set-elimination"`, builds a validation environment for raw subtype checks, and has a raw fast path before hot lift. | Extend the raw/HOT implementations as official GC fixtures and loop fixed-point support land. |
-| Owner file | `src/passes/rse.mbt` owns descriptor, summary, raw value identities, branch merge sentinels, raw block/if exit tracking, body-local default identities, and strict-subtype raw get retargeting. | Keep new behavior beside this owner with focused tests. |
+| Owner file | `src/passes/rse.mbt` owns descriptor, summary, raw/HOT value identities, branch merge sentinels, structured label-exit tracking, body-local default identities, and strict-subtype raw get retargeting. | Keep new behavior beside this owner with focused tests. |
 | HOT local surfaces | [`src/ir/use_def.mbt:1-120`](../../../../../src/ir/use_def.mbt) records local reads/writes, but no value-number CFG flow. | Reuse only the collection pieces that fit; add explicit value identity and merge logic. |
 | Type context | [`src/ir/hot_module_context.mbt:1-58`](../../../../../src/ir/hot_module_context.mbt) and later helpers expose module subtype/function type context. | Use this for strict-subtype retargeting checks. |
 | Backlog | [`agent-todo.md`](../../../../../agent-todo.md) tracks `RSE`. | Keep the backlog aligned with this CFG-aware contract. |
@@ -115,14 +115,14 @@ Only then should the pass enter public preset scheduling.
 - [x] Same-block repeated `local.tee` positive.
 - [x] Different overwritten value negative.
 - [x] RHS trap/effect preservation by replacing the shell, not the value expression.
-- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002-hot-block-exits` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002-gc-branch-exits`, `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`, `.tmp/pass-fuzz-rse-rse002-gc-refinement`, `.tmp/pass-fuzz-rse-rse002-next-followup`, `.tmp/pass-fuzz-rse-rse002-final`, `.tmp/pass-fuzz-rse-rse002-next`, `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
+- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002-hot-label-exits` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002-hot-block-exits`, `.tmp/pass-fuzz-rse-rse002-gc-branch-exits`, `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`, `.tmp/pass-fuzz-rse-rse002-gc-refinement`, `.tmp/pass-fuzz-rse-rse002-next-followup`, `.tmp/pass-fuzz-rse-rse002-final`, `.tmp/pass-fuzz-rse-rse002-next`, `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
 - [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
 - [x] 2026-05-05 current-main recheck stayed aligned with the same CFG/value-flow and refined-get split.
 - [x] Branch-join same-value/self-set coverage for structured HOT and raw paths, including disagreement represented as a merge identity for self-set folding.
 - [ ] Branch-join different-value negative beyond the focused local tests.
 - [x] Raw block-exit disagreement negative keeps the final const set after `br_if` exits a block on one path and a later fallthrough path writes the same const.
 - [x] Raw GC branch-exit disagreement negative keeps the final const set after `br_on_null` exits a block on one path and a later fallthrough path writes the same const; the implementation now records `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as conditional label exits while conservatively clearing expression-stack facts on fallthrough.
-- [x] HOT fallback block-exit safety negative keeps the final const set after a `br_if` can exit a block before the block-local write; the HOT path now conservatively drops post-block facts instead of trusting fallthrough-only facts until full HOT label-exit merging lands.
+- [x] HOT block/if label-exit coverage: positives fold post-block/post-if same-value sets when reachable fallthrough and label-exit sources agree, while negatives keep final const sets after `br_if` / `br` exits can bypass the local write.
 - [x] Conservative loop skip behavior documented and tested: the raw path keeps a post-loop `local.set` alive when an outer loop exit can bypass the loop's local write; full fixed-point loop convergence remains future work.
 - [x] Reduced refined local-get retargeting with a strict-subtype local (`anyref` read retargeted to equivalent `eqref`).
 - [x] Concrete-heap refined local-get retargeting through `ref.as_non_null` value-preserving wrappers, including a branch-merge positive and a strict-subtype negative where the nullable local must not replace the non-null source.

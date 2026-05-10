@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | converge RSE HOT label exits
+
+- Replaced the temporary HOT fallback post-block fact drop in `redundant-set-elimination` with block/if label-exit scopes that merge reachable fallthrough local facts with branch-exit facts.
+- Added HOT regressions showing post-block/post-if same-value sets fold when exits agree, while block/if exits that bypass a local write keep the final same-const set alive.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-hot-label-exits`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the living RSE pages and backlog to remove the HOT block-exit skip from the active `[RSE]002` blockers while keeping conservative loop convergence, broader HOT/control families, broader `rse-gc.wast` coverage, and preset scheduling open.
+
 ## [2026-05-10] passes | guard RSE HOT block exits
 
 - Added a focused HOT fallback `redundant-set-elimination` regression for block-exit disagreement: when `br_if` can bypass a block-local `i32.const 1; local.set`, the later post-block same-const set must remain a `local.set` rather than folding to `drop`.

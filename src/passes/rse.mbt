@@ -17,11 +17,31 @@ pub fn rse_summary() -> String {
 }
 
 ///|
+priv enum RseLabelKind {
+  RseExitLabel
+  RseLoopLabel
+}
+
+///|
+priv struct RseLabelScope {
+  label_id : Int
+  kind : RseLabelKind
+  exits : Array[Array[Int]]
+}
+
+///|
+fn RseLabelScope::new(label_id : Int, kind : RseLabelKind) -> RseLabelScope {
+  { label_id, kind, exits: [] }
+}
+
+///|
 priv struct RseState {
   local_values : Array[Int]
   value_ids : @hashmap.HashMap[String, Int]
+  scopes : Array[RseLabelScope]
   mut next_value : Int
   mut changed : Bool
+  mut reachable : Bool
 }
 
 ///|
@@ -29,8 +49,10 @@ fn RseState::new(func : @ir.HotFunc) -> RseState {
   let state = {
     local_values: Array::make(@ir.hot_local_count(func), -1),
     value_ids: @hashmap.new(capacity=@ir.hot_local_count(func) * 2 + 17),
+    scopes: [],
     next_value: 0,
     changed: false,
+    reachable: true,
   }
   for local_id = 0
       local_id < state.local_values.length()
@@ -48,8 +70,10 @@ fn RseState::clone_from(other : RseState) -> RseState {
   {
     local_values: other.local_values.copy(),
     value_ids: other.value_ids,
+    scopes: other.scopes,
     next_value: other.next_value,
     changed: other.changed,
+    reachable: other.reachable,
   }
 }
 
@@ -108,24 +132,81 @@ fn rse_clear_all_local_values(state : RseState) -> Unit {
 }
 
 ///|
-fn rse_merge_local_values(
+fn rse_merge_local_value_sources(
   state : RseState,
-  lhs : RseState,
-  rhs : RseState,
+  sources : Array[Array[Int]],
 ) -> Unit {
-  rse_sync_interner(state, lhs)
-  rse_sync_interner(state, rhs)
+  if sources.length() == 0 {
+    rse_clear_all_local_values(state)
+    state.reachable = false
+    return
+  }
+  state.reachable = true
   let count = state.local_values.length()
   for idx = 0; idx < count; idx = idx + 1 {
-    let lhs_value = lhs.local_values[idx]
-    let rhs_value = rhs.local_values[idx]
-    state.local_values[idx] = if lhs_value == rhs_value {
-      lhs_value
-    } else if lhs_value >= 0 && rhs_value >= 0 {
-      rse_fresh_value(state, idx)
+    let mut first_known = -1
+    let mut saw_known = false
+    let mut saw_unknown = false
+    let mut disagreement = false
+    for source in sources {
+      let value = source[idx]
+      if value < 0 {
+        saw_unknown = true
+        continue
+      }
+      if !saw_known {
+        first_known = value
+        saw_known = true
+      } else if value != first_known {
+        disagreement = true
+      }
+    }
+    state.local_values[idx] = if disagreement {
+      if saw_unknown {
+        -1
+      } else {
+        rse_fresh_value(state, idx)
+      }
+    } else if saw_known && !saw_unknown {
+      first_known
     } else {
       -1
     }
+  }
+}
+
+///|
+fn rse_record_branch_exit(state : RseState, label_id : Int) -> Unit {
+  if label_id < 0 {
+    return
+  }
+  let mut idx = state.scopes.length() - 1
+  while idx >= 0 {
+    let scope = state.scopes[idx]
+    if scope.label_id == label_id {
+      match scope.kind {
+        RseLabelKind::RseLoopLabel => ()
+        RseLabelKind::RseExitLabel =>
+          scope.exits.push(state.local_values.copy())
+      }
+      return
+    }
+    idx -= 1
+  }
+}
+
+///|
+fn rse_record_branch_table_exits(
+  func : @ir.HotFunc,
+  state : RseState,
+  node_id : Int,
+) -> Unit {
+  match @ir.hot_branch_target(func, node_id) {
+    Some(label_id) => rse_record_branch_exit(state, label_id)
+    None => ()
+  }
+  for label_id in @ir.hot_branch_table_targets_for_node(func, node_id) {
+    rse_record_branch_exit(state, label_id)
   }
 }
 
@@ -199,6 +280,9 @@ fn rse_visit_region(
 ) -> Unit {
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
+    if !state.reachable {
+      return
+    }
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
       ignore(rse_visit_node(ctx, func, state, root_id))
@@ -219,8 +303,13 @@ fn rse_visit_if(
       rse_visit_node(ctx, func, state, @ir.hot_child_get(func, node_id, 0)),
     )
   }
+  let scope = RseLabelScope::new(
+    @ir.hot_control_node_label(func, node_id),
+    RseLabelKind::RseExitLabel,
+  )
+  state.scopes.push(scope)
   let entry_state = RseState::clone_from(state)
-  let then_state = RseState::clone_from(state)
+  let then_state = RseState::clone_from(entry_state)
   rse_visit_region(
     ctx,
     func,
@@ -235,7 +324,20 @@ fn rse_visit_if(
     }
     None => entry_state
   }
-  rse_merge_local_values(state, then_state, else_state)
+  ignore(state.scopes.pop())
+  rse_sync_interner(state, then_state)
+  rse_sync_interner(state, else_state)
+  let sources : Array[Array[Int]] = []
+  if then_state.reachable {
+    sources.push(then_state.local_values.copy())
+  }
+  if else_state.reachable {
+    sources.push(else_state.local_values.copy())
+  }
+  for exit in scope.exits {
+    sources.push(exit)
+  }
+  rse_merge_local_value_sources(state, sources)
   rse_fresh_value(state, node_id)
 }
 
@@ -250,27 +352,43 @@ fn rse_visit_control(
   match node.op {
     @ir.HotOp::If => rse_visit_if(ctx, func, state, node_id)
     @ir.HotOp::Block => {
+      let scope = RseLabelScope::new(
+        @ir.hot_control_node_label(func, node_id),
+        RseLabelKind::RseExitLabel,
+      )
+      state.scopes.push(scope)
       rse_visit_region(ctx, func, state, @ir.hot_region_body_ref(func, node_id))
-      // The HOT fallback does not yet model label-exit merge facts. Raw RSE
-      // handles structured label exits precisely; keep HOT block exits safe by
-      // dropping post-block local facts instead of trusting the fallthrough-only
-      // body state after conditional branches to the block label.
-      rse_clear_all_local_values(state)
+      ignore(state.scopes.pop())
+      let sources : Array[Array[Int]] = []
+      if state.reachable {
+        sources.push(state.local_values.copy())
+      }
+      for exit in scope.exits {
+        sources.push(exit)
+      }
+      rse_merge_local_value_sources(state, sources)
       rse_fresh_value(state, node_id)
     }
     @ir.HotOp::Loop => {
       let loop_state = RseState::clone_from(state)
+      let scope = RseLabelScope::new(
+        @ir.hot_control_node_label(func, node_id),
+        RseLabelKind::RseLoopLabel,
+      )
+      state.scopes.push(scope)
       rse_visit_region(
         ctx,
         func,
         loop_state,
         @ir.hot_region_body_ref(func, node_id),
       )
+      ignore(state.scopes.pop())
       rse_sync_interner(state, loop_state)
       // Loops need fixed-point value flow for full Binaryen parity. This first
       // active implementation still rewrites loop-internal straight-line facts,
       // then drops loop-exit facts conservatively.
       rse_clear_all_local_values(state)
+      state.reachable = true
       rse_fresh_value(state, node_id)
     }
     @ir.HotOp::Try | @ir.HotOp::TryTable => {
@@ -361,19 +479,39 @@ fn rse_visit_node(
       rse_local_value_set(state, node.imm0, value)
       value
     }
-    @ir.HotOp::Br
-    | @ir.HotOp::BrIf
-    | @ir.HotOp::BrTable
+    @ir.HotOp::Br => {
+      match @ir.hot_branch_target(func, node_id) {
+        Some(label_id) => rse_record_branch_exit(state, label_id)
+        None => ()
+      }
+      rse_clear_all_local_values(state)
+      state.reachable = false
+      rse_fresh_value(state, node_id)
+    }
+    @ir.HotOp::BrIf
     | @ir.HotOp::BrOnNull
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
-    | @ir.HotOp::BrOnCastFail
-    | @ir.HotOp::Return
+    | @ir.HotOp::BrOnCastFail => {
+      match @ir.hot_branch_target(func, node_id) {
+        Some(label_id) => rse_record_branch_exit(state, label_id)
+        None => ()
+      }
+      rse_fresh_value(state, node_id)
+    }
+    @ir.HotOp::BrTable => {
+      rse_record_branch_table_exits(func, state, node_id)
+      rse_clear_all_local_values(state)
+      state.reachable = false
+      rse_fresh_value(state, node_id)
+    }
+    @ir.HotOp::Return
     | @ir.HotOp::Unreachable
     | @ir.HotOp::Throw
     | @ir.HotOp::Rethrow
     | @ir.HotOp::ThrowRef => {
       rse_clear_all_local_values(state)
+      state.reachable = false
       rse_fresh_value(state, node_id)
     }
     _ =>

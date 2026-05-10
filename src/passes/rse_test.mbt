@@ -446,6 +446,36 @@ test "rse removes default local tee in loop conditions" {
 }
 
 ///|
+test "rse hot path folds post-block set when body falls through with same value" {
+  let func = rse_test_run_hot(
+    "(module (func (local i32) block i32.const 1 local.set 0 end i32.const 1 local.set 0))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  rse_expect_op(func, @ir.hot_root_get(func, 1), "drop")
+}
+
+///|
+test "rse hot path folds post-block set when branch exit agrees with fallthrough" {
+  let func = rse_test_run_hot(
+    "(module (func (param i32) (local i32) block i32.const 1 local.set 1 local.get 0 br_if 0 end i32.const 1 local.set 1))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  rse_expect_op(func, @ir.hot_root_get(func, 1), "drop")
+}
+
+///|
+test "rse hot path folds post-block set when br_table exit agrees" {
+  let func = rse_test_run_hot(
+    "(module (func (param i32) (local i32) block i32.const 1 local.set 1 local.get 0 br_table 0 0 end i32.const 1 local.set 1))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  rse_expect_op(func, @ir.hot_root_get(func, 1), "drop")
+}
+
+///|
 test "rse hot path keeps block-exit disagreement final const set" {
   let func = rse_test_run_hot(
     "(module (func (param i32) (local i32) block local.get 0 br_if 0 i32.const 1 local.set 1 end i32.const 1 local.set 1))",
@@ -453,6 +483,26 @@ test "rse hot path keeps block-exit disagreement final const set" {
 
   @debug.assert_eq(@ir.hot_root_count(func), 2)
   rse_expect_op(func, @ir.hot_root_get(func, 1), "local.set")
+}
+
+///|
+test "rse hot path keeps if-exit disagreement final const set" {
+  let func = rse_test_run_hot(
+    "(module (func (param i32) (local i32) local.get 0 if br 0 else i32.const 1 local.set 1 end i32.const 1 local.set 1))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  rse_expect_op(func, @ir.hot_root_get(func, 1), "local.set")
+}
+
+///|
+test "rse hot path folds post-if set when branch exit agrees with else" {
+  let func = rse_test_run_hot(
+    "(module (func (param i32) (local i32) local.get 0 if i32.const 1 local.set 1 br 0 else i32.const 1 local.set 1 end i32.const 1 local.set 1))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  rse_expect_op(func, @ir.hot_root_get(func, 1), "drop")
 }
 
 ///|
