@@ -57,6 +57,7 @@ Completed direct-pass slices
 
 - [SL]004 - Slot Validation and Artifact Replay
   - Deliverables: keep the late-slot regression suite green; reduce the remaining non-adjacent nested exact-expression drift and branchy internal-helper hotspot cluster; keep direct and ordered artifact compares canonically green while runtime work lands.
+  - Current evidence: 2026-05-09 refreshed direct `simplify-locals` semantics are green (`moon test`, `10000/10000` gen-valid compare, and mixed-generator `9975` normalized matches with only Binaryen/tool command failures). The direct debug-artifact frontier moved from `defined=1 abs=18` to `defined=5 abs=22`; the remaining first diff is an exact representation drift where Binaryen preserves a dropped value-producing `if` and Starshine emits the equivalent void `if`.
 
 #### CF - Code Folding
 

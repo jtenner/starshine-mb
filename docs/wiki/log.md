@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] passes | narrow simplify-locals one-armed carrier drift
+
+- Let `simplify-locals` perform Binaryen-style one-armed `if` lifting even when the target local has no later reads, as long as the local type is defaultable, and preserve one-armed tail `local.set`s through dead cleanup so structure lifting sees them.
+- Added the reduced regression `"simplify-locals lifts dead one-armed if writes instead of dropping structured side effects"` and refreshed the direct semantic evidence: `moon test` passed `2874/2874`; gen-valid compare at `.tmp/pass-fuzz-simplify-locals-genvalid-10000` reached `10000/10000` with `0` mismatches; mixed-generator keep-going compare reached `9975` normalized matches with `0` mismatches and only Binaryen/tool command failures.
+- Replayed direct debug-artifact `--simplify-locals` at `.tmp/sl-artifact-direct-after-typed-if`; the first diff moved from `defined=1 abs=18` to `defined=5 abs=22`, now a representation drift where Binaryen preserves a dropped value-producing `if` and Starshine emits the equivalent void `if`. `[SL]004` remains open for exact artifact replay.
+
 ## [2026-05-09] passes | narrow tuple exact-slot code-quality drift
 
 - Fixed actual Starshine output for the current tuple exact-slot `defined=29 abs=46` code-quality gaps: `remove-unused-brs` now lets void tail-loop `return` arms fall through at function exit instead of emitting `return` plus trailing `unreachable`, and it inverts empty-then `if` forms into one-arm payload `if`s.

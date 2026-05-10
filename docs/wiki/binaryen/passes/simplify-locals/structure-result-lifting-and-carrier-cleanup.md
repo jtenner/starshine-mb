@@ -210,7 +210,8 @@ That wording matters.
 The pass is willing to rewrite:
 
 - a one-armed `if` that writes a local
-- followed by a later read of that local
+- the common case followed by a later read of that local
+- the Binaryen-shaped speculative case where the write is dead but the arm still has structured side effects that should not be deleted before lifting
 
 into a value-producing `if` that also synthesizes an else-side carrier.
 
@@ -252,11 +253,13 @@ The matching local helpers are:
 - `simplify_locals_try_rewrite_nested_one_armed_if_child`
 - `simplify_locals_try_rewrite_nested_one_armed_if_children`
 - `simplify_locals_build_one_armed_if_then_body`
+- `simplify_locals_one_armed_if_tail_sets`
 - `simplify_locals_local_type_is_defaultable`
 
 ### Local regression anchors
 
 - `"simplify-locals lifts one-armed if writes for defaultable locals"`
+- `"simplify-locals lifts dead one-armed if writes instead of dropping structured side effects"`
 - `"simplify-locals preserves then-arm nop when lifting one-armed if writes"`
 - `"simplify-locals keeps live then-arm roots when lifting one-armed if writes"`
 - `"simplify-locals lifts nested one-armed if writes inside consumed result ifs"`

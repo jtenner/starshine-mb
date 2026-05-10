@@ -3358,11 +3358,7 @@ fn simplify_locals_try_rewrite_if_return(
       }
       if then_tail.local_id < 0 ||
         then_tail.local_id >= get_counts.length() ||
-        get_counts[then_tail.local_id] == 0 ||
         !simplify_locals_local_type_is_defaultable(func, then_tail.local_id) {
-        return false
-      }
-      if simplify_locals_subtree_has_typed_control(func, then_tail.value_id) {
         return false
       }
       ignore(
@@ -3519,9 +3515,6 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_child(
     then_tail.local_id >= get_counts.length() ||
     get_counts[then_tail.local_id] == 0 ||
     !simplify_locals_local_type_is_defaultable(func, then_tail.local_id) {
-    return false
-  }
-  if simplify_locals_subtree_has_typed_control(func, then_tail.value_id) {
     return false
   }
   ignore(
@@ -4552,6 +4545,85 @@ fn simplify_locals_fold_dead_set_copy_region(
 }
 
 ///|
+fn simplify_locals_mark_one_armed_if_tail_sets(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  preserved : Array[Bool],
+) -> Unit {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::If => {
+        let then_ref = @ir.hot_region_then_ref(func, node_id)
+        match @ir.hot_region_else_ref(func, node_id) {
+          None =>
+            match simplify_locals_region_tail_local_set(func, then_ref) {
+              Some(tail) =>
+                if tail.node_id >= 0 && tail.node_id < preserved.length() {
+                  preserved[tail.node_id] = true
+                }
+              None => ()
+            }
+          Some(else_ref) =>
+            simplify_locals_mark_one_armed_if_tail_sets(
+              func, else_ref, preserved,
+            )
+        }
+        simplify_locals_mark_one_armed_if_tail_sets(func, then_ref, preserved)
+      }
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        simplify_locals_mark_one_armed_if_tail_sets(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          preserved,
+        )
+      @ir.HotOp::Try => {
+        simplify_locals_mark_one_armed_if_tail_sets(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          preserved,
+        )
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            simplify_locals_mark_one_armed_if_tail_sets(
+              func, catch_ref, preserved,
+            )
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable => {
+        simplify_locals_mark_one_armed_if_tail_sets(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          preserved,
+        )
+        simplify_locals_mark_one_armed_if_tail_sets(
+          func,
+          @ir.hot_region_catch_list_ref(func, node_id),
+          preserved,
+        )
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn simplify_locals_one_armed_if_tail_sets(func : @ir.HotFunc) -> Array[Bool] {
+  let preserved = Array::make(@ir.hot_node_count(func), false)
+  simplify_locals_mark_one_armed_if_tail_sets(
+    func,
+    @ir.HotRegionRef::root(),
+    preserved,
+  )
+  preserved
+}
+
+///|
 fn simplify_locals_run_dead_cleanup(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4559,6 +4631,7 @@ fn simplify_locals_run_dead_cleanup(
   rehomed_owners : Array[SimplifyLocalsDetachedControlOwner],
 ) -> Bool {
   let get_counts = simplify_locals_count_local_gets(func)
+  let one_armed_if_tail_sets = simplify_locals_one_armed_if_tail_sets(func)
   let mut changed = simplify_locals_fold_dead_set_copy_region(
     ctx,
     func,
@@ -4606,6 +4679,17 @@ fn simplify_locals_run_dead_cleanup(
         }
         if get_counts[node.imm0] != 0 {
           continue
+        }
+        if node_id >= 0 &&
+          node_id < one_armed_if_tail_sets.length() &&
+          one_armed_if_tail_sets[node_id] {
+          continue
+        }
+        if value_id >= 0 && @ir.hot_node_is_live(func, value_id) {
+          match @ir.hot_node_get(func, value_id).op {
+            @ir.HotOp::If => continue
+            _ => ()
+          }
         }
         if simplify_locals_value_is_pure(func, value_id) {
           @ir.hot_replace_node(func, node_id, simplify_locals_make_nop(func))

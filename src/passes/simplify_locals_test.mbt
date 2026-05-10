@@ -2400,6 +2400,26 @@ test "simplify-locals lifts one-armed if writes for defaultable locals" {
 }
 
 ///|
+test "simplify-locals lifts dead one-armed if writes instead of dropping structured side effects" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32 i32) (local i32) local.get 0 if local.get 1 i32.const 0 i32.store i32.const 7 local.set 2 end))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dead one-armed simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "simplify-locals preserves then-arm nop when lifting one-armed if writes" {
   let optimized = match
     pass_test_run_pipeline(

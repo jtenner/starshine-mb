@@ -28,6 +28,10 @@ related:
 
 ## What Is Green Today
 
+- The 2026-05-09 direct semantic lane is green on current head:
+  - `.tmp/pass-fuzz-simplify-locals-genvalid-10000` reached `10000/10000` compared cases with `10000` normalized matches and `0` mismatches.
+  - `.tmp/pass-fuzz-simplify-locals-both-10000-keepgoing` reached `9975/10000` compared cases with `9975` normalized matches, `0` mismatches, and `25` command failures classified as Binaryen/tool parser or canonicalization failures.
+- The 2026-05-09 reduced regression for dead one-armed `if` writes with side effects is green; Starshine now keeps the structure-result carrier instead of deleting the tail write before one-armed lifting can run.
 - The pass has broad reduced coverage in [`src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt).
 - The raw lane and skip reasons are guarded in:
   - [`src/passes/pass_manager_wbtest.mbt`](../../../../../src/passes/pass_manager_wbtest.mbt)
@@ -92,18 +96,18 @@ related:
 
 ## Current Frontier
 
-- The old `Func 71` first-diff frontier recorded below is now historical context, not the current first failing comparison.
-- The latest 2026-04-14 native-binary self-opt compare at `.tmp/self-opt-sl-current-2026-04-14` has:
-  - `normalizedWatEqual=true`
-  - `canonicalFuncPrettyEqual=true`
-  - `firstDifferingFuncDefinedIndex=null`
-  - `firstDifferingFuncAbsIndex=null`
-- That means the checked-in debug artifact no longer has a surviving canonical per-function parity mismatch for the current keep-state.
-- The remaining debt has shifted to:
-  - raw wasm / raw text inequality (`wasmEqual=false`, `normalizedWatTextEqual=false`)
-  - large runtime gap versus Binaryen
-- Keep the older `Func 71` notes below as the audit trail for how the branch got here, but do not treat them as the live first frontier anymore.
-
+- The old `Func 71` first-diff frontier recorded below is historical context, not the current first failing comparison.
+- The 2026-05-09 direct debug-artifact replay after the one-armed carrier fix is still exact-red but semantically classified:
+  - command: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-locals --out-dir .tmp/sl-artifact-direct-after-typed-if`
+  - `Canonical function compare equal: no`
+  - first remaining difference: `defined=5 abs=22`
+  - Binaryen preserves a dropped value-producing `if`; Starshine emits the equivalent void `if` after dropping the unused branch value.
+  - pass-local timing is still well within the signoff threshold: Starshine `489.504ms`, Binaryen `492152.000ms`, `Starshine pass at least as fast: yes`.
+- The prior 2026-05-09 direct artifact first diff at `defined=1 abs=18` is retired by allowing one-armed `if` lifting even when the written local has no later reads and by preserving dead one-armed tail writes until the structure rewrite runs.
+- The remaining debt is now:
+  - exact debug-artifact representation drift at `defined=5 abs=22`
+  - direct/ordered artifact canonical-green replay for `[SL]004`
+  - whole-command runtime attribution only when it is clearly not covered by `[WALL]001`
 
 - The old validator raw-skip local-copy and condition-temp frontier is no longer the meaningful first mismatch.
 - A newer raw-skip pure-copy fix is now also retired:

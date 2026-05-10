@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-09 Passes: narrow simplify-locals one-armed carrier drift
+
+- **let `simplify-locals` preserve and lift dead one-armed `if` local-write carriers before cleanup drops their structured side effects, add a focused regression, refresh direct semantic signoff at `10000/10000` gen-valid and `9975` mixed-generator normalized matches with zero mismatches, and move the direct debug-artifact frontier from `defined=1 abs=18` to representation drift at `defined=5 abs=22` while keeping `[SL]004` open for exact artifact replay** by **@OpenAI**. Updated [`src/passes/simplify_locals.mbt`](./src/passes/simplify_locals.mbt), [`src/passes/simplify_locals_test.mbt`](./src/passes/simplify_locals_test.mbt), [`docs/wiki/binaryen/passes/simplify-locals/parity.md`](./docs/wiki/binaryen/passes/simplify-locals/parity.md), [`docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md`](./docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md), [`docs/wiki/binaryen/passes/simplify-locals/structure-result-lifting-and-carrier-cleanup.md`](./docs/wiki/binaryen/passes/simplify-locals/structure-result-lifting-and-carrier-cleanup.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-09 Backlog: accept tuple exact-slot for v0.1
 
 - **accept `[TO]005` for v0.1.0 after fixing the real optimizer drifts, classify the remaining `defined=200 abs=217` outer-block artifact as compare-normalization drift rather than a Starshine bug, and defer symmetric self-opt compare normalization to `[TOOL]001` outside the v0.1.0 release gate** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md) and [`CHANGELOG.md`](./CHANGELOG.md).

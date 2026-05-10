@@ -165,17 +165,20 @@ related:
 - if a change improves self-opt timing but leaves the first mismatch unchanged, record both facts together; that is a real performance win but not a parity retirement
 - if a reduced Binaryen probe proves the local transform but the artifact is still red, do not automatically promote the diagnosis to "writeback bug"; first prove that the large artifact actually hits the same reducer boundary
 
-## Current 2026-04-14 Checkpoint
+## Current 2026-05-09 Checkpoint
 
-- The current native-binary fuzz lane `.tmp/pass-fuzz-sl-current-2026-04-14` is green at `10000/10000` compared cases with `0` mismatches.
-- The current native-binary self-opt compare `.tmp/self-opt-sl-current-2026-04-14` is canonically green on the checked-in debug artifact:
-  - `normalizedWatEqual=true`
-  - `canonicalFuncPrettyEqual=true`
-  - no differing function indices
-- That same self-opt lane is still not a performance signoff:
-  - Starshine `5316.608ms` total / `2190.921ms` in-pass
-  - Binaryen `519.714ms` total / `264.709ms` in-pass
-  - raw wasm and raw WAT text are still not identical
+- Source and package checks:
+  - `moon fmt` completed.
+  - `moon info` completed.
+  - `moon test src/passes` passed `817/817`.
+  - `moon test` passed `2874/2874`.
+- Direct pass-fuzz evidence:
+  - `.tmp/pass-fuzz-simplify-locals-genvalid-10000`: `10000/10000` compared, `10000` normalized matches, `0` mismatches, `0` command failures.
+  - `.tmp/pass-fuzz-simplify-locals-both-10000-keepgoing`: `9975/10000` compared, `9975` normalized matches, `0` mismatches, `25` command failures classified outside Starshine semantic mismatches.
+- Direct debug-artifact replay:
+  - `.tmp/sl-artifact-direct-after-typed-if` remains exact-red at `defined=5 abs=22`.
+  - The retired first diff was `defined=1 abs=18`; the new first diff is a representation drift where Binaryen keeps `drop (if (result i32) ...)` and Starshine keeps the equivalent void `if`.
+  - pass-local timing remains green: Starshine `489.504ms` vs Binaryen `492152.000ms`, `Starshine pass at least as fast: yes`.
 
 ## Current Anti-Signoff Patterns
 
