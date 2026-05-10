@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-10
 sources:
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
@@ -103,7 +103,7 @@ A write of `1` followed by a write of `2` is not removed by this pass merely bec
 - **Plain set vs tee:** `local.set` has no result, so Binaryen keeps the RHS evaluation through a `drop`-style replacement; `local.tee` already has the RHS result.
 - **Copied locals:** a `local.set $b (local.get $a)` can cause `$a` and `$b` to carry the same value number; later gets may prefer the more precise typed local.
 - **GC/ref types:** the dedicated GC test surface is about refined local-get retargeting and type safety, not field-store deletion.
-- **Starshine status:** Starshine now exposes `"redundant-set-elimination"` as an active direct hot pass with a raw fast path and HOT fallback. The landed surface covers same-value `local.set` / `local.tee` shell removal, branch-local agreement for simple structured `if` cases, RHS preservation, CLI/registry/harness wiring, direct pass-fuzz parity, and debug-artifact canonical function parity. Refined strict-subtype `local.get` retargeting and preset scheduling remain follow-up work.
+- **Starshine status:** Starshine now exposes `"redundant-set-elimination"` as an active direct hot pass with a raw fast path and HOT fallback. The landed surface covers same-value `local.set` / `local.tee` shell removal, default body-local identities, structured branch agreement plus disagreement merge identities for self-set folding, RHS preservation, raw strict-subtype equivalent-local `local.get` retargeting, CLI/registry/harness wiring, and direct pass-fuzz parity. Full loop fixed-point flow, official `rse-gc.wast` breadth, the red `rse -> vacuum` cleanup replay, and preset scheduling remain follow-up work.
 
 ## Validation guidance
 

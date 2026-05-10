@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | extend RSE value identities and refined gets
+
+- Added `redundant-set-elimination` coverage and implementation for branch-disagreement merge identities, default body-local value identities, and raw strict-subtype equivalent-local `local.get` retargeting.
+- Focused tests now cover HOT branch-disagreement self-set folding, raw branch-disagreement self-set folding, default-local redundant set removal, and an `anyref` / `eqref` refined-get retarget.
+- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum`; it remains red at `defined=0 abs=17`. The visible residual is nested `drop(...)` / `nop` cleanup debris after RSE exposes redundant default/self-set writes, so `[RSE]002` remains active for loop/full CFG coverage and final cleanup-slot classification or fix.
+
 ## [2026-05-10] passes | accept direct code-folding parity
 
 - Accepted direct `code-folding` / `[CF]002` for v0.1.0 under the repo pass criteria: the latest direct fuzz lane at `.tmp/pass-fuzz-code-folding-cf002-terminal-if` had `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen/tool command failures, and direct debug-artifact pass-local timing remained inside the <=2x Binaryen floor (`334.711ms` Starshine vs `176.295ms` Binaryen at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352`).

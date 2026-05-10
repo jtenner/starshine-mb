@@ -67,7 +67,9 @@ Completed direct-pass slices
 #### RSE - Redundant Set Elimination
 
 - [RSE]002 - CFG Value Flow And Refined Local Gets
-  - Deliverables: implement full block start/end local value identities, predecessor agreement/disagreement merge handling, loop convergence or documented conservative skips, and strict-subtype equivalent-local `local.get` retargeting.
+  - Current status: 2026-05-10 added branch-disagreement merge identities for self-set folding, body-local default identities for redundant default writes, and raw strict-subtype equivalent-local `local.get` retargeting; direct compare-pass stayed semantic-green at `.tmp/pass-fuzz-rse-rse002` (`6759/10000`, `0` mismatches, `20` Binaryen/tool command failures).
+  - Remaining deliverables: complete arbitrary block start/end local value identities, loop convergence or documented conservative skips, broader `rse-gc.wast`-style type-refinement coverage beyond the reduced abs-heap fixture, and decide/fix/classify the final `rse -> vacuum` cleanup-slot replay.
+  - Current blocker: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/rse002-rse-vacuum --redundant-set-elimination --vacuum` remains red at `defined=0 abs=17`; Starshine now exposes the same redundant default/self-set debris as `drop(...)`, but the paired vacuum replay leaves nested drops/nops that Binaryen removes.
   - Tests: branch-join positives/negatives, loop convergence/skips, `rse-gc.wast`-style type-refinement tests, direct compare-pass parity, and final `rse -> vacuum` cleanup-slot replay.
 
 #### DAE - Dead Argument Elimination Optimizing

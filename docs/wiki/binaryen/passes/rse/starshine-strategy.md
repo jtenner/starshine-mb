@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-10
 sources:
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
@@ -46,12 +46,10 @@ The most important teaching point remains the same: the future Starshine port ne
 
 Current local behavior:
 
-- `src/passes/rse.mbt:2-8` owns the descriptor.
-- `src/passes/rse.mbt:12-16` owns the summary.
-- `src/passes/rse.mbt:692-700` owns the raw lowered-function fast path helper.
-- `src/passes/optimize.mbt:253-256` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
-- `src/passes/pass_manager.mbt:7324-7334` dispatches the hot pass and runs the raw fast path before hot lift for large lowered functions.
-- `src/cmd/cmd_wbtest.mbt:3922-3959`, `src/passes/rse_test.mbt:41-71`, and `src/passes/registry_test.mbt:189-193` cover CLI, direct HOT behavior, and registry classification.
+- `src/passes/rse.mbt` owns the descriptor, summary, HOT same-value rewrite, raw lowered-function value tracker, default body-local identities, branch merge sentinels, and raw strict-subtype local-get retargeting.
+- `src/passes/optimize.mbt` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
+- `src/passes/pass_manager.mbt` dispatches the hot pass, constructs the module validation environment needed for raw subtype checks, and runs the raw fast path before hot lift for lowered functions.
+- `src/cmd/cmd_wbtest.mbt`, `src/passes/rse_test.mbt`, and `src/passes/registry_test.mbt` cover CLI, direct HOT behavior, raw branch-merge/default/refined-get behavior, and registry classification.
 - The pass remains **direct-only**; the late no-DWARF preset slot is not scheduled yet.
 
 ## Corrected local strategy
@@ -98,6 +96,14 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 - `src/passes/rse_test.mbt:41-71`
   - Owns the focused same-value set/tee tests.
   - Should own future fixed-point CFG merge and refined local-get retargeting work.
+
+### 2026-05-10 RSE002 progress
+
+- Added branch-disagreement merge identities so a later `local.set $x (local.get $x)` can fold even when predecessor values differ.
+- Initialized raw body-local value facts to default values where the local type is defaultable, matching Binaryen's ability to remove redundant default writes.
+- Added raw strict-subtype equivalent-local `local.get` retargeting using the module validation environment; the reduced fixture retargets an `anyref` local read to an equivalent `eqref` local.
+- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum`; it remains red at `defined=0 abs=17` because nested `drop(...)` / `nop` cleanup debris remains in Starshine's paired vacuum output while Binaryen removes it.
 
 ### Existing Starshine analysis surfaces to read
 

@@ -121,6 +121,8 @@ fn rse_merge_local_values(
     let rhs_value = rhs.local_values[idx]
     state.local_values[idx] = if lhs_value == rhs_value {
       lhs_value
+    } else if lhs_value >= 0 && rhs_value >= 0 {
+      rse_fresh_value(state, idx)
     } else {
       -1
     }
@@ -402,15 +404,23 @@ fn rse_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
 ///|
 priv struct RseRawState {
   local_values : Array[String]
+  local_types : Array[@lib.ValType]
+  env : @validate.Env
   stack : Array[String]
   mut next_unknown : Int
   mut changed : Bool
 }
 
 ///|
-fn RseRawState::new(local_count : Int) -> RseRawState {
+fn RseRawState::new(
+  local_types : Array[@lib.ValType],
+  param_count : Int,
+  env : @validate.Env,
+) -> RseRawState {
   let state = {
-    local_values: Array::make(local_count, ""),
+    local_values: Array::make(local_types.length(), ""),
+    local_types,
+    env,
     stack: [],
     next_unknown: 0,
     changed: false,
@@ -418,7 +428,14 @@ fn RseRawState::new(local_count : Int) -> RseRawState {
   for local_id = 0
       local_id < state.local_values.length()
       local_id = local_id + 1 {
-    state.local_values[local_id] = "local:\{local_id}"
+    state.local_values[local_id] = if local_id < param_count {
+      "local:\{local_id}"
+    } else {
+      match rse_raw_default_value_for_type(local_types[local_id]) {
+        Some(value) => value
+        None => "local:\{local_id}"
+      }
+    }
   }
   state
 }
@@ -427,6 +444,8 @@ fn RseRawState::new(local_count : Int) -> RseRawState {
 fn RseRawState::clone_from(other : RseRawState) -> RseRawState {
   {
     local_values: other.local_values.copy(),
+    local_types: other.local_types,
+    env: other.env,
     stack: other.stack.copy(),
     next_unknown: other.next_unknown,
     changed: other.changed,
@@ -454,6 +473,19 @@ fn rse_raw_push(state : RseRawState, value : String) -> Unit {
 }
 
 ///|
+fn rse_raw_default_value_for_type(ty : @lib.ValType) -> String? {
+  match ty {
+    @lib.NumTypeValType(@lib.I32NumType) => Some("i32:\{@lib.I32::new(0)}")
+    @lib.NumTypeValType(@lib.I64NumType) => Some("i64:\{@lib.I64::new(0L)}")
+    @lib.NumTypeValType(@lib.F32NumType) => Some("f32:\{@lib.F32::new(0.0)}")
+    @lib.NumTypeValType(@lib.F64NumType) => Some("f64:\{@lib.F64::new(0.0)}")
+    @lib.RefTypeValType(ref_type) if ref_type.is_nullable() =>
+      Some("ref.null:\{ref_type.make_nullable()}")
+    _ => None
+  }
+}
+
+///|
 fn rse_raw_local_get(state : RseRawState, local_id : Int) -> String {
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id]
@@ -471,6 +503,53 @@ fn rse_raw_local_set(
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id] = value
   }
+}
+
+///|
+fn rse_raw_local_type(state : RseRawState, local_id : Int) -> @lib.ValType? {
+  if local_id >= 0 && local_id < state.local_types.length() {
+    Some(state.local_types[local_id])
+  } else {
+    None
+  }
+}
+
+///|
+fn rse_raw_is_strict_subtype_local(
+  state : RseRawState,
+  candidate_id : Int,
+  original_id : Int,
+) -> Bool {
+  if candidate_id == original_id {
+    return false
+  }
+  match
+    (
+      rse_raw_local_type(state, candidate_id),
+      rse_raw_local_type(state, original_id),
+    ) {
+    (Some(candidate), Some(original)) =>
+      candidate != original &&
+      @validate.Match::matches(candidate, original, state.env)
+    _ => false
+  }
+}
+
+///|
+fn rse_raw_refined_get_local(state : RseRawState, local_id : Int) -> Int {
+  let value = rse_raw_local_get(state, local_id)
+  if value == "" {
+    return local_id
+  }
+  for candidate_id = 0
+      candidate_id < state.local_values.length()
+      candidate_id = candidate_id + 1 {
+    if state.local_values[candidate_id] == value &&
+      rse_raw_is_strict_subtype_local(state, candidate_id, local_id) {
+      return candidate_id
+    }
+  }
+  local_id
 }
 
 ///|
@@ -504,6 +583,8 @@ fn rse_raw_merge_values(
     let rhs_value = rhs.local_values[local_id]
     state.local_values[local_id] = if lhs_value == rhs_value {
       lhs_value
+    } else if lhs_value != "" && rhs_value != "" {
+      rse_raw_fresh(state)
     } else {
       ""
     }
@@ -568,11 +649,19 @@ fn rse_raw_rewrite_expr(
         rse_raw_push(state, "ref.func:\{func_idx}")
       }
       @lib.Instruction::LocalGet(local_idx) => {
-        out.push(instr)
-        rse_raw_push(
-          state,
-          rse_raw_local_get(state, rse_raw_local_id(local_idx)),
-        )
+        let local_id = rse_raw_local_id(local_idx)
+        let refined_id = rse_raw_refined_get_local(state, local_id)
+        if refined_id != local_id {
+          out.push(
+            @lib.Instruction::local_get(
+              @lib.LocalIdx::new(refined_id.reinterpret_as_uint()),
+            ),
+          )
+          state.changed = true
+        } else {
+          out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_local_get(state, local_id))
       }
       @lib.Instruction::LocalSet(local_idx) => {
         let value = rse_raw_pop(state)
@@ -689,9 +778,29 @@ fn rse_raw_rewrite_expr(
 }
 
 ///|
-fn rse_run_raw_func(func : @lib.Func, param_count : Int) -> (@lib.Func, Bool) {
+fn rse_raw_local_types(
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+) -> Array[@lib.ValType] {
+  let types = params.copy()
+  for local_id = 0; local_id < locals.length(); local_id = local_id + 1 {
+    types.push(locals.get(local_id))
+  }
+  types
+}
+
+///|
+fn rse_run_raw_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  env : @validate.Env,
+) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  let state = RseRawState::new(param_count + locals.length())
+  let state = RseRawState::new(
+    rse_raw_local_types(params, locals),
+    params.length(),
+    env,
+  )
   let rewritten = rse_raw_rewrite_expr(instrs, state)
   if state.changed {
     (@lib.Func::new(locals, @lib.Expr::new(rewritten)), true)

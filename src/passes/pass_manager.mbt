@@ -7645,7 +7645,8 @@ fn run_hot_pipeline_raw_rse(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
-  let (rewritten, changed) = rse_run_raw_func(original, params.length())
+  let env = @validate.Env::new().with_module(mod_)
+  let (rewritten, changed) = rse_run_raw_func(original, params, env)
   Some({
     reason: if changed {
       "raw-same-value-local-write"

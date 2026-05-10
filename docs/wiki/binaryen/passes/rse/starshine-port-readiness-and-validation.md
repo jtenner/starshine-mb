@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-10
 sources:
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
@@ -37,30 +37,31 @@ The 2026-05-05 current-main recheck keeps the same teaching split and only refre
 
 ## Current readiness verdict
 
-Starshine now has an **active direct `redundant-set-elimination` port**. The first landed slice is intentionally scoped to same-value local write shell removal and validation/signoff plumbing rather than the entire Binaryen refined-get surface.
+Starshine now has an **active direct `redundant-set-elimination` port**. The current slice covers more of Binaryen's local value model but still is not the complete fixed-point CFG port.
 
 The implemented surface:
 
 - registers `redundant-set-elimination` as an active hot pass and CLI flag;
 - keeps Binaryen `--rse` aliasing in the compare harnesses;
 - removes same-value `local.set` shells as `drop(value)` and same-value `local.tee` shells as the original value;
-- tracks simple value identities through constants, local copies, selected integer operations, and structured `if` agreement;
+- tracks simple value identities through constants, local copies, selected integer operations, structured `if` agreement, branch-disagreement merge sentinels for self-set folding, and default body-local values;
+- retargets raw lowered `local.get` reads to an equivalent local with a strict subtype, covered by a reduced `anyref` / `eqref` fixture;
 - uses a raw fast path for lowered functions plus a HOT fallback for direct hot-pass tests;
-- keeps the direct `gen-valid` 10000-case lane and debug-artifact canonical function compare green.
+- keeps the direct compare-pass lane semantic-green.
 
 Remaining full-parity work is still real:
 
-- complete Binaryen-style fixed-point CFG merge values through loops and arbitrary diamonds;
-- add strict-subtype equivalent-local `local.get` retargeting and any required refinalization;
-- schedule the late no-DWARF slot only after the refined-get / tail-cleanup surface is proven.
+- complete Binaryen-style fixed-point CFG merge values through arbitrary blocks and loops;
+- broaden strict-subtype equivalent-local `local.get` retargeting to the official `rse-gc.wast` families and any required refinalization/writeback repair;
+- classify or fix the `rse -> vacuum` cleanup-slot replay before scheduling the late no-DWARF slot.
 
 ## Exact local status
 
 | Surface | Current state | Future action |
 | --- | --- | --- |
 | Registry | `src/passes/optimize.mbt:253-256` now has an active `"redundant-set-elimination"` hot-pass entry. | Keep it direct-only until the late preset slot is proven. |
-| Dispatcher | `src/passes/pass_manager.mbt:7324-7334` dispatches `"redundant-set-elimination"` and has a raw fast path before hot lift. | Extend the raw/HOT implementations as refined-get and loop fixed-point support lands. |
-| Owner file | `src/passes/rse.mbt:2-8`, `src/passes/rse.mbt:12-16`, and `src/passes/rse.mbt:692-700` own descriptor, summary, and raw rewrite helper. | Keep new behavior beside this owner with focused tests. |
+| Dispatcher | `src/passes/pass_manager.mbt` dispatches `"redundant-set-elimination"`, builds a validation environment for raw subtype checks, and has a raw fast path before hot lift. | Extend the raw/HOT implementations as official GC fixtures and loop fixed-point support land. |
+| Owner file | `src/passes/rse.mbt` owns descriptor, summary, raw value identities, branch merge sentinels, body-local default identities, and strict-subtype raw get retargeting. | Keep new behavior beside this owner with focused tests. |
 | HOT local surfaces | [`src/ir/use_def.mbt:1-120`](../../../../../src/ir/use_def.mbt) records local reads/writes, but no value-number CFG flow. | Reuse only the collection pieces that fit; add explicit value identity and merge logic. |
 | Type context | [`src/ir/hot_module_context.mbt:1-58`](../../../../../src/ir/hot_module_context.mbt) and later helpers expose module subtype/function type context. | Use this for strict-subtype retargeting checks. |
 | Backlog | [`agent-todo.md:481-491`](../../../../../agent-todo.md) tracks `RSE`. | Keep the backlog aligned with this CFG-aware contract. |
@@ -113,15 +114,15 @@ Only then should the pass enter public preset scheduling.
 - [x] Same-block repeated `local.tee` positive.
 - [x] Different overwritten value negative.
 - [x] RHS trap/effect preservation by replacing the shell, not the value expression.
-- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-06 lane `.tmp/pass-fuzz-redundant-set-elimination` (`6759` comparable matches, `0` mismatches, `20` Binaryen-side empty-recursion-group command failures); older lanes `.tmp/pass-fuzz-rse-genvalid-10000-raw` (`10000/10000`) and `.tmp/pass-fuzz-rse-10000-raw` (`6759` comparable matches, `0` mismatches, `20` Binaryen-side command failures) remain historical evidence.
+- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); 2026-05-06 lane `.tmp/pass-fuzz-redundant-set-elimination` and older raw lanes remain historical evidence.
 - [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
 - [x] 2026-05-05 current-main recheck stayed aligned with the same CFG/value-flow and refined-get split.
-- [ ] Branch-join same-value positive beyond the simple structured raw/HOT cases.
+- [x] Branch-join same-value/self-set coverage for structured HOT and raw paths, including disagreement represented as a merge identity for self-set folding.
 - [ ] Branch-join different-value negative beyond the focused local tests.
 - [ ] Loop convergence or conservative loop skip behavior documented and tested.
-- [ ] Refined local-get retargeting with a strict-subtype local.
-- [ ] No changes to globals, memory stores, struct stores, or array stores.
-- [ ] Late `--rse --vacuum` lane.
+- [x] Reduced refined local-get retargeting with a strict-subtype local (`anyref` read retargeted to equivalent `eqref`).
+- [x] No changes to globals, memory stores, struct stores, or array stores.
+- [ ] Late `--rse --vacuum` lane: 2026-05-10 replay at `.tmp/rse002-rse-vacuum` remains red at `defined=0 abs=17`; the visible delta is nested `drop(...)` / `nop` cleanup debris after RSE exposes redundant default/self-set writes.
 
 ## Open design questions
 
