@@ -52,7 +52,7 @@ Read it after:
 
 ## Current local starting point
 
-`code-folding` is active in Starshine as a narrow HOT direct pass. It has an owner file, focused tests, registry entry, and `pass_manager` dispatcher arm. It does **not** yet have full Binaryen coverage or preset-slot proof.
+`code-folding` is active in Starshine as a narrowed HOT direct pass. It has an owner file, focused tests, registry entry, and `pass_manager` dispatcher arm. Its v0.1.0 direct-pass signoff is accepted under the repo criteria; it does **not** yet have full Binaryen coverage or public preset-slot proof.
 
 The local surfaces that already exist are active implementation and planning surfaces:
 
@@ -63,8 +63,8 @@ The local surfaces that already exist are active implementation and planning sur
 | Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot pass, not a removed-name placeholder. |
 | Dispatcher arm | `src/passes/pass_manager.mbt` | active requests dispatch to `code_folding_run(ctx, func)`. |
 | CLI spelling preservation | `src/cli/cli_test.mbt` | `--code-folding` parses and explicit pass-token order is stable. |
-| Direct revalidation | `.tmp/pass-fuzz-code-folding`, `docs/wiki/raw/research/0522-2026-05-06-code-folding-direct-revalidation.md` | refreshed harness lane had `6759` normalized matches and `0` semantic mismatches. |
-| Backlog slice | `agent-todo.md` | `[CF]002` is the active late-slot / artifact follow-up. |
+| Direct revalidation | `.tmp/pass-fuzz-code-folding-cf002-terminal-if`, `docs/wiki/raw/research/0522-2026-05-06-code-folding-direct-revalidation.md` | refreshed harness lane had `6759` normalized matches and `0` semantic mismatches; direct debug-artifact timing stayed inside the <=2x Binaryen floor. |
+| Backlog slice | `agent-todo.md` | direct `[CF]002` is accepted; future work is limited to new semantic/validity blockers, proven downstream code-size blockers, or preset-scheduling evidence. |
 | Canonical late slot | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` | the pass belongs immediately before the late `merge-blocks` cluster in the no-DWARF function phase. |
 
 ## Remaining Starshine slice order
@@ -212,20 +212,22 @@ The neighboring living dossiers are:
 
 ### Final parity signoff
 
-The refreshed direct lane is current as of 2026-05-06:
+The refreshed direct lane is current as of 2026-05-10:
 
-- `moon info`
-- `moon fmt`
-- `moon test`
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --out-dir .tmp/pass-fuzz-code-folding`
+- implementation-thread signoff: `moon info`, `moon fmt`, `moon test`
+- latest direct fuzz: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --max-failures 20 --out-dir .tmp/pass-fuzz-code-folding-cf002-terminal-if`
 - result: `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, `20` Binaryen empty-recursion-group command failures
+- direct artifact replay: `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352`, first diff `defined=220 abs=237`, classified representation drift, `334.711ms` Starshine pass time vs `176.295ms` Binaryen
+- late cleanup replay: `.tmp/cf002-late-cleanup-artifact`, first diff `defined=29 abs=46`, same focused diff files as the no-CF baseline `.tmp/cf002-late-cleanup-without-cf-artifact`
 
-Remaining final parity signoff for `[CF]002` still needs:
+Direct `[CF]002` signoff is accepted as of 2026-05-10. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline.
 
-1. replay the canonical no-DWARF ordered prefix through the documented late slot
-2. replay the saved generated-artifact `-O4z` skipped-slot context from the tracker
-3. require post-pass validation after each HOT writeback
-4. rerun the pass-targeted comparison harness after any broadening change
+Future parity work should only proceed when one of these is true:
+
+1. a new semantic or validity mismatch appears
+2. a proven downstream code-size blocker requires broader helper-label sharing
+3. preset scheduling is being advanced with separate ordered-path proof
+4. the pass-targeted comparison harness regresses after a future broadening change
 
 Follow the repo-level pass signoff rule from [`../../../../../AGENTS.md`](../../../../../AGENTS.md): compare against Binaryen at meaningful counts before calling parity done.
 

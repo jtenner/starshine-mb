@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | accept direct code-folding parity
+
+- Accepted direct `code-folding` / `[CF]002` for v0.1.0 under the repo pass criteria: the latest direct fuzz lane at `.tmp/pass-fuzz-code-folding-cf002-terminal-if` had `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen/tool command failures, and direct debug-artifact pass-local timing remained inside the <=2x Binaryen floor (`334.711ms` Starshine vs `176.295ms` Binaryen at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352`).
+- Replayed the focused late cleanup neighborhood `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` at `.tmp/cf002-late-cleanup-artifact`: canonical wasm/text and normalized WAT remained unequal with first diff `defined=29 abs=46`, Starshine pass time was `859.969ms` vs Binaryen `1953.750ms`, and Starshine stayed pass-local faster than Binaryen.
+- Ran the no-CF cleanup baseline `merge-blocks -> remove-unused-brs -> remove-unused-names` at `.tmp/cf002-late-cleanup-without-cf-artifact`: it had the same first diff `defined=29 abs=46`, and the focused `func-defined29-abs46` Starshine/Binaryen WAT and pretty files were byte-identical to the with-CF replay. Classified the late cleanup diff as a non-CF cleanup baseline drift, leaving future code-folding work limited to new semantic/validity blockers, proven downstream code-size blockers, or separate preset-scheduling proof.
+
 ## [2026-05-10] passes | share code-folding full-if terminal returns
 
 - Added a conservative `code-folding` terminal suffix family for full `if` arms ending in empty-payload `return` / `unreachable`, matching Binaryen's reduced shape where duplicated effectful suffixes before `return` can be shared after dropping the condition.

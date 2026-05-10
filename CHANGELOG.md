@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: accept direct code-folding parity
+
+- **accept direct `code-folding` / `[CF]002` for v0.1.0 after focused late cleanup replay showed the remaining `defined=29 abs=46` neighborhood diff is identical with or without `code-folding`, preserving semantic fuzz parity, classified helper-wrapper representation drift, and pass-local timing inside the <=2x Binaryen floor** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md), [`docs/wiki/binaryen/passes/code-folding/index.md`](./docs/wiki/binaryen/passes/code-folding/index.md), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/binaryen/passes/code-folding/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/code-folding/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: share code-folding full-if terminal returns
 
 - **add a conservative direct `code-folding` terminal suffix family for full `if` arms ending in empty-payload `return` / `unreachable`, with focused regression coverage, refreshed 10k direct fuzz parity, and debug-artifact pass-local timing still inside the <=2x Binaryen floor** by **@OpenAI**. Updated [`src/passes/code_folding.mbt`](./src/passes/code_folding.mbt), [`src/passes/code_folding_test.mbt`](./src/passes/code_folding_test.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
