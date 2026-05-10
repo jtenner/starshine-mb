@@ -753,6 +753,13 @@ fn rse_raw_rewrite_expr_scoped(
         ignore(rse_raw_pop(state))
         out.push(instr)
       }
+      @lib.Instruction::RefAsNonNull
+      | @lib.Instruction::RefCast(_, _)
+      | @lib.Instruction::RefCastDescEq(_, _) => {
+        let value = rse_raw_pop(state)
+        out.push(instr)
+        rse_raw_push(state, value)
+      }
       @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => {
         let value = rse_raw_pop(state)
         out.push(instr)

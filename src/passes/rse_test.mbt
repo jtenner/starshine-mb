@@ -158,6 +158,147 @@ test "rse retargets equivalent local.get to strict subtype local" {
 }
 
 ///|
+test "rse treats ref.as_non_null refined locals as equivalent subtype sources" {
+  let input =
+    #|(module
+    #|  (type $A (sub (struct)))
+    #|  (func (param (ref null $A) (ref $A))
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    local.set 1
+    #|    (drop (local.get 0))
+    #|    (drop (local.get 1))))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse ref.as_non_null refined fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(@lib.LocalIdx(refined_src)),
+      @lib.Instruction::RefAsNonNull,
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(retargeted)),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(@lib.LocalIdx(original_refined)),
+      @lib.Instruction::Drop,
+    ] => {
+      @debug.assert_eq(refined_src, 0U)
+      @debug.assert_eq(retargeted, 1U)
+      @debug.assert_eq(original_refined, 1U)
+    }
+    other =>
+      fail(
+        "expected ref.as_non_null refined local.get retargeting, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse keeps unrefined local.gets when the candidate is not a strict subtype" {
+  let input =
+    #|(module
+    #|  (type $A (sub (struct)))
+    #|  (func (param (ref $A) (ref null $A))
+    #|    local.get 0
+    #|    local.set 1
+    #|    (drop (local.get 1))
+    #|    (drop (local.get 0))))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse strict-subtype negative fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(@lib.LocalIdx(copy_src)),
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(retargeted)),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(@lib.LocalIdx(preserved)),
+      @lib.Instruction::Drop,
+    ] => {
+      @debug.assert_eq(copy_src, 0U)
+      @debug.assert_eq(retargeted, 0U)
+      @debug.assert_eq(preserved, 0U)
+    }
+    other =>
+      fail(
+        "expected only the nullable read to retarget, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse preserves refined local.get retargeting through branch merges" {
+  let input =
+    #|(module
+    #|  (type $A (sub (struct)))
+    #|  (func (param i32 (ref null $A) (ref $A))
+    #|    local.get 1
+    #|    ref.as_non_null
+    #|    local.set 2
+    #|    (if (local.get 0)
+    #|      (then
+    #|        (drop (local.get 1)))
+    #|      (else
+    #|        (drop (local.get 2))))
+    #|    (drop (local.get 1))))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse branch refined-get fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(@lib.LocalIdx(refined_src)),
+      @lib.Instruction::RefAsNonNull,
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(_),
+      @lib.Instruction::If(_, then_body, Some(else_body)),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(final_idx)),
+      @lib.Instruction::Drop,
+    ] => {
+      @debug.assert_eq(refined_src, 1U)
+      @debug.assert_eq(final_idx, 2U)
+      match then_body {
+        [
+          @lib.Instruction::LocalGet(@lib.LocalIdx(then_idx)),
+          @lib.Instruction::Drop,
+        ] => @debug.assert_eq(then_idx, 2U)
+        other =>
+          fail(
+            "expected then arm to retarget to the refined local, got \{@debug.to_string(other)}",
+          )
+      }
+      match else_body {
+        [
+          @lib.Instruction::LocalGet(@lib.LocalIdx(else_idx)),
+          @lib.Instruction::Drop,
+        ] => @debug.assert_eq(else_idx, 2U)
+        other =>
+          fail(
+            "expected else arm to keep the refined local, got \{@debug.to_string(other)}",
+          )
+      }
+    }
+    other =>
+      fail(
+        "expected branch merge refined local.get retargeting, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "rse removes default local tee in loop conditions" {
   let input =
     #|(module

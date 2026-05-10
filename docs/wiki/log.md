@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | broaden RSE refined-local wrapper coverage
+
+- Added focused `redundant-set-elimination` regressions for concrete-heap strict-subtype retargeting through `ref.as_non_null`, including a branch-merge positive and a negative where a nullable equivalent local must not replace the original non-null source.
+- Raw RSE now treats `ref.as_non_null`, `ref.cast`, and `ref.cast_desc_eq` as identity-preserving refinement wrappers for local-value tracking, letting later refined local.get retargeting see through those wrappers instead of stopping at the wrapper node.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-gc-refinement`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the living RSE pages and backlog to record that refined-get coverage now includes reduced abs-heap plus concrete-heap wrapper-based fixtures, while broader `rse-gc.wast` breadth, loop contracts, and remaining HOT/control-family label flow stay open.
+
 ## [2026-05-10] passes | extend RSE block-exit merge tracking
 
 - Added a reduced raw `redundant-set-elimination` regression for block-exit disagreement: `block ... br_if 0 ... end; i32.const 1; local.set` now keeps the final const set instead of misfolding it to `drop`.

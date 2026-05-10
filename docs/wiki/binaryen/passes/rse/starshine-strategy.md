@@ -46,7 +46,7 @@ The most important teaching point remains the same: the future Starshine port ne
 
 Current local behavior:
 
-- `src/passes/rse.mbt` owns the descriptor, summary, HOT same-value rewrite, raw lowered-function value tracker, default body-local identities, branch merge sentinels, and raw strict-subtype local-get retargeting.
+- `src/passes/rse.mbt` owns the descriptor, summary, HOT same-value rewrite, raw lowered-function value tracker, default body-local identities, branch merge sentinels, raw strict-subtype local-get retargeting, and raw identity-preserving refinement wrappers for `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`.
 - `src/passes/optimize.mbt` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
 - `src/passes/pass_manager.mbt` dispatches the hot pass, constructs the module validation environment needed for raw subtype checks, and runs the raw fast path before hot lift for lowered functions.
 - `src/cmd/cmd_wbtest.mbt`, `src/passes/rse_test.mbt`, and `src/passes/registry_test.mbt` cover CLI, direct HOT behavior, raw branch-merge/default/refined-get behavior, and registry classification.
@@ -101,9 +101,10 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 
 - Added branch-disagreement merge identities so a later `local.set $x (local.get $x)` can fold even when predecessor values differ.
 - Initialized raw body-local value facts to default values where the local type is defaultable, matching Binaryen's ability to remove redundant default writes.
-- Added raw strict-subtype equivalent-local `local.get` retargeting using the module validation environment; the reduced fixture retargets an `anyref` local read to an equivalent `eqref` local.
+- Added raw strict-subtype equivalent-local `local.get` retargeting using the module validation environment; the first reduced fixture retargeted an `anyref` local read to an equivalent `eqref` local.
+- Added raw identity-preserving refinement wrappers for `ref.as_non_null`, `ref.cast`, and `ref.cast_desc_eq`, so concrete-heap refined gets now retarget through both straight-line and branch-merge shapes instead of stopping at the wrapper node.
 - Added raw structured block/if label-exit merge tracking plus unreachable-tail skipping so branch exits like `block ... br_if 0 ... end; i32.const 1; local.set` no longer misfold the final const set.
-- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-next-followup`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-gc-refinement`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
 - Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum`; it initially remained red at `defined=0 abs=17` because nested `drop(...)` / `nop` cleanup debris remained in Starshine's paired vacuum output while Binaryen removed it.
 - Follow-up cleanup taught vacuum to recurse into nested value-expression control regions for small functions, added a raw no-candidate vacuum skip to avoid lifting unchanged functions, preserved raw RSE fallthrough facts after one-armed terminating `if`s, and added Binaryen-style vacuum inversion for empty-then/live-else void `if`s. The replay at `.tmp/rse002-rse-vacuum-final` moved past the `defined=29 abs=46` empty-then / double-`eqz` family to `defined=208 abs=225`.
 - The current `rse -> vacuum` exact replay residual is classified as inherited direct-`vacuum` representation drift: `.tmp/rse002-vacuum-baseline` has the same first differing function, and Starshine's focused `func-defined208-abs225` WAT and pretty files are byte-identical with and without RSE.
@@ -172,4 +173,4 @@ If the project wants them later, document them as separate Starshine-local exten
 Two local design decisions remain open:
 
 - **Name surface:** upstream exposes the public long name `redundant-set-elimination` and the shorthand `rse` appears in pipeline/debug contexts; Starshine exposes the long CLI/registry name and maps `--rse` inside compare harnesses.
-- **CFG/value substrate:** Binaryen definitely has a fuller fixed-point CFG flow than the active Starshine slice; future work should carry the new raw block/if label-exit identities through the remaining HOT/control families and add loop fixed-point or explicit conservative loop contracts without widening into liveness-backed dead-store elimination.
+- **CFG/value substrate:** Binaryen definitely has a fuller fixed-point CFG flow than the active Starshine slice; future work should carry the new raw block/if label-exit identities through the remaining HOT/control families, preserve the new wrapper-aware refined-get behavior there too, and add loop fixed-point or explicit conservative loop contracts without widening into liveness-backed dead-store elimination.

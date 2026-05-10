@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: broaden RSE refined-local wrapper coverage
+
+- **teach raw `redundant-set-elimination` to treat `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` as identity-preserving refinement wrappers, add focused concrete-heap refined-get regressions for straight-line and branch-merge retargeting, and keep 10k direct fuzz semantic parity green** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: extend RSE block-exit merge tracking
 
 - **teach raw `redundant-set-elimination` to merge structured block/if branch exits back into post-label local identities, skip unreachable tails after terminating control flow, add a focused `br_if` block-exit disagreement regression, and keep 10k direct fuzz semantic parity green** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
