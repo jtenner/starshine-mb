@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | classify code-folding helper-wrapper drift
+
+- Reduced the remaining direct debug-artifact `defined=220 abs=237` helper-wrapper family to a focused nested value-branch fixture in `src/passes/code_folding_test.mbt`.
+- Binaryen and Starshine both reduce the fixture from six duplicated `$sink` calls to four calls, but keep different helper-block placement; the local Starshine WAT for the reduced fixture is smaller (`1254` bytes vs Binaryen's `1354`).
+- In the artifact function from `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-841296`, both outputs have three `call $28(local.get $6)` sites and sixteen total `call $28` sites, with Starshine's focused WAT smaller (`21687` bytes vs Binaryen's `22085`). Classified this specific helper-wrapper diff as representation drift, leaving `[CF]002` focused on function-ending helper-label sharing and late-slot replay/acceptance.
+
 ## [2026-05-10] passes | recover code-folding embedded-payload runtime
 
 - Narrowed `code-folding` embedded branch/drop payload traversal to small control payloads and reordered exiting-block flattening so the expensive `always_exits` walk only runs after a direct `unreachable` sentinel is found.

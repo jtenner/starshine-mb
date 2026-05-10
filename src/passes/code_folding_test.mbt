@@ -302,6 +302,69 @@ test "code-folding hoists block-exit tail before outer branch fallthrough" {
 }
 
 ///|
+test "code-folding shares nested value branch helper-wrapper tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32 i32 i32 i32) (result i32)
+      #|    (drop
+      #|      (block $outer (result i32)
+      #|        (block $b1
+      #|          (br $outer
+      #|            (block $b2 (result i32)
+      #|              (block $b0
+      #|                local.get 0
+      #|                if
+      #|                  local.get 4
+      #|                  call $sink
+      #|                  br $b0
+      #|                else
+      #|                  local.get 1
+      #|                  if
+      #|                    local.get 4
+      #|                    call $sink
+      #|                    br $b0
+      #|                  else
+      #|                    local.get 2
+      #|                    if
+      #|                      local.get 4
+      #|                      call $sink
+      #|                      br $b1
+      #|                    else
+      #|                      local.get 3
+      #|                      if
+      #|                        local.get 4
+      #|                        call $sink
+      #|                        br $b1
+      #|                      end
+      #|                    end
+      #|                  end
+      #|                end
+      #|                i32.const 0
+      #|                br $b2
+      #|              )
+      #|              local.get 4
+      #|              call $sink
+      #|              i32.const 3)))
+      #|        local.get 4
+      #|        call $sink
+      #|        i32.const 4))
+      #|    i32.const 9)
+      #|)
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    4,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding removes trailing unreachable after exiting root without crashing" {
   let optimized = code_folding_test_run(
     (

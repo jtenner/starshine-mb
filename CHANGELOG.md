@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: classify code-folding helper-wrapper drift
+
+- **reduce and classify the remaining direct `code-folding` debug-artifact `defined=220 abs=237` helper-wrapper diff as representation drift by adding focused nested value-branch coverage and confirming Binaryen and Starshine share the same duplicated-call payoff while keeping different wrapper placement** by **@OpenAI**. Updated [`src/passes/code_folding_test.mbt`](./src/passes/code_folding_test.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: recover code-folding embedded-payload runtime
 
 - **restore direct `code-folding` pass-local timing to the repo <=2x Binaryen floor by budget-limiting embedded branch/drop payload scans and avoiding expensive exiting-block checks until a direct `unreachable` sentinel is present, while keeping branch-payload regression coverage and direct fuzz semantic parity green** by **@OpenAI**. Updated [`src/passes/code_folding.mbt`](./src/passes/code_folding.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
