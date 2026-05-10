@@ -402,6 +402,23 @@ fn rse_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
 }
 
 ///|
+priv enum RseRawLabelKind {
+  ExitLabel
+  LoopLabel
+}
+
+///|
+priv struct RseRawLabelScope {
+  kind : RseRawLabelKind
+  exits : Array[Array[String]]
+}
+
+///|
+fn RseRawLabelScope::new(kind : RseRawLabelKind) -> RseRawLabelScope {
+  { kind, exits: [] }
+}
+
+///|
 priv struct RseRawState {
   local_values : Array[String]
   local_types : Array[@lib.ValType]
@@ -409,6 +426,7 @@ priv struct RseRawState {
   stack : Array[String]
   mut next_unknown : Int
   mut changed : Bool
+  mut reachable : Bool
 }
 
 ///|
@@ -424,6 +442,7 @@ fn RseRawState::new(
     stack: [],
     next_unknown: 0,
     changed: false,
+    reachable: true,
   }
   for local_id = 0
       local_id < state.local_values.length()
@@ -449,6 +468,7 @@ fn RseRawState::clone_from(other : RseRawState) -> RseRawState {
     stack: other.stack.copy(),
     next_unknown: other.next_unknown,
     changed: other.changed,
+    reachable: other.reachable,
   }
 }
 
@@ -470,29 +490,6 @@ fn rse_raw_pop(state : RseRawState) -> String {
 ///|
 fn rse_raw_push(state : RseRawState, value : String) -> Unit {
   state.stack.push(value)
-}
-
-///|
-fn rse_raw_copy_local_values(dst : RseRawState, src : RseRawState) -> Unit {
-  for local_id = 0
-      local_id < dst.local_values.length() &&
-     local_id < src.local_values.length()
-      local_id = local_id + 1 {
-    dst.local_values[local_id] = src.local_values[local_id]
-  }
-}
-
-///|
-fn rse_raw_instrs_may_fallthrough(instrs : Array[@lib.Instruction]) -> Bool {
-  if instrs.length() == 0 {
-    return true
-  }
-  match instrs[instrs.length() - 1] {
-    @lib.Instruction::Br(_)
-    | @lib.Instruction::Return
-    | @lib.Instruction::Unreachable => false
-    _ => true
-  }
 }
 
 ///|
@@ -585,40 +582,77 @@ fn rse_raw_clear_values(state : RseRawState) -> Unit {
 }
 
 ///|
-fn rse_raw_merge_values(
+fn rse_raw_merge_sources(
   state : RseRawState,
-  lhs : RseRawState,
-  rhs : RseRawState,
+  sources : Array[Array[String]],
 ) -> Unit {
-  if lhs.next_unknown > state.next_unknown {
-    state.next_unknown = lhs.next_unknown
+  state.stack.clear()
+  if sources.length() == 0 {
+    rse_raw_clear_values(state)
+    state.reachable = false
+    return
   }
-  if rhs.next_unknown > state.next_unknown {
-    state.next_unknown = rhs.next_unknown
-  }
-  if lhs.changed || rhs.changed {
-    state.changed = true
-  }
+  state.reachable = true
   for local_id = 0
       local_id < state.local_values.length()
       local_id = local_id + 1 {
-    let lhs_value = lhs.local_values[local_id]
-    let rhs_value = rhs.local_values[local_id]
-    state.local_values[local_id] = if lhs_value == rhs_value {
-      lhs_value
-    } else if lhs_value != "" && rhs_value != "" {
-      rse_raw_fresh(state)
+    let mut first_known = ""
+    let mut saw_known = false
+    let mut saw_unknown = false
+    let mut disagreement = false
+    for source in sources {
+      let value = source[local_id]
+      if value == "" {
+        saw_unknown = true
+        continue
+      }
+      if !saw_known {
+        first_known = value
+        saw_known = true
+      } else if value != first_known {
+        disagreement = true
+      }
+    }
+    state.local_values[local_id] = if disagreement {
+      if saw_unknown {
+        ""
+      } else {
+        rse_raw_fresh(state)
+      }
+    } else if saw_known && !saw_unknown {
+      first_known
     } else {
       ""
     }
   }
-  state.stack.clear()
 }
 
 ///|
 fn rse_raw_local_id(idx : @lib.LocalIdx) -> Int {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
+}
+
+///|
+fn rse_raw_label_depth(idx : @lib.LabelIdx) -> Int {
+  let @lib.LabelIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn rse_raw_record_branch_exit(
+  state : RseRawState,
+  scopes : Array[RseRawLabelScope],
+  label_depth : Int,
+) -> Unit {
+  if label_depth < 0 || label_depth >= scopes.length() {
+    return
+  }
+  let scope = scopes[scopes.length() - 1 - label_depth]
+  match scope.kind {
+    RseRawLabelKind::LoopLabel => ()
+    _ => scope.exits.push(state.local_values.copy())
+  }
 }
 
 ///|
@@ -640,12 +674,17 @@ fn rse_raw_binary_key(op : String, lhs : String, rhs : String) -> String {
 }
 
 ///|
-fn rse_raw_rewrite_expr(
+fn rse_raw_rewrite_expr_scoped(
   instrs : Array[@lib.Instruction],
   state : RseRawState,
+  scopes : Array[RseRawLabelScope],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
+    if !state.reachable {
+      out.push(instr)
+      continue
+    }
     match instr {
       @lib.Instruction::I32Const(value) => {
         out.push(instr)
@@ -749,38 +788,74 @@ fn rse_raw_rewrite_expr(
       @lib.Instruction::If(block_type, then_body, else_body) => {
         ignore(rse_raw_pop(state))
         let entry = RseRawState::clone_from(state)
+        let scope = RseRawLabelScope::new(RseRawLabelKind::ExitLabel)
+        scopes.push(scope)
         let then_state = RseRawState::clone_from(state)
-        let next_then = rse_raw_rewrite_expr(then_body, then_state)
+        let next_then = rse_raw_rewrite_expr_scoped(
+          then_body, then_state, scopes,
+        )
         let (next_else, else_state) = match else_body {
           Some(else_instrs) => {
             let branch_state = RseRawState::clone_from(entry)
             (
-              Some(rse_raw_rewrite_expr(else_instrs, branch_state)),
+              Some(
+                rse_raw_rewrite_expr_scoped(else_instrs, branch_state, scopes),
+              ),
               branch_state,
             )
           }
           None => (None, entry)
         }
-        match next_else {
-          None if !rse_raw_instrs_may_fallthrough(then_body) => {
-            rse_raw_copy_local_values(state, entry)
-            if then_state.next_unknown > state.next_unknown {
-              state.next_unknown = then_state.next_unknown
-            }
-          }
-          _ => rse_raw_merge_values(state, then_state, else_state)
+        ignore(scopes.pop())
+        if then_state.next_unknown > state.next_unknown {
+          state.next_unknown = then_state.next_unknown
         }
+        if else_state.next_unknown > state.next_unknown {
+          state.next_unknown = else_state.next_unknown
+        }
+        if then_state.changed || else_state.changed {
+          state.changed = true
+        }
+        let sources : Array[Array[String]] = []
+        if then_state.reachable {
+          sources.push(then_state.local_values.copy())
+        }
+        if else_state.reachable {
+          sources.push(else_state.local_values.copy())
+        }
+        for exit in scope.exits {
+          sources.push(exit)
+        }
+        rse_raw_merge_sources(state, sources)
         out.push(@lib.Instruction::if_(block_type, next_then, next_else))
-        rse_raw_push(state, rse_raw_fresh(state))
+        if state.reachable {
+          rse_raw_push(state, rse_raw_fresh(state))
+        }
       }
       @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
-        let next = rse_raw_rewrite_expr(body, state)
+        let scope = RseRawLabelScope::new(RseRawLabelKind::ExitLabel)
+        scopes.push(scope)
+        let next = rse_raw_rewrite_expr_scoped(body, state, scopes)
+        ignore(scopes.pop())
+        let sources : Array[Array[String]] = []
+        if state.reachable {
+          sources.push(state.local_values.copy())
+        }
+        for exit in scope.exits {
+          sources.push(exit)
+        }
+        rse_raw_merge_sources(state, sources)
         out.push(@lib.Instruction::block(block_type, @lib.Expr::new(next)))
-        rse_raw_push(state, rse_raw_fresh(state))
+        if state.reachable {
+          rse_raw_push(state, rse_raw_fresh(state))
+        }
       }
       @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
         let loop_state = RseRawState::clone_from(state)
-        let next = rse_raw_rewrite_expr(body, loop_state)
+        let scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
+        scopes.push(scope)
+        let next = rse_raw_rewrite_expr_scoped(body, loop_state, scopes)
+        ignore(scopes.pop())
         if loop_state.changed {
           state.changed = true
         }
@@ -788,15 +863,47 @@ fn rse_raw_rewrite_expr(
           state.next_unknown = loop_state.next_unknown
         }
         rse_raw_clear_values(state)
+        state.reachable = true
         out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
         rse_raw_push(state, rse_raw_fresh(state))
       }
-      @lib.Instruction::Br(_)
-      | @lib.Instruction::Return
-      | @lib.Instruction::Unreachable => {
+      @lib.Instruction::Br(label_idx) => {
+        rse_raw_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
         out.push(instr)
         state.stack.clear()
         rse_raw_clear_values(state)
+        state.reachable = false
+      }
+      @lib.Instruction::BrIf(label_idx) => {
+        ignore(rse_raw_pop(state))
+        rse_raw_record_branch_exit(
+          state,
+          scopes,
+          rse_raw_label_depth(label_idx),
+        )
+        out.push(instr)
+        state.stack.clear()
+      }
+      @lib.Instruction::BrTable(label_idxs, fallback) => {
+        ignore(rse_raw_pop(state))
+        for target in label_idxs {
+          rse_raw_record_branch_exit(state, scopes, rse_raw_label_depth(target))
+        }
+        rse_raw_record_branch_exit(state, scopes, rse_raw_label_depth(fallback))
+        out.push(instr)
+        state.stack.clear()
+        rse_raw_clear_values(state)
+        state.reachable = false
+      }
+      @lib.Instruction::Return | @lib.Instruction::Unreachable => {
+        out.push(instr)
+        state.stack.clear()
+        rse_raw_clear_values(state)
+        state.reachable = false
       }
       _ => {
         out.push(instr)
@@ -806,6 +913,15 @@ fn rse_raw_rewrite_expr(
     }
   }
   out
+}
+
+///|
+fn rse_raw_rewrite_expr(
+  instrs : Array[@lib.Instruction],
+  state : RseRawState,
+) -> Array[@lib.Instruction] {
+  let scopes : Array[RseRawLabelScope] = []
+  rse_raw_rewrite_expr_scoped(instrs, state, scopes)
 }
 
 ///|

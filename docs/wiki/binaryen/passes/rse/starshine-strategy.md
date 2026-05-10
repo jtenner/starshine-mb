@@ -102,7 +102,8 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 - Added branch-disagreement merge identities so a later `local.set $x (local.get $x)` can fold even when predecessor values differ.
 - Initialized raw body-local value facts to default values where the local type is defaultable, matching Binaryen's ability to remove redundant default writes.
 - Added raw strict-subtype equivalent-local `local.get` retargeting using the module validation environment; the reduced fixture retargets an `anyref` local read to an equivalent `eqref` local.
-- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-final`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Added raw structured block/if label-exit merge tracking plus unreachable-tail skipping so branch exits like `block ... br_if 0 ... end; i32.const 1; local.set` no longer misfold the final const set.
+- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-next-followup`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
 - Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum`; it initially remained red at `defined=0 abs=17` because nested `drop(...)` / `nop` cleanup debris remained in Starshine's paired vacuum output while Binaryen removed it.
 - Follow-up cleanup taught vacuum to recurse into nested value-expression control regions for small functions, added a raw no-candidate vacuum skip to avoid lifting unchanged functions, preserved raw RSE fallthrough facts after one-armed terminating `if`s, and added Binaryen-style vacuum inversion for empty-then/live-else void `if`s. The replay at `.tmp/rse002-rse-vacuum-final` moved past the `defined=29 abs=46` empty-then / double-`eqz` family to `defined=208 abs=225`.
 - The current `rse -> vacuum` exact replay residual is classified as inherited direct-`vacuum` representation drift: `.tmp/rse002-vacuum-baseline` has the same first differing function, and Starshine's focused `func-defined208-abs225` WAT and pretty files are byte-identical with and without RSE.
@@ -157,7 +158,7 @@ If the project wants them later, document them as separate Starshine-local exten
 ## Validation ladder
 
 1. Focused WAT tests for same-block same-value `local.set` and `local.tee`.
-2. CFG tests for branch-join agreement, branch-join disagreement, and loop convergence/skip behavior.
+2. CFG tests for branch-join agreement, branch-join disagreement, block-exit disagreement, and loop convergence/skip behavior.
 3. Negative WAT tests for different overwritten writes.
 4. RHS trap/effect preservation tests.
 5. GC/ref-type local-get retargeting tests modeled on Binaryen `rse-gc.wast`.
@@ -171,4 +172,4 @@ If the project wants them later, document them as separate Starshine-local exten
 Two local design decisions remain open:
 
 - **Name surface:** upstream exposes the public long name `redundant-set-elimination` and the shorthand `rse` appears in pipeline/debug contexts; Starshine exposes the long CLI/registry name and maps `--rse` inside compare harnesses.
-- **CFG/value substrate:** Binaryen definitely has a fuller fixed-point CFG flow than the first active Starshine slice; future work should extend the pass-local tracker without widening into liveness-backed dead-store elimination.
+- **CFG/value substrate:** Binaryen definitely has a fuller fixed-point CFG flow than the active Starshine slice; future work should carry the new raw block/if label-exit identities through the remaining HOT/control families and add loop fixed-point or explicit conservative loop contracts without widening into liveness-backed dead-store elimination.

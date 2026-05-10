@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | extend RSE block-exit merge tracking
+
+- Added a reduced raw `redundant-set-elimination` regression for block-exit disagreement: `block ... br_if 0 ... end; i32.const 1; local.set` now keeps the final const set instead of misfolding it to `drop`.
+- Raw RSE now records structured block/if label exits, skips unreachable tails after terminating control transfers, and merges those exit facts back into post-label local identities for lowered functions.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-next-followup`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the living RSE pages and backlog to record that raw block/if exit tracking is now landed while loop fixed-point flow, remaining HOT/control-family label flow, and broader `rse-gc.wast` coverage remain follow-up work.
+
 ## [2026-05-10] passes | classify RSE vacuum replay frontier
 
 - Added `vacuum flips empty then with live else`, covering Binaryen-style inversion of empty-then/live-else void `if`s into a one-armed double-`eqz` form.

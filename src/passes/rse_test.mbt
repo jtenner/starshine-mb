@@ -219,3 +219,37 @@ test "rse raw path preserves branch disagreement as a merge value for self sets"
       )
   }
 }
+
+///|
+test "rse raw path keeps block-exit disagreement final const set" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|      i32.const 1
+    #|      local.set 1
+    #|    end
+    #|    i32.const 1
+    #|    local.set 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse block-exit merge fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::Block(_, _),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::LocalSet(_),
+    ] => ()
+    other =>
+      fail(
+        "expected final const set to survive block-exit disagreement, got \{@debug.to_string(other)}",
+      )
+  }
+}
