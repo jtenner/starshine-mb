@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | preserve RSE branch-free loop facts
+
+- Added raw and HOT `redundant-set-elimination` regressions showing a branch-free `loop` can carry fallthrough local facts to a post-loop same-value set, folding the final shell to `drop`.
+- Added a loop-backedge negative alongside the existing outer-exit negative so Starshine does not trust one-iteration loop facts when a backedge or outer exit can invalidate them.
+- Raw and HOT RSE now mark loop-label branches in the active loop scope and preserve loop fallthrough local facts only when the loop body remains reachable and no loop backedge was seen.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-branch-free-loops`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-05-10] passes | converge RSE HOT label exits
 
 - Replaced the temporary HOT fallback post-block fact drop in `redundant-set-elimination` with block/if label-exit scopes that merge reachable fallthrough local facts with branch-exit facts.

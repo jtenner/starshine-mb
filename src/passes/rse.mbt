@@ -27,11 +27,12 @@ priv struct RseLabelScope {
   label_id : Int
   kind : RseLabelKind
   exits : Array[Array[Int]]
+  mut has_loop_branch : Bool
 }
 
 ///|
 fn RseLabelScope::new(label_id : Int, kind : RseLabelKind) -> RseLabelScope {
-  { label_id, kind, exits: [] }
+  { label_id, kind, exits: [], has_loop_branch: false }
 }
 
 ///|
@@ -185,7 +186,7 @@ fn rse_record_branch_exit(state : RseState, label_id : Int) -> Unit {
     let scope = state.scopes[idx]
     if scope.label_id == label_id {
       match scope.kind {
-        RseLabelKind::RseLoopLabel => ()
+        RseLabelKind::RseLoopLabel => scope.has_loop_branch = true
         RseLabelKind::RseExitLabel =>
           scope.exits.push(state.local_values.copy())
       }
@@ -384,11 +385,20 @@ fn rse_visit_control(
       )
       ignore(state.scopes.pop())
       rse_sync_interner(state, loop_state)
-      // Loops need fixed-point value flow for full Binaryen parity. This first
-      // active implementation still rewrites loop-internal straight-line facts,
-      // then drops loop-exit facts conservatively.
-      rse_clear_all_local_values(state)
-      state.reachable = true
+      if loop_state.reachable && !scope.has_loop_branch {
+        for idx = 0; idx < state.local_values.length(); idx = idx + 1 {
+          state.local_values[idx] = loop_state.local_values[idx]
+        }
+        state.reachable = true
+      } else if !loop_state.reachable && !scope.has_loop_branch {
+        rse_clear_all_local_values(state)
+        state.reachable = false
+      } else {
+        // Loops with backedges need fixed-point value flow for full Binaryen
+        // parity. Keep them conservative instead of trusting one iteration.
+        rse_clear_all_local_values(state)
+        state.reachable = true
+      }
       rse_fresh_value(state, node_id)
     }
     @ir.HotOp::Try | @ir.HotOp::TryTable => {
@@ -560,11 +570,12 @@ priv enum RseRawLabelKind {
 priv struct RseRawLabelScope {
   kind : RseRawLabelKind
   exits : Array[Array[String]]
+  mut has_loop_branch : Bool
 }
 
 ///|
 fn RseRawLabelScope::new(kind : RseRawLabelKind) -> RseRawLabelScope {
-  { kind, exits: [] }
+  { kind, exits: [], has_loop_branch: false }
 }
 
 ///|
@@ -799,7 +810,7 @@ fn rse_raw_record_branch_exit(
   }
   let scope = scopes[scopes.length() - 1 - label_depth]
   match scope.kind {
-    RseRawLabelKind::LoopLabel => ()
+    RseRawLabelKind::LoopLabel => scope.has_loop_branch = true
     _ => scope.exits.push(state.local_values.copy())
   }
 }
@@ -1018,10 +1029,24 @@ fn rse_raw_rewrite_expr_scoped(
         if loop_state.next_unknown > state.next_unknown {
           state.next_unknown = loop_state.next_unknown
         }
-        rse_raw_clear_values(state)
-        state.reachable = true
+        if loop_state.reachable && !scope.has_loop_branch {
+          for local_id = 0
+              local_id < state.local_values.length()
+              local_id = local_id + 1 {
+            state.local_values[local_id] = loop_state.local_values[local_id]
+          }
+          state.reachable = true
+        } else if !loop_state.reachable && !scope.has_loop_branch {
+          rse_raw_clear_values(state)
+          state.reachable = false
+        } else {
+          rse_raw_clear_values(state)
+          state.reachable = true
+        }
         out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
-        rse_raw_push(state, rse_raw_fresh(state))
+        if state.reachable {
+          rse_raw_push(state, rse_raw_fresh(state))
+        }
       }
       @lib.Instruction::Br(label_idx) => {
         rse_raw_record_branch_exit(

@@ -587,6 +587,81 @@ test "rse raw path keeps br_on_null block-exit disagreement final const set" {
 }
 
 ///|
+test "rse raw path folds post-loop set after branch-free loop fallthrough" {
+  let input =
+    #|(module
+    #|  (func (local i32)
+    #|    loop
+    #|      i32.const 1
+    #|      local.set 0
+    #|    end
+    #|    i32.const 1
+    #|    local.set 0))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse branch-free loop fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::Loop(_, _),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::Drop,
+    ] => ()
+    other =>
+      fail(
+        "expected post-loop same-value set to become drop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse hot path folds post-loop set after branch-free loop fallthrough" {
+  let func = rse_test_run_hot(
+    "(module (func (local i32) loop i32.const 1 local.set 0 end i32.const 1 local.set 0))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  rse_expect_op(func, @ir.hot_root_get(func, 1), "drop")
+}
+
+///|
+test "rse raw path keeps post-loop set after loop backedge" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    loop
+    #|      local.get 0
+    #|      br_if 0
+    #|      i32.const 1
+    #|      local.set 1
+    #|    end
+    #|    i32.const 1
+    #|    local.set 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected rse loop-backedge fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::Loop(_, _),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::LocalSet(_),
+    ] => ()
+    other =>
+      fail(
+        "expected post-loop const set to survive loop backedge, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "rse raw path keeps post-loop set after outer loop exit" {
   let input =
     #|(module

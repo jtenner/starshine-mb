@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: preserve RSE branch-free loop facts
+
+- **teach raw and HOT `redundant-set-elimination` to preserve branch-free loop fallthrough facts while keeping loop-backedge and outer-exit cases conservative, add focused loop positives/negatives, and keep direct compare-pass semantic parity green at `.tmp/pass-fuzz-rse-rse002-branch-free-loops`** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: converge RSE HOT label exits
 
 - **replace the temporary `redundant-set-elimination` HOT post-block fact drop with block/if label-exit merging, add HOT agreement and bypass regressions, and keep direct compare-pass semantic parity green at `.tmp/pass-fuzz-rse-rse002-hot-label-exits`** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
