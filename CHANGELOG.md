@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-09 Passes: shrink simplify-locals value-carrier drift
+
+- **inline raw typed-control carrier spills in `simplify-locals` before effectful suffix cleanup, add focused raw and debug-artifact regressions for the `defined=208 abs=225` value-carrier family, and reduce the direct debug-artifact `Func 225` local.set/local.get drift while keeping semantic parity green at `10000/10000` gen-valid comparisons** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/pass_manager_wbtest.mbt`](./src/passes/pass_manager_wbtest.mbt), [`docs/wiki/binaryen/passes/simplify-locals/parity.md`](./docs/wiki/binaryen/passes/simplify-locals/parity.md), [`docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md`](./docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md), [`docs/wiki/binaryen/passes/simplify-locals/structure-result-lifting-and-carrier-cleanup.md`](./docs/wiki/binaryen/passes/simplify-locals/structure-result-lifting-and-carrier-cleanup.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-09 Passes: accept simplify-locals direct parity for v0.1.0
 
 - **accept `[SL]004` for v0.1.0 after classifying the remaining direct debug-artifact diff as cosmetic value-carrier drift, keep `simplify-locals` signed off on semantic pass-fuzz parity, Binaryen-accepted output, and pass-local speed, and move any future exact-helper normalization outside the release gate** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md), [`docs/wiki/binaryen/passes/simplify-locals/parity.md`](./docs/wiki/binaryen/passes/simplify-locals/parity.md), [`docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md`](./docs/wiki/binaryen/passes/simplify-locals/validation-and-signoff.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

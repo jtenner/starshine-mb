@@ -3920,6 +3920,208 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_instr(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_instr_is_value_control(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
+      block_type != @lib.BlockType::void_()
+    @lib.If(block_type, _, _) => block_type != @lib.BlockType::void_()
+    @lib.TryTable(block_type, _, _) => block_type != @lib.BlockType::void_()
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_flat(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut cursor = 0
+  let mut scan_idx = 0
+  let mut rewrite_count = 0
+  while scan_idx + 1 < instrs.length() {
+    let mut rewritten_here = false
+    if run_hot_pipeline_raw_simplify_locals_instr_is_value_control(
+        instrs[scan_idx],
+      ) {
+      match instrs[scan_idx + 1] {
+        @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
+          let target_local = target_raw.reinterpret_as_int()
+          let mut use_idx = scan_idx + 2
+          while use_idx < instrs.length() &&
+                instrs[use_idx] == @lib.Instruction::nop() {
+            use_idx = use_idx + 1
+          }
+          if use_idx < instrs.length() {
+            match instrs[use_idx] {
+              @lib.LocalGet(@lib.LocalIdx(read_raw)) if read_raw == target_raw => {
+                for idx = cursor; idx < scan_idx; idx = idx + 1 {
+                  rewritten.push(instrs[idx])
+                }
+                rewritten.push(@lib.Instruction::nop())
+                for nop_idx = scan_idx + 2
+                    nop_idx < use_idx
+                    nop_idx = nop_idx + 1 {
+                  rewritten.push(instrs[nop_idx])
+                }
+                rewritten.push(instrs[scan_idx])
+                if run_hot_pipeline_raw_instrs_have_later_local_read(
+                    instrs,
+                    use_idx + 1,
+                    target_local,
+                  ) {
+                  rewritten.push(
+                    @lib.Instruction::local_tee(@lib.LocalIdx::new(target_raw)),
+                  )
+                }
+                cursor = use_idx + 1
+                scan_idx = cursor
+                rewrite_count = rewrite_count + 1
+                rewritten_here = true
+              }
+              @lib.Block(_, _) | @lib.Loop(_, _) | @lib.TryTable(_, _, _) =>
+                if !run_hot_pipeline_raw_instrs_have_later_local_read(
+                    instrs,
+                    use_idx + 1,
+                    target_local,
+                  ) &&
+                  !run_hot_pipeline_raw_instrs_have_later_local_write(
+                    instrs,
+                    use_idx + 1,
+                    target_local,
+                  ) {
+                  match
+                    run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_instr(
+                      instrs[use_idx],
+                      target_local,
+                      [instrs[scan_idx]],
+                    ) {
+                    Some(rewritten_instr) => {
+                      for idx = cursor; idx < scan_idx; idx = idx + 1 {
+                        rewritten.push(instrs[idx])
+                      }
+                      rewritten.push(@lib.Instruction::nop())
+                      for nop_idx = scan_idx + 2
+                          nop_idx < use_idx
+                          nop_idx = nop_idx + 1 {
+                        rewritten.push(instrs[nop_idx])
+                      }
+                      rewritten.push(rewritten_instr)
+                      cursor = use_idx + 1
+                      scan_idx = cursor
+                      rewrite_count = rewrite_count + 1
+                      rewritten_here = true
+                    }
+                    None => ()
+                  }
+                }
+              _ => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    if !rewritten_here {
+      scan_idx = scan_idx + 1
+    }
+  }
+  for idx = cursor; idx < instrs.length(); idx = idx + 1 {
+    rewritten.push(instrs[idx])
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
+          then_body,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
+              else_body,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
+        )
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let (rewritten, flat_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_flat(
+    normalized,
+  )
+  (rewritten, rewrite_count + flat_rewrites)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let mut current = instrs
+  let mut total_rewrites = 0
+  let mut pass_count = 0
+  while pass_count < 3 {
+    let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
+      current,
+    )
+    total_rewrites = total_rewrites + rewrite_count
+    current = rewritten
+    if rewrite_count == 0 {
+      break
+    }
+    pass_count = pass_count + 1
+  }
+  (current, total_rewrites)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -4501,8 +4703,11 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
   let (pure_suffix_rewritten, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
     pure_call_tail_rewritten, env,
   )
+  let (control_carrier_rewritten, control_carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
+    pure_suffix_rewritten,
+  )
   let (effectful_suffix_rewritten, effectful_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
-    pure_suffix_rewritten, env,
+    control_carrier_rewritten, env,
   )
   let (rewritten, tail_rewrites) = run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
     effectful_suffix_rewritten, env,
@@ -4512,9 +4717,51 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
     rewrite_count +
     pure_call_tail_rewrites +
     pure_suffix_rewrites +
+    control_carrier_rewrites +
     effectful_suffix_rewrites +
     tail_rewrites,
   )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+  reason : String,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "simplify-locals" {
+    return None
+  }
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let env = run_hot_pipeline_raw_simplify_locals_func_env(
+    mod_, func_idx, module_ctx, locals,
+  )
+  let (carrier_instrs, carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
+    instrs,
+  )
+  let (rewritten_instrs, effectful_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
+    carrier_instrs, env,
+  )
+  let rewrite_count = carrier_rewrites + effectful_rewrites
+  if rewrite_count == 0 {
+    return None
+  }
+  let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+    @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+  )
+  Some({
+    reason,
+    func: cleaned,
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
 }
 
 ///|
@@ -5008,11 +5255,15 @@ fn run_hot_pipeline_raw_simplify_locals(
       let (pure_suffix_instrs, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
         pure_call_tail_instrs, env,
       )
+      let (carrier_instrs, carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
+        pure_suffix_instrs,
+      )
       let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
-        pure_suffix_instrs, env,
+        carrier_instrs, env,
       )
       let total_rewrites = pure_call_tail_rewrites +
         pure_suffix_rewrites +
+        carrier_rewrites +
         rewrite_count
       let rewritten_func = if total_rewrites > 0 {
         @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs))
@@ -5158,6 +5409,13 @@ fn run_hot_pipeline_raw_simplify_locals(
       })
     }
     if should_skip_giant_structured_call_heavy {
+      match
+        run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
+          mod_, func_idx, module_state, descriptor, options, locals, instrs, "giant-structured-call-heavy-carrier",
+        ) {
+        Some(result) => return Some(result)
+        None => ()
+      }
       return Some({
         reason: "giant-structured-call-heavy",
         func: original,
@@ -5166,6 +5424,13 @@ fn run_hot_pipeline_raw_simplify_locals(
       })
     }
     if should_skip_giant_structured_local_churn {
+      match
+        run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
+          mod_, func_idx, module_state, descriptor, options, locals, instrs, "giant-structured-local-churn-carrier",
+        ) {
+        Some(result) => return Some(result)
+        None => ()
+      }
       return Some({
         reason: "giant-structured-local-churn",
         func: original,

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] passes | shrink simplify-locals value-carrier drift
+
+- Added a raw `simplify-locals` control-carrier cleanup for skipped functions: typed-control value roots followed by `local.set`, optional `nop`s, and a same-local leading read now become inline carriers or `local.tee` carriers without moving across non-`nop` side effects.
+- Added focused raw tests and a native debug-artifact regression for `Func 225`; the new path removes the `$913` condition carrier spill and `$42` block-result spill/reload from the canonical `defined=208 abs=225` function.
+- Replayed direct `--simplify-locals` at `.tmp/sl-artifact-direct-after-inline-carrier`: exact compare remains red at `defined=208 abs=225`, but Starshine's canonical `defined=208` body shrank from `10291` to `10289` bytes and whole canonical output from `3498630` to `3425168` bytes. The remaining visible shrink candidate is a broader call-result carrier (`call $292 (block ...)` into `call $281`) that needs separate branch-depth and effect-order guards.
+- Refreshed direct semantic evidence with `.tmp/pass-fuzz-simplify-locals-inline-carrier-10k`: `10000/10000` gen-valid comparisons, `10000` normalized matches, `0` mismatches, and `0` command failures.
+
 ## [2026-05-09] passes | accept simplify-locals direct parity for v0.1.0
 
 - Accepted `[SL]004` for v0.1.0 under the repo pass policy: semantic parity, Binaryen-accepted compared output, and pass-local speed are the release gate; raw/shape drift is not a blocker when classified as cosmetic.

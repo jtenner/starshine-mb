@@ -167,20 +167,25 @@ related:
 
 ## Current 2026-05-09 Checkpoint
 
-- Source and package checks:
+- Source and package checks for the accepted v0.1.0 direct-pass checkpoint:
   - `moon fmt` completed.
   - `moon info` completed.
   - `moon test src/passes` passed `817/817`.
   - `moon test` passed `2874/2874`.
-- Direct pass-fuzz evidence:
+- Direct pass-fuzz evidence for the accepted checkpoint:
   - `.tmp/pass-fuzz-simplify-locals-genvalid-10000`: `10000/10000` compared, `10000` normalized matches, `0` mismatches, `0` command failures.
   - `.tmp/pass-fuzz-simplify-locals-both-10000-keepgoing`: `9975/10000` compared, `9975` normalized matches, `0` mismatches, `25` command failures classified outside Starshine semantic mismatches.
-- Direct debug-artifact replay:
-  - `.tmp/sl-artifact-direct-after-setget-canon` remains exact-red at `defined=208 abs=225`, but is accepted for v0.1.0 as cosmetic value-carrier drift rather than a `simplify-locals` semantic blocker.
+- Direct debug-artifact replay for the accepted checkpoint:
+  - `.tmp/sl-artifact-direct-after-setget-canon` remained exact-red at `defined=208 abs=225`, but was accepted for v0.1.0 as cosmetic value-carrier drift rather than a `simplify-locals` semantic blocker.
   - The retired first diffs were `defined=1 abs=18` and `defined=5 abs=22`; the latter is accepted by focused compare canonicalization for `drop (if (result T) ... pure terminal arm values ...)` versus the equivalent void `if`, plus adjacent `local.set`/`local.get` versus `local.tee`.
-  - The current first diff is a typed-block / void-block wrapper and local-spill representation around a large internal-helper body. Inspection found the same effectful work in the same relative order, with Binaryen keeping an inline value-producing block and Starshine spilling/reloading the value.
+  - The accepted first diff was a typed-block / void-block wrapper and local-spill representation around a large internal-helper body. Inspection found the same effectful work in the same relative order, with Binaryen keeping an inline value-producing block and Starshine spilling/reloading the value.
   - `wasm-opt .tmp/sl-artifact-direct-after-setget-canon/{starshine,binaryen}.wasm --all-features -o ...` accepted both outputs with matching large-local-count warnings; `wasm-tools validate` rejects the artifact for local-count limits that are not attributable to this pass.
-  - pass-local timing remains green: Starshine `486.171ms` vs Binaryen `481965.000ms`, `Starshine pass at least as fast: yes`.
+  - pass-local timing remained green: Starshine `486.171ms` vs Binaryen `481965.000ms`, `Starshine pass at least as fast: yes`.
+- Follow-up value-carrier shrink evidence:
+  - Added raw helper tests for typed-control carriers feeding following structured reads and later-read tees, plus the native debug-artifact regression `"simplify-locals full pipeline inlines debug artifact Func 225 value-carrier block"`.
+  - Focused checks passed: `moon fmt`; `moon test src/passes` passed `819/819`; native filtered `moon test --target native src/passes/pass_manager_wbtest.mbt -f 'simplify-locals full pipeline inlines debug artifact Func 225 value-carrier block'` passed; `.tmp/pass-fuzz-simplify-locals-inline-carrier-2k` and `.tmp/pass-fuzz-simplify-locals-inline-carrier-10k` both reached full gen-valid comparison counts with `0` mismatches.
+  - `.tmp/sl-artifact-direct-after-inline-carrier` remains exact-red at `defined=208 abs=225`, but Starshine now keeps the `$913` carrier as a `local.tee` and removes the `$42` block-result spill/reload in canonical WAT. The compared outputs are still accepted by `wasm-opt --all-features` with the same large-local-count warning family.
+  - Size improved but did not close the residual: Starshine canonical `defined=208` body is now `10289` bytes versus Binaryen `10124`; Starshine raw body is now `10368` versus Binaryen `10124`; whole canonical Starshine output is `3425168` bytes versus Binaryen `2642701`.
 - Script regression evidence for the canonicalizer:
   - `bun scripts/test/self-optimize-compare-dropped-value-if-command.ts` passed.
   - `bun scripts/test/self-optimize-compare-canonical-func-command.ts` passed.

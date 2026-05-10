@@ -97,14 +97,20 @@ related:
 ## Current Frontier
 
 - The old `Func 71` first-diff frontier recorded below is historical context, not the current first failing comparison.
-- The 2026-05-09 direct debug-artifact replay after the compare-canonicalizer follow-up is exact-red but accepted as representation drift for v0.1.0:
+- The 2026-05-09 direct debug-artifact replay after the compare-canonicalizer follow-up was exact-red but accepted as representation drift for v0.1.0:
   - command: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-locals --out-dir .tmp/sl-artifact-direct-after-setget-canon`
   - `Canonical function compare equal: no`
   - first remaining difference: `defined=208 abs=225`
   - The retired `defined=5 abs=22` diff was representation drift: Binaryen preserved `drop (if (result i32) ...)` with pure terminal arm values while Starshine emitted the equivalent void `if`. `scripts/lib/self-optimize-compare-task.ts` canonicalizes that focused shape, with `scripts/test/self-optimize-compare-dropped-value-if-command.ts` covering it.
-  - The new first diff is also a carrier-shape difference: Binaryen keeps an inline value-producing block plus extra typed/void wrappers as a call argument, while Starshine evaluates the same block into a local and later reloads it. The inspected diff did not show an observable call/store/load reordering across the spill boundary, and no pass-fuzz semantic mismatch points to this family.
-  - Binaryen accepts both compared outputs through `wasm-opt --all-features -o ...` with the same large-local-count warning family; `wasm-tools validate` rejects the artifact for local-count limits outside `simplify-locals` parity scope.
-  - pass-local timing is still well within the signoff threshold: Starshine `486.171ms`, Binaryen `481965.000ms`, `Starshine pass at least as fast: yes`.
+  - The `defined=208 abs=225` first diff was also a carrier-shape difference: Binaryen kept inline value-producing blocks as call/load operands, while Starshine evaluated those blocks into locals and later reloaded them. Inspection did not show an observable call/store/load reordering across the spill boundary, and no pass-fuzz semantic mismatch points to this family.
+  - Binaryen accepted both compared outputs through `wasm-opt --all-features -o ...` with the same large-local-count warning family; `wasm-tools validate` rejected the artifact for local-count limits outside `simplify-locals` parity scope.
+  - pass-local timing was still well within the signoff threshold: Starshine `486.171ms`, Binaryen `481965.000ms`, `Starshine pass at least as fast: yes`.
+- The 2026-05-09 code-quality follow-up narrows that value-carrier drift but does not close exact artifact parity:
+  - command: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-locals --out-dir .tmp/sl-artifact-direct-after-inline-carrier`
+  - `Canonical function compare equal: no`; first differing function remains `defined=208 abs=225`.
+  - Starshine now emits the Binaryen-like `local.tee` for the `$913` condition carrier and removes the `$42` block-result spill/reload family in the canonical WAT. The focused raw helper rewrites typed-control value roots followed by a `local.set`, optional `nop`s, and a same-local leading read into an inline carrier or tee without moving across non-`nop` side effects.
+  - The remaining visible family is a larger call-result carrier: Starshine still materializes `call $292 (block ...)` into a local before `call $281`, while Binaryen keeps that call inline. That broader move would cross a structured wrapper and should stay separate unless guarded against branch-depth and effect-order hazards.
+  - Size moved in the right direction but only narrowly for this function: canonical `defined=208` body `10291 -> 10289` bytes for Starshine, versus Binaryen `10124` bytes; whole canonical Starshine output `3498630 -> 3425168` bytes, versus Binaryen `2642701` bytes. The whole-output reduction includes all functions affected by the new raw carrier cleanup, not only `Func 225`.
 - The prior 2026-05-09 direct artifact first diff at `defined=1 abs=18` is retired by allowing one-armed `if` lifting even when the written local has no later reads and by preserving dead one-armed tail writes until the structure rewrite runs.
 - The remaining debt is now:
   - exact debug-artifact compare-helper normalization for value-carrier wrappers, tracked outside the v0.1.0 `simplify-locals` direct-pass gate

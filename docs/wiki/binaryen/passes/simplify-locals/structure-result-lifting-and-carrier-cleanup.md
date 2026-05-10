@@ -330,13 +330,14 @@ That creates one extra local teaching surface worth keeping explicit.
 ### The local extra family
 
 Some real artifact carriers are not just simple block/if/loop textbook shapes.
-They also involve wrapper-forwarder cleanup and exact-path retention issues.
+They also involve wrapper-forwarder cleanup, exact-path retention issues, and raw skipped-function stack-carrier cleanup.
 
-That is why Starshine has a dedicated helper:
+That is why Starshine has dedicated helpers including:
 
 - `simplify_locals_try_rewrite_split_local_set_wrapper_forwarder`
+- `run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint`
 
-and dedicated raw-lane tests in `pass_manager_wbtest.mbt` for the nearby debug-artifact families.
+and dedicated raw-lane tests in `pass_manager_wbtest.mbt` for the nearby debug-artifact families. The raw control-carrier helper is deliberately narrow: it handles a typed-control value immediately followed by a `local.set`, optional `nop`s, and a same-local leading read in the next expression, producing either an inline carrier or a `local.tee` when later reads still need the local.
 
 ### Why this is not a contradiction
 

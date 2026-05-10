@@ -693,6 +693,84 @@ test "lowered simplify-locals cleanup hoists nops ahead of dupable value runs" {
 }
 
 ///|
+test "raw simplify-locals inlines typed control carriers into following structured reads" {
+  let target = @lib.LocalIdx::new(2U)
+  let instrs = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+    ),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::nop(),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(target),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    ),
+  ]
+
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
+    instrs,
+  )
+  let text = @lib.Func::new(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+    @lib.Expr::new(rewritten),
+  ).pretty_print(@lib.PrettyPrintContext::new())
+
+  @debug.assert_eq(rewrite_count, 1)
+  assert_false(text.contains("local.set (Local 2)"), msg=text)
+  assert_false(text.contains("local.get (Local 2)"), msg=text)
+  assert_true(text.contains("block I32"), msg=text)
+}
+
+///|
+test "raw simplify-locals turns typed control carriers into tees for later reads" {
+  let target = @lib.LocalIdx::new(2U)
+  let instrs = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+    ),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::i32_load(@lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::local_get(target), @lib.Instruction::drop()],
+      None,
+    ),
+  ]
+
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
+    instrs,
+  )
+  let text = @lib.Func::new(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+    @lib.Expr::new(rewritten),
+  ).pretty_print(@lib.PrettyPrintContext::new())
+
+  @debug.assert_eq(rewrite_count, 1)
+  assert_false(text.contains("local.set (Local 2)"), msg=text)
+  assert_true(text.contains("local.tee (Local 2)"), msg=text)
+  assert_true(text.contains("local.get (Local 2)"), msg=text)
+}
+
+///|
 test "raw simplify-locals later-read scan stops at unconditional branch" {
   let instrs = [
     @lib.Instruction::br(@lib.LabelIdx::new(0U)),
@@ -2210,6 +2288,56 @@ test "simplify-locals full pipeline hoists debug artifact Func 71 nop-separated 
   assert_true(
     pretty.contains("(local.get (Local 17)) (call (Func 49)) nop"),
     msg=pretty,
+  )
+}
+
+///|
+#cfg(target="native")
+test "simplify-locals full pipeline inlines debug artifact Func 225 value-carrier block" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(225U)
+  let pipeline_result = match
+    pass_manager_test_run_hot_pipeline_func(
+      mod_,
+      func_idx,
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  let rewritten_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section in debug artifact")
+  }
+  let defined_idx = func_idx.0.reinterpret_as_int() -
+    pass_manager_test_imported_func_count(mod_)
+  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
+    fail("expected defined idx for Func 225, got \{defined_idx}")
+  }
+  rewritten_funcs[defined_idx] = pipeline_result.func
+  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  let pretty = rewritten_mod.pretty_print_func(func_idx)
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="expected raw skip path, got reason=\{pipeline_result.reason}",
+  )
+  assert_false(
+    pretty.contains("(local.set (Local 42)) nop (block I32"),
+    msg="reason=\{pipeline_result.reason}\n\{pretty}",
+  )
+  assert_false(
+    pretty.contains("(local.get (Local 42))(call (Func 309))"),
+    msg="reason=\{pipeline_result.reason}\n\{pretty}",
   )
 }
 
