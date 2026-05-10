@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-09] tooling | classify simplify-locals dropped value-if artifact drift
+
+- Added focused `self-optimize-compare` canonicalization for the `simplify-locals` artifact shape where Binaryen keeps `drop (if (result T) ... pure terminal arm values ...)` and Starshine emits the semantic-equivalent void `if`; also canonicalizes adjacent `local.set` / `local.get` pairs as `local.tee` in compact function fallback output.
+- Added `scripts/test/self-optimize-compare-dropped-value-if-command.ts`; it and the existing canonical-function fallback script test passed.
+- Replayed direct debug-artifact `--simplify-locals` at `.tmp/sl-artifact-direct-after-setget-canon`; the first canonical diff moved from `defined=5 abs=22` to `defined=208 abs=225`, now an unresolved typed-block / void-block wrapper representation around a large internal-helper body. `[SL]004` remains open.
+
 ## [2026-05-09] passes | narrow simplify-locals one-armed carrier drift
 
 - Let `simplify-locals` perform Binaryen-style one-armed `if` lifting even when the target local has no later reads, as long as the local type is defaultable, and preserve one-armed tail `local.set`s through dead cleanup so structure lifting sees them.

@@ -57,7 +57,7 @@ Completed direct-pass slices
 
 - [SL]004 - Slot Validation and Artifact Replay
   - Deliverables: keep the late-slot regression suite green; reduce the remaining non-adjacent nested exact-expression drift and branchy internal-helper hotspot cluster; keep direct and ordered artifact compares canonically green while runtime work lands.
-  - Current evidence: 2026-05-09 refreshed direct `simplify-locals` semantics are green (`moon test`, `10000/10000` gen-valid compare, and mixed-generator `9975` normalized matches with only Binaryen/tool command failures). The direct debug-artifact frontier moved from `defined=1 abs=18` to `defined=5 abs=22`; the remaining first diff is an exact representation drift where Binaryen preserves a dropped value-producing `if` and Starshine emits the equivalent void `if`.
+  - Current evidence: 2026-05-09 refreshed direct `simplify-locals` semantics are green (`moon test`, `10000/10000` gen-valid compare, and mixed-generator `9975` normalized matches with only Binaryen/tool command failures). A focused `self-optimize-compare` canonicalizer now accepts the semantic-equivalent dropped value-producing `if` versus void-`if` shape and adjacent `local.set`/`local.get` versus `local.tee`; the direct debug-artifact frontier moved from `defined=5 abs=22` to `defined=208 abs=225` in `.tmp/sl-artifact-direct-after-setget-canon`. `[SL]004` remains open because the new first diff is still canonical-red: Binaryen keeps an extra typed block/void-block wrapper around the same internal-helper body while Starshine emits the body directly.
 
 #### CF - Code Folding
 

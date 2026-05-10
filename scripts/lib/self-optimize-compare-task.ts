@@ -565,6 +565,13 @@ function normalizeCompactCopyAliases(body: string): string {
   return current;
 }
 
+function normalizeCompactAdjacentSetGetTees(body: string): string {
+  return body.replace(
+    /\(local\.set\(Local(\d+)\)\)\(local\.get\(Local\1\)\)/g,
+    "(local.tee(Local$1))",
+  );
+}
+
 function normalizeCompactPureAddAliases(body: string): string {
   const patterns: Array<[RegExp, (m: RegExpExecArray) => { sources: number[]; target: number; replacement: string }]> = [
     [
@@ -731,6 +738,50 @@ function splitCompactIfArms(text: string, bodyStart: number, bodyEnd: number): [
   return null;
 }
 
+function stripCompactDroppedTerminalPureValue(arm: string): string | null {
+  const valueStart = previousBalancedParenStart(arm, arm.length);
+  if (valueStart < 0) return null;
+  const value = arm.slice(valueStart);
+  if (!/^\((?:local\.get\(Local\d+\)|(?:i32|i64|f32|f64)\.const(?:I32|I64|F32|F64)\([^)]*\))\)$/.test(value)) {
+    return null;
+  }
+  if (compactExprHasSideEffects(value)) return null;
+  return arm.slice(0, valueStart);
+}
+
+function normalizeCompactDroppedValueIf(body: string): string {
+  const valueIfPattern = /\(if(?:I32|I64|F32|F64|V128)/g;
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    valueIfPattern.lastIndex = searchStart;
+    const match = valueIfPattern.exec(current);
+    if (match === null) break;
+    const ifStart = match.index;
+    const ifEnd = balancedExprEnd(current, ifStart);
+    if (ifEnd < 0) break;
+    if (!startsWithAt(current, ifEnd, "drop")) {
+      searchStart = ifEnd;
+      continue;
+    }
+    const arms = splitCompactIfArms(current, ifStart + match[0].length, ifEnd - 1);
+    if (arms === null) {
+      searchStart = ifEnd + "drop".length;
+      continue;
+    }
+    const thenArm = stripCompactDroppedTerminalPureValue(arms[0]);
+    const elseArm = stripCompactDroppedTerminalPureValue(arms[1]);
+    if (thenArm === null || elseArm === null) {
+      searchStart = ifEnd + "drop".length;
+      continue;
+    }
+    const replacement = `(if(Void)${thenArm}else${elseArm})`;
+    current = current.slice(0, ifStart) + replacement + current.slice(ifEnd + "drop".length);
+    searchStart = ifStart + replacement.length;
+  }
+  return current;
+}
+
 function findSimpleCompactCompareStart(text: string, end: number): number {
   const ops = ["i32.lt_u", "i32.lt_s", "i32.le_u", "i32.le_s", "i32.gt_u", "i32.gt_s", "i32.ge_u", "i32.ge_s", "i32.eq", "i32.ne"];
   for (const op of ops) {
@@ -892,15 +943,19 @@ function canonicalizePrettyBodyText(body: string): string {
     canonicalizeBodyLocals(normalizeLoweredTempDrift(body)),
   ).replace(/\s+/g, ""));
   for (let idx = 0; idx < 3; idx += 1) {
-    const next = normalizeCompactCopyAliases(
-      normalizeCompactLoadSetRuns(
-        normalizeCompactLoopLoadIfDrift(
-          normalizeCompactGlobalGetAliases(
-            normalizeCompactPureAddDrops(
-              normalizeCompactPureIfToSelect(
-                normalizeCompactTrapIfInversion(
-                  normalizeCompactTailReturnLowering(
-                    normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+    const next = normalizeCompactAdjacentSetGetTees(
+      normalizeCompactCopyAliases(
+        normalizeCompactLoadSetRuns(
+          normalizeCompactLoopLoadIfDrift(
+            normalizeCompactGlobalGetAliases(
+              normalizeCompactPureAddDrops(
+                normalizeCompactPureIfToSelect(
+                  normalizeCompactTrapIfInversion(
+                    normalizeCompactTailReturnLowering(
+                      normalizeCompactDroppedValueIf(
+                        normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                      ),
+                    ),
                   ),
                 ),
               ),

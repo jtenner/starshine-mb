@@ -176,9 +176,13 @@ related:
   - `.tmp/pass-fuzz-simplify-locals-genvalid-10000`: `10000/10000` compared, `10000` normalized matches, `0` mismatches, `0` command failures.
   - `.tmp/pass-fuzz-simplify-locals-both-10000-keepgoing`: `9975/10000` compared, `9975` normalized matches, `0` mismatches, `25` command failures classified outside Starshine semantic mismatches.
 - Direct debug-artifact replay:
-  - `.tmp/sl-artifact-direct-after-typed-if` remains exact-red at `defined=5 abs=22`.
-  - The retired first diff was `defined=1 abs=18`; the new first diff is a representation drift where Binaryen keeps `drop (if (result i32) ...)` and Starshine keeps the equivalent void `if`.
-  - pass-local timing remains green: Starshine `489.504ms` vs Binaryen `492152.000ms`, `Starshine pass at least as fast: yes`.
+  - `.tmp/sl-artifact-direct-after-setget-canon` remains exact-red at `defined=208 abs=225`.
+  - The retired first diffs were `defined=1 abs=18` and `defined=5 abs=22`; the latter is now accepted by focused compare canonicalization for `drop (if (result T) ... pure terminal arm values ...)` versus the equivalent void `if`, plus adjacent `local.set`/`local.get` versus `local.tee`.
+  - The new first diff is an unresolved typed-block / void-block wrapper representation around a large internal-helper body.
+  - pass-local timing remains green: Starshine `486.171ms` vs Binaryen `481965.000ms`, `Starshine pass at least as fast: yes`.
+- Script regression evidence for the canonicalizer:
+  - `bun scripts/test/self-optimize-compare-dropped-value-if-command.ts` passed.
+  - `bun scripts/test/self-optimize-compare-canonical-func-command.ts` passed.
 
 ## Current Anti-Signoff Patterns
 

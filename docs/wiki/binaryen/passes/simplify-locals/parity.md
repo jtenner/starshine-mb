@@ -97,15 +97,16 @@ related:
 ## Current Frontier
 
 - The old `Func 71` first-diff frontier recorded below is historical context, not the current first failing comparison.
-- The 2026-05-09 direct debug-artifact replay after the one-armed carrier fix is still exact-red but semantically classified:
-  - command: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-locals --out-dir .tmp/sl-artifact-direct-after-typed-if`
+- The 2026-05-09 direct debug-artifact replay after the compare-canonicalizer follow-up is still exact-red but the prior dropped-value-if shape is retired:
+  - command: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-locals --out-dir .tmp/sl-artifact-direct-after-setget-canon`
   - `Canonical function compare equal: no`
-  - first remaining difference: `defined=5 abs=22`
-  - Binaryen preserves a dropped value-producing `if`; Starshine emits the equivalent void `if` after dropping the unused branch value.
-  - pass-local timing is still well within the signoff threshold: Starshine `489.504ms`, Binaryen `492152.000ms`, `Starshine pass at least as fast: yes`.
+  - first remaining difference: `defined=208 abs=225`
+  - The retired `defined=5 abs=22` diff was representation drift: Binaryen preserved `drop (if (result i32) ...)` with pure terminal arm values while Starshine emitted the equivalent void `if`. `scripts/lib/self-optimize-compare-task.ts` now canonicalizes that focused shape, with `scripts/test/self-optimize-compare-dropped-value-if-command.ts` covering it.
+  - The new first diff is a larger exact-shape drift where Binaryen keeps an extra typed-block / void-block wrapper around the same internal-helper body and Starshine emits the body directly; this is not yet accepted as canonical-green.
+  - pass-local timing is still well within the signoff threshold: Starshine `486.171ms`, Binaryen `481965.000ms`, `Starshine pass at least as fast: yes`.
 - The prior 2026-05-09 direct artifact first diff at `defined=1 abs=18` is retired by allowing one-armed `if` lifting even when the written local has no later reads and by preserving dead one-armed tail writes until the structure rewrite runs.
 - The remaining debt is now:
-  - exact debug-artifact representation drift at `defined=5 abs=22`
+  - exact debug-artifact representation drift at `defined=208 abs=225`
   - direct/ordered artifact canonical-green replay for `[SL]004`
   - whole-command runtime attribution only when it is clearly not covered by `[WALL]001`
 
