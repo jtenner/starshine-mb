@@ -66,6 +66,40 @@ test "vacuum removes dropped nontrapping local-read expressions" {
 }
 
 ///|
+test "vacuum removes nested if branch pure debris inside value expression" {
+  let input =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (i32.add
+    #|      (if (result i32)
+    #|        (local.get 0)
+    #|        (then
+    #|          (drop (i32.const 0))
+    #|          (i32.const 1)
+    #|        )
+    #|        (else
+    #|          (nop)
+    #|          (i32.const 2)
+    #|        )
+    #|      )
+    #|      (i32.const 3)
+    #|    )
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested-if vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected nested-if vacuum output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
+}
+
+///|
 test "vacuum removes empty void blocks" {
   let input = pass_test_module_from_wat(
     "(module (func (local i32) block end i32.const 5 local.set 0))",

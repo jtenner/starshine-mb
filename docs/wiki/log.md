@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | move RSE vacuum replay frontier
+
+- Added focused regressions for paired vacuum cleanup of nested pure `drop` / `nop` debris inside value-expression control and for RSE preserving default-local facts after one-armed terminating `if`s.
+- Vacuum now recurses into nested value-expression control regions for small functions and raw-skips functions with no cleanup candidates, keeping the cleanup behavior targeted while avoiding unnecessary HOT lift/lower on unchanged functions.
+- Raw RSE now restores fallthrough local facts when a one-armed `if` has a non-fallthrough then arm, allowing redundant default `local.tee`s after trap guards to fold.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-next`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum-next2`: the first diff moved from `defined=0 abs=17` to `defined=29 abs=46`; Starshine pass time was `746.330ms` vs Binaryen `35161.700ms`, and the remaining visible diff is the empty-then / double-`eqz` control-shape representation family.
+
 ## [2026-05-10] passes | extend RSE value identities and refined gets
 
 - Added `redundant-set-elimination` coverage and implementation for branch-disagreement merge identities, default body-local value identities, and raw strict-subtype equivalent-local `local.get` retargeting.

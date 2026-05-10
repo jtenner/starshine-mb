@@ -473,6 +473,29 @@ fn rse_raw_push(state : RseRawState, value : String) -> Unit {
 }
 
 ///|
+fn rse_raw_copy_local_values(dst : RseRawState, src : RseRawState) -> Unit {
+  for local_id = 0
+      local_id < dst.local_values.length() &&
+     local_id < src.local_values.length()
+      local_id = local_id + 1 {
+    dst.local_values[local_id] = src.local_values[local_id]
+  }
+}
+
+///|
+fn rse_raw_instrs_may_fallthrough(instrs : Array[@lib.Instruction]) -> Bool {
+  if instrs.length() == 0 {
+    return true
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Instruction::Br(_)
+    | @lib.Instruction::Return
+    | @lib.Instruction::Unreachable => false
+    _ => true
+  }
+}
+
+///|
 fn rse_raw_default_value_for_type(ty : @lib.ValType) -> String? {
   match ty {
     @lib.NumTypeValType(@lib.I32NumType) => Some("i32:\{@lib.I32::new(0)}")
@@ -738,7 +761,15 @@ fn rse_raw_rewrite_expr(
           }
           None => (None, entry)
         }
-        rse_raw_merge_values(state, then_state, else_state)
+        match next_else {
+          None if !rse_raw_instrs_may_fallthrough(then_body) => {
+            rse_raw_copy_local_values(state, entry)
+            if then_state.next_unknown > state.next_unknown {
+              state.next_unknown = then_state.next_unknown
+            }
+          }
+          _ => rse_raw_merge_values(state, then_state, else_state)
+        }
         out.push(@lib.Instruction::if_(block_type, next_then, next_else))
         rse_raw_push(state, rse_raw_fresh(state))
       }

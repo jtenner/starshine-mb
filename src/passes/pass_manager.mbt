@@ -364,15 +364,167 @@ fn vacuum_can_remove_dropped_node(
 }
 
 ///|
+fn hot_pass_remove_node_nested_region_nops(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  seen : Array[Bool],
+) -> Bool {
+  if node_id < 0 ||
+    node_id >= seen.length() ||
+    seen[node_id] ||
+    !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  seen[node_id] = true
+  let node = @ir.hot_node_get(func, node_id)
+  let mut changed = false
+  match node.op {
+    @ir.HotOp::Block =>
+      changed = hot_pass_remove_region_nops(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          seen,
+        ) ||
+        changed
+    @ir.HotOp::Loop =>
+      changed = hot_pass_remove_region_nops(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          seen,
+        ) ||
+        changed
+    @ir.HotOp::If => {
+      if @ir.hot_child_count(func, node_id) > 0 {
+        changed = hot_pass_remove_node_nested_region_nops(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, 0),
+            seen,
+          ) ||
+          changed
+      }
+      changed = hot_pass_remove_region_nops(
+          ctx,
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+          seen,
+        ) ||
+        changed
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          changed = hot_pass_remove_region_nops(ctx, func, else_region, seen) ||
+            changed
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      changed = hot_pass_remove_region_nops(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          seen,
+        ) ||
+        changed
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_region) =>
+          changed = hot_pass_remove_region_nops(ctx, func, catch_region, seen) ||
+            changed
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable => {
+      changed = hot_pass_remove_region_nops(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          seen,
+        ) ||
+        changed
+      changed = hot_pass_remove_region_nops(
+          ctx,
+          func,
+          @ir.hot_region_catch_list_ref(func, node_id),
+          seen,
+        ) ||
+        changed
+    }
+    _ =>
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        changed = hot_pass_remove_node_nested_region_nops(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+            seen,
+          ) ||
+          changed
+      }
+  }
+  changed
+}
+
+///|
+fn hot_pass_remove_node_child_nested_region_nops(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  seen : Array[Bool],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  // Nested value-expression control cleanup is a small-function cleanup path.
+  // Large functions keep the older root-region vacuum behavior to avoid adding
+  // a broad HOT traversal to cleanup slots that are dominated by lift/lower cost.
+  if seen.length() > 2048 {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let mut changed = false
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      ()
+    @ir.HotOp::If =>
+      if @ir.hot_child_count(func, node_id) > 0 {
+        changed = hot_pass_remove_node_nested_region_nops(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, 0),
+            seen,
+          ) ||
+          changed
+      }
+    _ =>
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        changed = hot_pass_remove_node_nested_region_nops(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+            seen,
+          ) ||
+          changed
+      }
+  }
+  changed
+}
+
+///|
 fn hot_pass_remove_region_nops(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  seen : Array[Bool],
 ) -> Bool {
   let mut changed = false
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
+    changed = hot_pass_remove_node_child_nested_region_nops(
+        ctx, func, node_id, seen,
+      ) ||
+      changed
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::Nop => {
@@ -392,7 +544,8 @@ fn hot_pass_remove_region_nops(
       }
       @ir.HotOp::Block => {
         let body_ref = @ir.hot_region_body_ref(func, node_id)
-        changed = hot_pass_remove_region_nops(ctx, func, body_ref) || changed
+        changed = hot_pass_remove_region_nops(ctx, func, body_ref, seen) ||
+          changed
         if @ir.hot_region_root_count(func, body_ref) == 0 &&
           @ir.hot_type_result_arity(func, node.ty) == 0 {
           let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
@@ -419,6 +572,7 @@ fn hot_pass_remove_region_nops(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            seen,
           ) ||
           changed
       @ir.HotOp::If => {
@@ -426,11 +580,12 @@ fn hot_pass_remove_region_nops(
             ctx,
             func,
             @ir.hot_region_then_ref(func, node_id),
+            seen,
           ) ||
           changed
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_region) =>
-            changed = hot_pass_remove_region_nops(ctx, func, else_region) ||
+            changed = hot_pass_remove_region_nops(ctx, func, else_region, seen) ||
               changed
           None => ()
         }
@@ -440,11 +595,12 @@ fn hot_pass_remove_region_nops(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            seen,
           ) ||
           changed
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(catch_region) =>
-            changed = hot_pass_remove_region_nops(ctx, func, catch_region) ||
+            changed = hot_pass_remove_region_nops(ctx, func, catch_region, seen) ||
               changed
           None => ()
         }
@@ -454,12 +610,14 @@ fn hot_pass_remove_region_nops(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            seen,
           ) ||
           changed
         changed = hot_pass_remove_region_nops(
             ctx,
             func,
             @ir.hot_region_catch_list_ref(func, node_id),
+            seen,
           ) ||
           changed
       }
@@ -7660,6 +7818,73 @@ fn run_hot_pipeline_raw_rse(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Nop | @lib.Drop => return true
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        match block_type {
+          @lib.VoidBlockType if body.length() == 0 => return true
+          _ => ()
+        }
+        if body.length() == 1 {
+          match body[0] {
+            @lib.Unreachable => return true
+            _ => ()
+          }
+        }
+        if run_hot_pipeline_raw_vacuum_has_candidate_instrs(body) {
+          return true
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_has_candidate_instrs(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_has_candidate_instrs(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_vacuum_has_candidate_instrs(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_no_candidates(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "vacuum" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  if instrs.length() == 0 ||
+    run_hot_pipeline_raw_vacuum_has_candidate_instrs(instrs) {
+    return None
+  }
+  Some({
+    reason: "no-vacuum-candidates",
+    func: original,
+    unchanged_original: true,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_instr_has_remove_unused_names_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -8482,6 +8707,10 @@ fn run_hot_pipeline_func(
   }
   match
     run_hot_pipeline_raw_rse(mod_, func_idx, module_state, descriptor, options) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match run_hot_pipeline_raw_vacuum_no_candidates(mod_, func_idx, descriptor) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -9366,7 +9595,12 @@ pub fn hot_pass_run(
   let result = match descriptor.name {
     "ssa-nomerge" => ssa_nomerge_run(ctx, func)
     "vacuum" =>
-      if hot_pass_remove_region_nops(ctx, func, @ir.HotRegionRef::root()) {
+      if hot_pass_remove_region_nops(
+          ctx,
+          func,
+          @ir.HotRegionRef::root(),
+          Array::make(@ir.hot_node_count(func), false),
+        ) {
         HotPassResult::changed()
       } else {
         HotPassResult::unchanged()

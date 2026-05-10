@@ -102,8 +102,9 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 - Added branch-disagreement merge identities so a later `local.set $x (local.get $x)` can fold even when predecessor values differ.
 - Initialized raw body-local value facts to default values where the local type is defaultable, matching Binaryen's ability to remove redundant default writes.
 - Added raw strict-subtype equivalent-local `local.get` retargeting using the module validation environment; the reduced fixture retargets an `anyref` local read to an equivalent `eqref` local.
-- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
-- Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum`; it remains red at `defined=0 abs=17` because nested `drop(...)` / `nop` cleanup debris remains in Starshine's paired vacuum output while Binaryen removes it.
+- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-next`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum`; it initially remained red at `defined=0 abs=17` because nested `drop(...)` / `nop` cleanup debris remained in Starshine's paired vacuum output while Binaryen removed it.
+- Follow-up cleanup taught vacuum to recurse into nested value-expression control regions for small functions, added a raw no-candidate vacuum skip to avoid lifting unchanged functions, and preserved raw RSE fallthrough facts after one-armed terminating `if`s. The replay at `.tmp/rse002-rse-vacuum-next2` moved to `defined=29 abs=46`; the visible residual is an empty-then / double-`eqz` control-shape representation family already seen in nearby cleanup slots, not the original nested drop/nop debris.
 
 ### Existing Starshine analysis surfaces to read
 

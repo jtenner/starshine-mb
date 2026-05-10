@@ -3655,7 +3655,7 @@ test "run hot pipeline omits hot verify checkpoints under final-module-only poli
 }
 
 ///|
-test "run hot pipeline skips lower when a hot pass leaves the function unchanged" {
+test "vacuum raw-skips functions with no cleanup candidates" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -3667,12 +3667,16 @@ test "run hot pipeline skips lower when a hot pass leaves the function unchanged
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
     Ok(_) => ()
-    Err(err) => fail("expected unchanged hot pipeline success, got \{err}")
+    Err(err) => fail("expected unchanged vacuum pipeline success, got \{err}")
   }
 
   let text = perf_test_join_lines(lines)
-  assert_true(text.contains("perf:timer name=lift"))
-  assert_true(text.contains("perf:timer name=pass:vacuum"))
+  assert_true(
+    text.contains("pass[vacuum]:skip-raw reason=no-vacuum-candidates"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:vacuum"))
   assert_false(text.contains("perf:timer name=lower"))
 }
 

@@ -158,6 +158,33 @@ test "rse retargets equivalent local.get to strict subtype local" {
 }
 
 ///|
+test "rse removes default local tee in loop conditions" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (if (local.get 0) (then unreachable))
+    #|    (loop
+    #|      (if
+    #|        (i32.lt_u
+    #|          (local.tee 1 (i32.const 0))
+    #|          (i32.const 1)
+    #|        )
+    #|        (then br 0)
+    #|      )
+    #|    )
+    #|  )
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse loop default tee fixture success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
 test "rse raw path preserves branch disagreement as a merge value for self sets" {
   let input =
     #|(module

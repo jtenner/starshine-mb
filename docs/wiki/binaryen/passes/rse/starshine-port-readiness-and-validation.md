@@ -44,9 +44,10 @@ The implemented surface:
 - registers `redundant-set-elimination` as an active hot pass and CLI flag;
 - keeps Binaryen `--rse` aliasing in the compare harnesses;
 - removes same-value `local.set` shells as `drop(value)` and same-value `local.tee` shells as the original value;
-- tracks simple value identities through constants, local copies, selected integer operations, structured `if` agreement, branch-disagreement merge sentinels for self-set folding, and default body-local values;
+- tracks simple value identities through constants, local copies, selected integer operations, structured `if` agreement, branch-disagreement merge sentinels for self-set folding, default body-local values, and fallthrough facts after one-armed terminating `if`s;
 - retargets raw lowered `local.get` reads to an equivalent local with a strict subtype, covered by a reduced `anyref` / `eqref` fixture;
 - uses a raw fast path for lowered functions plus a HOT fallback for direct hot-pass tests;
+- relies on paired vacuum cleanup for pure `drop` / `nop` debris exposed by redundant set removal;
 - keeps the direct compare-pass lane semantic-green.
 
 Remaining full-parity work is still real:
@@ -114,15 +115,17 @@ Only then should the pass enter public preset scheduling.
 - [x] Same-block repeated `local.tee` positive.
 - [x] Different overwritten value negative.
 - [x] RHS trap/effect preservation by replacing the shell, not the value expression.
-- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); 2026-05-06 lane `.tmp/pass-fuzz-redundant-set-elimination` and older raw lanes remain historical evidence.
+- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002-next` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
 - [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
 - [x] 2026-05-05 current-main recheck stayed aligned with the same CFG/value-flow and refined-get split.
 - [x] Branch-join same-value/self-set coverage for structured HOT and raw paths, including disagreement represented as a merge identity for self-set folding.
 - [ ] Branch-join different-value negative beyond the focused local tests.
 - [ ] Loop convergence or conservative loop skip behavior documented and tested.
 - [x] Reduced refined local-get retargeting with a strict-subtype local (`anyref` read retargeted to equivalent `eqref`).
+- [x] One-armed terminating `if` fallthrough facts preserve default-local identities before later loop conditions.
+- [x] Paired vacuum removes nested pure `drop` / `nop` debris exposed by RSE in small value-expression control regions.
 - [x] No changes to globals, memory stores, struct stores, or array stores.
-- [ ] Late `--rse --vacuum` lane: 2026-05-10 replay at `.tmp/rse002-rse-vacuum` remains red at `defined=0 abs=17`; the visible delta is nested `drop(...)` / `nop` cleanup debris after RSE exposes redundant default/self-set writes.
+- [ ] Late `--rse --vacuum` lane: 2026-05-10 replay at `.tmp/rse002-rse-vacuum-next2` remains red but moved to `defined=29 abs=46`; the former `defined=0 abs=17` nested `drop(...)` / `nop` debris is fixed, and the remaining visible delta is empty-then / double-`eqz` control-shape representation drift.
 
 ## Open design questions
 
