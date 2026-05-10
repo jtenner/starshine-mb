@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: share code-folding full-if terminal returns
+
+- **add a conservative direct `code-folding` terminal suffix family for full `if` arms ending in empty-payload `return` / `unreachable`, with focused regression coverage, refreshed 10k direct fuzz parity, and debug-artifact pass-local timing still inside the <=2x Binaryen floor** by **@OpenAI**. Updated [`src/passes/code_folding.mbt`](./src/passes/code_folding.mbt), [`src/passes/code_folding_test.mbt`](./src/passes/code_folding_test.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: classify code-folding helper-wrapper drift
 
 - **reduce and classify the remaining direct `code-folding` debug-artifact `defined=220 abs=237` helper-wrapper diff as representation drift by adding focused nested value-branch coverage and confirming Binaryen and Starshine share the same duplicated-call payoff while keeping different wrapper placement** by **@OpenAI**. Updated [`src/passes/code_folding_test.mbt`](./src/passes/code_folding_test.mbt), [`docs/wiki/binaryen/passes/code-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/code-folding/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

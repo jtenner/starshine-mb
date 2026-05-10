@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | share code-folding full-if terminal returns
+
+- Added a conservative `code-folding` terminal suffix family for full `if` arms ending in empty-payload `return` / `unreachable`, matching Binaryen's reduced shape where duplicated effectful suffixes before `return` can be shared after dropping the condition.
+- Added `src/passes/code_folding_test.mbt` coverage for duplicated `call $sink; drop const; return` arms; the optimized output has one call and one return instead of duplicated arms.
+- Replayed direct fuzz at `.tmp/pass-fuzz-code-folding-cf002-terminal-if`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen command failures. Replayed direct debug-artifact `--code-folding` at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352`: first diff remains the classified `defined=220 abs=237` helper-wrapper representation drift, with pass-local timing still inside the <=2x floor (`334.711ms` Starshine vs `176.295ms` Binaryen).
+
 ## [2026-05-10] passes | classify code-folding helper-wrapper drift
 
 - Reduced the remaining direct debug-artifact `defined=220 abs=237` helper-wrapper family to a focused nested value-branch fixture in `src/passes/code_folding_test.mbt`.
