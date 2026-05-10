@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | cover RSE cast wrappers and loop skips
+
+- Added focused `redundant-set-elimination` regressions for concrete-heap strict-subtype retargeting through lowered `ref.cast` and `ref.cast_desc_eq` instructions, using programmatic fixtures because the WAT parser does not yet expose ordinary `ref.cast` syntax.
+- Added a raw loop-exit disagreement regression showing the conservative loop skip contract: a post-loop `i32.const 1; local.set` survives when an outer loop exit can bypass the loop-local write.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the living RSE pages and backlog to mark conservative loop skips as documented/tested while keeping full fixed-point loop convergence, remaining HOT/control label-flow coverage, broader official `rse-gc.wast` breadth, and late preset scheduling open.
+
 ## [2026-05-10] passes | broaden RSE refined-local wrapper coverage
 
 - Added focused `redundant-set-elimination` regressions for concrete-heap strict-subtype retargeting through `ref.as_non_null`, including a branch-merge positive and a negative where a nullable equivalent local must not replace the original non-null source.

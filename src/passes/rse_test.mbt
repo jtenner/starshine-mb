@@ -104,6 +104,62 @@ fn rse_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func {
 }
 
 ///|
+fn rse_test_run_module(mod_ : @lib.Module) -> @lib.Module {
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => abort("unexpected invalid rse fixture: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), [
+      "redundant-set-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected rse pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => optimized
+    Err(err) => abort("expected rse output to validate, got \{err}")
+  }
+}
+
+///|
+fn rse_test_refined_cast_module(cast : @lib.Instruction) -> @lib.Module {
+  let base_idx = @lib.TypeIdx::new(0U)
+  let base_heap = @lib.HeapType::new(base_idx)
+  let nullable_base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, base_heap),
+  )
+  let base_ref = @lib.ValType::ref_type(@lib.RefType::new(false, base_heap))
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([nullable_base_ref, base_ref], []),
+    ),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([base, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::new([]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          cast,
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "rse removes body-local default same-value set shells" {
   let optimized = match
     pass_test_run_pipeline(
@@ -193,6 +249,70 @@ test "rse treats ref.as_non_null refined locals as equivalent subtype sources" {
     other =>
       fail(
         "expected ref.as_non_null refined local.get retargeting, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse treats ref.cast refined locals as equivalent subtype sources" {
+  let optimized = rse_test_run_module(
+    rse_test_refined_cast_module(
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(@lib.LocalIdx(cast_src)),
+      @lib.Instruction::RefCast(_, _),
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(retargeted)),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(@lib.LocalIdx(original_refined)),
+      @lib.Instruction::Drop,
+    ] => {
+      @debug.assert_eq(cast_src, 0U)
+      @debug.assert_eq(retargeted, 1U)
+      @debug.assert_eq(original_refined, 1U)
+    }
+    other =>
+      fail(
+        "expected ref.cast refined local.get retargeting, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse treats ref.cast_desc_eq refined locals as equivalent subtype sources" {
+  let optimized = rse_test_run_module(
+    rse_test_refined_cast_module(
+      @lib.Instruction::ref_cast_desc_eq(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(@lib.LocalIdx(cast_src)),
+      @lib.Instruction::RefCastDescEq(_, _),
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(retargeted)),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(@lib.LocalIdx(original_refined)),
+      @lib.Instruction::Drop,
+    ] => {
+      @debug.assert_eq(cast_src, 0U)
+      @debug.assert_eq(retargeted, 1U)
+      @debug.assert_eq(original_refined, 1U)
+    }
+    other =>
+      fail(
+        "expected ref.cast_desc_eq refined local.get retargeting, got \{@debug.to_string(other)}",
       )
   }
 }
@@ -357,6 +477,41 @@ test "rse raw path preserves branch disagreement as a merge value for self sets"
     other =>
       fail(
         "expected self-set shell to become drop after branch merge, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse raw path keeps post-loop set after outer loop exit" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        br_if 1
+    #|        i32.const 1
+    #|        local.set 1
+    #|      end
+    #|    end
+    #|    i32.const 1
+    #|    local.set 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected rse loop-exit fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::Block(_, _),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::LocalSet(_),
+    ] => ()
+    other =>
+      fail(
+        "expected post-loop const set to survive outer loop-exit disagreement, got \{@debug.to_string(other)}",
       )
   }
 }

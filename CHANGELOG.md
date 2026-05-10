@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: cover RSE cast wrappers and loop skips
+
+- **broaden `redundant-set-elimination` coverage with lowered `ref.cast` / `ref.cast_desc_eq` refined-get fixtures, document the current conservative loop-exit skip contract with a raw outer-exit regression, and keep direct compare-pass semantic parity green at `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`** by **@OpenAI**. Updated [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: broaden RSE refined-local wrapper coverage
 
 - **teach raw `redundant-set-elimination` to treat `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` as identity-preserving refinement wrappers, add focused concrete-heap refined-get regressions for straight-line and branch-merge retargeting, and keep 10k direct fuzz semantic parity green** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
