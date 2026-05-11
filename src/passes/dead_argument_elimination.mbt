@@ -2707,15 +2707,20 @@ fn dae_collect_original_private_result_dead_suffix_call_counts(
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
-    let caller_has_result = match
+    let caller_has_params_and_result = match
       dae_resolve_func_type(mod_, type_indices, caller_abs) {
-      Some(@lib.FuncType(_, results)) => results.length() > 0
+      Some(@lib.FuncType(params, results)) =>
+        params.length() > 0 && results.length() > 0
       None => false
     }
-    if caller_has_result &&
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    let caller_has_undropped_self_suffix = dae_dead_suffix_has_undropped_direct_call_to(
+      body, caller_abs,
+    )
+    if caller_has_params_and_result &&
+      !caller_has_undropped_self_suffix &&
       !escaped[caller_abs] &&
       dae_count_module_calls_anywhere_to(funcs, caller_abs) > 0 {
-      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
       let mut callee_def = 0
       while callee_def < defined {
         counts[callee_def] = counts[callee_def] +
@@ -3180,6 +3185,7 @@ fn dae_run_core_once(
             original_self_calls == 0 &&
             original_dead_suffix_result_other_call &&
             original_escaped_dead_suffix_calls == 0 &&
+            !original_dead_suffix_mutual_call &&
             (
               original_active_nonself_calls > 0 ||
               original_nonself_undropped_calls > 0

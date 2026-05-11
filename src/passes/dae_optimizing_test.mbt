@@ -539,6 +539,50 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing prunes side-call result cycles reached by dropped callers" {
+  let source =
+    #|(module
+    #|  (func $main (export "main")
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f1
+    #|    drop)
+    #|  (func $f1 (result i32)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 61
+    #|    f32.const 38
+    #|    call $f3
+    #|    drop
+    #|    local.get 0)
+    #|  (func $f2 (param f64 f32) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f3
+    #|    drop
+    #|    f64.const 17
+    #|    f32.const 58
+    #|    call $f2)
+    #|  (func $f3 (param f64 f32) (result i32)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f1
+    #|    drop
+    #|    local.get 2))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 0)
+}
+
+///|
 test "dae-optimizing prunes inactive private result-side callers" {
   let source =
     #|(module
