@@ -142,6 +142,28 @@ test "dae-optimizing removes unobserved results from private uncalled functions"
 }
 
 ///|
+test "dae-optimizing cleans unobservable prefix before unreachable after result removal" {
+  let source =
+    #|(module
+    #|  (func $f (result f64)
+    #|    i32.const 1
+    #|    drop
+    #|    block
+    #|      i32.const 0
+    #|      br_table 0 0
+    #|    end
+    #|    unreachable)
+    #|  (func (export "run")
+    #|    call $f
+    #|    drop))
+  let optimized = dae_test_run(source)
+  let callee = optimized.pretty_print_defined_func(0U)
+  assert_true(callee.contains("results: []"), msg=callee)
+  assert_true(callee.contains("unreachable"), msg=callee)
+  assert_false(callee.contains("br_table"), msg=callee)
+}
+
+///|
 test "dae-optimizing prunes unused simple function types like Binaryen" {
   let source =
     #|(module
