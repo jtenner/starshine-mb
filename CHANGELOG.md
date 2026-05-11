@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: stabilize DAE dead-suffix result scheduling
+
+- **keep the dead-suffix-only DAE cleanup lane focused on parameter removal after an overbroad dropped-result experiment produced early over-pruning mismatches; focused pass tests and `.tmp/pass-fuzz-dae-dead-suffix-params-stable` stay validation-clean with `121/200` compared, `102` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `19` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt) and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: extend DAE dead-suffix param cleanup
 
 - **teach `dae-optimizing` to remove parameters from unreachable callees whose only observed calls sit in dead suffixes, add focused coverage for that scheduler family, and move the seed-`0x5eed` development compare to `.tmp/pass-fuzz-dae-dead-suffix-results` with `151/200` compared, `132` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `19` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

@@ -2000,20 +2000,6 @@ fn dae_has_undropped_direct_call_to(
 }
 
 ///|
-fn dae_module_has_undropped_direct_call_to(
-  funcs : Array[@lib.Func],
-  callee_abs : Int,
-) -> Bool {
-  for func in funcs {
-    let @lib.Func(_, @lib.Expr(body)) = func
-    if dae_has_undropped_direct_call_to(body, callee_abs) {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn dae_dead_suffix_has_undropped_direct_call_to(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -2081,17 +2067,10 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  let kept_results = if dae_module_has_undropped_direct_call_to(
-      funcs, callee_abs,
-    ) {
-    results
-  } else {
-    []
-  }
   let (next_type_sec, new_type_idx) = dae_append_new_func_type(
     type_sec,
     [],
-    kept_results,
+    results,
   )
   type_idxs[def_idx] = new_type_idx
   let touched = Array::make(funcs.length(), false)
