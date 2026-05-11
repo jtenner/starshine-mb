@@ -2651,7 +2651,9 @@ fn dae_collect_original_private_result_dead_suffix_call_counts(
       Some(@lib.FuncType(_, results)) => results.length() > 0
       None => false
     }
-    if caller_has_result && !escaped[caller_abs] {
+    if caller_has_result &&
+      !escaped[caller_abs] &&
+      dae_count_module_calls_anywhere_to(funcs, caller_abs) > 0 {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
       let mut callee_def = 0
       while callee_def < defined {
@@ -2757,17 +2759,21 @@ fn dae_collect_original_dead_suffix_dropped_self_calls(
 }
 
 ///|
-fn dae_instrs_have_result_direct_call_other_than(
+fn dae_instrs_have_private_result_direct_call_other_than(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
 ) -> Bool {
   for instr in instrs {
     match instr {
       @lib.Call(func_idx) => {
         let slot = dae_func_idx_slot(func_idx)
-        if slot != callee_abs {
+        if slot != callee_abs &&
+          slot >= 0 &&
+          slot < escaped.length() &&
+          !escaped[slot] {
           match dae_resolve_func_type(mod_, type_indices, slot) {
             Some(@lib.FuncType(_, results)) if results.length() > 0 =>
               return true
@@ -2778,23 +2784,23 @@ fn dae_instrs_have_result_direct_call_other_than(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if dae_instrs_have_result_direct_call_other_than(
-            body, callee_abs, mod_, type_indices,
+        if dae_instrs_have_private_result_direct_call_other_than(
+            body, callee_abs, mod_, type_indices, escaped,
           ) {
           return true
         }
       @lib.If(_, then_body, Some(else_body)) =>
-        if dae_instrs_have_result_direct_call_other_than(
-            then_body, callee_abs, mod_, type_indices,
+        if dae_instrs_have_private_result_direct_call_other_than(
+            then_body, callee_abs, mod_, type_indices, escaped,
           ) ||
-          dae_instrs_have_result_direct_call_other_than(
-            else_body, callee_abs, mod_, type_indices,
+          dae_instrs_have_private_result_direct_call_other_than(
+            else_body, callee_abs, mod_, type_indices, escaped,
           ) {
           return true
         }
       @lib.If(_, then_body, None) =>
-        if dae_instrs_have_result_direct_call_other_than(
-            then_body, callee_abs, mod_, type_indices,
+        if dae_instrs_have_private_result_direct_call_other_than(
+            then_body, callee_abs, mod_, type_indices, escaped,
           ) {
           return true
         }
@@ -2805,11 +2811,12 @@ fn dae_instrs_have_result_direct_call_other_than(
 }
 
 ///|
-fn dae_dead_suffix_has_result_call_other_than(
+fn dae_dead_suffix_has_private_result_call_other_than(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
@@ -2820,8 +2827,8 @@ fn dae_dead_suffix_has_result_call_other_than(
         suffix.push(instrs[suffix_idx])
         suffix_idx += 1
       }
-      return dae_instrs_have_result_direct_call_other_than(
-        suffix, callee_abs, mod_, type_indices,
+      return dae_instrs_have_private_result_direct_call_other_than(
+        suffix, callee_abs, mod_, type_indices, escaped,
       )
     }
     idx += 1
@@ -2834,7 +2841,10 @@ fn dae_collect_original_dead_suffix_result_other_calls(
   mod_ : @lib.Module,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
   let type_indices = dae_collect_func_type_indices(mod_)
+  let escaped = dae_collect_escapes(mod_, total)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
@@ -2844,11 +2854,12 @@ fn dae_collect_original_dead_suffix_result_other_calls(
   while def_idx < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     flags.push(
-      dae_dead_suffix_has_result_call_other_than(
+      dae_dead_suffix_has_private_result_call_other_than(
         body,
         imported + def_idx,
         mod_,
         type_indices,
+        escaped,
       ),
     )
     def_idx += 1

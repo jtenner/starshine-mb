@@ -539,6 +539,36 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing prunes private result side callees reached from dead suffix callers" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param f64) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 0)
+    #|  (func $f1 (param f64) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 53
+    #|    call $main
+    #|    drop
+    #|    f64.const 87)
+    #|  (func $f2 (param f64) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    call $f1
+    #|    drop
+    #|    local.get 0))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+}
+
+///|
 test "dae-optimizing preserves private mixed self-suffix results" {
   let source =
     #|(module
