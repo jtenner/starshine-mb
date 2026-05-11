@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: allow DAE follow-up same-function result passes
+
+- **let `dae-optimizing` revisit rewritten functions across core iterations so later result-removal opportunities can run after parameter cleanup, while keeping self-recursive dropped-result coverage intact; focused pass tests pass and `.tmp/pass-fuzz-dae-repeat-def3` reports `127/200` compared, `108` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `19` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt) and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: stabilize DAE dead-suffix result scheduling
 
 - **keep the dead-suffix-only DAE cleanup lane focused on parameter removal after an overbroad dropped-result experiment produced early over-pruning mismatches; focused pass tests and `.tmp/pass-fuzz-dae-dead-suffix-params-stable` stay validation-clean with `121/200` compared, `102` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `19` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt) and [`CHANGELOG.md`](./CHANGELOG.md).

@@ -1722,6 +1722,9 @@ fn dae_try_remove_dropped_results(
       (type_idxs.copy(), funcs.copy(), type_sec)
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  if direct_call_count == dae_count_self_calls(funcs[def_idx], callee_abs) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   let rewritten_funcs = funcs.copy()
   let mut rewritten_call_count = 0
   let mut caller_def = 0
@@ -2251,9 +2254,13 @@ fn dae_run_core_once(
       if dead_suffix_params.changed {
         return dead_suffix_params
       }
-      let result = dae_try_remove_uncalled_results(mod_, callee_abs)
-      if result.changed {
-        return result
+      if self_calls_anywhere == 0 ||
+        dae_count_module_calls_anywhere_to(funcs, callee_abs) !=
+        self_calls_anywhere {
+        let result = dae_try_remove_uncalled_results(mod_, callee_abs)
+        if result.changed {
+          return result
+        }
       }
       if self_calls_anywhere == 0 {
         def_idx += 1
@@ -2345,19 +2352,19 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
   let mut changed = false
-  let already_rewritten_defs = Array::make(dae_defined_func_count(mod_), false)
   let mut iter = 0
   while iter < 8 {
+    let already_rewritten_defs = Array::make(
+      dae_defined_func_count(current),
+      false,
+    )
     let result = dae_run_core_once(current, already_rewritten_defs)
     if !result.changed {
       break
     }
     current = result.mod_out
     touched = dae_merge_touched(touched, result.touched)
-    if result.primary_def >= 0 &&
-      result.primary_def < already_rewritten_defs.length() {
-      already_rewritten_defs[result.primary_def] = true
-    }
+    ignore(result.primary_def)
     changed = true
     iter += 1
   }
