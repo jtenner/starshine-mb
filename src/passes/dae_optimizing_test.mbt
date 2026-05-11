@@ -222,6 +222,20 @@ test "dae-optimizing keeps no-param results with prior undropped dead-suffix cal
 }
 
 ///|
+test "dae-optimizing keeps undropped no-param dead self suffix results" {
+  let source =
+    #|(module
+    #|  (func $dead (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $dead)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 1)
+}
+
+///|
 test "dae-optimizing removes dropped results from no-param dead self suffixes" {
   let source =
     #|(module

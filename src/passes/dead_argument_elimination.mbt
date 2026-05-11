@@ -2003,20 +2003,23 @@ fn dae_has_undropped_direct_call_to(
 }
 
 ///|
-fn dae_dead_suffix_has_direct_call_to(
+fn dae_dead_suffix_has_dropped_direct_call_to(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
     if dae_instr_is_unreachable_root(instrs[idx]) {
-      let suffix : Array[@lib.Instruction] = []
       let mut suffix_idx = idx + 1
-      while suffix_idx < instrs.length() {
-        suffix.push(instrs[suffix_idx])
+      while suffix_idx + 1 < instrs.length() {
+        match (instrs[suffix_idx], instrs[suffix_idx + 1]) {
+          (@lib.Call(func_idx), @lib.Drop) if dae_func_idx_slot(func_idx) ==
+            callee_abs => return true
+          _ => ()
+        }
         suffix_idx += 1
       }
-      return dae_instrs_contain_direct_call_to(suffix, callee_abs)
+      return false
     }
     idx += 1
   }
@@ -2135,7 +2138,17 @@ fn dae_try_remove_unobserved_unreachable_function(
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let @lib.Func(_, @lib.Expr(callee_body)) = funcs[def_idx]
-  if dae_count_module_calls_anywhere_to(funcs, callee_abs) == 0 {
+  let module_calls_anywhere = dae_count_module_calls_anywhere_to(
+    funcs, callee_abs,
+  )
+  if module_calls_anywhere == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if params.length() == 0 &&
+    results.length() > 0 &&
+    module_calls_anywhere ==
+    dae_count_self_calls_anywhere(funcs[def_idx], callee_abs) &&
+    dae_dead_suffix_has_undropped_direct_call_to(callee_body, callee_abs) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -2204,7 +2217,7 @@ fn dae_try_remove_dead_self_suffix_result(
   }
   let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
   if dae_func_is_unreachable_only(funcs[def_idx]) ||
-    !dae_dead_suffix_has_direct_call_to(body, callee_abs) {
+    !dae_dead_suffix_has_dropped_direct_call_to(body, callee_abs) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   funcs[def_idx] = @lib.Func::new(
