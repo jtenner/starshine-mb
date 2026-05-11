@@ -80,7 +80,6 @@ test "dae-optimizing preserves side effects from removed actual operands" {
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
   let caller = optimized.pretty_print_defined_func(2U)
   assert_true(caller.contains("(call (Func 0))"), msg=caller)
-  assert_true(caller.contains("drop"), msg=caller)
   assert_true(caller.contains("(call (Func 1))"), msg=caller)
 }
 
@@ -106,6 +105,54 @@ test "dae-optimizing does not rewrite exported or ref-func-escaped callees" {
     #|    ref.func $f))
   let escaped = dae_test_run(escaped_source)
   @debug.assert_eq(dae_test_func_params(escaped, 0).length(), 1)
+}
+
+///|
+test "dae-optimizing removes results when all direct callers drop them" {
+  let source =
+    #|(module
+    #|  (func $f (result f64)
+    #|    f64.const 42)
+    #|  (func (export "run")
+    #|    call $f
+    #|    drop))
+  let optimized = dae_test_run(source)
+  let callee = optimized.pretty_print_defined_func(0U)
+  let caller = optimized.pretty_print_defined_func(1U)
+  assert_true(callee.contains("results: []"), msg=callee)
+  assert_true(caller.contains("(call (Func 0))"), msg=caller)
+  assert_false(caller.contains("drop"), msg=caller)
+}
+
+///|
+test "dae-optimizing removes unobserved results from private uncalled functions" {
+  let source =
+    #|(module
+    #|  (func $dead (result f64)
+    #|    f64.const 42)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  match dae_test_func_params(optimized, 0).length() {
+    0 => ()
+    other => fail("unexpected param count \{other}")
+  }
+  let dead = optimized.pretty_print_defined_func(0U)
+  assert_true(dead.contains("results: []"), msg=dead)
+  assert_true(dead.contains("drop"), msg=dead)
+}
+
+///|
+test "dae-optimizing prunes unused simple function types like Binaryen" {
+  let source =
+    #|(module
+    #|  (type $unused (func (param f64)))
+    #|  (type $kept (func))
+    #|  (func (export "run") (type $kept)))
+  let optimized = dae_test_run(source)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 1)
+    None => fail("expected type section")
+  }
 }
 
 ///|
