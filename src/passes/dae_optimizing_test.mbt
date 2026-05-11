@@ -416,6 +416,44 @@ test "dae-optimizing keeps non-adjacent self-call operands in dead suffixes" {
 }
 
 ///|
+test "dae-optimizing finishes dead-suffix parameter cycles after callers vanish" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param i64 f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $c)
+    #|  (func $a (param i64 f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    f32.const 1
+    #|    call $b)
+    #|  (func $b (param i64 f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i64.const 2
+    #|    local.get 1
+    #|    call $c)
+    #|  (func $c (param i64 f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $a))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 0)
+}
+
+///|
 test "dae-optimizing cleans unobservable prefix before unreachable after result removal" {
   let source =
     #|(module

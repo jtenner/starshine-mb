@@ -2250,6 +2250,7 @@ fn dae_filter_params(
 fn dae_try_remove_dead_suffix_only_unreachable_params(
   mod_ : @lib.Module,
   callee_abs : Int,
+  original_call_count : Int,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let def_idx = callee_abs - imported
@@ -2269,7 +2270,13 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
       (type_idxs.copy(), funcs.copy(), type_sec)
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  if dae_count_module_calls_anywhere_to(funcs, callee_abs) == 0 {
+  let current_calls_anywhere = dae_count_module_calls_anywhere_to(
+    funcs, callee_abs,
+  )
+  if current_calls_anywhere == 0 && original_call_count == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if current_calls_anywhere == 0 && dae_func_is_unreachable_only(funcs[def_idx]) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -2757,12 +2764,6 @@ fn dae_run_core_once(
       }
     }
     if direct_calls[callee_abs] == 0 {
-      let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
-        mod_, callee_abs,
-      )
-      if dead_suffix_params.changed {
-        return dead_suffix_params
-      }
       let original_self_calls = if def_idx < original_self_call_counts.length() {
         original_self_call_counts[def_idx]
       } else {
@@ -2774,6 +2775,12 @@ fn dae_run_core_once(
         original_call_counts[def_idx]
       } else {
         0
+      }
+      let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
+        mod_, callee_abs, original_call_count,
+      )
+      if dead_suffix_params.changed {
+        return dead_suffix_params
       }
       let original_prior_calls = if def_idx <
         original_prior_call_counts.length() {

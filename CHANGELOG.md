@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: finish DAE vanished dead-suffix cycles
+
+- **let `dae-optimizing` finish parameter pruning for originally-called unreachable cycle members after earlier dead-suffix repairs remove their last current call, without re-pruning already-collapsed unreachable bodies; focused pass tests pass and `.tmp/pass-fuzz-dae-vanished-cycle-slice` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` remaining local-shape mismatch** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: preserve DAE non-adjacent self-call operands
 
 - **preserve Binaryen's remaining parameter when an unreachable callee's dead suffix feeds a non-adjacent self call with another call result, while continuing to prune constant or adjacent self-call operands; focused pass tests pass and `.tmp/pass-fuzz-dae-self-call-operand-call-slice` reports `199/200` compared, `195` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `4` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
