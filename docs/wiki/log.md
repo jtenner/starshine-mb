@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | cover RSE struct.get refinalization
+
+- Added `rse-gc.wast` `needs-refinalize`-style raw coverage for `redundant-set-elimination`: after a redundant `local.tee` is removed, the following `struct.get` should use the strict-subtype receiver's concrete type.
+- Raw RSE now retargets `struct.get`, `struct.get_s`, and `struct.get_u` to an equivalent strict-subtype local receiver when the stack value identity proves the refined receiver is available.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-struct-get-refinalize`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the living RSE pages and backlog to record landed `struct.get` refinalization-style coverage while keeping loop-backedge fixed-point convergence, remaining HOT/control families, remaining `rse-gc.wast` breadth, and preset scheduling open.
+
 ## [2026-05-10] passes | preserve RSE branch-free loop facts
 
 - Added raw and HOT `redundant-set-elimination` regressions showing a branch-free `loop` can carry fallthrough local facts to a post-loop same-value set, folding the final shell to `drop`.

@@ -160,6 +160,62 @@ fn rse_test_refined_cast_module(cast : @lib.Instruction) -> @lib.Module {
 }
 
 ///|
+fn rse_test_needs_refinalize_module() -> @lib.Module {
+  let a_idx = @lib.TypeIdx::new(0U)
+  let b_idx = @lib.TypeIdx::new(1U)
+  let a_heap = @lib.HeapType::new(a_idx)
+  let b_heap = @lib.HeapType::new(b_idx)
+  let nullable_a_ref = @lib.ValType::ref_type(@lib.RefType::new(true, a_heap))
+  let b_ref = @lib.ValType::ref_type(@lib.RefType::new(false, b_heap))
+  let a = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [],
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(nullable_a_ref),
+          @lib.Mut::const_(),
+        ),
+      ]),
+    ),
+  )
+  let b = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [a_idx],
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(b_ref),
+          @lib.Mut::const_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([b_ref], [@lib.ValType::anyref()]),
+    ),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([a, b, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([nullable_a_ref]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::struct_get(a_idx, 0U),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "rse removes body-local default same-value set shells" {
   let optimized = match
     pass_test_run_pipeline(
@@ -313,6 +369,28 @@ test "rse treats ref.cast_desc_eq refined locals as equivalent subtype sources" 
     other =>
       fail(
         "expected ref.cast_desc_eq refined local.get retargeting, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse retargets struct.get after redundant tee removal for refinalized field type" {
+  let optimized = rse_test_run_module(rse_test_needs_refinalize_module())
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(@lib.LocalIdx(first_get)),
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(second_get)),
+      @lib.Instruction::StructGet(@lib.TypeIdx(struct_type), @lib.U32(0U)),
+    ] => {
+      @debug.assert_eq(first_get, 0U)
+      @debug.assert_eq(second_get, 0U)
+      @debug.assert_eq(struct_type, 1U)
+    }
+    other =>
+      fail(
+        "expected redundant tee to be removed and struct.get retargeted to subtype, got \{@debug.to_string(other)}",
       )
   }
 }

@@ -716,6 +716,50 @@ fn rse_raw_is_strict_subtype_local(
 }
 
 ///|
+fn rse_raw_concrete_ref_type_idx(ty : @lib.ValType) -> @lib.TypeIdx? {
+  match ty {
+    @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.HeapType(type_idx))) =>
+      Some(type_idx)
+    _ => None
+  }
+}
+
+///|
+fn rse_raw_refined_struct_receiver_type(
+  state : RseRawState,
+  base_type : @lib.TypeIdx,
+  receiver_value : String,
+) -> @lib.TypeIdx? {
+  if receiver_value == "" {
+    return None
+  }
+  let original = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  for candidate_id = 0
+      candidate_id < state.local_values.length()
+      candidate_id = candidate_id + 1 {
+    if state.local_values[candidate_id] != receiver_value {
+      continue
+    }
+    match rse_raw_local_type(state, candidate_id) {
+      Some(candidate) =>
+        match rse_raw_concrete_ref_type_idx(candidate) {
+          Some(candidate_type) =>
+            if candidate != original &&
+              candidate_type != base_type &&
+              @validate.Match::matches(candidate, original, state.env) {
+              return Some(candidate_type)
+            }
+          _ => ()
+        }
+      None => ()
+    }
+  }
+  None
+}
+
+///|
 fn rse_raw_refined_get_local(state : RseRawState, local_id : Int) -> Int {
   let value = rse_raw_local_get(state, local_id)
   if value == "" {
@@ -919,6 +963,39 @@ fn rse_raw_rewrite_expr_scoped(
         let value = rse_raw_pop(state)
         out.push(instr)
         rse_raw_push(state, value)
+      }
+      @lib.Instruction::StructGet(type_idx, field_idx) => {
+        let receiver = rse_raw_pop(state)
+        match rse_raw_refined_struct_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(@lib.Instruction::struct_get(refined_type, field_idx))
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
+      @lib.Instruction::StructGetS(type_idx, field_idx) => {
+        let receiver = rse_raw_pop(state)
+        match rse_raw_refined_struct_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(@lib.Instruction::struct_get_s(refined_type, field_idx))
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
+      @lib.Instruction::StructGetU(type_idx, field_idx) => {
+        let receiver = rse_raw_pop(state)
+        match rse_raw_refined_struct_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(@lib.Instruction::struct_get_u(refined_type, field_idx))
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
       }
       @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => {
         let value = rse_raw_pop(state)
