@@ -454,6 +454,48 @@ test "dae-optimizing finishes dead-suffix parameter cycles after callers vanish"
 }
 
 ///|
+test "dae-optimizing preserves private result callees in dropped suffix chains" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param i32) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 1
+    #|    call $f2
+    #|    drop
+    #|    i64.const 0)
+    #|  (func $f1 (param i32) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 2
+    #|    call $main
+    #|    drop
+    #|    i64.const 16)
+    #|  (func $f2 (param i32) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    call $f3
+    #|    drop
+    #|    i64.const 17)
+    #|  (func $f3 (param i32) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    call $f1
+    #|    drop
+    #|    i64.const 18))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 1)
+}
+
+///|
 test "dae-optimizing cleans unobservable prefix before unreachable after result removal" {
   let source =
     #|(module
