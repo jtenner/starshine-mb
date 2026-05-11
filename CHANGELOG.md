@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: preserve DAE non-adjacent self-call operands
+
+- **preserve Binaryen's remaining parameter when an unreachable callee's dead suffix feeds a non-adjacent self call with another call result, while continuing to prune constant or adjacent self-call operands; focused pass tests pass and `.tmp/pass-fuzz-dae-self-call-operand-call-slice` reports `199/200` compared, `195` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `4` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: classify DAE dead-suffix side-call cycles
 
 - **allow `dae-optimizing` to remove results from originally-parameterized unreachable callees whose dead suffix only calls unrelated functions, while preserving Binaryen's result signatures for mutual dead-suffix call cycles; focused pass tests pass and `.tmp/pass-fuzz-dae-side-call-mutual-slice` reports `199/200` compared, `194` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `5` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

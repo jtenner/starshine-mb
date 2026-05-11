@@ -2072,6 +2072,181 @@ fn dae_dead_suffix_has_undropped_direct_call_to(
 }
 
 ///|
+fn dae_self_call_has_adjacent_param_forward(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  param_count : Int,
+) -> Bool {
+  let start = call_idx - param_count
+  if start < 0 {
+    return false
+  }
+  let mut p = 0
+  while p < param_count {
+    match instrs[start + p] {
+      @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == p => ()
+      _ => return false
+    }
+    p += 1
+  }
+  true
+}
+
+///|
+fn dae_collect_self_call_operand_param_gets(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  param_count : Int,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  preserve : Array[Bool],
+) -> Unit {
+  let stack : Array[Int] = []
+  let stack_from_call : Array[Bool] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.LocalGet(local_idx) => {
+        let slot = dae_local_idx_slot(local_idx)
+        if slot >= 0 && slot < param_count {
+          stack.push(slot)
+        } else {
+          stack.push(-1)
+        }
+        stack_from_call.push(false)
+      }
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        let mut has_call_operand = false
+        let mut p = 0
+        while p < param_count {
+          let stack_idx = stack.length() - param_count + p
+          if stack_idx >= 0 && stack_idx < stack_from_call.length() {
+            has_call_operand = has_call_operand || stack_from_call[stack_idx]
+          }
+          p += 1
+        }
+        // Binaryen preserves the original param that is stranded beneath a
+        // side-call result used by a dead-suffix self call, but still prunes
+        // adjacent forwarding and constant/duplicate-local self operands.
+        if has_call_operand &&
+          !dae_self_call_has_adjacent_param_forward(instrs, idx, param_count) {
+          p = 0
+          while p < param_count {
+            let stack_idx = stack.length() - param_count + p
+            if stack_idx >= 0 && stack_idx < stack.length() {
+              let origin = stack[stack_idx]
+              if origin >= 0 && origin < preserve.length() {
+                preserve[origin] = true
+              }
+            }
+            p += 1
+          }
+        }
+        let mut pop = 0
+        while pop < param_count && stack.length() > 0 {
+          ignore(stack.pop())
+          ignore(stack_from_call.pop())
+          pop += 1
+        }
+        match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+          Some(@lib.FuncType(_, results)) => {
+            let mut r = 0
+            while r < results.length() {
+              stack.push(-1)
+              stack_from_call.push(true)
+              r += 1
+            }
+          }
+          None => ()
+        }
+      }
+      @lib.Call(_) =>
+        match dae_instr_stack_effect(instrs[idx], mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack.length() > 0 {
+              ignore(stack.pop())
+              ignore(stack_from_call.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack.push(-1)
+              stack_from_call.push(true)
+              push += 1
+            }
+          }
+          None => ()
+        }
+      _ =>
+        match dae_instr_stack_effect(instrs[idx], mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack.length() > 0 {
+              ignore(stack.pop())
+              ignore(stack_from_call.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack.push(-1)
+              stack_from_call.push(false)
+              push += 1
+            }
+          }
+          None => ()
+        }
+    }
+    idx += 1
+  }
+}
+
+///|
+fn dae_collect_dead_suffix_self_operand_params(
+  func : @lib.Func,
+  callee_abs : Int,
+  param_count : Int,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+) -> Array[Bool] {
+  let preserve = Array::make(param_count, false)
+  let @lib.Func(_, @lib.Expr(body)) = func
+  let mut idx = 0
+  while idx < body.length() {
+    if dae_instr_is_unreachable_root(body[idx]) {
+      let suffix : Array[@lib.Instruction] = []
+      let mut suffix_idx = idx + 1
+      while suffix_idx < body.length() {
+        suffix.push(body[suffix_idx])
+        suffix_idx += 1
+      }
+      dae_collect_self_call_operand_param_gets(
+        suffix, callee_abs, param_count, mod_, type_indices, preserve,
+      )
+      return preserve
+    }
+    idx += 1
+  }
+  preserve
+}
+
+///|
+fn dae_filter_params(
+  params : Array[@lib.ValType],
+  keep : Array[Bool],
+) -> Array[@lib.ValType] {
+  let out : Array[@lib.ValType] = []
+  let mut idx = 0
+  while idx < params.length() {
+    if idx < keep.length() && keep[idx] {
+      out.push(params[idx])
+    }
+    idx += 1
+  }
+  out
+}
+
+///|
 fn dae_try_remove_dead_suffix_only_unreachable_params(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -2114,14 +2289,20 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     }
     func_idx += 1
   }
+  let keep_params = dae_collect_dead_suffix_self_operand_params(
+    funcs[def_idx],
+    callee_abs,
+    params.length(),
+    mod_,
+    type_indices,
+  )
+  let next_params = dae_filter_params(params, keep_params)
   funcs[def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
   let (next_type_sec, new_type_idx) = dae_append_new_func_type(
-    type_sec,
-    [],
-    results,
+    type_sec, next_params, results,
   )
   type_idxs[def_idx] = new_type_idx
   let touched = Array::make(funcs.length(), false)
