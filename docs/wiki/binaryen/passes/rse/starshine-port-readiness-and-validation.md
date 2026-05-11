@@ -37,23 +37,23 @@ The 2026-05-05 current-main recheck keeps the same teaching split and only refre
 
 ## Current readiness verdict
 
-Starshine now has an **active direct `redundant-set-elimination` port**. The current slice covers more of Binaryen's local value model but still is not the complete fixed-point CFG port.
+Starshine now has an **accepted active direct `redundant-set-elimination` port** for v0.1.0. The direct slice covers the known CFG/value-flow and refined-get parity surface without becoming a full general fixed-point CFG implementation.
 
 The implemented surface:
 
 - registers `redundant-set-elimination` as an active hot pass and CLI flag;
 - keeps Binaryen `--rse` aliasing in the compare harnesses;
 - removes same-value `local.set` shells as `drop(value)` and same-value `local.tee` shells as the original value;
-- tracks simple value identities through constants including raw `string.const`, local copies, selected integer operations, structured `if` agreement, branch-disagreement merge sentinels for self-set folding, raw block/if label-exit merges, HOT block/if label-exit merges, branch-free loop fallthrough facts, default body-local values, fallthrough facts after one-armed terminating `if`s, and identity-preserving refinement wrappers such as `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`;
+- tracks simple value identities through constants including raw `string.const`, `any.convert_extern`, local copies, selected integer operations, structured `if` agreement, branch-disagreement merge sentinels for self-set folding, raw block/if label-exit merges, HOT block/if label-exit merges, branch-free loop fallthrough facts, a safe loop-invariant default-write subset for loops with backedges, default body-local values, fallthrough facts after one-armed terminating `if`s, and identity-preserving refinement wrappers such as `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`;
 - retargets raw lowered `local.get` reads to an equivalent local with a strict subtype, now covered by a reduced `anyref` / `eqref` fixture, concrete-heap `ref.as_non_null` straight-line / branch-merge fixtures, programmatic `ref.cast` / `ref.cast_desc_eq` wrapper fixtures for parser-gap-free coverage, and `needs-refinalize`-style `struct.get` / `array.get` receiver retargeting fixtures;
 - uses a raw fast path for lowered functions plus a HOT fallback for direct hot-pass tests;
 - relies on paired vacuum cleanup for pure `drop` / `nop` debris exposed by redundant set removal;
-- keeps the direct compare-pass lane semantic-green.
+- keeps the direct compare-pass lane semantic-green and keeps the `rse -> vacuum` exact replay on the already-classified inherited direct-`vacuum` frontier.
 
-Remaining full-parity work is still real:
+Future non-blocking parity work remains:
 
-- replace the current documented conservative loop-backedge fact drops with Binaryen-style fixed-point CFG merge values where needed, and carry the same start/end identities through the remaining HOT/control-label families beyond the landed block/if and raw `br_on_*` exit lanes;
-- broaden strict-subtype equivalent-local `local.get` retargeting beyond the landed reduced abs-heap, concrete-heap `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` wrapper fixtures, and aggregate-accessor refinalization-style fixtures to the remaining official `rse-gc.wast` families;
+- implement broader Binaryen-style loop fixed-point CFG merge values only if a new direct semantic/parity case needs more than the landed safe loop-invariant default-write subset;
+- broaden strict-subtype equivalent-local `local.get` retargeting if additional official `rse-gc.wast` families become locally representable beyond the landed reduced abs-heap, concrete-heap `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq` wrapper fixtures, and aggregate-accessor refinalization-style fixtures;
 - keep the classified `rse -> vacuum` cleanup-slot replay from regressing before scheduling the late no-DWARF slot.
 
 ## Exact local status
@@ -61,7 +61,7 @@ Remaining full-parity work is still real:
 | Surface | Current state | Future action |
 | --- | --- | --- |
 | Registry | `src/passes/optimize.mbt:253-256` now has an active `"redundant-set-elimination"` hot-pass entry. | Keep it direct-only until the late preset slot is proven. |
-| Dispatcher | `src/passes/pass_manager.mbt` dispatches `"redundant-set-elimination"`, builds a validation environment for raw subtype checks, and has a raw fast path before hot lift. | Extend the raw/HOT implementations as official GC fixtures and loop fixed-point support land. |
+| Dispatcher | `src/passes/pass_manager.mbt` dispatches `"redundant-set-elimination"`, builds a validation environment for raw subtype checks, and has a raw fast path before hot lift. | Extend the raw/HOT implementations only for new semantic/parity cases or future preset scheduling. |
 | Owner file | `src/passes/rse.mbt` owns descriptor, summary, raw/HOT value identities, branch merge sentinels, structured label-exit tracking, body-local default identities, and strict-subtype raw get retargeting. | Keep new behavior beside this owner with focused tests. |
 | HOT local surfaces | [`src/ir/use_def.mbt:1-120`](../../../../../src/ir/use_def.mbt) records local reads/writes, but no value-number CFG flow. | Reuse only the collection pieces that fit; add explicit value identity and merge logic. |
 | Type context | [`src/ir/hot_module_context.mbt:1-58`](../../../../../src/ir/hot_module_context.mbt) and later helpers expose module subtype/function type context. | Use this for strict-subtype retargeting checks. |
@@ -115,25 +115,26 @@ Only then should the pass enter public preset scheduling.
 - [x] Same-block repeated `local.tee` positive.
 - [x] Different overwritten value negative.
 - [x] RHS trap/effect preservation by replacing the shell, not the value expression.
-- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-10 lane `.tmp/pass-fuzz-rse-rse002-string-const` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002-array-get-refinalize`, `.tmp/pass-fuzz-rse-rse002-struct-get-refinalize`, `.tmp/pass-fuzz-rse-rse002-branch-free-loops`, `.tmp/pass-fuzz-rse-rse002-hot-label-exits`, `.tmp/pass-fuzz-rse-rse002-hot-block-exits`, `.tmp/pass-fuzz-rse-rse002-gc-branch-exits`, `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`, `.tmp/pass-fuzz-rse-rse002-gc-refinement`, `.tmp/pass-fuzz-rse-rse002-next-followup`, `.tmp/pass-fuzz-rse-rse002-final`, `.tmp/pass-fuzz-rse-rse002-next`, `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
+- [x] Direct Binaryen `--rse` compare-pass lane: final 2026-05-10 signoff lane `.tmp/pass-fuzz-rse-rse002-final-signoff` (`6759/10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures); prior `.tmp/pass-fuzz-rse-rse002-array-get-refinalize`, `.tmp/pass-fuzz-rse-rse002-struct-get-refinalize`, `.tmp/pass-fuzz-rse-rse002-branch-free-loops`, `.tmp/pass-fuzz-rse-rse002-hot-label-exits`, `.tmp/pass-fuzz-rse-rse002-hot-block-exits`, `.tmp/pass-fuzz-rse-rse002-gc-branch-exits`, `.tmp/pass-fuzz-rse-rse002-cast-loop-coverage`, `.tmp/pass-fuzz-rse-rse002-gc-refinement`, `.tmp/pass-fuzz-rse-rse002-next-followup`, `.tmp/pass-fuzz-rse-rse002-final`, `.tmp/pass-fuzz-rse-rse002-next`, `.tmp/pass-fuzz-rse-rse002`, 2026-05-06 `.tmp/pass-fuzz-redundant-set-elimination`, and older raw lanes remain historical evidence.
 - [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
 - [x] 2026-05-05 current-main recheck stayed aligned with the same CFG/value-flow and refined-get split.
 - [x] Branch-join same-value/self-set coverage for structured HOT and raw paths, including disagreement represented as a merge identity for self-set folding.
-- [ ] Branch-join different-value negative beyond the focused local tests.
+- [x] Branch-join different-value negative beyond the focused local tests: a raw branch-join fixture keeps the final const set alive when then/else values differ.
 - [x] Raw block-exit disagreement negative keeps the final const set after `br_if` exits a block on one path and a later fallthrough path writes the same const.
 - [x] Raw GC branch-exit disagreement negative keeps the final const set after `br_on_null` exits a block on one path and a later fallthrough path writes the same const; the implementation now records `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as conditional label exits while conservatively clearing expression-stack facts on fallthrough.
 - [x] HOT block/if label-exit coverage: positives fold post-block/post-if same-value sets when reachable fallthrough and label-exit sources agree, while negatives keep final const sets after `br_if` / `br` exits can bypass the local write.
-- [x] Branch-free loop fallthrough facts for raw and HOT paths fold post-loop same-value sets when no loop backedge is seen; conservative loop-backedge / outer-exit behavior remains documented and tested, and full fixed-point loop convergence remains future work.
+- [x] Branch-free loop fallthrough facts for raw and HOT paths fold post-loop same-value sets when no loop backedge is seen; loop-backedge / outer-exit behavior remains conservative unless the raw loop writes a local exclusively with its default value, which safely preserves Binaryen-like default tee removal for loop-invariant locals while keeping mutating-backedge tees alive.
 - [x] Reduced refined local-get retargeting with a strict-subtype local (`anyref` read retargeted to equivalent `eqref`).
 - [x] Concrete-heap refined local-get retargeting through `ref.as_non_null` value-preserving wrappers, including a branch-merge positive and a strict-subtype negative where the nullable local must not replace the non-null source.
 - [x] Programmatic concrete-heap refined local-get retargeting through `ref.cast` and `ref.cast_desc_eq` value-preserving wrappers, avoiding current WAT parser gaps while still validating the lowered instruction behavior.
 - [x] `rse-gc.wast` `needs-refinalize`-style raw coverage: redundant tee removal can retarget following `struct.get` / `array.get` accessors from a base type to a strict-subtype receiver so the refined field/element type is preserved.
-- [x] Raw string constant identities: repeated `string.const` local writes now fold instead of losing stack facts.
+- [x] Raw string and conversion identities: repeated `string.const` local writes and repeated `any.convert_extern` writes from the same `externref` source now fold instead of losing stack facts.
 - [x] One-armed terminating `if` fallthrough facts preserve default-local identities before later loop conditions.
 - [x] Paired vacuum removes nested pure `drop` / `nop` debris exposed by RSE in small value-expression control regions.
 - [x] Vacuum flips empty-then/live-else void `if`s to the Binaryen-style one-armed double-`eqz` form.
+- [x] Conservative raw `try_table` barrier: nested body rewrites still run, but post-`try_table` local facts are cleared so unmodeled body writes cannot make later same-value sets fold unsafely.
 - [x] No changes to globals, memory stores, struct stores, or array stores.
-- [x] Late `--rse --vacuum` lane classified for RSE002: 2026-05-10 replay at `.tmp/rse002-rse-vacuum-final` remains exact-red at `defined=208 abs=225`, but the former `defined=0 abs=17` nested `drop(...)` / `nop` debris and `defined=29 abs=46` empty-then / double-`eqz` drift are fixed. The remaining first diff is inherited from direct `--vacuum`: `.tmp/rse002-vacuum-baseline` has the same first differing function, and the focused Starshine WAT/pretty files are byte-identical with and without RSE.
+- [x] Late `--rse --vacuum` lane classified for RSE002: final 2026-05-10 replay at `.tmp/rse002-rse-vacuum-final-signoff3` remains exact-red at `defined=208 abs=225`, but the former `defined=0 abs=17` nested `drop(...)` / `nop` debris and `defined=29 abs=46` empty-then / double-`eqz` drift are fixed. The remaining first diff is inherited from direct `--vacuum`: `.tmp/rse002-vacuum-baseline` has the same first differing function, and the focused Starshine WAT/pretty files are byte-identical with and without RSE.
 
 ## Open design questions
 

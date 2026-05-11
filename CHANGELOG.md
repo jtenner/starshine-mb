@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: accept RSE002 direct signoff
+
+- **finish and accept the `[RSE]002` direct `redundant-set-elimination` CFG/value-flow slice with branch-join different-value coverage, raw `any.convert_extern` identities, conservative `try_table` barriers, safe loop-invariant default-write handling for backedge loops, final direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-final-signoff`, and `rse -> vacuum` replay classification at `.tmp/rse002-rse-vacuum-final-signoff3`** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: track RSE string constants
 
 - **teach raw `redundant-set-elimination` to track `string.const` value identities, add repeated string local-write coverage, and keep direct compare-pass semantic parity green at `.tmp/pass-fuzz-rse-rse002-string-const`** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

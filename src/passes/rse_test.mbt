@@ -330,6 +330,97 @@ test "rse raw path folds repeated string.const local sets" {
 }
 
 ///|
+test "rse raw path keeps facts conservative after unmodeled try_table body writes" {
+  let optimized = rse_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::void_(),
+              [],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32::new(0)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::TryTable(_, _, _),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::LocalSet(_),
+    ] => ()
+    other =>
+      fail(
+        "expected post-try_table const set to survive body-local write, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse raw path folds repeated any.convert_extern local sets" {
+  let optimized = rse_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::externref()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::anyref()]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::any_convert_extern(),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::any_convert_extern(),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(_),
+      @lib.Instruction::AnyConvertExtern,
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(_),
+      @lib.Instruction::AnyConvertExtern,
+      @lib.Instruction::Drop,
+    ] => ()
+    other =>
+      fail(
+        "expected repeated any.convert_extern set shell to become drop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "rse retargets equivalent local.get to strict subtype local" {
   let input =
     #|(module
@@ -614,7 +705,7 @@ test "rse preserves refined local.get retargeting through branch merges" {
 }
 
 ///|
-test "rse removes default local tee in loop conditions" {
+test "rse removes default local tee in loop conditions when local is loop-invariant" {
   let input =
     #|(module
     #|  (func (param i32) (local i32)
@@ -634,10 +725,40 @@ test "rse removes default local tee in loop conditions" {
     pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail("expected rse loop default tee fixture success, got \{err}")
+      fail("expected rse loop invariant tee fixture success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "rse keeps default local tee in loop conditions with backedges" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (if (local.get 0) (then unreachable))
+    #|    (loop
+    #|      (if
+    #|        (i32.lt_u
+    #|          (local.tee 1 (i32.const 0))
+    #|          (i32.const 1)
+    #|        )
+    #|        (then
+    #|          i32.const 2
+    #|          local.set 1
+    #|          br 0)
+    #|      )
+    #|    )
+    #|  )
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse loop default tee fixture success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.tee"), msg=pretty)
 }
 
 ///|
@@ -732,6 +853,42 @@ test "rse raw path preserves branch disagreement as a merge value for self sets"
     other =>
       fail(
         "expected self-set shell to become drop after branch merge, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse raw path keeps branch-join different-value final const set" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 1
+    #|      local.set 1
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|    end
+    #|    i32.const 1
+    #|    local.set 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected rse branch negative fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(_),
+      @lib.Instruction::If(_, _, _),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::LocalSet(_),
+    ] => ()
+    other =>
+      fail(
+        "expected final const set to survive different branch values, got \{@debug.to_string(other)}",
       )
   }
 }

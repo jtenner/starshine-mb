@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | accept RSE002 direct signoff
+
+- Added final `[RSE]002` regressions for branch-join different-value safety, raw `any.convert_extern` value identities, conservative raw `try_table` barriers, and loop-backedge default tees: loop-invariant default writes may fold, but locals mutated before a backedge keep their reset tee.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-final-signoff`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum-final-signoff3`: exact comparison remains red at the inherited direct-`vacuum` `defined=208 abs=225` frontier, with Starshine pass-local time `747.401ms` vs Binaryen `34931.600ms`.
+- Moved `[RSE]002` out of the active v0.1.0 backlog; future RSE work is limited to new semantic/validity cases, broader official GC coverage, broader loop fixed-point flow if proven necessary, or separate preset scheduling.
+
 ## [2026-05-10] passes | track RSE string constants
 
 - Added raw `redundant-set-elimination` coverage for repeated `string.const` local writes, matching the GC test surface's string-constant value identity expectation.

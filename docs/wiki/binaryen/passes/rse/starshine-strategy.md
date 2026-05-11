@@ -46,7 +46,7 @@ The most important teaching point remains the same: the future Starshine port ne
 
 Current local behavior:
 
-- `src/passes/rse.mbt` owns the descriptor, summary, HOT same-value rewrite, raw lowered-function value tracker, default body-local identities, branch merge sentinels, raw strict-subtype local-get retargeting, and raw identity-preserving refinement wrappers for `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`.
+- `src/passes/rse.mbt` owns the descriptor, summary, HOT same-value rewrite, raw lowered-function value tracker, default body-local identities, branch merge sentinels, raw strict-subtype local-get retargeting, raw identity-preserving refinement wrappers for `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`, raw `string.const` / `any.convert_extern` identities, conservative `try_table` fact barriers, and the safe loop-invariant default-write subset.
 - `src/passes/optimize.mbt` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
 - `src/passes/pass_manager.mbt` dispatches the hot pass, constructs the module validation environment needed for raw subtype checks, and runs the raw fast path before hot lift for lowered functions.
 - `src/cmd/cmd_wbtest.mbt`, `src/passes/rse_test.mbt`, and `src/passes/registry_test.mbt` cover CLI, direct HOT behavior, raw branch-merge/default/refined-get behavior, and registry classification.
@@ -79,7 +79,7 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 - `src/passes/pass_manager.mbt`
   - Runs `rse_run_raw_func` before hot lift for `redundant-set-elimination`.
   - Keeps the normal hot-pass dispatcher arm for focused HOT tests and fallback behavior.
-  - Keeps preset placement near the final cleanup cluster deferred until refined-get and late-tail proof are complete.
+  - Keeps preset placement near the final cleanup cluster deferred until a separate late-tail scheduling change.
 
 ### Owner file
 
@@ -95,7 +95,7 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
   - Runs `rse_run_raw_func` before hot lift for `redundant-set-elimination`.
 - `src/passes/rse_test.mbt:41-71`
   - Owns the focused same-value set/tee tests.
-  - Should own future fixed-point CFG merge and refined local-get retargeting work.
+  - Should own future semantic/parity regressions, broader fixed-point CFG work if proven necessary, and additional refined local-get retargeting fixtures.
 
 ### 2026-05-10 RSE002 progress
 
@@ -106,14 +106,15 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 - Added raw structured block/if label-exit merge tracking plus unreachable-tail skipping so branch exits like `block ... br_if 0 ... end; i32.const 1; local.set` no longer misfold the final const set.
 - Extended raw conditional label-exit recording to GC branch families (`br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`) while conservatively clearing expression-stack facts on fallthrough; a focused `br_on_null` block-exit regression now keeps the final const set alive when the null branch can bypass the block-local write.
 - Added `rse-gc.wast` `needs-refinalize`-style raw fixtures and retargeting for `struct.get` / `array.get`: after redundant `local.tee` removal exposes a strict-subtype receiver, the following aggregate accessor can use the subtype so the field/element result reflects the refined type.
-- Added raw `string.const` value identities so repeated string local writes can fold like other constants instead of becoming unknown stack values.
+- Added raw `string.const` value identities so repeated string local writes can fold like other constants instead of becoming unknown stack values, then added raw `any.convert_extern` value identities for repeated conversion writes from an `externref` source.
 - Added branch-free loop fallthrough facts for raw and HOT paths, so `loop i32.const 1; local.set; end; i32.const 1; local.set` can fold the post-loop same-value set when no loop backedge is seen.
-- Added explicit conservative loop-backedge / outer-exit regressions where post-loop const sets survive instead of trusting one-iteration loop-local facts that a backedge or outer exit can invalidate.
+- Added explicit loop-backedge / outer-exit regressions where post-loop const sets survive instead of trusting one-iteration loop-local facts that a backedge or outer exit can invalidate, then narrowed the raw loop-backedge behavior to preserve Binaryen-like default-write removals only when the loop writes that local exclusively with its default value. A paired regression keeps default loop tees when the local is also mutated before a backedge.
+- Added a conservative raw `try_table` fact barrier that still rewrites nested body instructions but clears post-`try_table` local facts so unmodeled body writes cannot make later same-value sets fold unsafely.
 - Added a HOT fallback block-exit safety regression and then replaced the conservative post-block fact drop with HOT block/if label-exit merge tracking. Direct HOT execution now folds post-block/post-if same-value sets when reachable fallthrough and label-exit sources agree, while keeping final same-const sets alive when a branch can bypass the local write.
-- Refreshed direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-string-const`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Refreshed final direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-final-signoff`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
 - Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum`; it initially remained red at `defined=0 abs=17` because nested `drop(...)` / `nop` cleanup debris remained in Starshine's paired vacuum output while Binaryen removed it.
 - Follow-up cleanup taught vacuum to recurse into nested value-expression control regions for small functions, added a raw no-candidate vacuum skip to avoid lifting unchanged functions, preserved raw RSE fallthrough facts after one-armed terminating `if`s, and added Binaryen-style vacuum inversion for empty-then/live-else void `if`s. The replay at `.tmp/rse002-rse-vacuum-final` moved past the `defined=29 abs=46` empty-then / double-`eqz` family to `defined=208 abs=225`.
-- The current `rse -> vacuum` exact replay residual is classified as inherited direct-`vacuum` representation drift: `.tmp/rse002-vacuum-baseline` has the same first differing function, and Starshine's focused `func-defined208-abs225` WAT and pretty files are byte-identical with and without RSE.
+- The current `rse -> vacuum` exact replay residual remains classified as inherited direct-`vacuum` representation drift: final signoff at `.tmp/rse002-rse-vacuum-final-signoff3` is exact-red at `defined=208 abs=225`, matching the direct `--vacuum` frontier rather than an RSE-specific first diff.
 
 ### Existing Starshine analysis surfaces to read
 
@@ -179,4 +180,4 @@ If the project wants them later, document them as separate Starshine-local exten
 Two local design decisions remain open:
 
 - **Name surface:** upstream exposes the public long name `redundant-set-elimination` and the shorthand `rse` appears in pipeline/debug contexts; Starshine exposes the long CLI/registry name and maps `--rse` inside compare harnesses.
-- **CFG/value substrate:** Binaryen definitely has a fuller fixed-point CFG flow than the active Starshine slice; future work should carry the raw/HOT block/if and raw GC-branch label-exit identities through the remaining HOT/control families, preserve the new wrapper-aware refined-get behavior there too, and replace the now-tested conservative loop-backedge fact drops with fixed-point flow where parity needs it, without widening into liveness-backed dead-store elimination.
+- **CFG/value substrate:** Binaryen has fuller general fixed-point CFG flow than Starshine's targeted direct-pass substrate. `[RSE]002` now has no known direct semantic blocker after the safe loop-invariant default-write subset and `try_table` barrier; future work should only add broader fixed-point flow when a real parity case needs it, without widening into liveness-backed dead-store elimination.

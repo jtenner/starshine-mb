@@ -372,6 +372,7 @@ fn rse_visit_control(
     }
     @ir.HotOp::Loop => {
       let loop_state = RseState::clone_from(state)
+      rse_clear_all_local_values(loop_state)
       let scope = RseLabelScope::new(
         @ir.hot_control_node_label(func, node_id),
         RseLabelKind::RseLoopLabel,
@@ -662,6 +663,99 @@ fn rse_raw_default_value_for_type(ty : @lib.ValType) -> String? {
     @lib.RefTypeValType(ref_type) if ref_type.is_nullable() =>
       Some("ref.null:\{ref_type.make_nullable()}")
     _ => None
+  }
+}
+
+///|
+fn rse_raw_default_instr_value(instr : @lib.Instruction) -> String? {
+  match instr {
+    @lib.Instruction::I32Const(value) => Some("i32:\{value}")
+    @lib.Instruction::I64Const(value) => Some("i64:\{value}")
+    @lib.Instruction::F32Const(value) => Some("f32:\{value}")
+    @lib.Instruction::F64Const(value) => Some("f64:\{value}")
+    @lib.Instruction::RefNull(ref_type) => Some("ref.null:\{ref_type}")
+    _ => None
+  }
+}
+
+///|
+fn rse_raw_loop_write_counts(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+  default_value : String,
+) -> (Int, Int) {
+  let mut writes = 0
+  let mut default_writes = 0
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    match instr {
+      @lib.Instruction::LocalSet(local_idx)
+      | @lib.Instruction::LocalTee(local_idx) =>
+        if rse_raw_local_id(local_idx) == local_id {
+          writes += 1
+          if idx > 0 {
+            match rse_raw_default_instr_value(instrs[idx - 1]) {
+              Some(value) if value == default_value => default_writes += 1
+              _ => ()
+            }
+          }
+        }
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body))
+      | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => {
+        let (nested_writes, nested_default_writes) = rse_raw_loop_write_counts(
+          body, local_id, default_value,
+        )
+        writes += nested_writes
+        default_writes += nested_default_writes
+      }
+      @lib.Instruction::If(_, then_body, else_body) => {
+        let (then_writes, then_default_writes) = rse_raw_loop_write_counts(
+          then_body, local_id, default_value,
+        )
+        writes += then_writes
+        default_writes += then_default_writes
+        match else_body {
+          Some(else_instrs) => {
+            let (else_writes, else_default_writes) = rse_raw_loop_write_counts(
+              else_instrs, local_id, default_value,
+            )
+            writes += else_writes
+            default_writes += else_default_writes
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (writes, default_writes)
+}
+
+///|
+fn rse_raw_prepare_loop_entry(
+  state : RseRawState,
+  loop_state : RseRawState,
+  body : Array[@lib.Instruction],
+) -> Unit {
+  rse_raw_clear_values(loop_state)
+  loop_state.stack.clear()
+  for local_id = 0
+      local_id < loop_state.local_values.length()
+      local_id = local_id + 1 {
+    match rse_raw_default_value_for_type(loop_state.local_types[local_id]) {
+      Some(default_value) => {
+        let (writes, default_writes) = rse_raw_loop_write_counts(
+          body, local_id, default_value,
+        )
+        if writes == 0 {
+          loop_state.local_values[local_id] = state.local_values[local_id]
+        } else if writes == default_writes {
+          loop_state.local_values[local_id] = default_value
+        }
+      }
+      None => ()
+    }
   }
 }
 
@@ -968,6 +1062,11 @@ fn rse_raw_rewrite_expr_scoped(
         out.push(instr)
         rse_raw_push(state, value)
       }
+      @lib.Instruction::AnyConvertExtern | @lib.Instruction::ExternConvertAny => {
+        let value = rse_raw_pop(state)
+        out.push(instr)
+        rse_raw_push(state, rse_raw_unary_key(instr.to_string(), value))
+      }
       @lib.Instruction::StructGet(type_idx, field_idx) => {
         let receiver = rse_raw_pop(state)
         match
@@ -1122,6 +1221,26 @@ fn rse_raw_rewrite_expr_scoped(
           rse_raw_push(state, rse_raw_fresh(state))
         }
       }
+      @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
+        let body_state = RseRawState::clone_from(state)
+        let scope = RseRawLabelScope::new(RseRawLabelKind::ExitLabel)
+        scopes.push(scope)
+        let next = rse_raw_rewrite_expr_scoped(body, body_state, scopes)
+        ignore(scopes.pop())
+        if body_state.changed {
+          state.changed = true
+        }
+        if body_state.next_unknown > state.next_unknown {
+          state.next_unknown = body_state.next_unknown
+        }
+        out.push(
+          @lib.Instruction::try_table(block_type, catches, @lib.Expr::new(next)),
+        )
+        state.stack.clear()
+        rse_raw_clear_values(state)
+        state.reachable = true
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
       @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
         let scope = RseRawLabelScope::new(RseRawLabelKind::ExitLabel)
         scopes.push(scope)
@@ -1142,6 +1261,7 @@ fn rse_raw_rewrite_expr_scoped(
       }
       @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
         let loop_state = RseRawState::clone_from(state)
+        rse_raw_prepare_loop_entry(state, loop_state, body)
         let scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
         scopes.push(scope)
         let next = rse_raw_rewrite_expr_scoped(body, loop_state, scopes)
