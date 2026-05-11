@@ -72,10 +72,12 @@ Completed direct-pass slices
 #### DAE - Dead Argument Elimination Optimizing
 
 - [DAE]001 - Call-Graph Pruning and Touched-Function Tracking
-  - Deliverables: remove dead call parameters safely across direct users; localize call targets where Binaryen does; track the touched-function set for nested cleanup reruns.
+  - Status: partial active implementation landed on 2026-05-11. `dae-optimizing` and `dead-argument-elimination-optimizing` are active module-pass names; the first core handles private direct-call dead scalar parameter removal, preserves removed actual side effects including value-producing `if` operands, rejects exported / `ref.func` escaped targets, and prunes unused simple function types.
+  - Remaining deliverables: broader Binaryen DAE parity for constant actual materialization, forwarding/recursive cycles, GC param/result refinement, full call operand localization, dropped/uncalled result removal, and the remaining direct compare mismatches. Current evidence: `.tmp/pass-fuzz-dae-optimizing-final5` at `--count 10000 --seed 0x5eed --pass dae-optimizing --max-failures 20` stopped after `45` compared cases with `26` normalized matches, `19` mismatches, `0` validation failures, and `1` Binaryen/tool command failure; artifact replay `.tmp/dae-optimizing-artifact-replay-final` stays semantically red at first differing function `defined=11 abs=28` but Starshine pass-local time was faster (`653.268ms` vs Binaryen `919.973ms`).
 
 - [DAE]002 - Nested Post-Inlining Cleanup and Artifact Compare
-  - Deliverables: prepend `precompute-propagate` before rerunning the default function pipeline on touched functions; add nested-run scheduler tests; compare `--dae-optimizing` output on the debug artifact.
+  - Status: blocked by the lack of a touched-function-filtered nested scheduler. The pass emits a trace marker for the required `precompute-propagate` prefix, but intentionally does not run the whole-module cleanup lane because that rewrote untouched functions and worsened direct parity.
+  - Deliverables: implement a touched-function scheduler that prepends `precompute-propagate` before rerunning the default function pipeline only on Binaryen's touched set; add nested-run scheduler tests; compare `--dae-optimizing` output on the debug artifact.
 
 #### INL - Inlining Optimizing
 

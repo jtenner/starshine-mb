@@ -32,20 +32,25 @@ related:
 
 ## Current status
 
-Starshine does **not** currently implement Binaryen's exact upstream `dae-optimizing` pass.
+Starshine now has a **partial active module-pass implementation** for Binaryen's upstream `dae-optimizing` pass.
 
-The important local distinction is naming:
+The local naming caveat was resolved in the first implementation slice:
 
 - upstream Binaryen exposes the public pass name `dae-optimizing`;
-- Starshine's current boundary-only registry list in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) contains the descriptive local name `dead-argument-elimination-optimizing`;
-- the saved generated-artifact audit and Binaryen path docs still use the canonical upstream spelling `dae-optimizing`.
+- Starshine now registers the exact canonical spelling `dae-optimizing` as an active module pass;
+- Starshine also keeps the descriptive compatibility spelling `dead-argument-elimination-optimizing` as an active alias for the same optimizing module pass;
+- plain `dead-argument-elimination` remains boundary-only and does not run the optimizing nested-cleanup trace.
 
-Because [`run_hot_pipeline_expand_passes(...)`](../../../../../src/passes/optimize.mbt) does exact lookup before category rejection, current behavior is:
+Current implemented behavior is intentionally narrower than full Binaryen DAE:
 
-- `dead-argument-elimination-optimizing` is known but rejected as boundary-only;
-- `dae-optimizing` is the upstream/audit/backlog spelling, but not currently a local registry entry unless an alias is added later.
+- private direct-call dead scalar parameter removal;
+- removed actual side-effect preservation with `drop` repair;
+- export and `ref.func` / element escape bailouts;
+- value-producing `if` operands are preserved with `drop` repair when their parameter is removed;
+- unused simple function type pruning after signature changes;
+- a nested-cleanup trace marker for the required `precompute-propagate` prefix.
 
-That mismatch is a documentation and planning caveat for future work, not evidence that the pass is already partially implemented.
+Current non-parity caveat: the real touched-function-filtered nested cleanup scheduler is not implemented yet. A whole-module cleanup experiment rewrote unrelated functions and worsened direct parity, so the active pass records the nested lane but does not run the default cleanup pipeline until a filtered scheduler lands.
 
 For a concrete future implementation sequence and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This status page stays focused on current local truth.
 
@@ -54,10 +59,9 @@ For a concrete future implementation sequence and validation ladder, use [`./sta
 ## Registry and request behavior
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - `pass_registry_boundary_only_names()` lists `dead-argument-elimination` and `dead-argument-elimination-optimizing`.
-  - `pass_registry_entries()` appends all boundary-only names as `HotPassRegistryCategory::BoundaryOnly` entries.
-  - `run_hot_pipeline_expand_passes(...)` rejects boundary-only entries with the error text `pass flag {name} is boundary-only and is not implemented in the hot pipeline`.
-  - `optimize_preset_passes(...)` and `shrink_preset_passes(...)` list only currently implemented hot/module passes; they do not include `dae-optimizing` or `dead-argument-elimination-optimizing` today.
+  - `pass_registry_entries()` registers `dae-optimizing` and `dead-argument-elimination-optimizing` as `HotPassRegistryCategory::ModulePass` entries.
+  - `pass_registry_boundary_only_names()` still lists plain `dead-argument-elimination` as boundary-only.
+  - `optimize_preset_passes(...)` and `shrink_preset_passes(...)` do not include `dae-optimizing` yet because direct parity and the touched-function nested scheduler are still incomplete.
 
 - [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
   - The registry tests prove the active/boundary/removed classification mechanism, but they do not yet have a dedicated assertion for either DAE optimizing spelling.

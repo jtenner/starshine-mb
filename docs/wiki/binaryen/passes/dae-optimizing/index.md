@@ -35,9 +35,9 @@ related:
 ## Role
 
 - `dae-optimizing` is an upstream Binaryen late global optimizing pass.
-- It is currently **unimplemented** in Starshine.
-- The exact upstream spelling `dae-optimizing` appears in Binaryen, the saved generated-artifact audit, the canonical no-DWARF path, and backlog language.
-- The current local boundary-only registry entry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) is instead the descriptive local name `dead-argument-elimination-optimizing`; see [`./starshine-strategy.md`](./starshine-strategy.md) for the local naming caveat.
+- It is currently **partially implemented** in Starshine as an active module pass.
+- The exact upstream spelling `dae-optimizing` appears in Binaryen, the saved generated-artifact audit, the canonical no-DWARF path, backlog language, and now the local active registry.
+- The descriptive local name `dead-argument-elimination-optimizing` remains as an active compatibility alias for the same optimizing module pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for the current scope and remaining parity caveats.
 - Binaryen also exposes the related plain pass name `dae`, tracked locally and in the neighboring dossier as `dead-argument-elimination`.
 - The `dae-optimizing` variant is the same core dead-argument-elimination engine **plus** a nested cleanup helper that reruns useful function passes on the touched functions.
 - A 2026-05-05 current-main freshness layer now keeps the same reading visible in the source archive and adds a dedicated implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
@@ -88,11 +88,10 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
   - call-operand localization before removal when needed
 - Tail calls are an important bailout family, especially for return-value removal.
 - The `optimizing` part really matters: Binaryen reruns `precompute-propagate` plus the default function optimization pipeline on the touched functions after DAE changes.
-- A future Starshine port must preserve both halves:
-  - the signature-rewrite algorithm
-  - the nested rerun scheduler behavior
-- The 2026-05-05 current-main recheck found no teaching-relevant drift from the `version_129` contract and now has a dedicated readiness bridge for the future port.
-- A future local naming decision is still open: add an exact `dae-optimizing` alias, rename the descriptive registry entry, or keep the mapping documented.
+- The active Starshine port preserves only the first scalar dead-parameter subset of the signature-rewrite algorithm so far; dropped/uncalled result removal and broader Binaryen families remain active backlog work.
+- The nested rerun scheduler behavior is not complete: Starshine records the optimizing helper lane in trace output, but still needs a touched-function-filtered scheduler before it can safely run `precompute-propagate` plus the default function pipeline.
+- The 2026-05-05 current-main recheck found no teaching-relevant drift from the `version_129` contract and now has a dedicated readiness bridge for the port.
+- The local naming decision is no longer open for the optimizing sibling: `dae-optimizing` is canonical and `dead-argument-elimination-optimizing` is a descriptive alias.
 
 ## Page map
 
@@ -113,6 +112,6 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `dae-optimizing` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary pass plus nested rerun scheduler support.
-- Do not describe `dae-optimizing` as an exact current Starshine registry spelling unless `src/passes/optimize.mbt` adds that alias.
+- Keep it explicitly marked as **partial** until direct compare-pass parity and the touched-function nested rerun scheduler land.
+- Describe `dae-optimizing` as an exact current Starshine registry spelling, but do not claim full Binaryen parity yet.
 - New `dae-optimizing` findings should update the strategy page, implementation/test-map page, signature/rerun page, and readiness bridge so the source ownership, boundary algorithm, scheduler story, and implementation checklist stay aligned.

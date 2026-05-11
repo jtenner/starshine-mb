@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-11] passes | partial dae-optimizing module port
+
+- Added active `dae-optimizing` and `dead-argument-elimination-optimizing` module-pass registry/dispatcher support plus pass-fuzz-compare support for the canonical name.
+- Added a first DAE engine covering private direct-call scalar dead-param removal, side-effect-preserving removed actual repair including value-producing `if` operands, export / `ref.func` / element escape bailouts, and unused simple function type pruning.
+- Added focused tests in `src/passes/dae_optimizing_test.mbt` for registry activation, direct call rewrites, side-effect preservation, structured operand preservation, escape bailouts, type pruning, and nested-cleanup trace emission.
+- Direct compare remains red: `.tmp/pass-fuzz-dae-optimizing-final5` with `--count 10000 --seed 0x5eed --pass dae-optimizing --max-failures 20` stopped after `45` compared cases with `26` normalized matches, `19` mismatches, `0` validation failures, and `1` Binaryen/tool command failure. Artifact replay `.tmp/dae-optimizing-artifact-replay-final` also remains red at first differing function `defined=11 abs=28` while Starshine pass-local time is faster (`653.268ms` vs Binaryen `919.973ms`). Keep `[DAE]001` and `[DAE]002` active until dropped/uncalled result removal, full Binaryen parity, and a touched-function-filtered nested cleanup scheduler land.
+
 ## [2026-05-11] passes | shrink vacuum large RSE debris
 
 - Added a focused `vacuum` regression for large functions whose nested value-expression controls contain pure `drop(const)` / `nop` debris beyond the HOT nested-child traversal budget.

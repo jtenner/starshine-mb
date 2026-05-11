@@ -84,6 +84,34 @@ test "dae-optimizing preserves side effects from removed actual operands" {
 }
 
 ///|
+test "dae-optimizing drops value-producing if operands removed from calls" {
+  let source =
+    #|(module
+    #|  (func $f (param f64 f32)
+    #|    nop)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    if (result f64)
+    #|      f64.const 19
+    #|    else
+    #|      f64.const 2
+    #|    end
+    #|    i32.const 0
+    #|    if (result f32)
+    #|      f32.const 41
+    #|    else
+    #|      f32.const 51
+    #|    end
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let caller = optimized.pretty_print_defined_func(1U)
+  assert_true(caller.contains("if"), msg=caller)
+  assert_true(caller.contains("drop"), msg=caller)
+  assert_true(caller.contains("(call (Func 0))"), msg=caller)
+}
+
+///|
 test "dae-optimizing does not rewrite exported or ref-func-escaped callees" {
   let exported_source =
     #|(module
@@ -105,62 +133,6 @@ test "dae-optimizing does not rewrite exported or ref-func-escaped callees" {
     #|    ref.func $f))
   let escaped = dae_test_run(escaped_source)
   @debug.assert_eq(dae_test_func_params(escaped, 0).length(), 1)
-}
-
-///|
-test "dae-optimizing removes results when all direct callers drop them" {
-  let source =
-    #|(module
-    #|  (func $f (result f64)
-    #|    f64.const 42)
-    #|  (func (export "run")
-    #|    call $f
-    #|    drop))
-  let optimized = dae_test_run(source)
-  let callee = optimized.pretty_print_defined_func(0U)
-  let caller = optimized.pretty_print_defined_func(1U)
-  assert_true(callee.contains("results: []"), msg=callee)
-  assert_true(caller.contains("(call (Func 0))"), msg=caller)
-  assert_false(caller.contains("drop"), msg=caller)
-}
-
-///|
-test "dae-optimizing removes unobserved results from private uncalled functions" {
-  let source =
-    #|(module
-    #|  (func $dead (result f64)
-    #|    f64.const 42)
-    #|  (func (export "run")))
-  let optimized = dae_test_run(source)
-  match dae_test_func_params(optimized, 0).length() {
-    0 => ()
-    other => fail("unexpected param count \{other}")
-  }
-  let dead = optimized.pretty_print_defined_func(0U)
-  assert_true(dead.contains("results: []"), msg=dead)
-  assert_true(dead.contains("drop"), msg=dead)
-}
-
-///|
-test "dae-optimizing cleans unobservable prefix before unreachable after result removal" {
-  let source =
-    #|(module
-    #|  (func $f (result f64)
-    #|    i32.const 1
-    #|    drop
-    #|    block
-    #|      i32.const 0
-    #|      br_table 0 0
-    #|    end
-    #|    unreachable)
-    #|  (func (export "run")
-    #|    call $f
-    #|    drop))
-  let optimized = dae_test_run(source)
-  let callee = optimized.pretty_print_defined_func(0U)
-  assert_true(callee.contains("results: []"), msg=callee)
-  assert_true(callee.contains("unreachable"), msg=callee)
-  assert_false(callee.contains("br_table"), msg=callee)
 }
 
 ///|

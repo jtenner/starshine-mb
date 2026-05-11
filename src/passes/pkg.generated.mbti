@@ -27,6 +27,12 @@ pub fn code_pushing_descriptor() -> @ir.HotPassDescriptor
 
 pub fn code_pushing_summary() -> String
 
+pub fn dae_optimizing_summary() -> String
+
+pub fn dae_run_module_pass(@lib.Module, optimize? : Bool, trace? : ((String) -> Unit)?) -> @lib.Module
+
+pub fn dae_summary() -> String
+
 pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor
 
 pub fn dead_code_elimination_summary() -> String
