@@ -2250,6 +2250,12 @@ fn dae_try_remove_uncalled_results(
       (type_idxs.copy(), funcs.copy(), type_sec)
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
+    funcs[def_idx],
+  )
+  if !dae_func_is_unreachable_only(simplified) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   funcs[def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
@@ -2453,10 +2459,17 @@ fn dae_run_core_once(
       } else {
         0
       }
-      let skip_uncalled_after_param_cleanup = originally_had_params &&
-        dae_func_is_unreachable_only(funcs[def_idx]) &&
-        original_call_count > 0 &&
-        (original_prior_calls == 0 || original_prior_undropped_calls > 0)
+      let skip_uncalled_after_param_cleanup = dae_func_is_unreachable_only(
+          dae_simplify_to_unreachable_when_prefix_unobservable(funcs[def_idx]),
+        ) &&
+        (
+          (
+            originally_had_params &&
+            original_call_count > 0 &&
+            (original_prior_calls == 0 || original_prior_undropped_calls > 0)
+          ) ||
+          (!originally_had_params && original_prior_undropped_calls > 0)
+        )
       let skip_self_suffix_result = original_self_calls > 0 &&
         skip_uncalled_after_param_cleanup
       if self_calls_anywhere > 0 &&
@@ -2470,6 +2483,7 @@ fn dae_run_core_once(
         }
       }
       if !skip_uncalled_after_param_cleanup &&
+        original_call_count > 0 &&
         (
           self_calls_anywhere == 0 ||
           dae_count_module_calls_anywhere_to(funcs, callee_abs) !=

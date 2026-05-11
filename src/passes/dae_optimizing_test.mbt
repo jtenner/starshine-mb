@@ -169,6 +169,17 @@ test "dae-optimizing removes results when all direct callers drop them" {
 }
 
 ///|
+test "dae-optimizing preserves uncalled no-param results like Binaryen" {
+  let source =
+    #|(module
+    #|  (func $dead (result i64)
+    #|    i64.const 1)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 1)
+}
+
+///|
 test "dae-optimizing removes unobserved params and results from unreachable private functions" {
   let source =
     #|(module
@@ -190,6 +201,24 @@ test "dae-optimizing removes unobserved params and results from unreachable priv
   let dead = optimized.pretty_print_defined_func(0U)
   assert_true(dead.contains("unreachable"), msg=dead)
   assert_false(dead.contains("f64.const"), msg=dead)
+}
+
+///|
+test "dae-optimizing keeps no-param results with prior undropped dead-suffix calls" {
+  let source =
+    #|(module
+    #|  (func (export "run") (result i64)
+    #|    unreachable
+    #|    call $f)
+    #|  (func $f (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f
+    #|    drop
+    #|    i64.const 1))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
 }
 
 ///|
