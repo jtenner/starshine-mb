@@ -252,6 +252,26 @@ test "dae-optimizing removes dropped results from no-param dead self suffixes" {
 }
 
 ///|
+test "dae-optimizing keeps results when dead self suffix has another call" {
+  let source =
+    #|(module
+    #|  (func $side (result i64)
+    #|    unreachable)
+    #|  (func $dead (param i64) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $side
+    #|    drop
+    #|    local.get 0
+    #|    call $dead)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+}
+
+///|
 test "dae-optimizing keeps originally-parameterized dead self-suffix results" {
   let source =
     #|(module

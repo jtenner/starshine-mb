@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: preserve DAE results across dead-suffix side calls
+
+- **preserve result signatures when an unreachable callee's dead suffix contains another direct call before self-recursive evidence, matching Binaryen's conservative result-removal scheduling; focused pass tests pass and `.tmp/pass-fuzz-dae-other-call-preserve` reports `199/200` compared, `192` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `7` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: preserve undropped DAE self-suffix results
 
 - **preserve no-param results when the only original evidence is an undropped dead-suffix self call, while still removing dropped no-param self-suffix results; focused pass tests pass and `.tmp/pass-fuzz-dae-undropped-self-preserve` reports `199/200` compared, `190` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `9` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

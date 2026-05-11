@@ -2003,6 +2003,30 @@ fn dae_has_undropped_direct_call_to(
 }
 
 ///|
+fn dae_dead_suffix_has_other_call(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      let mut suffix_idx = idx + 1
+      while suffix_idx < instrs.length() {
+        match instrs[suffix_idx] {
+          @lib.Call(func_idx) if dae_func_idx_slot(func_idx) != callee_abs =>
+            return true
+          _ => ()
+        }
+        suffix_idx += 1
+      }
+      return false
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn dae_dead_suffix_has_dropped_direct_call_to(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -2142,6 +2166,10 @@ fn dae_try_remove_unobserved_unreachable_function(
     funcs, callee_abs,
   )
   if module_calls_anywhere == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if results.length() > 0 &&
+    dae_dead_suffix_has_other_call(callee_body, callee_abs) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   if params.length() == 0 &&
