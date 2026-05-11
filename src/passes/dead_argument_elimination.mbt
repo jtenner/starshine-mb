@@ -244,8 +244,12 @@ fn dae_scan_calls_instrs(
   direct_calls : Array[Int],
   tail_calls : Array[Bool],
 ) -> Unit {
-  for instr in instrs {
-    match instr {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      break
+    }
+    match instrs[idx] {
       @lib.Call(func_idx) => {
         let slot = dae_func_idx_slot(func_idx)
         if slot >= 0 && slot < direct_calls.length() {
@@ -270,6 +274,7 @@ fn dae_scan_calls_instrs(
         dae_scan_calls_instrs(then_body, direct_calls, tail_calls)
       _ => ()
     }
+    idx += 1
   }
 }
 
@@ -936,6 +941,10 @@ fn dae_rewrite_calls_instrs(
   let mut idx = 0
   let mut calls = 0
   while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      out.push(@lib.Instruction::unreachable_())
+      break
+    }
     match instrs[idx] {
       @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
         let prefix = out
@@ -1560,6 +1569,10 @@ fn dae_rewrite_dropped_result_calls_instrs(
   let mut rewrites = 0
   let mut idx = 0
   while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      out.push(@lib.Instruction::unreachable_())
+      break
+    }
     if idx + 1 < instrs.length() {
       match (instrs[idx], instrs[idx + 1]) {
         (@lib.Call(func_idx), @lib.Drop) if dae_func_idx_slot(func_idx) ==
@@ -1633,6 +1646,9 @@ fn dae_count_dropped_direct_calls_instrs(
 ) -> Unit {
   let mut idx = 0
   while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      break
+    }
     if idx + 1 < instrs.length() {
       match (instrs[idx], instrs[idx + 1]) {
         (@lib.Call(func_idx), @lib.Drop) => {
@@ -1760,6 +1776,319 @@ fn dae_try_remove_dropped_results(
 }
 
 ///|
+fn dae_func_is_unreachable_only(func : @lib.Func) -> Bool {
+  let @lib.Func(_, @lib.Expr(body)) = func
+  body.length() == 1 && dae_instr_is_unreachable_root(body[0])
+}
+
+///|
+fn dae_instrs_contain_direct_call_to(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if dae_instrs_contain_direct_call_to(body, callee_abs) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if dae_instrs_contain_direct_call_to(then_body, callee_abs) ||
+          dae_instrs_contain_direct_call_to(else_body, callee_abs) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if dae_instrs_contain_direct_call_to(then_body, callee_abs) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn dae_repair_dead_suffix_calls_instr(
+  instr : @lib.Instruction,
+  callee_abs : Int,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten, changed) = dae_repair_dead_suffix_calls_instrs(
+        body, callee_abs,
+      )
+      (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), changed)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten, changed) = dae_repair_dead_suffix_calls_instrs(
+        body, callee_abs,
+      )
+      (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), changed)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten, changed) = dae_repair_dead_suffix_calls_instrs(
+        body, callee_abs,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten),
+        ),
+        changed,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (then_rewritten, then_changed) = dae_repair_dead_suffix_calls_instrs(
+        then_body, callee_abs,
+      )
+      let mut changed = then_changed
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let (else_rewritten, else_changed) = dae_repair_dead_suffix_calls_instrs(
+            body, callee_abs,
+          )
+          changed = changed || else_changed
+          Some(else_rewritten)
+        }
+        None => None
+      }
+      (
+        @lib.Instruction::if_(block_type, then_rewritten, rewritten_else),
+        changed,
+      )
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn dae_repair_dead_suffix_calls_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      let suffix : Array[@lib.Instruction] = []
+      let mut suffix_idx = idx + 1
+      while suffix_idx < instrs.length() {
+        suffix.push(instrs[suffix_idx])
+        suffix_idx += 1
+      }
+      if dae_instrs_contain_direct_call_to(suffix, callee_abs) {
+        out.push(@lib.Instruction::unreachable_())
+        return (out, true)
+      }
+    }
+    let (rewritten, nested_changed) = dae_repair_dead_suffix_calls_instr(
+      instrs[idx],
+      callee_abs,
+    )
+    changed = changed || nested_changed
+    out.push(rewritten)
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn dae_repair_dead_suffix_calls_func(
+  func : @lib.Func,
+  callee_abs : Int,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (rewritten, changed) = dae_repair_dead_suffix_calls_instrs(
+    body, callee_abs,
+  )
+  (@lib.Func::new(locals, @lib.Expr::new(rewritten)), changed)
+}
+
+///|
+fn dae_count_self_calls(func : @lib.Func, callee_abs : Int) -> Int {
+  let direct_calls = Array::make(callee_abs + 1, 0)
+  let tail_calls = Array::make(callee_abs + 1, false)
+  let @lib.Func(_, @lib.Expr(body)) = func
+  dae_scan_calls_instrs(body, direct_calls, tail_calls)
+  direct_calls[callee_abs]
+}
+
+///|
+fn dae_count_direct_call_anywhere_to(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        count += 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += dae_count_direct_call_anywhere_to(body, callee_abs)
+      @lib.If(_, then_body, Some(else_body)) => {
+        count += dae_count_direct_call_anywhere_to(then_body, callee_abs)
+        count += dae_count_direct_call_anywhere_to(else_body, callee_abs)
+      }
+      @lib.If(_, then_body, None) =>
+        count += dae_count_direct_call_anywhere_to(then_body, callee_abs)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn dae_count_self_calls_anywhere(func : @lib.Func, callee_abs : Int) -> Int {
+  let @lib.Func(_, @lib.Expr(body)) = func
+  dae_count_direct_call_anywhere_to(body, callee_abs)
+}
+
+///|
+fn dae_count_module_calls_anywhere_to(
+  funcs : Array[@lib.Func],
+  callee_abs : Int,
+) -> Int {
+  let mut count = 0
+  for func in funcs {
+    let @lib.Func(_, @lib.Expr(body)) = func
+    count += dae_count_direct_call_anywhere_to(body, callee_abs)
+  }
+  count
+}
+
+///|
+fn dae_has_undropped_direct_call_to(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        if idx + 1 >= instrs.length() ||
+          instrs[idx + 1] != @lib.Instruction::drop() {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if dae_has_undropped_direct_call_to(body, callee_abs) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if dae_has_undropped_direct_call_to(then_body, callee_abs) ||
+          dae_has_undropped_direct_call_to(else_body, callee_abs) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if dae_has_undropped_direct_call_to(then_body, callee_abs) {
+          return true
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_dead_suffix_has_undropped_direct_call_to(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      let suffix : Array[@lib.Instruction] = []
+      let mut suffix_idx = idx + 1
+      while suffix_idx < instrs.length() {
+        suffix.push(instrs[suffix_idx])
+        suffix_idx += 1
+      }
+      return dae_has_undropped_direct_call_to(suffix, callee_abs)
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_try_remove_unobserved_unreachable_function(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let def_idx = callee_abs - imported
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params.length() == 0 && results.length() == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (type_idxs, funcs, type_sec) = match
+    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
+      (type_idxs.copy(), funcs.copy(), type_sec)
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(_, @lib.Expr(callee_body)) = funcs[def_idx]
+  if dae_count_module_calls_anywhere_to(funcs, callee_abs) == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
+    funcs[def_idx],
+  )
+  if !dae_func_is_unreachable_only(simplified) ||
+    (
+      results.length() > 0 &&
+      !dae_dead_suffix_has_undropped_direct_call_to(callee_body, callee_abs)
+    ) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut func_idx = 0
+  while func_idx < funcs.length() {
+    if func_idx != def_idx {
+      let (repaired, _) = dae_repair_dead_suffix_calls_func(
+        funcs[func_idx],
+        callee_abs,
+      )
+      funcs[func_idx] = repaired
+    }
+    func_idx += 1
+  }
+  funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::unreachable_()]),
+  )
+  let (next_type_sec, new_type_idx) = dae_append_new_func_type(type_sec, [], [])
+  type_idxs[def_idx] = new_type_idx
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_remove_uncalled_results(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -1835,13 +2164,28 @@ fn dae_run_core_once(
       def_idx += 1
       continue
     }
+    let self_calls = dae_count_self_calls(funcs[def_idx], callee_abs)
+    let self_calls_anywhere = dae_count_self_calls_anywhere(
+      funcs[def_idx],
+      callee_abs,
+    )
+    if direct_calls[callee_abs] == self_calls {
+      let unobserved = dae_try_remove_unobserved_unreachable_function(
+        mod_, callee_abs,
+      )
+      if unobserved.changed {
+        return unobserved
+      }
+    }
     if direct_calls[callee_abs] == 0 {
       let result = dae_try_remove_uncalled_results(mod_, callee_abs)
       if result.changed {
         return result
       }
-      def_idx += 1
-      continue
+      if self_calls_anywhere == 0 {
+        def_idx += 1
+        continue
+      }
     }
     let func_type = match
       dae_resolve_func_type(mod_, type_indices, callee_abs) {
@@ -1959,6 +2303,46 @@ fn dae_count_touched(touched : Array[Bool]) -> Int {
 }
 
 ///|
+fn dae_repair_dead_suffix_calls_to_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  if touched.length() == 0 {
+    return mod_
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => return mod_
+  }
+  let imported = dae_imported_func_count(mod_)
+  let mut any = false
+  let mut def_idx = 0
+  while def_idx < touched.length() {
+    if touched[def_idx] {
+      let callee_abs = imported + def_idx
+      let mut func_idx = 0
+      while func_idx < funcs.length() {
+        let (repaired, changed) = dae_repair_dead_suffix_calls_func(
+          funcs[func_idx],
+          callee_abs,
+        )
+        if changed {
+          funcs[func_idx] = repaired
+          any = true
+        }
+        func_idx += 1
+      }
+    }
+    def_idx += 1
+  }
+  if any {
+    mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec()
+  } else {
+    mod_
+  }
+}
+
+///|
 fn dae_run_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -1985,11 +2369,15 @@ pub fn dae_run_module_pass(
   trace? : ((String) -> Unit)? = None,
 ) -> @lib.Module {
   let result = dae_run_core(mod_)
+  let repaired = dae_repair_dead_suffix_calls_to_touched(
+    result.mod_out,
+    result.touched,
+  )
   let trace_fn = match trace {
     Some(cb) => cb
     None => fn(_line : String) { () }
   }
   dae_prune_unused_simple_func_types(
-    dae_run_nested_cleanup(result.mod_out, result.touched, trace_fn, optimize),
+    dae_run_nested_cleanup(repaired, result.touched, trace_fn, optimize),
   )
 }

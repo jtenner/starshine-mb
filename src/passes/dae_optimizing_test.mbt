@@ -1,8 +1,5 @@
 ///|
-fn dae_test_func_params(
-  mod_ : @lib.Module,
-  def_idx : Int,
-) -> Array[@lib.ValType] {
+fn dae_test_func_type(mod_ : @lib.Module, def_idx : Int) -> @lib.FuncType {
   let type_idx = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs[def_idx]
     None => abort("missing func section")
@@ -12,13 +9,32 @@ fn dae_test_func_params(
       match rec_types[raw.reinterpret_as_int()] {
         @lib.SingleRecType(subtype) =>
           match subtype.get_comptype() {
-            @lib.FuncCompType(params, _) => params
+            @lib.FuncCompType(params, results) =>
+              @lib.FuncType::new(params, results)
             _ => abort("expected func type")
           }
         @lib.GroupRecType(_) => abort("unexpected group type")
       }
     _ => abort("missing concrete type")
   }
+}
+
+///|
+fn dae_test_func_params(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> Array[@lib.ValType] {
+  let @lib.FuncType(params, _) = dae_test_func_type(mod_, def_idx)
+  params
+}
+
+///|
+fn dae_test_func_results(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> Array[@lib.ValType] {
+  let @lib.FuncType(_, results) = dae_test_func_type(mod_, def_idx)
+  results
 }
 
 ///|
@@ -153,19 +169,25 @@ test "dae-optimizing removes results when all direct callers drop them" {
 }
 
 ///|
-test "dae-optimizing removes unobserved results from private uncalled functions" {
+test "dae-optimizing removes unobserved params and results from unreachable private functions" {
   let source =
     #|(module
-    #|  (func $dead (result f64)
-    #|    f64.const 42)
+    #|  (func $dead (param i32 f64) (result f64)
+    #|    i32.const 1
+    #|    drop
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    f64.const 42
+    #|    call $dead)
     #|  (func (export "run")))
   let optimized = dae_test_run(source)
-  match dae_test_func_params(optimized, 0).length() {
-    0 => ()
-    other => fail("unexpected param count \{other}")
-  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
   let dead = optimized.pretty_print_defined_func(0U)
-  assert_true(dead.contains("results: []"), msg=dead)
   assert_true(dead.contains("unreachable"), msg=dead)
   assert_false(dead.contains("f64.const"), msg=dead)
 }
