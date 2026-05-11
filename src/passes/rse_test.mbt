@@ -216,6 +216,61 @@ fn rse_test_needs_refinalize_module() -> @lib.Module {
 }
 
 ///|
+fn rse_test_array_get_refinalize_module() -> @lib.Module {
+  let a_idx = @lib.TypeIdx::new(0U)
+  let b_idx = @lib.TypeIdx::new(1U)
+  let nullable_a_ref = @lib.ValType::ref_array_nullable(a_idx)
+  let b_ref = @lib.ValType::ref_array_nonnull(b_idx)
+  let a = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [],
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(nullable_a_ref),
+          @lib.Mut::const_(),
+        ),
+      ),
+    ),
+  )
+  let b = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [a_idx],
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(b_ref),
+          @lib.Mut::const_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([b_ref], [@lib.ValType::anyref()]),
+    ),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([a, b, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([nullable_a_ref]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32::new(0)),
+          @lib.Instruction::array_get(a_idx),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "rse removes body-local default same-value set shells" {
   let optimized = match
     pass_test_run_pipeline(
@@ -391,6 +446,29 @@ test "rse retargets struct.get after redundant tee removal for refinalized field
     other =>
       fail(
         "expected redundant tee to be removed and struct.get retargeted to subtype, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse retargets array.get after redundant tee removal for refinalized element type" {
+  let optimized = rse_test_run_module(rse_test_array_get_refinalize_module())
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::LocalGet(@lib.LocalIdx(first_get)),
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::LocalGet(@lib.LocalIdx(second_get)),
+      @lib.Instruction::I32Const(_),
+      @lib.Instruction::ArrayGet(@lib.TypeIdx(array_type)),
+    ] => {
+      @debug.assert_eq(first_get, 0U)
+      @debug.assert_eq(second_get, 0U)
+      @debug.assert_eq(array_type, 1U)
+    }
+    other =>
+      fail(
+        "expected redundant tee to be removed and array.get retargeted to subtype, got \{@debug.to_string(other)}",
       )
   }
 }

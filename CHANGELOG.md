@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-10 Passes: cover RSE array.get refinalization
+
+- **broaden `redundant-set-elimination` GC coverage with an `array.get` `needs-refinalize`-style raw fixture, retarget `array.get*` receivers to equivalent strict-subtype locals after redundant tee removal, and keep direct compare-pass semantic parity green at `.tmp/pass-fuzz-rse-rse002-array-get-refinalize`** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-10 Passes: cover RSE struct.get refinalization
 
 - **broaden `redundant-set-elimination` GC coverage with a `needs-refinalize`-style raw fixture, retarget `struct.get*` receivers to equivalent strict-subtype locals after redundant tee removal, and keep direct compare-pass semantic parity green at `.tmp/pass-fuzz-rse-rse002-struct-get-refinalize`** by **@OpenAI**. Updated [`src/passes/rse.mbt`](./src/passes/rse.mbt), [`src/passes/rse_test.mbt`](./src/passes/rse_test.mbt), [`docs/wiki/binaryen/passes/rse/index.md`](./docs/wiki/binaryen/passes/rse/index.md), [`docs/wiki/binaryen/passes/rse/starshine-strategy.md`](./docs/wiki/binaryen/passes/rse/starshine-strategy.md), [`docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

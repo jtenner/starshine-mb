@@ -725,7 +725,7 @@ fn rse_raw_concrete_ref_type_idx(ty : @lib.ValType) -> @lib.TypeIdx? {
 }
 
 ///|
-fn rse_raw_refined_struct_receiver_type(
+fn rse_raw_refined_aggregate_receiver_type(
   state : RseRawState,
   base_type : @lib.TypeIdx,
   receiver_value : String,
@@ -966,7 +966,8 @@ fn rse_raw_rewrite_expr_scoped(
       }
       @lib.Instruction::StructGet(type_idx, field_idx) => {
         let receiver = rse_raw_pop(state)
-        match rse_raw_refined_struct_receiver_type(state, type_idx, receiver) {
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
           Some(refined_type) => {
             out.push(@lib.Instruction::struct_get(refined_type, field_idx))
             state.changed = true
@@ -977,7 +978,8 @@ fn rse_raw_rewrite_expr_scoped(
       }
       @lib.Instruction::StructGetS(type_idx, field_idx) => {
         let receiver = rse_raw_pop(state)
-        match rse_raw_refined_struct_receiver_type(state, type_idx, receiver) {
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
           Some(refined_type) => {
             out.push(@lib.Instruction::struct_get_s(refined_type, field_idx))
             state.changed = true
@@ -988,9 +990,49 @@ fn rse_raw_rewrite_expr_scoped(
       }
       @lib.Instruction::StructGetU(type_idx, field_idx) => {
         let receiver = rse_raw_pop(state)
-        match rse_raw_refined_struct_receiver_type(state, type_idx, receiver) {
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
           Some(refined_type) => {
             out.push(@lib.Instruction::struct_get_u(refined_type, field_idx))
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
+      @lib.Instruction::ArrayGet(type_idx) => {
+        ignore(rse_raw_pop(state))
+        let receiver = rse_raw_pop(state)
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(@lib.Instruction::array_get(refined_type))
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
+      @lib.Instruction::ArrayGetS(type_idx) => {
+        ignore(rse_raw_pop(state))
+        let receiver = rse_raw_pop(state)
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(@lib.Instruction::array_get_s(refined_type))
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
+      @lib.Instruction::ArrayGetU(type_idx) => {
+        ignore(rse_raw_pop(state))
+        let receiver = rse_raw_pop(state)
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(@lib.Instruction::array_get_u(refined_type))
             state.changed = true
           }
           None => out.push(instr)

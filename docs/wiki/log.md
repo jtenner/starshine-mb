@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | cover RSE array.get refinalization
+
+- Added a second `rse-gc.wast` `needs-refinalize`-style raw fixture for `redundant-set-elimination`: after a redundant `local.tee` is removed, the following `array.get` should use the strict-subtype receiver's concrete type.
+- Raw RSE now also retargets `array.get`, `array.get_s`, and `array.get_u` to an equivalent strict-subtype local receiver when the stack value identity proves the refined receiver is available.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-array-get-refinalize`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the living RSE pages and backlog to record landed aggregate-accessor refinalization-style coverage while keeping loop-backedge fixed-point convergence, remaining HOT/control families, remaining `rse-gc.wast` breadth, and preset scheduling open.
+
 ## [2026-05-10] passes | cover RSE struct.get refinalization
 
 - Added `rse-gc.wast` `needs-refinalize`-style raw coverage for `redundant-set-elimination`: after a redundant `local.tee` is removed, the following `struct.get` should use the strict-subtype receiver's concrete type.
