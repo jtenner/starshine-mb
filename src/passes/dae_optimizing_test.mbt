@@ -193,6 +193,24 @@ test "dae-optimizing removes unobserved params and results from unreachable priv
 }
 
 ///|
+test "dae-optimizing removes params from dead-suffix-only unreachable callees" {
+  let source =
+    #|(module
+    #|  (func $dead (param f64) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0)
+    #|  (func (export "run")
+    #|    unreachable
+    #|    f64.const 1
+    #|    call $dead
+    #|    drop))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+}
+
+///|
 test "dae-optimizing cleans unobservable prefix before unreachable after result removal" {
   let source =
     #|(module

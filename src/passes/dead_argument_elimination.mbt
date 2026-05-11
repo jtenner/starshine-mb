@@ -2000,6 +2000,20 @@ fn dae_has_undropped_direct_call_to(
 }
 
 ///|
+fn dae_module_has_undropped_direct_call_to(
+  funcs : Array[@lib.Func],
+  callee_abs : Int,
+) -> Bool {
+  for func in funcs {
+    let @lib.Func(_, @lib.Expr(body)) = func
+    if dae_has_undropped_direct_call_to(body, callee_abs) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn dae_dead_suffix_has_undropped_direct_call_to(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -2018,6 +2032,80 @@ fn dae_dead_suffix_has_undropped_direct_call_to(
     idx += 1
   }
   false
+}
+
+///|
+fn dae_try_remove_dead_suffix_only_unreachable_params(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let def_idx = callee_abs - imported
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params.length() == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (type_idxs, funcs, type_sec) = match
+    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
+      (type_idxs.copy(), funcs.copy(), type_sec)
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if dae_count_module_calls_anywhere_to(funcs, callee_abs) == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
+    funcs[def_idx],
+  )
+  if !dae_func_is_unreachable_only(simplified) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut func_idx = 0
+  while func_idx < funcs.length() {
+    if func_idx != def_idx {
+      let (repaired, _) = dae_repair_dead_suffix_calls_func(
+        funcs[func_idx],
+        callee_abs,
+      )
+      funcs[func_idx] = repaired
+    }
+    func_idx += 1
+  }
+  funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::unreachable_()]),
+  )
+  let kept_results = if dae_module_has_undropped_direct_call_to(
+      funcs, callee_abs,
+    ) {
+    results
+  } else {
+    []
+  }
+  let (next_type_sec, new_type_idx) = dae_append_new_func_type(
+    type_sec,
+    [],
+    kept_results,
+  )
+  type_idxs[def_idx] = new_type_idx
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
 }
 
 ///|
@@ -2178,6 +2266,12 @@ fn dae_run_core_once(
       }
     }
     if direct_calls[callee_abs] == 0 {
+      let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
+        mod_, callee_abs,
+      )
+      if dead_suffix_params.changed {
+        return dead_suffix_params
+      }
       let result = dae_try_remove_uncalled_results(mod_, callee_abs)
       if result.changed {
         return result
