@@ -329,6 +329,58 @@ test "dae-optimizing removes params from dead-suffix-only unreachable callees" {
 }
 
 ///|
+test "dae-optimizing removes results from dead-suffix callees with side calls" {
+  let source =
+    #|(module
+    #|  (func $side (export "run") (param i32 i64)
+    #|    block
+    #|      unreachable
+    #|    end)
+    #|  (func $dead (param f32) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 1
+    #|    i64.const 2
+    #|    call $side
+    #|    i32.const 279)
+    #|  (func $caller (param i32 i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 1
+    #|    call $dead
+    #|    drop))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+}
+
+///|
+test "dae-optimizing keeps results in mutual dead-suffix cycles" {
+  let source =
+    #|(module
+    #|  (func $a (param f32) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 1
+    #|    call $b
+    #|    i32.const 2)
+    #|  (func $b (param i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 0
+    #|    call $a
+    #|    drop)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 1)
+}
+
+///|
 test "dae-optimizing cleans unobservable prefix before unreachable after result removal" {
   let source =
     #|(module

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: classify DAE dead-suffix side-call cycles
+
+- **allow `dae-optimizing` to remove results from originally-parameterized unreachable callees whose dead suffix only calls unrelated functions, while preserving Binaryen's result signatures for mutual dead-suffix call cycles; focused pass tests pass and `.tmp/pass-fuzz-dae-side-call-mutual-slice` reports `199/200` compared, `194` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `5` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: widen DAE undropped self-result guards
 
 - **extend the DAE result-preservation guards so any no-param undropped dead-suffix self call and later uncalled scheduling preserve Binaryen's result signature; focused pass tests pass and `.tmp/pass-fuzz-dae-undropped-any-final-slice` reports `199/200` compared, `193` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `6` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt) and [`CHANGELOG.md`](./CHANGELOG.md).

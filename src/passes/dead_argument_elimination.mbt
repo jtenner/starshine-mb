@@ -2421,6 +2421,112 @@ fn dae_collect_original_self_call_counts(mod_ : @lib.Module) -> Array[Int] {
 }
 
 ///|
+fn dae_collect_original_dead_suffix_other_calls(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let flags : Array[Bool] = []
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    flags.push(dae_dead_suffix_has_other_call(body, imported + def_idx))
+    def_idx += 1
+  }
+  flags
+}
+
+///|
+fn dae_collect_other_callees_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  callees : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) => {
+        let slot = dae_func_idx_slot(func_idx)
+        if slot >= 0 && slot < callees.length() && slot != callee_abs {
+          callees[slot] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_collect_other_callees_instrs(body, callee_abs, callees)
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_collect_other_callees_instrs(then_body, callee_abs, callees)
+        dae_collect_other_callees_instrs(else_body, callee_abs, callees)
+      }
+      @lib.If(_, then_body, None) =>
+        dae_collect_other_callees_instrs(then_body, callee_abs, callees)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn dae_collect_dead_suffix_other_callees(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  callees : Array[Bool],
+) -> Unit {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      let suffix : Array[@lib.Instruction] = []
+      let mut suffix_idx = idx + 1
+      while suffix_idx < instrs.length() {
+        suffix.push(instrs[suffix_idx])
+        suffix_idx += 1
+      }
+      dae_collect_other_callees_instrs(suffix, callee_abs, callees)
+      return
+    }
+    idx += 1
+  }
+}
+
+///|
+fn dae_collect_original_dead_suffix_mutual_calls(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, false)
+  }
+  let flags = Array::make(defined, false)
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let callee_abs = imported + def_idx
+    let callees = Array::make(total, false)
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    dae_collect_dead_suffix_other_callees(body, callee_abs, callees)
+    let mut other_abs = imported
+    while other_abs < total {
+      if callees[other_abs] {
+        let other_def = other_abs - imported
+        if other_def >= 0 && other_def < funcs.length() {
+          let @lib.Func(_, @lib.Expr(other_body)) = funcs[other_def]
+          if dae_count_direct_call_anywhere_to(other_body, callee_abs) > 0 {
+            flags[def_idx] = true
+          }
+        }
+      }
+      other_abs += 1
+    }
+    def_idx += 1
+  }
+  flags
+}
+
+///|
 fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
@@ -2429,6 +2535,8 @@ fn dae_run_core_once(
   original_prior_call_counts : Array[Int],
   original_prior_undropped_call_counts : Array[Int],
   original_self_call_counts : Array[Int],
+  original_dead_suffix_other_calls : Array[Bool],
+  original_dead_suffix_mutual_calls : Array[Bool],
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -2498,9 +2606,19 @@ fn dae_run_core_once(
       } else {
         0
       }
+      let original_dead_suffix_other_call = def_idx <
+        original_dead_suffix_other_calls.length() &&
+        original_dead_suffix_other_calls[def_idx]
+      let original_dead_suffix_mutual_call = def_idx <
+        original_dead_suffix_mutual_calls.length() &&
+        original_dead_suffix_mutual_calls[def_idx]
       let @lib.Func(_, @lib.Expr(current_body)) = funcs[def_idx]
       let has_undropped_self_suffix = self_calls_anywhere > 0 &&
         dae_dead_suffix_has_undropped_direct_call_to(current_body, callee_abs)
+      let no_self_nonmutual_side_call = original_prior_calls == 0 &&
+        original_self_calls == 0 &&
+        original_dead_suffix_other_call &&
+        !original_dead_suffix_mutual_call
       let skip_uncalled_after_param_cleanup = dae_func_is_unreachable_only(
           dae_simplify_to_unreachable_when_prefix_unobservable(funcs[def_idx]),
         ) &&
@@ -2509,7 +2627,8 @@ fn dae_run_core_once(
           (
             originally_had_params &&
             original_call_count > 0 &&
-            (original_prior_calls == 0 || original_prior_undropped_calls > 0)
+            (original_prior_calls == 0 || original_prior_undropped_calls > 0) &&
+            !no_self_nonmutual_side_call
           ) ||
           (!originally_had_params && original_prior_undropped_calls > 0)
         )
@@ -2634,6 +2753,12 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
     mod_,
   )
   let original_self_call_counts = dae_collect_original_self_call_counts(mod_)
+  let original_dead_suffix_other_calls = dae_collect_original_dead_suffix_other_calls(
+    mod_,
+  )
+  let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
+    mod_,
+  )
   let mut iter = 0
   while iter < 8 {
     let already_rewritten_defs = Array::make(
@@ -2643,6 +2768,7 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
     let result = dae_run_core_once(
       current, already_rewritten_defs, original_param_counts, original_call_counts,
       original_prior_call_counts, original_prior_undropped_call_counts, original_self_call_counts,
+      original_dead_suffix_other_calls, original_dead_suffix_mutual_calls,
     )
     if !result.changed {
       break
