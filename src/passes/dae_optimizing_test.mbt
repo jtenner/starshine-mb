@@ -539,6 +539,56 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing preserves self-suffix results reached from later undropped callers" {
+  let source =
+    #|(module
+    #|  (func $f1 (param i64) (result i32)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    call $f1
+    #|    drop
+    #|    local.get 1)
+    #|  (func $f2 (param i64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i64.const 782
+    #|    call $f1)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 1)
+}
+
+///|
+test "dae-optimizing removes dropped self-suffix results reached only from uncalled later callers" {
+  let source =
+    #|(module
+    #|  (func $f1 (param f64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 2
+    #|    call $f1
+    #|    drop
+    #|    i32.const 1)
+    #|  (func $f2 (param f32 i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 3
+    #|    call $f1
+    #|    drop)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
+}
+
+///|
 test "dae-optimizing prunes private result side callees reached from dead suffix callers" {
   let source =
     #|(module
