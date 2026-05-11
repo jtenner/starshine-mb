@@ -539,6 +539,43 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing prunes inactive private result-side callers" {
+  let source =
+    #|(module
+    #|  (func $f1 (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 1
+    #|    f64.const 2
+    #|    call $f3
+    #|    drop
+    #|    f32.const 1)
+    #|  (func $f2 (param i32 f64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f2
+    #|    drop
+    #|    f32.const 2)
+    #|  (func $f3 (param i32 f64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f2
+    #|    drop
+    #|    f32.const 3)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 0)
+}
+
+///|
 test "dae-optimizing preserves self-suffix results reached from later undropped callers" {
   let source =
     #|(module

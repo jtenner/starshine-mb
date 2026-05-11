@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: prune DAE inactive result-side callers
+
+- **prune `dae-optimizing` result signatures for inactive private dead-suffix result-side callers while preserving active or undropped nonself result evidence; focused pass tests pass, `.tmp/pass-fuzz-dae-active-result-side-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-active-result-side-slice` reaches `656/1000` compared with `638` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: classify DAE active nonself result callers
 
 - **split `dae-optimizing` result preservation for dead self-suffix callees by active nonself caller evidence, pruning results when only uncalled later dropped callers remain while preserving later undropped result callers; focused pass tests pass, `.tmp/pass-fuzz-dae-active-undropped-result-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-active-undropped-result-slice` reaches `652/1000` compared with `634` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

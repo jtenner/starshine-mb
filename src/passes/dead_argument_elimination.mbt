@@ -3179,7 +3179,11 @@ fn dae_run_core_once(
             originally_had_params &&
             original_self_calls == 0 &&
             original_dead_suffix_result_other_call &&
-            original_escaped_dead_suffix_calls == 0
+            original_escaped_dead_suffix_calls == 0 &&
+            (
+              original_active_nonself_calls > 0 ||
+              original_nonself_undropped_calls > 0
+            )
           ) ||
           (
             originally_had_params &&
