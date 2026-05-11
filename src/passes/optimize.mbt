@@ -127,15 +127,15 @@ fn pass_registry_entry_preset(
 fn pass_registry_boundary_only_names() -> Array[String] {
   [
     "abstract-type-refining", "alignment-lowering", "constant-field-propagation",
-    "constant-field-null-test-folding", "dead-argument-elimination", "dead-argument-elimination-optimizing",
-    "signature-pruning", "signature-refining", "global-struct-inference-desc-cast",
-    "global-type-optimization", "simplify-globals", "simplify-globals-optimizing",
-    "global-effects", "propagate-globals-globally", "type-refining", "type-generalizing",
-    "type-finalizing", "type-un-finalizing", "unsubtyping", "inlining", "inlining-optimizing",
-    "inline-main", "merge-similar-functions", "minimize-rec-groups", "type-merging",
-    "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all",
-    "i64-to-i32-lowering", "reorder-types", "reorder-globals-always", "reorder-functions",
-    "reorder-functions-by-name", "remove-unused-types", "remove-unused",
+    "constant-field-null-test-folding", "dead-argument-elimination", "signature-pruning",
+    "signature-refining", "global-struct-inference-desc-cast", "global-type-optimization",
+    "simplify-globals", "simplify-globals-optimizing", "global-effects", "propagate-globals-globally",
+    "type-refining", "type-generalizing", "type-finalizing", "type-un-finalizing",
+    "unsubtyping", "inlining", "inlining-optimizing", "inline-main", "merge-similar-functions",
+    "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
+    "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering", "reorder-types",
+    "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
+    "remove-unused",
   ]
 }
 
@@ -284,6 +284,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_module("local-subtyping", local_subtyping_summary()),
     pass_registry_entry_module("coalesce-locals", coalesce_locals_summary()),
     pass_registry_entry_module("duplicate-import-elimination", die_summary()),
+    pass_registry_entry_module("dae-optimizing", dae_optimizing_summary()),
+    pass_registry_entry_module(
+      "dead-argument-elimination-optimizing",
+      dae_optimizing_summary(),
+    ),
     pass_registry_entry_module("string-gathering", string_gathering_summary()),
     pass_registry_entry_module("reorder-globals", reorder_globals_summary()),
     pass_registry_entry_module("directize", directize_summary()),

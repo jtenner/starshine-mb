@@ -1,0 +1,1236 @@
+///|
+pub fn dae_summary() -> String {
+  "Remove private dead scalar parameters across owned direct call boundaries."
+}
+
+///|
+pub fn dae_optimizing_summary() -> String {
+  "Run Binaryen-compatible dead argument elimination and nested cleanup on touched functions."
+}
+
+///|
+priv struct DaeCallShape {
+  start : Int
+  end : Int
+  pure : Bool
+}
+
+///|
+priv struct DaeRewriteResult {
+  instrs : Array[@lib.Instruction]
+  calls_rewritten : Int
+  ok : Bool
+}
+
+///|
+priv struct DaeLocalUse {
+  gets : Array[Bool]
+  writes : Array[Bool]
+}
+
+///|
+priv struct DaePassResult {
+  mod_out : @lib.Module
+  touched : Array[Bool]
+  changed : Bool
+}
+
+///|
+fn dae_imported_func_count(mod_ : @lib.Module) -> Int {
+  let mut count = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn dae_defined_func_count(mod_ : @lib.Module) -> Int {
+  match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
+    None => 0
+  }
+}
+
+///|
+fn dae_func_idx_slot(idx : @lib.FuncIdx) -> Int {
+  let @lib.FuncIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn dae_local_idx_slot(idx : @lib.LocalIdx) -> Int {
+  let @lib.LocalIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn dae_rewrite_local_idx(raw : Int, local_map : Array[Int]) -> @lib.LocalIdx {
+  @lib.LocalIdx::new(local_map[raw].reinterpret_as_uint())
+}
+
+///|
+fn dae_collect_func_type_indices(mod_ : @lib.Module) -> Array[@lib.TypeIdx] {
+  let out : Array[@lib.TypeIdx] = []
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(type_idx)) => out.push(type_idx)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => out.append(type_idxs)
+    None => ()
+  }
+  out
+}
+
+///|
+fn dae_type_sec_func_type(
+  type_sec : @lib.TypeSec,
+  type_idx : @lib.TypeIdx,
+) -> @lib.FuncType? {
+  match (type_sec, type_idx) {
+    (@lib.TypeSec(rec_types), @lib.TypeIdx(raw)) => {
+      let slot = raw.reinterpret_as_int()
+      if slot < 0 || slot >= rec_types.length() {
+        return None
+      }
+      match rec_types[slot] {
+        @lib.SingleRecType(subtype) =>
+          match subtype.get_comptype() {
+            @lib.FuncCompType(params, results) =>
+              Some(@lib.FuncType::new(params, results))
+            _ => None
+          }
+        @lib.GroupRecType(_) => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn dae_resolve_func_type(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  func_abs : Int,
+) -> @lib.FuncType? {
+  if func_abs < 0 || func_abs >= func_type_indices.length() {
+    return None
+  }
+  match mod_.type_sec {
+    Some(type_sec) =>
+      dae_type_sec_func_type(type_sec, func_type_indices[func_abs])
+    None => None
+  }
+}
+
+///|
+fn dae_collect_exported_funcs(
+  mod_ : @lib.Module,
+  total_funcs : Int,
+) -> Array[Bool] {
+  let escaped = Array::make(total_funcs, false)
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.FuncExternIdx(func_idx)) => {
+            let slot = dae_func_idx_slot(func_idx)
+            if slot >= 0 && slot < escaped.length() {
+              escaped[slot] = true
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.start_sec {
+    Some(@lib.StartSec(func_idx)) => {
+      let slot = dae_func_idx_slot(func_idx)
+      if slot >= 0 && slot < escaped.length() {
+        escaped[slot] = true
+      }
+    }
+    None => ()
+  }
+  escaped
+}
+
+///|
+fn dae_mark_elem_escapes(kind : @lib.ElemKind, escaped : Array[Bool]) -> Unit {
+  match kind {
+    @lib.FuncsElemKind(funcs) =>
+      for func_idx in funcs {
+        let slot = dae_func_idx_slot(func_idx)
+        if slot >= 0 && slot < escaped.length() {
+          escaped[slot] = true
+        }
+      }
+    @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+      for expr in exprs {
+        let @lib.Expr(instrs) = expr
+        dae_scan_escapes_instrs(instrs, escaped)
+      }
+  }
+}
+
+///|
+fn dae_scan_escapes_instrs(
+  instrs : Array[@lib.Instruction],
+  escaped : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.RefFunc(func_idx) => {
+        let slot = dae_func_idx_slot(func_idx)
+        if slot >= 0 && slot < escaped.length() {
+          escaped[slot] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_scan_escapes_instrs(body, escaped)
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_scan_escapes_instrs(then_body, escaped)
+        dae_scan_escapes_instrs(else_body, escaped)
+      }
+      @lib.If(_, then_body, None) => dae_scan_escapes_instrs(then_body, escaped)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn dae_collect_escapes(mod_ : @lib.Module, total_funcs : Int) -> Array[Bool] {
+  let escaped = dae_collect_exported_funcs(mod_, total_funcs)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        dae_scan_escapes_instrs(body, escaped)
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for elem in elems {
+        let @lib.Elem(_, kind) = elem
+        dae_mark_elem_escapes(kind, escaped)
+      }
+    None => ()
+  }
+  escaped
+}
+
+///|
+fn dae_scan_calls_instrs(
+  instrs : Array[@lib.Instruction],
+  direct_calls : Array[Int],
+  tail_calls : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) => {
+        let slot = dae_func_idx_slot(func_idx)
+        if slot >= 0 && slot < direct_calls.length() {
+          direct_calls[slot] = direct_calls[slot] + 1
+        }
+      }
+      @lib.ReturnCall(func_idx) => {
+        let slot = dae_func_idx_slot(func_idx)
+        if slot >= 0 && slot < tail_calls.length() {
+          tail_calls[slot] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_scan_calls_instrs(body, direct_calls, tail_calls)
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_scan_calls_instrs(then_body, direct_calls, tail_calls)
+        dae_scan_calls_instrs(else_body, direct_calls, tail_calls)
+      }
+      @lib.If(_, then_body, None) =>
+        dae_scan_calls_instrs(then_body, direct_calls, tail_calls)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn dae_collect_calls(
+  mod_ : @lib.Module,
+  total_funcs : Int,
+) -> (Array[Int], Array[Bool]) {
+  let direct_calls = Array::make(total_funcs, 0)
+  let tail_calls = Array::make(total_funcs, false)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        dae_scan_calls_instrs(body, direct_calls, tail_calls)
+      }
+    None => ()
+  }
+  (direct_calls, tail_calls)
+}
+
+///|
+fn dae_scan_local_use_instrs(
+  instrs : Array[@lib.Instruction],
+  local_use : DaeLocalUse,
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(local_idx) => {
+        let slot = dae_local_idx_slot(local_idx)
+        if slot >= 0 && slot < local_use.gets.length() {
+          local_use.gets[slot] = true
+        }
+      }
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {
+        let slot = dae_local_idx_slot(local_idx)
+        if slot >= 0 && slot < local_use.writes.length() {
+          local_use.writes[slot] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_scan_local_use_instrs(body, local_use)
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_scan_local_use_instrs(then_body, local_use)
+        dae_scan_local_use_instrs(else_body, local_use)
+      }
+      @lib.If(_, then_body, None) =>
+        dae_scan_local_use_instrs(then_body, local_use)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn dae_local_use(func : @lib.Func, total_locals : Int) -> DaeLocalUse {
+  let local_use = {
+    gets: Array::make(total_locals, false),
+    writes: Array::make(total_locals, false),
+  }
+  let @lib.Func(_, @lib.Expr(body)) = func
+  dae_scan_local_use_instrs(body, local_use)
+  local_use
+}
+
+///|
+fn dae_instr_result_arity_from_block_type(block_type : @lib.BlockType) -> Int? {
+  match block_type {
+    @lib.VoidBlockType => Some(0)
+    @lib.ValTypeBlockType(_) => Some(1)
+    @lib.TypeIdxBlockType(_) => None
+  }
+}
+
+///|
+fn dae_instr_stack_effect(
+  instr : @lib.Instruction,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (Int, Int)? {
+  match instr {
+    @lib.Unreachable | @lib.Nop => Some((0, 0))
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_)
+    | @lib.GlobalGet(_)
+    | @lib.LocalGet(_)
+    | @lib.TableSize(_)
+    | @lib.MemorySize(_) => Some((0, 1))
+    @lib.LocalSet(_) | @lib.GlobalSet(_) => Some((1, 0))
+    @lib.LocalTee(_) => Some((1, 1))
+    @lib.Drop => Some((1, 0))
+    @lib.Select(_) => Some((3, 1))
+    @lib.I32Eqz
+    | @lib.I64Eqz
+    | @lib.RefIsNull
+    | @lib.RefAsNonNull
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.RefEq
+    | @lib.AnyConvertExtern
+    | @lib.ExternConvertAny
+    | @lib.RefI31
+    | @lib.I31GetS
+    | @lib.I31GetU
+    | @lib.I32TruncSatF32S
+    | @lib.I32TruncSatF32U
+    | @lib.I32TruncSatF64S
+    | @lib.I32TruncSatF64U
+    | @lib.I64TruncSatF32S
+    | @lib.I64TruncSatF32U
+    | @lib.I64TruncSatF64S
+    | @lib.I64TruncSatF64U => Some((1, 1))
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign => Some((2, 1))
+    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) => {
+      let slot = dae_func_idx_slot(func_idx)
+      match dae_resolve_func_type(mod_, func_type_indices, slot) {
+        Some(@lib.FuncType(params, results)) =>
+          Some((params.length(), results.length()))
+        None => None
+      }
+    }
+    @lib.CallIndirect(type_idx, _) | @lib.ReturnCallIndirect(type_idx, _) =>
+      match mod_.type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              Some((params.length() + 1, results.length()))
+            None => None
+          }
+        None => None
+      }
+    @lib.CallRef(type_idx) | @lib.ReturnCallRef(type_idx) =>
+      match mod_.type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              Some((params.length() + 1, results.length()))
+            None => None
+          }
+        None => None
+      }
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.If(block_type, _, _)
+    | @lib.TryTable(block_type, _, _) =>
+      match dae_instr_result_arity_from_block_type(block_type) {
+        Some(out) => Some((0, out))
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn dae_instr_is_trivially_droppable(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_slice_is_trivially_droppable(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+) -> Bool {
+  let mut idx = start
+  while idx < end {
+    if !dae_instr_is_trivially_droppable(instrs[idx]) {
+      return false
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+fn dae_find_value_slice(
+  instrs : Array[@lib.Instruction],
+  end : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> DaeCallShape? {
+  let mut need = 1
+  let mut idx = end - 1
+  while idx >= 0 {
+    let (ins, outs) = match
+      dae_instr_stack_effect(instrs[idx], mod_, func_type_indices) {
+      Some(effect) => effect
+      None => return None
+    }
+    if outs == 0 && need > 0 {
+      return None
+    }
+    need = need - outs + ins
+    if need <= 0 {
+      return Some({
+        start: idx,
+        end,
+        pure: dae_slice_is_trivially_droppable(instrs, idx, end),
+      })
+    }
+    idx -= 1
+  }
+  None
+}
+
+///|
+fn dae_rewrite_instruction_locals(
+  instr : @lib.Instruction,
+  local_map : Array[Int],
+) -> @lib.Instruction {
+  match instr {
+    @lib.LocalGet(idx) =>
+      @lib.Instruction::local_get(
+        dae_rewrite_local_idx(dae_local_idx_slot(idx), local_map),
+      )
+    @lib.LocalSet(idx) =>
+      @lib.Instruction::local_set(
+        dae_rewrite_local_idx(dae_local_idx_slot(idx), local_map),
+      )
+    @lib.LocalTee(idx) =>
+      @lib.Instruction::local_tee(
+        dae_rewrite_local_idx(dae_local_idx_slot(idx), local_map),
+      )
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::block(
+        block_type,
+        @lib.Expr::new(dae_rewrite_locals_instrs(body, local_map)),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(dae_rewrite_locals_instrs(body, local_map)),
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      @lib.Instruction::try_table(
+        block_type,
+        catches,
+        @lib.Expr::new(dae_rewrite_locals_instrs(body, local_map)),
+      )
+    @lib.If(block_type, then_body, else_body) =>
+      @lib.Instruction::if_(
+        block_type,
+        dae_rewrite_locals_instrs(then_body, local_map),
+        match else_body {
+          Some(body) => Some(dae_rewrite_locals_instrs(body, local_map))
+          None => None
+        },
+      )
+    _ => instr
+  }
+}
+
+///|
+fn dae_rewrite_locals_instrs(
+  instrs : Array[@lib.Instruction],
+  local_map : Array[Int],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    out.push(dae_rewrite_instruction_locals(instr, local_map))
+  }
+  out
+}
+
+///|
+fn dae_build_local_map(
+  param_count : Int,
+  body_local_count : Int,
+  remove : Array[Bool],
+  local_use : DaeLocalUse,
+) -> Array[Int] {
+  let local_map = Array::make(param_count + body_local_count, -1)
+  let mut next_param = 0
+  let mut removed_local_count = 0
+  for idx = 0; idx < param_count; idx = idx + 1 {
+    if remove[idx] {
+      if local_use.writes[idx] {
+        // The incoming value is dead, but writes to the old param slot still need
+        // a valid local target until the nested cleanup removes them.
+        local_map[idx] = -1 - removed_local_count
+        removed_local_count += 1
+      }
+    } else {
+      local_map[idx] = next_param
+      next_param += 1
+    }
+  }
+  let mut idx = 0
+  while idx < param_count {
+    if local_map[idx] < 0 {
+      local_map[idx] = next_param + (-1 - local_map[idx])
+    }
+    idx += 1
+  }
+  let mut body_idx = 0
+  while body_idx < body_local_count {
+    local_map[param_count + body_idx] = next_param +
+      removed_local_count +
+      body_idx
+    body_idx += 1
+  }
+  local_map
+}
+
+///|
+fn dae_rewrite_callsite_at(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  remove : Array[Bool],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (Array[@lib.Instruction], Bool) {
+  let shapes = Array::make(remove.length(), { start: 0, end: 0, pure: false })
+  let mut cursor = call_idx
+  let mut arg_idx = remove.length() - 1
+  while arg_idx >= 0 {
+    match dae_find_value_slice(instrs, cursor, mod_, func_type_indices) {
+      Some(shape) => {
+        shapes[arg_idx] = shape
+        cursor = shape.start
+      }
+      None => return ([], false)
+    }
+    arg_idx -= 1
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < cursor {
+    out.push(instrs[idx])
+    idx += 1
+  }
+  let mut p = 0
+  while p < remove.length() {
+    let shape = shapes[p]
+    if remove[p] {
+      if !shape.pure {
+        let mut j = shape.start
+        while j < shape.end {
+          out.push(instrs[j])
+          j += 1
+        }
+        out.push(@lib.Instruction::drop())
+      }
+    } else {
+      let mut j = shape.start
+      while j < shape.end {
+        out.push(instrs[j])
+        j += 1
+      }
+    }
+    p += 1
+  }
+  out.push(instrs[call_idx])
+  idx = call_idx + 1
+  while idx < instrs.length() {
+    out.push(instrs[idx])
+    idx += 1
+  }
+  (out, true)
+}
+
+///|
+fn dae_rewrite_calls_instr(
+  instr : @lib.Instruction,
+  callee_abs : Int,
+  remove : Array[Bool],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (@lib.Instruction, Int, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let result = dae_rewrite_calls_instrs(
+        body, callee_abs, remove, mod_, func_type_indices,
+      )
+      (
+        @lib.Instruction::block(block_type, @lib.Expr::new(result.instrs)),
+        result.calls_rewritten,
+        result.ok,
+      )
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let result = dae_rewrite_calls_instrs(
+        body, callee_abs, remove, mod_, func_type_indices,
+      )
+      (
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(result.instrs)),
+        result.calls_rewritten,
+        result.ok,
+      )
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let result = dae_rewrite_calls_instrs(
+        body, callee_abs, remove, mod_, func_type_indices,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(result.instrs),
+        ),
+        result.calls_rewritten,
+        result.ok,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let then_result = dae_rewrite_calls_instrs(
+        then_body, callee_abs, remove, mod_, func_type_indices,
+      )
+      if !then_result.ok {
+        return (instr, then_result.calls_rewritten, false)
+      }
+      let mut calls = then_result.calls_rewritten
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let else_result = dae_rewrite_calls_instrs(
+            body, callee_abs, remove, mod_, func_type_indices,
+          )
+          calls += else_result.calls_rewritten
+          if !else_result.ok {
+            return (instr, calls, false)
+          }
+          Some(else_result.instrs)
+        }
+        None => None
+      }
+      (
+        @lib.Instruction::if_(block_type, then_result.instrs, rewritten_else),
+        calls,
+        true,
+      )
+    }
+    _ => (instr, 0, true)
+  }
+}
+
+///|
+fn dae_find_next_direct_call(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  callee_abs : Int,
+) -> Int? {
+  let mut idx = start
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        return Some(idx)
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_rewrite_calls_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  remove : Array[Bool],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> DaeRewriteResult {
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  let mut calls = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        let prefix = out
+        let suffix : Array[@lib.Instruction] = []
+        let mut tail = idx
+        while tail < instrs.length() {
+          suffix.push(instrs[tail])
+          tail += 1
+        }
+        let joined : Array[@lib.Instruction] = []
+        joined.append(prefix)
+        joined.append(suffix)
+        let (rewritten, ok) = dae_rewrite_callsite_at(
+          joined,
+          prefix.length(),
+          remove,
+          mod_,
+          func_type_indices,
+        )
+        if !ok {
+          return { instrs: [], calls_rewritten: calls, ok: false }
+        }
+        let next_start = match
+          dae_find_next_direct_call(rewritten, prefix.length(), callee_abs) {
+          Some(call_pos) => call_pos + 1
+          None => prefix.length() + 1
+        }
+        return dae_rewrite_calls_instrs_after_rewritten(
+          rewritten,
+          next_start,
+          callee_abs,
+          remove,
+          mod_,
+          func_type_indices,
+          calls + 1,
+        )
+      }
+      _ => {
+        let (rewritten, nested_calls, ok) = dae_rewrite_calls_instr(
+          instrs[idx],
+          callee_abs,
+          remove,
+          mod_,
+          func_type_indices,
+        )
+        if !ok {
+          return {
+            instrs: [],
+            calls_rewritten: calls + nested_calls,
+            ok: false,
+          }
+        }
+        calls += nested_calls
+        out.push(rewritten)
+      }
+    }
+    idx += 1
+  }
+  { instrs: out, calls_rewritten: calls, ok: true }
+}
+
+///|
+fn dae_rewrite_calls_instrs_after_rewritten(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+  callee_abs : Int,
+  remove : Array[Bool],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  calls_so_far : Int,
+) -> DaeRewriteResult {
+  let prefix : Array[@lib.Instruction] = []
+  let mut i = 0
+  while i < start_idx && i < instrs.length() {
+    prefix.push(instrs[i])
+    i += 1
+  }
+  let tail : Array[@lib.Instruction] = []
+  while i < instrs.length() {
+    tail.push(instrs[i])
+    i += 1
+  }
+  let tail_result = dae_rewrite_calls_instrs(
+    tail, callee_abs, remove, mod_, func_type_indices,
+  )
+  if !tail_result.ok {
+    return {
+      instrs: [],
+      calls_rewritten: calls_so_far + tail_result.calls_rewritten,
+      ok: false,
+    }
+  }
+  prefix.append(tail_result.instrs)
+  {
+    instrs: prefix,
+    calls_rewritten: calls_so_far + tail_result.calls_rewritten,
+    ok: true,
+  }
+}
+
+///|
+fn dae_append_new_func_type(
+  type_sec : @lib.TypeSec,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> (@lib.TypeSec, @lib.TypeIdx) {
+  let @lib.TypeSec(rec_types) = type_sec
+  let next = rec_types.copy()
+  let idx = @lib.TypeIdx::new(next.length().reinterpret_as_uint())
+  next.push(
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+    ),
+  )
+  (@lib.TypeSec::new(next), idx)
+}
+
+///|
+fn dae_try_rewrite_candidate(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  remove : Array[Bool],
+  local_use : DaeLocalUse,
+  direct_call_count : Int,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let def_idx = callee_abs - imported
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None => return { mod_out: mod_, touched: [], changed: false }
+  }
+  let @lib.FuncType(params, results) = func_type
+  let (func_types, funcs) = match
+    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(_)) =>
+      (type_idxs.copy(), funcs.copy())
+    _ => return { mod_out: mod_, touched: [], changed: false }
+  }
+  let rewritten_funcs = funcs.copy()
+  let mut rewritten_calls = 0
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller_def]
+    let result = dae_rewrite_calls_instrs(
+      body, callee_abs, remove, mod_, type_indices,
+    )
+    if !result.ok {
+      return { mod_out: mod_, touched: [], changed: false }
+    }
+    if result.calls_rewritten > 0 {
+      rewritten_funcs[caller_def] = @lib.Func::new(
+        locals,
+        @lib.Expr::new(result.instrs),
+      )
+      rewritten_calls += result.calls_rewritten
+    }
+    caller_def += 1
+  }
+  if rewritten_calls != direct_call_count {
+    return { mod_out: mod_, touched: [], changed: false }
+  }
+  let kept_params : Array[@lib.ValType] = []
+  let removed_written_types : Array[@lib.ValType] = []
+  let mut p = 0
+  while p < params.length() {
+    if remove[p] {
+      if local_use.writes[p] {
+        removed_written_types.push(params[p])
+      }
+    } else {
+      kept_params.push(params[p])
+    }
+    p += 1
+  }
+  let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
+  let body_local_count = old_locals.length()
+  let local_map = dae_build_local_map(
+    params.length(),
+    body_local_count,
+    remove,
+    local_use,
+  )
+  let new_body = dae_rewrite_locals_instrs(old_body, local_map)
+  let new_locals = @lib.Locals::from_types(removed_written_types)
+  new_locals.append(old_locals)
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    new_locals,
+    @lib.Expr::new(new_body),
+  )
+
+  let (next_type_sec, new_type_idx) = match mod_.type_sec {
+    Some(type_sec) => dae_append_new_func_type(type_sec, kept_params, results)
+    None => return { mod_out: mod_, touched: [], changed: false }
+  }
+  func_types[def_idx] = new_type_idx
+  let next_mod = mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(func_types))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec()
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  caller_def = 0
+  while caller_def < funcs.length() {
+    let before = funcs[caller_def]
+    let after = match next_mod.code_sec {
+      Some(@lib.CodeSec(next_funcs)) => next_funcs[caller_def]
+      None => before
+    }
+    if before != after {
+      touched[caller_def] = true
+    }
+    caller_def += 1
+  }
+  { mod_out: next_mod, touched, changed: true }
+}
+
+///|
+fn dae_run_core_once(mod_ : @lib.Module) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let escaped = dae_collect_escapes(mod_, total)
+  let (direct_calls, tail_calls) = dae_collect_calls(mod_, total)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return { mod_out: mod_, touched: [], changed: false }
+  }
+  let mut def_idx = 0
+  while def_idx < defined {
+    let callee_abs = imported + def_idx
+    if escaped[callee_abs] ||
+      tail_calls[callee_abs] ||
+      direct_calls[callee_abs] == 0 {
+      def_idx += 1
+      continue
+    }
+    let func_type = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(ft) => ft
+      None => {
+        def_idx += 1
+        continue
+      }
+    }
+    let @lib.FuncType(params, _) = func_type
+    if params.length() == 0 {
+      def_idx += 1
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[def_idx]
+    let local_use = dae_local_use(
+      funcs[def_idx],
+      params.length() + locals.length(),
+    )
+    let remove = Array::make(params.length(), false)
+    let mut any = false
+    let mut p = 0
+    while p < params.length() {
+      if !local_use.gets[p] {
+        remove[p] = true
+        any = true
+      }
+      p += 1
+    }
+    if any {
+      let result = dae_try_rewrite_candidate(
+        mod_,
+        callee_abs,
+        remove,
+        local_use,
+        direct_calls[callee_abs],
+      )
+      if result.changed {
+        return result
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false }
+}
+
+///|
+fn dae_merge_touched(dst : Array[Bool], src : Array[Bool]) -> Array[Bool] {
+  if dst.length() == 0 {
+    return src.copy()
+  }
+  let out = dst.copy()
+  let mut idx = 0
+  while idx < src.length() && idx < out.length() {
+    out[idx] = out[idx] || src[idx]
+    idx += 1
+  }
+  out
+}
+
+///|
+fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
+  let mut current = mod_
+  let mut touched : Array[Bool] = []
+  let mut changed = false
+  let mut iter = 0
+  while iter < 8 {
+    let result = dae_run_core_once(current)
+    if !result.changed {
+      break
+    }
+    current = result.mod_out
+    touched = dae_merge_touched(touched, result.touched)
+    changed = true
+    iter += 1
+  }
+  { mod_out: current, touched, changed }
+}
+
+///|
+fn dae_count_touched(touched : Array[Bool]) -> Int {
+  let mut count = 0
+  for item in touched {
+    if item {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn dae_run_nested_cleanup(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  trace : (String) -> Unit,
+  optimize : Bool,
+) -> @lib.Module {
+  if !optimize || dae_count_touched(touched) == 0 {
+    return mod_
+  }
+  trace(
+    "pass[dae-optimizing]:nested-cleanup touched=\{dae_count_touched(touched)} prefix=precompute-propagate",
+  )
+  // Starshine does not yet expose Binaryen's `precompute-propagate` as a public
+  // pass. Run the representable default cleanup lane after recording the exact
+  // optimizing-helper prefix in the trace.
+  match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(trace=Some(trace)), [
+      "precompute", "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions",
+      "simplify-locals", "local-cse", "code-folding", "merge-blocks", "remove-unused-brs",
+      "remove-unused-names",
+    ]) {
+    Ok(next) => next
+    Err(_) => mod_
+  }
+}
+
+///|
+pub fn dae_run_module_pass(
+  mod_ : @lib.Module,
+  optimize? : Bool = false,
+  trace? : ((String) -> Unit)? = None,
+) -> @lib.Module {
+  let result = dae_run_core(mod_)
+  let trace_fn = match trace {
+    Some(cb) => cb
+    None => fn(_line : String) { () }
+  }
+  dae_run_nested_cleanup(result.mod_out, result.touched, trace_fn, optimize)
+}

@@ -9752,6 +9752,8 @@ fn run_hot_pipeline_apply_module_pass(
     "local-cse" => local_cse_run_module_pass(mod_)
     "merge-locals" => merge_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
+    "dae-optimizing" | "dead-argument-elimination-optimizing" =>
+      dae_run_module_pass(mod_, optimize=true, trace=Some(options.trace))
     "string-gathering" => string_gathering_run_module_pass(mod_)
     "reorder-globals" => reorder_globals_run_module_pass(mod_)
     "directize" => directize_run_module_pass(mod_)
