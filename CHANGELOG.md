@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: prune DAE dropped escaped-result side callees
+
+- **prune `dae-optimizing` result signatures for private callees whose only private result dead-suffix preservation comes through a caller that drops an escaped result call in the same dead suffix, while preserving undropped escaped-result suffix chains; focused pass tests pass, `.tmp/pass-fuzz-dae-private-result-dropped-escaped-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-private-result-dropped-escaped-slice` reaches `690/1000` compared with `672` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: prune DAE dropped result-side self cycles
 
 - **prune `dae-optimizing` result signatures for dead-suffix result-side mutual cycles when the preserving private result caller is itself an undropped self-suffix result chain, while keeping private result-side preservation for non-self callers; focused pass tests pass, `.tmp/pass-fuzz-dae-result-mutual-noself-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-result-mutual-noself-slice` reaches `688/1000` compared with `670` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

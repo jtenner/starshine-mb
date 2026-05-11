@@ -539,6 +539,55 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing prunes escaped-result side callees under active result callers" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param f32 f64) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 27
+    #|    local.get 1
+    #|    call $main
+    #|    drop
+    #|    f32.const 92
+    #|    local.get 1
+    #|    call $f2)
+    #|  (func $f1 (param f32 f64) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 4
+    #|    f64.const 67
+    #|    call $main
+    #|    drop
+    #|    f64.const 28)
+    #|  (func $f2 (param f32 f64) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 19
+    #|    f32.const 67
+    #|    local.get 1
+    #|    call $f1
+    #|    call $main
+    #|    drop
+    #|    local.get 1)
+    #|  (func $f3 (param i32)
+    #|    (local f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 1
+    #|    f64.const 57
+    #|    call $f1
+    #|    drop))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+}
+
+///|
 test "dae-optimizing prunes side-call result cycles reached by dropped callers" {
   let source =
     #|(module
