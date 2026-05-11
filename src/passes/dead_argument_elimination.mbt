@@ -2715,6 +2715,48 @@ fn dae_collect_original_dead_suffix_other_calls(
 }
 
 ///|
+fn dae_collect_original_dead_suffix_undropped_self_calls(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let flags : Array[Bool] = []
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    flags.push(
+      dae_dead_suffix_has_undropped_direct_call_to(body, imported + def_idx),
+    )
+    def_idx += 1
+  }
+  flags
+}
+
+///|
+fn dae_collect_original_dead_suffix_dropped_self_calls(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let flags : Array[Bool] = []
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    flags.push(
+      dae_dead_suffix_has_dropped_direct_call_to(body, imported + def_idx),
+    )
+    def_idx += 1
+  }
+  flags
+}
+
+///|
 fn dae_instrs_have_result_direct_call_other_than(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -2913,6 +2955,8 @@ fn dae_run_core_once(
   original_private_result_dead_suffix_call_counts : Array[Int],
   original_escaped_dead_suffix_call_counts : Array[Int],
   original_dead_suffix_other_calls : Array[Bool],
+  original_dead_suffix_undropped_self_calls : Array[Bool],
+  original_dead_suffix_dropped_self_calls : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
   original_dead_suffix_mutual_calls : Array[Bool],
 ) -> DaePassResult {
@@ -2945,7 +2989,22 @@ fn dae_run_core_once(
       funcs[def_idx],
       callee_abs,
     )
-    if direct_calls[callee_abs] == self_calls {
+    let original_escaped_dead_suffix_calls_for_unobserved = if def_idx <
+      original_escaped_dead_suffix_call_counts.length() {
+      original_escaped_dead_suffix_call_counts[def_idx]
+    } else {
+      0
+    }
+    let original_mixed_self_suffix_for_unobserved = def_idx <
+      original_param_counts.length() &&
+      original_param_counts[def_idx] > 0 &&
+      def_idx < original_dead_suffix_undropped_self_calls.length() &&
+      original_dead_suffix_undropped_self_calls[def_idx] &&
+      def_idx < original_dead_suffix_dropped_self_calls.length() &&
+      original_dead_suffix_dropped_self_calls[def_idx] &&
+      original_escaped_dead_suffix_calls_for_unobserved == 0
+    if direct_calls[callee_abs] == self_calls &&
+      !original_mixed_self_suffix_for_unobserved {
       let unobserved = dae_try_remove_unobserved_unreachable_function(
         mod_, callee_abs,
       )
@@ -2999,6 +3058,12 @@ fn dae_run_core_once(
       let original_dead_suffix_other_call = def_idx <
         original_dead_suffix_other_calls.length() &&
         original_dead_suffix_other_calls[def_idx]
+      let original_mixed_self_suffix = def_idx <
+        original_dead_suffix_undropped_self_calls.length() &&
+        original_dead_suffix_undropped_self_calls[def_idx] &&
+        def_idx < original_dead_suffix_dropped_self_calls.length() &&
+        original_dead_suffix_dropped_self_calls[def_idx] &&
+        original_escaped_dead_suffix_calls == 0
       let original_dead_suffix_result_other_call = def_idx <
         original_dead_suffix_result_other_calls.length() &&
         original_dead_suffix_result_other_calls[def_idx]
@@ -3017,6 +3082,7 @@ fn dae_run_core_once(
         ) &&
         (
           has_undropped_self_suffix ||
+          (originally_had_params && original_mixed_self_suffix) ||
           (
             originally_had_params &&
             original_self_calls == 0 &&
@@ -3167,6 +3233,12 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let original_dead_suffix_other_calls = dae_collect_original_dead_suffix_other_calls(
     mod_,
   )
+  let original_dead_suffix_undropped_self_calls = dae_collect_original_dead_suffix_undropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_self_calls = dae_collect_original_dead_suffix_dropped_self_calls(
+    mod_,
+  )
   let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls(
     mod_,
   )
@@ -3183,7 +3255,8 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
       current, already_rewritten_defs, original_param_counts, original_call_counts,
       original_prior_call_counts, original_prior_undropped_call_counts, original_self_call_counts,
       original_private_result_dead_suffix_call_counts, original_escaped_dead_suffix_call_counts,
-      original_dead_suffix_other_calls, original_dead_suffix_result_other_calls,
+      original_dead_suffix_other_calls, original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls, original_dead_suffix_result_other_calls,
       original_dead_suffix_mutual_calls,
     )
     if !result.changed {
