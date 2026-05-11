@@ -496,6 +496,49 @@ test "dae-optimizing preserves private result callees in dropped suffix chains" 
 }
 
 ///|
+test "dae-optimizing preserves results across dropped result side callees" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param i64 i64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i64.const 1
+    #|    i64.const 2
+    #|    call $f3)
+    #|  (func $f1 (param i64 i64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i64.const 3
+    #|    local.get 0
+    #|    call $f3
+    #|    drop
+    #|    f32.const 1)
+    #|  (func $f2 (param i32 f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i64.const 4
+    #|    i64.const 5
+    #|    call $f1
+    #|    drop)
+    #|  (func $f3 (param i64 i64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 68
+    #|    f64.const 5
+    #|    call $f2
+    #|    f32.const 3))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 0)
+}
+
+///|
 test "dae-optimizing cleans unobservable prefix before unreachable after result removal" {
   let source =
     #|(module

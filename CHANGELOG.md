@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: preserve DAE dropped result side callees
+
+- **preserve `dae-optimizing` result signatures when an originally-parameterized unreachable callee's dead suffix drops another result-producing direct call, matching Binaryen's conservative scheduling while excluding self-recursive cases; focused pass tests pass, `.tmp/pass-fuzz-dae-result-side-call-noself-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-result-side-call-noself-slice` reaches `602/1000` compared with `584` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: preserve DAE private result suffix chains
 
 - **preserve Binaryen's result signatures for originally-parameterized unreachable callees reached from private result-producing dead suffix chains, while excluding self-suffix and escaped-caller cases that Binaryen still prunes; focused pass tests pass, `.tmp/pass-fuzz-dae-private-result-chain-noself-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-private-result-chain-noself-slice` reached `592/1000` compared with `574` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
