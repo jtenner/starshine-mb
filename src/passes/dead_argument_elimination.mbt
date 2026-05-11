@@ -33,6 +33,7 @@ priv struct DaePassResult {
   mod_out : @lib.Module
   touched : Array[Bool]
   changed : Bool
+  primary_def : Int
 }
 
 ///|
@@ -291,47 +292,112 @@ fn dae_collect_calls(
 }
 
 ///|
-fn dae_scan_local_use_instrs(
+fn dae_mark_self_forwarded_param_gets(
   instrs : Array[@lib.Instruction],
-  local_use : DaeLocalUse,
+  callee_abs : Int,
+  param_count : Int,
+  ignored : Array[Bool],
 ) -> Unit {
-  for instr in instrs {
-    match instr {
-      @lib.LocalGet(local_idx) => {
-        let slot = dae_local_idx_slot(local_idx)
-        if slot >= 0 && slot < local_use.gets.length() {
-          local_use.gets[slot] = true
+  if param_count == 0 {
+    return
+  }
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        let start = idx - param_count
+        if start >= 0 {
+          let mut ok = true
+          let mut p = 0
+          while p < param_count {
+            match instrs[start + p] {
+              @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == p =>
+                ()
+              _ => ok = false
+            }
+            p += 1
+          }
+          if ok {
+            p = 0
+            while p < param_count {
+              ignored[start + p] = true
+              p += 1
+            }
+          }
         }
       }
-      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {
-        let slot = dae_local_idx_slot(local_idx)
-        if slot >= 0 && slot < local_use.writes.length() {
-          local_use.writes[slot] = true
-        }
-      }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        dae_scan_local_use_instrs(body, local_use)
-      @lib.If(_, then_body, Some(else_body)) => {
-        dae_scan_local_use_instrs(then_body, local_use)
-        dae_scan_local_use_instrs(else_body, local_use)
-      }
-      @lib.If(_, then_body, None) =>
-        dae_scan_local_use_instrs(then_body, local_use)
       _ => ()
     }
+    idx += 1
   }
 }
 
 ///|
-fn dae_local_use(func : @lib.Func, total_locals : Int) -> DaeLocalUse {
+fn dae_scan_local_use_ignoring_instrs(
+  instrs : Array[@lib.Instruction],
+  local_use : DaeLocalUse,
+  callee_abs : Int,
+  param_count : Int,
+) -> Unit {
+  let ignored = Array::make(instrs.length(), false)
+  dae_mark_self_forwarded_param_gets(instrs, callee_abs, param_count, ignored)
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      break
+    }
+    if !ignored[idx] {
+      match instrs[idx] {
+        @lib.LocalGet(local_idx) => {
+          let slot = dae_local_idx_slot(local_idx)
+          if slot >= 0 && slot < local_use.gets.length() {
+            local_use.gets[slot] = true
+          }
+        }
+        @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {
+          let slot = dae_local_idx_slot(local_idx)
+          if slot >= 0 && slot < local_use.writes.length() {
+            local_use.writes[slot] = true
+          }
+        }
+        @lib.Block(_, @lib.Expr(body))
+        | @lib.Loop(_, @lib.Expr(body))
+        | @lib.TryTable(_, _, @lib.Expr(body)) =>
+          dae_scan_local_use_ignoring_instrs(
+            body, local_use, callee_abs, param_count,
+          )
+        @lib.If(_, then_body, Some(else_body)) => {
+          dae_scan_local_use_ignoring_instrs(
+            then_body, local_use, callee_abs, param_count,
+          )
+          dae_scan_local_use_ignoring_instrs(
+            else_body, local_use, callee_abs, param_count,
+          )
+        }
+        @lib.If(_, then_body, None) =>
+          dae_scan_local_use_ignoring_instrs(
+            then_body, local_use, callee_abs, param_count,
+          )
+        _ => ()
+      }
+    }
+    idx += 1
+  }
+}
+
+///|
+fn dae_local_use_for_callee(
+  func : @lib.Func,
+  total_locals : Int,
+  callee_abs : Int,
+  param_count : Int,
+) -> DaeLocalUse {
   let local_use = {
     gets: Array::make(total_locals, false),
     writes: Array::make(total_locals, false),
   }
   let @lib.Func(_, @lib.Expr(body)) = func
-  dae_scan_local_use_instrs(body, local_use)
+  dae_scan_local_use_ignoring_instrs(body, local_use, callee_abs, param_count)
   local_use
 }
 
@@ -1311,14 +1377,15 @@ fn dae_try_rewrite_candidate(
   let type_indices = dae_collect_func_type_indices(mod_)
   let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
-    None => return { mod_out: mod_, touched: [], changed: false }
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let @lib.FuncType(params, results) = func_type
   let (func_types, funcs) = match
     (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(_)) =>
       (type_idxs.copy(), funcs.copy())
-    _ => return { mod_out: mod_, touched: [], changed: false }
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let rewritten_funcs = funcs.copy()
   let mut rewritten_calls = 0
@@ -1329,7 +1396,7 @@ fn dae_try_rewrite_candidate(
       body, callee_abs, remove, mod_, type_indices,
     )
     if !result.ok {
-      return { mod_out: mod_, touched: [], changed: false }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
     }
     if result.calls_rewritten > 0 {
       rewritten_funcs[caller_def] = @lib.Func::new(
@@ -1341,7 +1408,7 @@ fn dae_try_rewrite_candidate(
     caller_def += 1
   }
   if rewritten_calls != direct_call_count {
-    return { mod_out: mod_, touched: [], changed: false }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let kept_params : Array[@lib.ValType] = []
   let removed_written_types : Array[@lib.ValType] = []
@@ -1367,14 +1434,14 @@ fn dae_try_rewrite_candidate(
   let new_body = dae_rewrite_locals_instrs(old_body, local_map)
   let new_locals = @lib.Locals::from_types(removed_written_types)
   new_locals.append(old_locals)
-  rewritten_funcs[def_idx] = @lib.Func::new(
-    new_locals,
-    @lib.Expr::new(new_body),
+  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
+    @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
   )
 
   let (next_type_sec, new_type_idx) = match mod_.type_sec {
     Some(type_sec) => dae_append_new_func_type(type_sec, kept_params, results)
-    None => return { mod_out: mod_, touched: [], changed: false }
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   func_types[def_idx] = new_type_idx
   let next_mod = mod_
@@ -1396,29 +1463,383 @@ fn dae_try_rewrite_candidate(
     }
     caller_def += 1
   }
-  { mod_out: next_mod, touched, changed: true }
+  { mod_out: next_mod, touched, changed: true, primary_def: def_idx }
 }
 
 ///|
-fn dae_run_core_once(mod_ : @lib.Module) -> DaePassResult {
+fn dae_instr_has_observable_effect(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Call(_)
+    | @lib.CallIndirect(_, _)
+    | @lib.CallRef(_)
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.GlobalSet(_)
+    | @lib.TableSet(_)
+    | @lib.MemoryGrow(_)
+    | @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.F32Store(_)
+    | @lib.F64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_)
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_)
+    | @lib.I64Store32(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.AtomicFence
+    | @lib.MemoryAtomicNotify(_)
+    | @lib.MemoryAtomicWait32(_)
+    | @lib.MemoryAtomicWait64(_)
+    | @lib.I32AtomicStore(_)
+    | @lib.I64AtomicStore(_)
+    | @lib.I32AtomicStore8(_)
+    | @lib.I32AtomicStore16(_)
+    | @lib.I64AtomicStore8(_)
+    | @lib.I64AtomicStore16(_)
+    | @lib.I64AtomicStore32(_)
+    | @lib.AtomicRmw(_, _)
+    | @lib.AtomicCmpxchg(_, _) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      body.any(fn(child) { dae_instr_has_observable_effect(child) })
+    @lib.If(_, then_body, Some(else_body)) =>
+      then_body.any(fn(child) { dae_instr_has_observable_effect(child) }) ||
+      else_body.any(fn(child) { dae_instr_has_observable_effect(child) })
+    @lib.If(_, then_body, None) =>
+      then_body.any(fn(child) { dae_instr_has_observable_effect(child) })
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_is_unreachable_root(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Unreachable => true
+    @lib.Block(_, @lib.Expr(body)) =>
+      body.length() == 1 && dae_instr_is_unreachable_root(body[0])
+    _ => false
+  }
+}
+
+///|
+fn dae_simplify_to_unreachable_when_prefix_unobservable(
+  func : @lib.Func,
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let mut idx = 0
+  while idx < body.length() {
+    if dae_instr_is_unreachable_root(body[idx]) {
+      let mut prefix_idx = 0
+      while prefix_idx < idx {
+        if dae_instr_has_observable_effect(body[prefix_idx]) {
+          return func
+        }
+        prefix_idx += 1
+      }
+      ignore(locals)
+      return @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    }
+    idx += 1
+  }
+  func
+}
+
+///|
+fn dae_rewrite_dropped_result_calls_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> (Array[@lib.Instruction], Int) {
+  let out : Array[@lib.Instruction] = []
+  let mut rewrites = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.Call(func_idx), @lib.Drop) if dae_func_idx_slot(func_idx) ==
+          callee_abs => {
+          out.push(instrs[idx])
+          rewrites += 1
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten, nested) = dae_rewrite_dropped_result_calls_instrs(
+          body, callee_abs,
+        )
+        out.push(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+        rewrites += nested
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten, nested) = dae_rewrite_dropped_result_calls_instrs(
+          body, callee_abs,
+        )
+        out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
+        rewrites += nested
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten, nested) = dae_rewrite_dropped_result_calls_instrs(
+          body, callee_abs,
+        )
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten),
+          ),
+        )
+        rewrites += nested
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (then_rewritten, then_nested) = dae_rewrite_dropped_result_calls_instrs(
+          then_body, callee_abs,
+        )
+        rewrites += then_nested
+        let rewritten_else = match else_body {
+          Some(body) => {
+            let (else_rewritten, else_nested) = dae_rewrite_dropped_result_calls_instrs(
+              body, callee_abs,
+            )
+            rewrites += else_nested
+            Some(else_rewritten)
+          }
+          None => None
+        }
+        out.push(
+          @lib.Instruction::if_(block_type, then_rewritten, rewritten_else),
+        )
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  (out, rewrites)
+}
+
+///|
+fn dae_count_dropped_direct_calls_instrs(
+  instrs : Array[@lib.Instruction],
+  dropped_calls : Array[Int],
+) -> Unit {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.Call(func_idx), @lib.Drop) => {
+          let slot = dae_func_idx_slot(func_idx)
+          if slot >= 0 && slot < dropped_calls.length() {
+            dropped_calls[slot] = dropped_calls[slot] + 1
+          }
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_count_dropped_direct_calls_instrs(body, dropped_calls)
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_count_dropped_direct_calls_instrs(then_body, dropped_calls)
+        dae_count_dropped_direct_calls_instrs(else_body, dropped_calls)
+      }
+      @lib.If(_, then_body, None) =>
+        dae_count_dropped_direct_calls_instrs(then_body, dropped_calls)
+      _ => ()
+    }
+    idx += 1
+  }
+}
+
+///|
+fn dae_collect_dropped_direct_calls(
+  mod_ : @lib.Module,
+  total_funcs : Int,
+) -> Array[Int] {
+  let dropped_calls = Array::make(total_funcs, 0)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        dae_count_dropped_direct_calls_instrs(body, dropped_calls)
+      }
+    None => ()
+  }
+  dropped_calls
+}
+
+///|
+fn dae_try_remove_dropped_results(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  direct_call_count : Int,
+  dropped_call_count : Int,
+) -> DaePassResult {
+  if direct_call_count == 0 || dropped_call_count != direct_call_count {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let imported = dae_imported_func_count(mod_)
+  let def_idx = callee_abs - imported
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if results.length() != 1 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (type_idxs, funcs, type_sec) = match
+    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
+      (type_idxs.copy(), funcs.copy(), type_sec)
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  let mut rewritten_call_count = 0
+  let mut caller_def = 0
+  while caller_def < rewritten_funcs.length() {
+    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller_def]
+    let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_instrs(
+      body, callee_abs,
+    )
+    if rewrites > 0 {
+      rewritten_funcs[caller_def] = @lib.Func::new(
+        locals,
+        @lib.Expr::new(rewritten_body),
+      )
+      rewritten_call_count += rewrites
+    }
+    caller_def += 1
+  }
+  if rewritten_call_count != direct_call_count {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(callee_locals, @lib.Expr(callee_body)) = rewritten_funcs[def_idx]
+  let next_callee_body = callee_body.copy()
+  next_callee_body.push(@lib.Instruction::drop())
+  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
+    @lib.Func::new(callee_locals, @lib.Expr::new(next_callee_body)),
+  )
+  let (next_type_sec, new_type_idx) = dae_append_new_func_type(
+    type_sec,
+    params,
+    [],
+  )
+  type_idxs[def_idx] = new_type_idx
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  caller_def = 0
+  while caller_def < funcs.length() {
+    if funcs[caller_def] != rewritten_funcs[caller_def] {
+      touched[caller_def] = true
+    }
+    caller_def += 1
+  }
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
+fn dae_try_remove_uncalled_results(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let def_idx = callee_abs - imported
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params.length() != 0 || results.length() == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (type_idxs, funcs, type_sec) = match
+    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
+      (type_idxs.copy(), funcs.copy(), type_sec)
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::unreachable_()]),
+  )
+  let (next_type_sec, new_type_idx) = dae_append_new_func_type(
+    type_sec,
+    params,
+    [],
+  )
+  type_idxs[def_idx] = new_type_idx
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
+fn dae_run_core_once(
+  mod_ : @lib.Module,
+  already_rewritten_defs : Array[Bool],
+) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let total = imported + defined
   let escaped = dae_collect_escapes(mod_, total)
   let (direct_calls, tail_calls) = dae_collect_calls(mod_, total)
+  let dropped_calls = dae_collect_dropped_direct_calls(mod_, total)
   let type_indices = dae_collect_func_type_indices(mod_)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return { mod_out: mod_, touched: [], changed: false }
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let mut def_idx = 0
   while def_idx < defined {
     let callee_abs = imported + def_idx
+    if def_idx < already_rewritten_defs.length() &&
+      already_rewritten_defs[def_idx] {
+      def_idx += 1
+      continue
+    }
     if escaped[callee_abs] || tail_calls[callee_abs] {
       def_idx += 1
       continue
     }
     if direct_calls[callee_abs] == 0 {
+      let result = dae_try_remove_uncalled_results(mod_, callee_abs)
+      if result.changed {
+        return result
+      }
       def_idx += 1
       continue
     }
@@ -1432,13 +1853,24 @@ fn dae_run_core_once(mod_ : @lib.Module) -> DaePassResult {
     }
     let @lib.FuncType(params, _) = func_type
     if params.length() == 0 {
+      let dropped_result = dae_try_remove_dropped_results(
+        mod_,
+        callee_abs,
+        direct_calls[callee_abs],
+        dropped_calls[callee_abs],
+      )
+      if dropped_result.changed {
+        return dropped_result
+      }
       def_idx += 1
       continue
     }
     let @lib.Func(locals, _) = funcs[def_idx]
-    let local_use = dae_local_use(
+    let local_use = dae_local_use_for_callee(
       funcs[def_idx],
       params.length() + locals.length(),
+      callee_abs,
+      params.length(),
     )
     let remove = Array::make(params.length(), false)
     let mut any = false
@@ -1461,10 +1893,20 @@ fn dae_run_core_once(mod_ : @lib.Module) -> DaePassResult {
       if result.changed {
         return result
       }
+    } else {
+      let dropped_result = dae_try_remove_dropped_results(
+        mod_,
+        callee_abs,
+        direct_calls[callee_abs],
+        dropped_calls[callee_abs],
+      )
+      if dropped_result.changed {
+        return dropped_result
+      }
     }
     def_idx += 1
   }
-  { mod_out: mod_, touched: [], changed: false }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
 }
 
 ///|
@@ -1486,18 +1928,23 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
   let mut changed = false
+  let already_rewritten_defs = Array::make(dae_defined_func_count(mod_), false)
   let mut iter = 0
   while iter < 8 {
-    let result = dae_run_core_once(current)
+    let result = dae_run_core_once(current, already_rewritten_defs)
     if !result.changed {
       break
     }
     current = result.mod_out
     touched = dae_merge_touched(touched, result.touched)
+    if result.primary_def >= 0 &&
+      result.primary_def < already_rewritten_defs.length() {
+      already_rewritten_defs[result.primary_def] = true
+    }
     changed = true
     iter += 1
   }
-  { mod_out: current, touched, changed }
+  { mod_out: current, touched, changed, primary_def: -1 }
 }
 
 ///|

@@ -136,6 +136,83 @@ test "dae-optimizing does not rewrite exported or ref-func-escaped callees" {
 }
 
 ///|
+test "dae-optimizing removes results when all direct callers drop them" {
+  let source =
+    #|(module
+    #|  (func $f (result f64)
+    #|    f64.const 42)
+    #|  (func (export "run")
+    #|    call $f
+    #|    drop))
+  let optimized = dae_test_run(source)
+  let callee = optimized.pretty_print_defined_func(0U)
+  let caller = optimized.pretty_print_defined_func(1U)
+  assert_true(callee.contains("results: []"), msg=callee)
+  assert_true(caller.contains("(call (Func 0))"), msg=caller)
+  assert_false(caller.contains("drop"), msg=caller)
+}
+
+///|
+test "dae-optimizing removes unobserved results from private uncalled functions" {
+  let source =
+    #|(module
+    #|  (func $dead (result f64)
+    #|    f64.const 42)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  match dae_test_func_params(optimized, 0).length() {
+    0 => ()
+    other => fail("unexpected param count \{other}")
+  }
+  let dead = optimized.pretty_print_defined_func(0U)
+  assert_true(dead.contains("results: []"), msg=dead)
+  assert_true(dead.contains("unreachable"), msg=dead)
+  assert_false(dead.contains("f64.const"), msg=dead)
+}
+
+///|
+test "dae-optimizing cleans unobservable prefix before unreachable after result removal" {
+  let source =
+    #|(module
+    #|  (func $f (result f64)
+    #|    i32.const 1
+    #|    drop
+    #|    block
+    #|      i32.const 0
+    #|      br_table 0 0
+    #|    end
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 42)
+    #|  (func (export "run")
+    #|    call $f
+    #|    drop))
+  let optimized = dae_test_run(source)
+  let callee = optimized.pretty_print_defined_func(0U)
+  assert_true(callee.contains("results: []"), msg=callee)
+  assert_true(callee.contains("unreachable"), msg=callee)
+  assert_false(callee.contains("br_table"), msg=callee)
+}
+
+///|
+test "dae-optimizing keeps self-recursive dropped results while pruning dead params" {
+  let source =
+    #|(module
+    #|  (func $f (param f32) (result i32)
+    #|    f32.const 1
+    #|    call $f
+    #|    drop
+    #|    unreachable)
+    #|  (func (export "run") (result i32)
+    #|    unreachable))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let recursive = optimized.pretty_print_defined_func(0U)
+  assert_true(recursive.contains("results: [I32]"), msg=recursive)
+}
+
+///|
 test "dae-optimizing prunes unused simple function types like Binaryen" {
   let source =
     #|(module

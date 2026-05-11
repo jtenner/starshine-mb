@@ -44,13 +44,16 @@ The local naming caveat was resolved in the first implementation slice:
 Current implemented behavior is intentionally narrower than full Binaryen DAE:
 
 - private direct-call dead scalar parameter removal;
+- adjacent self-recursive `local.get` forwarding is ignored when proving params dead;
 - removed actual side-effect preservation with `drop` repair;
 - export and `ref.func` / element escape bailouts;
 - value-producing `if` operands are preserved with `drop` repair when their parameter is removed;
+- no-param dropped/uncalled result removal with conservative unreachable-prefix cleanup;
+- local-use scanning ignores dead suffixes after a root `unreachable`;
 - unused simple function type pruning after signature changes;
 - a nested-cleanup trace marker for the required `precompute-propagate` prefix.
 
-Current non-parity caveat: the real touched-function-filtered nested cleanup scheduler is not implemented yet. A whole-module cleanup experiment rewrote unrelated functions and worsened direct parity, so the active pass records the nested lane but does not run the default cleanup pipeline until a filtered scheduler lands.
+Current non-parity caveat: complete Binaryen result-removal scheduling and the real touched-function-filtered nested cleanup scheduler are not implemented yet. A whole-module cleanup experiment rewrote unrelated functions and worsened direct parity, so the active pass records the nested lane but does not run the default cleanup pipeline until a filtered scheduler lands.
 
 For a concrete future implementation sequence and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This status page stays focused on current local truth.
 
