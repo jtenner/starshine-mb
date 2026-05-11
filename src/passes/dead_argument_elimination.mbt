@@ -2292,10 +2292,98 @@ fn dae_collect_original_param_counts(mod_ : @lib.Module) -> Array[Int] {
 }
 
 ///|
+fn dae_collect_original_call_counts(mod_ : @lib.Module) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, 0)
+  }
+  let counts : Array[Int] = []
+  let mut def_idx = 0
+  while def_idx < defined {
+    counts.push(dae_count_module_calls_anywhere_to(funcs, imported + def_idx))
+    def_idx += 1
+  }
+  counts
+}
+
+///|
+fn dae_collect_original_prior_call_counts(mod_ : @lib.Module) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, 0)
+  }
+  let counts = Array::make(defined, 0)
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    let mut callee_def = caller_def + 1
+    while callee_def < defined {
+      counts[callee_def] = counts[callee_def] +
+        dae_count_direct_call_anywhere_to(body, imported + callee_def)
+      callee_def += 1
+    }
+    caller_def += 1
+  }
+  counts
+}
+
+///|
+fn dae_collect_original_prior_undropped_call_counts(
+  mod_ : @lib.Module,
+) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, 0)
+  }
+  let counts = Array::make(defined, 0)
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    let mut callee_def = caller_def + 1
+    while callee_def < defined {
+      if dae_has_undropped_direct_call_to(body, imported + callee_def) {
+        counts[callee_def] = counts[callee_def] + 1
+      }
+      callee_def += 1
+    }
+    caller_def += 1
+  }
+  counts
+}
+
+///|
+fn dae_collect_original_self_call_counts(mod_ : @lib.Module) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let counts : Array[Int] = []
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    counts.push(
+      dae_count_self_calls_anywhere(funcs[def_idx], imported + def_idx),
+    )
+    def_idx += 1
+  }
+  counts
+}
+
+///|
 fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
   original_param_counts : Array[Int],
+  original_call_counts : Array[Int],
+  original_prior_call_counts : Array[Int],
+  original_prior_undropped_call_counts : Array[Int],
+  original_self_call_counts : Array[Int],
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -2341,9 +2429,37 @@ fn dae_run_core_once(
       if dead_suffix_params.changed {
         return dead_suffix_params
       }
-      if self_calls_anywhere > 0 &&
-        def_idx < original_param_counts.length() &&
-        original_param_counts[def_idx] == 0 {
+      let original_self_calls = if def_idx < original_self_call_counts.length() {
+        original_self_call_counts[def_idx]
+      } else {
+        0
+      }
+      let originally_had_params = def_idx < original_param_counts.length() &&
+        original_param_counts[def_idx] > 0
+      let original_call_count = if def_idx < original_call_counts.length() {
+        original_call_counts[def_idx]
+      } else {
+        0
+      }
+      let original_prior_calls = if def_idx <
+        original_prior_call_counts.length() {
+        original_prior_call_counts[def_idx]
+      } else {
+        0
+      }
+      let original_prior_undropped_calls = if def_idx <
+        original_prior_undropped_call_counts.length() {
+        original_prior_undropped_call_counts[def_idx]
+      } else {
+        0
+      }
+      let skip_uncalled_after_param_cleanup = originally_had_params &&
+        dae_func_is_unreachable_only(funcs[def_idx]) &&
+        original_call_count > 0 &&
+        (original_prior_calls == 0 || original_prior_undropped_calls > 0)
+      let skip_self_suffix_result = original_self_calls > 0 &&
+        skip_uncalled_after_param_cleanup
+      if self_calls_anywhere > 0 && !skip_self_suffix_result {
         let self_suffix = dae_try_remove_dead_self_suffix_result(
           mod_, callee_abs,
         )
@@ -2351,9 +2467,12 @@ fn dae_run_core_once(
           return self_suffix
         }
       }
-      if self_calls_anywhere == 0 ||
-        dae_count_module_calls_anywhere_to(funcs, callee_abs) !=
-        self_calls_anywhere {
+      if !skip_uncalled_after_param_cleanup &&
+        (
+          self_calls_anywhere == 0 ||
+          dae_count_module_calls_anywhere_to(funcs, callee_abs) !=
+          self_calls_anywhere
+        ) {
         let result = dae_try_remove_uncalled_results(mod_, callee_abs)
         if result.changed {
           return result
@@ -2450,6 +2569,12 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let mut touched : Array[Bool] = []
   let mut changed = false
   let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_call_counts = dae_collect_original_call_counts(mod_)
+  let original_prior_call_counts = dae_collect_original_prior_call_counts(mod_)
+  let original_prior_undropped_call_counts = dae_collect_original_prior_undropped_call_counts(
+    mod_,
+  )
+  let original_self_call_counts = dae_collect_original_self_call_counts(mod_)
   let mut iter = 0
   while iter < 8 {
     let already_rewritten_defs = Array::make(
@@ -2457,7 +2582,8 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
       false,
     )
     let result = dae_run_core_once(
-      current, already_rewritten_defs, original_param_counts,
+      current, already_rewritten_defs, original_param_counts, original_call_counts,
+      original_prior_call_counts, original_prior_undropped_call_counts, original_self_call_counts,
     )
     if !result.changed {
       break
