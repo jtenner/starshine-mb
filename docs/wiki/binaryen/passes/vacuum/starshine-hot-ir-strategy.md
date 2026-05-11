@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-11
 sources:
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
@@ -76,7 +76,9 @@ The hot-pipeline writeback path also has a `vacuum`-specific empty-function cano
 
 Then, if the current root owns nested regions, the helper recurses into them. For small functions it also traverses nested value-expression children so RSE-exposed pure debris and empty-arm shapes inside value-producing controls are cleaned before lowering.
 
-The recursion surface is explicit and limited:
+For large lowered functions, `src/passes/pass_manager.mbt` now runs a raw `vacuum` precleaner before HOT lift when the lowered instruction count exceeds the nested-child cleanup budget. That precleaner recursively removes lowered `nop`s and adjacent pure leaf `const`/`drop` pairs (`i32`/`i64`/`f32`/`f64` constants, `ref.null`, `ref.func`, and `string.const`) inside structured bodies. This keeps candidate-free functions on the existing `no-vacuum-candidates` raw skip path while letting large RSE-produced pure debris shrink without paying for a broad HOT child traversal.
+
+The HOT recursion surface is explicit and limited:
 
 - `Block` and `Loop` body regions
 - `If` then and optional else regions
@@ -128,6 +130,8 @@ The local tests are small but meaningful.
   - proves the block-only-`unreachable` cleanup shape Binaryen emits on the generated scalar corpus
 - `vacuum matches Binaryen empty function nop canonicalization`
   - proves direct `vacuum` keeps Binaryen's single-`nop` canonical form for otherwise empty function bodies
+- `vacuum removes nested value-expression debris in large functions`
+  - proves the raw large-function precleaner removes nested lowered pure `const`/`drop` and `nop` debris even when the HOT nested-child cleanup budget would otherwise skip that function
 - `vacuum cleans simplify-locals structured return residue in the late cleanup pair`
   - proves that explicit `nop` cleanup helps a real late local-cleanup pipeline shape
 - `vacuum roundtrips dead simd prefixes before unreachable`
@@ -173,13 +177,14 @@ The safest one-line contrast is:
 
 Direct oracle evidence for the current slice:
 
+- `.tmp/pass-fuzz-vacuum-large-nested-preclean`: after the 2026-05-11 large-function raw precleaner, mixed-generator direct `vacuum` replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen/tool command failures
 - `.tmp/pass-fuzz-vacuum-empty-then-final`: after the 2026-05-10 empty-then/live-else inversion, mixed-generator replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen empty-recursion-group parser/canonicalization command failures
 - `.tmp/pass-fuzz-vacuum-gen-valid`: `10000/10000` direct `gen-valid` normalized matches, `0` mismatches, `0` validation failures, `0` command failures after the empty-void-block cleanup landed
-- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --vacuum --out-dir .tmp/rse002-vacuum-baseline`: the direct artifact replay is now exact-red at the accepted `defined=208 abs=225` value-carrier / typed-wrapper representation family, while pass-local timing remains green (`172.697ms` Starshine vs `252.935ms` Binaryen)
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --redundant-set-elimination --vacuum --out-dir .tmp/vacuum-large-nested-rse-debris`: the combined replay still has the inherited first differing function at `defined=208 abs=225`, but the real large-function size gap is mostly closed. Starshine normalized wasm is `3,145,318` bytes vs Binaryen `3,139,705`; `defined=518` shrinks to `497,292` body bytes vs Binaryen `495,884`, and Starshine pass-local time is `174.413ms` vs Binaryen `35,265.000ms`.
 
 Current Starshine does **not** yet model upstream behaviors such as:
 
-- generalized effect-aware dropped-wrapper elimination beyond the current nontrapping pure scalar/ref/tuple subset
+- generalized effect-aware dropped-wrapper elimination beyond the current nontrapping pure scalar/ref/tuple subset and the lowered large-function pure leaf precleaner
 - multi-child effect preservation through dropped-child rebuilding
 - constant or unreachable `if` collapse
 - branch-hint metadata updates when an `if` is inverted
@@ -223,7 +228,7 @@ For the current implementation, they are part of the honest contract.
 
 If Starshine wants closer Binaryen parity, the likely path is still staged:
 
-1. keep the current recursive `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, and empty-then/live-else `if` inversion slice green
+1. keep the current recursive `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, empty-then/live-else `if` inversion, and large lowered-function pure leaf precleaning slice green
 2. move the pass into a dedicated owner file once the helper surface grows further
 3. broaden effect-aware dropped-wrapper elimination
 4. add the remaining easy structural cases
@@ -246,5 +251,5 @@ Its exact local implementation is now easy to follow:
 
 That makes the local subset easy to teach honestly:
 
-- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, flip empty-then/live-else void `if`s, and keep the pipeline safe
+- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, flip empty-then/live-else void `if`s, preclean large lowered functions with pure leaf `const`/`drop` plus `nop` debris, and keep the pipeline safe
 - **what it does not do yet:** the broader Binaryen `vacuum` rewrite family

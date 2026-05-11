@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-10
+last_reviewed: 2026-05-11
 sources:
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
@@ -114,7 +114,7 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 - Refreshed final direct compare-pass parity at `.tmp/pass-fuzz-rse-rse002-final-signoff`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
 - Replayed `--redundant-set-elimination --vacuum` at `.tmp/rse002-rse-vacuum`; it initially remained red at `defined=0 abs=17` because nested `drop(...)` / `nop` cleanup debris remained in Starshine's paired vacuum output while Binaryen removed it.
 - Follow-up cleanup taught vacuum to recurse into nested value-expression control regions for small functions, added a raw no-candidate vacuum skip to avoid lifting unchanged functions, preserved raw RSE fallthrough facts after one-armed terminating `if`s, and added Binaryen-style vacuum inversion for empty-then/live-else void `if`s. The replay at `.tmp/rse002-rse-vacuum-final` moved past the `defined=29 abs=46` empty-then / double-`eqz` family to `defined=208 abs=225`.
-- The current `rse -> vacuum` exact replay residual remains classified as inherited direct-`vacuum` representation drift: final signoff at `.tmp/rse002-rse-vacuum-final-signoff3` is exact-red at `defined=208 abs=225`, matching the direct `--vacuum` frontier rather than an RSE-specific first diff.
+- The current `rse -> vacuum` exact replay residual remains classified as inherited direct-`vacuum` representation drift: final signoff at `.tmp/rse002-rse-vacuum-final-signoff3` is exact-red at `defined=208 abs=225`, matching the direct `--vacuum` frontier rather than an RSE-specific first diff. A later 2026-05-11 `vacuum` raw precleaner keeps that first diff but fixes the separate large-function pure-debris size gap in `defined=518` (`497,292` Starshine body bytes vs `495,884` Binaryen at `.tmp/vacuum-large-nested-rse-debris`).
 
 ### Existing Starshine analysis surfaces to read
 

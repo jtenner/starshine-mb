@@ -100,6 +100,59 @@ test "vacuum removes nested if branch pure debris inside value expression" {
 }
 
 ///|
+fn vacuum_test_make_large_nested_value_debris() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32) (local i32)\n")
+  let mut i = 0
+  while i < 1100 {
+    out.write_string("    i32.const ")
+    out.write_string((i & 255).to_string())
+    out.write_string("\n    local.set 1\n")
+    i = i + 1
+  }
+  let tail =
+    #|    (i32.add
+    #|      (if (result i32)
+    #|        (local.get 0)
+    #|        (then
+    #|          (drop (i32.const 0))
+    #|          (i32.const 1)
+    #|        )
+    #|        (else
+    #|          (nop)
+    #|          (i32.const 2)
+    #|        )
+    #|      )
+    #|      (i32.const 3)
+    #|    )
+    #|  )
+    #|)
+    #|,
+  out.write_string(tail)
+  out.to_string()
+}
+
+///|
+test "vacuum removes nested value-expression debris in large functions" {
+  let optimized = match
+    pass_test_run_pipeline(vacuum_test_make_large_nested_value_debris(), [
+      "vacuum",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected large nested vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected large nested vacuum output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
+}
+
+///|
 test "vacuum flips empty then with live else" {
   let input =
     #|(module

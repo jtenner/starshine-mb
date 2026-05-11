@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-11] passes | shrink vacuum large RSE debris
+
+- Added a focused `vacuum` regression for large functions whose nested value-expression controls contain pure `drop(const)` / `nop` debris beyond the HOT nested-child traversal budget.
+- Added a raw large-function `vacuum` precleaner that recursively removes lowered `nop`s and adjacent pure leaf `const`/`drop` pairs before HOT lift; candidate-free functions still use the existing `no-vacuum-candidates` raw skip.
+- Refreshed direct `vacuum` compare-pass at `.tmp/pass-fuzz-vacuum-large-nested-preclean`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Replayed `--redundant-set-elimination --vacuum` at `.tmp/vacuum-large-nested-rse-debris`: exact comparison still first differs at the inherited `defined=208 abs=225` vacuum frontier, but normalized Starshine size improved to `3,145,318` bytes vs Binaryen `3,139,705`; `defined=518` shrank to `497,292` body bytes vs Binaryen `495,884`, and pass-local time was `174.413ms` vs Binaryen `35,265.000ms`.
+
 ## [2026-05-10] passes | accept RSE002 direct signoff
 
 - Added final `[RSE]002` regressions for branch-join different-value safety, raw `any.convert_extern` value identities, conservative raw `try_table` barriers, and loop-backedge default tees: loop-invariant default writes may fold, but locals mutated before a backedge keep their reset tee.

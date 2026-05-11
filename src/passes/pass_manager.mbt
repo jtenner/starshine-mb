@@ -539,8 +539,9 @@ fn hot_pass_remove_node_child_nested_region_nops(
     return false
   }
   // Nested value-expression control cleanup is a small-function cleanup path.
-  // Large functions keep the older root-region vacuum behavior to avoid adding
-  // a broad HOT traversal to cleanup slots that are dominated by lift/lower cost.
+  // Large lowered functions rely on the raw vacuum precleaner for cheap pure
+  // const/drop and nop debris removal before falling back to root-region HOT
+  // cleanup, avoiding a broad child traversal on every large cleanup slot.
   if seen.length() > 2048 {
     return false
   }
@@ -7883,6 +7884,131 @@ fn run_hot_pipeline_raw_rse(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_preclean_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    let instr = instrs[idx]
+    match instr {
+      @lib.Nop => {
+        changed = true
+        idx = idx + 1
+        continue
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+          body,
+        )
+        changed = changed || body_changed
+        rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+          body,
+        )
+        changed = changed || body_changed
+        rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+        )
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+          body,
+        )
+        changed = changed || body_changed
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (cleaned, did_change) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+              body,
+            )
+            (Some(cleaned), did_change)
+          }
+          None => (None, false)
+        }
+        changed = changed || then_changed || else_changed
+        rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
+      }
+      _ => {
+        if idx + 1 < instrs.length() &&
+          run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(instr) {
+          match instrs[idx + 1] {
+            @lib.Drop => {
+              changed = true
+              idx = idx + 2
+              continue
+            }
+            _ => ()
+          }
+        }
+        rewritten.push(instr)
+      }
+    }
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_preclean(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "vacuum" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(instrs)
+  if instr_count <= 2048 {
+    return None
+  }
+  let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(instrs)
+  if !changed {
+    return None
+  }
+  Some({
+    reason: "raw-vacuum-preclean",
+    func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -8777,6 +8903,10 @@ fn run_hot_pipeline_func(
   }
   match
     run_hot_pipeline_raw_rse(mod_, func_idx, module_state, descriptor, options) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match run_hot_pipeline_raw_vacuum_preclean(mod_, func_idx, descriptor) {
     Some(result) => return Ok(result)
     None => ()
   }

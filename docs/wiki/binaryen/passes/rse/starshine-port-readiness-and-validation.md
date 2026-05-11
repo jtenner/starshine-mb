@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-10
+last_reviewed: 2026-05-11
 sources:
   - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
@@ -48,7 +48,7 @@ The implemented surface:
 - retargets raw lowered `local.get` reads to an equivalent local with a strict subtype, now covered by a reduced `anyref` / `eqref` fixture, concrete-heap `ref.as_non_null` straight-line / branch-merge fixtures, programmatic `ref.cast` / `ref.cast_desc_eq` wrapper fixtures for parser-gap-free coverage, and `needs-refinalize`-style `struct.get` / `array.get` receiver retargeting fixtures;
 - uses a raw fast path for lowered functions plus a HOT fallback for direct hot-pass tests;
 - relies on paired vacuum cleanup for pure `drop` / `nop` debris exposed by redundant set removal;
-- keeps the direct compare-pass lane semantic-green and keeps the `rse -> vacuum` exact replay on the already-classified inherited direct-`vacuum` frontier.
+- keeps the direct compare-pass lane semantic-green and keeps the `rse -> vacuum` exact replay on the already-classified inherited direct-`vacuum` frontier, with the later 2026-05-11 `vacuum` raw precleaner fixing the separate large-function pure debris size gap without reopening `[RSE]002`.
 
 Future non-blocking parity work remains:
 
@@ -134,7 +134,7 @@ Only then should the pass enter public preset scheduling.
 - [x] Vacuum flips empty-then/live-else void `if`s to the Binaryen-style one-armed double-`eqz` form.
 - [x] Conservative raw `try_table` barrier: nested body rewrites still run, but post-`try_table` local facts are cleared so unmodeled body writes cannot make later same-value sets fold unsafely.
 - [x] No changes to globals, memory stores, struct stores, or array stores.
-- [x] Late `--rse --vacuum` lane classified for RSE002: final 2026-05-10 replay at `.tmp/rse002-rse-vacuum-final-signoff3` remains exact-red at `defined=208 abs=225`, but the former `defined=0 abs=17` nested `drop(...)` / `nop` debris and `defined=29 abs=46` empty-then / double-`eqz` drift are fixed. The remaining first diff is inherited from direct `--vacuum`: `.tmp/rse002-vacuum-baseline` has the same first differing function, and the focused Starshine WAT/pretty files are byte-identical with and without RSE.
+- [x] Late `--rse --vacuum` lane classified for RSE002: final 2026-05-10 replay at `.tmp/rse002-rse-vacuum-final-signoff3` remains exact-red at `defined=208 abs=225`, but the former `defined=0 abs=17` nested `drop(...)` / `nop` debris and `defined=29 abs=46` empty-then / double-`eqz` drift are fixed. The remaining first diff is inherited from direct `--vacuum`: `.tmp/rse002-vacuum-baseline` has the same first differing function, and the focused Starshine WAT/pretty files are byte-identical with and without RSE. A 2026-05-11 `vacuum` follow-up at `.tmp/vacuum-large-nested-rse-debris` keeps the same first diff but fixes the real size/code-quality gap in `defined=518`, reducing Starshine's body from the prior `682,619` bytes to `497,292` bytes vs Binaryen `495,884`.
 
 ## Open design questions
 
