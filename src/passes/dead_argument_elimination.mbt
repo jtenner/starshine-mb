@@ -2174,8 +2174,6 @@ fn dae_try_remove_unobserved_unreachable_function(
   }
   if params.length() == 0 &&
     results.length() > 0 &&
-    module_calls_anywhere ==
-    dae_count_self_calls_anywhere(funcs[def_idx], callee_abs) &&
     dae_dead_suffix_has_undropped_direct_call_to(callee_body, callee_abs) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -2500,10 +2498,14 @@ fn dae_run_core_once(
       } else {
         0
       }
+      let @lib.Func(_, @lib.Expr(current_body)) = funcs[def_idx]
+      let has_undropped_self_suffix = self_calls_anywhere > 0 &&
+        dae_dead_suffix_has_undropped_direct_call_to(current_body, callee_abs)
       let skip_uncalled_after_param_cleanup = dae_func_is_unreachable_only(
           dae_simplify_to_unreachable_when_prefix_unobservable(funcs[def_idx]),
         ) &&
         (
+          has_undropped_self_suffix ||
           (
             originally_had_params &&
             original_call_count > 0 &&
