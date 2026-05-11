@@ -291,6 +291,45 @@ test "rse removes body-local default same-value set shells" {
 }
 
 ///|
+test "rse raw path folds repeated string.const local sets" {
+  let optimized = rse_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::stringref()]),
+          @lib.Expr::new([
+            @lib.Instruction::string_const(b"rse"),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::string_const(b"rse"),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::StringConst(_),
+      @lib.Instruction::LocalSet(_),
+      @lib.Instruction::StringConst(_),
+      @lib.Instruction::Drop,
+    ] => ()
+    other =>
+      fail(
+        "expected repeated string.const set shell to become drop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "rse retargets equivalent local.get to strict subtype local" {
   let input =
     #|(module

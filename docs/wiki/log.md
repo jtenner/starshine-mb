@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-10] passes | track RSE string constants
+
+- Added raw `redundant-set-elimination` coverage for repeated `string.const` local writes, matching the GC test surface's string-constant value identity expectation.
+- Raw RSE now interns `string.const` operands as stack value identities instead of falling through the unknown-operation path and clearing stack facts.
+- Refreshed direct `redundant-set-elimination` compare-pass at `.tmp/pass-fuzz-rse-rse002-string-const`: `6759/10000` compared, `6759` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-05-10] passes | cover RSE array.get refinalization
 
 - Added a second `rse-gc.wast` `needs-refinalize`-style raw fixture for `redundant-set-elimination`: after a redundant `local.tee` is removed, the following `array.get` should use the strict-subtype receiver's concrete type.

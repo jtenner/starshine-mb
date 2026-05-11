@@ -910,6 +910,10 @@ fn rse_raw_rewrite_expr_scoped(
         out.push(instr)
         rse_raw_push(state, "ref.null:\{ref_type}")
       }
+      @lib.Instruction::StringConst(bytes) => {
+        out.push(instr)
+        rse_raw_push(state, "string.const:\{@debug.to_string(bytes)}")
+      }
       @lib.Instruction::RefFunc(func_idx) => {
         out.push(instr)
         rse_raw_push(state, "ref.func:\{func_idx}")
