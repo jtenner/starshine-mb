@@ -2003,6 +2003,27 @@ fn dae_has_undropped_direct_call_to(
 }
 
 ///|
+fn dae_dead_suffix_has_direct_call_to(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      let suffix : Array[@lib.Instruction] = []
+      let mut suffix_idx = idx + 1
+      while suffix_idx < instrs.length() {
+        suffix.push(instrs[suffix_idx])
+        suffix_idx += 1
+      }
+      return dae_instrs_contain_direct_call_to(suffix, callee_abs)
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn dae_dead_suffix_has_undropped_direct_call_to(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -2159,6 +2180,54 @@ fn dae_try_remove_unobserved_unreachable_function(
 }
 
 ///|
+fn dae_try_remove_dead_self_suffix_result(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let def_idx = callee_abs - imported
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params.length() != 0 || results.length() != 1 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (type_idxs, funcs, type_sec) = match
+    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
+      (type_idxs.copy(), funcs.copy(), type_sec)
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+  if dae_func_is_unreachable_only(funcs[def_idx]) ||
+    !dae_dead_suffix_has_direct_call_to(body, callee_abs) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::unreachable_()]),
+  )
+  let (next_type_sec, new_type_idx) = dae_append_new_func_type(type_sec, [], [])
+  type_idxs[def_idx] = new_type_idx
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_remove_uncalled_results(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -2206,9 +2275,27 @@ fn dae_try_remove_uncalled_results(
 }
 
 ///|
+fn dae_collect_original_param_counts(mod_ : @lib.Module) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let counts : Array[Int] = []
+  let mut def_idx = 0
+  while def_idx < defined {
+    match dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+      Some(@lib.FuncType(params, _)) => counts.push(params.length())
+      None => counts.push(0)
+    }
+    def_idx += 1
+  }
+  counts
+}
+
+///|
 fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
+  original_param_counts : Array[Int],
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -2253,6 +2340,16 @@ fn dae_run_core_once(
       )
       if dead_suffix_params.changed {
         return dead_suffix_params
+      }
+      if self_calls_anywhere > 0 &&
+        def_idx < original_param_counts.length() &&
+        original_param_counts[def_idx] == 0 {
+        let self_suffix = dae_try_remove_dead_self_suffix_result(
+          mod_, callee_abs,
+        )
+        if self_suffix.changed {
+          return self_suffix
+        }
       }
       if self_calls_anywhere == 0 ||
         dae_count_module_calls_anywhere_to(funcs, callee_abs) !=
@@ -2352,13 +2449,16 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
   let mut changed = false
+  let original_param_counts = dae_collect_original_param_counts(mod_)
   let mut iter = 0
   while iter < 8 {
     let already_rewritten_defs = Array::make(
       dae_defined_func_count(current),
       false,
     )
-    let result = dae_run_core_once(current, already_rewritten_defs)
+    let result = dae_run_core_once(
+      current, already_rewritten_defs, original_param_counts,
+    )
     if !result.changed {
       break
     }
