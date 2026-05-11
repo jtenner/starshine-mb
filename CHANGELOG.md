@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: narrow DAE self-suffix result removal
+
+- **restrict no-param dead self-suffix result removal to functions whose original call evidence was self-only, preserving Binaryen's result for mixed external/self dead-suffix callers; focused pass tests pass and `.tmp/pass-fuzz-dae-self-only-result` reports `189/200` compared, `170` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `19` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt) and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: refine DAE dead-suffix result preservation
 
 - **preserve Binaryen-compatible results for originally-parameterized unreachable callees when their remaining evidence is same-or-later dead-suffix calls or prior undropped dead-suffix calls, while still removing no-param dead self-suffix results; focused pass tests pass and `.tmp/pass-fuzz-dae-prior-undropped-skip` reports `189/200` compared, `170` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `19` remaining mismatches** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

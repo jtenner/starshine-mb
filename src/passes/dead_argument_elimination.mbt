@@ -2459,7 +2459,9 @@ fn dae_run_core_once(
         (original_prior_calls == 0 || original_prior_undropped_calls > 0)
       let skip_self_suffix_result = original_self_calls > 0 &&
         skip_uncalled_after_param_cleanup
-      if self_calls_anywhere > 0 && !skip_self_suffix_result {
+      if self_calls_anywhere > 0 &&
+        !skip_self_suffix_result &&
+        original_call_count == original_self_calls {
         let self_suffix = dae_try_remove_dead_self_suffix_result(
           mod_, callee_abs,
         )
