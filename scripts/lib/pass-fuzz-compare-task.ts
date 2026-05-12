@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 import {
   fail,
@@ -40,6 +40,7 @@ type PassFuzzCompareOptions = {
   generator: GeneratorMode;
   maxFailures: number;
   keepGoingAfterCommandFailures: boolean;
+  jobs: number;
   passFlags: string[];
   replayFailuresFrom: string | null;
   failureClass: CommandFailureClass | null;
@@ -84,6 +85,7 @@ type PassFuzzCompareSummary = {
   commandFailureClasses: Partial<Record<CommandFailureClass, number>>;
   commandFailuresCountTowardMaxFailures: boolean;
   maxFailuresHit: boolean;
+  jobs: number;
   seed: string;
   generator: GeneratorMode;
   generatorCounts: {
@@ -107,6 +109,7 @@ const RESERVED_OPTIONS = new Set([
   "--generator",
   "--max-failures",
   "--keep-going-after-command-failures",
+  "--jobs",
   "--pass",
   "--replay-failures-from",
   "--failure-class",
@@ -173,6 +176,7 @@ const HELP_TEXT = [
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
+  "  --jobs <n|auto>       Concurrent case jobs. Default: 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
   "                       Replay saved command-failure inputs from a prior out dir",
@@ -205,6 +209,26 @@ function parseNonNegativeInt(label: string, raw: string): number {
     fail(`invalid ${label}: ${raw}`);
   }
   return Number.parseInt(raw, 10);
+}
+
+function availableParallelism(): number {
+  const available = (os as typeof os & { availableParallelism?: () => number }).availableParallelism;
+  return Math.max(1, available?.() ?? os.cpus().length ?? 1);
+}
+
+function parseJobs(raw: string): number {
+  const value = raw.trim();
+  if (value === "auto") {
+    return availableParallelism();
+  }
+  if (!/^\d+$/.test(value)) {
+    fail(`invalid jobs: ${raw}`);
+  }
+  const jobs = Number.parseInt(value, 10);
+  if (jobs < 1) {
+    fail(`invalid jobs: ${raw}`);
+  }
+  return jobs;
 }
 
 function seedHex(seed: bigint): string {
@@ -287,18 +311,99 @@ function resolveStarshineInvocation(
   };
 }
 
-function runValidate(wasmToolsBin: string, wasmPath: string, repoRoot: string): { ok: boolean; stderr: string } {
-  const result = spawnSync(wasmToolsBin, ["validate", wasmPath], {
-    cwd: repoRoot,
-    env: makeRepoTmpEnv(repoRoot),
-    encoding: "utf8",
+type ProcessResult = {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+};
+
+function runProcess(
+  command: string,
+  args: string[],
+  {
+    cwd = process.cwd(),
+    env = process.env,
+    input = null,
+    maxBuffer = 128 * 1024 * 1024,
+  }: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    input?: Buffer | string | null;
+    maxBuffer?: number;
+  } = {},
+): Promise<ProcessResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio: [input === null ? "ignore" : "pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      stdout += chunk;
+      if (stdout.length > maxBuffer) {
+        child.kill();
+        reject(new Error(`stdout exceeded maxBuffer for command: ${command} ${args.join(" ")}`));
+      }
+    });
+    child.stderr?.on("data", (chunk: string) => {
+      stderr += chunk;
+      if (stderr.length > maxBuffer) {
+        child.kill();
+        reject(new Error(`stderr exceeded maxBuffer for command: ${command} ${args.join(" ")}`));
+      }
+    });
+    child.on("error", reject);
+    child.on("close", (status) => {
+      resolve({ status, stdout, stderr });
+    });
+    if (input !== null) {
+      child.stdin?.end(input);
+    }
   });
-  if (result.error) {
-    throw result.error;
+}
+
+async function runOrThrowAsync(
+  command: string,
+  args: string[],
+  {
+    cwd = process.cwd(),
+    env = process.env,
+    maxBuffer = 128 * 1024 * 1024,
+  }: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    maxBuffer?: number;
+  } = {},
+): Promise<{ stdout: string; stderr: string }> {
+  const result = await runProcess(command, args, { cwd, env, maxBuffer });
+  if (result.status !== 0) {
+    const stderr = result.stderr.trim();
+    const suffix = stderr ? `\n${stderr}` : "";
+    fail(`command failed: ${command} ${args.join(" ")}${suffix}`);
   }
   return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
+async function runValidateAsync(
+  wasmToolsBin: string,
+  wasmPath: string,
+  repoRoot: string,
+): Promise<{ ok: boolean; stderr: string }> {
+  const result = await runProcess(wasmToolsBin, ["validate", wasmPath], {
+    cwd: repoRoot,
+    env: makeRepoTmpEnv(repoRoot),
+  });
+  return {
     ok: result.status === 0,
-    stderr: (result.stderr ?? "").trim(),
+    stderr: result.stderr.trim(),
   };
 }
 
@@ -318,20 +423,19 @@ function hasNonEmptyFile(pathname: string): boolean {
   }
 }
 
-function runStarshineWithRetry(
+async function runStarshineWithRetry(
   starshineInvocation: StarshineInvocation,
   starshineArgs: string[],
   starshineRawPath: string,
   repoRoot: string,
   repoTmpEnv: NodeJS.ProcessEnv,
-): void {
+): Promise<void> {
   const maxAttempts = starshineInvocation.retryMissingOutput ? 3 : 1;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     fs.rmSync(starshineRawPath, { force: true });
-    runOrThrow(starshineInvocation.command, starshineArgs, {
+    await runOrThrowAsync(starshineInvocation.command, starshineArgs, {
       cwd: repoRoot,
       env: repoTmpEnv,
-      stdio: "pipe",
     });
     if (hasNonEmptyFile(starshineRawPath)) {
       return;
@@ -384,36 +488,47 @@ function noteCommandFailureClass(
     (summary.commandFailureClasses[failureClass] ?? 0) + 1;
 }
 
-function normalizePrintWat(wasmOptBin: string, wasmPath: string, watPath: string, repoRoot: string): string {
-  runOrThrow(
+async function normalizePrintWat(
+  wasmOptBin: string,
+  wasmPath: string,
+  watPath: string,
+  repoRoot: string,
+): Promise<string> {
+  await runOrThrowAsync(
     wasmOptBin,
     [wasmPath, "--all-features", "--strip-debug", "-S", "-o", watPath],
-    { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot), stdio: "pipe" },
+    { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
   );
   return fs.readFileSync(watPath, "utf8");
 }
 
-function canonicalizeWasm(wasmOptBin: string, inputPath: string, outputPath: string, repoRoot: string): void {
-  runOrThrow(
+async function canonicalizeWasm(
+  wasmOptBin: string,
+  inputPath: string,
+  outputPath: string,
+  repoRoot: string,
+): Promise<void> {
+  await runOrThrowAsync(
     wasmOptBin,
     [inputPath, "--all-features", "--strip-debug", "-o", outputPath],
-    { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot), stdio: "pipe" },
+    { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
   );
 }
 
-function runSmith(wasmToolsBin: string, outputPath: string, seedBytes: Buffer, repoRoot: string): { ok: boolean; stderr: string } {
-  const result = spawnSync(wasmToolsBin, ["smith", "-o", outputPath], {
+async function runSmith(
+  wasmToolsBin: string,
+  outputPath: string,
+  seedBytes: Buffer,
+  repoRoot: string,
+): Promise<{ ok: boolean; stderr: string }> {
+  const result = await runProcess(wasmToolsBin, ["smith", "-o", outputPath], {
     cwd: repoRoot,
     env: makeRepoTmpEnv(repoRoot),
     input: seedBytes,
-    encoding: "utf8",
   });
-  if (result.error) {
-    throw result.error;
-  }
   return {
     ok: result.status === 0,
-    stderr: (result.stderr ?? "").trim(),
+    stderr: result.stderr.trim(),
   };
 }
 
@@ -523,10 +638,6 @@ function persistFailureArtifacts(
   return failureDir;
 }
 
-function writeJsonlLine(pathname: string, record: CaseRecord): void {
-  fs.appendFileSync(pathname, `${JSON.stringify(record)}\n`);
-}
-
 function loadReplayCases(
   repoRoot: string,
   replayFailuresFrom: string,
@@ -591,6 +702,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let generator: GeneratorMode = "both";
   let maxFailures = 20;
   let keepGoingAfterCommandFailures = false;
+  let jobs = 1;
   const passFlags: string[] = [];
   let replayFailuresFrom: string | null = null;
   let failureClass: CommandFailureClass | null = null;
@@ -668,6 +780,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         keepGoingAfterCommandFailures = true;
         i += 1;
         break;
+      case "--jobs":
+        jobs = parseJobs(argv[i + 1] ?? fail("missing value for --jobs"));
+        i += 2;
+        break;
       case "--pass":
         passFlags.push(normalizePassNameToFlag(argv[i + 1] ?? fail("missing value for --pass")));
         i += 2;
@@ -735,6 +851,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       generator,
       maxFailures,
       keepGoingAfterCommandFailures,
+      jobs,
       passFlags,
       replayFailuresFrom,
       failureClass,
@@ -778,6 +895,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           options.replayCaseIndex,
         );
   const requestedCount = replayCases?.length ?? options.count;
+  const effectiveJobs = Math.min(options.jobs, Math.max(requestedCount, 1));
+  if (effectiveJobs > 1 && options.starshineBin === null) {
+    fail(
+      "--jobs >1 requires --starshine-bin so parallel cases do not run concurrent moon invocations; " +
+        "build src/cmd once and pass its native binary path",
+    );
+  }
 
   fs.mkdirSync(outDir, { recursive: true });
   fs.mkdirSync(inputsDir, { recursive: true });
@@ -823,6 +947,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     commandFailureClasses: {},
     commandFailuresCountTowardMaxFailures: !options.keepGoingAfterCommandFailures,
     maxFailuresHit: false,
+    jobs: effectiveJobs,
     seed: seedHex(options.seed),
     generator: options.generator,
     generatorCounts: {
@@ -834,15 +959,23 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     failureDirs: [],
   };
 
-  let genValidIndex = 0;
   let failures = 0;
+  let nextReplayIndex = 0;
+  const caseRecords: CaseRecord[] = [];
 
-  for (let replayIndex = 0; replayIndex < requestedCount; replayIndex += 1) {
-    if (failures >= options.maxFailures) {
-      summary.maxFailuresHit = true;
-      break;
+  function recordCase(record: CaseRecord): void {
+    caseRecords.push(record);
+    fs.appendFileSync(casesPath, `${JSON.stringify(record)}\n`);
+  }
+
+  function genValidInputIndexForReplayIndex(replayIndex: number): number {
+    if (options.generator === "gen-valid") {
+      return replayIndex;
     }
+    return Math.floor(replayIndex / 2);
+  }
 
+  async function runCase(replayIndex: number): Promise<void> {
     const replayCase = replayCases?.[replayIndex] ?? null;
     const generator = replayCase?.generator ?? generatorForIndex(options.generator, replayIndex);
     const caseNumber = replayCase?.caseIndex ?? replayIndex + 1;
@@ -859,11 +992,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       if (replayCase !== null) {
         fs.copyFileSync(replayCase.inputPath, inputPath);
       } else if (generator === "gen-valid") {
-        const source = genValidInputs[genValidIndex] ?? fail("not enough generated gen-valid inputs");
-        genValidIndex += 1;
+        const source =
+          genValidInputs[genValidInputIndexForReplayIndex(replayIndex)] ??
+          fail("not enough generated gen-valid inputs");
         fs.copyFileSync(source, inputPath);
       } else {
-        const smith = runSmith(
+        const smith = await runSmith(
           options.wasmToolsBin,
           inputPath,
           makeSmithSeedBytes(options.seed + BigInt(replayIndex)),
@@ -885,17 +1019,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
               options.passFlags,
             ),
           );
-          writeJsonlLine(casesPath, {
+          recordCase({
             caseIndex: caseNumber,
             generator,
             status: "generator-failure",
             detail,
           });
-          continue;
+          return;
         }
       }
 
-      const baselineValidation = runValidate(options.wasmToolsBin, inputPath, repoRoot);
+      const baselineValidation = await runValidateAsync(options.wasmToolsBin, inputPath, repoRoot);
       if (!baselineValidation.ok) {
         summary.generatorFailureCount += 1;
         failures += 1;
@@ -912,13 +1046,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             options.passFlags,
           ),
         );
-        writeJsonlLine(casesPath, {
+        recordCase({
           caseIndex: caseNumber,
           generator,
           status: "generator-failure",
           detail,
         });
-        continue;
+        return;
       }
 
       const starshineArgs = [
@@ -929,7 +1063,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         inputPath,
       ];
       try {
-        runStarshineWithRetry(
+        await runStarshineWithRetry(
           starshineInvocation,
           starshineArgs,
           starshineRawPath,
@@ -956,17 +1090,21 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             options.passFlags,
           ),
         );
-        writeJsonlLine(casesPath, {
+        recordCase({
           caseIndex: caseNumber,
           generator,
           status: "command-failure",
           detail,
           failureClass,
         });
-        continue;
+        return;
       }
 
-      const starshineValidation = runValidate(options.wasmToolsBin, starshineRawPath, repoRoot);
+      const starshineValidation = await runValidateAsync(
+        options.wasmToolsBin,
+        starshineRawPath,
+        repoRoot,
+      );
       if (!starshineValidation.ok) {
         summary.validationFailureCount += 1;
         failures += 1;
@@ -983,27 +1121,37 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             options.passFlags,
           ),
         );
-        writeJsonlLine(casesPath, {
+        recordCase({
           caseIndex: caseNumber,
           generator,
           status: "validation-failure",
           detail,
         });
-        continue;
+        return;
       }
 
       let starshineWat = "";
       let binaryenWat = "";
       try {
-        runOrThrow(
+        await runOrThrowAsync(
           options.wasmOptBin,
           [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath],
-          { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
+          { cwd: repoRoot, env: repoTmpEnv },
         );
-        canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
-        canonicalizeWasm(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot);
-        starshineWat = normalizePrintWat(options.wasmOptBin, starshinePath, starshineWatPath, repoRoot);
-        binaryenWat = normalizePrintWat(options.wasmOptBin, binaryenPath, binaryenWatPath, repoRoot);
+        await canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
+        await canonicalizeWasm(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot);
+        starshineWat = await normalizePrintWat(
+          options.wasmOptBin,
+          starshinePath,
+          starshineWatPath,
+          repoRoot,
+        );
+        binaryenWat = await normalizePrintWat(
+          options.wasmOptBin,
+          binaryenPath,
+          binaryenWatPath,
+          repoRoot,
+        );
       } catch (error) {
         summary.commandFailureCount += 1;
         if (!options.keepGoingAfterCommandFailures) {
@@ -1024,14 +1172,14 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             options.passFlags,
           ),
         );
-        writeJsonlLine(casesPath, {
+        recordCase({
           caseIndex: caseNumber,
           generator,
           status: "command-failure",
           detail,
           failureClass,
         });
-        continue;
+        return;
       }
 
       summary.comparedCount += 1;
@@ -1043,7 +1191,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
       if (starshineWat === binaryenWat) {
         summary.normalizedMatchCount += 1;
-        writeJsonlLine(casesPath, {
+        recordCase({
           caseIndex: caseNumber,
           generator,
           status: "match",
@@ -1065,7 +1213,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             options.passFlags,
           ),
         );
-        writeJsonlLine(casesPath, {
+        recordCase({
           caseIndex: caseNumber,
           generator,
           status: "mismatch",
@@ -1077,6 +1225,32 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     }
   }
 
+  async function runWorker(): Promise<void> {
+    while (true) {
+      if (failures >= options.maxFailures) {
+        if (nextReplayIndex < requestedCount) {
+          summary.maxFailuresHit = true;
+        }
+        return;
+      }
+      const replayIndex = nextReplayIndex;
+      if (replayIndex >= requestedCount) {
+        return;
+      }
+      nextReplayIndex += 1;
+      await runCase(replayIndex);
+    }
+  }
+
+  await Promise.all(Array.from({ length: summary.jobs }, () => runWorker()));
+
+  summary.failureDirs.sort();
+  caseRecords.sort((left, right) => left.caseIndex - right.caseIndex);
+  fs.writeFileSync(
+    casesPath,
+    caseRecords.map((record) => JSON.stringify(record)).join("\n") +
+      (caseRecords.length === 0 ? "" : "\n"),
+  );
   fs.writeFileSync(resultPath, JSON.stringify(summary, null, 2) + "\n");
   if (options.minCompared !== null && summary.comparedCount < options.minCompared) {
     fail(
@@ -1084,6 +1258,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     );
   }
   process.stdout.write(`Wrote pass fuzz compare artifacts to ${outDir}\n`);
+  process.stdout.write(`Jobs: ${summary.jobs}\n`);
   process.stdout.write(`Compared cases: ${summary.comparedCount}/${summary.requestedCount}\n`);
   process.stdout.write(`Normalized matches: ${summary.normalizedMatchCount}\n`);
   process.stdout.write(`Validation failures: ${summary.validationFailureCount}\n`);

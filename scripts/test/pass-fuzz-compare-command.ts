@@ -128,6 +128,8 @@ process.exit(0);
       fakeWasmOpt,
       "--wasm-tools-bin",
       fakeWasmTools,
+      "--jobs",
+      "2",
       "--remove-unused-brs",
     ],
     {
@@ -162,6 +164,7 @@ process.exit(0);
     comparedCount: number;
     normalizedMatchCount: number;
     validationFailureCount: number;
+    jobs: number;
     generatorCounts: { wasmSmith: number; genValid: number };
     passFlags: string[];
     binaryenPassFlags: string[];
@@ -170,6 +173,7 @@ process.exit(0);
   assert(summary.comparedCount === 4, `unexpected compared count ${summary.comparedCount}`);
   assert(summary.normalizedMatchCount === 4, `unexpected normalized match count ${summary.normalizedMatchCount}`);
   assert(summary.validationFailureCount === 0, `unexpected validation failure count ${summary.validationFailureCount}`);
+  assert(summary.jobs === 2, `expected 2 parallel jobs, got ${summary.jobs}`);
   assert(summary.generatorCounts.wasmSmith === 2, `unexpected wasm-smith count ${summary.generatorCounts.wasmSmith}`);
   assert(summary.generatorCounts.genValid === 2, `unexpected gen-valid count ${summary.generatorCounts.genValid}`);
   assert(
@@ -2728,6 +2732,42 @@ process.exit(0);
   assert(validateCalls.length === 2, `expected baseline and final starshine validation only, got ${validateCalls.length}`);
 }
 
+export function runPassFuzzCompareParallelJobsRequireStarshineBinTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-jobs-guard-"));
+  const outDir = path.join(tmpdir, "out");
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "2",
+      "--jobs",
+      "2",
+      "--generator",
+      "wasm-smith",
+      "--out-dir",
+      outDir,
+      "--pass",
+      "remove-unused-brs",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  assert(result.status !== 0, "expected --jobs >1 without --starshine-bin to fail");
+  assert(
+    result.stderr.includes("--jobs >1 requires --starshine-bin"),
+    `expected --starshine-bin guard failure, got:\n${result.stderr}`,
+  );
+  assert(!fs.existsSync(outDir), `expected guard to fail before creating out dir: ${outDir}`);
+}
+
 if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareListPassesCommandTest();
@@ -2750,6 +2790,7 @@ if (import.meta.main) {
   runPassFuzzCompareReplayFailureClassTest();
   runPassFuzzCompareReplayLegacyCaseIndexTest();
   runPassFuzzCompareMinComparedGateTest();
+  runPassFuzzCompareParallelJobsRequireStarshineBinTest();
   runPassFuzzCompareDefaultStarshineInvocationTest();
   runPassFuzzCompareDefaultStarshineInvocationRetriesMissingOutputTest();
 }

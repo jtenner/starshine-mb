@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-12 Tooling: parallelize pass fuzz compare jobs
+
+- **add `--jobs <n|auto>` to `pass-fuzz-compare` so long pass-oracle fuzz lanes can run independent cases concurrently when using a prebuilt `--starshine-bin`, with `auto` using available parallelism, deterministic case indexing preserved, sorted `cases.jsonl` output, and the selected job count recorded in `result.json` and stdout** by **@OpenAI**. Updated [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts), [`docs/README.md`](./docs/README.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-12 Passes: preserve DAE escaped block self results
 
 - **preserve `dae-optimizing` result signatures for originally parameterized mixed dropped/undropped self-recursive functions when an escaped dropped caller reaches a block-valued undropped self result, matching Binaryen on the `case-000766` result-signature portion while leaving only local-declaration shape drift there; focused pass tests pass, `.tmp/pass-fuzz-dae-escaped-block-self-result-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and `.tmp/pass-fuzz-dae-escaped-block-self-result-1000` holds the current frontier at `998/1000` compared with `982` normalized matches, `16` mismatches, and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

@@ -95,7 +95,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 - Common Bun workflows: `bun validate ...`, `bun fuzz ...`, `bun self-opt ...`, `bun make ...`, and `bun examples ...`.
 - Run fuzzing via `moon run src/fuzz ...` or `bun fuzz run ...`; do not put heavy randomized loops inside `moon test`.
 - Use `bun scripts/pass-fuzz-compare.ts --list-passes` to discover supported canonical pass names.
-- The pass-comparison harness alternates `wasm-tools smith` and in-repo `gen_valid`, validates with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` output.
+- The pass-comparison harness alternates `wasm-tools smith` and in-repo `gen_valid`, validates with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` output; use `--jobs auto` or `--jobs <n>` with `--starshine-bin` on long lanes to run independent cases concurrently without parallel `moon` lock contention.
 - Ask before running the full self-optimize pipeline.
 - Ask before running `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize`.
 - Parity signoff requires Binaryen semantic parity, valid wasm output, and Starshine pass-local wall time `>= 50%` of Binaryen where possible; raw wasm/text drift is acceptable when canonical semantic comparison is green.
