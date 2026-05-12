@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: preserve DAE no-param later-undropped callers
+
+- **preserve `dae-optimizing` no-param result signatures when Binaryen sees a later undropped nonself caller, covering the result chain where a self-recursive no-param function is also returned by another no-param callee; focused pass tests pass, `.tmp/pass-fuzz-dae-noparam-later-undropped-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-noparam-later-undropped-slice` reaches `764/1000` compared with `746` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: preserve DAE no-param undropped self results
 
 - **preserve `dae-optimizing` no-param result signatures when an originally-called private function has an undropped dead-suffix self call plus dropped external callers, while still pruning the side callee; focused pass tests pass, `.tmp/pass-fuzz-dae-noparam-undropped-dropped-callers-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-noparam-undropped-dropped-callers-slice` reaches `760/1000` compared with `742` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

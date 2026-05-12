@@ -3288,6 +3288,7 @@ fn dae_run_core_once(
             !no_self_nonmutual_side_call
           ) ||
           (!originally_had_params && original_prior_undropped_calls > 0) ||
+          (!originally_had_params && original_nonself_undropped_calls > 0) ||
           (
             !originally_had_params &&
             original_dead_suffix_undropped_self_call &&
