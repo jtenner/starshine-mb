@@ -355,6 +355,62 @@ test "dae-optimizing keeps originally-parameterized dead self-suffix results" {
 }
 
 ///|
+test "dae-optimizing keeps parameterized dead self result side chains" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param f64 i64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 24
+    #|    i32.const 933
+    #|    call $f1
+    #|    drop
+    #|    f32.const 1)
+    #|  (func $f1 (param f32 i32) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    i32.const 163
+    #|    call $f1
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f2)
+    #|  (func $f2 (param f32 i32) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 56
+    #|    i64.const 429
+    #|    call $f3
+    #|    drop
+    #|    i32.const 1
+    #|    if (result i64)
+    #|      i64.const 876
+    #|    else
+    #|      local.get 0
+    #|      local.get 1
+    #|      call $f1
+    #|    end)
+    #|  (func $f3 (param f64 i64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 79
+    #|    i32.const 926
+    #|    call $f2
+    #|    drop
+    #|    f64.const 55
+    #|    i64.const 369
+    #|    call $f3))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 1)
+}
+
+///|
 test "dae-optimizing keeps dead-suffix-only originally-parameterized results" {
   let source =
     #|(module
