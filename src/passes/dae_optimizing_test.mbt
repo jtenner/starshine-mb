@@ -355,6 +355,37 @@ test "dae-optimizing keeps originally-parameterized dead self-suffix results" {
 }
 
 ///|
+test "dae-optimizing prunes no-param dropped self results under dead self callers" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param i32) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f2
+    #|    drop
+    #|    i32.const 49)
+    #|  (func $f1 (param i32) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 819
+    #|    call $f1
+    #|    drop
+    #|    call $f2)
+    #|  (func $f2 (result i32)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f2
+    #|    drop
+    #|    local.get 0))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 0)
+}
+
+///|
 test "dae-optimizing prunes dropped self results with dropped side callers" {
   let source =
     #|(module
