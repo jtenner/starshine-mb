@@ -602,6 +602,47 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing preserves self-result operand chains" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param i64 f64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 53
+    #|    i64.const 367
+    #|    call $f2
+    #|    local.get 1
+    #|    call $f1)
+    #|  (func $f1 (param i64 f64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 659)
+    #|  (func $f2 (param f64 i64) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    f64.const 49
+    #|    local.get 1
+    #|    call $f2
+    #|    call $f2
+    #|    drop
+    #|    local.get 1)
+    #|  (func $f3 (param i64 f64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    f64.const 32
+    #|    call $f1))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+}
+
+///|
 test "dae-optimizing prunes no-param results with escaped dropped callers" {
   let source =
     #|(module

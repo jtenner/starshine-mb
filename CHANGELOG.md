@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: preserve DAE self-result operand chains
+
+- **preserve `dae-optimizing` result signatures for originally-parameterized self-recursive functions whose dead suffix feeds one self-call result into another self call and also has undropped nonself evidence, while still pruning inactive mixed self chains; focused pass tests pass, `.tmp/pass-fuzz-dae-self-result-operand-200c` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-self-result-operand-slice-d` reaches `910/1000` compared with `892` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: prune DAE no-param escaped dropped callers
 
 - **prune `dae-optimizing` no-param private result signatures when the only preservation pressure is an undropped private caller but an escaped dead-suffix caller drops the same function; focused pass tests pass, `.tmp/pass-fuzz-dae-noparam-escaped-drop-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-noparam-escaped-drop-slice` reaches `888/1000` compared with `870` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
