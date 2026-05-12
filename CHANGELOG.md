@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: preserve DAE active dropped self results
+
+- **preserve `dae-optimizing` result signatures for parameterized private functions with dropped dead-suffix self calls when an active nonself caller also reaches the function, while keeping the existing uncalled-later-caller pruning guard; focused pass tests pass, `.tmp/pass-fuzz-dae-param-dropped-self-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-param-dropped-self-slice` reaches `842/1000` compared with `824` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: preserve DAE escaped-result suffix evidence
 
 - **preserve `dae-optimizing` private result signatures when Binaryen sees either a private dead-suffix call fed by an escaped result operand whose callee itself drops an escaped result, or a private function with an undropped escaped-result call in its own dead suffix and no escaped dead-suffix callers; focused pass tests pass, `.tmp/pass-fuzz-dae-escaped-suffix-200b` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-escaped-suffix-slice` reaches `772/1000` compared with `754` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

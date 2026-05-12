@@ -3632,6 +3632,17 @@ fn dae_run_core_once(
           ) ||
           (
             originally_had_params &&
+            original_self_calls > 0 &&
+            def_idx < original_dead_suffix_dropped_self_calls.length() &&
+            original_dead_suffix_dropped_self_calls[def_idx] &&
+            !original_dead_suffix_undropped_self_call &&
+            original_call_count > original_self_calls &&
+            original_active_nonself_calls > 0 &&
+            original_escaped_dead_suffix_calls == 0 &&
+            !original_dead_suffix_mutual_call
+          ) ||
+          (
+            originally_had_params &&
             original_self_calls == 0 &&
             original_dead_suffix_result_other_call &&
             original_escaped_dead_suffix_calls == 0 &&

@@ -602,6 +602,48 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing preserves parameterized dropped self results with dropped callers" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param i32 f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 1
+    #|    f64.const 73
+    #|    call $f2
+    #|    drop)
+    #|  (func $f1 (param f32 f64) (result i32)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 2)
+    #|  (func $f2 (param f32 f64) (result i32)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    f64.const 54
+    #|    call $f3
+    #|    drop
+    #|    local.get 2)
+    #|  (func $f3 (param f32 f64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    f64.const 16
+    #|    call $f3
+    #|    drop
+    #|    i32.const 229))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 1)
+}
+
+///|
 test "dae-optimizing preserves private escaped-result suffix results" {
   let source =
     #|(module
