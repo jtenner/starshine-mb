@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: clean DAE mutual result-side parameters
+
+- **clean vanished parameters while preserving `dae-optimizing` results for later members of mutual private result cycles whose dead suffix side-calls an earlier self-recursive result callee, while pruning the earlier member result; focused pass tests pass, `.tmp/pass-fuzz-dae-mutual-result-side-param-200b` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-mutual-result-side-param-slice-b` reaches `866/1000` compared with `848` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: preserve DAE void self-recursive side-call results
 
 - **preserve `dae-optimizing` result signatures for originally-parameterized private functions whose dead suffix side-calls a void self-recursive private callee, allowing vanished-call parameter cleanup before result preservation; focused pass tests pass, `.tmp/pass-fuzz-dae-void-selfrec-side-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-void-selfrec-side-slice` reaches `860/1000` compared with `842` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
