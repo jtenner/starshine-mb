@@ -602,6 +602,36 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing prunes no-param results with escaped dropped callers" {
+  let source =
+    #|(module
+    #|  (func $main (export "main")
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f1
+    #|    drop)
+    #|  (func $f1 (result i64)
+    #|    (local i32 i64 f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f2
+    #|    drop
+    #|    local.get 1)
+    #|  (func $f2 (result i64)
+    #|    (local i32 i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f1
+    #|    drop
+    #|    call $f1))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+}
+
+///|
 test "dae-optimizing prunes parameters in mutual self-result suffixes" {
   let source =
     #|(module

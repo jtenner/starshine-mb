@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: prune DAE no-param escaped dropped callers
+
+- **prune `dae-optimizing` no-param private result signatures when the only preservation pressure is an undropped private caller but an escaped dead-suffix caller drops the same function; focused pass tests pass, `.tmp/pass-fuzz-dae-noparam-escaped-drop-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-noparam-escaped-drop-slice` reaches `888/1000` compared with `870` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: clean DAE mutual result-side parameters
 
 - **clean vanished parameters while preserving `dae-optimizing` results for later members of mutual private result cycles whose dead suffix side-calls an earlier self-recursive result callee, while pruning the earlier member result; focused pass tests pass, `.tmp/pass-fuzz-dae-mutual-result-side-param-200b` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-mutual-result-side-param-slice-b` reaches `866/1000` compared with `848` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
