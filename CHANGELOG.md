@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: preserve DAE void self-recursive side-call results
+
+- **preserve `dae-optimizing` result signatures for originally-parameterized private functions whose dead suffix side-calls a void self-recursive private callee, allowing vanished-call parameter cleanup before result preservation; focused pass tests pass, `.tmp/pass-fuzz-dae-void-selfrec-side-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-void-selfrec-side-slice` reaches `860/1000` compared with `842` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: prune DAE private same-operand result chains
 
 - **prune `dae-optimizing` private result-side callees when the original private result caller feeds the callee's own result into a later dead-suffix call to that callee, while preserving earlier private result-side chains that lack same-result operand evidence; focused pass tests pass, `.tmp/pass-fuzz-dae-private-same-operand-prune-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-private-same-operand-prune-slice` reaches `852/1000` compared with `834` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

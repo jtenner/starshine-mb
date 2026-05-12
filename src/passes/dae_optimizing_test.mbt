@@ -602,6 +602,47 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing preserves results with void dead-suffix side calls" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param f32 f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f1
+    #|    drop)
+    #|  (func $f1 (param f32 f32)
+    #|    (local f64 i64 i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 4
+    #|    local.get 2
+    #|    call $f3
+    #|    drop)
+    #|  (func $f2 (param f32 f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    f32.const 17
+    #|    call $f2)
+    #|  (func $f3 (param i32 f64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 56
+    #|    f32.const 55
+    #|    call $f2
+    #|    i32.const 637))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 1)
+}
+
+///|
 test "dae-optimizing prunes private result callees in mixed self chains" {
   let source =
     #|(module

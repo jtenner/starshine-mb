@@ -3517,6 +3517,48 @@ fn dae_dead_suffix_has_private_result_call_other_than(
 }
 
 ///|
+fn dae_collect_original_dead_suffix_self_recursive_void_side_calls(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, false)
+  }
+  let original_self_calls = dae_collect_original_self_call_counts(mod_)
+  let flags = Array::make(defined, false)
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let callee_abs = imported + def_idx
+    let callees = Array::make(total, false)
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    dae_collect_dead_suffix_other_callees(body, callee_abs, callees)
+    let mut other_abs = imported
+    while other_abs < total {
+      if callees[other_abs] {
+        let other_def = other_abs - imported
+        if other_def >= 0 &&
+          other_def < funcs.length() &&
+          other_def < original_self_calls.length() &&
+          original_self_calls[other_def] > 0 {
+          match dae_resolve_func_type(mod_, type_indices, other_abs) {
+            Some(@lib.FuncType(_, results)) if results.length() == 0 =>
+              flags[def_idx] = true
+            _ => ()
+          }
+        }
+      }
+      other_abs += 1
+    }
+    def_idx += 1
+  }
+  flags
+}
+
+///|
 fn dae_collect_original_dead_suffix_result_other_calls(
   mod_ : @lib.Module,
 ) -> Array[Bool] {
@@ -3653,6 +3695,7 @@ fn dae_run_core_once(
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_dropped_self_calls : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
+  original_dead_suffix_self_recursive_void_side_calls : Array[Bool],
   original_dead_suffix_undropped_escaped_result_calls : Array[Bool],
   original_dead_suffix_mutual_calls : Array[Bool],
 ) -> DaePassResult {
@@ -3733,16 +3776,6 @@ fn dae_run_core_once(
       } else {
         0
       }
-      let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
-        mod_,
-        callee_abs,
-        original_call_count,
-        original_dead_suffix_undropped_escaped_result_call_for_unobserved &&
-        original_escaped_dead_suffix_calls_for_unobserved == 0,
-      )
-      if dead_suffix_params.changed {
-        return dead_suffix_params
-      }
       let original_prior_calls = if def_idx <
         original_prior_call_counts.length() {
         original_prior_call_counts[def_idx]
@@ -3806,12 +3839,37 @@ fn dae_run_core_once(
       let original_dead_suffix_undropped_self_call = def_idx <
         original_dead_suffix_undropped_self_calls.length() &&
         original_dead_suffix_undropped_self_calls[def_idx]
+      let original_dead_suffix_self_recursive_void_side_call = def_idx <
+        original_dead_suffix_self_recursive_void_side_calls.length() &&
+        original_dead_suffix_self_recursive_void_side_calls[def_idx]
       let original_dead_suffix_undropped_escaped_result_call = def_idx <
         original_dead_suffix_undropped_escaped_result_calls.length() &&
         original_dead_suffix_undropped_escaped_result_calls[def_idx]
       let original_dead_suffix_mutual_call = def_idx <
         original_dead_suffix_mutual_calls.length() &&
         original_dead_suffix_mutual_calls[def_idx]
+      let original_void_dead_suffix_side_call = original_dead_suffix_other_call &&
+        !original_dead_suffix_result_other_call
+      let allow_unreachable_only_param_cleanup = (
+          original_dead_suffix_undropped_escaped_result_call_for_unobserved &&
+          original_escaped_dead_suffix_calls_for_unobserved == 0
+        ) ||
+        (
+          originally_had_params &&
+          original_self_calls == 0 &&
+          original_void_dead_suffix_side_call &&
+          original_dead_suffix_self_recursive_void_side_call &&
+          original_escaped_dead_suffix_calls == 0 &&
+          original_call_count > 0 &&
+          original_active_nonself_calls > 0 &&
+          original_nonself_undropped_calls == 0
+        )
+      let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
+        mod_, callee_abs, original_call_count, allow_unreachable_only_param_cleanup,
+      )
+      if dead_suffix_params.changed {
+        return dead_suffix_params
+      }
       let @lib.Func(_, @lib.Expr(current_body)) = funcs[def_idx]
       let has_undropped_self_suffix = self_calls_anywhere > 0 &&
         dae_dead_suffix_has_undropped_direct_call_to(current_body, callee_abs)
@@ -3873,6 +3931,16 @@ fn dae_run_core_once(
               original_active_nonself_calls > 0 ||
               original_nonself_undropped_calls > 0
             )
+          ) ||
+          (
+            originally_had_params &&
+            original_self_calls == 0 &&
+            original_void_dead_suffix_side_call &&
+            original_dead_suffix_self_recursive_void_side_call &&
+            original_escaped_dead_suffix_calls == 0 &&
+            original_call_count > 0 &&
+            original_active_nonself_calls > 0 &&
+            original_nonself_undropped_calls == 0
           ) ||
           (
             originally_had_params &&
@@ -4043,6 +4111,9 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls(
     mod_,
   )
+  let original_dead_suffix_self_recursive_void_side_calls = dae_collect_original_dead_suffix_self_recursive_void_side_calls(
+    mod_,
+  )
   let original_dead_suffix_undropped_escaped_result_calls = dae_collect_original_dead_suffix_undropped_escaped_result_calls(
     mod_,
   )
@@ -4062,8 +4133,8 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
       original_private_result_same_operand_call_counts, original_private_result_escaped_operand_call_counts,
       original_escaped_dead_suffix_call_counts, original_dead_suffix_other_calls,
       original_dead_suffix_undropped_self_calls, original_dead_suffix_dropped_self_calls,
-      original_dead_suffix_result_other_calls, original_dead_suffix_undropped_escaped_result_calls,
-      original_dead_suffix_mutual_calls,
+      original_dead_suffix_result_other_calls, original_dead_suffix_self_recursive_void_side_calls,
+      original_dead_suffix_undropped_escaped_result_calls, original_dead_suffix_mutual_calls,
     )
     if !result.changed {
       break
