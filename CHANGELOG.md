@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-11 Passes: prune DAE dropped self results from no-param callers
+
+- **prune `dae-optimizing` private dropped-self result signatures when the only active nonself evidence comes from no-param dropped callers, while preserving later undropped and active parameterized caller cases; focused pass tests pass, `.tmp/pass-fuzz-dae-dropped-self-noparam-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-dropped-self-noparam-slice` reaches `954/1000` compared with `936` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-11 Passes: preserve DAE callees under undropped self callers
 
 - **preserve `dae-optimizing` private result callees reached from dead suffixes of private self-recursive callers that also have undropped nonself callers, while excluding self-only inactive cycles; focused pass tests pass, `.tmp/pass-fuzz-dae-undropped-self-caller-200b` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and the 1000-case probe at `.tmp/pass-fuzz-dae-undropped-self-caller-slice-b` reaches `946/1000` compared with `928` normalized matches before `18` mismatches and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).

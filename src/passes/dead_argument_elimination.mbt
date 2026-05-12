@@ -2629,6 +2629,46 @@ fn dae_collect_original_active_nonself_call_counts(
 }
 
 ///|
+fn dae_collect_original_active_parameterized_nonself_call_counts(
+  mod_ : @lib.Module,
+) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, 0)
+  }
+  let escaped = dae_collect_escapes(mod_, total)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let counts = Array::make(defined, 0)
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let caller_abs = imported + caller_def
+    let caller_is_active = escaped[caller_abs] ||
+      dae_count_module_calls_anywhere_to(funcs, caller_abs) > 0
+    let caller_has_params = match
+      dae_resolve_func_type(mod_, type_indices, caller_abs) {
+      Some(@lib.FuncType(params, _)) => params.length() > 0
+      None => false
+    }
+    if caller_is_active && caller_has_params {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      let mut callee_def = 0
+      while callee_def < defined {
+        if callee_def != caller_def {
+          counts[callee_def] = counts[callee_def] +
+            dae_count_direct_call_anywhere_to(body, imported + callee_def)
+        }
+        callee_def += 1
+      }
+    }
+    caller_def += 1
+  }
+  counts
+}
+
+///|
 fn dae_collect_original_prior_undropped_call_counts(
   mod_ : @lib.Module,
 ) -> Array[Int] {
@@ -3810,6 +3850,7 @@ fn dae_run_core_once(
   original_prior_call_counts : Array[Int],
   original_prior_undropped_call_counts : Array[Int],
   original_active_nonself_call_counts : Array[Int],
+  original_active_parameterized_nonself_call_counts : Array[Int],
   original_nonself_undropped_call_counts : Array[Int],
   original_self_call_counts : Array[Int],
   original_private_result_dead_suffix_call_counts : Array[Int],
@@ -3963,6 +4004,12 @@ fn dae_run_core_once(
       let original_active_nonself_calls = if def_idx <
         original_active_nonself_call_counts.length() {
         original_active_nonself_call_counts[def_idx]
+      } else {
+        0
+      }
+      let original_active_parameterized_nonself_calls = if def_idx <
+        original_active_parameterized_nonself_call_counts.length() {
+        original_active_parameterized_nonself_call_counts[def_idx]
       } else {
         0
       }
@@ -4144,6 +4191,7 @@ fn dae_run_core_once(
             !original_dead_suffix_undropped_self_call &&
             original_call_count > original_self_calls &&
             original_active_nonself_calls > 0 &&
+            original_active_parameterized_nonself_calls > 0 &&
             original_escaped_dead_suffix_calls == 0 &&
             !original_dead_suffix_mutual_call
           ) ||
@@ -4176,7 +4224,11 @@ fn dae_run_core_once(
               original_nonself_undropped_calls > 0
             ) &&
             (original_prior_calls == 0 || original_prior_undropped_calls > 0) &&
-            !no_self_nonmutual_side_call
+            !no_self_nonmutual_side_call &&
+            !(original_self_calls > 0 &&
+            original_call_count > original_self_calls &&
+            original_active_parameterized_nonself_calls == 0 &&
+            original_nonself_undropped_calls == 0)
           ) ||
           (!originally_had_params && original_prior_undropped_calls > 0) ||
           (
@@ -4384,6 +4436,9 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let original_active_nonself_call_counts = dae_collect_original_active_nonself_call_counts(
     mod_,
   )
+  let original_active_parameterized_nonself_call_counts = dae_collect_original_active_parameterized_nonself_call_counts(
+    mod_,
+  )
   let original_nonself_undropped_call_counts = dae_collect_original_nonself_undropped_call_counts(
     mod_,
   )
@@ -4439,7 +4494,8 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
     let result = dae_run_core_once(
       current, already_rewritten_defs, original_param_counts, original_call_counts,
       original_prior_call_counts, original_prior_undropped_call_counts, original_active_nonself_call_counts,
-      original_nonself_undropped_call_counts, original_self_call_counts, original_private_result_dead_suffix_call_counts,
+      original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+      original_self_call_counts, original_private_result_dead_suffix_call_counts,
       original_private_result_same_operand_call_counts, original_private_result_escaped_operand_call_counts,
       original_escaped_dead_suffix_call_counts, original_dead_suffix_other_calls,
       original_dead_suffix_undropped_self_calls, original_dead_suffix_dropped_self_calls,
