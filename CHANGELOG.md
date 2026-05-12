@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-12 Passes: complete DAE001 and advance to DAE002
+
+- **mark `[DAE]001` complete after the case-000690 fix and local-declaration frontier classification, move remaining meaningful `dae-optimizing` work to `[DAE]002` for the touched-function-filtered nested cleanup scheduler and artifact compare, and keep the saved 1000-case direct frontier documented as local-declaration-only rather than a semantic/signature blocker** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md), [`docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md`](./docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-12 Passes: classify DAE local-declaration frontier
 
 - **classify the remaining `.tmp/pass-fuzz-dae-690-final2-1000` direct `--dae-optimizing` failures after `1f81bbc7`: all 13 `gen-valid` mismatches have exactly one diff hunk limited to unused local declarations, the two `wasm-smith` failures remain Binaryen/tool `binaryen-rec-group-zero` parser failures, and no further semantic/signature candidate is currently identified in that saved 1000-case frontier** by **@OpenAI**. Updated [`docs/wiki/raw/research/0558-2026-05-12-dae-local-declaration-frontier.md`](./docs/wiki/raw/research/0558-2026-05-12-dae-local-declaration-frontier.md), [`docs/wiki/binaryen/passes/dae-optimizing/index.md`](./docs/wiki/binaryen/passes/dae-optimizing/index.md), [`docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md`](./docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

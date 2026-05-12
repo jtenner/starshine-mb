@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-12] passes | DAE001 completion
+
+- Marked `[DAE]001` complete in `agent-todo.md` after the saved `.tmp/pass-fuzz-dae-690-final2-1000` direct frontier was classified as local-declaration-only and moved remaining meaningful `dae-optimizing` work to `[DAE]002` for the touched-function-filtered nested cleanup scheduler and artifact compare.
+- Updated the DAE strategy page to make the slice boundary explicit: direct call-graph pruning/touched tracking is accepted, while complete Binaryen result-removal scheduling and nested cleanup replay remain active under `[DAE]002`.
+
 ## [2026-05-12] passes | DAE local-declaration frontier
 
 - Classified the remaining mismatches in `.tmp/pass-fuzz-dae-690-final2-1000/failures` after `1f81bbc7` and recorded the durable table in [`raw/research/0558-2026-05-12-dae-local-declaration-frontier.md`](raw/research/0558-2026-05-12-dae-local-declaration-frontier.md).
