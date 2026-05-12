@@ -252,6 +252,39 @@ test "dae-optimizing removes dropped results from no-param dead self suffixes" {
 }
 
 ///|
+test "dae-optimizing keeps no-param undropped self results with dropped callers" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f1
+    #|    drop
+    #|    i64.const 817)
+    #|  (func $f1 (result i64)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f32.const 16
+    #|    local.get 0
+    #|    call $f2
+    #|    drop
+    #|    call $f1)
+    #|  (func $f2 (param f32 i32) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f1
+    #|    drop
+    #|    local.get 0))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 0)
+}
+
+///|
 test "dae-optimizing keeps results when dead self suffix has another call" {
   let source =
     #|(module

@@ -3241,6 +3241,9 @@ fn dae_run_core_once(
       let original_dead_suffix_result_other_call = def_idx <
         original_dead_suffix_result_other_calls.length() &&
         original_dead_suffix_result_other_calls[def_idx]
+      let original_dead_suffix_undropped_self_call = def_idx <
+        original_dead_suffix_undropped_self_calls.length() &&
+        original_dead_suffix_undropped_self_calls[def_idx]
       let original_dead_suffix_mutual_call = def_idx <
         original_dead_suffix_mutual_calls.length() &&
         original_dead_suffix_mutual_calls[def_idx]
@@ -3284,7 +3287,12 @@ fn dae_run_core_once(
             (original_prior_calls == 0 || original_prior_undropped_calls > 0) &&
             !no_self_nonmutual_side_call
           ) ||
-          (!originally_had_params && original_prior_undropped_calls > 0)
+          (!originally_had_params && original_prior_undropped_calls > 0) ||
+          (
+            !originally_had_params &&
+            original_dead_suffix_undropped_self_call &&
+            original_call_count > original_self_calls
+          )
         )
       let skip_self_suffix_result = original_self_calls > 0 &&
         skip_uncalled_after_param_cleanup
