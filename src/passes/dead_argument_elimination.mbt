@@ -3621,6 +3621,207 @@ fn dae_collect_original_dead_suffix_undropped_self_calls(
 }
 
 ///|
+fn dae_instrs_have_undropped_call_to_with_param_operand(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  param_count : Int,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+) -> Bool {
+  let stack : Array[Int] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.LocalGet(local_idx) => {
+        let slot = dae_local_idx_slot(local_idx)
+        if slot >= 0 && slot < param_count {
+          stack.push(slot)
+        } else {
+          stack.push(-1)
+        }
+      }
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        let mut has_param_operand = false
+        let mut p = 0
+        while p < param_count {
+          let stack_idx = stack.length() - param_count + p
+          if stack_idx >= 0 && stack_idx < stack.length() {
+            has_param_operand = has_param_operand || stack[stack_idx] >= 0
+          }
+          p += 1
+        }
+        if has_param_operand &&
+          !(idx + 1 < instrs.length() &&
+          instrs[idx + 1] == @lib.Instruction::drop()) {
+          return true
+        }
+        let mut pop = 0
+        while pop < param_count && stack.length() > 0 {
+          ignore(stack.pop())
+          pop += 1
+        }
+        match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+          Some(@lib.FuncType(_, results)) => {
+            let mut r = 0
+            while r < results.length() {
+              stack.push(-1)
+              r += 1
+            }
+          }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        if dae_instrs_have_undropped_call_to_with_param_operand(
+            body, callee_abs, param_count, mod_, type_indices,
+          ) {
+          return true
+        }
+        match dae_instr_stack_effect(instrs[idx], mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack.length() > 0 {
+              ignore(stack.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack.push(-1)
+              push += 1
+            }
+          }
+          None => ()
+        }
+      }
+      @lib.If(_, then_body, Some(else_body)) => {
+        if dae_instrs_have_undropped_call_to_with_param_operand(
+            then_body, callee_abs, param_count, mod_, type_indices,
+          ) ||
+          dae_instrs_have_undropped_call_to_with_param_operand(
+            else_body, callee_abs, param_count, mod_, type_indices,
+          ) {
+          return true
+        }
+        match dae_instr_stack_effect(instrs[idx], mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack.length() > 0 {
+              ignore(stack.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack.push(-1)
+              push += 1
+            }
+          }
+          None => ()
+        }
+      }
+      @lib.If(_, then_body, None) => {
+        if dae_instrs_have_undropped_call_to_with_param_operand(
+            then_body, callee_abs, param_count, mod_, type_indices,
+          ) {
+          return true
+        }
+        match dae_instr_stack_effect(instrs[idx], mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack.length() > 0 {
+              ignore(stack.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack.push(-1)
+              push += 1
+            }
+          }
+          None => ()
+        }
+      }
+      _ =>
+        match dae_instr_stack_effect(instrs[idx], mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack.length() > 0 {
+              ignore(stack.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack.push(-1)
+              push += 1
+            }
+          }
+          None => ()
+        }
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_dead_suffix_has_undropped_self_call_param_operand(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  param_count : Int,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      let suffix : Array[@lib.Instruction] = []
+      let mut suffix_idx = idx + 1
+      while suffix_idx < instrs.length() {
+        suffix.push(instrs[suffix_idx])
+        suffix_idx += 1
+      }
+      return dae_instrs_have_undropped_call_to_with_param_operand(
+        suffix, callee_abs, param_count, mod_, type_indices,
+      )
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_collect_original_dead_suffix_undropped_self_call_param_operands(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let flags : Array[Bool] = []
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let callee_abs = imported + def_idx
+    let param_count = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => 0
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    flags.push(
+      param_count > 0 &&
+      dae_dead_suffix_has_undropped_self_call_param_operand(
+        body, callee_abs, param_count, mod_, type_indices,
+      ),
+    )
+    def_idx += 1
+  }
+  flags
+}
+
+///|
 fn dae_collect_original_dead_suffix_dropped_self_calls(
   mod_ : @lib.Module,
 ) -> Array[Bool] {
@@ -3921,6 +4122,45 @@ fn dae_collect_original_dead_suffix_mutual_calls(
 }
 
 ///|
+fn dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
+  def_idx : Int,
+  original_param_counts : Array[Int],
+  original_call_counts : Array[Int],
+  original_active_nonself_call_counts : Array[Int],
+  original_active_parameterized_nonself_call_counts : Array[Int],
+  original_nonself_undropped_call_counts : Array[Int],
+  original_self_call_counts : Array[Int],
+  original_escaped_dead_suffix_call_counts : Array[Int],
+  original_dead_suffix_undropped_self_calls : Array[Bool],
+  original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
+  original_dead_suffix_result_other_calls : Array[Bool],
+  original_dead_suffix_mutual_calls : Array[Bool],
+) -> Bool {
+  def_idx < original_param_counts.length() &&
+  original_param_counts[def_idx] > 0 &&
+  def_idx < original_call_counts.length() &&
+  def_idx < original_self_call_counts.length() &&
+  original_self_call_counts[def_idx] > 0 &&
+  original_call_counts[def_idx] > original_self_call_counts[def_idx] &&
+  def_idx < original_dead_suffix_undropped_self_calls.length() &&
+  original_dead_suffix_undropped_self_calls[def_idx] &&
+  def_idx < original_dead_suffix_undropped_self_call_param_operands.length() &&
+  original_dead_suffix_undropped_self_call_param_operands[def_idx] &&
+  def_idx < original_dead_suffix_result_other_calls.length() &&
+  original_dead_suffix_result_other_calls[def_idx] &&
+  def_idx < original_active_nonself_call_counts.length() &&
+  original_active_nonself_call_counts[def_idx] > 0 &&
+  def_idx < original_active_parameterized_nonself_call_counts.length() &&
+  original_active_parameterized_nonself_call_counts[def_idx] == 0 &&
+  def_idx < original_nonself_undropped_call_counts.length() &&
+  original_nonself_undropped_call_counts[def_idx] == 0 &&
+  def_idx < original_escaped_dead_suffix_call_counts.length() &&
+  original_escaped_dead_suffix_call_counts[def_idx] == 0 &&
+  def_idx < original_dead_suffix_mutual_calls.length() &&
+  !original_dead_suffix_mutual_calls[def_idx]
+}
+
+///|
 fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
@@ -3945,6 +4185,7 @@ fn dae_run_core_once(
   original_dead_suffix_dropped_self_calls : Array[Bool],
   original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int],
   original_dead_suffix_same_self_result_operand_calls : Array[Bool],
+  original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
   original_dead_suffix_self_recursive_void_side_calls : Array[Bool],
   original_dead_suffix_self_recursive_result_side_calls : Array[Bool],
@@ -4056,9 +4297,17 @@ fn dae_run_core_once(
       def_idx < original_dead_suffix_same_self_result_operand_calls.length() &&
       original_dead_suffix_same_self_result_operand_calls[def_idx] &&
       original_nonself_undropped_calls_for_unobserved > 0
+    let original_undropped_self_result_from_no_param_dropped_caller_for_unobserved = dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
+      def_idx, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+      original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+      original_dead_suffix_mutual_calls,
+    )
     if direct_calls[callee_abs] == self_calls &&
       !original_mixed_self_suffix_for_unobserved &&
       !original_same_self_result_operand_for_unobserved &&
+      !original_undropped_self_result_from_no_param_dropped_caller_for_unobserved &&
       original_dead_suffix_result_calls_from_undropped_self_callers_for_unobserved ==
       0 &&
       original_dead_suffix_escaped_result_operand_calls_for_unobserved == 0 &&
@@ -4194,6 +4443,13 @@ fn dae_run_core_once(
       let original_dead_suffix_mutual_call = def_idx <
         original_dead_suffix_mutual_calls.length() &&
         original_dead_suffix_mutual_calls[def_idx]
+      let original_undropped_self_result_from_no_param_dropped_caller = dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
+        def_idx, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+        original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+        original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+        original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+        original_dead_suffix_mutual_calls,
+      )
       let original_void_dead_suffix_side_call = original_dead_suffix_other_call &&
         !original_dead_suffix_result_other_call
       let allow_unreachable_only_param_cleanup = (
@@ -4224,7 +4480,8 @@ fn dae_run_core_once(
           original_dead_suffix_same_self_result_operand_call &&
           original_nonself_undropped_calls > 0 &&
           original_call_count >= original_self_calls
-        )
+        ) ||
+        original_undropped_self_result_from_no_param_dropped_caller
       let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
         mod_, callee_abs, original_call_count, allow_unreachable_only_param_cleanup,
       )
@@ -4259,6 +4516,7 @@ fn dae_run_core_once(
             original_nonself_undropped_calls > 0 &&
             original_call_count >= original_self_calls
           ) ||
+          original_undropped_self_result_from_no_param_dropped_caller ||
           (
             originally_had_params &&
             original_self_calls > 0 &&
@@ -4449,10 +4707,18 @@ fn dae_run_core_once(
         original_dead_suffix_dropped_self_calls[def_idx] &&
         def_idx < original_escaped_dead_suffix_call_counts.length() &&
         original_escaped_dead_suffix_call_counts[def_idx] == 0
+      let preserve_original_undropped_self_result_from_no_param_dropped_caller = dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
+        def_idx, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+        original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+        original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+        original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+        original_dead_suffix_mutual_calls,
+      )
       if !preserve_original_same_self_result_operand &&
         !preserve_original_result_from_undropped_self_caller &&
         !preserve_original_escaped_result_operand_chain &&
-        !preserve_original_mixed_self_result {
+        !preserve_original_mixed_self_result &&
+        !preserve_original_undropped_self_result_from_no_param_dropped_caller {
         let dropped_result = dae_try_remove_dropped_results(
           mod_,
           callee_abs,
@@ -4530,6 +4796,13 @@ fn dae_run_core_once(
       original_dead_suffix_dropped_self_calls[def_idx] &&
       def_idx < original_escaped_dead_suffix_call_counts.length() &&
       original_escaped_dead_suffix_call_counts[def_idx] == 0
+    let preserve_current_undropped_self_result_from_no_param_dropped_caller = dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
+      def_idx, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+      original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+      original_dead_suffix_mutual_calls,
+    )
     if any {
       let result = dae_try_rewrite_candidate(
         mod_,
@@ -4544,7 +4817,8 @@ fn dae_run_core_once(
     } else if !preserve_current_same_self_result_operand &&
       !preserve_current_result_from_undropped_self_caller &&
       !preserve_current_escaped_result_operand_chain &&
-      !preserve_current_mixed_self_result {
+      !preserve_current_mixed_self_result &&
+      !preserve_current_undropped_self_result_from_no_param_dropped_caller {
       let dropped_result = dae_try_remove_dropped_results(
         mod_,
         callee_abs,
@@ -4628,6 +4902,9 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let original_dead_suffix_same_self_result_operand_calls = dae_collect_original_dead_suffix_same_self_result_operand_calls(
     mod_,
   )
+  let original_dead_suffix_undropped_self_call_param_operands = dae_collect_original_dead_suffix_undropped_self_call_param_operands(
+    mod_,
+  )
   let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls(
     mod_,
   )
@@ -4659,9 +4936,9 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
       original_escaped_dead_suffix_call_counts, original_dead_suffix_other_calls,
       original_dead_suffix_undropped_self_calls, original_dead_suffix_dropped_self_calls,
       original_dead_suffix_result_calls_from_undropped_self_callers, original_dead_suffix_same_self_result_operand_calls,
-      original_dead_suffix_result_other_calls, original_dead_suffix_self_recursive_void_side_calls,
-      original_dead_suffix_self_recursive_result_side_calls, original_dead_suffix_undropped_escaped_result_calls,
-      original_dead_suffix_mutual_calls,
+      original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+      original_dead_suffix_self_recursive_void_side_calls, original_dead_suffix_self_recursive_result_side_calls,
+      original_dead_suffix_undropped_escaped_result_calls, original_dead_suffix_mutual_calls,
     )
     if !result.changed {
       break
