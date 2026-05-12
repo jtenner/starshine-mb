@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-12] passes | DAE local-declaration frontier
+
+- Classified the remaining mismatches in `.tmp/pass-fuzz-dae-690-final2-1000/failures` after `1f81bbc7` and recorded the durable table in [`raw/research/0558-2026-05-12-dae-local-declaration-frontier.md`](raw/research/0558-2026-05-12-dae-local-declaration-frontier.md).
+- Confirmed all 13 remaining `gen-valid` failures have exactly one diff hunk limited to unused local declarations; no function signature, type declaration, call instruction, body instruction, export/import, or custom-section drift remains in this saved 1000-case frontier.
+- Left the two `wasm-smith` failures classified as unchanged Binaryen/tool `binaryen-rec-group-zero` parser failures and updated the DAE pages/backlog to avoid chasing broad cosmetic local-declaration preservation as a semantic fix.
+
 ## [2026-05-12] passes | DAE case-000690 escaped operand
 
 - Investigated `.tmp/pass-fuzz-dae-no-param-result-caller-prune-1000/failures/case-000690-gen-valid` and recorded the durable Binaryen shape in [`raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md`](raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md).

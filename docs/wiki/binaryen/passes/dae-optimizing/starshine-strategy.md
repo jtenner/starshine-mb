@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-12
 sources:
+  - ../../../raw/research/0558-2026-05-12-dae-local-declaration-frontier.md
   - ../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
@@ -55,7 +56,7 @@ Current implemented behavior is intentionally narrower than full Binaryen DAE:
 - unused simple function type pruning after signature changes;
 - a nested-cleanup trace marker for the required `precompute-propagate` prefix.
 
-Current non-parity caveat: complete Binaryen result-removal scheduling and the real touched-function-filtered nested cleanup scheduler are not implemented yet. A whole-module cleanup experiment rewrote unrelated functions and worsened direct parity, so the active pass records the nested lane but does not run the default cleanup pipeline until a filtered scheduler lands. After the 2026-05-12 case-000690 fix, `.tmp/pass-fuzz-dae-690-final2-1000` removed `case-000690-gen-valid` from the failure set and reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures.
+Current non-parity caveat: complete Binaryen result-removal scheduling and the real touched-function-filtered nested cleanup scheduler are not implemented yet. A whole-module cleanup experiment rewrote unrelated functions and worsened direct parity, so the active pass records the nested lane but does not run the default cleanup pipeline until a filtered scheduler lands. After the 2026-05-12 case-000690 fix, `.tmp/pass-fuzz-dae-690-final2-1000` removed `case-000690-gen-valid` from the failure set and reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures; a follow-up classification found that all 13 remaining `gen-valid` mismatches are local-declaration-only diffs with exactly one local-decl hunk apiece, and the two command failures are unchanged `binaryen-rec-group-zero` parser/tool failures.
 
 For a concrete future implementation sequence and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This status page stays focused on current local truth.
 
@@ -109,7 +110,8 @@ Minimum required pieces:
 3. **Callsite repair**
    - preserve evaluation order for removed call operands;
    - localize hard call operands before parameter removal when needed;
-   - preserve uninhabitable-result behavior with `call; unreachable`-style repair.
+   - preserve uninhabitable-result behavior with `call; unreachable`-style repair;
+   - avoid adding broad parameter/result preservation rules solely to match Binaryen's unused-local declaration shape; the current saved 1000-case frontier is local-declaration drift, not a known semantic/signature mismatch.
 
 4. **Nested cleanup scheduler**
    - track every function whose body or boundary changed;
