@@ -793,6 +793,46 @@ test "dae-optimizing preserves undropped self results reached from no-param drop
 }
 
 ///|
+test "dae-optimizing preserves no-param side callees under param-operand self results" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f2
+    #|    drop
+    #|    call $f2)
+    #|  (func $f1 (param f64 i64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f3
+    #|    drop
+    #|    f64.const 25
+    #|    local.get 1
+    #|    call $f1)
+    #|  (func $f2 (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $main
+    #|    i64.const 34
+    #|    call $f1
+    #|    drop
+    #|    f64.const 4)
+    #|  (func $f3 (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $main
+    #|    drop
+    #|    f64.const 4))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 1)
+}
+
+///|
 test "dae-optimizing prunes no-param results with escaped dropped callers" {
   let source =
     #|(module
