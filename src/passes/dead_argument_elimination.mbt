@@ -2251,6 +2251,7 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
   mod_ : @lib.Module,
   callee_abs : Int,
   original_call_count : Int,
+  allow_unreachable_only_cleanup : Bool,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let def_idx = callee_abs - imported
@@ -2276,7 +2277,9 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
   if current_calls_anywhere == 0 && original_call_count == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  if current_calls_anywhere == 0 && dae_func_is_unreachable_only(funcs[def_idx]) {
+  if current_calls_anywhere == 0 &&
+    dae_func_is_unreachable_only(funcs[def_idx]) &&
+    !allow_unreachable_only_cleanup {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -2745,6 +2748,85 @@ fn dae_instrs_have_dropped_escaped_result_direct_call(
 }
 
 ///|
+fn dae_instrs_have_undropped_escaped_result_direct_call(
+  instrs : Array[@lib.Instruction],
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) => {
+        let slot = dae_func_idx_slot(func_idx)
+        if slot >= 0 &&
+          slot < escaped.length() &&
+          escaped[slot] &&
+          !(idx + 1 < instrs.length() &&
+          instrs[idx + 1] == @lib.Instruction::drop()) {
+          match dae_resolve_func_type(mod_, type_indices, slot) {
+            Some(@lib.FuncType(_, results)) if results.length() > 0 =>
+              return true
+            _ => ()
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if dae_instrs_have_undropped_escaped_result_direct_call(
+            body, mod_, type_indices, escaped,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if dae_instrs_have_undropped_escaped_result_direct_call(
+            then_body, mod_, type_indices, escaped,
+          ) ||
+          dae_instrs_have_undropped_escaped_result_direct_call(
+            else_body, mod_, type_indices, escaped,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if dae_instrs_have_undropped_escaped_result_direct_call(
+            then_body, mod_, type_indices, escaped,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_dead_suffix_has_undropped_escaped_result_call(
+  instrs : Array[@lib.Instruction],
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      let suffix : Array[@lib.Instruction] = []
+      let mut suffix_idx = idx + 1
+      while suffix_idx < instrs.length() {
+        suffix.push(instrs[suffix_idx])
+        suffix_idx += 1
+      }
+      return dae_instrs_have_undropped_escaped_result_direct_call(
+        suffix, mod_, type_indices, escaped,
+      )
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn dae_dead_suffix_has_dropped_escaped_result_call(
   instrs : Array[@lib.Instruction],
   mod_ : @lib.Module,
@@ -2767,6 +2849,248 @@ fn dae_dead_suffix_has_dropped_escaped_result_call(
     idx += 1
   }
   false
+}
+
+///|
+fn dae_collect_original_dead_suffix_undropped_escaped_result_calls(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, false)
+  }
+  let escaped = dae_collect_escapes(mod_, total)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let flags = Array::make(defined, false)
+  let mut def_idx = 0
+  while def_idx < defined {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    flags[def_idx] = dae_dead_suffix_has_undropped_escaped_result_call(
+      body, mod_, type_indices, escaped,
+    )
+    def_idx += 1
+  }
+  flags
+}
+
+///|
+fn dae_dead_suffix_call_to_has_escaped_result_operand(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
+) -> Bool {
+  let param_count = match
+    dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(@lib.FuncType(params, _)) => params.length()
+    None => return false
+  }
+  let stack_from_escaped_call : Array[Bool] = []
+  let mut in_suffix = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    let instr = instrs[idx]
+    if !in_suffix {
+      if dae_instr_is_unreachable_root(instr) {
+        in_suffix = true
+      }
+      idx += 1
+      continue
+    }
+    match instr {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        let mut has_escaped_operand = false
+        let mut p = 0
+        while p < param_count {
+          let stack_idx = stack_from_escaped_call.length() - param_count + p
+          if stack_idx >= 0 && stack_idx < stack_from_escaped_call.length() {
+            has_escaped_operand = has_escaped_operand ||
+              stack_from_escaped_call[stack_idx]
+          }
+          p += 1
+        }
+        if has_escaped_operand {
+          return true
+        }
+        let mut pop = 0
+        while pop < param_count && stack_from_escaped_call.length() > 0 {
+          ignore(stack_from_escaped_call.pop())
+          pop += 1
+        }
+        match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+          Some(@lib.FuncType(_, results)) => {
+            let mut r = 0
+            while r < results.length() {
+              stack_from_escaped_call.push(false)
+              r += 1
+            }
+          }
+          None => ()
+        }
+      }
+      @lib.Call(func_idx) =>
+        match dae_instr_stack_effect(instr, mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack_from_escaped_call.length() > 0 {
+              ignore(stack_from_escaped_call.pop())
+              pop += 1
+            }
+            let slot = dae_func_idx_slot(func_idx)
+            let from_escaped = slot >= 0 &&
+              slot < escaped.length() &&
+              escaped[slot]
+            let mut push = 0
+            while push < outputs {
+              stack_from_escaped_call.push(from_escaped)
+              push += 1
+            }
+          }
+          None => ()
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        if dae_dead_suffix_call_to_has_escaped_result_operand(
+            body, callee_abs, mod_, type_indices, escaped,
+          ) {
+          return true
+        }
+        match dae_instr_stack_effect(instr, mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack_from_escaped_call.length() > 0 {
+              ignore(stack_from_escaped_call.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack_from_escaped_call.push(false)
+              push += 1
+            }
+          }
+          None => ()
+        }
+      }
+      @lib.If(_, then_body, Some(else_body)) => {
+        if dae_dead_suffix_call_to_has_escaped_result_operand(
+            then_body, callee_abs, mod_, type_indices, escaped,
+          ) ||
+          dae_dead_suffix_call_to_has_escaped_result_operand(
+            else_body, callee_abs, mod_, type_indices, escaped,
+          ) {
+          return true
+        }
+        match dae_instr_stack_effect(instr, mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack_from_escaped_call.length() > 0 {
+              ignore(stack_from_escaped_call.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack_from_escaped_call.push(false)
+              push += 1
+            }
+          }
+          None => ()
+        }
+      }
+      @lib.If(_, then_body, None) => {
+        if dae_dead_suffix_call_to_has_escaped_result_operand(
+            then_body, callee_abs, mod_, type_indices, escaped,
+          ) {
+          return true
+        }
+        match dae_instr_stack_effect(instr, mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack_from_escaped_call.length() > 0 {
+              ignore(stack_from_escaped_call.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack_from_escaped_call.push(false)
+              push += 1
+            }
+          }
+          None => ()
+        }
+      }
+      _ =>
+        match dae_instr_stack_effect(instr, mod_, type_indices) {
+          Some((inputs, outputs)) => {
+            let mut pop = 0
+            while pop < inputs && stack_from_escaped_call.length() > 0 {
+              ignore(stack_from_escaped_call.pop())
+              pop += 1
+            }
+            let mut push = 0
+            while push < outputs {
+              stack_from_escaped_call.push(false)
+              push += 1
+            }
+          }
+          None => ()
+        }
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_collect_original_private_result_escaped_operand_call_counts(
+  mod_ : @lib.Module,
+) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, 0)
+  }
+  let escaped = dae_collect_escapes(mod_, total)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let counts = Array::make(defined, 0)
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let caller_abs = imported + caller_def
+    let caller_is_private_result = match
+      dae_resolve_func_type(mod_, type_indices, caller_abs) {
+      Some(@lib.FuncType(_, results)) => results.length() > 0
+      None => false
+    }
+    if caller_is_private_result && !escaped[caller_abs] {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      let mut callee_def = 0
+      while callee_def < defined {
+        let @lib.Func(_, @lib.Expr(callee_body)) = funcs[callee_def]
+        if callee_def != caller_def &&
+          dae_dead_suffix_has_dropped_escaped_result_call(
+            callee_body, mod_, type_indices, escaped,
+          ) &&
+          dae_dead_suffix_call_to_has_escaped_result_operand(
+            body,
+            imported + callee_def,
+            mod_,
+            type_indices,
+            escaped,
+          ) {
+          counts[callee_def] = counts[callee_def] + 1
+        }
+        callee_def += 1
+      }
+    }
+    caller_def += 1
+  }
+  counts
 }
 
 ///|
@@ -3115,11 +3439,13 @@ fn dae_run_core_once(
   original_nonself_undropped_call_counts : Array[Int],
   original_self_call_counts : Array[Int],
   original_private_result_dead_suffix_call_counts : Array[Int],
+  original_private_result_escaped_operand_call_counts : Array[Int],
   original_escaped_dead_suffix_call_counts : Array[Int],
   original_dead_suffix_other_calls : Array[Bool],
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_dropped_self_calls : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
+  original_dead_suffix_undropped_escaped_result_calls : Array[Bool],
   original_dead_suffix_mutual_calls : Array[Bool],
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
@@ -3157,6 +3483,12 @@ fn dae_run_core_once(
     } else {
       0
     }
+    let original_private_result_escaped_operand_calls_for_unobserved = if def_idx <
+      original_private_result_escaped_operand_call_counts.length() {
+      original_private_result_escaped_operand_call_counts[def_idx]
+    } else {
+      0
+    }
     let original_mixed_self_suffix_for_unobserved = def_idx <
       original_param_counts.length() &&
       original_param_counts[def_idx] > 0 &&
@@ -3165,8 +3497,14 @@ fn dae_run_core_once(
       def_idx < original_dead_suffix_dropped_self_calls.length() &&
       original_dead_suffix_dropped_self_calls[def_idx] &&
       original_escaped_dead_suffix_calls_for_unobserved == 0
+    let original_dead_suffix_undropped_escaped_result_call_for_unobserved = def_idx <
+      original_dead_suffix_undropped_escaped_result_calls.length() &&
+      original_dead_suffix_undropped_escaped_result_calls[def_idx]
     if direct_calls[callee_abs] == self_calls &&
-      !original_mixed_self_suffix_for_unobserved {
+      !original_mixed_self_suffix_for_unobserved &&
+      original_private_result_escaped_operand_calls_for_unobserved == 0 &&
+      !(original_dead_suffix_undropped_escaped_result_call_for_unobserved &&
+      original_escaped_dead_suffix_calls_for_unobserved == 0) {
       let unobserved = dae_try_remove_unobserved_unreachable_function(
         mod_, callee_abs,
       )
@@ -3188,7 +3526,11 @@ fn dae_run_core_once(
         0
       }
       let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
-        mod_, callee_abs, original_call_count,
+        mod_,
+        callee_abs,
+        original_call_count,
+        original_dead_suffix_undropped_escaped_result_call_for_unobserved &&
+        original_escaped_dead_suffix_calls_for_unobserved == 0,
       )
       if dead_suffix_params.changed {
         return dead_suffix_params
@@ -3223,6 +3565,12 @@ fn dae_run_core_once(
       } else {
         0
       }
+      let original_private_result_escaped_operand_calls = if def_idx <
+        original_private_result_escaped_operand_call_counts.length() {
+        original_private_result_escaped_operand_call_counts[def_idx]
+      } else {
+        0
+      }
       let original_escaped_dead_suffix_calls = if def_idx <
         original_escaped_dead_suffix_call_counts.length() {
         original_escaped_dead_suffix_call_counts[def_idx]
@@ -3244,6 +3592,9 @@ fn dae_run_core_once(
       let original_dead_suffix_undropped_self_call = def_idx <
         original_dead_suffix_undropped_self_calls.length() &&
         original_dead_suffix_undropped_self_calls[def_idx]
+      let original_dead_suffix_undropped_escaped_result_call = def_idx <
+        original_dead_suffix_undropped_escaped_result_calls.length() &&
+        original_dead_suffix_undropped_escaped_result_calls[def_idx]
       let original_dead_suffix_mutual_call = def_idx <
         original_dead_suffix_mutual_calls.length() &&
         original_dead_suffix_mutual_calls[def_idx]
@@ -3265,6 +3616,19 @@ fn dae_run_core_once(
             original_self_calls == 0 &&
             original_private_result_dead_suffix_calls > 0 &&
             original_escaped_dead_suffix_calls == 0
+          ) ||
+          (
+            originally_had_params &&
+            original_self_calls == 0 &&
+            original_private_result_escaped_operand_calls > 0
+          ) ||
+          (
+            originally_had_params &&
+            original_self_calls == 0 &&
+            original_dead_suffix_undropped_escaped_result_call &&
+            original_escaped_dead_suffix_calls == 0 &&
+            original_call_count > 0 &&
+            original_nonself_undropped_calls == 0
           ) ||
           (
             originally_had_params &&
@@ -3425,6 +3789,9 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let original_private_result_dead_suffix_call_counts = dae_collect_original_private_result_dead_suffix_call_counts(
     mod_,
   )
+  let original_private_result_escaped_operand_call_counts = dae_collect_original_private_result_escaped_operand_call_counts(
+    mod_,
+  )
   let original_escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts(
     mod_,
   )
@@ -3440,6 +3807,9 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls(
     mod_,
   )
+  let original_dead_suffix_undropped_escaped_result_calls = dae_collect_original_dead_suffix_undropped_escaped_result_calls(
+    mod_,
+  )
   let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
     mod_,
   )
@@ -3453,9 +3823,10 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
       current, already_rewritten_defs, original_param_counts, original_call_counts,
       original_prior_call_counts, original_prior_undropped_call_counts, original_active_nonself_call_counts,
       original_nonself_undropped_call_counts, original_self_call_counts, original_private_result_dead_suffix_call_counts,
-      original_escaped_dead_suffix_call_counts, original_dead_suffix_other_calls,
-      original_dead_suffix_undropped_self_calls, original_dead_suffix_dropped_self_calls,
-      original_dead_suffix_result_other_calls, original_dead_suffix_mutual_calls,
+      original_private_result_escaped_operand_call_counts, original_escaped_dead_suffix_call_counts,
+      original_dead_suffix_other_calls, original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls, original_dead_suffix_result_other_calls,
+      original_dead_suffix_undropped_escaped_result_calls, original_dead_suffix_mutual_calls,
     )
     if !result.changed {
       break

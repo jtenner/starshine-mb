@@ -602,6 +602,89 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing preserves private escaped-result suffix results" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param f64 f64) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0)
+    #|  (func $f1 (param i32)
+    #|    (local f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 1
+    #|    f64.const 38
+    #|    call $f3
+    #|    drop)
+    #|  (func $f2 (param f64 f64) (result f64)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 2
+    #|    call $f1
+    #|    local.get 0)
+    #|  (func $f3 (param f64 f64) (result f64)
+    #|    (local i64 i64 i64 i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 5
+    #|    call $f1
+    #|    local.get 0
+    #|    local.get 0
+    #|    call $main))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 1)
+}
+
+///|
+test "dae-optimizing preserves private escaped-result operand callees" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 482
+    #|    f32.const 45
+    #|    call $f2
+    #|    drop
+    #|    f32.const 0)
+    #|  (func $f1 (result f32)
+    #|    (local i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    call $main
+    #|    call $f2
+    #|    drop
+    #|    f32.const 1)
+    #|  (func $f2 (param i32 f32) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $main
+    #|    drop
+    #|    f32.const 97)
+    #|  (func $f3 (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f3
+    #|    drop
+    #|    f32.const 3))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 0)
+}
+
+///|
 test "dae-optimizing prunes escaped-result side callees under active result callers" {
   let source =
     #|(module
