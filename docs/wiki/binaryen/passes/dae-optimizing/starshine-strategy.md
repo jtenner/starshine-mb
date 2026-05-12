@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-12
 sources:
+  - ../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
@@ -50,10 +51,11 @@ Current implemented behavior is intentionally narrower than full Binaryen DAE:
 - value-producing `if` operands are preserved with `drop` repair when their parameter is removed;
 - no-param dropped/uncalled result removal with conservative unreachable-prefix cleanup;
 - local-use scanning ignores dead suffixes after a root `unreachable`;
+- case-000690-style escaped-result self-call operand preservation: if the original single `f64` parameter is stranded under an escaped direct-call result that becomes an undropped dead-suffix self-call operand, Starshine preserves that parameter while still pruning direct simple self-call operands and dropped self-call escaped-result operands, matching the observed Binaryen shape in [`../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md`](../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md);
 - unused simple function type pruning after signature changes;
 - a nested-cleanup trace marker for the required `precompute-propagate` prefix.
 
-Current non-parity caveat: complete Binaryen result-removal scheduling and the real touched-function-filtered nested cleanup scheduler are not implemented yet. A whole-module cleanup experiment rewrote unrelated functions and worsened direct parity, so the active pass records the nested lane but does not run the default cleanup pipeline until a filtered scheduler lands.
+Current non-parity caveat: complete Binaryen result-removal scheduling and the real touched-function-filtered nested cleanup scheduler are not implemented yet. A whole-module cleanup experiment rewrote unrelated functions and worsened direct parity, so the active pass records the nested lane but does not run the default cleanup pipeline until a filtered scheduler lands. After the 2026-05-12 case-000690 fix, `.tmp/pass-fuzz-dae-690-final2-1000` removed `case-000690-gen-valid` from the failure set and reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures.
 
 For a concrete future implementation sequence and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This status page stays focused on current local truth.
 

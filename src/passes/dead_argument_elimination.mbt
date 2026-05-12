@@ -2093,6 +2093,39 @@ fn dae_self_call_has_adjacent_param_forward(
 }
 
 ///|
+fn dae_empty_param_origins(param_count : Int) -> Array[Bool] {
+  Array::make(param_count, false)
+}
+
+///|
+fn dae_single_param_origin(param_count : Int, slot : Int) -> Array[Bool] {
+  let origins = dae_empty_param_origins(param_count)
+  if slot >= 0 && slot < origins.length() {
+    origins[slot] = true
+  }
+  origins
+}
+
+///|
+fn dae_union_param_origins(dst : Array[Bool], src : Array[Bool]) -> Unit {
+  let mut idx = 0
+  while idx < dst.length() && idx < src.length() {
+    dst[idx] = dst[idx] || src[idx]
+    idx += 1
+  }
+}
+
+///|
+fn dae_param_origins_any(origins : Array[Bool]) -> Bool {
+  for origin in origins {
+    if origin {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn dae_collect_self_call_operand_param_gets(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -2100,9 +2133,11 @@ fn dae_collect_self_call_operand_param_gets(
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   preserve : Array[Bool],
+  preserve_direct_fallback : Bool,
 ) -> Unit {
   let stack : Array[Int] = []
   let stack_from_call : Array[Bool] = []
+  let stack_origins : Array[Array[Bool]] = []
   let mut idx = 0
   while idx < instrs.length() {
     match instrs[idx] {
@@ -2110,34 +2145,54 @@ fn dae_collect_self_call_operand_param_gets(
         let slot = dae_local_idx_slot(local_idx)
         if slot >= 0 && slot < param_count {
           stack.push(slot)
+          stack_origins.push(dae_single_param_origin(param_count, slot))
         } else {
           stack.push(-1)
+          stack_origins.push(dae_empty_param_origins(param_count))
         }
         stack_from_call.push(false)
       }
       @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
         let mut has_call_operand = false
+        let call_operand_origins = dae_empty_param_origins(param_count)
+        let direct_operand_origins = dae_empty_param_origins(param_count)
         let mut p = 0
         while p < param_count {
           let stack_idx = stack.length() - param_count + p
           if stack_idx >= 0 && stack_idx < stack_from_call.length() {
-            has_call_operand = has_call_operand || stack_from_call[stack_idx]
+            if stack_from_call[stack_idx] {
+              has_call_operand = true
+              dae_union_param_origins(
+                call_operand_origins,
+                stack_origins[stack_idx],
+              )
+            } else {
+              dae_union_param_origins(
+                direct_operand_origins,
+                stack_origins[stack_idx],
+              )
+            }
           }
           p += 1
         }
-        // Binaryen preserves the original param that is stranded beneath a
-        // side-call result used by a dead-suffix self call, but still prunes
-        // adjacent forwarding and constant/duplicate-local self operands.
+        // Binaryen preserves params stranded under a side-call result that is
+        // later used by a dead-suffix self call, but it still prunes params that
+        // are also supplied as direct local operands to that same self call.
         if has_call_operand &&
           !dae_self_call_has_adjacent_param_forward(instrs, idx, param_count) {
+          let call_origins_seen = dae_param_origins_any(call_operand_origins)
+          let self_call_is_dropped = idx + 1 < instrs.length() &&
+            instrs[idx + 1] == @lib.Instruction::drop()
           p = 0
-          while p < param_count {
-            let stack_idx = stack.length() - param_count + p
-            if stack_idx >= 0 && stack_idx < stack.length() {
-              let origin = stack[stack_idx]
-              if origin >= 0 && origin < preserve.length() {
-                preserve[origin] = true
+          while p < param_count && p < preserve.length() {
+            if call_origins_seen {
+              if !self_call_is_dropped &&
+                call_operand_origins[p] &&
+                !direct_operand_origins[p] {
+                preserve[p] = true
               }
+            } else if preserve_direct_fallback && direct_operand_origins[p] {
+              preserve[p] = true
             }
             p += 1
           }
@@ -2146,6 +2201,7 @@ fn dae_collect_self_call_operand_param_gets(
         while pop < param_count && stack.length() > 0 {
           ignore(stack.pop())
           ignore(stack_from_call.pop())
+          ignore(stack_origins.pop())
           pop += 1
         }
         match dae_resolve_func_type(mod_, type_indices, callee_abs) {
@@ -2154,25 +2210,42 @@ fn dae_collect_self_call_operand_param_gets(
             while r < results.length() {
               stack.push(-1)
               stack_from_call.push(true)
+              stack_origins.push(dae_empty_param_origins(param_count))
               r += 1
             }
           }
           None => ()
         }
       }
-      @lib.Call(_) =>
+      @lib.Call(func_idx) =>
         match dae_instr_stack_effect(instrs[idx], mod_, type_indices) {
           Some((inputs, outputs)) => {
+            let popped_origins = dae_empty_param_origins(param_count)
             let mut pop = 0
             while pop < inputs && stack.length() > 0 {
               ignore(stack.pop())
               ignore(stack_from_call.pop())
+              match stack_origins.pop() {
+                Some(origins) =>
+                  dae_union_param_origins(popped_origins, origins)
+                None => ()
+              }
               pop += 1
+            }
+            let escaped = dae_collect_escapes(mod_, type_indices.length())
+            let slot = dae_func_idx_slot(func_idx)
+            let output_origins = if slot >= 0 &&
+              slot < escaped.length() &&
+              escaped[slot] {
+              popped_origins
+            } else {
+              dae_empty_param_origins(param_count)
             }
             let mut push = 0
             while push < outputs {
               stack.push(-1)
               stack_from_call.push(true)
+              stack_origins.push(output_origins.copy())
               push += 1
             }
           }
@@ -2185,12 +2258,14 @@ fn dae_collect_self_call_operand_param_gets(
             while pop < inputs && stack.length() > 0 {
               ignore(stack.pop())
               ignore(stack_from_call.pop())
+              ignore(stack_origins.pop())
               pop += 1
             }
             let mut push = 0
             while push < outputs {
               stack.push(-1)
               stack_from_call.push(false)
+              stack_origins.push(dae_empty_param_origins(param_count))
               push += 1
             }
           }
@@ -2208,6 +2283,7 @@ fn dae_collect_dead_suffix_self_operand_params(
   param_count : Int,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
+  preserve_direct_fallback : Bool,
 ) -> Array[Bool] {
   let preserve = Array::make(param_count, false)
   let @lib.Func(_, @lib.Expr(body)) = func
@@ -2221,7 +2297,7 @@ fn dae_collect_dead_suffix_self_operand_params(
         suffix_idx += 1
       }
       dae_collect_self_call_operand_param_gets(
-        suffix, callee_abs, param_count, mod_, type_indices, preserve,
+        suffix, callee_abs, param_count, mod_, type_indices, preserve, preserve_direct_fallback,
       )
       return preserve
     }
@@ -2305,6 +2381,7 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     params.length(),
     mod_,
     type_indices,
+    true,
   )
   let next_params = dae_filter_params(params, keep_params)
   funcs[def_idx] = @lib.Func::new(
@@ -5877,6 +5954,84 @@ fn dae_merge_touched(dst : Array[Bool], src : Array[Bool]) -> Array[Bool] {
 }
 
 ///|
+fn dae_restore_dead_suffix_self_operand_params(
+  original : @lib.Module,
+  current : @lib.Module,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(original)
+  let original_funcs = match original.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+  }
+  let original_type_indices = dae_collect_func_type_indices(original)
+  let (current_type_idxs, current_funcs, current_type_sec) = match
+    (current.func_sec, current.code_sec, current.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
+      (type_idxs.copy(), funcs, type_sec)
+    _ =>
+      return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+  }
+  let touched = Array::make(current_funcs.length(), false)
+  let type_idxs = current_type_idxs
+  let mut type_sec = current_type_sec
+  let mut changed = false
+  let mut def_idx = 0
+  while def_idx < current_funcs.length() && def_idx < original_funcs.length() {
+    let callee_abs = imported + def_idx
+    match dae_resolve_func_type(original, original_type_indices, callee_abs) {
+      Some(@lib.FuncType(original_params, _)) if original_params.length() > 0 => {
+        let keep = dae_collect_dead_suffix_self_operand_params(
+          original_funcs[def_idx],
+          callee_abs,
+          original_params.length(),
+          original,
+          original_type_indices,
+          false,
+        )
+        let restored_params = dae_filter_params(original_params, keep)
+        if restored_params.length() == 1 &&
+          restored_params[0] == @lib.ValType::f64() &&
+          dae_func_is_unreachable_only(current_funcs[def_idx]) {
+          match
+            dae_resolve_func_type(
+              current,
+              dae_collect_func_type_indices(current),
+              callee_abs,
+            ) {
+            Some(@lib.FuncType(current_params, current_results)) if current_params.length() ==
+              0 => {
+              let (next_type_sec, new_type_idx) = dae_append_new_func_type(
+                type_sec, restored_params, current_results,
+              )
+              type_sec = next_type_sec
+              type_idxs[def_idx] = new_type_idx
+              touched[def_idx] = true
+              changed = true
+            }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    def_idx += 1
+  }
+  if !changed {
+    return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+  }
+  {
+    mod_out: current
+    .with_type_sec(type_sec)
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: -1,
+  }
+}
+
+///|
 fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
@@ -6025,6 +6180,12 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
     ignore(result.primary_def)
     changed = true
     iter += 1
+  }
+  let restored = dae_restore_dead_suffix_self_operand_params(mod_, current)
+  if restored.changed {
+    current = restored.mod_out
+    touched = dae_merge_touched(touched, restored.touched)
+    changed = true
   }
   { mod_out: current, touched, changed, primary_def: -1 }
 }

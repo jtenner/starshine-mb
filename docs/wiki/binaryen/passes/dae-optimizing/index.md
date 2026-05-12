@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-12
 sources:
+  - ../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
@@ -88,7 +89,7 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
   - call-operand localization before removal when needed
 - Tail calls are an important bailout family, especially for return-value removal.
 - The `optimizing` part really matters: Binaryen reruns `precompute-propagate` plus the default function optimization pipeline on the touched functions after DAE changes.
-- The active Starshine port preserves a still-partial scalar signature subset: direct dead-parameter removal, adjacent self-recursive forwarding, no-param dropped/uncalled result removal, and dead-suffix cleanup around root `unreachable`; complete result-removal scheduling and broader Binaryen families remain active backlog work.
+- The active Starshine port preserves a still-partial scalar signature subset: direct dead-parameter removal, adjacent self-recursive forwarding, no-param dropped/uncalled result removal, case-000690 escaped-result self-call operand parameter preservation, and dead-suffix cleanup around root `unreachable`; complete result-removal scheduling and broader Binaryen families remain active backlog work.
 - The nested rerun scheduler behavior is not complete: Starshine records the optimizing helper lane in trace output, but still needs a touched-function-filtered scheduler before it can safely run `precompute-propagate` plus the default function pipeline.
 - The 2026-05-05 current-main recheck found no teaching-relevant drift from the `version_129` contract and now has a dedicated readiness bridge for the port.
 - The local naming decision is no longer open for the optimizing sibling: `dae-optimizing` is canonical and `dead-argument-elimination-optimizing` is a descriptive alias.

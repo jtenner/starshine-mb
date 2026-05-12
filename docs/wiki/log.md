@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-12] passes | DAE case-000690 escaped operand
+
+- Investigated `.tmp/pass-fuzz-dae-no-param-result-caller-prune-1000/failures/case-000690-gen-valid` and recorded the durable Binaryen shape in [`raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md`](raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md).
+- Updated the `dae-optimizing` pages to record that Binaryen preserves the original parameter stranded under an escaped direct-call result used as an undropped dead-suffix self-call operand, while still pruning direct simple self-call operands.
+- Added a Starshine regression for the raw wasm failure and fixed the local DAE parameter-origin restoration path; `.tmp/pass-fuzz-dae-690-final2-200` reported `199/200` compared, `198` normalized matches, `1` local-declaration mismatch, and `1` Binaryen/tool command failure, while `.tmp/pass-fuzz-dae-690-final2-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures with `case-000690-gen-valid` gone.
+
 ## [2026-05-11] passes | partial dae-optimizing module port
 
 - Added active `dae-optimizing` and `dead-argument-elimination-optimizing` module-pass registry/dispatcher support plus pass-fuzz-compare support for the canonical name.
