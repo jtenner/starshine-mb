@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-12 Passes: prune DAE no-param self caller side results
+
+- **prune `dae-optimizing` result signatures for private callees reached only from no-param undropped self-recursive result callers, matching Binaryen on `case-000760` while keeping parameterized self-caller preservation intact; focused pass tests pass, `.tmp/pass-fuzz-dae-no-param-self-caller-prune-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and `.tmp/pass-fuzz-dae-no-param-self-caller-prune-1000` improves the frontier to `958/1000` compared with `940` normalized matches, `18` mismatches, and `2` command failures, with the new `case-000960` classified as local-declaration shape drift** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-12 Passes: preserve DAE param-operand side callees
 
 - **preserve `dae-optimizing` no-param result side callees reached from dead suffixes of param-operand self-result callers, completing the `case-000890` result/body signature alignment so the remaining diff is local-declaration shape only; focused pass tests pass, `.tmp/pass-fuzz-dae-param-operand-side-callee-200` reports `199/200` compared, `198` normalized matches, `0` validation failures, `1` Binaryen/tool command failure, and `1` local-shape mismatch, and `.tmp/pass-fuzz-dae-param-operand-side-callee-1000` remains at the current frontier with `954/1000` compared, `936` normalized matches, `18` mismatches, and `2` command failures** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), and [`CHANGELOG.md`](./CHANGELOG.md).
