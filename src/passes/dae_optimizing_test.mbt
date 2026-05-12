@@ -335,6 +335,50 @@ test "dae-optimizing keeps results when dead self suffix has another call" {
 }
 
 ///|
+test "dae-optimizing keeps originally-parameterized block self result suffixes" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f2
+    #|    call $f1
+    #|    drop
+    #|    call $main)
+    #|  (func $f1 (param f64 f32) (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 88
+    #|    f32.const 7
+    #|    call $f1
+    #|    drop
+    #|    block (result f64)
+    #|      local.get 0
+    #|      f32.const 73
+    #|      call $f1
+    #|    end)
+    #|  (func $f2 (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $main
+    #|    drop
+    #|    f32.const 1)
+    #|  (func $f3 (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f2
+    #|    drop
+    #|    f32.const 2))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+}
+
+///|
 test "dae-optimizing keeps originally-parameterized dead self-suffix results" {
   let source =
     #|(module
