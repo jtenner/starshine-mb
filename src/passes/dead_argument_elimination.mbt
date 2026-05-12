@@ -3353,6 +3353,85 @@ fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers(
 }
 
 ///|
+fn dae_collect_original_dead_suffix_escaped_result_operand_call_counts(
+  mod_ : @lib.Module,
+) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, 0)
+  }
+  let escaped = dae_collect_escapes(mod_, total)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let counts = Array::make(defined, 0)
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let caller_abs = imported + caller_def
+    if escaped[caller_abs] {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      let mut callee_def = 0
+      while callee_def < defined {
+        if callee_def != caller_def &&
+          dae_dead_suffix_call_to_has_escaped_result_operand(
+            body,
+            imported + callee_def,
+            mod_,
+            type_indices,
+            escaped,
+          ) {
+          counts[callee_def] = counts[callee_def] + 1
+        }
+        callee_def += 1
+      }
+    }
+    caller_def += 1
+  }
+  counts
+}
+
+///|
+fn dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
+  mod_ : @lib.Module,
+  escaped_operand_counts : Array[Int],
+) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, 0)
+  }
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let counts = Array::make(defined, 0)
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let caller_abs = imported + caller_def
+    let caller_has_params_and_result = match
+      dae_resolve_func_type(mod_, type_indices, caller_abs) {
+      Some(@lib.FuncType(params, results)) =>
+        params.length() > 0 && results.length() > 0
+      None => false
+    }
+    if caller_has_params_and_result &&
+      caller_def < escaped_operand_counts.length() &&
+      escaped_operand_counts[caller_def] > 0 {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      let mut callee_def = 0
+      while callee_def < defined {
+        if callee_def != caller_def {
+          counts[callee_def] = counts[callee_def] +
+            dae_count_dead_suffix_direct_call_to(body, imported + callee_def)
+        }
+        callee_def += 1
+      }
+    }
+    caller_def += 1
+  }
+  counts
+}
+
+///|
 fn dae_collect_original_dead_suffix_same_self_result_operand_calls(
   mod_ : @lib.Module,
 ) -> Array[Bool] {
@@ -3856,6 +3935,10 @@ fn dae_run_core_once(
   original_private_result_dead_suffix_call_counts : Array[Int],
   original_private_result_same_operand_call_counts : Array[Int],
   original_private_result_escaped_operand_call_counts : Array[Int],
+  original_dead_suffix_escaped_result_operand_call_counts : Array[Int],
+  original_private_result_dead_suffix_calls_from_escaped_operand_callees : Array[
+    Int,
+  ],
   original_escaped_dead_suffix_call_counts : Array[Int],
   original_dead_suffix_other_calls : Array[Bool],
   original_dead_suffix_undropped_self_calls : Array[Bool],
@@ -3906,6 +3989,18 @@ fn dae_run_core_once(
     let original_private_result_escaped_operand_calls_for_unobserved = if def_idx <
       original_private_result_escaped_operand_call_counts.length() {
       original_private_result_escaped_operand_call_counts[def_idx]
+    } else {
+      0
+    }
+    let original_dead_suffix_escaped_result_operand_calls_for_unobserved = if def_idx <
+      original_dead_suffix_escaped_result_operand_call_counts.length() {
+      original_dead_suffix_escaped_result_operand_call_counts[def_idx]
+    } else {
+      0
+    }
+    let original_private_result_dead_suffix_calls_from_escaped_operand_callees_for_unobserved = if def_idx <
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees.length() {
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees[def_idx]
     } else {
       0
     }
@@ -3965,6 +4060,9 @@ fn dae_run_core_once(
       !original_mixed_self_suffix_for_unobserved &&
       !original_same_self_result_operand_for_unobserved &&
       original_dead_suffix_result_calls_from_undropped_self_callers_for_unobserved ==
+      0 &&
+      original_dead_suffix_escaped_result_operand_calls_for_unobserved == 0 &&
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees_for_unobserved ==
       0 &&
       original_private_result_escaped_operand_calls_for_unobserved == 0 &&
       !(original_dead_suffix_undropped_escaped_result_call_for_unobserved &&
@@ -4034,6 +4132,18 @@ fn dae_run_core_once(
       let original_private_result_escaped_operand_calls = if def_idx <
         original_private_result_escaped_operand_call_counts.length() {
         original_private_result_escaped_operand_call_counts[def_idx]
+      } else {
+        0
+      }
+      let original_dead_suffix_escaped_result_operand_calls = if def_idx <
+        original_dead_suffix_escaped_result_operand_call_counts.length() {
+        original_dead_suffix_escaped_result_operand_call_counts[def_idx]
+      } else {
+        0
+      }
+      let original_private_result_dead_suffix_calls_from_escaped_operand_callees = if def_idx <
+        original_private_result_dead_suffix_calls_from_escaped_operand_callees.length() {
+        original_private_result_dead_suffix_calls_from_escaped_operand_callees[def_idx]
       } else {
         0
       }
@@ -4162,6 +4272,16 @@ fn dae_run_core_once(
             original_self_calls == 0 &&
             original_private_result_dead_suffix_calls > 0 &&
             original_escaped_dead_suffix_calls == 0
+          ) ||
+          (
+            originally_had_params &&
+            original_self_calls == 0 &&
+            original_dead_suffix_escaped_result_operand_calls > 0
+          ) ||
+          (
+            !originally_had_params &&
+            original_private_result_dead_suffix_calls_from_escaped_operand_callees >
+            0
           ) ||
           (
             originally_had_params &&
@@ -4305,6 +4425,21 @@ fn dae_run_core_once(
         original_escaped_dead_suffix_call_counts[def_idx] == 0 &&
         def_idx < original_active_nonself_call_counts.length() &&
         original_active_nonself_call_counts[def_idx] > 0
+      let preserve_original_escaped_result_operand_chain = (
+          def_idx < original_param_counts.length() &&
+          original_param_counts[def_idx] > 0 &&
+          def_idx <
+          original_dead_suffix_escaped_result_operand_call_counts.length() &&
+          original_dead_suffix_escaped_result_operand_call_counts[def_idx] > 0
+        ) ||
+        (
+          def_idx < original_param_counts.length() &&
+          original_param_counts[def_idx] == 0 &&
+          def_idx <
+          original_private_result_dead_suffix_calls_from_escaped_operand_callees.length() &&
+          original_private_result_dead_suffix_calls_from_escaped_operand_callees[def_idx] >
+          0
+        )
       let preserve_original_mixed_self_result = def_idx <
         original_param_counts.length() &&
         original_param_counts[def_idx] > 0 &&
@@ -4316,6 +4451,7 @@ fn dae_run_core_once(
         original_escaped_dead_suffix_call_counts[def_idx] == 0
       if !preserve_original_same_self_result_operand &&
         !preserve_original_result_from_undropped_self_caller &&
+        !preserve_original_escaped_result_operand_chain &&
         !preserve_original_mixed_self_result {
         let dropped_result = dae_try_remove_dropped_results(
           mod_,
@@ -4370,6 +4506,21 @@ fn dae_run_core_once(
       original_escaped_dead_suffix_call_counts[def_idx] == 0 &&
       def_idx < original_active_nonself_call_counts.length() &&
       original_active_nonself_call_counts[def_idx] > 0
+    let preserve_current_escaped_result_operand_chain = (
+        def_idx < original_param_counts.length() &&
+        original_param_counts[def_idx] > 0 &&
+        def_idx <
+        original_dead_suffix_escaped_result_operand_call_counts.length() &&
+        original_dead_suffix_escaped_result_operand_call_counts[def_idx] > 0
+      ) ||
+      (
+        def_idx < original_param_counts.length() &&
+        original_param_counts[def_idx] == 0 &&
+        def_idx <
+        original_private_result_dead_suffix_calls_from_escaped_operand_callees.length() &&
+        original_private_result_dead_suffix_calls_from_escaped_operand_callees[def_idx] >
+        0
+      )
     let preserve_current_mixed_self_result = def_idx <
       original_param_counts.length() &&
       original_param_counts[def_idx] > 0 &&
@@ -4392,6 +4543,7 @@ fn dae_run_core_once(
       }
     } else if !preserve_current_same_self_result_operand &&
       !preserve_current_result_from_undropped_self_caller &&
+      !preserve_current_escaped_result_operand_chain &&
       !preserve_current_mixed_self_result {
       let dropped_result = dae_try_remove_dropped_results(
         mod_,
@@ -4452,6 +4604,12 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let original_private_result_escaped_operand_call_counts = dae_collect_original_private_result_escaped_operand_call_counts(
     mod_,
   )
+  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts(
+    mod_,
+  )
+  let original_private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
+    mod_, original_dead_suffix_escaped_result_operand_call_counts,
+  )
   let original_escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts(
     mod_,
   )
@@ -4497,6 +4655,7 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
       original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
       original_self_call_counts, original_private_result_dead_suffix_call_counts,
       original_private_result_same_operand_call_counts, original_private_result_escaped_operand_call_counts,
+      original_dead_suffix_escaped_result_operand_call_counts, original_private_result_dead_suffix_calls_from_escaped_operand_callees,
       original_escaped_dead_suffix_call_counts, original_dead_suffix_other_calls,
       original_dead_suffix_undropped_self_calls, original_dead_suffix_dropped_self_calls,
       original_dead_suffix_result_calls_from_undropped_self_callers, original_dead_suffix_same_self_result_operand_calls,
