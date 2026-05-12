@@ -335,6 +335,47 @@ test "dae-optimizing keeps results when dead self suffix has another call" {
 }
 
 ///|
+test "dae-optimizing prunes dropped callers ending in undropped callees" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param f64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f1
+    #|    drop
+    #|    f32.const 63)
+    #|  (func $f1 (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 47
+    #|    call $f3
+    #|    drop
+    #|    f64.const 80)
+    #|  (func $f2 (param f64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 9
+    #|    call $f2
+    #|    drop
+    #|    f32.const 1)
+    #|  (func $f3 (param f64) (result f32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 41
+    #|    call $f2
+    #|    drop
+    #|    local.get 0
+    #|    call $f2))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 0)
+}
+
+///|
 test "dae-optimizing prunes callees with mixed dropped undropped callers" {
   let source =
     #|(module
