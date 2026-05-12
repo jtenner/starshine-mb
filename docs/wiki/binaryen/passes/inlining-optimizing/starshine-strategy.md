@@ -31,18 +31,18 @@ related:
 
 `inlining-optimizing` is a **partial active module pass** in Starshine. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), shares its core with plain `inlining`, and adds the local optimizing-mode cleanup approximation.
 
-Do not claim parity or signoff. Latest evidence remains red:
+Do not claim full pass signoff yet because broader heuristic gaps and the exact optimizing nested scheduler remain open, but the direct seed-`0x5eed` mismatch frontier is currently green:
 
 ```text
-.tmp/pass-fuzz-inlining-unique-selfloop-drop-jobs-auto
+.tmp/pass-fuzz-inlining-selected-final-trim-retain2
 9975 compared
-9968 normalized matches
-7 mismatches
+9975 normalized matches
+0 mismatches
 0 validation failures
 25 ignored Binaryen/tool command failures
 ```
 
-The latest lane used `--jobs auto` with a prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`; the 25 command failures remain Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. `[INL]001` and `[INL]002` remain active.
+The latest lane used `--jobs auto` with a prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`; the 25 command failures remain Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. `[INL]001` and `[INL]002` remain active until broader heuristic/artifact evidence and the touched-function nested scheduler are complete.
 
 ## Exact local code map
 
@@ -72,7 +72,7 @@ The latest lane used `--jobs auto` with a prebuilt native `--starshine-bin _buil
 - Function-index remapping across represented module surfaces.
 - Nested-cleanup trace marker for optimizing mode.
 - Broad cleanup approximation with untouched-body restoration and touched-local compaction.
-- Exact-`unreachable` private-helper survivor prediction refinements, including shadowed void-cycle result-helper retention, duplicate trimming against non-exact same-signature survivors only when no used self-loop root is present, and unique private self-loop representative drops inside root SCCs.
+- Exact-`unreachable` private-helper survivor prediction refinements, including shadowed void-cycle result-helper retention, duplicate trimming against non-exact same-signature survivors only when no used self-loop root is present, unique private self-loop representative drops inside root SCCs, selected final root-self-loop representative trimming, and one-helper retention for private result cycles behind self-looping roots.
 
 ## Current gaps
 
@@ -85,7 +85,7 @@ The latest lane used `--jobs auto` with a prebuilt native `--starshine-bin _buil
 - multi-result typing;
 - label/name/annotation repair;
 - exact action filtering, iteration caps, and size guard;
-- remaining exact-`unreachable` helper retention mismatches; current saved `gen-valid` frontier is 7 cases (`001716`, `001838`, `003188`, `005502`, `005754`, `007720`, `008230`).
+- remaining broader heuristic/artifact parity beyond the seed-`0x5eed` direct lane; the prior 7 saved exact-`unreachable` helper frontier (`001716`, `001838`, `003188`, `005502`, `005754`, `007720`, `008230`) is fixed in `.tmp/pass-fuzz-inlining-selected-final-trim-retain2`.
 
 ### `[INL]002`: optimizing suffix parity
 
@@ -119,6 +119,6 @@ The correct local mental model is:
 
 - **active but partial**;
 - **validation-clean in latest 10k artifact range**;
-- **not parity-green**;
+- **direct seed-`0x5eed` compare green over the compared range, but not fully signed off**;
 - **core direct-call subset plus cleanup approximation**;
 - **INL backlog still open**.

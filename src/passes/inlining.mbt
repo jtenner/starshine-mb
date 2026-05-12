@@ -41,6 +41,8 @@ priv struct InlOriginalGraphInfo {
   cycle_remove : Array[Bool]
   public_scc_representative : Array[Int]
   predicted_unreachable_counts : @hashmap.HashMap[String, Int]
+  final_trim_counts : @hashmap.HashMap[String, Int]
+  retain_inlined_helper_counts : @hashmap.HashMap[String, Int]
 }
 
 ///|
@@ -956,12 +958,15 @@ fn inl_remove_dead_inlined_helpers(
   infos : Array[InlFunctionInfo],
   touched : Array[Bool],
   inlined_from : Array[Bool],
+  retain_counts : @hashmap.HashMap[String, Int],
 ) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
   let total = imports + defined
   let refs = Array::make(total, 0)
   let used = Array::make(total, false)
+  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let retained_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
   inl_mark_global_uses(mod_, used)
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -983,8 +988,15 @@ fn inl_remove_dead_inlined_helpers(
       infos[abs].inlineable &&
       refs[abs] == 0 &&
       !used[abs] {
-      remove[def_idx] = true
-      any_removed = true
+      let sig = inl_func_signature_key(mod_, func_type_indices, abs)
+      let want_retain = inl_hash_get_int(retain_counts, sig)
+      let retained = inl_hash_get_int(retained_counts, sig)
+      if retained < want_retain {
+        retained_counts.set(sig, retained + 1)
+      } else {
+        remove[def_idx] = true
+        any_removed = true
+      }
     }
     def_idx += 1
   }
@@ -1444,6 +1456,351 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
 }
 
 ///|
+fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
+  mod_ : @lib.Module,
+  imports : Int,
+  graph : Array[Array[Int]],
+  used : Array[Bool],
+  reachable_from_root : Array[Bool],
+  predicted : @hashmap.HashMap[String, Int],
+) -> @hashmap.HashMap[String, Int] {
+  let retain : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let total = graph.length()
+  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let mut root = 0
+  while root < total {
+    if !(root < used.length() && used[root]) {
+      root += 1
+      continue
+    }
+    let mut root_self_loop = false
+    let mut root_calls_other = false
+    for target in graph[root] {
+      if target == root {
+        root_self_loop = true
+      } else {
+        root_calls_other = true
+      }
+    }
+    if !root_self_loop || !root_calls_other {
+      root += 1
+      continue
+    }
+    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let processed = Array::make(total, false)
+    let mut seed = imports
+    while seed < total {
+      if processed[seed] ||
+        seed >= reachable_from_root.length() ||
+        !reachable_from_root[seed] ||
+        (seed < used.length() && used[seed]) {
+        seed += 1
+        continue
+      }
+      let scc_member = Array::make(total, false)
+      let mut scc_size = 0
+      let mut member_self_loop = false
+      let sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
+      let mut idx = imports
+      while idx < total {
+        if idx == seed ||
+          (
+            inl_graph_reaches(graph, seed, idx, Array::make(total, false)) &&
+            inl_graph_reaches(graph, idx, seed, Array::make(total, false))
+          ) {
+          scc_member[idx] = true
+          processed[idx] = true
+          scc_size += 1
+          let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+          inl_hash_inc_int(sigs, sig)
+          for target in graph[idx] {
+            if target == idx {
+              member_self_loop = true
+            }
+          }
+        }
+        idx += 1
+      }
+      if scc_size == 3 &&
+        !member_self_loop &&
+        inl_hash_get_int(sigs, root_sig) == 1 {
+        idx = imports
+        while idx < total {
+          if scc_member[idx] {
+            let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+            if sig != root_sig &&
+              inl_hash_get_int(sigs, sig) == 2 &&
+              inl_signature_result_count(mod_, func_type_indices, idx) > 0 {
+              if inl_hash_get_int(predicted, sig) == 0 {
+                predicted.set(sig, 1)
+              }
+              retain.set(sig, 1)
+              break
+            }
+          }
+          idx += 1
+        }
+      }
+      seed += 1
+    }
+    root += 1
+  }
+  retain
+}
+
+///|
+fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
+  mod_ : @lib.Module,
+  imports : Int,
+  graph : Array[Array[Int]],
+  used : Array[Bool],
+  reachable_from_root : Array[Bool],
+  final_trim : @hashmap.HashMap[String, Int],
+) -> Unit {
+  let total = graph.length()
+  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let mut root = 0
+  while root < total {
+    if !(root < used.length() && used[root]) {
+      root += 1
+      continue
+    }
+    let mut root_self_loop = false
+    let mut root_calls_other = false
+    for target in graph[root] {
+      if target == root {
+        root_self_loop = true
+      } else {
+        root_calls_other = true
+      }
+    }
+    if !root_self_loop || !root_calls_other {
+      root += 1
+      continue
+    }
+    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let processed = Array::make(total, false)
+    let mut seed = imports
+    while seed < total {
+      if processed[seed] ||
+        seed >= reachable_from_root.length() ||
+        !reachable_from_root[seed] ||
+        (seed < used.length() && used[seed]) {
+        seed += 1
+        continue
+      }
+      let mut scc_size = 0
+      let mut member_self_loop = false
+      let sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
+      let mut idx = imports
+      while idx < total {
+        if idx == seed ||
+          (
+            inl_graph_reaches(graph, seed, idx, Array::make(total, false)) &&
+            inl_graph_reaches(graph, idx, seed, Array::make(total, false))
+          ) {
+          processed[idx] = true
+          scc_size += 1
+          let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+          inl_hash_inc_int(sigs, sig)
+          for target in graph[idx] {
+            if target == idx {
+              member_self_loop = true
+            }
+          }
+        }
+        idx += 1
+      }
+      if scc_size == 3 &&
+        !member_self_loop &&
+        inl_hash_get_int(sigs, root_sig) == 1 {
+        final_trim.set(root_sig, 1)
+      }
+      seed += 1
+    }
+    root += 1
+  }
+}
+
+///|
+fn inl_prediction_final_trim_root_self_loop_duplicates(
+  mod_ : @lib.Module,
+  imports : Int,
+  graph : Array[Array[Int]],
+  used : Array[Bool],
+  reachable_from_root : Array[Bool],
+  predicted : @hashmap.HashMap[String, Int],
+) -> @hashmap.HashMap[String, Int] {
+  let final_trim : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let total = graph.length()
+  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let processed = Array::make(total, false)
+  let mut root = 0
+  while root < total {
+    if !(root < used.length() && used[root]) || processed[root] {
+      root += 1
+      continue
+    }
+    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let scc_member = Array::make(total, false)
+    let mut scc_size = 0
+    let mut root_sig_members = 0
+    let mut nonroot_sig_members = 0
+    let mut has_root_sig_self_loop_calling_root = false
+    let candidate_nonroot_sigs : Array[String] = []
+    let mut idx = imports
+    while idx < total {
+      if idx == root ||
+        (
+          inl_graph_reaches(graph, root, idx, Array::make(total, false)) &&
+          inl_graph_reaches(graph, idx, root, Array::make(total, false))
+        ) {
+        scc_member[idx] = true
+        processed[idx] = true
+        scc_size += 1
+        let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+        if sig == root_sig {
+          root_sig_members += 1
+        } else {
+          nonroot_sig_members += 1
+        }
+        let mut self_loop = false
+        let mut calls_used_root_sig = false
+        for target in graph[idx] {
+          if target == idx {
+            self_loop = true
+          }
+          if target >= 0 &&
+            target < used.length() &&
+            used[target] &&
+            inl_func_signature_key(mod_, func_type_indices, target) == root_sig {
+            calls_used_root_sig = true
+          }
+        }
+        if sig == root_sig &&
+          !(idx < used.length() && used[idx]) &&
+          self_loop &&
+          calls_used_root_sig {
+          has_root_sig_self_loop_calling_root = true
+        }
+        if sig != root_sig &&
+          !(idx < used.length() && used[idx]) &&
+          self_loop &&
+          inl_signature_result_count(mod_, func_type_indices, idx) > 0 &&
+          !inl_array_contains_string(candidate_nonroot_sigs, sig) {
+          candidate_nonroot_sigs.push(sig)
+        }
+      }
+      idx += 1
+    }
+    let mut has_orphan_nonself_root_sig_calling_root = false
+    let mut has_orphan_self_root_sig_calling_root = false
+    let mut has_orphan_other_sig_calls_scc = false
+    let mut has_orphan_other_sig_calls_orphan_self_root = false
+    let mut orphan_root_sig_calls_nonroot_candidate = false
+    idx = imports
+    while idx < total {
+      if !scc_member[idx] &&
+        !(idx < used.length() && used[idx]) &&
+        idx < reachable_from_root.length() &&
+        !reachable_from_root[idx] {
+        let idx_sig = inl_func_signature_key(mod_, func_type_indices, idx)
+        if idx_sig != root_sig {
+          for target in graph[idx] {
+            if target >= 0 && target < scc_member.length() && scc_member[target] {
+              has_orphan_other_sig_calls_scc = true
+              break
+            }
+          }
+        } else {
+          let mut self_loop = false
+          let mut calls_used_root_sig = false
+          let mut calls_nonroot_candidate = false
+          for target in graph[idx] {
+            if target == idx {
+              self_loop = true
+            }
+            if target >= 0 && target < total {
+              let target_sig = inl_func_signature_key(
+                mod_, func_type_indices, target,
+              )
+              if target < used.length() &&
+                used[target] &&
+                target_sig == root_sig {
+                calls_used_root_sig = true
+              }
+              if inl_array_contains_string(candidate_nonroot_sigs, target_sig) {
+                calls_nonroot_candidate = true
+              }
+            }
+          }
+          if calls_used_root_sig {
+            if self_loop {
+              has_orphan_self_root_sig_calling_root = true
+              let mut other = imports
+              while other < total {
+                if !scc_member[other] &&
+                  !(other < used.length() && used[other]) &&
+                  other < reachable_from_root.length() &&
+                  !reachable_from_root[other] &&
+                  inl_func_signature_key(mod_, func_type_indices, other) !=
+                  root_sig {
+                  for target in graph[other] {
+                    if target == idx {
+                      has_orphan_other_sig_calls_orphan_self_root = true
+                      break
+                    }
+                  }
+                }
+                if has_orphan_other_sig_calls_orphan_self_root {
+                  break
+                }
+                other += 1
+              }
+            } else {
+              has_orphan_nonself_root_sig_calling_root = true
+            }
+          }
+          if calls_nonroot_candidate {
+            orphan_root_sig_calls_nonroot_candidate = true
+          }
+        }
+      }
+      idx += 1
+    }
+    if has_root_sig_self_loop_calling_root &&
+      !has_orphan_nonself_root_sig_calling_root &&
+      (
+        (scc_size == 3 && has_orphan_other_sig_calls_scc) ||
+        (scc_size == 4 && nonroot_sig_members > 0 && root_sig_members >= 3)
+      ) {
+      let cur = inl_hash_get_int(predicted, root_sig)
+      if cur > 1 {
+        final_trim.set(root_sig, cur - 1)
+      }
+    }
+    if scc_size == 2 &&
+      root_sig_members == 2 &&
+      has_orphan_self_root_sig_calling_root &&
+      has_orphan_other_sig_calls_orphan_self_root {
+      let cur = inl_hash_get_int(predicted, root_sig)
+      if cur > 1 {
+        final_trim.set(root_sig, cur - 1)
+      }
+    }
+    if scc_size == 3 &&
+      root_sig_members == 1 &&
+      orphan_root_sig_calls_nonroot_candidate {
+      for sig in candidate_nonroot_sigs {
+        final_trim.set(sig, 0)
+      }
+    }
+    root += 1
+  }
+  final_trim
+}
+
+///|
 fn inl_original_reachable_private_cycle_funcs(
   mod_ : @lib.Module,
 ) -> InlOriginalGraphInfo {
@@ -1493,6 +1850,15 @@ fn inl_original_reachable_private_cycle_funcs(
   )
   inl_prediction_drop_unique_private_self_loop_in_root_scc(
     mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
+  )
+  let retain_inlined_helper_counts = inl_prediction_retain_private_cycle_helper_for_self_loop_root(
+    mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
+  )
+  let final_trim_counts = inl_prediction_final_trim_root_self_loop_duplicates(
+    mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
+  )
+  inl_prediction_final_trim_self_loop_root_private_scc_representatives(
+    mod_, imports, graph, used, reachable_from_root, final_trim_counts,
   )
   let mark = Array::make(total, false)
   let public_scc_representative = Array::make(total, -1)
@@ -1632,6 +1998,8 @@ fn inl_original_reachable_private_cycle_funcs(
     cycle_remove: mark,
     public_scc_representative,
     predicted_unreachable_counts,
+    final_trim_counts,
+    retain_inlined_helper_counts,
   }
 }
 
@@ -1677,6 +2045,16 @@ fn inl_hash_get_int(map : @hashmap.HashMap[String, Int], key : String) -> Int {
 ///|
 fn inl_hash_inc_int(map : @hashmap.HashMap[String, Int], key : String) -> Unit {
   map.set(key, inl_hash_get_int(map, key) + 1)
+}
+
+///|
+fn inl_hash_has_positive(map : @hashmap.HashMap[String, Int]) -> Bool {
+  for key in map.keys() {
+    if inl_hash_get_int(map, key) > 0 {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -1793,16 +2171,116 @@ fn inl_trim_unreachable_to_predicted_counts(
 }
 
 ///|
+fn inl_trim_unreachable_to_selected_counts(
+  mod_ : @lib.Module,
+  selected : @hashmap.HashMap[String, Int],
+) -> @lib.Module {
+  let imports = inl_imported_func_count(mod_)
+  let defined = inl_defined_func_count(mod_)
+  let total = imports + defined
+  let old_type_idxs = match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => type_idxs
+    None => return mod_
+  }
+  let old_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let used = Array::make(total, false)
+  let refs = Array::make(total, 0)
+  inl_mark_global_uses(mod_, used)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        inl_scan_refs(body, refs, used)
+      }
+    None => ()
+  }
+  let current : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let mut def_idx = 0
+  while def_idx < defined {
+    let abs = imports + def_idx
+    let sig = inl_func_signature_key(mod_, func_type_indices, abs)
+    match selected.get(sig) {
+      Some(_) => inl_hash_inc_int(current, sig)
+      None => ()
+    }
+    def_idx += 1
+  }
+  let remove = Array::make(defined, false)
+  let mut any_removed = false
+  def_idx = defined - 1
+  while def_idx >= 0 {
+    let abs = imports + def_idx
+    if abs >= 0 &&
+      abs < used.length() &&
+      refs[abs] == 0 &&
+      !used[abs] &&
+      inl_func_is_exact_unreachable(old_funcs[def_idx]) {
+      let sig = inl_func_signature_key(mod_, func_type_indices, abs)
+      match selected.get(sig) {
+        Some(want) => {
+          let cur = inl_hash_get_int(current, sig)
+          if cur > want {
+            remove[def_idx] = true
+            current.set(sig, cur - 1)
+            any_removed = true
+          }
+        }
+        None => ()
+      }
+    }
+    def_idx -= 1
+  }
+  if !any_removed {
+    return mod_
+  }
+  let remap = Array::make(total, 0U)
+  let mut idx = 0
+  while idx < imports {
+    remap[idx] = idx.reinterpret_as_uint()
+    idx += 1
+  }
+  let next_type_idxs : Array[@lib.TypeIdx] = []
+  let next_funcs : Array[@lib.Func] = []
+  let mut next_abs = imports
+  def_idx = 0
+  while def_idx < defined {
+    let abs = imports + def_idx
+    if remove[def_idx] {
+      remap[abs] = 0U
+    } else {
+      remap[abs] = next_abs.reinterpret_as_uint()
+      next_type_idxs.push(old_type_idxs[def_idx])
+      next_funcs.push(old_funcs[def_idx])
+      next_abs += 1
+    }
+    def_idx += 1
+  }
+  inl_apply_func_remap(
+    mod_
+    .with_func_sec(@lib.FuncSec::new(next_type_idxs))
+    .with_code_sec(@lib.CodeSec::new(next_funcs)),
+    remap,
+  )
+}
+
+///|
 fn inl_remove_dead_unreachable_private_funcs(
   mod_ : @lib.Module,
   original_abs : Array[Int],
   original_cycle_remove : Array[Bool],
+  retain_counts : @hashmap.HashMap[String, Int],
 ) -> @lib.Module {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
   let total = imports + defined
   let refs = Array::make(total, 0)
   let used = Array::make(total, false)
+  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let retained_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
   inl_mark_global_uses(mod_, used)
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -1837,8 +2315,15 @@ fn inl_remove_dead_unreachable_private_funcs(
       if original >= 0 &&
         original < original_cycle_remove.length() &&
         original_cycle_remove[original] {
-        remove[def_idx] = true
-        any_removed = true
+        let sig = inl_func_signature_key(mod_, func_type_indices, abs)
+        let want_retain = inl_hash_get_int(retain_counts, sig)
+        let retained = inl_hash_get_int(retained_counts, sig)
+        if retained < want_retain {
+          retained_counts.set(sig, retained + 1)
+        } else {
+          remove[def_idx] = true
+          any_removed = true
+        }
       }
     }
     def_idx += 1
@@ -2549,11 +3034,13 @@ fn inl_run_module_pass_once(
     infos,
     result.touched,
     result.inlined_from,
+    original_graph_info.retain_inlined_helper_counts,
   )
   let cleaned = inl_remove_dead_unreachable_private_funcs(
     inl_run_nested_cleanup(removal.mod_out, optimize, trace, removal.touched),
     removal.original_abs,
     original_graph_info.cycle_remove,
+    original_graph_info.retain_inlined_helper_counts,
   )
   ignore(original_graph_info.public_scc_representative)
   (
@@ -2572,6 +3059,7 @@ pub fn inlining_run_module_pass(
   trace? : ((String) -> Unit)? = None,
   pass_name? : String = "inlining",
 ) -> @lib.Module {
+  let initial_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
   let mut current = mod_
   let mut iterations = 0
   let max_iterations = inl_defined_func_count(mod_) + 1
@@ -2580,10 +3068,31 @@ pub fn inlining_run_module_pass(
       current, optimize, trace, pass_name,
     )
     if !changed {
-      return current
+      return inl_trim_unreachable_to_selected_counts(
+        current,
+        initial_graph_info.final_trim_counts,
+      )
     }
     current = next
     iterations += 1
+    if inl_hash_has_positive(initial_graph_info.retain_inlined_helper_counts) {
+      let touched = Array::make(
+        inl_imported_func_count(current) + inl_defined_func_count(current),
+        false,
+      )
+      return inl_trim_unreachable_to_selected_counts(
+        inl_collapse_unreachable_roots(
+          current,
+          touched,
+          check_dead_suffix_calls=false,
+          check_marked_suffix_calls=false,
+        ),
+        initial_graph_info.final_trim_counts,
+      )
+    }
   }
-  current
+  inl_trim_unreachable_to_selected_counts(
+    current,
+    initial_graph_info.final_trim_counts,
+  )
 }
