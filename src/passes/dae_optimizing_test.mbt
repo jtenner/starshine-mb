@@ -355,6 +355,42 @@ test "dae-optimizing keeps originally-parameterized dead self-suffix results" {
 }
 
 ///|
+test "dae-optimizing keeps escaped-drop callees under dropped self callers" {
+  let source =
+    #|(module
+    #|  (func $main (export "main") (param f64) (result i32)
+    #|    local.get 0
+    #|    call $main
+    #|    drop
+    #|    i32.const 1)
+    #|  (func $side (param f64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    call $main
+    #|    drop
+    #|    i32.const 2)
+    #|  (func $caller (param f64) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    call $side
+    #|    drop
+    #|    i32.const 1
+    #|    if (result i32)
+    #|      local.get 0
+    #|      call $caller
+    #|    else
+    #|      i32.const 834
+    #|    end))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+}
+
+///|
 test "dae-optimizing keeps parameterized dead self result side chains" {
   let source =
     #|(module
