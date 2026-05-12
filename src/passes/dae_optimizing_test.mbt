@@ -602,6 +602,50 @@ test "dae-optimizing preserves results across dropped result side callees" {
 }
 
 ///|
+test "dae-optimizing prunes private result callees in mixed self chains" {
+  let source =
+    #|(module
+    #|  (func $main (export "main")
+    #|    block
+    #|      unreachable
+    #|    end)
+    #|  (func $f1 (param f64 i32) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 79
+    #|    i32.const 588
+    #|    call $f3
+    #|    drop
+    #|    i32.const 86)
+    #|  (func $f2 (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 14
+    #|    i32.const 1
+    #|    call $f1
+    #|    drop
+    #|    i64.const 224)
+    #|  (func $f3 (param f64 i32) (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f1
+    #|    call $f1
+    #|    drop
+    #|    f64.const 7
+    #|    local.get 1
+    #|    call $f1))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 1)
+}
+
+///|
 test "dae-optimizing preserves parameterized dropped self results with dropped callers" {
   let source =
     #|(module
