@@ -1,506 +1,267 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-12
 sources:
+  - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
+  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
+  - ../../../../../src/passes/inlining.mbt
+  - ../../../../../src/passes/inlining_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./heuristics-splitting-and-plain-vs-optimizing.md
-  - ../inlining-optimizing/index.md
+  - ./starshine-strategy.md
+  - ../inlining-optimizing/wat-shapes.md
 ---
 
 # `inlining` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's plain `inlining` pass.
+The examples below are conceptual. Binaryen may print wrapper blocks, fresh locals, drops, label scaffolding, or post-repair type forms. Plain `inlining` deliberately leaves more debris than `inlining-optimizing`.
 
-## Read this page with one mental model
-
-Binaryen is not asking only:
-
-- “is this callee small?”
-
-It is asking a broader question:
-
-- “is this function boundary small enough, root-free enough, and structurally simple enough that replacing this reachable direct call is worth the code growth and repair work?”
-
-## Important note about the examples
-
-The `after` snippets are **conceptual**.
-Real Binaryen output may still contain:
-
-- wrapper blocks,
-- temp locals,
-- `drop(...)` cleanup,
-- or copied-label scaffolding.
-
-That is especially important here because plain `inlining` does **not** do the nested useful-pass rerun that `inlining-optimizing` performs.
-
-## Quick glossary
-
-- **trivial shrinks**: a one-instruction wrapper that always shrinks when inlined
-- **one-caller case**: a helper with exactly one counted use and no global/root reason to keep it alive as a boundary
-- **split Pattern A**: `if (simple) return;` then heavy later work
-- **split Pattern B**: a short ladder of top-level simple `if`s with strict final-item rules
-- **root survivor**: a function that can inline into some callers but must still remain declared because exports/start/refs keep it alive
-
-## Shape 1: tiny trivial wrapper that always shrinks
+## Shape 1: tiny no-param helper disappears
 
 Before:
 
 ```wat
-(func $add1 (param $x i32) (result i32)
-  (i32.add
-    (local.get $x)
-    (i32.const 1)
-  )
-)
-
-(func $caller (param $y i32) (result i32)
-  (call $add1
-    (local.get $y)
-  )
-)
+(func $tiny (result i32)
+  i32.const 7)
+(func (export "run") (result i32)
+  call $tiny)
 ```
 
-After, conceptually:
+After plain inlining, conceptually:
 
 ```wat
-(func $caller (param $y i32) (result i32)
-  (block $__inlined_func$add1 (result i32)
-    (local.set $tmp
-      (local.get $y)
-    )
-    (i32.add
-      (local.get $tmp)
-      (i32.const 1)
-    )
-  )
-)
+(func (export "run") (result i32)
+  (block (result i32)
+    i32.const 7))
+;; $tiny can be removed if no roots/refs remain
 ```
 
-Why it rewrites:
+Current Starshine covers this family and removes the private helper.
 
-- the callee is tiny,
-- it fits the trivial-wrapper heuristics,
-- and the call boundary is not buying much.
-
-## Shape 2: one-caller helper can inline and disappear
+## Shape 2: parameters are stored into fresh locals
 
 Before:
 
 ```wat
-(func $helper (result i32)
-  (i32.const 7)
-)
-
-(func $caller (result i32)
-  (call $helper)
-)
+(func $add1 (param i32) (result i32)
+  local.get 0
+  i32.const 1
+  i32.add)
+(func (export "run") (param i32) (result i32)
+  local.get 0
+  call $add1)
 ```
 
-After, conceptually:
+Conceptual replacement:
 
 ```wat
-(func $caller (result i32)
-  (block $__inlined_func$helper (result i32)
-    (i32.const 7)
-  )
-)
+(func (export "run") (param i32) (result i32)
+  (local $inl_x i32)
+  local.get 0
+  local.set $inl_x
+  (block (result i32)
+    local.get $inl_x
+    i32.const 1
+    i32.add))
 ```
 
-And then the helper declaration can disappear if no other counted or global uses remain.
+The invariant is operand order and a distinct callee-frame local, not exact printed names.
 
-## Shape 3: exported or tabled helper may inline but survive
+## Shape 3: exported helper can inline but survive
 
 Before:
 
 ```wat
-(table 1 1 funcref)
+(func $tiny (export "tiny") (result i32)
+  i32.const 11)
+(func (export "run") (result i32)
+  call $tiny)
+```
+
+After:
+
+```wat
+(func $tiny (export "tiny") (result i32)
+  i32.const 11)
+(func (export "run") (result i32)
+  i32.const 11) ;; conceptually, wrapper debris may remain
+```
+
+Current Starshine covers this root-survivor family.
+
+## Shape 4: `ref.func` / table use keeps the boundary alive
+
+Before:
+
+```wat
+(table 1 funcref)
 (elem (i32.const 0) $helper)
-(export "api" (func $helper))
-
-(func $helper (result i32)
-  (i32.const 1)
-)
-
-(func $caller (result i32)
-  (call $helper)
-)
+(func $helper (result i32) i32.const 1)
+(func (export "run") (result i32) call $helper)
 ```
 
-After, conceptually:
+After the direct call may inline, but `$helper` remains because function-reference use still observes its identity.
+
+## Shape 5: self-recursive call is skipped
 
 ```wat
-(func $caller (result i32)
-  (block $__inlined_func$helper (result i32)
-    (i32.const 1)
-  )
-)
-
-;; but $helper itself still remains declared
+(func $loop (export "run") (result i32)
+  call $loop)
 ```
 
-Why it matters:
+Inlining this into itself grows without progress. Binaryen and current Starshine skip it.
 
-- inlining a direct callsite is not the same as deleting the function boundary.
-
-## Shape 4: unreachable callee trap must still propagate
-
-Before:
-
-```wat
-(func $trap (result i32)
-  (unreachable)
-)
-
-(func $caller (result i32)
-  (call $trap)
-)
-```
-
-After, conceptually:
-
-```wat
-(func $caller (result i32)
-  (block $__inlined_func$trap (result i32)
-    (unreachable)
-  )
-)
-```
-
-The important rule is not the exact printed block shape.
-It is that the caller still sees unreachable/trapping behavior rather than silently becoming reachable through a typed wrapper.
-
-## Shape 5: copied vars may need zero initialization
-
-Before:
-
-```wat
-(func $callee
-  (local $tmp i32)
-  ;; body that may rely on callee-local zero-init semantics
-)
-
-(func $caller
-  (loop $L
-    (call $callee)
-    (br $L)
-  )
-)
-```
-
-After, conceptually:
-
-```wat
-(func $caller
-  (local $new_tmp i32)
-  (loop $L
-    (block $__inlined_func$callee
-      (local.set $new_tmp (i32.const 0))
-      ;; copied body using $new_tmp
-    )
-    (br $L)
-  )
-)
-```
-
-Why it matters:
-
-- inlining into loops can otherwise observe stale local state that the original separate callee frame would not have preserved.
-
-## Shape 6: nondefaultable local does **not** get fake zeroing
-
-Before:
-
-```wat
-(func $callee
-  (local $tmp (ref func))
-)
-
-(func $caller
-  (call $callee)
-)
-```
-
-After, conceptually:
-
-```wat
-(func $caller
-  (local $new_tmp (ref func))
-  (block $__inlined_func$callee
-    ;; no impossible fake zero init inserted here
-  )
-)
-```
-
-Why it matters:
-
-- Binaryen adds the local,
-- but later post-inline repair handles nondefaultable-local validity instead of pretending a zero/default exists.
-
-## Shape 7: return becomes break out of the inlined body
+## Shape 6: simple `return` in copied callee becomes branch out of the wrapper
 
 Before:
 
 ```wat
 (func $callee (param $x i32) (result i32)
-  (if (local.get $x)
-    (then (return (i32.const 1)))
-  )
-  (i32.const 2)
-)
-
-(func $caller (param $y i32) (result i32)
-  (call $callee (local.get $y))
-)
+  local.get $x
+  if
+    i32.const 1
+    return
+  end
+  i32.const 2)
+(func (export "run") (param i32) (result i32)
+  local.get 0
+  call $callee)
 ```
 
-After, conceptually:
+Conceptual after:
 
 ```wat
-(func $caller (param $y i32) (result i32)
-  (local $tmp i32)
-  (block $__inlined_func$callee (result i32)
-    (local.set $tmp (local.get $y))
-    (if (local.get $tmp)
-      (then
-        (br $__inlined_func$callee
-          (i32.const 1)
-        )
-      )
-    )
-    (i32.const 2)
-  )
-)
+(block (result i32)
+  ;; copied condition
+  if
+    i32.const 1
+    br 0
+  end
+  i32.const 2)
 ```
 
-Why it rewrites this way:
+Current Starshine has a simple return-to-wrapper-branch path, but complex label-depth, nested returns, and multi-result typing remain gaps.
 
-- copied returns must exit only the copied callee body, not the whole caller function.
+## Shape 7: outer `return_call` can inline in the current subset
 
-## Shape 8: nested `return_call*` may be downgraded and repaired
+Before:
+
+```wat
+(func $tiny (result i32) i32.const 7)
+(func (export "run") (result i32)
+  return_call $tiny)
+```
+
+Conceptual after:
+
+```wat
+(func (export "run") (result i32)
+  i32.const 7
+  return)
+```
+
+Current Starshine covers a narrow direct `return_call` positive. It does **not** yet cover full Binaryen nested `return_call*` repair.
+
+## Shape 8: nested `return_call*` repair is a gap
 
 Before:
 
 ```wat
 (func $callee (result i32)
-  (return_call $target)
-)
-
-(func $caller (result i32)
-  (call $callee)
-)
+  return_call $target)
+(func (export "run") (result i32)
+  call $callee)
 ```
 
-After, conceptually:
+Binaryen must not let the copied `return_call` return from `$run` unless the outer callsite was already a return-style call. It can downgrade/repair and wrap control. Current Starshine mostly avoids return-call-containing callees, so this remains a parity gap.
 
-```wat
-(func $caller (result i32)
-  (block $__inlined_func$callee (result i32)
-    ;; repaired ordinary call plus branch structure
-    ;; that exits the inlined body correctly
-  )
-)
-```
-
-Why the page keeps this conceptual:
-
-- the exact rewritten scaffolding is more complex than the simple summary,
-- but the real rule is that a nested return-style call must stop returning from the whole caller unless the outer callsite was already a return call.
-
-## Shape 9: Pattern A partial inlining
+## Shape 9: unreachable/trap reachability is preserved
 
 Before:
 
 ```wat
-(func $maybe-work-hard (param $x i32)
-  (if (local.get $x)
-    (then (return))
-  )
-  ;; heavy later work
-  (call $heavy)
-)
-
-(func $caller (param $v i32)
-  (call $maybe-work-hard (local.get $v))
-)
+(func $trap (result i32)
+  unreachable)
+(func (export "run") (result i32)
+  call $trap)
 ```
 
-After, conceptually:
+After must still trap/unreach. Typed wrapper blocks must not accidentally create reachable values. Current Starshine has additional exact-`unreachable` survivor prediction work because Binaryen and Starshine differ in which private helper representatives survive after cleanup.
 
-```wat
-(func $caller (param $v i32)
-  (if (local.get $v)
-    (then)
-    (else
-      (call $byn-split-outlined-A$maybe-work-hard
-        (local.get $v)
-      )
-    )
-  )
-)
-```
-
-The actual split helper names differ, but the important point is:
-
-- Binaryen can inline the guard while outlining the heavy remainder.
-
-## Shape 10: Pattern B short `if` ladder split
+## Shape 10: Pattern A partial inlining
 
 Before:
 
 ```wat
-(func $guard-ladder (param $x i32) (result i32)
+(func $maybe (param $x i32)
   (if (local.get $x)
-    (then (return (call $heavy1)))
-  )
-  (if (global.get $g)
-    (then (return (call $heavy2)))
-  )
-  (i32.const 0)
-)
+    (then (return)))
+  call $heavy)
+(func (export "run") (param i32)
+  local.get 0
+  call $maybe)
 ```
 
-After, conceptually:
+Binaryen can outline the heavy suffix and inline only the guard wrapper. Current Starshine does not implement partial splitting.
 
-```wat
-(func $caller (param $y i32) (result i32)
-  ;; copied top-level guards
-  ;; each guard calls an outlined helper only when needed
-)
-```
-
-Why it rewrites:
-
-- the top-level `if` run is short and simple enough,
-- and the final item does not depend on locals written inside the `if` bodies.
-
-## Shape 11: dangerous final-item local dependency blocks Pattern B
+## Shape 11: Pattern B local-dependency bailout
 
 Before:
 
 ```wat
 (func $bad (param $x i32) (result i32)
+  (local $tmp i32)
   (if (local.get $x)
     (then
-      (local.set $tmp (i32.const 1))
-    )
-  )
-  (local.get $tmp)
-)
+      i32.const 1
+      local.set $tmp))
+  local.get $tmp)
 ```
 
-After:
+Pattern B must not split this because the final item reads a local written by a guarded body.
 
-```wat
-;; left unchanged by split inlining
-```
-
-Why it bails out:
-
-- the final item reads a local written inside the guarded body,
-- so splitting the function would change the relation between the guarded write and the final read.
-
-## Shape 12: complex guard blocks split inlining
-
-Before:
+## Shape 12: complex guard blocks partial inlining
 
 ```wat
 (func $bad (param $x i32)
-  (if
-    (call $expensive-condition (local.get $x))
-    (then (return))
-  )
-  (call $heavy)
-)
+  (if (call $expensive-condition (local.get $x))
+    (then (return)))
+  call $heavy)
 ```
 
-After:
+A call condition is not simple under the reviewed splitter rules.
 
-```wat
-;; left unchanged by split inlining
-```
-
-Why it bails out:
-
-- split inlining only accepts very simple guard expressions.
-
-## Shape 13: `try_delegate` blocks full inlining
+## Shape 13: nondefaultable local repair
 
 Before:
 
 ```wat
-(func $delegatey
-  (try
-    (do
-      ...
-    )
-    (delegate $outer)
-  )
-)
+(func $callee
+  (local $r (ref $T))
+  ;; copied body may mention $r)
 ```
 
-After:
+Binaryen cannot invent a fake default for nondefaultable locals. It adds locals and then runs nondefaultable-local repair. Current Starshine does not yet model the full repair surface.
 
-```wat
-;; left unchanged by full inlining heuristics in version_129
-```
-
-Why it matters:
-
-- this is a real source-backed bailout family.
-
-## Shape 14: callee with loops may stay out by default
+## Shape 14: plain pass leaves debris
 
 Before:
 
 ```wat
-(func $looping (param $x i32) (result i32)
-  (loop $L
-    ...
-  )
-)
+(func $id_plus_zero (param i32) (result i32)
+  local.get 0
+  i32.const 0
+  i32.add)
 ```
 
-After:
+After plain `inlining`, `i32.add 0`, local traffic, and wrapper blocks may remain. If those disappear, check whether you accidentally ran `inlining-optimizing` or a later cleanup pass.
 
-```wat
-;; often left unchanged by default flexible heuristics
-```
+## Shape 15: current mismatch family is helper retention, not validation failure
 
-Why it matters:
-
-- loops do not make inlining impossible forever,
-- but Binaryen's default policy treats them conservatively.
-
-## Shape 15: plain `inlining` leaves cleanup debris that optimizing variant may erase later
-
-Before:
-
-```wat
-(func $helper (param $x i32) (result i32)
-  (i32.add (local.get $x) (i32.const 0))
-)
-```
-
-After plain `inlining`, conceptually:
-
-```wat
-(func $caller ...
-  (block $__inlined_func$helper (result i32)
-    (local.set $tmp ...)
-    (i32.add (local.get $tmp) (i32.const 0))
-  )
-)
-```
-
-After `inlining-optimizing`, later neighboring passes may also erase:
-
-- the useless add-zero,
-- extra temps,
-- or wrapper structure.
-
-That is why plain vs optimizing should never be taught as identical outputs with different branding.
+The latest direct optimizing compare has `15` normalized mismatches and `0` validation failures. The known frontier is exact-`unreachable` private-helper representative/retention behavior: mostly extra helpers retained by Starshine, plus one missing helper relative to Binaryen. Treat this as active `[INL]001` parity work, not a parser or validator failure.

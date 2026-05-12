@@ -10214,6 +10214,15 @@ fn run_hot_pipeline_apply_module_pass(
         Ok(next) => next
         Err(err) => return Err(err)
       }
+    "inlining" =>
+      inlining_run_module_pass(mod_, optimize=false, pass_name="inlining")
+    "inlining-optimizing" =>
+      inlining_run_module_pass(
+        mod_,
+        optimize=true,
+        trace=Some(options.trace),
+        pass_name="inlining-optimizing",
+      )
     "string-gathering" => string_gathering_run_module_pass(mod_)
     "reorder-globals" => reorder_globals_run_module_pass(mod_)
     "directize" => directize_run_module_pass(mod_)

@@ -131,11 +131,10 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "signature-refining", "global-struct-inference-desc-cast", "global-type-optimization",
     "simplify-globals", "simplify-globals-optimizing", "global-effects", "propagate-globals-globally",
     "type-refining", "type-generalizing", "type-finalizing", "type-un-finalizing",
-    "unsubtyping", "inlining", "inlining-optimizing", "inline-main", "merge-similar-functions",
-    "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
-    "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering", "reorder-types",
-    "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
-    "remove-unused",
+    "unsubtyping", "inline-main", "merge-similar-functions", "minimize-rec-groups",
+    "type-merging", "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing",
+    "gufa-cast-all", "i64-to-i32-lowering", "reorder-types", "reorder-globals-always",
+    "reorder-functions", "reorder-functions-by-name", "remove-unused-types", "remove-unused",
   ]
 }
 
@@ -288,6 +287,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_module(
       "dead-argument-elimination-optimizing",
       dae_optimizing_summary(),
+    ),
+    pass_registry_entry_module("inlining", inlining_summary()),
+    pass_registry_entry_module(
+      "inlining-optimizing",
+      inlining_optimizing_summary(),
     ),
     pass_registry_entry_module("string-gathering", string_gathering_summary()),
     pass_registry_entry_module("reorder-globals", reorder_globals_summary()),

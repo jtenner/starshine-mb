@@ -416,6 +416,39 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Investigated `.tmp/pass-fuzz-dae-no-param-result-caller-prune-1000/failures/case-000690-gen-valid` and recorded the durable Binaryen shape in [`raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md`](raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md).
 - Updated the `dae-optimizing` pages to record that Binaryen preserves the original parameter stranded under an escaped direct-call result used as an undropped dead-suffix self-call operand, while still pruning direct simple self-call operands.
 - Added a Starshine regression for the raw wasm failure and fixed the local DAE parameter-origin restoration path; `.tmp/pass-fuzz-dae-690-final2-200` reported `199/200` compared, `198` normalized matches, `1` local-declaration mismatch, and `1` Binaryen/tool command failure, while `.tmp/pass-fuzz-dae-690-final2-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures with `case-000690-gen-valid` gone.
+## [2026-05-12] passes | inlining-optimizing exact-unreachable representative trimming
+
+- Refined `inlining-optimizing`'s exact-`unreachable` survivor trimming so final trimming accounts for non-exact same-signature survivors only when no used self-loop root is present.
+- Added a narrow predictor drop for unique private self-loop representatives inside root SCCs; a broader private-self-loop drop probe was rejected because it fixed `case-000890` but introduced four new missing-helper regressions.
+- Added focused coverage for the used self-loop signature duplicate-trimming family in `src/passes/inlining_test.mbt`.
+- Direct compare remains red but moved forward: `.tmp/pass-fuzz-inlining-unique-selfloop-drop-jobs-auto` with `--count 10000 --seed 0x5eed --pass inlining-optimizing --max-failures 200 --keep-going-after-command-failures --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` completed the requested range with `9975` compared cases, `9968` normalized matches, `7` mismatches, `0` validation failures, and `25` ignored Binaryen/tool parse/canonicalization command failures. Keep `[INL]001` and `[INL]002` active.
+
+## [2026-05-12] docs | inlining dossier research overhaul
+
+- Overhauled the living `inlining` and `inlining-optimizing` dossiers to match the current Starshine reality: both names are now active partial module passes through `src/passes/inlining.mbt`, not boundary-only placeholders, but neither is parity-signed.
+- Added research note `raw/research/0557-2026-05-12-inlining-wiki-overhaul.md` tying the refreshed wiki pages to Binaryen raw manifests, existing research notes, current implementation/test files, backlog/changelog state, and `.tmp/pass-fuzz-inlining-shadow-void-cycle-final`.
+- Refreshed strategy, implementation/test-map, heuristic, WAT-shape, Starshine status, and validation pages for the plain and optimizing siblings. The docs now keep the direct-call-based planner, Pattern A/B partial inlining, no-inline policy split, optimizing `precompute-propagate` + default-pipeline suffix, exact touched-function scheduler gap, and current exact-`unreachable` mismatch frontier visible.
+- Updated the pass tracker wording for these rows to use `active-partial` instead of stale boundary-only status while keeping the passes in the unsigned blocker queue until direct and scheduler parity are proven.
+- Preserved the current evidence classification: `9975/10000` compared, `9960` normalized matches, `15` normalized mismatches, `0` validation failures, `0` generator failures, and `25` ignored Binaryen/tool parse/canonicalization command failures. Keep `[INL]001` and `[INL]002` active.
+
+## [2026-05-12] passes | inlining-optimizing shadow void-cycle retention
+
+- Added a focused `inlining-optimizing` regression for Binaryen's retained result-helper representative when a root-reachable SCC includes a void private member and an unreachable same-signature shadow caller also references the result helper.
+- Refined the exact-`unreachable` survivor predictor for that shadow void-cycle family without adding new regressions in the seed-`0x5eed` 10k lane.
+- Direct compare remains red but moved forward: `.tmp/pass-fuzz-inlining-shadow-void-cycle-final` with `--count 10000 --seed 0x5eed --pass inlining-optimizing --max-failures 200 --keep-going-after-command-failures` completed the requested range with `9975` compared cases, `9960` normalized matches, `15` mismatches, `0` validation failures, and `25` ignored Binaryen/tool parse/canonicalization command failures. The remaining saved `gen-valid` mismatches are exact-`unreachable` private-helper representative/retention cases: 14 extra helpers retained by Starshine and 1 helper missing relative to Binaryen. Keep `[INL]001` and `[INL]002` active.
+
+## [2026-05-11] passes | partial inlining-optimizing iterative-wave checkpoint
+
+- Extended the active `inlining` / `inlining-optimizing` module pass from a single rewrite wave to bounded iterative waves, matching Binaryen's ability to inline callees exposed after the same-wave inline-into/from race guard clears.
+- Updated focused tests so the race-guard fixture now proves the later wave can inline the remaining direct call while preserving the same-wave safety intent.
+- Direct compare remains red but moved forward: `.tmp/pass-fuzz-inlining-scc-no-orphan` with `--count 10000 --seed 0x5eed --pass inlining-optimizing --max-failures 200 --keep-going-after-command-failures` completed the requested range with `9975` compared cases, `9959` normalized matches, `16` mismatches, `0` validation failures, and `25` ignored Binaryen/tool parse/canonicalization command failures. Remaining mismatches are still concentrated around exact-unreachable private-helper representative/duplicate retention. Follow-up probes for broad private self-loop exclusion, dead-block callsite skipping, public-SCC helper protection, same-signature live-body trimming, predicted-count helper padding, and original-one-ref-only helper removal were rejected because they regressed the 10k lane, failed focused coverage, or left the frontier unchanged. Keep `[INL]001` and `[INL]002` active.
+
+## [2026-05-11] passes | partial inlining-optimizing module port
+
+- Added active `inlining` and `inlining-optimizing` module-pass registry/dispatcher support plus pass-fuzz-compare support for both names.
+- Added a first inlining engine covering direct `call` / `return_call` inlining for tiny and one-use private defined callees, callee param/local remapping into caller locals, `return` to wrapper-block branch repair, private helper removal with function-index rewriting, and an optimizing nested-cleanup approximation.
+- Added focused tests in `src/passes/inlining_test.mbt` for registry activation, tiny helper removal, parameter operand storage, exported tiny helper preservation, direct `return_call` inlining, self-recursion skips, and nested-cleanup trace emission.
+- Direct compare remains red: `.tmp/pass-fuzz-inlining-final` with `--count 10000 --seed 0x5eed --pass inlining-optimizing --max-failures 20 --keep-going-after-command-failures` stopped after `892` compared cases with `872` normalized matches, `20` mismatches, `0` validation failures, and `2` Binaryen/tool command failures. Superseded by the iterative-wave checkpoint above; keep `[INL]001` and `[INL]002` active until full Binaryen heuristics/rewrite coverage and the exact touched-function nested scheduler land.
 
 ## [2026-05-11] passes | partial dae-optimizing module port
 

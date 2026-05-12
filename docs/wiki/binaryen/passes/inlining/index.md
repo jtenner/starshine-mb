@@ -1,18 +1,21 @@
 ---
 kind: entity
-status: supported
-last_reviewed: 2026-04-26
+status: working
+last_reviewed: 2026-05-12
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
+  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
   - ../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0391-2026-04-26-inlining-port-readiness.md
+  - ../../../../../src/passes/inlining.mbt
+  - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../no-dwarf-default-optimize-path.md
-  - ../tracker.md
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
+  - ../../../../../CHANGELOG.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -22,123 +25,100 @@ related:
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
   - ../inlining-optimizing/index.md
-  - ../dae-optimizing/index.md
+  - ../inline-main/index.md
   - ../duplicate-function-elimination/index.md
-  - ../tracker.md
+  - ../monomorphize/index.md
 ---
 
 # `inlining`
 
 ## Role
 
-- `inlining` is an upstream Binaryen boundary/module pass.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- The pass shares its upstream implementation file with [`../inlining-optimizing/index.md`](../inlining-optimizing/index.md).
-- The key semantic split is simple but important:
-  - `inlining` runs the inline planner, splitter, rewrite, cleanup, and post-inline repair only
-  - `inlining-optimizing` runs that same engine **plus** a nested `precompute-propagate` + default function-optimization rerun on changed functions
+`inlining` is Binaryen's plain whole-module inliner. It shares the upstream `src/passes/Inlining.cpp` engine with [`../inlining-optimizing/index.md`](../inlining-optimizing/index.md), but it stops after inline planning, callsite rewrite, repair, and dead-helper cleanup. It does **not** run the optimizing sibling's nested useful-pass rerun.
+
+Current Starshine status has changed since the older April port-readiness notes: `inlining` is now a **partial active module pass**, not boundary-only. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), registered as a module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), dispatched by [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), and covered by focused public-pipeline tests in [`src/passes/inlining_test.mbt`](../../../../../src/passes/inlining_test.mbt).
+
+Do not read that as parity signoff. The current local implementation is a first safe direct-call subset; `[INL]001` and `[INL]002` remain active in [`agent-todo.md`](../../../../../agent-todo.md).
 
 ## Why this pass matters
 
-- The original campaign queue is closed, so this dossier is an explicit tracker expansion rather than a leftover parity stub.
-- `inlining` is already a named local registry entry, so it is a real future port surface.
-- The plain pass is easy to blur together with `inlining-optimizing`, even though the public contract is smaller.
-- `agent-todo.md` currently has **no dedicated `inlining` slice**; it only has the optimizing `INL` slice.
-- This pass sits in the same late boundary neighborhood as:
-  - `dae-optimizing`
-  - `inlining-optimizing`
-  - `duplicate-function-elimination`
-  - `duplicate-import-elimination`
-  - `simplify-globals-optimizing`
+- It is the smaller public contract behind the shared Binaryen inliner: same scan/plan/rewrite core, no optimizing suffix.
+- It is the best place to teach the low-level inline rewrite requirements before adding `inlining-optimizing`'s scheduler obligations.
+- The current Starshine implementation uses the same owner file for both names, so plain `inlining` is no longer merely a future sibling.
+- It is easy to misdescribe as “inline small functions.” Real Binaryen behavior includes whole-module root/use accounting, layered heuristics, partial-inlining splitting, callsite surgery, type/local/label repair, and helper deletion.
 
 ## Beginner summary
 
-A good beginner mental model is:
+A safe mental model:
 
-- scan the whole module to learn which functions are tiny, one-use, loop-heavy, delegate-heavy, rooted, or referenced elsewhere,
-- classify each function as fully inlineable, partially inlineable, or not inlineable,
-- plan only the direct reachable callsites that are worth replacing,
-- rewrite those callsites by copying the callee body and repairing locals, returns, labels, and types,
-- sometimes split a top-of-function `if` pattern into `inlineable` and `outlined` helper pieces first,
-- delete only the now-dead private helpers,
-- then stop.
-
-That final “then stop” is the big difference from `inlining-optimizing`.
+1. Scan the module to summarize every function: size, refs, roots, calls, loops, `try_delegate`, trivial-wrapper class, and inline mode.
+2. Classify callees as fully inlineable, split-inlineable, or uninlineable.
+3. Plan reachable direct `call` / `return_call` actions.
+4. Copy callee bodies into callers while remapping locals and repairing returns, labels, tail-call forms, reachability, and types.
+5. Delete only private helpers that truly have no surviving roots or uses.
+6. Stop. The optimizing sibling performs step 7: nested cleanup on touched functions.
 
 ## Current durable takeaways
 
-- `inlining` is a **whole-module planner pass**, not a local peephole.
-- Binaryen `version_129` chooses actual inline actions from reachable **direct** `call` / `return_call` sites.
-- Exported, start, and `ref.func`-used functions may inline into callers while still surviving as declarations.
-- The heuristic is layered:
-  - tiny always-inline cases
-  - one-caller cases
-  - trivial single-instruction wrappers
-  - flexible size-policy cases
-  - loop/delegate blockers
-- Partial inlining is real, but only for two narrow top-of-function `if` pattern families and only under heavier speed-oriented settings.
-- Binaryen's preserved `@metadata.code.inline` bytes are a separate compilation-hints surface; the actual plain-`inlining` suppression knobs are the function booleans `noFullInline` / `noPartialInline` set by the separate `no-inline*` passes.
-- Those no-inline flags survive cloning through `ModuleUtils::copyFunction`, which is why the dedicated monomorphize-plus-inlining test keeps copied functions blocked too.
-- Inline rewrite requires real local/label/type repair, not just replacing a node with the callee body.
-- The plain pass does **not** own the nested useful-pass rerun that the optimizing sibling adds.
+- Upstream `version_129` chosen inline actions are source-backed as reachable direct `call` / `return_call` sites. `ref.func`, `call_ref`, and `call_indirect` still matter for root survival and copied-body repair, but the living docs should not teach broad `call_ref` selection unless a later source ingest proves it.
+- `refs` is not just direct-call count. It includes `ref.func` uses, while exports and the start function mark global/root use.
+- Full-inline profitability is layered: `try_delegate` bailout, tiny threshold, one-use special case, shrinking trivial wrapper class, flexible max size, shrink/speed policy, no-calls and loop policy.
+- Partial inlining is real but narrow: two top-of-function conditional split families, enabled only by heavier speed settings and `partialInliningIfs`.
+- Inline rewrite is structured IR surgery: operand storage, fresh caller locals, zeroing defaultable copied vars, copied-body metadata, return-to-break repair, nested `return_call*` repair, label uniquification, refinalization, and nondefaultable-local repair.
+- Plain `inlining` must not accidentally run `precompute-propagate` or the default function pipeline. That difference is the public split from `inlining-optimizing`.
+
+## Starshine status snapshot: 2026-05-12
+
+Implemented subset:
+
+- active module-pass names: `inlining` and `inlining-optimizing`;
+- bounded iterative direct `call` and `return_call` rewrite waves;
+- tiny and one-use private defined callee eligibility;
+- callee param/body-local appending and local-index remapping in callers;
+- simple callee `return` rewrite to an inlined wrapper-block branch;
+- private helper removal when surviving refs disappear;
+- function-index rewriting after removals;
+- focused tests for no-param helpers, parameter operand storage, exported tiny-helper survival, `return_call`, self-recursion skip, iterative race-guard follow-up, registry wiring, and optimizing trace marker.
+
+Still missing or incomplete:
+
+- full Binaryen heuristic parity, including trivial-instruction classes and flexible/O3 policy;
+- `no-inline`, `no-full-inline`, and `no-partial-inline` flag handling;
+- partial Pattern A / Pattern B splitting;
+- nested `return_call*` repair and `return_call`-inside-`try` hoisting;
+- multi-result inlined wrapper block typing;
+- exact label/name collision behavior and annotation/name-section repair;
+- exact Binaryen action filtering, repeated-work caps, and giant-function size guard;
+- direct 10k parity for plain `--inlining` or optimizing `--inlining-optimizing`.
+
+## Current evidence
+
+The current parent-thread evidence is for the optimizing sibling because that is the v0.1.0 `INL` focus:
+
+- `.tmp/pass-fuzz-inlining-shadow-void-cycle-final`
+- `9975 / 10000` compared
+- `9960` normalized matches
+- `15` normalized mismatches
+- `0` validation failures
+- `0` generator failures
+- `25` ignored Binaryen/tool parse/canonicalization command failures:
+  - `22` `binaryen-rec-group-zero`
+  - `1` `binaryen-bad-section-size`
+  - `1` `binaryen-table-index-out-of-range`
+  - `1` `binaryen-invalid-tag-index`
+
+Per project policy and user preference, those Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The 15 normalized mismatches keep `[INL]001` and `[INL]002` active.
 
 ## Page map
 
-- [`../../../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../../../raw/binaryen/2026-04-23-inlining-primary-sources.md)
-  Immutable primary-source manifest for the exact official Binaryen release, source, and lit-test URLs rechecked on 2026-04-23.
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen `version_129` implementation: phases, helper dependencies, scheduler placement, and what the plain pass really owns.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  File-by-file and test-by-test map of the upstream sources that define the pass contract.
-- [`./heuristics-splitting-and-plain-vs-optimizing.md`](./heuristics-splitting-and-plain-vs-optimizing.md)
-  Focused guide to the easiest things to misread: direct-call-only planning, trivial-instruction classes, split-inlining patterns, no-inline controls, and the semantic split from `inlining-optimizing`.
-- [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md)
-  Compact source-confirmed guide to the difference between preserved `@metadata.code.inline` bytes, Binaryen's real `no-inline` / `no-full-inline` / `no-partial-inline` function flags, and why those flags survive cloning through `ModuleUtils::copyFunction`.
-- [`./wat-shapes.md`](./wat-shapes.md)
-  Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread rewrite families.
-- [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future port map: exact boundary-only registry / request-guard locations, current planning gap around a dedicated plain-`inlining` backlog slice, and the neighboring dossiers a future local port should compose with.
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Dedicated first-slice and validation bridge for a future Starshine port, covering module-pass landing order, direct-call copy/rewrite tests, root-survival negatives, no accidental optimizing suffix, and Binaryen oracle comparison order.
+- [`./binaryen-strategy.md`](./binaryen-strategy.md) - deep upstream strategy: phases, heuristics, direct-call action surface, partial-inlining patterns, rewrite/repair, and dead-helper cleanup.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Binaryen owner/helper/test map plus current Starshine code/test map.
+- [`./heuristics-splitting-and-plain-vs-optimizing.md`](./heuristics-splitting-and-plain-vs-optimizing.md) - focused explainer for the pass's easiest misunderstandings.
+- [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) - source-backed split between preserved `@metadata.code.inline` bytes and actual no-inline policy flags.
+- [`./wat-shapes.md`](./wat-shapes.md) - WAT shape catalog for positives, bailouts, partial-inline shapes, repair shapes, and current Starshine subset/gaps.
+- [`./starshine-strategy.md`](./starshine-strategy.md) - active partial Starshine implementation status and design map.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - validation/evidence bridge for the remaining Starshine work.
 
-## Current maintenance rule
+## Maintenance rule
 
-- Treat this folder as the canonical home for future `inlining` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary/module pass for it.
-- Keep the relationship to [`../inlining-optimizing/index.md`](../inlining-optimizing/index.md) explicit instead of silently teaching the plain pass only through the optimizing variant.
-
-## Sources
-
-- [`../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md)
-- [`../../../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../../../raw/binaryen/2026-04-23-inlining-primary-sources.md)
-- [`../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md`](../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md)
-- [`../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md`](../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0391-2026-04-26-inlining-port-readiness.md`](../../../raw/research/0391-2026-04-26-inlining-port-readiness.md)
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../tracker.md`](../tracker.md)
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- Binaryen `version_129` implementation and test sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/NoInline.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm-binary.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/parser/contexts.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining_optimize-level=3.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining_enable-tail-call.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining_splitting.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining_splitting_basics.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-trivial-instructions.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-trivial-calls-1.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-unreachable.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-gc.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/no-inline.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/no-inline-monomorphize-inlining.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inline-main.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/inline-hints.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/inline-hints-func.wast>
+Keep this folder as the canonical home for the plain inliner contract. Whenever the shared Starshine implementation changes, update this folder and [`../inlining-optimizing/index.md`](../inlining-optimizing/index.md) together, but keep the public stop-point split explicit: plain `inlining` must not claim the optimizing suffix.

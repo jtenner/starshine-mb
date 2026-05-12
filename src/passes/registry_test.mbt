@@ -101,6 +101,14 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::module_pass()),
   )
   @debug.assert_eq(
+    pass_registry_category("inlining"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  @debug.assert_eq(
+    pass_registry_category("inlining-optimizing"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  @debug.assert_eq(
     pass_registry_category("reorder-globals"),
     Some(HotPassRegistryCategory::module_pass()),
   )

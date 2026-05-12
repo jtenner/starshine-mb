@@ -196,7 +196,7 @@ That summary matches the reviewed `version_129` code much better than the simple
 
 - “Binaryen uses inline-hint annotations as its ordinary no-inline mechanism.”
 
-## What a future Starshine port should preserve
+## What future Starshine widening should preserve
 
 - Distinguish compilation-hint metadata from actual inliner policy flags.
 - Model full-vs-partial suppression as separate controls.

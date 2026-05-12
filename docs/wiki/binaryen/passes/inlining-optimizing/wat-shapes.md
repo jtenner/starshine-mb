@@ -1,343 +1,171 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-12
 sources:
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
-  - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
-  - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
-  - ../../../raw/research/0271-2026-04-23-inlining-optimizing-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
+  - ../../../../../src/passes/inlining.mbt
+  - ../../../../../src/passes/inlining_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./planning-partial-inlining-and-reruns.md
   - ./starshine-strategy.md
-  - ../../no-dwarf-default-optimize-path.md
+  - ../inlining/wat-shapes.md
 ---
 
 # `inlining-optimizing` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `inlining-optimizing` pass. For the source/test proof surface behind these examples, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+These snippets are conceptual. The optimizing variant may simplify the raw inlined shape immediately, so exact printed output can differ from plain `inlining`.
 
-## Read this page with one mental model
-
-Binaryen is looking for **call boundaries worth erasing**.
-It is not asking only:
-
-- “is this callee tiny?”
-
-It is asking something closer to:
-
-- “is this direct call boundary cheap enough to erase,
-- is the callee still safe to inline,
-- would the module stay well-structured afterward,
-- and is the follow-up cleanup worth it?”
-
-That is why the pass has both positive inline families and strong bailout families.
-
-## Quick glossary
-
-- **root**: a function Binaryen keeps alive because outside or implicit callers may still exist
-- **surviving use**: a use such as export, start, or `ref.func` that still keeps the function boundary relevant
-- **full inline**: replace the call with the callee body directly
-- **partial inline**: split out a structured region into a helper first, then inline that helper
-- **touched function**: a caller or callee body that changed and therefore gets the nested cleanup rerun
-
-## Shape 1: tiny private direct helper fully inlines
+## Shape 1: tiny helper plus cleanup payoff
 
 Before:
 
 ```wat
-(func $add1 (param $x i32) (result i32)
-  (i32.add
-    (local.get $x)
-    (i32.const 1)))
-
-(func $main (result i32)
-  (call $add1
-    (i32.const 41)))
+(func $id_plus_zero (param i32) (result i32)
+  local.get 0
+  i32.const 0
+  i32.add)
+(func (export "run") (result i32)
+  i32.const 7
+  call $id_plus_zero)
 ```
 
-After, conceptually:
+After raw inlining:
 
 ```wat
-(func $main (result i32)
-  (i32.add
-    (i32.const 41)
-    (i32.const 1)))
+i32.const 7
+i32.const 0
+i32.add
 ```
 
-Why it folds:
+After optimizing suffix, conceptually:
 
-- the helper is tiny
-- the call is direct
-- there is no export/start/root hazard
-- there is no tail-call or recursive-growth blocker
+```wat
+i32.const 7
+```
 
-After `inlining-optimizing`, later nested cleanup may also precompute the final constant.
+This cleanup payoff is exactly what plain `inlining` does not promise.
 
-## Shape 2: inline succeeds, but the callee still survives
+## Shape 2: one-use private helper removed
 
 Before:
 
 ```wat
-(func $helper (param i32) (result i32)
-  (i32.mul
-    (local.get 0)
-    (i32.const 2)))
-
-(func $a (result i32)
-  (call $helper (i32.const 3)))
-
-(func (export "keep") (param i32) (result i32)
-  (call $helper (local.get 0)))
+(func $helper (result i32) i32.const 1)
+(func (export "run") (result i32) call $helper)
 ```
 
-Conceptual after:
+After:
 
 ```wat
-(func $a (result i32)
-  (i32.mul
-    (i32.const 3)
-    (i32.const 2)))
-
-(func $helper (param i32) (result i32)
-  (i32.mul
-    (local.get 0)
-    (i32.const 2)))
+(func (export "run") (result i32) i32.const 1)
+;; helper can disappear
 ```
 
-Why Binaryen keeps the helper:
+Current Starshine covers this family.
 
-- one internal callsite was worth inlining
-- but other surviving uses still require the helper boundary
-- here the exported path keeps the function alive indirectly
-
-This is the easiest way to remember that “inline” does not always mean “delete callee.”
-
-## Shape 3: a one-caller helper can inline even when it is not the tiniest possible leaf
+## Shape 3: root survivor
 
 Before:
 
 ```wat
-(func $one_use (param $x i32) (result i32)
-  (local $tmp i32)
-  (local.set $tmp
-    (i32.add (local.get $x) (i32.const 5)))
-  (i32.mul
-    (local.get $tmp)
-    (i32.const 2)))
-
-(func $caller (result i32)
-  (call $one_use (i32.const 10)))
+(func $helper (export "helper") (result i32) i32.const 1)
+(func (export "run") (result i32) call $helper)
 ```
 
-Why Binaryen may still inline it:
+After: the direct call can inline, but `$helper` remains exported.
 
-- the helper has only one use
-- the call overhead disappears entirely
-- the planner's single-use heuristic is looser than the tiny-leaf rule
+Current Starshine covers exported tiny helpers.
 
-So a non-trivial helper can still inline when it is a one-caller wrapper.
-
-## Shape 4: nested cleanup is part of the positive story
-
-Before:
+## Shape 4: `ref.func` survivor
 
 ```wat
-(func $id_plus_zero (param $x i32) (result i32)
-  (i32.add
-    (local.get $x)
-    (i32.const 0)))
-
-(func $use (result i32)
-  (call $id_plus_zero (i32.const 7)))
-```
-
-After raw inlining, conceptually:
-
-```wat
-(i32.add
-  (i32.const 7)
-  (i32.const 0))
-```
-
-After the optimizing rerun, conceptually:
-
-```wat
-(i32.const 7)
-```
-
-Why this matters:
-
-- the inline rewrite itself is only half the story
-- `precompute-propagate` plus the default cleanup pipeline is how Binaryen cashes in on the new constant shape
-
-## Shape 5: `ref.func` can keep the boundary alive even after a direct inline
-
-Before:
-
-```wat
-(table 1 1 funcref)
+(table 1 funcref)
 (elem (i32.const 0) $helper)
-
-(func $helper (param i32) (result i32)
-  (i32.add (local.get 0) (i32.const 1)))
-
-(func $internal (result i32)
-  (call $helper (i32.const 9)))
+(func $helper (result i32) i32.const 1)
+(func (export "run") (result i32) call $helper)
 ```
 
-Conceptual after:
+The direct call may inline, but function identity survives through the table/ref use. Future Starshine work should keep this distinct from no-inline policy.
+
+## Shape 5: `call_ref` expectation mismatch
 
 ```wat
-(func $internal (result i32)
-  (i32.add
-    (i32.const 9)
-    (i32.const 1)))
-
-(func $helper (param i32) (result i32)
-  (i32.add (local.get 0) (i32.const 1)))
+(func (export "run") (param funcref i32) (result i32)
+  local.get 1
+  local.get 0
+  call_ref (result i32))
 ```
 
-Why the helper remains:
+Do not use this as a first-slice expected inline. Reviewed `version_129` chosen actions are direct-call based; ref-call logic is mainly repair/survival-adjacent in the living contract.
 
-- the direct callsite was worth inlining
-- but the `ref.func`-style table use still keeps the helper boundary observable
-
-## Shape 6: generic `call_ref` selection is not the main chosen-action story in reviewed `version_129`
-
-Before and after stay the same conceptually:
+## Shape 6: tail-call repair gap
 
 ```wat
-(func $use (param funcref i32) (result i32)
-  (call_ref (result i32)
-    (local.get 1)
-    (local.get 0)))
+(func $callee (result i32)
+  return_call $target)
+(func (export "run") (result i32)
+  call $callee)
 ```
 
-Why this page teaches it as a non-goal:
+Binaryen must repair the nested return-call semantics if it inlines. Current Starshine avoids most return-call-containing callees and only covers a narrow outer direct `return_call` shape.
 
-- reviewed `version_129` chosen inline actions are still discovered from reachable direct `call` / `return_call` sites
-- `call_ref` and `return_call_ref` still matter in copied-body repair and surrounding helper logic
-- but this folder should not teach the release as if general precise `call_ref` selection were already the main planner contract; the 2026-04-25 current-main source bridge did not find a teaching-relevant drift from that boundary
+## Shape 7: partial inlining payoff
 
-## Shape 7: imports never inline
-
-Before and after stay the same:
+Before:
 
 ```wat
-(import "env" "imp" (func $imp (param i32) (result i32)))
-
-(func $use (result i32)
-  (call $imp (i32.const 1)))
+(func $maybe (param $x i32)
+  (if (local.get $x)
+    (then (return)))
+  call $heavy)
+(func (export "run") (param i32)
+  local.get 0
+  call $maybe)
 ```
 
-Why Binaryen leaves it alone:
+Binaryen can split the cheap guard from heavy work, inline the cheap helper, then the optimizing suffix may simplify the exposed guard. Current Starshine has no splitter.
 
-- the implementation body is outside the module
-- there is nothing internal to copy into the caller
+## Shape 8: dead exact-unreachable helper frontier
 
-## Shape 8: self-recursive growth is a deliberate bailout
-
-Before and after conceptually stay the same:
+A simplified mismatch-family mental shape:
 
 ```wat
-(func $fact (param $n i32) (result i32)
-  (if (result i32)
-    (i32.eqz (local.get $n))
-    (then (i32.const 1))
-    (else
-      (i32.mul
-        (local.get $n)
-        (call $fact
-          (i32.sub (local.get $n) (i32.const 1)))))))
+(func $run (export "run")
+  block unreachable end
+  call $a)
+(func $a
+  block unreachable end
+  call $b)
+(func $b
+  unreachable)
 ```
 
-Why Binaryen refuses the obvious bad idea:
+Binaryen and Starshine can agree semantically but differ on which private exact-unreachable helper representatives remain after inlining and cleanup. The latest artifact's 15 mismatches are in this family, not validation failures.
 
-- inlining recursive self-calls would only grow the same function again and again
-- the planner has an explicit recursive-growth guard
+## Shape 9: optimizing trace evidence
 
-## Shape 9: tail-call-containing callees stay conservative
+Focused Starshine tests expect a trace line like:
 
-Before and after conceptually stay the same:
+```text
+pass[inlining-optimizing]:nested-cleanup prefix=precompute-propagate touched=N
+```
+
+This proves the local pass records the optimizing lane, not that it has exact Binaryen nested scheduler parity.
+
+## Shape 10: untouched function must not be rewritten by the suffix
+
+Before:
 
 ```wat
-(func $tail_wrapper (param i32) (result i32)
-  (return_call $other
-    (local.get 0)))
+(func $touched (result i32) call $tiny)
+(func $untouched (result i32)
+  ;; cleanup-looking debris)
 ```
 
-Why Binaryen is conservative:
-
-- the ordinary inline-worth logic bails out on tail-call-containing functions
-- tail-call shape is not treated as ordinary small-helper structure
-
-## Shape 10: partial inlining can split a branchy region first
-
-Conceptual before:
-
-```wat
-(func $mixed (param $cond i32) (param $x i32) (result i32)
-  (if (result i32)
-    (local.get $cond)
-    (then
-      (call $tiny_hot_path (local.get $x)))
-    (else
-      (i32.const 0))))
-```
-
-Conceptual middle step:
-
-```wat
-(func $mixed_split_helper (param i32 i32) (result i32)
-  (if (result i32)
-    (local.get 0)
-    (then
-      (call $tiny_hot_path (local.get 1)))
-    (else
-      (i32.const 0))))
-```
-
-Conceptual end state:
-
-```wat
-;; the split helper may now inline where the original whole function was too mixed
-```
-
-Why this matters:
-
-- Binaryen sometimes improves the inline unit first
-- partial inlining is a structured split strategy, not “inline half the callee body”
-
-## Shape 11: nested cleanup can unlock late passes like code-folding and merge-blocks
-
-Conceptual story:
-
-1. `inlining-optimizing` erases a helper call
-2. the caller now contains duplicated or constant-exposed tail structure
-3. the nested rerun lets later function passes clean that up immediately
-
-This is why the saved `-O4z` log shows repeated nested:
-
-- `code-folding`
-- `merge-blocks`
-- `local-cse`
-- `rse`
-
-inside the same top-level inlining interval.
-
-## Good questions to ask when a would-be inline does not happen
-
-- Is the callee imported?
-- Is it exported or the start function?
-- Does a `ref.func` or table use still keep the boundary alive?
-- Does it contain tail calls?
-- Is the growth recursive or otherwise too expensive?
-- Would a partial-inline split be needed first?
-- Are you accidentally expecting a `call_ref` selection that this reviewed release does not actually promise?
-
-Those questions usually explain non-inlines better than “Binaryen missed an obvious opportunity.”
+Binaryen's filtered runner should clean only changed functions. Current Starshine's approximation restores untouched bodies after broad cleanup, but exact touched-function scheduler tests still need to land under `[INL]002`.
