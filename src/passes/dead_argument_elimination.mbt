@@ -3498,6 +3498,66 @@ fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_s
 }
 
 ///|
+fn dae_collect_original_dead_suffix_dropped_earlier_result_calls(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, false)
+  }
+  let flags = Array::make(defined, false)
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    let mut callee_def = 0
+    while callee_def < caller_def {
+      let callee_abs = imported + callee_def
+      let callee_has_result = match
+        dae_resolve_func_type(mod_, type_indices, callee_abs) {
+        Some(@lib.FuncType(_, results)) => results.length() > 0
+        None => false
+      }
+      if callee_has_result &&
+        dae_dead_suffix_has_dropped_direct_call_to(body, callee_abs) {
+        flags[caller_def] = true
+      }
+      callee_def += 1
+    }
+    caller_def += 1
+  }
+  flags
+}
+
+///|
+fn dae_collect_original_later_dead_suffix_dropped_call_counts(
+  mod_ : @lib.Module,
+) -> Array[Int] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Array::make(defined, 0)
+  }
+  let counts = Array::make(defined, 0)
+  let mut callee_def = 0
+  while callee_def < defined {
+    let mut caller_def = callee_def + 1
+    while caller_def < funcs.length() {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      if dae_dead_suffix_has_dropped_direct_call_to(body, imported + callee_def) {
+        counts[callee_def] = counts[callee_def] + 1
+      }
+      caller_def += 1
+    }
+    callee_def += 1
+  }
+  counts
+}
+
+///|
 fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
   mod_ : @lib.Module,
 ) -> Array[Int] {
@@ -4417,6 +4477,36 @@ fn dae_collect_original_dead_suffix_mutual_calls(
 }
 
 ///|
+fn dae_should_prune_later_mutual_dropped_result(
+  def_idx : Int,
+  original_param_counts : Array[Int],
+  original_nonself_undropped_call_counts : Array[Int],
+  original_self_call_counts : Array[Int],
+  original_escaped_dead_suffix_call_counts : Array[Int],
+  original_dead_suffix_undropped_self_calls : Array[Bool],
+  original_dead_suffix_dropped_escaped_result_calls : Array[Bool],
+  original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
+  original_later_dead_suffix_dropped_call_counts : Array[Int],
+) -> Bool {
+  def_idx < original_param_counts.length() &&
+  original_param_counts[def_idx] > 0 &&
+  def_idx < original_self_call_counts.length() &&
+  original_self_call_counts[def_idx] == 0 &&
+  def_idx < original_nonself_undropped_call_counts.length() &&
+  original_nonself_undropped_call_counts[def_idx] == 0 &&
+  def_idx < original_escaped_dead_suffix_call_counts.length() &&
+  original_escaped_dead_suffix_call_counts[def_idx] == 0 &&
+  def_idx < original_dead_suffix_undropped_self_calls.length() &&
+  !original_dead_suffix_undropped_self_calls[def_idx] &&
+  def_idx < original_dead_suffix_dropped_escaped_result_calls.length() &&
+  !original_dead_suffix_dropped_escaped_result_calls[def_idx] &&
+  def_idx < original_dead_suffix_dropped_earlier_result_calls.length() &&
+  original_dead_suffix_dropped_earlier_result_calls[def_idx] &&
+  def_idx < original_later_dead_suffix_dropped_call_counts.length() &&
+  original_later_dead_suffix_dropped_call_counts[def_idx] > 0
+}
+
+///|
 fn dae_should_prune_dropped_self_result_with_void_side_callers(
   def_idx : Int,
   original_param_counts : Array[Int],
@@ -4606,6 +4696,8 @@ fn dae_run_core_once(
   original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
     Int,
   ],
+  original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
+  original_later_dead_suffix_dropped_call_counts : Array[Int],
   original_dead_suffix_same_self_result_operand_calls : Array[Bool],
   original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
   original_dead_suffix_calls_from_param_operand_self_result_callers : Array[Int],
@@ -4924,6 +5016,12 @@ fn dae_run_core_once(
       } else {
         0
       }
+      let original_later_mutual_dropped_result = dae_should_prune_later_mutual_dropped_result(
+        def_idx, original_param_counts, original_nonself_undropped_call_counts, original_self_call_counts,
+        original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+        original_dead_suffix_dropped_escaped_result_calls, original_dead_suffix_dropped_earlier_result_calls,
+        original_later_dead_suffix_dropped_call_counts,
+      )
       let original_dead_suffix_same_self_result_operand_call = def_idx <
         original_dead_suffix_same_self_result_operand_calls.length() &&
         original_dead_suffix_same_self_result_operand_calls[def_idx]
@@ -5028,6 +5126,7 @@ fn dae_run_core_once(
         original_nonself_undropped_calls > 0
       let skip_uncalled_after_param_cleanup = !prune_private_result_side_chain &&
         !original_dropped_self_result_with_void_side_callers &&
+        !original_later_mutual_dropped_result &&
         dae_func_is_unreachable_only(
           dae_simplify_to_unreachable_when_prefix_unobservable(funcs[def_idx]),
         ) &&
@@ -5319,6 +5418,23 @@ fn dae_run_core_once(
           return dropped_result
         }
       }
+      let prune_original_later_mutual_dropped_result = dae_should_prune_later_mutual_dropped_result(
+        def_idx, original_param_counts, original_nonself_undropped_call_counts, original_self_call_counts,
+        original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+        original_dead_suffix_dropped_escaped_result_calls, original_dead_suffix_dropped_earlier_result_calls,
+        original_later_dead_suffix_dropped_call_counts,
+      )
+      if prune_original_later_mutual_dropped_result {
+        let dropped_result = dae_try_remove_dropped_results(
+          mod_,
+          callee_abs,
+          direct_calls[callee_abs],
+          dropped_calls[callee_abs],
+        )
+        if dropped_result.changed {
+          return dropped_result
+        }
+      }
       let preserve_original_undropped_self_result_from_no_param_dropped_caller = dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
         def_idx, original_param_counts, original_call_counts, original_active_nonself_call_counts,
         original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
@@ -5574,6 +5690,12 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
   let original_dead_suffix_dropped_calls_from_parameterized_self_callers = dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
     mod_,
   )
+  let original_dead_suffix_dropped_earlier_result_calls = dae_collect_original_dead_suffix_dropped_earlier_result_calls(
+    mod_,
+  )
+  let original_later_dead_suffix_dropped_call_counts = dae_collect_original_later_dead_suffix_dropped_call_counts(
+    mod_,
+  )
   let original_dead_suffix_same_self_result_operand_calls = dae_collect_original_dead_suffix_same_self_result_operand_calls(
     mod_,
   )
@@ -5623,7 +5745,8 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
       original_dead_suffix_dropped_self_calls, original_dead_suffix_dropped_self_call_full_param_forwards,
       original_dead_suffix_result_calls_from_undropped_self_callers, original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
       original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
-      original_dead_suffix_dropped_calls_from_parameterized_self_callers, original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers, original_dead_suffix_dropped_earlier_result_calls,
+      original_later_dead_suffix_dropped_call_counts, original_dead_suffix_same_self_result_operand_calls,
       original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_calls_from_param_operand_self_result_callers,
       original_dead_suffix_result_other_calls, original_dead_suffix_self_recursive_void_side_calls,
       original_dead_suffix_self_recursive_result_side_calls, original_dead_suffix_undropped_escaped_result_calls,
