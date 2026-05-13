@@ -53,7 +53,7 @@ The broadened direct lane is also green over compared cases:
 22 ignored Binaryen/tool command failures
 ```
 
-Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`. For seed `0x5eed`, all 25 command failures are Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. For seed `0x1eed`, all 22 command failures are ignored Binaryen/tool `binaryen-rec-group-zero` parse failures; the former `case-008100-gen-valid` Starshine command failure now replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`. `[INL]001` remains visible only for deferred direct-inliner breadth split/out-of-scope classification; `[INL]002` remains active for the touched-function nested scheduler.
+Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`. For seed `0x5eed`, all 25 command failures are Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. For seed `0x1eed`, all 22 command failures are ignored Binaryen/tool `binaryen-rec-group-zero` parse failures; the former `case-008100-gen-valid` Starshine command failure now replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`. `[INL]001` is accepted for the current supported direct surface; `[INL]002` remains active for the touched-function nested scheduler, and `[INL]003`-`[INL]007` track deferred direct-inliner breadth.
 
 ## Exact local code map
 
@@ -70,7 +70,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 - [`src/passes/inlining_wbtest.mbt`](../../../../../src/passes/inlining_wbtest.mbt)
   - whitebox coverage for the narrow hot-unsafe polymorphic self-call suffix detector.
 - [`agent-todo.md`](../../../../../agent-todo.md)
-  - active `[INL]001` and `[INL]002` deliverables and current artifact counts.
+  - active `[INL]002` scheduler work plus deferred direct-inliner breadth slices `[INL]003`-`[INL]007`.
 - [`CHANGELOG.md`](../../../../../CHANGELOG.md)
   - 2026-05-11 and 2026-05-12 implementation checkpoints.
 
@@ -89,16 +89,13 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 ## Current gaps
 
-### `[INL]001`: core inliner parity
+### Deferred direct-inliner breadth after accepted `[INL]001`
 
-- exact Binaryen heuristic classes and options;
-- no-inline policy flags;
-- partial inlining splitter;
-- nested `return_call*` repair;
-- multi-result typing;
-- label/name/annotation repair;
-- exact action filtering, iteration caps, and size guard;
-- deferred direct-inliner breadth beyond the currently green direct lanes, including explicit split/out-of-scope treatment for Binaryen heuristic classes/options that Starshine still does not model;
+- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard;
+- `[INL]004`: `no-inline*` policy flags and clone-survival behavior;
+- `[INL]005`: partial inlining splitter;
+- `[INL]006`: nested `return_call*`, multi-result typing, and label/name/annotation repair;
+- `[INL]007`: separate plain `--pass inlining` direct signoff.
 
 ### `[INL]002`: optimizing suffix parity
 

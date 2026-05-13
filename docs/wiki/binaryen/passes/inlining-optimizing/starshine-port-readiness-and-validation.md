@@ -85,14 +85,13 @@ Focused tests validate the current subset:
 
 ## Active blockers
 
-### `[INL]001` core blockers
+### Deferred direct-inliner breadth after accepted `[INL]001`
 
-- deferred direct-inliner feature breadth that still needs explicit split-or-out-of-scope classification;
-- incomplete Binaryen heuristic model;
-- incomplete callsite repair model;
-- missing partial splitting;
-- missing no-inline flags;
-- incomplete module/name/annotation repair.
+- `[INL]003` heuristic classes, action filtering, and size/iteration policy;
+- `[INL]004` `no-inline*` flags and clone survival;
+- `[INL]005` Pattern A / Pattern B partial splitting;
+- `[INL]006` nested tail-call, multi-result, and name/annotation repair;
+- `[INL]007` separate plain `--pass inlining` signoff.
 
 ### `[INL]002` scheduler blockers
 
@@ -115,12 +114,7 @@ Focused tests validate the current subset:
 
 ## Acceptance criteria
 
-Do not mark `[INL]001` complete until:
-
-- core direct pass compare has zero semantic mismatches;
-- validation failures are zero;
-- remaining command failures are classified separately;
-- no unimplemented Binaryen core family is silently accepted as parity.
+Treat `[INL]001` as complete only for the currently implemented direct-call surface already proven by the green seed lanes. New direct-inliner work should land under `[INL]003`-`[INL]007`, not by reopening the accepted direct slice without a new semantic mismatch.
 
 Do not mark `[INL]002` complete until:
 

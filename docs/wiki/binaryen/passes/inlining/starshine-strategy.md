@@ -38,7 +38,7 @@ Current behavior:
 - same implementation file also powers `inlining-optimizing` with `optimize=true`;
 - plain mode does not emit or run the optimizing nested-cleanup approximation.
 
-Current status is **not signed off**. `[INL]001` remains active because rewrite/heuristic parity is incomplete, and `[INL]002` remains active for the optimizing sibling's exact nested scheduler.
+Current status is **not fully signed off**. Former `[INL]001` is accepted for the current supported optimizing direct surface, but plain `inlining` still needs its own signoff and deferred unsupported direct-inliner breadth now lives under `[INL]003`-`[INL]007`, while `[INL]002` remains active for the optimizing sibling's exact nested scheduler.
 
 ## Exact local code map
 
@@ -59,8 +59,8 @@ Current status is **not signed off**. `[INL]001` remains active because rewrite/
 - [`src/passes/inlining_test.mbt`](../../../../../src/passes/inlining_test.mbt)
   - focused public-pipeline coverage for the current subset.
 - [`agent-todo.md`](../../../../../agent-todo.md)
-  - `[INL]001` tracks heuristics/rewrite/touched-function set.
   - `[INL]002` tracks exact nested useful-pass replay for the optimizing sibling.
+  - `[INL]003`-`[INL]007` track deferred unsupported direct-inliner breadth and plain-pass signoff.
 
 ## Implemented subset
 

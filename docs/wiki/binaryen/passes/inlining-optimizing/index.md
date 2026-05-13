@@ -35,14 +35,14 @@ related:
 
 `inlining-optimizing` is Binaryen's late whole-module inliner with immediate post-inline cleanup. It uses the same upstream `src/passes/Inlining.cpp` engine as plain [`../inlining/index.md`](../inlining/index.md), then enables the optimizing suffix: `precompute-propagate` plus the default function optimization pipeline on changed functions.
 
-Current Starshine status: **partial active module pass**. It is not boundary-only anymore, but it is also not signed off. The shared owner is [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt); the active backlog remains `[INL]001` and `[INL]002` in [`agent-todo.md`](../../../../../agent-todo.md).
+Current Starshine status: **partial active module pass**. It is not boundary-only anymore, and the current supported direct-call surface is accepted under former `[INL]001`, but the whole pass is not fully signed off. The shared owner is [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt); the active backlog now remains `[INL]002` plus deferred direct-inliner breadth slices `[INL]003`-`[INL]007` in [`agent-todo.md`](../../../../../agent-todo.md).
 
 ## Why it matters
 
 - This is the inlining variant on the canonical no-DWARF late optimize path, after `dae-optimizing` and before `duplicate-function-elimination`.
 - The saved generated-artifact `-O4z` audit recorded it as top-level slot `49`.
 - The saved Binaryen debug log shows nested cleanup under this single top-level pass: repeated `precompute-propagate`, `ssa-nomerge`, `code-folding`, `local-cse`, and `merge-blocks` before Binaryen moves to `duplicate-function-elimination`.
-- Current Starshine has a useful safe subset, but direct compare is still red. Future agents need a clear distinction between implemented subset, active mismatches, and full Binaryen obligations.
+- Current Starshine has an accepted direct-call subset for the current supported surface, but future agents still need a clear distinction between that accepted subset, the remaining scheduler work, and deferred unsupported Binaryen obligations.
 
 ## Beginner summary
 
@@ -90,7 +90,7 @@ Broadened closure lane, `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-fro
 - `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures;
 - `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`.
 
-The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed-`0x1eed` four-function frontier are retired. Keep `[INL]002` active for the exact nested scheduler; keep `[INL]001` visible only until deferred direct-inliner breadth is explicitly split or accepted as out of scope.
+The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed-`0x1eed` four-function frontier are retired. `[INL]001` is accepted for the current supported direct surface. Keep `[INL]002` active for the exact nested scheduler and track deferred unsupported direct-inliner breadth under `[INL]003`-`[INL]007`.
 
 ## Page map
 

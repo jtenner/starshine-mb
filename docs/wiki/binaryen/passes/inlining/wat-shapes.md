@@ -264,4 +264,4 @@ After plain `inlining`, `i32.add 0`, local traffic, and wrapper blocks may remai
 
 ## Shape 15: current mismatch family is helper retention, not validation failure
 
-The latest direct optimizing compare has `15` normalized mismatches and `0` validation failures. The known frontier is exact-`unreachable` private-helper representative/retention behavior: mostly extra helpers retained by Starshine, plus one missing helper relative to Binaryen. Treat this as active `[INL]001` parity work, not a parser or validator failure.
+The older direct optimizing mismatch frontier here is retired. The exact-`unreachable` private-helper representative/retention families that once dominated `[INL]001` are now green on the current direct optimizing seed lanes. Treat any new failures in this area as fresh regressions or as work for the deferred direct-inliner breadth slices, not as parser or validator failures.

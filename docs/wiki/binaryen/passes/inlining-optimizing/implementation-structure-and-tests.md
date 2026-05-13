@@ -63,7 +63,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 | `src/passes/inlining_wbtest.mbt` | whitebox coverage for unreachable value-block pruning, predicted exact-helper padding, and the narrow hot-unsafe polymorphic self-call suffix detector |
 | `src/passes/optimize.mbt` | registry category and preset omission |
 | `src/passes/pass_manager.mbt` | module-pass dispatch and `optimize=true` routing |
-| `agent-todo.md` | `[INL]001` / `[INL]002` active blockers and latest artifact evidence |
+| `agent-todo.md` | accepted `[INL]001`, active `[INL]002`, deferred `[INL]003`-`[INL]007`, and latest artifact evidence |
 | `CHANGELOG.md` | chronological implementation checkpoints |
 
 ## Current Starshine implementation clusters

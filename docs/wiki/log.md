@@ -422,7 +422,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Standard seed-`0x5eed` stays green from `.tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier`: `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool parse/canonicalization command failures.
 - Broadened seed-`0x1eed` is now green from `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2`: `9978/10000` compared, `9978` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures.
 - This retires the remaining broadened four-function frontier cases: `case-004524-gen-valid`, `case-005076-gen-valid`, `case-005186-gen-valid`, `case-005628-gen-valid`, `case-006718-gen-valid`, `case-008352-gen-valid`, `case-008360-gen-valid`, and `case-009810-gen-valid`.
-- Keep `[INL]002` active for the exact touched-function nested scheduler. Keep `[INL]001` visible only until deferred direct-inliner breadth is explicitly split or accepted as out of scope.
+- Keep `[INL]002` active for the exact touched-function nested scheduler. `[INL]001` is accepted for the current supported direct surface, and deferred unsupported direct-inliner breadth now lives under `[INL]003`-`[INL]007`.
 
 ## [2026-05-12] passes | inlining-optimizing broadened closure evidence red
 

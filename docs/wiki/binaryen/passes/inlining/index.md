@@ -38,7 +38,7 @@ related:
 
 Current Starshine status has changed since the older April port-readiness notes: `inlining` is now a **partial active module pass**, not boundary-only. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), registered as a module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), dispatched by [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), and covered by focused public-pipeline tests in [`src/passes/inlining_test.mbt`](../../../../../src/passes/inlining_test.mbt).
 
-Do not read that as parity signoff. The current local implementation is a first safe direct-call subset; `[INL]001` and `[INL]002` remain active in [`agent-todo.md`](../../../../../agent-todo.md).
+Do not read that as universal parity signoff. The current local implementation has an accepted direct optimizing slice under former `[INL]001`, but plain `inlining` itself still needs its own follow-up signoff and deferred breadth is tracked in [`agent-todo.md`](../../../../../agent-todo.md) under `[INL]002`-`[INL]007`.
 
 ## Why this pass matters
 
@@ -120,7 +120,7 @@ The broadened seed lane is green over compared cases:
 - `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures
 - `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`
 
-Per project policy and user preference, those Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; exact nested scheduling remains `[INL]002`, and `[INL]001` should only stay open for explicitly split deferred direct-inliner breadth.
+Per project policy and user preference, those Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; exact nested scheduling remains `[INL]002`, deferred unsupported direct-inliner breadth now lives under `[INL]003`-`[INL]007`, and plain `inlining` still needs its own direct signoff.
 
 ## Page map
 
