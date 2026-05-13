@@ -1906,6 +1906,36 @@ test "dae-optimizing nested local-cse only rewrites touched functions" {
 }
 
 ///|
+test "dae-optimizing nested merge-blocks only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (import "env" "use" (func $use))
+    #|  (func $f (param i32)
+    #|    block
+    #|      block
+    #|        call $use
+    #|      end
+    #|    end)
+    #|  (func (export "run")
+    #|    i32.const 10
+    #|    call $f)
+    #|  (func (export "untouched")
+    #|    block
+    #|      block
+    #|        call $use
+    #|      end
+    #|    end))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE merge-blocks pipeline success, got \{err}")
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_false(touched.contains("(block"), msg=touched)
+  assert_true(untouched.contains("(block"), msg=untouched)
+}
+
+///|
 fn dae_test_bytes_from_ints(values : Array[Int]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {

@@ -9730,7 +9730,7 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     // default function pipeline yet. The full Binaryen-equivalent lane still
     // depends on a faster filtered batch runner plus a real
     // `precompute-propagate` port.
-    "dead-code-elimination", "local-cse", "simplify-locals", "vacuum",
+    "dead-code-elimination", "local-cse", "simplify-locals", "merge-blocks", "vacuum",
   ]
 }
 
