@@ -10011,6 +10011,12 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   }
   let mut current = mod_
   for pass_name in run_hot_pipeline_dae_nested_cleanup_passes() {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-pass",
+      payload="name=\{pass_name}",
+    )
     if pass_name == "local-cse" {
       current = match
         run_hot_pipeline_apply_local_cse_to_touched(current, touched, options) {

@@ -1831,6 +1831,40 @@ test "dae-optimizing emits nested cleanup trace for touched functions" {
 }
 
 ///|
+test "dae-optimizing traces the guarded nested cleanup pass order" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    call $f))
+  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced DAE success, got \{err}")
+  }
+  let nested_passes : Array[String] = []
+  for line in trace {
+    if line.contains("pass[dae-optimizing]:nested-pass") {
+      nested_passes.push(line)
+    }
+  }
+  @debug.assert_eq(nested_passes, [
+    "pass[dae-optimizing]:nested-pass name=dead-code-elimination", "pass[dae-optimizing]:nested-pass name=optimize-instructions",
+    "pass[dae-optimizing]:nested-pass name=local-cse", "pass[dae-optimizing]:nested-pass name=pick-load-signs",
+    "pass[dae-optimizing]:nested-pass name=heap-store-optimization", "pass[dae-optimizing]:nested-pass name=heap2local",
+    "pass[dae-optimizing]:nested-pass name=simplify-locals", "pass[dae-optimizing]:nested-pass name=code-folding",
+    "pass[dae-optimizing]:nested-pass name=precompute", "pass[dae-optimizing]:nested-pass name=merge-blocks",
+    "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
+    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=vacuum",
+  ])
+}
+
+///|
 test "dae-optimizing traces nested local-cse before simplify-locals" {
   let source =
     #|(module
