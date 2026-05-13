@@ -1870,7 +1870,8 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     "pass[dae-optimizing]:nested-pass name=simplify-locals", "pass[dae-optimizing]:nested-pass name=code-folding",
     "pass[dae-optimizing]:nested-pass name=precompute", "pass[dae-optimizing]:nested-pass name=merge-blocks",
     "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
-    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=vacuum",
+    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=reorder-locals",
+    "pass[dae-optimizing]:nested-pass name=vacuum",
   ])
 }
 
@@ -2427,6 +2428,30 @@ test "dae-optimizing nested heap2local only rewrites touched functions" {
   assert_false(touched.contains("struct.new_default"), msg=touched)
   assert_false(touched.contains("struct.get"), msg=touched)
   assert_true(untouched.contains("struct.new_default"), msg=untouched)
+}
+
+///|
+test "dae-optimizing nested reorder-locals only trims touched functions" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32) (local i32 i64)
+    #|    i32.const 7)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 99
+    #|    call $f)
+    #|  (func (export "untouched") (result i32) (local i32 i64)
+    #|    i32.const 7))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE reorder-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(touched_locals, _) = dae_test_defined_func(optimized, 0)
+  let @lib.Func(untouched_locals, _) = dae_test_defined_func(optimized, 2)
+  @debug.assert_eq(touched_locals, @lib.Locals::empty())
+  @debug.assert_eq(
+    untouched_locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i64()]),
+  )
 }
 
 ///|

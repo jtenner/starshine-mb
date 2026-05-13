@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae touched reorder-locals cleanup
+
+- Added a focused `dae-optimizing` regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that proves the guarded nested `reorder-locals` slot trims unused local declarations only in DAE-touched functions while preserving an equivalent untouched exported sibling.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) with a function-filtered `reorder-locals` adapter and inserted it as `... remove-unused-names -> merge-blocks -> reorder-locals -> vacuum`, preserving the touched-function filter and size guards. Validation preserved the known DAE local-declaration-only frontier in `.tmp/dae002-reorder-locals-1000` (`998/1000`, `985` normalized matches, `13` mismatches, `2` command failures), and the debug artifact still skips nested cleanup at `touched=12`.
+
 ## [2026-05-13] passes | dae nested cleanup size-skip trace
 
 - Added a focused trace regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for an oversized 129-local touched function so the guarded nested cleanup skip is reported as `reason=large-touched-function` instead of being conflated with the touched-count guard.
