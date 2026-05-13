@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | validation instruction-codec backlink
+
+- During the whole-wiki health pass after adding the instruction/expression binary guide, found [`validate/module-validation-phases.md`](validate/module-validation-phases.md) still describing code-body typechecking without a backlink to the new shared instruction/immediate contract.
+- Added backlinks from the validator phase map and refreshed the [`index.md`](index.md) summary so validation stack-typing readers can route to [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md) for binary expression, blocktype, memarg, and prefixed-opcode details.
+
 ## [2026-05-13] binary | instruction/expression encoding guide
 
 - Added [`raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](raw/wasm/2026-05-13-instruction-expression-encoding-sources.md) after checking current official WebAssembly 3.0 binary instruction, binary module, binary value/convention, and instruction-validation sources.

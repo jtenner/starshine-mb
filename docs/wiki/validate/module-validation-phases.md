@@ -19,6 +19,7 @@ related:
   - ../binary/module-section-map.md
   - ../binary/custom-and-name-sections.md
   - ../binary/function-import-export-and-code-sections.md
+  - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
   - ../tooling/validation-gates.md
   - ../validation/moonbit-prove-strategy.md
@@ -34,7 +35,7 @@ The local implementation is split deliberately:
 
 - [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) owns whole-module phases, section validation, constant-expression checks, diagnostics, trace phases, invalid-generator feature ledgers, and cross-section checks.
 - [`src/validate/env.mbt`](../../../src/validate/env.mbt) owns the validation context (`Env`): types, functions, resource index spaces, locals, labels, and return type.
-- [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) owns expression and instruction stack typing.
+- [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) owns expression and instruction stack typing; the byte-level instruction and immediate contract that feeds it is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md).
 - [`src/validate/match.mbt`](../../../src/validate/match.mbt) owns subtype/import/export matching, exact reference equivalence, and limit matching.
 - [`src/validate_proof/`](../../../src/validate_proof/) owns the small proved helper kernel used by validation; proof policy is documented in [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md).
 
@@ -83,7 +84,7 @@ Two practical consequences follow:
 | `startsec` | Checks the optional start function exists and has no params/results. | Reports `StartSection`, carrying the target `FuncIdx` when present. | `validate_startsec`; start tests in `validate.mbt`. |
 | `exportsec` | Checks export target indices and duplicate export names. | Reports `ExportSection`. | `validate_exportsec_unique`; invalid-fuzzer duplicate-export strategy. |
 | `ref_func_declarations` | Builds the declared-function bitmap, then checks every `ref.func` in globals/tables/elements/code against it. | Reports section-specific diagnostics, with body uses reported as `FunctionBody`. | [`./ref-func-declarations.md`](./ref-func-declarations.md). |
-| `codesec` | Checks code/function section presence and length, maps defined body ordinals to absolute `FuncIdx`, validates locals, and typechecks bodies. | Reports `CodeSection` or `FunctionBody`. | `validate_codesec_diag`, `validate_func_body_against_functype`, `Typecheck` implementation. |
+| `codesec` | Checks code/function section presence and length, maps defined body ordinals to absolute `FuncIdx`, validates locals, and typechecks bodies decoded through the instruction/expression binary contract. | Reports `CodeSection` or `FunctionBody`. | `validate_codesec_diag`, `validate_func_body_against_functype`, `Typecheck` implementation, [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). |
 | `namesec` | Validates parsed structured name maps and rejects raw `name` custom sections stored outside `Module.name_sec`. | Reports `NameSection`. | `validate_name_sec`; [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). |
 
 This is semantic validation order, not wire order. For example, the binary data-count section is encoded before code and data, but Starshine validates data segments before the data-count equality check because the check needs the local `DataSec` length.
@@ -175,4 +176,4 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - `ref.func` snapshot: [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md)
 - Implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing and trace: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt)
-- Related pages: [`./ref-func-declarations.md`](./ref-func-declarations.md), [`./fuzz-hardening.md`](./fuzz-hardening.md), [`./trace-benchmark-baseline.md`](./trace-benchmark-baseline.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md)
+- Related pages: [`./ref-func-declarations.md`](./ref-func-declarations.md), [`./fuzz-hardening.md`](./fuzz-hardening.md), [`./trace-benchmark-baseline.md`](./trace-benchmark-baseline.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md)
