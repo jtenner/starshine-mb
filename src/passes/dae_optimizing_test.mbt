@@ -1857,11 +1857,11 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     "pass[dae-optimizing]:nested-pass name=dead-code-elimination", "pass[dae-optimizing]:nested-pass name=optimize-instructions",
     "pass[dae-optimizing]:nested-pass name=local-cse", "pass[dae-optimizing]:nested-pass name=pick-load-signs",
     "pass[dae-optimizing]:nested-pass name=heap-store-optimization", "pass[dae-optimizing]:nested-pass name=heap2local",
-    "pass[dae-optimizing]:nested-pass name=code-pushing", "pass[dae-optimizing]:nested-pass name=simplify-locals",
-    "pass[dae-optimizing]:nested-pass name=code-folding", "pass[dae-optimizing]:nested-pass name=precompute",
-    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=remove-unused-brs",
-    "pass[dae-optimizing]:nested-pass name=remove-unused-names", "pass[dae-optimizing]:nested-pass name=merge-blocks",
-    "pass[dae-optimizing]:nested-pass name=vacuum",
+    "pass[dae-optimizing]:nested-pass name=optimize-casts", "pass[dae-optimizing]:nested-pass name=code-pushing",
+    "pass[dae-optimizing]:nested-pass name=simplify-locals", "pass[dae-optimizing]:nested-pass name=code-folding",
+    "pass[dae-optimizing]:nested-pass name=precompute", "pass[dae-optimizing]:nested-pass name=merge-blocks",
+    "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
+    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=vacuum",
   ])
 }
 
@@ -2399,6 +2399,65 @@ test "dae-optimizing nested heap2local only rewrites touched functions" {
   assert_false(touched.contains("struct.new_default"), msg=touched)
   assert_false(touched.contains("struct.get"), msg=touched)
   assert_true(untouched.contains("struct.new_default"), msg=untouched)
+}
+
+///|
+test "dae-optimizing nested optimize-casts only rewrites touched functions" {
+  let callee_type = @lib.TypeIdx::new(0U)
+  let run_type = @lib.TypeIdx::new(1U)
+  let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
+  let func_ref = @lib.ValType::ref_type(@lib.RefType::new(false, func_heap))
+  let callee_func = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [func_ref]),
+    ),
+  )
+  let run_func = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [func_ref])),
+  )
+  let cast_body = [
+    @lib.Instruction::ref_null(func_heap),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::ref_cast(false, func_heap),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_func, run_func]))
+    .with_func_sec(@lib.FuncSec::new([callee_type, run_type, run_type]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("untouched"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(99)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(cast_body)),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE optimize-casts pipeline success, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_false(touched.contains("ref.cast"), msg=touched)
+  assert_true(untouched.contains("ref.cast"), msg=untouched)
 }
 
 ///|

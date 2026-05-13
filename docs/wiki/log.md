@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae touched optimize-casts cleanup
+
+- Added a focused `dae-optimizing` regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that proves the guarded nested `optimize-casts` slot rewrites only DAE-touched functions, using a redundant `ref.cast` after `ref.as_non_null` while an equivalent untouched sibling keeps the cast.
+- Updated [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md) to record the new guarded order `... heap-store-optimization -> heap2local -> optimize-casts -> code-pushing -> simplify-locals ...` without broadening the touched-function lane, large-module guard, or unresolved artifact/runtime backlog. Validation preserved the known DAE local-declaration frontier in `.tmp/dae002-optimize-casts-1000` (`998/1000`, `985` normalized matches, `13` mismatches, `2` command failures), and the debug artifact still skips nested cleanup at `touched=12`.
+
 ## [2026-05-13] maintain | validation phase backlinks
 
 - During the whole-wiki health pass after adding the module-validation phase map, found the section-specific binary guides still describing validation order or name/data-count checks without a backlink to the new canonical phase contract.
