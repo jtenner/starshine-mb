@@ -3006,6 +3006,66 @@ test "dae-optimizing plus local-subtyping stays valid on block-wrapped try_table
 }
 
 ///|
+test "dae-optimizing plus local-subtyping stays valid on dominated sibling-join ref locals" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    i32.const 0
+    #|    if
+    #|      struct.new_default $box
+    #|      local.set 1
+    #|    else
+    #|      struct.new_default $box
+    #|      local.set 1
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match
+    pass_test_run_pipeline(source, ["dae-optimizing", "local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping dominated sibling-join success, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing plus local-subtyping stays valid on undominated sibling-join ref locals" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    if
+    #|      struct.new_default $box
+    #|      local.set 1
+    #|    else
+    #|      struct.new_default $box
+    #|      local.set 1
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match
+    pass_test_run_pipeline(source, ["dae-optimizing", "local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping undominated sibling-join success, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
 test "dae-optimizing plus local-subtyping stays valid on touched call_ref ref locals" {
   let optimized = match
     run_hot_pipeline(dae_test_call_ref_fixture(), HotPipelineOptions::new(), [

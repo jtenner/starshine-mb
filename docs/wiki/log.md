@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae local-subtyping blocker hunt collapses to local-decl-only frontier
+
+- Added explicit `dae-optimizing + local-subtyping` regressions in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the originally suspicious dominated and undominated sibling-join ref-local families, alongside the earlier `ref.as_non_null(local.get ...)`, loop-carried, block-wrapped `try_table`, and `call_ref` shapes.
+- Ran the broader combo compare at `.tmp/dae-local-subtyping-1000`, which reported `998/1000` compared, `985` normalized matches, `13` mismatches, `0` validation failures, and `2` unchanged `binaryen-rec-group-zero` command failures.
+- Compared the saved failure set against `.tmp/dae002-coalesce-locals-1000` and found an exact case-for-case match; the remaining 13 `gen-valid` mismatches stay local-declaration-only, so there is no validated current touched-local-subtyping validity blocker left in the exercised DAE002 control-flow and `call_ref` surface.
+- Updated [`../../agent-todo.md`](../../agent-todo.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../CHANGELOG.md`](../../CHANGELOG.md) to record that the remaining open work is local-subtyping parity/refinalization and artifact/runtime parity, not a reproduced touched-only DAE scheduler bug.
+
 ## [2026-05-13] passes | dae call_ref blocker was missing declared ref.func type slots
 
 - Extended [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) so the active `dae-optimizing` lane, not just the direct `dae_run_module_pass` helper, must keep lib-constructed `call_ref` and declarative-`call_ref` fixtures valid; also added `dae-optimizing + local-subtyping` characterization regressions for `ref.as_non_null(local.get ...)`, loop-carried refs, block-wrapped `try_table`, and both `call_ref` fixtures.
