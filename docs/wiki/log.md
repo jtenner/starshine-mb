@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | log-relative link repair
+
+- During the whole-wiki health pass after the Node package surface refresh, found one old [`log.md`](log.md) entry whose link target redundantly included `docs/wiki/`, which made the relative link resolve under `docs/wiki/docs/wiki/...` instead of the real raw-source file.
+- Repaired that 2026-04-30 rereloop raw-source link to [`raw/binaryen/2026-04-30-rereloop-current-main-refresh.md`](raw/binaryen/2026-04-30-rereloop-current-main-refresh.md).
+
 ## [2026-05-13] tooling | Node package surface refresh
 
 - Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md) against live repository evidence in [`node/package.json`](../../node/package.json), [`node/README.md`](../../node/README.md), [`node/test/api-parity.test.mjs`](../../node/test/api-parity.test.mjs), [`node/test/smoke.test.mjs`](../../node/test/smoke.test.mjs), [`scripts/lib/generate-node-package.mjs`](../../scripts/lib/generate-node-package.mjs), [`scripts/lib/build-node-package.mjs`](../../scripts/lib/build-node-package.mjs), and the current `cli`/`cmd`/`validate`/`wast` `.mbti` files.
@@ -1407,7 +1412,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-04-30] health | refresh `rereloop` wiki consistency
 
 - Revisited `docs/wiki/binaryen/passes/rereloop/` as part of a wiki-maintenance pass: updated the pass's overview, Binaryen strategy, Starshine strategy, boundaries, and WAT-shape pages with a consistent `2026-04-30` `last_reviewed` stamp and a new immutable current-main source manifest.
-- Added [`docs/wiki/raw/binaryen/2026-04-30-rereloop-current-main-refresh.md`](docs/wiki/raw/binaryen/2026-04-30-rereloop-current-main-refresh.md) as the primary-source refresh checkpoint for the `rereloop` dossier.
+- Added [`docs/wiki/raw/binaryen/2026-04-30-rereloop-current-main-refresh.md`](raw/binaryen/2026-04-30-rereloop-current-main-refresh.md) as the primary-source refresh checkpoint for the `rereloop` dossier.
 - Updated `docs/wiki/index.md` and the rereloop folder source lists so the new spot-check provenance is discoverable from all maintained entry points.
 - Recorded unchanged local status: still removed-name tracking (`re-reloop`) with active request rejection, no owner file, and no active backlog slice.
 
