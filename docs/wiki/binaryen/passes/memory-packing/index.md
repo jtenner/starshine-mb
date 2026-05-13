@@ -24,6 +24,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
+  - ../../../binary/data-element-and-datacount-sections.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../remove-unused-module-elements/index.md
@@ -50,7 +51,7 @@ A better beginner summary is:
 - and stays conservative around overlapping active segments, imported memory, GC data-segment users, memory64 corner cases, and segment-count limits.
 
 So this is **not** just an active-data peephole pass.
-It is a whole-module segment-layout plus segment-op rewrite pass.
+It is a whole-module segment-layout plus segment-op rewrite pass. For the underlying Starshine `DataMode`, data-count, and segment-header contract that this pass mutates, see [`../../../binary/data-element-and-datacount-sections.md`](../../../binary/data-element-and-datacount-sections.md).
 
 ## Why this pass matters
 

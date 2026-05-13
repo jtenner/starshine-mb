@@ -26,6 +26,7 @@ related:
   - ./module-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ../../../binary/data-element-and-datacount-sections.md
   - ../remove-unused-module-elements/index.md
 ---
 
@@ -41,7 +42,7 @@ related:
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `remove-unused-non-function-elements` slice**; the implemented slice reused the existing full-RUME code path directly.
 
-So this folder is now the source-backed status page for the implemented upstream-compatible sibling pass.
+So this folder is now the source-backed status page for the implemented upstream-compatible sibling pass. When this page talks about active, passive, or declarative element/data segments, use [`../../../binary/data-element-and-datacount-sections.md`](../../../binary/data-element-and-datacount-sections.md) for the shared Starshine segment-mode, data-count, and validation baseline.
 
 ## Why this pass matters
 

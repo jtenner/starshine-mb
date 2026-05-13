@@ -21,6 +21,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ../../../binary/data-element-and-datacount-sections.md
   - ../memory-packing/index.md
   - ../instrument-memory/index.md
 ---
@@ -48,7 +49,7 @@ The advanced version:
 - former `i64` size results become `i64.extend_i32_u(...)` around the lowered operation;
 - former `i64` grow results need failure-sentinel repair: the lowered grow result is checked for `i32 -1`, successful lowered `i32` results are zero-extended, and failed grows map back to the 64-bit failure sentinel;
 - bulk memory/table operations have destination/source/length width rules that depend on both participating memories or tables;
-- active data and element offsets are part of the transform, not a function-body-only detail.
+- active data and element offsets are part of the transform, not a function-body-only detail; use [`../../../binary/data-element-and-datacount-sections.md`](../../../binary/data-element-and-datacount-sections.md) for the underlying Starshine segment and data-count representation.
 
 ## Inputs and outputs
 

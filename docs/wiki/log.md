@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | segment contract backlinks
+
+- During the whole-wiki health pass after adding the canonical data/element/data-count page, found pass dossiers that teach segment mutation or active-segment offset lowering without linking to the shared binary segment contract.
+- Added backlinks from [`binaryen/passes/memory-packing/index.md`](binaryen/passes/memory-packing/index.md), [`binaryen/passes/remove-unused-non-function-elements/index.md`](binaryen/passes/remove-unused-non-function-elements/index.md), and [`binaryen/passes/memory64-lowering/index.md`](binaryen/passes/memory64-lowering/index.md) to [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), and refreshed the related [`index.md`](index.md) summaries.
+
 ## [2026-05-13] binary | data/element/data-count section guide
 
 - Added [`raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](raw/wasm/2026-05-13-data-element-and-datacount-sources.md) after checking current official WebAssembly 3.0 syntax, validation, binary, and text module sources for data segments, element segments, data-count section presence, binary section ids, and segment header families.
