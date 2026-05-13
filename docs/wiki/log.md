@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-12] passes | DAE002 small touched cleanup scheduler
+
+- Added the first guarded `dae-optimizing` touched-function nested cleanup scheduler slice: small modules run `dead-code-elimination -> simplify-locals -> vacuum` only on functions marked touched by DAE, while untouched sibling functions keep equivalent cleanup opportunities unchanged.
+- Recorded the scope and blocker in [`raw/research/0559-2026-05-12-dae002-nested-cleanup-scheduler-slice.md`](raw/research/0559-2026-05-12-dae002-nested-cleanup-scheduler-slice.md): this is not the full Binaryen `precompute-propagate` + default-function-pipeline replay, and broad artifact replay remains red at `defined=11 abs=28` with a current runtime discrepancy still to attribute.
+- Refreshed direct DAE evidence: `.tmp/dae002-mincleanup-200` reported `199/200` compared, `198` normalized matches, `1` mismatch, and `1` Binaryen/tool command failure; `.tmp/dae002-mincleanup-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures, matching the prior local-declaration frontier shape.
+
 ## [2026-05-12] passes | DAE001 completion
 
 - Marked `[DAE]001` complete in `agent-todo.md` after the saved `.tmp/pass-fuzz-dae-690-final2-1000` direct frontier was classified as local-declaration-only and moved remaining meaningful `dae-optimizing` work to `[DAE]002` for the touched-function-filtered nested cleanup scheduler and artifact compare.

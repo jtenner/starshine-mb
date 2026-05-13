@@ -103,27 +103,37 @@ test "dae-optimizing preserves side effects from removed actual operands" {
 test "dae-optimizing drops value-producing if operands removed from calls" {
   let source =
     #|(module
+    #|  (global $g (mut i32) (i32.const 0))
     #|  (func $f (param f64 f32)
     #|    nop)
     #|  (func (export "run")
     #|    i32.const 0
     #|    if (result f64)
+    #|      i32.const 1
+    #|      global.set $g
     #|      f64.const 19
     #|    else
+    #|      i32.const 2
+    #|      global.set $g
     #|      f64.const 2
     #|    end
     #|    i32.const 0
     #|    if (result f32)
+    #|      i32.const 3
+    #|      global.set $g
     #|      f32.const 41
     #|    else
+    #|      i32.const 4
+    #|      global.set $g
     #|      f32.const 51
     #|    end
     #|    call $f))
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
   let caller = optimized.pretty_print_defined_func(1U)
-  assert_true(caller.contains("if"), msg=caller)
-  assert_true(caller.contains("drop"), msg=caller)
+  assert_true(caller.contains("global.set"), msg=caller)
+  assert_false(caller.contains("f64.const"), msg=caller)
+  assert_false(caller.contains("f32.const"), msg=caller)
   assert_true(caller.contains("(call (Func 0))"), msg=caller)
 }
 
@@ -1810,6 +1820,28 @@ test "dae-optimizing emits nested cleanup trace for touched functions" {
     trace.any(fn(line) { line.contains("pass[dae-optimizing]:nested-cleanup") }),
     msg=trace.to_string(),
   )
+}
+
+///|
+test "dae-optimizing nested cleanup only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    call $f)
+    #|  (func (export "untouched") (local i32)
+    #|    i32.const 9
+    #|    local.set 0))
+  let optimized = dae_test_run(source)
+  let touched_callee = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_false(touched_callee.contains("local.set"), msg=touched_callee)
+  assert_true(untouched.contains("local.set"), msg=untouched)
 }
 
 ///|

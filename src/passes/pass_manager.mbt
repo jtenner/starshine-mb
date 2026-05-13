@@ -9723,6 +9723,262 @@ fn run_hot_pipeline_apply_hot_pass(
 }
 
 ///|
+fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
+  [
+    // Narrow first scheduler slice: consume the fresh dead local traffic DAE
+    // creates, but do not run Starshine's full function pipeline here yet. The
+    // full Binaryen-equivalent lane still depends on a faster filtered batch
+    // runner plus a real `precompute-propagate` port.
+    "dead-code-elimination", "simplify-locals", "vacuum",
+  ]
+}
+
+///|
+fn run_hot_pipeline_apply_hot_pass_to_touched(
+  mod_ : @lib.Module,
+  descriptor : @ir.HotPassDescriptor,
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  if descriptor.name == "pick-load-signs" &&
+    !run_hot_pipeline_module_has_memory(mod_) {
+    pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
+    return Ok(mod_)
+  }
+  let module_state = { module_ctx: None }
+  let mut current_mod = mod_
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let next_code_sec = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let mut lowered : Array[@lib.Func]? = None
+      let mut hso_raw_skip_count = 0
+      let mut pls_raw_skip_count = 0
+      let mut run_raw_skip_count = 0
+      for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
+        if code_idx >= touched.length() || !touched[code_idx] {
+          continue
+        }
+        let func_idx = @lib.FuncIdx::new(
+          (imported_func_count + code_idx).reinterpret_as_uint(),
+        )
+        if descriptor.name == "dead-code-elimination" {
+          if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
+              defs[code_idx],
+            ) {
+            pipeline_trace_hook(
+              options.trace,
+              descriptor.name,
+              "skip-invalid-lower",
+              payload="func=\{func_idx} reason=suspicious-escape-carrier-original",
+            )
+            continue
+          }
+          let @lib.Func(locals, _) = defs[code_idx]
+          if locals.length() > 1000 {
+            pipeline_trace_hook(
+              options.trace,
+              descriptor.name,
+              "skip-raw",
+              payload="reason=large-local-dce-noop func=\{func_idx}",
+            )
+            continue
+          }
+        }
+        let lower_state = {
+          next_type_sec: current_mod.type_sec,
+          type_sec_changed: false,
+        }
+        let result = match
+          run_hot_pipeline_func(
+            current_mod, func_idx, descriptor, module_state, lower_state, options,
+          ) {
+          Ok(result) => result
+          Err(err) => return Err("func[\{func_idx}]: \{err}")
+        }
+        let validation_mod = if lower_state.type_sec_changed {
+          current_mod.with_type_sec(lower_state.next_type_sec.unwrap())
+        } else {
+          current_mod
+        }
+        let skip_invalid_lower_reason = run_hot_pipeline_skip_invalid_lower_reason(
+          current_mod,
+          validation_mod,
+          code_idx,
+          descriptor.name,
+          result,
+        )
+        if skip_invalid_lower_reason != None {
+          pipeline_trace_hook(
+            options.trace,
+            descriptor.name,
+            "skip-invalid-lower",
+            payload="func=\{func_idx} reason=\{skip_invalid_lower_reason.unwrap()}",
+          )
+          continue
+        }
+        if lower_state.type_sec_changed {
+          current_mod = validation_mod
+        }
+        if result.trace_skip_raw {
+          if descriptor.name == "heap-store-optimization" &&
+            result.reason == "no-heap-store-candidates" {
+            hso_raw_skip_count += 1
+          } else if descriptor.name == "pick-load-signs" &&
+            result.reason == "no-pick-load-signs-candidates" {
+            pls_raw_skip_count += 1
+          } else if descriptor.name == "remove-unused-names" &&
+            result.reason == "no-remove-unused-names-candidates" {
+            run_raw_skip_count += 1
+          } else {
+            pipeline_trace_hook(
+              options.trace,
+              descriptor.name,
+              "skip-raw",
+              payload="reason=\{result.reason}",
+            )
+          }
+        }
+        match lowered {
+          Some(defs_copy) => defs_copy[code_idx] = result.func
+          None =>
+            if !result.unchanged_original {
+              let defs_copy = defs.copy()
+              defs_copy[code_idx] = result.func
+              lowered = Some(defs_copy)
+            }
+        }
+      }
+      if hso_raw_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-heap-store-candidates count=\{hso_raw_skip_count}",
+        )
+      }
+      if pls_raw_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-pick-load-signs-candidates count=\{pls_raw_skip_count}",
+        )
+      }
+      if run_raw_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-remove-unused-names-candidates count=\{run_raw_skip_count}",
+        )
+      }
+      match lowered {
+        Some(lowered) => Some(@lib.CodeSec::new(lowered))
+        None => None
+      }
+    }
+    None => None
+  }
+  Ok(
+    match next_code_sec {
+      Some(code_sec) =>
+        run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
+      None => current_mod
+    },
+  )
+}
+
+///|
+fn run_hot_pipeline_dae_nested_cleanup_touched_too_large(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      if funcs.length() > 100 {
+        return true
+      }
+      for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+        if code_idx >= touched.length() || !touched[code_idx] {
+          continue
+        }
+        let @lib.Func(locals, @lib.Expr(body)) = funcs[code_idx]
+        let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
+        if locals.length() > 128 || instr_count > 1000 {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_apply_dae_nested_cleanup(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  let touched_count = dae_count_touched(touched)
+  if touched_count == 0 {
+    return Ok(mod_)
+  }
+  (options.trace)(
+    "pass[dae-optimizing]:nested-cleanup touched=\{touched_count} prefix=precompute-propagate",
+  )
+  if touched_count > 8 ||
+    run_hot_pipeline_dae_nested_cleanup_touched_too_large(mod_, touched) {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-cleanup-skip",
+      payload="reason=large-touched-set touched=\{touched_count}",
+    )
+    return Ok(mod_)
+  }
+  let mut current = mod_
+  for pass_name in run_hot_pipeline_dae_nested_cleanup_passes() {
+    let entry = match pass_registry_lookup_cached(pass_name) {
+      Some(entry) => entry
+      None =>
+        return Err("DAE nested cleanup expanded to unknown pass \{pass_name}")
+    }
+    let descriptor = match entry.descriptor {
+      Some(descriptor) => descriptor
+      None =>
+        return Err("DAE nested cleanup pass \{pass_name} is not a hot pass")
+    }
+    current = match
+      run_hot_pipeline_apply_hot_pass_to_touched(
+        current, descriptor, touched, options,
+      ) {
+      Ok(next) => next
+      Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+    }
+  }
+  Ok(current)
+}
+
+///|
+fn run_hot_pipeline_apply_dae_optimizing_module_pass(
+  mod_ : @lib.Module,
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  let result = dae_run_core(mod_)
+  let repaired = dae_repair_dead_suffix_calls_to_touched(
+    result.mod_out,
+    result.touched,
+  )
+  let cleaned = match
+    run_hot_pipeline_apply_dae_nested_cleanup(repaired, result.touched, options) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  Ok(dae_prune_unused_simple_func_types(cleaned))
+}
+
+///|
 fn run_hot_pipeline_apply_module_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
@@ -9753,7 +10009,10 @@ fn run_hot_pipeline_apply_module_pass(
     "merge-locals" => merge_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>
-      dae_run_module_pass(mod_, optimize=true, trace=Some(options.trace))
+      match run_hot_pipeline_apply_dae_optimizing_module_pass(mod_, options) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
     "string-gathering" => string_gathering_run_module_pass(mod_)
     "reorder-globals" => reorder_globals_run_module_pass(mod_)
     "directize" => directize_run_module_pass(mod_)
