@@ -17,6 +17,7 @@ sources:
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/wast/spec_harness.mbt
 related:
+  - ./module-validation-phases.md
   - ./trace-benchmark-baseline.md
   - ./ref-func-declarations.md
   - ../tooling/fuzz-runner.md
@@ -63,7 +64,7 @@ related:
   - Binary strategies reduce to checked-in minimal corrupted wasm bytes.
   - Inline text strategies reduce to their exact canonical single-assertion source.
   - Spec-seed cases reduce the larger fixture down to the one extracted raw assertion S-expression.
-- A rejected module only counts as meaningful coverage if the intended mutation ran and the diagnostic family matches the expected failure class.
+- A rejected module only counts as meaningful coverage if the intended mutation ran and the diagnostic family matches the expected failure class; use [`./module-validation-phases.md`](./module-validation-phases.md) as the phase/family map when adding or reclassifying validator diagnostics.
 - Heavy fuzz work stays in `src/fuzz`, not `moon test`.
 
 ## Main Gaps

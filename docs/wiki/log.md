@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] validate | module validation phase map
+
+- Added [`raw/wasm/2026-05-13-module-validation-phase-sources.md`](raw/wasm/2026-05-13-module-validation-phase-sources.md) after checking current official WebAssembly 3.0 validation/module/instruction sources plus Starshine validator, typechecker, environment, matching, invalid-fuzzer, and trace evidence.
+- Added [`validate/module-validation-phases.md`](validate/module-validation-phases.md) as the canonical Starshine validator phase map: `validate_module_impl` phase order, `Env` / `Typecheck` / `Match` layer split, stack-polymorphism and constant-expression rules, typed diagnostic families, trace-phase contract, local policy divergences, and pass/fuzz/proof signoff checklist.
+- Updated [`index.md`](index.md), [`binary/module-section-map.md`](binary/module-section-map.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md), and [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) so validator architecture, trace, fuzz, and section-order pages now route through the shared phase contract.
+
 ## [2026-05-13] passes | dae touched code-pushing cleanup
 
 - Added a focused `dae-optimizing` regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that proves the guarded nested `code-pushing` slot rewrites only DAE-touched functions, using a local-copy setup moved across an effectful `if` before later local simplification while an equivalent untouched sibling keeps its original `local.set` shape.

@@ -12,6 +12,7 @@ sources:
   - ../binary/function-import-export-and-code-sections.md
   - ../binary/data-element-and-datacount-sections.md
 related:
+  - ./module-validation-phases.md
   - ./fuzz-hardening.md
   - ./trace-benchmark-baseline.md
   - ../binary/function-import-export-and-code-sections.md
@@ -32,7 +33,7 @@ related:
 
 The official WebAssembly 3.0 validation sources call that second set `refs`. The focused raw-source snapshot in [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md) records the current primary-source rule: `ref.func x` requires `x` in the validation context's `funcs` and `refs`, and module validation builds `refs` from function-index occurrences in module-level declaration sources such as globals, tables, element segments, start, and exports.
 
-Starshine implements the same idea as a separate `ref_func_declarations` validation phase in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), but with one visible local/spec divergence: current Starshine does **not** treat `start_sec` alone as a `ref.func` declaration source. That stricter local policy is deliberate enough to have a regression test, so keep it visible until a validator change intentionally aligns it with the official rule.
+Starshine implements the same idea as a separate `ref_func_declarations` validation phase in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), within the broader phase order documented in [`./module-validation-phases.md`](./module-validation-phases.md). It has one visible local/spec divergence: current Starshine does **not** treat `start_sec` alone as a `ref.func` declaration source. That stricter local policy is deliberate enough to have a regression test, so keep it visible until a validator change intentionally aligns it with the official rule.
 
 ## Beginner Model
 

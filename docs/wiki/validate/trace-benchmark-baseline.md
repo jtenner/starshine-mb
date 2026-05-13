@@ -6,6 +6,7 @@ sources:
   - ../raw/research/0010-2026-03-18-validate-trace-baseline.md
 related:
   - ../tooling/validation-gates.md
+  - ./module-validation-phases.md
   - ./ref-func-declarations.md
   - ../../../src/validate_trace/main.mbt
   - ../../../scripts/lib/validate-task.ts
@@ -18,7 +19,7 @@ related:
 ## Durable Conclusions
 
 - The benchmark entrypoint is `bun validate trace-benchmark ...`, with `wasm-gc` as the default target; the shared command contract is summarized in [`../tooling/validation-gates.md`](../tooling/validation-gates.md).
-- The committed baseline is the emitted `phase_totals`, `helper_totals`, and `hotspots`, not the raw machine wall time.
+- The committed baseline is the emitted `phase_totals`, `helper_totals`, and `hotspots`, not the raw machine wall time; interpret phase names through [`./module-validation-phases.md`](./module-validation-phases.md).
 - The current corpus set is `deep-control`, `wide-locals`, `large-codesec`, and `ref-func-heavy`.
 - Each corpus is intended to light up a different validator cost center.
 
@@ -39,4 +40,5 @@ related:
 
 - Archived benchmark snapshot: [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md)
 - Shared validation-gate map: [`../tooling/validation-gates.md`](../tooling/validation-gates.md)
+- Validator phase map: [`./module-validation-phases.md`](./module-validation-phases.md)
 - Benchmark entrypoint: [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts)

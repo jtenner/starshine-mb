@@ -16,6 +16,7 @@ related:
   - data-element-and-datacount-sections.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../tooling/validation-gates.md
+  - ../validate/module-validation-phases.md
 ---
 
 # Binary Module Section Map
@@ -75,7 +76,7 @@ That means ordinary round trips preserve custom-section payloads and structured 
 
 ### Validation
 
-[`validate_module_impl`](../../../src/validate/validate.mbt#L2895-L3266) builds the module environment in dependency order:
+[`validate_module_impl`](../../../src/validate/validate.mbt#L2895-L3266) builds the module environment in dependency order; the detailed validator-side phase contract now lives in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md):
 
 ```text
 types
@@ -126,5 +127,5 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
 - Core module representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
-- Validation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
+- Validation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Section-specific pages: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md)

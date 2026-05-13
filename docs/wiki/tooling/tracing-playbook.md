@@ -6,6 +6,7 @@ sources:
   - ../raw/research/0001-2026-03-10-tracing.md
 related:
   - ./validation-gates.md
+  - ../validate/module-validation-phases.md
   - ../../../src/lib/util.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/passes/trace_golden_test.mbt
@@ -20,7 +21,7 @@ related:
 - Tracing must stay cheap when disabled; timing work and per-function setup are guarded locally.
 - Logs use compact `key=value` tokens with stable pass, function, and phase markers.
 - Shared timing helpers live in [`../../../src/lib/util.mbt`](../../../src/lib/util.mbt).
-- Passes and validator entrypoints should emit per-function deltas, run totals, and a final hotspot summary; benchmark entrypoints are routed through the shared [`validation-gates.md`](./validation-gates.md) command map.
+- Passes and validator entrypoints should emit per-function deltas, run totals, and a final hotspot summary; benchmark entrypoints are routed through the shared [`validation-gates.md`](./validation-gates.md) command map, and validator phase names are cataloged in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
 - Repeated failures should be suppressed after a bounded prefix instead of flooding output.
 - Do not add trace-only tests; trace behavior is validated through existing functional or contract coverage.
 
