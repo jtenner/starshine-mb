@@ -2548,6 +2548,125 @@ test "dae-optimizing nested optimize-casts only rewrites touched functions" {
 }
 
 ///|
+test "dae-optimizing nested cleanup stays valid on touched ref locals" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $child (sub $base (struct)))
+    #|  (func $f (param i32) (result (ref null $child))
+    #|    (local (ref null $base) (ref null $child))
+    #|    ref.null $child
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    ref.null $child
+    #|    local.set 2
+    #|    local.get 2)
+    #|  (func (export "run") (result (ref null $child))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE ref-local pipeline success, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_false(run.contains("i32.const I32(99)"), msg=run)
+}
+
+///|
+test "dae-optimizing nested cleanup stays valid on touched optimize-casts ref locals" {
+  let box = @lib.TypeIdx::new(0U)
+  let callee_type = @lib.TypeIdx::new(1U)
+  let run_type = @lib.TypeIdx::new(2U)
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [],
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let callee_func = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let run_func = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let temp = @lib.LocalIdx::new(1U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, callee_func, run_func]))
+    .with_func_sec(@lib.FuncSec::new([callee_type, run_type]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::anyref()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::i32_const(@lib.I32(22)),
+            @lib.Instruction::struct_new(box),
+            @lib.Instruction::local_tee(temp),
+            @lib.Instruction::ref_cast(false, @lib.HeapType::new(box)),
+            @lib.Instruction::struct_get(box, @lib.U32(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(99)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected DAE optimize-casts ref-local pipeline success, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing nested cleanup stays valid on touched tee-driven ref locals" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (local anyref)
+    #|    struct.new_default $box
+    #|    local.tee 1
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected DAE tee-driven ref-local pipeline success, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
 fn dae_test_bytes_from_ints(values : Array[Int]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
