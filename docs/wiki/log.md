@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | custom/name metadata backlinks
+
+- During the whole-wiki health pass after adding the custom/name section guide, found related generator, fuzz-hardening, and strip-target-features pages that mentioned name/custom metadata without linking to the new canonical binary metadata page.
+- Added backlinks from [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md`](binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md) to [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md).
+
 ## [2026-05-13] binary | custom/name section metadata guide
 
 - Added [`raw/wasm/2026-05-13-custom-and-name-section-sources.md`](raw/wasm/2026-05-13-custom-and-name-section-sources.md) after checking current official WebAssembly 3.0 binary-module and custom-name-section sources for section-id `0`, custom-section placement, official name-subsection ids, and name-map ordering rules.

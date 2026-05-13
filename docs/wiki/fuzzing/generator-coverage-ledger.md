@@ -7,6 +7,8 @@ sources:
   - ../../../agent-todo.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/gen_valid.mbt
+related:
+  - ../binary/custom-and-name-sections.md
 ---
 
 # Generator Coverage Ledger
@@ -39,7 +41,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 - `[FZG]020` attaches the import/export-topology counter: `ImportExportTopology` reports nonzero coverage when modules combine imports with exports, re-export imported index spaces, reuse an exported index under multiple names, collide legal import/export field names, use multiple import modules, or point the start section at an imported function.
 - `[FZG]021` attaches the element-segment-range counter: `ElementSegmentRange` reports nonzero coverage when element segments use multiple elements, active segments target a nonzero table, or typed expression segments cover non-`funcref` reference types. Coverage-forced modules now force a multi-element active segment and prefer a nonzero typed table target when one is available.
 - `[FZG]022` attaches the data-segment-range counter: `DataSegmentRange` reports nonzero coverage when data segments include larger payloads, active segments target a nonzero memory, or zero-length payloads appear across active/passive modes. Coverage-forced modules now force those data shapes when memories are available.
-- `[FZG]023` attaches the name/custom-section counter: `NameCustomSections` reports nonzero coverage when generated modules contain a structured name section or a non-`name` custom section. Coverage-forced modules now emit a valid structured name section for available module/type/function/table/memory/global/elem/data/tag spaces plus a non-name custom section behind `allow_name_custom_sections`.
+- `[FZG]023` attaches the name/custom-section counter: `NameCustomSections` reports nonzero coverage when generated modules contain a structured name section or a non-`name` custom section. Coverage-forced modules now emit a valid structured name section for available module/type/function/table/memory/global/elem/data/tag spaces plus a non-name custom section behind `allow_name_custom_sections`; see [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md) for the canonical binary metadata contract.
 - `[FZG]024` expands invalid-AST coverage for newly widened surfaces. The invalid AST registry now includes `shared-memory64-without-max`, seeded from a valid module and mutated to an invalid shared memory64 with no maximum so the validator reports the memory-section family through the same fuzzer path as the existing i32 shared-memory-max strategy. It also includes `invalid-subtype-super-index` and `invalid-subtype-super-shape`, which mutate valid seeds with out-of-range and incompatible subtype supertype clauses and reject through the type-section family.
 - `[FZG]026` is documented separately in [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md): WAST arbitrary generation remains a text-roundtrip generator instead of calling `gen_valid` directly, but duplicated opcode pickers must stay tied to the FZG ledger vocabulary.
 - `[FZG]028` retunes `validate-valid` smoke/ci/stress feature floors for the completed gen-valid widening rows. These profiles now use coverage-forced gen-valid configs so smoke requires at least one observation for every `[FZG]002`-`[FZG]023` family, while ci and stress require minimums of `10` and `100` respectively.

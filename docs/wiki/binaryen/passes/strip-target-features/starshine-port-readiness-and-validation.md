@@ -21,6 +21,7 @@ related:
   - ./starshine-strategy.md
   - ../strip-toolchain-annotations/index.md
   - ../remove-relaxed-simd/index.md
+  - ../../../binary/custom-and-name-sections.md
 ---
 
 # Starshine port readiness and validation for `strip-target-features`
@@ -34,7 +35,7 @@ related:
 3. add a narrow module pass that deletes decoded opaque `target_features` custom sections; or
 4. add first-class target-feature metadata and implement a closer Binaryen-style metadata toggle.
 
-Do not treat opaque custom-section round-tripping as an implementation of the pass. Round-tripping can preserve `target_features`; the pass must suppress or clear that metadata.
+Do not treat opaque custom-section round-tripping as an implementation of the pass. Round-tripping can preserve `target_features`; the pass must suppress or clear that metadata. For the shared Starshine `CustomSec` / structured `name` model and placement-normalization caveats, see [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md).
 
 ## Upstream contract to match
 

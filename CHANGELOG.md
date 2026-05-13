@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-13 Docs: link custom/name metadata references
+
+- **add health-check backlinks from generator coverage, validator fuzz hardening, and strip-target-features port-readiness pages to the new canonical binary custom/name section guide so scattered name/custom-section claims navigate to the shared metadata contract** by **@OpenAI**. Updated [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`docs/wiki/validate/fuzz-hardening.md`](./docs/wiki/validate/fuzz-hardening.md), [`docs/wiki/binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-13 Docs: add binary custom/name section guide
 
 - **add a canonical wiki guide for WebAssembly custom sections and the structured `name` section, grounding Starshine's `custom_secs` / `name_sec` / `raw_name_sec_payload` split, decode/encode normalization, validation contract, index-rewrite obligations, full official `0`-through-`11` name-subsection map, and fuzzing hooks in current official WebAssembly sources plus repository code/tests** by **@OpenAI**. Updated [`docs/wiki/raw/wasm/2026-05-13-custom-and-name-section-sources.md`](./docs/wiki/raw/wasm/2026-05-13-custom-and-name-section-sources.md), [`docs/wiki/binary/custom-and-name-sections.md`](./docs/wiki/binary/custom-and-name-sections.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
