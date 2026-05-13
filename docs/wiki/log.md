@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] tooling | Node package surface refresh
+
+- Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md) against live repository evidence in [`node/package.json`](../../node/package.json), [`node/README.md`](../../node/README.md), [`node/test/api-parity.test.mjs`](../../node/test/api-parity.test.mjs), [`node/test/smoke.test.mjs`](../../node/test/smoke.test.mjs), [`scripts/lib/generate-node-package.mjs`](../../scripts/lib/generate-node-package.mjs), [`scripts/lib/build-node-package.mjs`](../../scripts/lib/build-node-package.mjs), and the current `cli`/`cmd`/`validate`/`wast` `.mbti` files.
+- Marked the archived 2026-04-18 `cmd` drift finding as superseded by the current parity names, compatibility aliases, `CmdIO.printTextModule`, `CmdRunSummary.closedWorld`, and `node/test/api-parity.test.mjs` coverage.
+- Kept the still-open Node gaps explicit: the old generator remains disabled, `node/cli` still lacks full closed-world parser parity, `node/wast` lacks `evaluateWastStaticAssertion`, and `node/validate` is still intentionally partial.
+- Updated [`index.md`](index.md) so the tooling catalog points readers at the repaired `cmd` status instead of the older highest-priority drift framing.
+
 ## [2026-05-13] maintain | raw-source directory README health
 
 - During the whole-wiki health pass after adding the first `raw/wasm/` source snapshot, found [`raw/README.md`](raw/README.md) still described `raw/research/` but not the topic raw-source directories already in use for Binaryen, MoonBit, and Wasm primary-source manifests.
