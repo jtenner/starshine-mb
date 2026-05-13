@@ -9731,7 +9731,7 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     // depends on a faster filtered batch runner plus a real
     // `precompute-propagate` port.
     "dead-code-elimination", "local-cse", "simplify-locals", "merge-blocks", "remove-unused-brs",
-    "remove-unused-names", "vacuum",
+    "remove-unused-names", "merge-blocks", "vacuum",
   ]
 }
 
