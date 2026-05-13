@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | DAE002 touched heap2local cleanup
+
+- Extended the guarded small-module `dae-optimizing` nested cleanup slice from `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` to `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> heap2local -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` while preserving the touched-function filter.
+- Added a focused regression proving DAE-touched functions can get `heap2local` GC allocation cleanup before later local simplification while equivalent untouched siblings keep their allocation/access shape unchanged.
+- Refreshed direct DAE evidence: `.tmp/dae002-heap2local-200` reported `199/200` compared, `198` normalized matches, `1` mismatch, and `1` Binaryen/tool command failure; `.tmp/dae002-heap2local-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures, preserving the prior local-declaration frontier. A traced debug-artifact run still skips nested cleanup at `touched=12`, so the large artifact lane is not broadened by this slice.
+
+## [2026-05-13] passes | duplicate-function-elimination freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md` after rechecking the upstream DFE owner, scheduler, helper, and lit-test surfaces on current `main` and confirming no teaching-relevant drift from `version_129`.
+- Refreshed the DFE overview, Binaryen strategy, implementation/test map, WAT-shapes, Starshine strategy, scheduler/validation bridge, parity, type-compaction split, and the wiki/catalog entries so the folder now points at the new freshness layer and the 2026-05-13 no-drift note.
+- Kept the documented split explicit: upstream DFE remains the small hash/equality/rewrite loop with option-dependent iteration and two top-level no-DWARF slots, while Starshine remains one explicit iteration plus local extra cleanup.
+
 ## [2026-05-12] passes | DAE002 touched pick-load-signs cleanup
 
 - Extended the guarded small-module `dae-optimizing` nested cleanup slice from `dead-code-elimination -> optimize-instructions -> local-cse -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` to `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` while preserving the touched-function filter.

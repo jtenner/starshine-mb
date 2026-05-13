@@ -1,10 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md
@@ -133,10 +133,10 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-Narrow 2026-04-20, 2026-04-26, 2026-04-27, and 2026-05-04 checks found **no semantic post-`version_129` drift** on the dedicated DFE surface.
+Narrow 2026-04-20, 2026-04-26, 2026-04-27, 2026-05-04, and 2026-05-13 checks found **no semantic post-`version_129` drift** on the dedicated DFE surface.
 
 - All five `duplicate-function-elimination*` lit files are identical on current `main` and `version_129`.
-- The 2026-05-04 current-main recheck kept that result unchanged.
+- The 2026-05-13 current-main recheck kept that result unchanged.
 - The core pass file differs only by a tiny non-semantic container change:
   - `std::set<Name>` -> `std::unordered_set<Name>` for the duplicate-name set.
 
@@ -171,6 +171,7 @@ This refresh removes `duplicate-function-elimination` from the AUD002 direct-pas
 - [`../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md)
 - [`../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md`](../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md)
 - [`../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md`](../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md)
+- [`../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md)
 - [`../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md`](../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md)
 - [`../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md)
 - [`../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md`](../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md)

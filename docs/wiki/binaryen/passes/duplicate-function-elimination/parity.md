@@ -1,10 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
@@ -48,7 +48,7 @@ For the actionable validation ladder and scheduler decision points, see [`schedu
   - once again in global post-passes
 - For stronger optimize contexts, Binaryen also gives DFE a larger visible iteration budget than the current local one-round implementation.
 - The 2026-04-27 validation bridge records this as the remaining preset/scheduler signoff gap rather than a hidden failure of the explicit pass surface.
-- The 2026-05-04 current-main recheck kept that framing unchanged.
+- The 2026-05-13 current-main recheck kept that framing unchanged.
 - The 2026-05-06 direct revalidation reran the refreshed 10000-case compare lane and found no semantic mismatches.
 
 ## Current in-tree status
@@ -90,7 +90,7 @@ So future parity work must decide separately:
 
 ## What is no longer okay to claim
 
-After the 2026-05-04 current-main recheck, the docs should no longer claim that official Binaryen DFE parity inherently requires:
+After the 2026-05-13 current-main recheck, the docs should no longer claim that official Binaryen DFE parity inherently requires:
 
 - duplicate function-type compaction
 - generic type-index rewrite parity
