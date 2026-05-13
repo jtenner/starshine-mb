@@ -17,6 +17,7 @@ related:
   - function-import-export-and-code-sections.md
   - data-element-and-datacount-sections.md
   - custom-and-name-sections.md
+  - ../validate/module-validation-phases.md
   - ../wast/gc-type-authoring.md
   - ../binaryen/passes/remove-unused-types/index.md
   - ../binaryen/passes/reorder-types/index.md
@@ -83,7 +84,7 @@ The consequence is subtle but important: changing one of these sections is rarel
 
 ## Validation Contract
 
-Starshine's validator mirrors the section dependency order in [`validate_module_impl`](../../../src/validate/validate.mbt): types first, then imports, function declarations, tables, memories, tags, globals, segments, start/exports/ref declarations, code, and names.
+Starshine's validator mirrors the section dependency order in [`validate_module_impl`](../../../src/validate/validate.mbt): types first, then imports, function declarations, tables, memories, tags, globals, segments, start/exports/ref declarations, code, and names. The full validator-side phase map lives in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
 
 Important section-specific rules:
 

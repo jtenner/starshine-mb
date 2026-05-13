@@ -19,6 +19,7 @@ related:
   - data-element-and-datacount-sections.md
   - type-table-memory-global-tag-sections.md
   - ../validation/moonbit-prove-strategy.md
+  - ../validate/module-validation-phases.md
   - ../validate/ref-func-declarations.md
   - ../binaryen/passes/reorder-functions/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
@@ -98,7 +99,7 @@ Starshine does not preserve a source-level interleaving of imports, functions, e
 
 ## Validation Contract
 
-Validation is phased so every index space exists before function bodies are typechecked. [`validate_module_impl`](../../../src/validate/validate.mbt#L2895-L3266) runs roughly:
+Validation is phased so every index space exists before function bodies are typechecked. [`validate/module-validation-phases.md`](../validate/module-validation-phases.md) owns the full phase contract; [`validate_module_impl`](../../../src/validate/validate.mbt#L2895-L3266) runs roughly:
 
 1. types;
 2. imports, extending function/table/memory/global/tag index spaces;
@@ -158,4 +159,4 @@ Existing pass dossiers that depend on this checklist include:
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation and proof helpers: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate_proof/func_index.mbt`](../../../src/validate_proof/func_index.mbt)
 - WAST lowering: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
-- Related docs: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../binaryen/passes/reorder-functions/index.md`](../binaryen/passes/reorder-functions/index.md), [`../binaryen/passes/remove-unused-module-elements/index.md`](../binaryen/passes/remove-unused-module-elements/index.md)
+- Related docs: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../binaryen/passes/reorder-functions/index.md`](../binaryen/passes/reorder-functions/index.md), [`../binaryen/passes/remove-unused-module-elements/index.md`](../binaryen/passes/remove-unused-module-elements/index.md)

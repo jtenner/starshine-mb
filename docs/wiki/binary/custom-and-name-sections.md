@@ -18,6 +18,7 @@ related:
   - data-element-and-datacount-sections.md
   - type-table-memory-global-tag-sections.md
   - ../fuzzing/generator-coverage-ledger.md
+  - ../validate/module-validation-phases.md
   - ../validate/fuzz-hardening.md
   - ../binaryen/passes/reorder-locals/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
@@ -72,7 +73,7 @@ The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-custom-
 
 ## Validation Contract
 
-[`validate_name_sec(...)`](../../../src/validate/validate.mbt) makes name-section metadata locally useful instead of treating it as inert bytes:
+[`validate_name_sec(...)`](../../../src/validate/validate.mbt) makes name-section metadata locally useful instead of treating it as inert bytes; it runs in the final `namesec` phase documented by [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md):
 
 - raw `CustomSec("name", ...)` entries are rejected; use `Module.name_sec`;
 - function, type, table, memory, global, element, data, and tag names must point at existing indices;
@@ -116,5 +117,5 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-custom-and-name-section-sources.md`](../raw/wasm/2026-05-13-custom-and-name-section-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
-- Validation and invalid generation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt)
+- Validation and invalid generation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Related docs: [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md`](../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md)

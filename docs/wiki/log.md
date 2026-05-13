@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | validation phase backlinks
+
+- During the whole-wiki health pass after adding the module-validation phase map, found the section-specific binary guides still describing validation order or name/data-count checks without a backlink to the new canonical phase contract.
+- Added backlinks from [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), and [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md) to [`validate/module-validation-phases.md`](validate/module-validation-phases.md).
+
 ## [2026-05-13] validate | module validation phase map
 
 - Added [`raw/wasm/2026-05-13-module-validation-phase-sources.md`](raw/wasm/2026-05-13-module-validation-phase-sources.md) after checking current official WebAssembly 3.0 validation/module/instruction sources plus Starshine validator, typechecker, environment, matching, invalid-fuzzer, and trace evidence.
