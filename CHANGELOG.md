@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-13 Docs: add binary custom/name section guide
+
+- **add a canonical wiki guide for WebAssembly custom sections and the structured `name` section, grounding Starshine's `custom_secs` / `name_sec` / `raw_name_sec_payload` split, decode/encode normalization, validation contract, index-rewrite obligations, full official `0`-through-`11` name-subsection map, and fuzzing hooks in current official WebAssembly sources plus repository code/tests** by **@OpenAI**. Updated [`docs/wiki/raw/wasm/2026-05-13-custom-and-name-section-sources.md`](./docs/wiki/raw/wasm/2026-05-13-custom-and-name-section-sources.md), [`docs/wiki/binary/custom-and-name-sections.md`](./docs/wiki/binary/custom-and-name-sections.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-13 Docs: tighten IR2 test-matrix citations
 
 - **add the missing direct IR2 test-source citations to the refreshed test-matrix page so each coverage row points at concrete CFG, dominance, liveness, local-SSA, analysis-cache, pass-helper, or trace evidence from the page itself** by **@OpenAI**. Updated [`docs/wiki/ir2/test-matrix.md`](./docs/wiki/ir2/test-matrix.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

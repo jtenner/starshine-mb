@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] binary | custom/name section metadata guide
+
+- Added [`raw/wasm/2026-05-13-custom-and-name-section-sources.md`](raw/wasm/2026-05-13-custom-and-name-section-sources.md) after checking current official WebAssembly 3.0 binary-module and custom-name-section sources for section-id `0`, custom-section placement, official name-subsection ids, and name-map ordering rules.
+- Added [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) as the canonical Starshine guide for the `custom_secs` / `name_sec` / `raw_name_sec_payload` split, decode/encode normalization, validation contract, pass rewrite obligations, and fuzzing hooks.
+- Updated [`index.md`](index.md) so custom/name section metadata is discoverable outside pass-specific strip-target-features or generator-coverage notes.
+
 ## [2026-05-13] maintain | IR2 test-matrix citation hygiene
 
 - During the whole-wiki health pass after the IR2 test-matrix refresh, found the refreshed table cited broader IR2 coverage rows than the page frontmatter and source list explicitly named.
