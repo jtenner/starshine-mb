@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-12
 sources:
+  - ../../../raw/research/0560-2026-05-12-dae002-call-summary-runtime-attribution.md
   - ../../../raw/research/0559-2026-05-12-dae002-nested-cleanup-scheduler-slice.md
   - ../../../raw/research/0558-2026-05-12-dae-local-declaration-frontier.md
   - ../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md
@@ -94,6 +95,7 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 - The active Starshine port preserves a still-partial scalar signature subset: direct dead-parameter removal, adjacent self-recursive forwarding, no-param dropped/uncalled result removal, case-000690 escaped-result self-call operand parameter preservation, and dead-suffix cleanup around root `unreachable`; complete result-removal scheduling and broader Binaryen families remain active backlog work.
 - The saved 1000-case direct frontier after `1f81bbc7` is not currently showing another semantic/signature candidate: all 13 remaining `gen-valid` mismatches in `.tmp/pass-fuzz-dae-690-final2-1000` have exactly one diff hunk limited to unused local declarations, while the two `wasm-smith` failures are unchanged Binaryen/tool `binaryen-rec-group-zero` parser failures. See [`../../../raw/research/0558-2026-05-12-dae-local-declaration-frontier.md`](../../../raw/research/0558-2026-05-12-dae-local-declaration-frontier.md).
 - The nested rerun scheduler behavior is still not complete: Starshine now has a small-module touched-function cleanup scheduler for `dead-code-elimination -> simplify-locals -> vacuum`, but it remains a guarded slice rather than Binaryen's full `precompute-propagate` plus default function pipeline.
+- The 2026-05-12 DAE002 runtime attribution found the post-scheduler artifact timeout was still inside the DAE core before the nested marker, caused by repeated per-callee module scans in original call and dead-suffix preservation facts. Starshine now uses a single original call summary plus dead-suffix target aggregation, so artifact replay completes again, but DAE remains slower than Binaryen on the debug artifact and the first functional diff is still `defined=11 abs=28`.
 - The 2026-05-05 current-main recheck found no teaching-relevant drift from the `version_129` contract and now has a dedicated readiness bridge for the port.
 - The local naming decision is no longer open for the optimizing sibling: `dae-optimizing` is canonical and `dead-argument-elimination-optimizing` is a descriptive alias.
 

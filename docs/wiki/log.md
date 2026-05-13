@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-12] passes | DAE002 call-summary runtime attribution
+
+- Attributed the post-scheduler debug-artifact timeout to DAE core work before the nested cleanup marker, specifically repeated per-callee call/dead-suffix scans over the 4,671-defined-function artifact.
+- Added a behavior-preserving original-call summary and dead-suffix target aggregation in `src/passes/dead_argument_elimination.mbt`; traced artifact replay now completes and reaches the guarded nested cleanup skip, while `.tmp/dae002-call-summary-1000` preserves the known direct local-declaration frontier.
+- Recorded the remaining blocker in [`raw/research/0560-2026-05-12-dae002-call-summary-runtime-attribution.md`](raw/research/0560-2026-05-12-dae002-call-summary-runtime-attribution.md): artifact compare is still red at `defined=11 abs=28`, and Starshine remains slower than Binaryen on the debug artifact despite removing the 30s+ pre-marker timeout.
+
 ## [2026-05-12] passes | DAE002 small touched cleanup scheduler
 
 - Added the first guarded `dae-optimizing` touched-function nested cleanup scheduler slice: small modules run `dead-code-elimination -> simplify-locals -> vacuum` only on functions marked touched by DAE, while untouched sibling functions keep equivalent cleanup opportunities unchanged.
