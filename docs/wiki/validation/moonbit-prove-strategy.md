@@ -21,6 +21,7 @@ sources:
   - ../../../src/validate_proof/stack_index.mbt
   - ../../../src/validate_proof/suffix_index.mbt
 related:
+  - ../tooling/validation-gates.md
   - ../validate/fuzz-hardening.md
   - ../../../src/validate/env_tests.mbt
   - ../../../src/validate/typecheck_negative_tests.mbt
@@ -35,7 +36,7 @@ related:
 
 MoonBit verification is useful in Starshine when a small executable helper has a crisp arithmetic, bounds, or stack-shape postcondition that can be expressed in `.mbtp` predicates. It is **not** a replacement for validator tests, fuzzing, binary roundtrip tests, or pass parity checks. The current project boundary is deliberately narrow: keep the required proof gate in the low-dependency `src/validate_proof` package, then import only stable helpers into `src/validate` after executable tests already describe the behavior.
 
-Official MoonBit docs now frame verification as a Why3-backed workflow driven by `moon prove`, with package opt-in through `proof-enabled` and solver setup around Why3 plus solvers such as Z3, CVC5, or Alt-Ergo. Starshine's local policy follows that model but keeps the broad validator package optional because the PRV006 audit showed direct `src/validate` file targets are not isolated enough for the required gate in this workspace. See the 2026-05-13 official-doc manifest in [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md) and the local PRV006 audit in [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md).
+Official MoonBit docs now frame verification as a Why3-backed workflow driven by `moon prove`, with package opt-in through `proof-enabled` and solver setup around Why3 plus solvers such as Z3, CVC5, or Alt-Ergo. Starshine's local policy follows that model but keeps the broad validator package optional because the PRV006 audit showed direct `src/validate` file targets are not isolated enough for the required gate in this workspace. See the 2026-05-13 official-doc manifest in [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md), the local PRV006 audit in [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md), and the shared validation-gate map in [`../tooling/validation-gates.md`](../tooling/validation-gates.md).
 
 ## Durable Conclusions
 
@@ -87,7 +88,7 @@ The important maintenance rule is to distinguish **proved/exported** from **wire
 3. **Import helpers into `src/validate` only after the executable behavior is covered.** Current consumers include `env.mbt`, `validate.mbt`, and `typecheck.mbt`; keep `imports.mbt` as the quick truth source for what is live.
 4. **Extend `src/validate/match.mbt` only through designed proof slices.** The Boolean `descriptor_compatible` symmetry pilot and equal/unequal executable regressions are useful, but recursive subtype/exactness facts remain deferred.
 5. **Move broader typechecker proofs after the matching kernel.** The stack-length helpers exist, but value-type compatibility and branch-exit normalization depend on validator matching semantics.
-6. **Keep the rest of the assurance stack in place.** Formal proofs complement `moon test`, `bun validate`, validator fuzzing, binary roundtrip coverage, spec tests, and Binaryen oracle lanes.
+6. **Keep the rest of the assurance stack in place.** Formal proofs complement the ordinary gates described in [`../tooling/validation-gates.md`](../tooling/validation-gates.md): `moon test`, `bun validate`, validator fuzzing, binary roundtrip coverage, spec tests, and Binaryen oracle lanes.
 
 ## Practical Rules
 

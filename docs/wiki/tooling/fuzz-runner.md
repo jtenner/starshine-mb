@@ -11,6 +11,7 @@ sources:
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/test/task-family-commands.ts
 related:
+  - ./validation-gates.md
   - ../validate/fuzz-hardening.md
   - ../fuzzing/generator-coverage-ledger.md
   - ./tracing-playbook.md
@@ -26,7 +27,7 @@ Starshine has two related fuzz entry surfaces:
 1. [`moon run src/fuzz -- ...`](../../../src/fuzz/main.mbt), the MoonBit-owned suite runner and artifact emitter.
 2. [`bun fuzz run ...`](../../../scripts/lib/fuzz-task.ts), the task wrapper that forwards the supported MoonBit runner surface with target and Moon executable options.
 
-Use these for broad randomized exploration, artifact emission, and validator-rejection repro capture. Keep deterministic reductions, helper invariants, and focused regressions in normal package tests; heavy randomized loops should not move back into `moon test`.
+Use these for broad randomized exploration, artifact emission, and validator-rejection repro capture. Keep deterministic reductions, helper invariants, and focused regressions in normal package tests; heavy randomized loops should not move back into `moon test`. For the higher-level validation gate that calls this runner after `moon info`, `moon fmt`, `moon check`, and `moon test`, see [`validation-gates.md`](./validation-gates.md).
 
 The current runner is intentionally small at the command layer and broad at the suite layer: every run is identified by a suite, profile, seed, and optional output mode, and special artifact commands are explicit top-level commands rather than hidden suite names.
 

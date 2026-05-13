@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] tooling | validation gate map
+
+- Added [`raw/moonbit/2026-05-13-moon-cli-validation-docs.md`](raw/moonbit/2026-05-13-moon-cli-validation-docs.md) after checking official MoonBit command documentation for `moon info`, `moon fmt`, `moon check`, `moon test`, `moon coverage analyze`, and the separate `moon prove` workflow.
+- Added [`tooling/validation-gates.md`](tooling/validation-gates.md) as the shared Starshine validation gate map, grounding `bun validate full`, `coverage`, `readme-api-sync`, `trace-benchmark`, ordinary fuzz, pass-oracle comparison, and proof-lane separation in [`scripts/lib/validate-task.ts`](../../scripts/lib/validate-task.ts), [`scripts/lib/task-runtime.ts`](../../scripts/lib/task-runtime.ts), and [`scripts/test/task-family-commands.ts`](../../scripts/test/task-family-commands.ts).
+- Cross-linked [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md), [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md), [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md), and [`index.md`](index.md) so command-shape details, trace benchmarking, and proof policy point at one canonical validation-gate page.
+
 ## [2026-05-13] maintain | fuzz wrapper split cross-link
 
 - During the whole-wiki health pass after the fuzz-runner refresh, found [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and the [`index.md`](index.md) catalog still phrased the invalid-repro CLI path broadly enough to be misread as part of the Bun wrapper surface.
