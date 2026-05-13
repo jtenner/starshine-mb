@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] binary | type/table/memory/global/tag section guide
+
+- Added [`raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) after checking current official WebAssembly 3.0 syntax, validation, and binary module sources plus the js-string-builtins draft module page for type, table, memory, global, tag, and string literal pool section coverage.
+- Added [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md) as the canonical Starshine guide for `TypeSec` / `TableSec` / `MemSec` / `GlobalSec` / `TagSec` / `StringRefsSec`, imported-prefix table/memory/global/tag index spaces, incremental type/global validation, table initializer and shared-memory edge cases, and the local section-id-`14` `stringrefs` caveat.
+- Cross-linked [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), and [`index.md`](index.md) so binary section coverage now has one shared non-function resource definition contract.
+
 ## [2026-05-13] maintain | function-index contract backlinks
 
 - During the whole-wiki health pass after adding the canonical function/import/export/code section guide, found module-pass readiness pages that discuss function-index rewrites without linking to the shared imported-prefix section contract.

@@ -16,6 +16,7 @@ sources:
 related:
   - custom-and-name-sections.md
   - data-element-and-datacount-sections.md
+  - type-table-memory-global-tag-sections.md
   - ../validation/moonbit-prove-strategy.md
   - ../binaryen/passes/reorder-functions/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
@@ -28,7 +29,7 @@ related:
 
 This is the canonical Starshine wiki page for the function-index-bearing core module surface: imports, defined-function declarations, exports, start functions, and code bodies. It intentionally sits in `docs/wiki/binary/` rather than under a pass folder because many optimizers and validators need the same section contract.
 
-The WebAssembly Core Specification models imports and definitions as shared index spaces. A function import is not a separate kind of function reference: it occupies the first entries of the function index space, and defined functions come after those imports. The binary format then splits defined functions across two parallel sections:
+The WebAssembly Core Specification models imports and definitions as shared index spaces. A function import is not a separate kind of function reference: it occupies the first entries of the function index space, and defined functions come after those imports. The same imported-prefix rule applies to tables, memories, globals, and tags; see [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for those non-function resource spaces. The binary format then splits defined functions across two parallel sections:
 
 - the **function section** (`id = 3`) stores one type index per defined function;
 - the **code section** (`id = 10`) stores the matching body for each defined function.
@@ -130,6 +131,7 @@ A pass that deletes, merges, reorders, or appends functions must audit all of th
 - `elem_sec` can store legacy function-index payloads and expression payloads containing `ref.func`; see [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md).
 - Global and table initializer expressions can contain `ref.func` declarations that are checked before code validation.
 - `name_sec` and `func_annotation_sec` may be keyed by function index; see [`custom-and-name-sections.md`](custom-and-name-sections.md).
+- Type, table, memory, global, tag, and local string literal pool changes have their own index-carrier checklist in [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md).
 
 Existing pass dossiers that depend on this checklist include:
 

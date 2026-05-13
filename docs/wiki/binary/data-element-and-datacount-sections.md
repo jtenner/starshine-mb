@@ -14,6 +14,7 @@ sources:
   - ../../../src/wast/module_wast_tests.mbt
 related:
   - function-import-export-and-code-sections.md
+  - type-table-memory-global-tag-sections.md
   - custom-and-name-sections.md
   - ../wast/gc-type-authoring.md
   - ../validate/fuzz-hardening.md
@@ -60,7 +61,7 @@ Text data segments in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) acce
 | Active typed expression list | `Elem(Active(tableidx, offset), TypedExprsElemKind(rt, exprs))` | elem header `6`, table index, offset, ref type, expressions | selected table element type must accept the segment ref type. |
 | Declarative typed expression list | `Elem(Declarative, TypedExprsElemKind(rt, exprs))` | elem header `7`, ref type, expressions | no table or offset; expressions still typecheck. |
 
-[`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) are the canonical local code map for these headers. The `FuncExprsElemKind` cases encode through the expression segment headers and synthesize a `funcref` ref type where the binary form requires one. Function-index element payloads use the same imported-prefix absolute `FuncIdx` model as calls, starts, and exports; see [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md).
+[`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) are the canonical local code map for these headers. The `FuncExprsElemKind` cases encode through the expression segment headers and synthesize a `funcref` ref type where the binary form requires one. Function-index element payloads use the same imported-prefix absolute `FuncIdx` model as calls, starts, and exports; see [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md). Active element and data modes also name table and memory index spaces whose imported-prefix rule and validation order are covered in [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md).
 
 ## Data-Count Rules
 
@@ -137,6 +138,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 - **Declarative-mode caveat in WAST lowering.** The core library and binary surfaces support `ElemMode::declarative()`, and generator/validation code exercises it. The WAST parser recognizes `(elem declare func ...)`, but the current WAST `ElemSegment` AST has no explicit mode field, so text-to-lib lowering infers mode from offset emptiness and does not yet preserve declarative mode as a distinct lowered mode. Treat this as a known WAST fidelity gap, not as evidence that Starshine's core representation lacks declarative elements.
 - **Data-count presence and count equality are different checks.** Keep them distinct when adding diagnostics or invalid repros.
 - **Name-section maps are coupled.** Element/data name maps in [`custom-and-name-sections.md`](custom-and-name-sections.md) must be rewritten or cleared whenever segment indices change.
+- **Parent table and memory spaces are separate from segment spaces.** Deleting or reordering a memory/table requires repairing active segment modes in this page plus the parent resource indices documented in [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md).
 
 ## Related Pass And Tooling Notes
 

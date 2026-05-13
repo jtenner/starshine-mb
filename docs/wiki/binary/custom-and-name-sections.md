@@ -15,6 +15,7 @@ sources:
 related:
   - function-import-export-and-code-sections.md
   - data-element-and-datacount-sections.md
+  - type-table-memory-global-tag-sections.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../validate/fuzz-hardening.md
   - ../binaryen/passes/reorder-locals/index.md
@@ -106,6 +107,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **The `0` through `11` subsection span is source-backed.** Do not add new subsection ids without refreshing the primary-source snapshot and extending decode/encode/validation tests together.
 - **Name maps are not uniqueness maps for strings.** Indices must be unique and ordered; name strings themselves may repeat.
 - **Function names depend on absolute function-index stability.** See [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) for the imported-prefix `FuncIdx` model that function name maps describe.
+- **Type/table/memory/global/tag names depend on imported-prefix or definition-order stability.** See [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the shared type and module resource index-space contract.
 - **Element/data names depend on segment-index stability.** See [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) for the canonical segment model that those name maps describe.
 
 ## Sources
