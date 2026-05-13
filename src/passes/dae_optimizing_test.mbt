@@ -2114,6 +2114,38 @@ test "dae-optimizing nested precompute only rewrites touched functions" {
 }
 
 ///|
+test "dae-optimizing nested pick-load-signs only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $f (param i32) (result i32) (local $x i32)
+    #|    i32.const 0
+    #|    i32.load8_u
+    #|    local.set $x
+    #|    local.get $x
+    #|    i32.extend8_s)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 10
+    #|    call $f)
+    #|  (func (export "untouched") (result i32) (local $x i32)
+    #|    i32.const 0
+    #|    i32.load8_u
+    #|    local.set $x
+    #|    local.get $x
+    #|    i32.extend8_s))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected DAE pick-load-signs pipeline success, got \{err}")
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_true(touched.contains("i32.load8s"), msg=touched)
+  assert_false(touched.contains("i32.load8u"), msg=touched)
+  assert_true(untouched.contains("i32.load8u"), msg=untouched)
+}
+
+///|
 fn dae_test_bytes_from_ints(values : Array[Int]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {

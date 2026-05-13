@@ -9730,9 +9730,9 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     // do not run Starshine's full default function pipeline yet. The full
     // Binaryen-equivalent lane still depends on a faster filtered batch runner
     // plus a real `precompute-propagate` port.
-    "dead-code-elimination", "optimize-instructions", "local-cse", "simplify-locals",
-    "code-folding", "precompute", "merge-blocks", "remove-unused-brs", "remove-unused-names",
-    "merge-blocks", "vacuum",
+    "dead-code-elimination", "optimize-instructions", "local-cse", "pick-load-signs",
+    "simplify-locals", "code-folding", "precompute", "merge-blocks", "remove-unused-brs",
+    "remove-unused-names", "merge-blocks", "vacuum",
   ]
 }
 
