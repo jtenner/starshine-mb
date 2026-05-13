@@ -9911,20 +9911,36 @@ fn run_hot_pipeline_apply_local_cse_to_touched(
   touched : Array[Bool],
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
-  ignore(options)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Ok(mod_)
   }
   let params = cl_defined_func_param_cache(mod_)
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let mut rewritten : Array[@lib.Func]? = None
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     if code_idx >= touched.length() || !touched[code_idx] {
       continue
     }
+    let func_idx = @lib.FuncIdx::new(
+      (imported_func_count + code_idx).reinterpret_as_uint(),
+    )
+    pipeline_trace_hook(
+      options.trace,
+      "local-cse",
+      "func",
+      payload="func_idx=\{func_idx}",
+    )
+    pipeline_trace_hook(options.trace, "local-cse", "start")
     let (next_func, changed) = local_cse_run_raw_func_with_params(
       funcs[code_idx],
       params[code_idx],
+    )
+    pipeline_trace_hook(
+      options.trace,
+      "local-cse",
+      "done",
+      payload="changed=\{changed}",
     )
     if changed {
       match rewritten {

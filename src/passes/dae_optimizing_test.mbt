@@ -1831,6 +1831,43 @@ test "dae-optimizing emits nested cleanup trace for touched functions" {
 }
 
 ///|
+test "dae-optimizing traces nested local-cse before simplify-locals" {
+  let source =
+    #|(module
+    #|  (import "env" "use" (func $use (param i32 i32)))
+    #|  (func $f (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add
+    #|    call $use)
+    #|  (func (export "run")
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    i32.const 30
+    #|    call $f))
+  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced DAE success, got \{err}")
+  }
+  let mut local_cse_idx = -1
+  let mut simplify_locals_idx = -1
+  for idx = 0; idx < trace.length(); idx = idx + 1 {
+    if local_cse_idx < 0 && trace[idx].contains("pass[local-cse]:start") {
+      local_cse_idx = idx
+    }
+    if simplify_locals_idx < 0 &&
+      trace[idx].contains("pass[simplify-locals]:start") {
+      simplify_locals_idx = idx
+    }
+  }
+  assert_true(local_cse_idx >= 0, msg=trace.to_string())
+  assert_true(simplify_locals_idx > local_cse_idx, msg=trace.to_string())
+}
+
+///|
 test "dae-optimizing nested cleanup only rewrites touched functions" {
   let source =
     #|(module
