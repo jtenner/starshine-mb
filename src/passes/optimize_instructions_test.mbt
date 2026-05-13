@@ -205,6 +205,45 @@ test "optimize-instructions folds constant true result ifs to the chosen arm" {
 }
 
 ///|
+test "optimize-instructions preserves block-wrapped try_table catch depths in ref locals" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    block
+    #|      try_table (catch_all 0)
+    #|        i32.const 0
+    #|        if
+    #|          ref.null $box
+    #|          local.set 1
+    #|        else
+    #|          ref.null $box
+    #|          local.set 1
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected optimize-instructions try_table ref-local success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions try_table ref-local output to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes i32.eq zero into eqz" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 0 i32.eq))",

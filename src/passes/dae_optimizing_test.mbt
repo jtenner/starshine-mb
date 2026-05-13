@@ -66,6 +66,161 @@ fn dae_test_many_i32_locals(count : Int) -> String {
 }
 
 ///|
+fn dae_test_call_ref_fixture() -> @lib.Module {
+  let call_ref_type = @lib.TypeIdx::new(0U)
+  let f_type = @lib.TypeIdx::new(1U)
+  let run_type = @lib.TypeIdx::new(2U)
+  let call_ref_sig = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let f_sig = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let run_sig = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([call_ref_sig, f_sig, run_sig]))
+  .with_func_sec(@lib.FuncSec::new([call_ref_type, f_type, run_type]))
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+          @lib.Limits::i32(1U, Some(1U)),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::from_types([
+          @lib.ValType::ref_type(
+            @lib.RefType::new(true, @lib.HeapType::new(call_ref_type)),
+          ),
+        ]),
+        @lib.Expr::new([
+          @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::call_ref(call_ref_type),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(99)),
+          @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn dae_test_call_ref_declarative_fixture() -> @lib.Module {
+  let call_ref_type = @lib.TypeIdx::new(0U)
+  let f_type = @lib.TypeIdx::new(1U)
+  let run_type = @lib.TypeIdx::new(2U)
+  let call_ref_sig = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let f_sig = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let run_sig = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([call_ref_sig, f_sig, run_sig]))
+  .with_func_sec(@lib.FuncSec::new([call_ref_type, f_type, run_type]))
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+          @lib.Limits::i32(1U, Some(1U)),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::declarative(),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::from_types([
+          @lib.ValType::ref_type(
+            @lib.RefType::new(true, @lib.HeapType::new(call_ref_type)),
+          ),
+        ]),
+        @lib.Expr::new([
+          @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::call_ref(call_ref_type),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(99)),
+          @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "dae-optimizing is an active module pass under canonical and descriptive names" {
   @debug.assert_eq(
     pass_registry_category("dae-optimizing"),
@@ -2664,6 +2819,120 @@ test "dae-optimizing nested cleanup stays valid on touched tee-driven ref locals
       fail("expected DAE tee-driven ref-local pipeline success, got \{err}")
   }
   @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing nested cleanup stays valid on touched ref.as_non_null local gets" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    ref.null $box
+    #|    local.set 1
+    #|    local.get 1
+    #|    ref.as_non_null
+    #|    drop
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected DAE ref.as_non_null pipeline success, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing nested cleanup stays valid on loop-carried ref locals" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    loop $l
+    #|      ref.null $box
+    #|      local.set 1
+    #|      i32.const 0
+    #|      br_if $l
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE loop ref-local pipeline success, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing nested cleanup stays valid on block-wrapped try_table ref locals" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    block
+    #|      try_table (catch_all 0)
+    #|        ref.null $box
+    #|        local.set 1
+    #|      end
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected DAE block-wrapped try_table pipeline success, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing core output stays valid on touched call_ref ref locals" {
+  let optimized = dae_run_module_pass(
+    dae_test_call_ref_fixture(),
+    optimize=false,
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected non-optimizing DAE call_ref fixture to validate, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 1), [])
+}
+
+///|
+test "dae-optimizing nested cleanup stays valid on touched call_ref ref locals" {
+  let optimized = dae_run_module_pass(
+    dae_test_call_ref_fixture(),
+    optimize=true,
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimizing DAE call_ref fixture to validate, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 1), [])
+}
+
+///|
+test "dae-optimizing nested cleanup stays valid on declarative call_ref ref locals" {
+  let optimized = dae_run_module_pass(
+    dae_test_call_ref_declarative_fixture(),
+    optimize=true,
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected declarative call_ref DAE output to validate, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 1), [])
 }
 
 ///|

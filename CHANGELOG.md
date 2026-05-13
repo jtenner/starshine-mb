@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-13 Fixes: preserve try_table catch depths through HOT lowering
+
+- **fix HOT lowering so `try_table` catch depths are computed relative to the current boundary stack instead of the full active label stack, add a direct `optimize-instructions` regression for block-wrapped ref-local `try_table` cleanup, and extend the DAE002 blocker hunt with passing `ref.as_non_null`, loop-carried, block-wrapped `try_table`, and `call_ref` ref-local regressions plus a backlog note that this inherited HOT-lower bug was one false lead in the local-subtyping investigation** by **@OpenAI**. Updated [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), [`docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md`](./docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-13 Tests: narrow DAE ref-local blocker
 
 - **add focused `dae-optimizing` ref-local regressions that prove the guarded touched-only nested cleanup lane stays valid for simple write-site, tee-driven, and optimize-casts-adjacent touched ref-local shapes, and record in the backlog that the unreproduced future local-subtyping blocker likely lives in a narrower dominated-get or control-flow family** by **@OpenAI**. Updated [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

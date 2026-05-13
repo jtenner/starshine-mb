@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae blocker hunt finds inherited try_table catch-depth lowering bug
+
+- Added focused DAE002 regressions in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) covering `ref.as_non_null(local.get ...)`, loop-carried ref locals, block-wrapped `try_table`, and lib-constructed `call_ref` shapes, which all stay valid under the guarded touched-only nested cleanup lane.
+- While shrinking the control-flow surface, found that the apparent `dae-optimizing` / future-local-subtyping `try_table` blocker was actually an inherited HOT-lower bug: after `optimize-instructions` simplified a ref-local `try_table` body nested under an outer `block`, [`../../src/ir/hot_lower.mbt`](../../src/ir/hot_lower.mbt) lowered catch depths against the full active label stack and rewrote a valid `catch_all 0` into invalid `catch_all 1`.
+- Fixed HOT lowering so label depths respect the current boundary stack, added the direct regression [`../../src/passes/optimize_instructions_test.mbt`](../../src/passes/optimize_instructions_test.mbt) for block-wrapped `try_table` ref-local cleanup, updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md), and revalidated with `moon test src/ir` and `moon test src/passes`.
+
 ## [2026-05-13] passes | dae touched coalesce-locals cleanup
 
 - Added focused `dae-optimizing` regressions in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that prove the guarded nested `coalesce-locals` slot only cleans DAE-touched functions and that the exact nested pass trace order now includes `coalesce-locals` before `reorder-locals`; the touched-only `local-cse` regression was tightened to reflect the current scratch-slot reuse shape (`local.tee (Local 0)`) after the later local cleanup lane.
