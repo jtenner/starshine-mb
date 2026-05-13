@@ -13,6 +13,7 @@ sources:
   - ../../../src/wast/passive_typed_elem_surface_test.mbt
   - ../../../src/wast/module_wast_tests.mbt
 related:
+  - module-section-map.md
   - function-import-export-and-code-sections.md
   - type-table-memory-global-tag-sections.md
   - custom-and-name-sections.md
@@ -28,7 +29,7 @@ related:
 
 ## Overview
 
-Data and element segments are module-level initialization resources, not ordinary function-body instructions:
+Data and element segments are module-level initialization resources, not ordinary function-body instructions. For the whole-module stream order and the reason data-count sits before code on the wire, start with [`module-section-map.md`](module-section-map.md). This page covers:
 
 - **data segments** provide bytes for memories, either at instantiation time (`active`) or later through bulk-memory instructions (`passive`);
 - **element segments** provide reference values for tables, either at instantiation time (`active`), later through table instructions (`passive`), or only as a declared pool of references (`declarative`);

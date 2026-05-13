@@ -14,6 +14,7 @@ sources:
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/binary/tests.mbt
 related:
+  - module-section-map.md
   - custom-and-name-sections.md
   - data-element-and-datacount-sections.md
   - type-table-memory-global-tag-sections.md
@@ -27,7 +28,7 @@ related:
 
 ## Overview
 
-This is the canonical Starshine wiki page for the function-index-bearing core module surface: imports, defined-function declarations, exports, start functions, and code bodies. It intentionally sits in `docs/wiki/binary/` rather than under a pass folder because many optimizers and validators need the same section contract.
+This is the canonical Starshine wiki page for the function-index-bearing core module surface: imports, defined-function declarations, exports, start functions, and code bodies. It intentionally sits in `docs/wiki/binary/` rather than under a pass folder because many optimizers and validators need the same section contract. For the whole-module standard-section order, custom-section placement, and cross-section rewrite checklist, see [`module-section-map.md`](module-section-map.md).
 
 The WebAssembly Core Specification models imports and definitions as shared index spaces. A function import is not a separate kind of function reference: it occupies the first entries of the function index space, and defined functions come after those imports. The same imported-prefix rule applies to tables, memories, globals, and tags; see [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for those non-function resource spaces. The binary format then splits defined functions across two parallel sections:
 

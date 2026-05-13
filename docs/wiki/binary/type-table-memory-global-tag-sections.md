@@ -13,6 +13,7 @@ sources:
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/binary/tests.mbt
 related:
+  - module-section-map.md
   - function-import-export-and-code-sections.md
   - data-element-and-datacount-sections.md
   - custom-and-name-sections.md
@@ -27,7 +28,7 @@ related:
 
 ## Overview
 
-This page is the shared Starshine guide for the core module-definition sections that are not already covered by the function/body, segment, or metadata pages:
+This page is the shared Starshine guide for the core module-definition sections that are not already covered by the function/body, segment, or metadata pages. For the whole-module stream order and cross-section rewrite checklist, see [`module-section-map.md`](module-section-map.md). This page covers:
 
 - **type section**: recursive function, struct, and array type definitions;
 - **table section**: module-defined tables and optional table initializers;

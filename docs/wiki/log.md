@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] binary | module section map
+
+- Added [`raw/wasm/2026-05-13-module-section-order-sources.md`](raw/wasm/2026-05-13-module-section-order-sources.md) after checking current official WebAssembly 3.0 binary, syntax, validation, and custom-section appendix sources for module magic/version bytes, standard-section order, custom-section gaps, imported-prefix index spaces, and validation context construction.
+- Added [`binary/module-section-map.md`](binary/module-section-map.md) as the shared whole-module binary guide for Starshine encode/decode/validation order, section id versus stream-order gotchas, custom/name placement normalization, local `StringRefsSec` caveat, and cross-section rewrite checklists for mutating passes.
+- Cross-linked [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), and [`index.md`](index.md) so section-specific pages have one canonical whole-module entry point.
+
 ## [2026-05-13] maintain | resource-section backlinks and stringrefs caveat
 
 - During the whole-wiki health pass after adding the type/table/memory/global/tag section guide, found pass pages that mentioned type, memory/table, global, or local `stringrefs` section rewrites without linking to the shared resource-section contract.

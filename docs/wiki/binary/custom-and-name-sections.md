@@ -13,6 +13,7 @@ sources:
   - ../../../src/validate/gen_invalid_tests.mbt
   - ../../../src/fuzz/invalid_binary_wbtest.mbt
 related:
+  - module-section-map.md
   - function-import-export-and-code-sections.md
   - data-element-and-datacount-sections.md
   - type-table-memory-global-tag-sections.md
@@ -27,7 +28,7 @@ related:
 
 ## Overview
 
-WebAssembly custom sections are section-id-`0` records that carry a UTF-8 name plus uninterpreted bytes. The core spec treats them as semantically ignored metadata that may appear at any custom-section gap in a binary module. The standardized name section is a special custom section named `name` with ordered subsections for module, function, local, label, type, table, memory, global, element, data, field, and tag names.
+For the whole-module placement and ordering map that ties custom metadata to the standard sections, start with [`module-section-map.md`](module-section-map.md). WebAssembly custom sections are section-id-`0` records that carry a UTF-8 name plus uninterpreted bytes. The core spec treats them as semantically ignored metadata that may appear at any custom-section gap in a binary module. The standardized name section is a special custom section named `name` with ordered subsections for module, function, local, label, type, table, memory, global, element, data, field, and tag names.
 
 Starshine deliberately does **not** keep arbitrary custom sections and the `name` section in one opaque bucket. The in-memory module shape in [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt) splits metadata into:
 
