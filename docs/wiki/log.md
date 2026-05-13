@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] ir2 | registry and execution-plan source reconciliation
+
+- Refreshed the canonical IR2 registry and execution handoff docs (`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`, `docs/0065-2026-03-24-ir2-execution-plan.md`, `docs/wiki/ir2/registry-map.md`, and `docs/wiki/ir2/execution-plan.md`) against live repository evidence in `src/passes/optimize.mbt`, `src/passes/registry_test.mbt`, `src/passes/optimize_test.mbt`, and `src/ir/README.md`.
+- Replaced stale March-batch claims with the current hot/module pass categories, exact shared `optimize` / `shrink` preset sequence, the remaining removed-name list, and the rule that boundary-only names need separate module/type/ABI contracts before being treated as pass ports.
+- Updated `docs/wiki/index.md` so the IR2 catalog entries point readers at the refreshed live-registry and migration-gap framing. No external source was needed: the target was Starshine-internal registry behavior, and the in-tree registry plus tests are the primary source of truth.
+
 ## [2026-05-13] passes | DAE002 touched heap2local cleanup
 
 - Extended the guarded small-module `dae-optimizing` nested cleanup slice from `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` to `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> heap2local -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` while preserving the touched-function filter.

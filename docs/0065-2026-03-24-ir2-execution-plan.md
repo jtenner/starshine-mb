@@ -2,9 +2,9 @@
 
 ## Scope
 
-- Make one canonical handoff document for the rebuilt IR2 optimizer leg.
-- Point future agents at the architecture, CFG, SSA, pass-porting, registry, and test-matrix docs that now govern continued work.
-- Record the next slice order and the minimum validation required for every future IR2 change.
+- Keep one canonical handoff document for the rebuilt IR2 optimizer leg.
+- Point future agents at the architecture, CFG, SSA, pass-porting, registry, and test-matrix docs that govern continued work.
+- Record the current live pass surface, preset expansion, and minimum validation expected for future IR2 changes.
 
 ## Canonical References
 
@@ -18,35 +18,62 @@
 ## Current State
 
 - `HotFunc` is the only owned optimizer body representation.
-- CFG, dominance, post-dominance, loop info, use-def, liveness, effects, and local SSA exist as revision-keyed overlays.
-- The hot pass pipeline is real and public: `lift -> verify -> run passes -> verify -> lower -> validate`.
-- Pipeline perf instrumentation now exists for opt-in timings, counters, checkpoints, and lightweight dumps.
-- The active registry surface is still intentionally small:
-  - module passes: `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, `remove-unused-module-elements`
-  - hot passes: `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`, `tuple-optimization`
-  - presets: `optimize`, `shrink`
-- `optimize` and `shrink` now expand to the implemented mixed batch-1 module + hot sequence with all currently-modeled RUN slots replayed:
-  `memory-packing -> once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> vacuum -> remove-unused-brs -> optimize-instructions -> heap-store-optimization -> pick-load-signs -> precompute -> remove-unused-brs -> heap2local -> simplify-locals -> precompute -> remove-unused-names`.
-- `reorder-locals` is active as an explicit module pass, but it still stays out of both presets until its neighboring local-pass slots can be modeled honestly.
-- Legacy pass names remain categorized as `boundary-only` or `removed` in the registry for diagnostics, but they are not active help-surface entries.
-- CLI tooling and the fuzz harness now use real pass-name arrays; the deleted `ModulePass` compatibility shim is gone.
-- `agent-todo.md` is now the active-only backlog again. If future IR2 work resumes, add the next slice id there before landing code.
+- CFG, traversal orders, dominance, post-dominance, loop info, use-def, liveness, effects, and local SSA exist as revision-keyed overlays.
+- The public optimizer runner expands requested hot passes, module passes, and presets, then executes them through the real pipeline:
+  `lift -> verify -> analyze -> mutate -> verify -> lower -> validate`.
+- Pipeline perf instrumentation exists for opt-in timings, counters, checkpoints, and lightweight dumps.
+- Legacy pass names remain categorized as `boundary-only` or `removed` for diagnostics, but they are not accepted as silent no-ops.
+- CLI tooling and the fuzz harness use real pass-name arrays; the deleted `ModulePass` compatibility shim is gone.
+- `agent-todo.md` is active-only backlog. If future IR2 work resumes, add the next slice id there before landing behavior changes.
 
-## Next Slice Order
+## Current Active Surface
 
-- If pass migration resumes, start from the batch intent in [`0063-2026-03-24-pass-port-batches-and-registry-map.md`](./0063-2026-03-24-pass-port-batches-and-registry-map.md).
-- Preferred implementation order from the current state:
-  1. Batch 2 control and cleanup passes: `flatten`, `merge-blocks`, `re-reloop`, `redundant-set-elimination`, `optimize-casts`
-  2. Batch 3 dataflow-sensitive passes: `local-subtyping`, `loop-invariant-code-motion`
-  3. `tuple-optimization` is already implemented as an explicit hot pass and no longer part of the pending batch migration path; it remains out of presets while slot-mapping matures.
-- If a pass needs a new IR rule or overlay contract before implementation, land the contract/ADR update first in `docs/` and then add the new slice to `agent-todo.md`.
-- Keep one atomic slice per coherent dependency step; do not mix architecture contracts, pass ports, and follow-up cleanup in one commit unless the dependency is inseparable.
+### Active hot passes
+
+`ssa-nomerge`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-blocks`, and `redundant-set-elimination`.
+
+### Active module passes
+
+`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `string-gathering`, `reorder-globals`, and `directize`.
+
+### Active presets
+
+`optimize` and `shrink` currently expand to the same implemented module + hot sequence:
+
+```text
+memory-packing -> once-reduction -> global-refining -> global-struct-inference ->
+ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs ->
+remove-unused-names -> vacuum -> remove-unused-brs -> optimize-instructions ->
+heap-store-optimization -> pick-load-signs -> precompute -> code-pushing ->
+tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals ->
+remove-unused-brs -> heap2local -> optimize-casts -> local-subtyping ->
+coalesce-locals -> local-cse -> simplify-locals -> merge-blocks ->
+remove-unused-brs -> remove-unused-names -> merge-blocks -> precompute ->
+optimize-instructions -> heap-store-optimization
+```
+
+The sequence is intentionally conservative about incomplete neighborhoods: `simplify-locals-notee-nostructure` is runnable explicitly, but omitted from presets until its exact `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood is available.
+
+## Current Migration Gaps
+
+The original March Batch 1/2/3 labels are now partly historical. Use the live registry first, then the original batch map only as context.
+
+- Remaining removed hot/local names: `const-hoisting`, `dataflow-optimization`, `loop-invariant-code-motion`, `flatten`, `re-reloop`, `optimize-added-constants`, `optimize-added-constants-propagate`, `precompute-propagate`, `de-nan`, `simplify-locals-no-tee`, `simplify-locals-no-tee-no-structure`, and `simplify-locals-no-nesting`.
+- Boundary-only module/type/ABI names need dedicated module/type rewrite contracts before they can be treated as active pass-port slices.
+- The highest-confidence next step before any remaining port is source reconciliation: update the affected pass folder, registry map, active backlog slice, tests, and preset policy together.
+
+## Future Slice Order Guidance
+
+1. If a pass needs a new IR rule or overlay contract, land that contract/ADR update first in `docs/`, then add the slice to `agent-todo.md`.
+2. If a removed pass is revived, start with the smallest runnable explicit-pass slice and keep it out of presets until its neighboring Binaryen slot is source-confirmed and fuzz/signoff evidence is recorded.
+3. If a boundary-only pass is revived, design the module/type/ABI mutation contract before implementing rewrites; do not force it into a single-function hot-pass shape just to fit the old batch map.
+4. Keep one atomic slice per coherent dependency step; do not mix architecture contracts, pass ports, preset scheduling, and follow-up cleanup unless the dependency is inseparable.
 
 ## Minimum Validation Per Slice
 
 - Write or adjust the failing test first.
 - Run the narrowest relevant package tests while iterating.
-- Before commit, run:
+- Before commit for behavior or API changes, run:
   - `moon info`
   - `moon fmt`
   - `bun validate readme-api-sync`
@@ -64,5 +91,6 @@
 
 ## Open Questions
 
-- When more than one real hot pass exists, whether CLI tracing levels should become materially distinct instead of remaining mostly pass-surface aliases.
-- Whether future pass ports should stay one-pass-per-slice or whether some tightly-coupled passes should move in paired batches once shared rewrite helpers stabilize.
+- When `optimize` and `shrink` should materially diverge.
+- Whether module-shaped active passes should become more visible in help output or stay primarily discoverable through registry/fuzz tooling.
+- Which remaining removed names are worth reviving versus leaving as explicit diagnostic-only registry entries.

@@ -1,54 +1,81 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-11
+last_reviewed: 2026-05-13
 sources:
   - ../../0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../src/passes/optimize.mbt
+  - ../../../src/passes/registry_test.mbt
+  - ../../../src/passes/optimize_test.mbt
 related:
   - ./execution-plan.md
-  - ../../../src/passes/optimize.mbt
-  - ../../../src/passes/optimize_test.mbt
-  - ../../../src/passes/registry_test.mbt
+  - ./pass-porting-checklist.md
+  - ../../../src/passes/pass_manager.mbt
 ---
 
 # IR2 Registry Map
 
 ## Durable Conclusions
 
-- The exact live optimizer surface comes from the current registry and preset code, not from historical flag lists alone.
+- The exact live optimizer surface comes from [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), not from historical flag lists alone.
 - The registry keeps five explicit categories:
   - active hot passes
   - active module passes
   - active presets
   - boundary-only names
   - removed names
-- Boundary-only and removed names stay known for diagnostics and planning, but they are not silent no-ops.
+- Active hot passes and active module passes are both accepted by the public requested-pass expansion path.
+- Boundary-only and removed names stay known for diagnostics and planning, but `run_hot_pipeline` rejects them with explicit errors instead of silently treating them as no-ops.
+- Help output intentionally lists hot passes and presets; do not infer that every runnable module pass is in the help roster.
 
 ## Current Live Surface
 
-- Active hot passes currently include:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`, and `tuple-optimization`.
-- Active module passes currently include:
-  `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, and `remove-unused-module-elements`.
-- Active presets are still `optimize` and `shrink`.
-- `optimize` and `shrink` currently expand to the same implemented pass list, including the extra `remove-unused-brs` replay before `heap2local` and the two `precompute` slots.
-- `reorder-locals` is active as an explicit module pass but still stays out of both presets until its neighboring local-pass slots can be modeled honestly.
+### Active hot passes
 
-## Current In-Tree Status
+These have `HotPass` category and a hot descriptor where applicable:
 
-- The numbered root doc and the live registry now agree on the active categories and preset expansion.
-- The registry truth lives in [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt).
-- Category and preset coverage live in [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt) and [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
-- [`./execution-plan.md`](./execution-plan.md) remains the handoff page for slice order and pipeline orientation, but it is not the exact per-flag registry inventory.
+`ssa-nomerge`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-blocks`, and `redundant-set-elimination`.
+
+### Active module passes
+
+These have `ModulePass` category and are runnable through the same pass request path, but apply module-level logic or module-shaped adapters:
+
+`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `string-gathering`, `reorder-globals`, and `directize`.
+
+### Active presets
+
+`optimize` and `shrink` currently expand to the same implemented sequence:
+
+```text
+memory-packing -> once-reduction -> global-refining -> global-struct-inference ->
+ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs ->
+remove-unused-names -> vacuum -> remove-unused-brs -> optimize-instructions ->
+heap-store-optimization -> pick-load-signs -> precompute -> code-pushing ->
+tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals ->
+remove-unused-brs -> heap2local -> optimize-casts -> local-subtyping ->
+coalesce-locals -> local-cse -> simplify-locals -> merge-blocks ->
+remove-unused-brs -> remove-unused-names -> merge-blocks -> precompute ->
+optimize-instructions -> heap-store-optimization
+```
+
+The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the single `reorder-locals` preset slot, repeated `remove-unused-brs`, repeated `merge-blocks`, and repeated `precompute`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
+
+## Boundary-Only And Removed Behavior
+
+- Boundary-only names are recognized but rejected as not implemented in the hot pipeline. Examples include the closed-world type/signature families (`type-refining`, `signature-pruning`, `unsubtyping`, `reorder-types`) and broader ABI/layout families (`alignment-lowering`, `i64-to-i32-lowering`, `reorder-functions`).
+- Removed names are recognized but rejected as absent from the active hot pipeline registry. Current removed examples include `flatten`, `re-reloop`, `loop-invariant-code-motion`, `const-hoisting`, `dataflow-optimization`, `precompute-propagate`, `de-nan`, and legacy `simplify-locals-no-tee*` variants.
+- The original March batch map is now partially stale because many former Batch 2/3 names have since landed as hot or module passes. Treat [`../../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../0063-2026-03-24-pass-port-batches-and-registry-map.md) as a refreshed planning map, not a reason to ignore live code.
 
 ## Practical Rule
 
 - When the question is "can I run this pass or preset now," trust the live registry and its tests.
-- Keep legacy names explicit for diagnostics.
-- Do not silently accept missing hot ports as no-ops.
+- When adding a pass, update category tests before docs.
+- When scheduling a pass into `optimize` or `shrink`, add slot-level tests that prove its neighborhood and repeated-pass count.
+- Keep legacy names explicit for diagnostics; never reintroduce silent no-op acceptance.
 
 ## Sources
 
-- Numbered research doc: [`../../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- Live registry: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
+- Refreshed registry map: [`../../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- Live registry and preset expansion: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
 - Registry coverage: [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt)
+- Preset slot coverage: [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt)
