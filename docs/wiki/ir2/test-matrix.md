@@ -6,13 +6,18 @@ sources:
   - ../../0064-2026-03-24-ir2-test-matrix.md
   - ../../../src/ir/test_helpers.mbt
   - ../../../src/ir/test_helpers_test.mbt
-  - ../../../src/ir/analysis_cache_test.mbt
+  - ../../../src/ir/cfg_test.mbt
+  - ../../../src/ir/cfg_contract_test.mbt
   - ../../../src/ir/cfg_order_test.mbt
+  - ../../../src/ir/dominators_test.mbt
   - ../../../src/ir/postdominators_test.mbt
   - ../../../src/ir/loop_info_test.mbt
   - ../../../src/ir/use_def_test.mbt
+  - ../../../src/ir/liveness_test.mbt
   - ../../../src/ir/effects_test.mbt
+  - ../../../src/ir/ssa_local_test.mbt
   - ../../../src/ir/ssa_destroy_test.mbt
+  - ../../../src/ir/analysis_cache_test.mbt
   - ../../../src/passes/pass_test_helpers.mbt
   - ../../../src/passes/trace_golden_test.mbt
 related:
@@ -128,5 +133,5 @@ For behavior or public API changes, use the repo validation floor from [`../../R
 
 - Numbered handoff doc: [`../../0064-2026-03-24-ir2-test-matrix.md`](../../0064-2026-03-24-ir2-test-matrix.md)
 - Shared IR helpers: [`../../../src/ir/test_helpers.mbt`](../../../src/ir/test_helpers.mbt), [`../../../src/ir/test_helpers_test.mbt`](../../../src/ir/test_helpers_test.mbt)
-- Analysis and cache evidence: [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt), [`../../../src/ir/cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt), [`../../../src/ir/postdominators_test.mbt`](../../../src/ir/postdominators_test.mbt), [`../../../src/ir/loop_info_test.mbt`](../../../src/ir/loop_info_test.mbt), [`../../../src/ir/use_def_test.mbt`](../../../src/ir/use_def_test.mbt), [`../../../src/ir/effects_test.mbt`](../../../src/ir/effects_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt)
+- Analysis and cache evidence: [`../../../src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt), [`../../../src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), [`../../../src/ir/cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt), [`../../../src/ir/dominators_test.mbt`](../../../src/ir/dominators_test.mbt), [`../../../src/ir/postdominators_test.mbt`](../../../src/ir/postdominators_test.mbt), [`../../../src/ir/loop_info_test.mbt`](../../../src/ir/loop_info_test.mbt), [`../../../src/ir/use_def_test.mbt`](../../../src/ir/use_def_test.mbt), [`../../../src/ir/liveness_test.mbt`](../../../src/ir/liveness_test.mbt), [`../../../src/ir/effects_test.mbt`](../../../src/ir/effects_test.mbt), [`../../../src/ir/ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt), [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
 - Shared pass helpers and trace golden: [`../../../src/passes/pass_test_helpers.mbt`](../../../src/passes/pass_test_helpers.mbt), [`../../../src/passes/trace_golden_test.mbt`](../../../src/passes/trace_golden_test.mbt)

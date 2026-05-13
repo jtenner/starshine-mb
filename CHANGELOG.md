@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-13 Docs: tighten IR2 test-matrix citations
+
+- **add the missing direct IR2 test-source citations to the refreshed test-matrix page so each coverage row points at concrete CFG, dominance, liveness, local-SSA, analysis-cache, pass-helper, or trace evidence from the page itself** by **@OpenAI**. Updated [`docs/wiki/ir2/test-matrix.md`](./docs/wiki/ir2/test-matrix.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-13 Docs: refresh IR2 test matrix
 
 - **reconcile the IR2 test-matrix wiki and handoff doc with the current in-tree helper/test surface, expanding the documented coverage from lift/CFG/dominance/liveness/SSA/lower/trace basics to traversal order, post-dominance, loop info, use-def, effects, SSA destruction, analysis-cache reuse/rebuild, public pass execution, and trace capture guidance** by **@OpenAI**. Updated [`docs/0064-2026-03-24-ir2-test-matrix.md`](./docs/0064-2026-03-24-ir2-test-matrix.md), [`docs/wiki/ir2/test-matrix.md`](./docs/wiki/ir2/test-matrix.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

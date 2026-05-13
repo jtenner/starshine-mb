@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | IR2 test-matrix citation hygiene
+
+- During the whole-wiki health pass after the IR2 test-matrix refresh, found the refreshed table cited broader IR2 coverage rows than the page frontmatter and source list explicitly named.
+- Added the missing direct test-source citations to [`ir2/test-matrix.md`](ir2/test-matrix.md) for CFG shape/contract, dominance, liveness, local SSA, and analysis-cache evidence so every matrix row has a local source path from the page itself.
+
 ## [2026-05-13] ir2 | test matrix source reconciliation
 
 - Refreshed [`ir2/test-matrix.md`](ir2/test-matrix.md) and the handoff source [`../0064-2026-03-24-ir2-test-matrix.md`](../0064-2026-03-24-ir2-test-matrix.md) against current repository evidence in [`src/ir/test_helpers.mbt`](../../src/ir/test_helpers.mbt), [`src/ir/test_helpers_test.mbt`](../../src/ir/test_helpers_test.mbt), [`src/ir/analysis_cache_test.mbt`](../../src/ir/analysis_cache_test.mbt), [`src/ir/cfg_order_test.mbt`](../../src/ir/cfg_order_test.mbt), [`src/ir/postdominators_test.mbt`](../../src/ir/postdominators_test.mbt), [`src/ir/loop_info_test.mbt`](../../src/ir/loop_info_test.mbt), [`src/ir/use_def_test.mbt`](../../src/ir/use_def_test.mbt), [`src/ir/effects_test.mbt`](../../src/ir/effects_test.mbt), [`src/ir/ssa_destroy_test.mbt`](../../src/ir/ssa_destroy_test.mbt), [`src/passes/pass_test_helpers.mbt`](../../src/passes/pass_test_helpers.mbt), and [`src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt).
