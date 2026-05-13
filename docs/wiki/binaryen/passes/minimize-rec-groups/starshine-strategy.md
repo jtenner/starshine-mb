@@ -92,7 +92,7 @@ That map is the durable local status today: the pass is known, intentionally una
 
 ## Why this is not a HOT peephole
 
-Binaryen's `minimize-rec-groups` changes the module's type section and every affected type use.
+Binaryen's `minimize-rec-groups` changes the module's type section and every affected type use. The shared Starshine type-section and type-index carrier checklist lives in [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md).
 The transformed shapes are written as WAT type declarations, not expression trees inside a single function.
 A faithful Starshine port would need to reason over:
 

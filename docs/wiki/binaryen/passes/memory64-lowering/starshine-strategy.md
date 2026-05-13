@@ -115,7 +115,7 @@ Recommended implementation phases:
 
 A HOT-only pass would miss:
 
-- memory/table section declarations;
+- memory/table section declarations, with the shared resource-index rules in [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md);
 - active data segment offsets;
 - active element segment offsets;
 - binary encoding consequences of limit-width changes;

@@ -150,7 +150,7 @@ After initializer seeding and HOT-side write collection, `global_refining_run_mo
 - the refined type differs from the old one
 - the refined type matches the old one as a subtype under the local validator
 
-Then it rebuilds the global section with the narrower declaration.
+Then it rebuilds the global section with the narrower declaration. Use [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md) as the shared checklist for global-section validation order, `GlobalIdx` carriers, exports, and name maps.
 
 Important negative fact:
 

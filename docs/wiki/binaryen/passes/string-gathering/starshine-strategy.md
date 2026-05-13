@@ -131,9 +131,9 @@ That map is the main practical value of this page: readers can now jump directly
 
 With the pass owner file now landed, the repo has the key implementation pieces in place.
 
-### 1. Stable `string.const` / `stringrefs` roundtrip plumbing
+### 1. Stable `string.const` / local `stringrefs` roundtrip plumbing
 
-The encoder and decoder already preserve literal identity through the real binary stringrefs section.
+The encoder and decoder already preserve literal identity through Starshine's implemented binary `stringrefs` section. Treat that section as a local/proposal-facing surface rather than stable core WebAssembly: the canonical caveat and section-id map now live in [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md).
 
 The key code points are:
 
@@ -154,7 +154,7 @@ The repo already has focused tests proving that string literals survive the curr
 - [`src/wast/lower_to_lib.mbt#L7238-L7262`](../../../../../src/wast/lower_to_lib.mbt#L7238-L7262)
   - WAST lowering keeps `string.const` literals intact
 - [`src/binary/tests.mbt#L1817-L1854`](../../../../../src/binary/tests.mbt#L1817-L1854)
-  - binary encode/decode roundtrip preserves `string.const` literals and the stringrefs section
+  - binary encode/decode roundtrip preserves `string.const` literals and Starshine's local `stringrefs` section
 
 Those tests matter for a future pass because Binaryen `string-gathering` deduplicates by literal payload.
 If Starshine loses literal identity earlier, the later pass cannot match the upstream contract.

@@ -73,7 +73,7 @@ These are prerequisites, not a pass implementation.
 | `src/wast/lower_to_lib.mbt:1299-1309` and `src/wast/lower_to_lib.mbt:2389-2399` | Lowers parsed WAT string opcodes into `@lib.Instruction` values |
 | `src/validate/typecheck.mbt` | Typechecks current local string operations |
 | `src/validate/validate.mbt` | Tracks string surfaces in validation feature facts |
-| `src/binary/encode.mbt` | Encodes `string.const` through the module stringrefs pool |
+| `src/binary/encode.mbt` | Encodes `string.const` through the module stringrefs pool; see the local section-id caveat in [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md) |
 | `src/binary/decode.mbt` | Decodes `string.const` indices back to literal payloads |
 | `src/ir/hot_lift.mbt:768-775` and `src/ir/hot_lift.mbt:1291-1293` | Lifts current local string ops and `StringConst` payloads into HOT form |
 | `src/ir/hot_lower.mbt:185-197` | Lowers HOT string constants back to `@lib.Instruction::string_const(...)` |

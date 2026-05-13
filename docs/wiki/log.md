@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | resource-section backlinks and stringrefs caveat
+
+- During the whole-wiki health pass after adding the type/table/memory/global/tag section guide, found pass pages that mentioned type, memory/table, global, or local `stringrefs` section rewrites without linking to the shared resource-section contract.
+- Added backlinks from [`binaryen/passes/multi-memory-lowering/starshine-strategy.md`](binaryen/passes/multi-memory-lowering/starshine-strategy.md), [`binaryen/passes/memory64-lowering/starshine-strategy.md`](binaryen/passes/memory64-lowering/starshine-strategy.md), [`binaryen/passes/global-refining/starshine-hot-ir-strategy.md`](binaryen/passes/global-refining/starshine-hot-ir-strategy.md), [`binaryen/passes/minimize-rec-groups/starshine-strategy.md`](binaryen/passes/minimize-rec-groups/starshine-strategy.md), [`binaryen/passes/reorder-types/starshine-port-readiness-and-validation.md`](binaryen/passes/reorder-types/starshine-port-readiness-and-validation.md), [`binaryen/passes/string-gathering/starshine-strategy.md`](binaryen/passes/string-gathering/starshine-strategy.md), and [`binaryen/passes/string-lifting/starshine-strategy.md`](binaryen/passes/string-lifting/starshine-strategy.md) to [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md).
+- Clarified that Starshine's `stringrefs` roundtrip plumbing is implemented locally but should not be described as a stable core WebAssembly section until upstream sources define the section id.
+
 ## [2026-05-13] binary | type/table/memory/global/tag section guide
 
 - Added [`raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) after checking current official WebAssembly 3.0 syntax, validation, and binary module sources plus the js-string-builtins draft module page for type, table, memory, global, tag, and string literal pool section coverage.

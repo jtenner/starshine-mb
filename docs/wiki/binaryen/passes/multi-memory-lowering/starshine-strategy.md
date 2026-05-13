@@ -91,7 +91,7 @@ So today's correct user-facing description is:
 
 A HOT-only pass would miss essential state:
 
-- the memory section has to shrink to one combined memory;
+- the memory section has to shrink to one combined memory, following the parent memory-index contract in [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md);
 - data segments have to be retargeted and shifted;
 - memory exports may need repair;
 - helper globals must be added;

@@ -108,7 +108,7 @@ For every active slice, require:
 - Do not treat `reorder-types` as a HOT peephole
 - Do not merge it into `remove-unused-types`
 - Do not collapse it into `minimize-rec-groups`
-- Do not skip the full rewrite surface after only changing the type section
+- Do not skip the full rewrite surface after only changing the type section; use [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md) as the shared type-section and type-use carrier checklist.
 
 ## Cross-links
 
