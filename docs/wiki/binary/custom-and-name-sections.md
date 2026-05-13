@@ -13,6 +13,7 @@ sources:
   - ../../../src/validate/gen_invalid_tests.mbt
   - ../../../src/fuzz/invalid_binary_wbtest.mbt
 related:
+  - data-element-and-datacount-sections.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../validate/fuzz-hardening.md
   - ../binaryen/passes/reorder-locals/index.md
@@ -103,6 +104,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **Raw name payload reuse is conditional.** Preserve it only when no pass or API call has structurally rewritten names or referenced index spaces.
 - **The `0` through `11` subsection span is source-backed.** Do not add new subsection ids without refreshing the primary-source snapshot and extending decode/encode/validation tests together.
 - **Name maps are not uniqueness maps for strings.** Indices must be unique and ordered; name strings themselves may repeat.
+- **Element/data names depend on segment-index stability.** See [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) for the canonical segment model that those name maps describe.
 
 ## Sources
 

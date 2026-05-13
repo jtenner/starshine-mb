@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] binary | data/element/data-count section guide
+
+- Added [`raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](raw/wasm/2026-05-13-data-element-and-datacount-sources.md) after checking current official WebAssembly 3.0 syntax, validation, binary, and text module sources for data segments, element segments, data-count section presence, binary section ids, and segment header families.
+- Added [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md) as the canonical Starshine guide for `ElemMode` / `ElemKind` / `DataMode`, WAST parse/lower behavior, active/passive/declarative segment contracts, data-count validation, pass obligations, and fuzzing hooks.
+- Cross-linked [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so segment-index metadata, GC typed element authoring, valid-generator floors, and invalid data-count lanes point at one canonical segment page.
+
 ## [2026-05-13] maintain | custom/name metadata backlinks
 
 - During the whole-wiki health pass after adding the custom/name section guide, found related generator, fuzz-hardening, and strip-target-features pages that mentioned name/custom metadata without linking to the new canonical binary metadata page.
