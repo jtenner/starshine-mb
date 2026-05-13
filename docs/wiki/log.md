@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | fuzz wrapper split cross-link
+
+- During the whole-wiki health pass after the fuzz-runner refresh, found [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and the [`index.md`](index.md) catalog still phrased the invalid-repro CLI path broadly enough to be misread as part of the Bun wrapper surface.
+- Clarified that `--emit-invalid-repro` is a Moon-owned fuzz CLI command while `bun fuzz run` forwards the ordinary discovery/run surface plus `--emit-gen-valid-batch`, and added the runner page as the canonical cross-link for command-shape details.
+
 ## [2026-05-13] tooling | fuzz runner command contract refresh
 
 - Refreshed [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) against current repository evidence in [`src/fuzz/main.mbt`](../../src/fuzz/main.mbt), [`src/fuzz/main_wbtest.mbt`](../../src/fuzz/main_wbtest.mbt), [`src/fuzz/invalid_repro.mbt`](../../src/fuzz/invalid_repro.mbt), [`scripts/lib/fuzz-task.ts`](../../scripts/lib/fuzz-task.ts), [`scripts/lib/pass-fuzz-compare-task.ts`](../../scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/task-family-commands.ts`](../../scripts/test/task-family-commands.ts).
