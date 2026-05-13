@@ -51,6 +51,8 @@ The fastest read-along path through the current Starshine status is:
     - plans imported-function duplicate buckets, first-import-wins canonicalization, and defined-function index shifts
   - [`src/passes/duplicate_import_elimination.mbt#L414-L584`](../../../../../src/passes/duplicate_import_elimination.mbt#L414-L584)
     - rewrites function-name users, metadata, module-code expressions, and removes duplicate imported-function declarations
+  - [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md)
+    - shared imported-prefix function-index section contract that explains why removing function imports shifts every later defined `FuncIdx`
 - active module-pass registry status
   - [`src/passes/optimize.mbt#L246`](../../../../../src/passes/optimize.mbt#L246)
     - `pass_registry_entries()` includes `"duplicate-import-elimination"` as a module pass

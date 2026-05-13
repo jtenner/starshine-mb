@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | function-index contract backlinks
+
+- During the whole-wiki health pass after adding the canonical function/import/export/code section guide, found module-pass readiness pages that discuss function-index rewrites without linking to the shared imported-prefix section contract.
+- Added backlinks from [`binaryen/passes/reorder-functions-by-name/starshine-strategy.md`](binaryen/passes/reorder-functions-by-name/starshine-strategy.md), [`binaryen/passes/legalize-js-interface/starshine-port-readiness-and-validation.md`](binaryen/passes/legalize-js-interface/starshine-port-readiness-and-validation.md), [`binaryen/passes/duplicate-import-elimination/starshine-strategy.md`](binaryen/passes/duplicate-import-elimination/starshine-strategy.md), and [`binaryen/passes/remove-unused/starshine-port-readiness-and-validation.md`](binaryen/passes/remove-unused/starshine-port-readiness-and-validation.md) to [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md) so future ABI/import-removal/function-ordering plans reuse one function-index checklist.
+
 ## [2026-05-13] binary | function/import/export/code section guide
 
 - Added [`raw/wasm/2026-05-13-function-import-export-section-sources.md`](raw/wasm/2026-05-13-function-import-export-section-sources.md) after checking current official WebAssembly 3.0 syntax, validation, binary, and text module sources for function index spaces, imports, defined-function signatures/bodies, exports, start functions, code sections, and the official `ref.func` declaration source set.

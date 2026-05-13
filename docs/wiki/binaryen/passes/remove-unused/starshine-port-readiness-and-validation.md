@@ -96,7 +96,7 @@ First slice should be analyzer-only:
 Mutation slice should then:
 
 1. delete unreachable defined functions;
-2. remap function indices in code, exports, start, element segments, tables, names, and any local function-index metadata;
+2. remap function indices in code, exports, start, element segments, tables, names, and any local function-index metadata; use [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md) as the shared `FuncIdx` / `FuncSec` / `CodeSec` checklist;
 3. preserve imports or choose a separate imported-function policy explicitly;
 4. validate the module after mutation.
 

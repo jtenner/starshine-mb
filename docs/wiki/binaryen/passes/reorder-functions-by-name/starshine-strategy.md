@@ -48,7 +48,7 @@ So the safe user-facing statement is:
 
 Binaryen's pass sorts the module-level function declaration list. That is outside Starshine's current HOT function-body pass model.
 
-A future port would need to mutate whole-module section order and rewrite all numeric function-index users. It should therefore be designed as a module pass, closer to [`../remove-unused-module-elements/starshine-hot-ir-strategy.md`](../remove-unused-module-elements/starshine-hot-ir-strategy.md) and [`../reorder-functions/starshine-strategy.md`](../reorder-functions/starshine-strategy.md) than to a HOT peephole.
+A future port would need to mutate whole-module section order and rewrite all numeric function-index users. It should therefore be designed as a module pass, closer to [`../remove-unused-module-elements/starshine-hot-ir-strategy.md`](../remove-unused-module-elements/starshine-hot-ir-strategy.md) and [`../reorder-functions/starshine-strategy.md`](../reorder-functions/starshine-strategy.md) than to a HOT peephole. The shared imported-prefix function-index section contract is summarized in [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md).
 
 ## Starshine surfaces a future port must update
 

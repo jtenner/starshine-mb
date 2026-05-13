@@ -41,7 +41,7 @@ The existing dossier already explains what Binaryen does, but a future Starshine
 - what should be validated before deleting original imports or adding prune mode?
 
 The answer is that `legalize-js-interface` should be treated as a **module ABI rewrite**, not a HOT peephole.
-A faithful port must update function types, imports, defined functions, exports, direct calls, and `ref.func` references as one coherent function-index rewrite.
+A faithful port must update function types, imports, defined functions, exports, direct calls, and `ref.func` references as one coherent function-index rewrite. Use [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md) as the shared imported-prefix `FuncIdx` / `FuncSec` / `CodeSec` checklist before introducing wrapper functions or deleting original imports.
 
 ## Current Starshine status to preserve until implementation
 
