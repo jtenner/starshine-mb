@@ -57,6 +57,15 @@ fn dae_test_defined_func(mod_ : @lib.Module, def_idx : Int) -> @lib.Func {
 }
 
 ///|
+fn dae_test_many_i32_locals(count : Int) -> String {
+  let out = StringBuilder::new()
+  for i = 0; i < count; i = i + 1 {
+    out.write_string(" (local i32)")
+  }
+  out.to_string()
+}
+
+///|
 test "dae-optimizing is an active module pass under canonical and descriptive names" {
   @debug.assert_eq(
     pass_registry_category("dae-optimizing"),
@@ -1863,6 +1872,25 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
     "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=vacuum",
   ])
+}
+
+///|
+test "dae-optimizing traces oversized touched-function nested cleanup skip" {
+  let source = "(module (func $f (param i32)" +
+    dae_test_many_i32_locals(129) +
+    " nop) (func (export \"run\") i32.const 1 call $f))"
+  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced oversized DAE success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-function touched=2",
+      )
+    }),
+    msg=trace.to_string(),
+  )
 }
 
 ///|

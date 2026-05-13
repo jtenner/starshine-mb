@@ -9962,14 +9962,14 @@ fn run_hot_pipeline_apply_local_cse_to_touched(
 }
 
 ///|
-fn run_hot_pipeline_dae_nested_cleanup_touched_too_large(
+fn run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
   mod_ : @lib.Module,
   touched : Array[Bool],
-) -> Bool {
+) -> String? {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       if funcs.length() > 100 {
-        return true
+        return Some("large-module")
       }
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         if code_idx >= touched.length() || !touched[code_idx] {
@@ -9978,12 +9978,12 @@ fn run_hot_pipeline_dae_nested_cleanup_touched_too_large(
         let @lib.Func(locals, @lib.Expr(body)) = funcs[code_idx]
         let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
         if locals.length() > 128 || instr_count > 1000 {
-          return true
+          return Some("large-touched-function")
         }
       }
-      false
+      None
     }
-    None => false
+    None => None
   }
 }
 
@@ -10000,13 +10000,20 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   (options.trace)(
     "pass[dae-optimizing]:nested-cleanup touched=\{touched_count} prefix=precompute-propagate",
   )
-  if touched_count > 8 ||
-    run_hot_pipeline_dae_nested_cleanup_touched_too_large(mod_, touched) {
+  let size_skip_reason = run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
+    mod_, touched,
+  )
+  if touched_count > 8 || size_skip_reason != None {
+    let reason = if touched_count > 8 {
+      "large-touched-set"
+    } else {
+      size_skip_reason.unwrap()
+    }
     pipeline_trace_hook(
       options.trace,
       "dae-optimizing",
       "nested-cleanup-skip",
-      payload="reason=large-touched-set touched=\{touched_count}",
+      payload="reason=\{reason} touched=\{touched_count}",
     )
     return Ok(mod_)
   }

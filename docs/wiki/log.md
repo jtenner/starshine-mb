@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae nested cleanup size-skip trace
+
+- Added a focused trace regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for an oversized 129-local touched function so the guarded nested cleanup skip is reported as `reason=large-touched-function` instead of being conflated with the touched-count guard.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to keep the existing guard thresholds and scheduler order unchanged while distinguishing `large-touched-set`, `large-module`, and `large-touched-function` skip reasons.
+
 ## [2026-05-13] maintain | validation instruction-codec backlink
 
 - During the whole-wiki health pass after adding the instruction/expression binary guide, found [`validate/module-validation-phases.md`](validate/module-validation-phases.md) still describing code-body typechecking without a backlink to the new shared instruction/immediate contract.
