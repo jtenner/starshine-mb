@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae call_ref blocker was missing declared ref.func type slots
+
+- Extended [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) so the active `dae-optimizing` lane, not just the direct `dae_run_module_pass` helper, must keep lib-constructed `call_ref` and declarative-`call_ref` fixtures valid; also added `dae-optimizing + local-subtyping` characterization regressions for `ref.as_non_null(local.get ...)`, loop-carried refs, block-wrapped `try_table`, and both `call_ref` fixtures.
+- The remaining blocker hunt finally reproduced a real `call_ref` failure in the active touched-only lane: when `dae-optimizing` replayed touched `optimize-instructions` over a function storing `ref.func` into `(ref null (type ...))`, HOT lifting failed `local.set` typechecking if multiple function type entries shared the same signature.
+- Root cause was [`../../src/ir/hot_module_context.mbt`](../../src/ir/hot_module_context.mbt) zeroing `func_type_slots`; that discarded declared function type indices, made `ref.func` widen back to abstract `funcref` under duplicate-signature ambiguity, and then rejected the later concrete-local `local.set`. The fix now preserves declared function type slots in module context, with a focused coverage addition in [`../../src/ir/hot_module_context_test.mbt`](../../src/ir/hot_module_context_test.mbt).
+- Follow-up combo fuzz compare at `.tmp/dae-local-subtyping-500` reported `499/500` compared, `495` normalized matches, `4` mismatches, `0` validation failures, and `1` unchanged `binaryen-rec-group-zero` command failure; all four mismatches remain local-declaration-only `gen-valid` diffs, so this narrows the future touched-local-subtyping blocker without enabling the scheduler slot yet.
+
 ## [2026-05-13] passes | dae blocker hunt finds inherited try_table catch-depth lowering bug
 
 - Added focused DAE002 regressions in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) covering `ref.as_non_null(local.get ...)`, loop-carried ref locals, block-wrapped `try_table`, and lib-constructed `call_ref` shapes, which all stay valid under the guarded touched-only nested cleanup lane.

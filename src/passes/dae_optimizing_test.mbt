@@ -2909,10 +2909,14 @@ test "dae-optimizing core output stays valid on touched call_ref ref locals" {
 
 ///|
 test "dae-optimizing nested cleanup stays valid on touched call_ref ref locals" {
-  let optimized = dae_run_module_pass(
-    dae_test_call_ref_fixture(),
-    optimize=true,
-  )
+  let optimized = match
+    run_hot_pipeline(dae_test_call_ref_fixture(), HotPipelineOptions::new(), [
+      "dae-optimizing",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimizing DAE call_ref fixture to validate, got \{err}")
+  }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -2922,15 +2926,147 @@ test "dae-optimizing nested cleanup stays valid on touched call_ref ref locals" 
 }
 
 ///|
+test "dae-optimizing plus local-subtyping stays valid on touched ref.as_non_null local gets" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    ref.null $box
+    #|    local.set 1
+    #|    local.get 1
+    #|    ref.as_non_null
+    #|    drop
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match
+    pass_test_run_pipeline(source, ["dae-optimizing", "local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping ref.as_non_null success, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing plus local-subtyping stays valid on loop-carried ref locals" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    loop $l
+    #|      ref.null $box
+    #|      local.set 1
+    #|      i32.const 0
+    #|      br_if $l
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match
+    pass_test_run_pipeline(source, ["dae-optimizing", "local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping loop ref-local success, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing plus local-subtyping stays valid on block-wrapped try_table ref locals" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct)))
+    #|  (func $f (param i32) (result (ref null $box)) (local (ref null $box))
+    #|    block
+    #|      try_table (catch_all 0)
+    #|        ref.null $box
+    #|        local.set 1
+    #|      end
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (result (ref null $box))
+    #|    i32.const 99
+    #|    call $f))
+  let optimized = match
+    pass_test_run_pipeline(source, ["dae-optimizing", "local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping block-wrapped try_table success, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0), [])
+}
+
+///|
+test "dae-optimizing plus local-subtyping stays valid on touched call_ref ref locals" {
+  let optimized = match
+    run_hot_pipeline(dae_test_call_ref_fixture(), HotPipelineOptions::new(), [
+      "dae-optimizing", "local-subtyping",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping call_ref fixture to validate, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping call_ref output to validate, got \{err}",
+      )
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 1), [])
+}
+
+///|
 test "dae-optimizing nested cleanup stays valid on declarative call_ref ref locals" {
-  let optimized = dae_run_module_pass(
-    dae_test_call_ref_declarative_fixture(),
-    optimize=true,
-  )
+  let optimized = match
+    run_hot_pipeline(
+      dae_test_call_ref_declarative_fixture(),
+      HotPipelineOptions::new(),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected declarative call_ref DAE output to validate, got \{err}")
+  }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
       fail("expected declarative call_ref DAE output to validate, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 1), [])
+}
+
+///|
+test "dae-optimizing plus local-subtyping stays valid on declarative call_ref ref locals" {
+  let optimized = match
+    run_hot_pipeline(
+      dae_test_call_ref_declarative_fixture(),
+      HotPipelineOptions::new(),
+      ["dae-optimizing", "local-subtyping"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping declarative call_ref fixture success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DAE plus local-subtyping declarative call_ref output to validate, got \{err}",
+      )
   }
   @debug.assert_eq(dae_test_func_params(optimized, 1), [])
 }

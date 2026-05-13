@@ -104,6 +104,24 @@ test "hot module context resolves imported and defined boundary indices" {
 }
 
 ///|
+test "hot module context preserves declared function type slots for ref.func typing" {
+  let ctx = hot_test_module_context_fixture()
+
+  @debug.assert_eq(
+    hot_module_resolve_func_type_idx(ctx, @lib.FuncIdx::new(0U)),
+    Some(@lib.TypeIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    hot_module_resolve_func_type_idx(ctx, @lib.FuncIdx::new(1U)),
+    Some(@lib.TypeIdx::new(1U)),
+  )
+  @debug.assert_eq(ctx.func_type_slots, [
+    Some(@lib.TypeIdx::new(0U)),
+    Some(@lib.TypeIdx::new(1U)),
+  ])
+}
+
+///|
 test "hot module context expands type-index block results and aggregate fields" {
   let ctx = hot_test_module_context_fixture()
 

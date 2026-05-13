@@ -68,12 +68,12 @@ fn hot_module_context_resolve_func_types(
 }
 
 ///|
-fn hot_module_context_empty_func_type_slots(
+fn hot_module_context_func_type_slots(
   func_type_idxs : Array[TypeIdx],
 ) -> Array[TypeIdx?] {
   let out : Array[TypeIdx?] = []
-  for _ in func_type_idxs {
-    out.push(None)
+  for type_idx in func_type_idxs {
+    out.push(Some(type_idx))
   }
   out
 }
@@ -212,7 +212,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     subtypes,
     func_type_idxs,
     func_types: hot_module_context_resolve_func_types(subtypes, func_type_idxs),
-    func_type_slots: hot_module_context_empty_func_type_slots(func_type_idxs),
+    func_type_slots: hot_module_context_func_type_slots(func_type_idxs),
     tables,
     mems,
     globals,
