@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | string.const stringrefs caveat
+
+- During the whole-wiki health pass after adding the module-section map, found [`strings/string-const-surface.md`](strings/string-const-surface.md) still described the binary string-literal section without the newer `StringRefsSec` local/proposal-facing caveat.
+- Updated the page, frontmatter sources, and [`index.md`](index.md) to link [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), and [`raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) so future string docs do not imply section id `14` is stable core WebAssembly.
+
 ## [2026-05-13] binary | module section map
 
 - Added [`raw/wasm/2026-05-13-module-section-order-sources.md`](raw/wasm/2026-05-13-module-section-order-sources.md) after checking current official WebAssembly 3.0 binary, syntax, validation, and custom-section appendix sources for module magic/version bytes, standard-section order, custom-section gaps, imported-prefix index spaces, and validation context construction.
