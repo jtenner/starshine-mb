@@ -2091,6 +2091,29 @@ test "dae-optimizing nested code-folding only rewrites touched functions" {
 }
 
 ///|
+test "dae-optimizing nested precompute only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (global i32 (i32.const 271828))
+    #|  (func $f (param i32) (result i32)
+    #|    global.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 10
+    #|    call $f)
+    #|  (func (export "untouched") (result i32)
+    #|    global.get 0))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE precompute pipeline success, got \{err}")
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_false(touched.contains("global.get"), msg=touched)
+  assert_true(touched.contains("I32(271828)"), msg=touched)
+  assert_true(untouched.contains("global.get"), msg=untouched)
+}
+
+///|
 fn dae_test_bytes_from_ints(values : Array[Int]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
