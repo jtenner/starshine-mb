@@ -13,11 +13,6 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md) as the focused guide for Starshine's `ref_func_declarations` phase: official `refs` rule, local declaration-source bitmap, body/use-site diagnostics, exported/global/table/element examples, invalid-fuzzer signoff hooks, and the current local/spec divergence where `start_sec` alone does not declare a `ref.func` target.
 - Cross-linked [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so function-index, element-segment, and invalid-fuzzing pages route readers to the shared declaration contract.
 
-## [2026-05-13] passes | dae nested local-cse trace order
-
-- Added a focused `dae-optimizing` regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that captures nested cleanup trace output and proves the touched-only `local-cse` adapter appears before `simplify-locals` in the guarded DAE002 scheduler.
-- Updated [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md) to record that the nested `local-cse` adapter now emits `pass[local-cse]:func/start/done` trace lines without broadening the guarded touched-function lane or changing the unresolved artifact/runtime backlog.
-
 ## [2026-05-13] maintain | string.const stringrefs caveat
 
 - During the whole-wiki health pass after adding the module-section map, found [`strings/string-const-surface.md`](strings/string-const-surface.md) still described the binary string-literal section without the newer `StringRefsSec` local/proposal-facing caveat.

@@ -603,7 +603,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/simplify-locals/parity.md`](binaryen/passes/simplify-locals/parity.md) - Current Binaryen parity state for simplify-locals, including retired reducer families, rejected ideas, and the active exact-path frontier.
 - [`binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md`](binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md) - Skip-reason taxonomy, retired artifact hotspots, timer interpretation, and the dated large-artifact performance frontier for simplify-locals.
 - [`binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md`](binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md) - Treat `invalid tag index` `remove-unused-names` failures as Binaryen parser-family gaps, not Starshine semantic mismatches.
-- [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) - Committed corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines for validator trace work, now cross-linked to the shared `bun validate trace-benchmark` command gate.
+- [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) - Committed corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines for validator trace work, now cross-linked to the shared `bun validate trace-benchmark` command gate and the focused `ref.func` declaration-source guide.
 
 ## Sessions
 

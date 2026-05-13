@@ -6,6 +6,7 @@ sources:
   - ../raw/research/0010-2026-03-18-validate-trace-baseline.md
 related:
   - ../tooling/validation-gates.md
+  - ./ref-func-declarations.md
   - ../../../src/validate_trace/main.mbt
   - ../../../scripts/lib/validate-task.ts
   - ../../../scripts/test/task-family-commands.ts
@@ -26,7 +27,7 @@ related:
 - `deep-control`: dominated by code-section and body validation work, plus a visible `datacnt_requirement` check on one very deep function.
 - `wide-locals`: low wall time but explicit local-width pressure, with `384` locals and `768` top-level instructions in the hotspot function.
 - `large-codesec`: many tiny bodies stress section traversal more than per-body validation cost.
-- `ref-func-heavy`: table-section work dominates, with smaller supporting costs in code and data processing.
+- `ref-func-heavy`: table-section work dominates, with smaller supporting costs in code and data processing; interpret any future `ref_func_declarations` movement through the declaration-source model in [`./ref-func-declarations.md`](./ref-func-declarations.md).
 
 ## Practical Rule
 
