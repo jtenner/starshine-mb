@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] wast | GC type authoring source refresh
+
+- Added [`raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md) to capture current official WebAssembly 3.0 GC type/text-type sources plus the custom-descriptors proposal overview.
+- Refreshed [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md) with the concrete parser/printer/lowering model, examples, validation guidance, and the flat-index invariant for grouped rec entries.
+- Updated [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md) and [`index.md`](index.md) so the proposal-vs-local caveat is explicit: upstream custom descriptors currently say metadata clauses are struct-only, while Starshine still has local array-metadata lowering coverage.
+
 ## [2026-05-13] maintain | FZG ledger index health
 
 - During the whole-wiki health pass, found the FZG coverage-ledger index summary and “known zero-coverage rows” section still framed the ledger as if only `[FZG]002`-`[FZG]023` plus `[FZG]026` mattered.
