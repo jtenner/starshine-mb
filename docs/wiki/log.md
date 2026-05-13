@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] validate | ref.func declaration sources
+
+- Added [`raw/wasm/2026-05-13-ref-func-declaration-sources.md`](raw/wasm/2026-05-13-ref-func-declaration-sources.md) after checking current official WebAssembly 3.0 validation/module/instruction sources plus Starshine validator, typechecker, and invalid-fuzzer evidence for the `ref.func` declared-reference rule.
+- Added [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md) as the focused guide for Starshine's `ref_func_declarations` phase: official `refs` rule, local declaration-source bitmap, body/use-site diagnostics, exported/global/table/element examples, invalid-fuzzer signoff hooks, and the current local/spec divergence where `start_sec` alone does not declare a `ref.func` target.
+- Cross-linked [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so function-index, element-segment, and invalid-fuzzing pages route readers to the shared declaration contract.
+
 ## [2026-05-13] maintain | string.const stringrefs caveat
 
 - During the whole-wiki health pass after adding the module-section map, found [`strings/string-const-surface.md`](strings/string-const-surface.md) still described the binary string-literal section without the newer `StringRefsSec` local/proposal-facing caveat.

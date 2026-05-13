@@ -19,6 +19,7 @@ related:
   - data-element-and-datacount-sections.md
   - type-table-memory-global-tag-sections.md
   - ../validation/moonbit-prove-strategy.md
+  - ../validate/ref-func-declarations.md
   - ../binaryen/passes/reorder-functions/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../binaryen/passes/duplicate-function-elimination/index.md
@@ -35,7 +36,7 @@ The WebAssembly Core Specification models imports and definitions as shared inde
 - the **function section** (`id = 3`) stores one type index per defined function;
 - the **code section** (`id = 10`) stores the matching body for each defined function.
 
-Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L377): `import_sec`, `func_sec`, `export_sec`, `start_sec`, and `code_sec` are separate optional fields, while [`FuncIdx`](../../../src/lib/types.mbt#L104) is the absolute index used by calls, `ref.func`, exports, starts, element payloads, names, and pass rewrite maps.
+Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L377): `import_sec`, `func_sec`, `export_sec`, `start_sec`, and `code_sec` are separate optional fields, while [`FuncIdx`](../../../src/lib/types.mbt#L104) is the absolute index used by calls, `ref.func`, exports, starts, element payloads, names, and pass rewrite maps. For the separate module-level declaration set that makes `ref.func` values legal, see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
 ## Section Shapes
 
@@ -146,7 +147,7 @@ Existing pass dossiers that depend on this checklist include:
 - **Empty `FuncSec`/`CodeSec` absence is equivalent.** Starshine validation accepts both sections absent, and also accepts a present empty side without a non-empty partner; a non-empty side without the other side is invalid.
 - **Imports are bodyless functions.** Imported functions can be called, exported, named, and used as start targets if their signature is empty, but they do not have entries in `CodeSec`.
 - **Export-name uniqueness is semantic in Starshine validation.** Import names do not need to be unique, but duplicate export names are rejected.
-- **Start does not by itself make `ref.func` declared in Starshine's current declaration check.** The current test suite includes a regression titled `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L8032-L8060). If that policy changes, update this page and the raw-source snapshot together.
+- **Start does not by itself make `ref.func` declared in Starshine's current declaration check.** The focused declaration guide in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) records the current local/spec divergence and the validator phase order. The current test suite includes a regression titled `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L8032-L8060). If that policy changes, update this page, the declaration guide, and the raw-source snapshots together.
 - **Function body diagnostics use absolute indices.** A code-body ordinal is not a user-facing function index once imports exist.
 - **Section order is canonical on encode.** WAST source order and custom-section gaps are normalized into the core section order; exact source layout is not a stable post-lowering property.
 
@@ -157,4 +158,4 @@ Existing pass dossiers that depend on this checklist include:
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation and proof helpers: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate_proof/func_index.mbt`](../../../src/validate_proof/func_index.mbt)
 - WAST lowering: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
-- Related docs: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../binaryen/passes/reorder-functions/index.md`](../binaryen/passes/reorder-functions/index.md), [`../binaryen/passes/remove-unused-module-elements/index.md`](../binaryen/passes/remove-unused-module-elements/index.md)
+- Related docs: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../binaryen/passes/reorder-functions/index.md`](../binaryen/passes/reorder-functions/index.md), [`../binaryen/passes/remove-unused-module-elements/index.md`](../binaryen/passes/remove-unused-module-elements/index.md)

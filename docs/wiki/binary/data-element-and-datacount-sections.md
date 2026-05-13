@@ -19,6 +19,7 @@ related:
   - custom-and-name-sections.md
   - ../wast/gc-type-authoring.md
   - ../validate/fuzz-hardening.md
+  - ../validate/ref-func-declarations.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../binaryen/passes/memory-packing/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
@@ -56,13 +57,13 @@ Text data segments in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) acce
 | Active function-index list on table `0` | `Elem(Active(TableIdx(0), offset), FuncsElemKind(funcs))` | elem header `0` | functions must exist; table `0` must accept `funcref`; offset is a constant address expression. |
 | Passive function-index list | `Elem(Passive, FuncsElemKind(funcs))` | elem header `1`, kind byte `0` | functions must exist; no table or offset is checked. |
 | Active function-index list on explicit table | `Elem(Active(tableidx, offset), FuncsElemKind(funcs))` | elem header `2`, table index, offset, kind byte `0` | selected table must exist and accept the segment ref type. |
-| Declarative function-index list | `Elem(Declarative, FuncsElemKind(funcs))` | elem header `3`, kind byte `0` | functions must exist; no table or offset is checked. |
+| Declarative function-index list | `Elem(Declarative, FuncsElemKind(funcs))` | elem header `3`, kind byte `0` | functions must exist; no table or offset is checked; the function indices count as `ref.func` declarations. |
 | Active expression list on table `0` | `Elem(Active(TableIdx(0), offset), FuncExprsElemKind(exprs))` | elem header `4` | each expression is a constant `funcref`; active-table checks still apply. |
 | Passive typed expression list | `Elem(Passive, TypedExprsElemKind(rt, exprs))` | elem header `5`, ref type, expressions | ref type validates; each expression must be a constant of that ref type. |
 | Active typed expression list | `Elem(Active(tableidx, offset), TypedExprsElemKind(rt, exprs))` | elem header `6`, table index, offset, ref type, expressions | selected table element type must accept the segment ref type. |
 | Declarative typed expression list | `Elem(Declarative, TypedExprsElemKind(rt, exprs))` | elem header `7`, ref type, expressions | no table or offset; expressions still typecheck. |
 
-[`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) are the canonical local code map for these headers. The `FuncExprsElemKind` cases encode through the expression segment headers and synthesize a `funcref` ref type where the binary form requires one. Function-index element payloads use the same imported-prefix absolute `FuncIdx` model as calls, starts, and exports; see [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md). Active element and data modes also name table and memory index spaces whose imported-prefix rule and validation order are covered in [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md).
+[`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) are the canonical local code map for these headers. The `FuncExprsElemKind` cases encode through the expression segment headers and synthesize a `funcref` ref type where the binary form requires one. Function-index element payloads use the same imported-prefix absolute `FuncIdx` model as calls, starts, and exports; see [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md). Element function lists and element expression `ref.func` values also participate in the declared-function-reference set described in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). Active element and data modes name table and memory index spaces whose imported-prefix rule and validation order are covered in [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md).
 
 ## Data-Count Rules
 
@@ -135,7 +136,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 
 - **Active offsets are const expressions.** Non-constant active data or element offsets are validator failures and are intentionally covered by invalid-generation lanes.
 - **Table/memory index defaults are syntax sugar.** Text forms can omit parent indices; lowering resolves them to numeric `TableIdx(0)` or `MemIdx(0)` only when the segment is active.
-- **Typed element segments are not function-index lists.** Once an explicit element type or explicit `(item ...)` expression is present, preserve expression typing instead of collapsing blindly to `FuncsElemKind`.
+- **Typed element segments are not function-index lists.** Once an explicit element type or explicit `(item ...)` expression is present, preserve expression typing instead of collapsing blindly to `FuncsElemKind`; any nested `ref.func` values are still scanned by the declaration validator.
 - **Declarative-mode caveat in WAST lowering.** The core library and binary surfaces support `ElemMode::declarative()`, and generator/validation code exercises it. The WAST parser recognizes `(elem declare func ...)`, but the current WAST `ElemSegment` AST has no explicit mode field, so text-to-lib lowering infers mode from offset emptiness and does not yet preserve declarative mode as a distinct lowered mode. Treat this as a known WAST fidelity gap, not as evidence that Starshine's core representation lacks declarative elements.
 - **Data-count presence and count equality are different checks.** Keep them distinct when adding diagnostics or invalid repros.
 - **Name-section maps are coupled.** Element/data name maps in [`custom-and-name-sections.md`](custom-and-name-sections.md) must be rewritten or cleared whenever segment indices change.
@@ -154,4 +155,4 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - WAST parse/lower/print evidence: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
-- Validation and fuzzing: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)
+- Validation and fuzzing: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)
