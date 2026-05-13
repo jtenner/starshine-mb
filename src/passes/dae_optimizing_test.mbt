@@ -1857,10 +1857,11 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     "pass[dae-optimizing]:nested-pass name=dead-code-elimination", "pass[dae-optimizing]:nested-pass name=optimize-instructions",
     "pass[dae-optimizing]:nested-pass name=local-cse", "pass[dae-optimizing]:nested-pass name=pick-load-signs",
     "pass[dae-optimizing]:nested-pass name=heap-store-optimization", "pass[dae-optimizing]:nested-pass name=heap2local",
-    "pass[dae-optimizing]:nested-pass name=simplify-locals", "pass[dae-optimizing]:nested-pass name=code-folding",
-    "pass[dae-optimizing]:nested-pass name=precompute", "pass[dae-optimizing]:nested-pass name=merge-blocks",
-    "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
-    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=vacuum",
+    "pass[dae-optimizing]:nested-pass name=code-pushing", "pass[dae-optimizing]:nested-pass name=simplify-locals",
+    "pass[dae-optimizing]:nested-pass name=code-folding", "pass[dae-optimizing]:nested-pass name=precompute",
+    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=remove-unused-brs",
+    "pass[dae-optimizing]:nested-pass name=remove-unused-names", "pass[dae-optimizing]:nested-pass name=merge-blocks",
+    "pass[dae-optimizing]:nested-pass name=vacuum",
   ])
 }
 
@@ -2182,6 +2183,54 @@ test "dae-optimizing nested precompute only rewrites touched functions" {
   assert_false(touched.contains("global.get"), msg=touched)
   assert_true(touched.contains("I32(271828)"), msg=touched)
   assert_true(untouched.contains("global.get"), msg=untouched)
+}
+
+///|
+test "dae-optimizing nested code-pushing only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (import "env" "use" (func $use (param i32)))
+    #|  (memory 1)
+    #|  (func $f (param i32 i32 i32) (local i32 i32)
+    #|    local.get 0
+    #|    local.set 3
+    #|    local.get 3
+    #|    local.set 4
+    #|    local.get 1
+    #|    if
+    #|      i32.const 0
+    #|      i32.const 1
+    #|      i32.store
+    #|    end
+    #|    local.get 4
+    #|    call $use)
+    #|  (func (export "run")
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    i32.const 30
+    #|    call $f)
+    #|  (func (export "untouched") (param i32 i32) (local i32 i32)
+    #|    local.get 0
+    #|    local.set 2
+    #|    local.get 2
+    #|    local.set 3
+    #|    local.get 1
+    #|    if
+    #|      i32.const 0
+    #|      i32.const 1
+    #|      i32.store
+    #|    end
+    #|    local.get 3
+    #|    call $use))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE code-pushing pipeline success, got \{err}")
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_false(touched.contains("local.set"), msg=touched)
+  assert_true(touched.contains("(call (Func 0))"), msg=touched)
+  assert_true(untouched.contains("local.set"), msg=untouched)
 }
 
 ///|

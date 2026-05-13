@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae touched code-pushing cleanup
+
+- Added a focused `dae-optimizing` regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that proves the guarded nested `code-pushing` slot rewrites only DAE-touched functions, using a local-copy setup moved across an effectful `if` before later local simplification while an equivalent untouched sibling keeps its original `local.set` shape.
+- Updated [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md) to record the new guarded order `... heap-store-optimization -> heap2local -> code-pushing -> simplify-locals ...` without broadening the touched-function lane, large-module guard, or unresolved artifact/runtime backlog. Validation preserved the known DAE local-declaration frontier in `.tmp/dae002-code-pushing-1000` (`998/1000`, `985` normalized matches, `13` mismatches, `2` command failures), and the debug artifact still skips nested cleanup at `touched=12`.
+
 ## [2026-05-13] maintain | ref.func trace benchmark cross-link
 
 - During the whole-wiki health pass after adding the `ref.func` declaration guide, found [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) still mentioning the `ref-func-heavy` corpus without a link to the phase contract.
