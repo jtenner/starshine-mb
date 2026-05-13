@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | FZG ledger index health
+
+- During the whole-wiki health pass, found the FZG coverage-ledger index summary and “known zero-coverage rows” section still framed the ledger as if only `[FZG]002`-`[FZG]023` plus `[FZG]026` mattered.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and [`index.md`](index.md) so they now mention `[FZG]024` invalid-AST widening, `[FZG]028` floor retuning, and `[FZG]029` pass-fuzz failure metadata while keeping future rows `MissingOptional` until a profile requires them.
+
 ## [2026-05-13] validation | MoonBit proof policy source refresh
 
 - Added [`raw/moonbit/2026-05-13-formal-verification-docs.md`](raw/moonbit/2026-05-13-formal-verification-docs.md) to record the official MoonBit formal-verification docs and v0.9.1 verification blog as current primary-source anchors for Starshine's proof policy.
