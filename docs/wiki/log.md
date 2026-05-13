@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] ir2 | test matrix source reconciliation
+
+- Refreshed [`ir2/test-matrix.md`](ir2/test-matrix.md) and the handoff source [`../0064-2026-03-24-ir2-test-matrix.md`](../0064-2026-03-24-ir2-test-matrix.md) against current repository evidence in [`src/ir/test_helpers.mbt`](../../src/ir/test_helpers.mbt), [`src/ir/test_helpers_test.mbt`](../../src/ir/test_helpers_test.mbt), [`src/ir/analysis_cache_test.mbt`](../../src/ir/analysis_cache_test.mbt), [`src/ir/cfg_order_test.mbt`](../../src/ir/cfg_order_test.mbt), [`src/ir/postdominators_test.mbt`](../../src/ir/postdominators_test.mbt), [`src/ir/loop_info_test.mbt`](../../src/ir/loop_info_test.mbt), [`src/ir/use_def_test.mbt`](../../src/ir/use_def_test.mbt), [`src/ir/effects_test.mbt`](../../src/ir/effects_test.mbt), [`src/ir/ssa_destroy_test.mbt`](../../src/ir/ssa_destroy_test.mbt), [`src/passes/pass_test_helpers.mbt`](../../src/passes/pass_test_helpers.mbt), and [`src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt).
+- Expanded the matrix from the older CFG/dominance/liveness/SSA/lower/trace summary to the current full IR2 proof surface: traversal order, post-dominance, loop info, use-def, effects, SSA destruction, analysis cache reuse/rebuild, public pass execution, and trace capture.
+- Updated [`index.md`](index.md) so the IR2 catalog points readers at the broader current test-matrix coverage. No external source was needed because this target documents Starshine-local helper and test contracts, and the in-tree tests are the primary source of truth.
+
 ## [2026-05-13] tooling | validation gate map
 
 - Added [`raw/moonbit/2026-05-13-moon-cli-validation-docs.md`](raw/moonbit/2026-05-13-moon-cli-validation-docs.md) after checking official MoonBit command documentation for `moon info`, `moon fmt`, `moon check`, `moon test`, `moon coverage analyze`, and the separate `moon prove` workflow.

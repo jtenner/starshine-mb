@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-13 Docs: refresh IR2 test matrix
+
+- **reconcile the IR2 test-matrix wiki and handoff doc with the current in-tree helper/test surface, expanding the documented coverage from lift/CFG/dominance/liveness/SSA/lower/trace basics to traversal order, post-dominance, loop info, use-def, effects, SSA destruction, analysis-cache reuse/rebuild, public pass execution, and trace capture guidance** by **@OpenAI**. Updated [`docs/0064-2026-03-24-ir2-test-matrix.md`](./docs/0064-2026-03-24-ir2-test-matrix.md), [`docs/wiki/ir2/test-matrix.md`](./docs/wiki/ir2/test-matrix.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-13 Passes: add touched DAE heap-store-optimization cleanup
 
 - **extend the guarded small-module `dae-optimizing` nested cleanup lane to run `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> heap-store-optimization -> heap2local -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` on DAE-touched functions only, proving escaped GC allocation store folding stays function-filtered before heap2local/local cleanup while `.tmp/dae002-hso-1000` preserves the known local-declaration frontier and the debug artifact still skips nested cleanup at `touched=12`** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), [`docs/wiki/binaryen/passes/dae-optimizing/index.md`](./docs/wiki/binaryen/passes/dae-optimizing/index.md), [`docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md`](./docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
