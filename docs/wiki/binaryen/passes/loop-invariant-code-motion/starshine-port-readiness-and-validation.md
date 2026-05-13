@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
@@ -48,8 +48,8 @@ The exact current local behavior is removed-name bookkeeping:
 | `src/passes/optimize.mbt:144-151` | `pass_registry_removed_names()` lists `"loop-invariant-code-motion"`. |
 | `src/passes/optimize.mbt:469-472` | `run_hot_pipeline_expand_passes(...)` rejects removed pass flags before dispatch. |
 | `src/passes/registry_test.mbt:171-179` | The generic removed-name rejection path is tested with `de-nan`; there is no LICM-specific transform test yet. |
-| `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md:49-52` | Batch 3 keeps `local-subtyping` and `loop-invariant-code-motion` as removed until hot implementation lands. |
-| `docs/0065-2026-03-24-ir2-execution-plan.md:37-43` | If pass migration resumes, Batch 3 dataflow-sensitive passes follow Batch 2 control/cleanup passes. |
+| `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` | The refreshed registry map keeps `loop-invariant-code-motion` in the current removed-name gap and records `local-subtyping` as an active module pass. |
+| `docs/0065-2026-03-24-ir2-execution-plan.md` | The refreshed execution plan treats the old batch labels as historical and says removed-pass revival should start with an explicit-pass slice before preset scheduling. |
 
 ## First design decision: pass spelling
 

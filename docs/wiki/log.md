@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | repair stale IR2 batch references
+
+- Ran a wiki health pass for stale IR2 registry references after the execution-plan refresh and updated living LICM / DFO pages that still cited the old `Batch 2` / `Batch 3` ordering or old line anchors.
+- Updated `docs/wiki/binaryen/passes/loop-invariant-code-motion/{index.md,binaryen-strategy.md,starshine-strategy.md,starshine-port-readiness-and-validation.md}`, `docs/wiki/binaryen/passes/dataflow-optimization/starshine-strategy.md`, and `docs/wiki/binaryen/passes/tracker.md` so they point at the refreshed removed-name migration-gap framing while preserving archived raw-source history unchanged.
+
 ## [2026-05-13] ir2 | registry and execution-plan source reconciliation
 
 - Refreshed the canonical IR2 registry and execution handoff docs (`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`, `docs/0065-2026-03-24-ir2-execution-plan.md`, `docs/wiki/ir2/registry-map.md`, and `docs/wiki/ir2/execution-plan.md`) against live repository evidence in `src/passes/optimize.mbt`, `src/passes/registry_test.mbt`, `src/passes/optimize_test.mbt`, and `src/ir/README.md`.

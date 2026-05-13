@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
@@ -30,7 +30,7 @@ related:
 
 - `loop-invariant-code-motion` is a real Binaryen pass, but the upstream public pass name is the shorter alias **`licm`**.
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- It is also still listed beside `local-subtyping` in the local Batch 3 dataflow-sensitive pass-port plans in [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md).
+- The refreshed IR2 registry docs now list it in the current removed-name migration gap rather than beside active `local-subtyping`; see [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
 ## Why this pass matters

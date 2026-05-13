@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
@@ -64,12 +64,12 @@ The fastest read-along path through the current Starshine status is:
 - active registry entries by omission
   - [`src/passes/optimize.mbt#L155-L279`](../../../../../src/passes/optimize.mbt#L155-L279)
     - `pass_registry_entries()` creates the active hot/module/preset registry entries, and there is no `dataflow-optimization` implementation entry there
-- removed-until-implemented planning roster
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42)
-    - `dataflow-optimization` still appears in the Batch 1 removed-pass roster
-- newer preferred migration order
-  - [`docs/0065-2026-03-24-ir2-execution-plan.md#L37-L40`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md#L37-L40)
-    - the current “preferred implementation order from the current state” names Batch 2 control/cleanup work and Batch 3 dataflow-sensitive work, but does **not** call out `dataflow-optimization`
+- removed-name planning roster
+  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+    - `dataflow-optimization` appears in the refreshed current removed-name list
+- refreshed migration guidance
+  - [`docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md)
+    - the execution plan treats the old batch labels as historical and lists removed names, including `dataflow-optimization`, as gaps that need explicit source reconciliation plus a smallest-pass slice before any preset scheduling
 - backlog truth
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
     - there is still **no dedicated `dataflow-optimization` / `dfo` slice** today
