@@ -1,0 +1,175 @@
+---
+kind: concept
+status: supported
+last_reviewed: 2026-05-13
+sources:
+  - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
+  - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
+  - ../../../src/lib/types.mbt
+  - ../../../src/binary/decode.mbt
+  - ../../../src/binary/encode.mbt
+  - ../../../src/validate/typecheck.mbt
+  - ../../../src/validate/env.mbt
+  - ../../../src/wast/lower_to_lib.mbt
+  - ../../../src/binary/tests.mbt
+related:
+  - module-section-map.md
+  - function-import-export-and-code-sections.md
+  - type-table-memory-global-tag-sections.md
+  - data-element-and-datacount-sections.md
+  - ../validate/module-validation-phases.md
+  - ../validate/ref-func-declarations.md
+  - ../tooling/validation-gates.md
+  - ../wast/gc-type-authoring.md
+---
+
+# Binary Instruction And Expression Encoding
+
+## Overview
+
+This page is the shared Starshine guide for the byte-level instruction and expression contract inside globals, tables, elements, function bodies, and data/element bulk-memory users. Section-level layout lives in [`module-section-map.md`](module-section-map.md); function/code-section pairing lives in [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md). This page answers the lower-level question: once an expression payload is reached, how do Starshine and the official WebAssembly binary format agree on opcodes, immediates, nesting, and validation responsibilities?
+
+The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md) anchors the external rules. The local Starshine source map in [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md) records the in-repo files that implement and test those rules.
+
+The central invariant is a layer split:
+
+```text
+binary bytes -> syntactic Instruction / Expr decode -> module validation/typecheck
+```
+
+`src/binary/decode.mbt` and `src/binary/encode.mbt` own bytes, opcode numbers, immediates, expression terminators, and malformed-encoding errors. `src/validate/typecheck.mbt` owns stack effects, block labels, index resolution, memory/table/data/element preconditions, and unreachable-code stack polymorphism.
+
+## Core Shapes In Starshine
+
+| Concept | Starshine representation | Binary/validation meaning |
+| --- | --- | --- |
+| Expression | [`Expr(Array[Instruction])`](../../../src/lib/types.mbt) | A sequence of instructions terminated on the wire by `0x0B` (`end`). |
+| Function body | [`Func(Locals, Expr)`](../../../src/lib/types.mbt), inside [`CodeSec(Array[Func])`](../../../src/lib/types.mbt) | Code-section body: local declarations plus one expression. Body ordinal matches the same ordinal in `FuncSec`, while imports shift absolute `FuncIdx` values. |
+| Instruction | [`Instruction`](../../../src/lib/types.mbt) enum | Decoded opcode plus typed immediates; includes one-byte core opcodes and prefixed families. |
+| Block type | [`BlockType`](../../../src/lib/types.mbt) | Void (`0x40`), single value type, or absolute function-type index. Validator expands it to params/results. |
+| Memory argument | [`MemArg(U32, MemIdx?, U64)`](../../../src/lib/types.mbt) | Alignment exponent, optional explicit memory index, and offset. Validator checks selected memory, alignment width, and address-width offset. |
+| Catch clause | [`Catch`](../../../src/lib/types.mbt) | `try_table` catch encoding plus label target validation against tag payloads or `exnref`. |
+
+Starshine's core representation is deliberately semantic enough for validators and passes, not a raw opcode token stream. For example, `Instruction::I32Load(MemArg(...))` remembers the access family and immediate fields; validation later proves that the memory exists and the operand/result stack is legal.
+
+## Decode And Encode Flow
+
+### Expressions and structured control
+
+[`Decode for Expr`](../../../src/binary/decode.mbt) reads instructions until `0x0B`. For nested `block`, `loop`, `if`, and `try_table`, Starshine uses a structured-frame decoder rather than blindly recursing through bytes. That frame stack is important for three cases:
+
+1. `end` closes the nearest structured frame or the outer expression, depending on nesting;
+2. `else` (`0x05`) splits only an `if` frame's then/else bodies;
+3. malformed nesting must fail without consuming unrelated trailing bytes.
+
+The decoder also has an instruction nesting limit and reports `InstructionNestingLimitExceeded` for adversarially deep payloads; [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) has focused coverage for that guard. [`Encode for Expr`](../../../src/binary/encode.mbt) emits each instruction and then appends `0x0B`.
+
+### Block types
+
+`BlockType` is encoded as one of:
+
+- `VoidBlockType` -> `0x40`;
+- `ValTypeBlockType(vt)` -> the value type byte(s);
+- `TypeIdxBlockType(TypeIdx(idx))` -> signed 33-bit type index.
+
+Starshine rejects recursive-index blocktypes during binary encode (`CannotEncodeRecursiveIndexBlockType`) because long-lived binary output must use absolute type indices. During validation, [`Env::expand_blocktype`](../../../src/validate/env.mbt) resolves type-index blocktypes to a function type and returns its params/results.
+
+### Memory arguments
+
+Official memory arguments are alignment plus offset. Starshine represents the multi-memory extension as `MemArg(U32(align_pow), Some(memidx), U64(offset))`; binary encode writes `align_pow + 64`, then the memory index, then the offset. With no explicit memory index, encode writes `align_pow` followed by the offset.
+
+The binary layer can reject malformed immediate ranges (`InvalidMemArgEncoding` / `InvalidMemArg`), but semantic legality is in [`memarg_check`](../../../src/validate/typecheck.mbt): selected memory must exist, alignment must fit the access width, and i32 memories reject offsets outside the 32-bit address range. This is why pass authors should not treat a well-formed `MemArg` as automatically valid after memory rewrites.
+
+### Prefixed opcode families
+
+Do not audit instruction coverage by one-byte opcodes only. Starshine's current codec includes several prefixed spaces:
+
+| Prefix | Family in Starshine | Examples |
+| ---: | --- | --- |
+| `0xFC` | Saturating conversion, bulk memory, and table operations | `i32.trunc_sat_f32_s`, `memory.init`, `data.drop`, `memory.copy`, `table.init`, `elem.drop` |
+| `0xFD` | SIMD | `v128.load`, `i8x16.shuffle`, lane extract/replace, relaxed SIMD forms |
+| `0xFE` | Atomics | atomic load/store/rmw/cmpxchg, wait/notify, fence |
+| `0xFB` | GC/aggregate/reference-family local surface | `struct.new`, `struct.get`, `array.new`, descriptor-aware operations |
+
+String and custom-descriptor instructions have additional proposal/local caveats; see [`../strings/string-const-surface.md`](../strings/string-const-surface.md), [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md), and [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the local `StringRefsSec` caveat.
+
+## Validation Contract
+
+After decode, module validation supplies the environment needed for instruction typing. The full phase order is in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md); instruction validation depends on that page because code bodies are typechecked only after types, imports, function declarations, tables, memories, tags, globals, elements, data, start/export checks, and `ref.func` declaration bookkeeping are ready.
+
+Key typechecker responsibilities:
+
+- [`Typecheck for Expr`](../../../src/validate/typecheck.mbt) runs instructions in order and threads a `TcState` containing environment, operand stack, reachability, and escape state.
+- `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks.
+- `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure.
+- `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range.
+- `ref.func` is syntactically just an instruction immediate, but Starshine runs a separate declaration check; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+- Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly.
+
+## Concrete Before/After Mental Models
+
+### Code section body versus absolute function index
+
+```text
+ImportSec: 1 imported function
+FuncSec:   [typeidx for $a, typeidx for $b]
+CodeSec:   [body for $a, body for $b]
+
+absolute FuncIdx(0) = imported function
+absolute FuncIdx(1) = CodeSec body 0 ($a)
+absolute FuncIdx(2) = CodeSec body 1 ($b)
+```
+
+Instruction immediates such as `call`, `return_call`, `ref.func`, exports, starts, and element payloads use absolute `FuncIdx` values. Code-section body ordinals do not. That distinction is why function-remapping passes must update both section vectors and every instruction/metadata carrier.
+
+### Structured expression nesting
+
+```wat
+(block
+  (i32.const 1)
+  (if
+    (then (nop))
+    (else (unreachable))))
+```
+
+On the wire, the inner `if` has an `else` and its own `end`; the outer block has another `end`; the containing expression has its final `end`. Starshine's structured decoder turns this into nested `Instruction::Block` / `Instruction::If` values and refuses inputs that exceed the nesting guard.
+
+### Memory argument after memory rewrites
+
+A valid instruction before a pass:
+
+```text
+I32Load(MemArg(align_pow=2, mem=None, offset=0))
+```
+
+can become invalid if a pass deletes the default memory, changes an i64 memory to i32 with an oversized offset, or copies the memarg to a narrower access where the alignment is now too large. Re-run module validation after memory-index or memory-type rewrites.
+
+## Pass And Tooling Checklist
+
+Before committing a pass, fuzzer change, or binary/WAST codec change that touches instructions:
+
+- Update both decode and encode paths for every new instruction variant; keep prefixed opcode families symmetric.
+- Add or refresh binary roundtrip coverage in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) for new immediates, lane arrays, memargs, or blocktypes.
+- Add validator/typechecker coverage for semantic stack effects, not just decode success.
+- If an instruction refers to functions, tables, memories, globals, tags, types, elements, data segments, locals, labels, or the local string pool, update the relevant section page's rewrite checklist.
+- For text support, update the WAST parser/lowerer/printer path as well as binary encode/decode.
+- For optimizer work, run the normal validation gate from [`../tooling/validation-gates.md`](../tooling/validation-gates.md); pass parity still needs Binaryen oracle comparison where the pass has an upstream equivalent.
+
+## Edge Cases And Invariants
+
+- **Binary well-formedness is not validation.** A decoded instruction can still have invalid stack effects or unresolved indices.
+- **Expression terminators are structural.** Do not preserve or synthesize raw `end` opcodes in the `Instruction` enum; they are owned by expression/control encoding.
+- **Blocktype type indices must name function types.** Struct/array type indices are not legal blocktype expansions.
+- **Recursive-index blocktypes are not binary-output-safe.** Normalize to absolute type indices before encode.
+- **Explicit memory indices are encoded through Starshine's extended memarg form.** Passes touching memories must update `MemArg` carriers, not only `memory.size` / `memory.grow` instructions.
+- **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses bulk memory, SIMD, atomics, and GC/custom-descriptor operations.
+- **Deep nesting is a fuzz-hardening boundary.** Raising or removing the decoder limit should be treated as a security/performance-sensitive codec change.
+
+## Sources
+
+- Official source snapshot: [`../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md)
+- Local code source map: [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md)
+- Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
+- Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
+- Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
+- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md)

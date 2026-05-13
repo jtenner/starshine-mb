@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] binary | instruction/expression encoding guide
+
+- Added [`raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](raw/wasm/2026-05-13-instruction-expression-encoding-sources.md) after checking current official WebAssembly 3.0 binary instruction, binary module, binary value/convention, and instruction-validation sources.
+- Added [`raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](raw/wasm/2026-05-13-instruction-expression-binary-sources.md) as the local Starshine code-source map for `Instruction`, `Expr`, `BlockType`, `MemArg`, decode/encode, typecheck, WAST lowering, and binary roundtrip tests.
+- Added [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md) as the canonical instruction/expression binary guide: expression termination, structured `end` / `else` decoding, blocktype and memarg immediate shapes, prefixed opcode families, code-body examples, validation layer split, pass/tooling rewrite checklist, and codec/typechecker signoff guidance.
+- Cross-linked [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), and [`index.md`](index.md) so section-level binary pages now route readers to the shared instruction/immediate contract.
+
 ## [2026-05-13] passes | dae touched optimize-casts cleanup
 
 - Added a focused `dae-optimizing` regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that proves the guarded nested `optimize-casts` slot rewrites only DAE-touched functions, using a redundant `ref.cast` after `ref.as_non_null` while an equivalent untouched sibling keeps the cast.

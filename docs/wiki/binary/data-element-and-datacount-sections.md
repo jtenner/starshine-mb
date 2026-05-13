@@ -15,6 +15,7 @@ sources:
 related:
   - module-section-map.md
   - function-import-export-and-code-sections.md
+  - instruction-and-expression-encoding.md
   - type-table-memory-global-tag-sections.md
   - custom-and-name-sections.md
   - ../wast/gc-type-authoring.md
@@ -31,7 +32,7 @@ related:
 
 ## Overview
 
-Data and element segments are module-level initialization resources, not ordinary function-body instructions. For the whole-module stream order and the reason data-count sits before code on the wire, start with [`module-section-map.md`](module-section-map.md). This page covers:
+Data and element segments are module-level initialization resources, not ordinary function-body instructions. For the whole-module stream order and the reason data-count sits before code on the wire, start with [`module-section-map.md`](module-section-map.md). For the byte-level expression and bulk-memory instruction immediates that consume these segment indices, see [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). This page covers:
 
 - **data segments** provide bytes for memories, either at instantiation time (`active`) or later through bulk-memory instructions (`passive`);
 - **element segments** provide reference values for tables, either at instantiation time (`active`), later through table instructions (`passive`), or only as a declared pool of references (`declarative`);
@@ -75,7 +76,7 @@ Starshine enforces two separate rules in [`src/validate/validate.mbt`](../../../
 1. [`validate_datacnt(...)`](../../../src/validate/validate.mbt) accepts absent data count, but when present it must equal the length of `DataSec`; `DataCntSec(0)` without a data section is accepted, while a nonzero count without `DataSec` is rejected.
 2. `validate_bulk_memory_data_count_requirement(...)` rejects a module with no data-count section when any defined function body contains `memory.init` or `data.drop`.
 
-This split is useful for diagnostics: a mismatched count is a section-level `datacnt` problem, while missing data count for a bulk-memory instruction is reported against the function body that required it.
+This split is useful for diagnostics: a mismatched count is a section-level `datacnt` problem, while missing data count for a bulk-memory instruction is reported against the function body that required it. The instruction/immediate side of `memory.init`, `data.drop`, `table.init`, and `elem.drop` lives in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md).
 
 ## WAST Authoring Examples
 

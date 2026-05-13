@@ -12,6 +12,7 @@ sources:
 related:
   - custom-and-name-sections.md
   - function-import-export-and-code-sections.md
+  - instruction-and-expression-encoding.md
   - type-table-memory-global-tag-sections.md
   - data-element-and-datacount-sections.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
@@ -23,7 +24,7 @@ related:
 
 ## Overview
 
-This is the high-level map for Starshine's whole-module binary contract. It ties together the section-specific pages for custom/name metadata, functions/imports/exports/code, non-function resource sections, and segments so pass authors can answer one common question: "If I change this module field, what else must move with it?"
+This is the high-level map for Starshine's whole-module binary contract. It ties together the section-specific pages for custom/name metadata, functions/imports/exports/code, instruction/expression encoding, non-function resource sections, and segments so pass authors can answer one common question: "If I change this module field, what else must move with it?"
 
 The official WebAssembly 3.0 binary format has two ordering rules that are easy to conflate:
 
@@ -50,7 +51,7 @@ Starshine follows those rules in its core module representation and validation e
 | 10 | Start | `8` | `start_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) | Target function must exist and have no params/results. |
 | 11 | Element | `9` | `elem_sec` | [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) | Table-initialization resources plus passive/declarative element pools. |
 | 12 | Data count | `12` | `data_cnt_sec` | [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) | Appears before code so `memory.init` / `data.drop` immediates can be validated before the data section payload is reached. |
-| 13 | Code | `10` | `code_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) | Body count must match defined-function declaration count, and body ordinal maps to absolute `FuncIdx(imported_func_count + ordinal)`. |
+| 13 | Code | `10` | `code_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md) | Body count must match defined-function declaration count, body ordinal maps to absolute `FuncIdx(imported_func_count + ordinal)`, and each body contains locals plus an expression terminated on the wire by `end`. |
 | 14 | Data | `11` | `data_sec` | [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) | Active/passive byte payloads for memory initialization and bulk-memory use. |
 
 This table is grounded in the primary-source snapshot [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md) and the local whole-module encode/decode paths in [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt).
@@ -103,7 +104,7 @@ Use this checklist before implementing or reviewing any pass that deletes, reord
 | Type definitions | Function signatures, block types, table/global/tag types, imports/exports, GC instructions, casts, element types, type names, and any pass-local type caches. |
 | Function imports/definitions | `func_sec` / `code_sec` parallelism, direct calls, tail calls, `ref.func`, start, exports, element payloads, global/table initializer expressions, function names, local/label names keyed under retained functions, and `func_annotation_sec` when present from WAST lowering. |
 | Tables | `TableIdx` instructions, `call_indirect` / `return_call_indirect`, active element modes, imports/exports, table names, and optional table initializer expressions. |
-| Memories | `MemArg` memory operands, memory management instructions, active data modes, imports/exports, memory names, and memory64/lowering assumptions. |
+| Memories | `MemArg` memory operands, memory management instructions, active data modes, imports/exports, memory names, memory64/lowering assumptions, and the explicit-memidx encoding caveats in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). |
 | Globals | `global.get` / `global.set`, global initializer expressions, imports/exports, global names, global summaries, and constant-propagation caches. |
 | Tags | `throw`, catch clauses, imports/exports, tag names, and exception validation assumptions. |
 | Elements or data segments | Segment indices, active parent table/memory indices, `table.init` / `elem.drop` / `memory.init` / `data.drop`, name maps, data-count equality, and startup-trap policy. |

@@ -15,6 +15,7 @@ sources:
 related:
   - module-section-map.md
   - function-import-export-and-code-sections.md
+  - instruction-and-expression-encoding.md
   - data-element-and-datacount-sections.md
   - custom-and-name-sections.md
   - ../validate/module-validation-phases.md
@@ -29,7 +30,7 @@ related:
 
 ## Overview
 
-This page is the shared Starshine guide for the core module-definition sections that are not already covered by the function/body, segment, or metadata pages. For the whole-module stream order and cross-section rewrite checklist, see [`module-section-map.md`](module-section-map.md). This page covers:
+This page is the shared Starshine guide for the core module-definition sections that are not already covered by the function/body, instruction-expression, segment, or metadata pages. For the whole-module stream order and cross-section rewrite checklist, see [`module-section-map.md`](module-section-map.md). For the byte-level expression/immediate contract inside initializers and instructions, see [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). This page covers:
 
 - **type section**: recursive function, struct, and array type definitions;
 - **table section**: module-defined tables and optional table initializers;
@@ -153,7 +154,7 @@ A module pass that changes any of these sections must audit more than the sectio
 
 - **Type rewrites** must update function signatures, block types, table element types, global types, tag types, casts, GC construction/access instructions, element segment types, export/import types, names, and any pass-local type caches.
 - **Table rewrites** must update `TableIdx` carriers: table instructions, `call_indirect` / `return_call_indirect`, active element modes, table exports/imports, names, and table initializers.
-- **Memory rewrites** must update `MemIdx` carriers: load/store `MemArg` memory operands, `memory.size`, `memory.grow`, `memory.copy`, `memory.fill`, `memory.init`, active data modes, exports/imports, and names.
+- **Memory rewrites** must update `MemIdx` carriers: load/store `MemArg` memory operands, `memory.size`, `memory.grow`, `memory.copy`, `memory.fill`, `memory.init`, active data modes, exports/imports, and names. The explicit-memory-index `MemArg` encoding is summarized in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md).
 - **Global rewrites** must update `GlobalIdx` carriers: `global.get`, `global.set`, exports/imports, name maps, global initializer expressions, and any pass summaries that cache global mutability or constant values.
 - **Tag rewrites** must update `TagIdx` carriers: `throw`, catch clauses, imports/exports, names, and exception-handling validation assumptions.
 - **String literal-pool rewrites** must keep `StringRefsSec`, `string.const` instructions, string-gathering/lowering/lifting passes, and binary round trips consistent.

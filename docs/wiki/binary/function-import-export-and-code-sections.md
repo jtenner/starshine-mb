@@ -17,6 +17,7 @@ related:
   - module-section-map.md
   - custom-and-name-sections.md
   - data-element-and-datacount-sections.md
+  - instruction-and-expression-encoding.md
   - type-table-memory-global-tag-sections.md
   - ../validation/moonbit-prove-strategy.md
   - ../validate/module-validation-phases.md
@@ -37,7 +38,7 @@ The WebAssembly Core Specification models imports and definitions as shared inde
 - the **function section** (`id = 3`) stores one type index per defined function;
 - the **code section** (`id = 10`) stores the matching body for each defined function.
 
-Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L377): `import_sec`, `func_sec`, `export_sec`, `start_sec`, and `code_sec` are separate optional fields, while [`FuncIdx`](../../../src/lib/types.mbt#L104) is the absolute index used by calls, `ref.func`, exports, starts, element payloads, names, and pass rewrite maps. For the separate module-level declaration set that makes `ref.func` values legal, see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L377): `import_sec`, `func_sec`, `export_sec`, `start_sec`, and `code_sec` are separate optional fields, while [`FuncIdx`](../../../src/lib/types.mbt#L104) is the absolute index used by calls, `ref.func`, exports, starts, element payloads, names, and pass rewrite maps. For the byte-level instruction/expression contract inside each code body, see [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). For the separate module-level declaration set that makes `ref.func` values legal, see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
 ## Section Shapes
 
@@ -47,7 +48,7 @@ Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L377)
 | Function | `3` | [`FuncSec(Array[TypeIdx])`](../../../src/lib/types.mbt#L433). | One function type index for each **defined** function body, not for imports. |
 | Export | `7` | [`ExportSec(Array[Export])`](../../../src/lib/types.mbt#L460) with [`ExternIdx`](../../../src/lib/types.mbt#L189-L196). | Export names are unique and each index resolves in the target index space. |
 | Start | `8` | [`StartSec(FuncIdx)`](../../../src/lib/types.mbt#L463). | Target function exists and has no params/results. |
-| Code | `10` | [`CodeSec(Array[Func])`](../../../src/lib/types.mbt#L493). | Body vector length equals `FuncSec` length; body ordinal `i` belongs to absolute function index `imported_func_count + i`. |
+| Code | `10` | [`CodeSec(Array[Func])`](../../../src/lib/types.mbt#L493). | Body vector length equals `FuncSec` length; body ordinal `i` belongs to absolute function index `imported_func_count + i`; each body is locals plus an expression whose binary instruction details are covered in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). |
 
 The source snapshot in [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md) records the current official WebAssembly 3.0 module, binary, validation, and text sources behind this table.
 
