@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae touched coalesce-locals cleanup
+
+- Added focused `dae-optimizing` regressions in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that prove the guarded nested `coalesce-locals` slot only cleans DAE-touched functions and that the exact nested pass trace order now includes `coalesce-locals` before `reorder-locals`; the touched-only `local-cse` regression was tightened to reflect the current scratch-slot reuse shape (`local.tee (Local 0)`) after the later local cleanup lane.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) with a function-filtered `coalesce-locals` adapter and inserted it as `... remove-unused-names -> merge-blocks -> coalesce-locals -> reorder-locals -> vacuum`, preserving the touched-function filter and size guards. Validation preserved the known DAE local-declaration-only frontier in `.tmp/dae002-coalesce-locals-1000` (`998/1000`, `985` normalized matches, `13` mismatches, `2` command failures), and the debug artifact still skips nested cleanup at `touched=12`.
+
 ## [2026-05-13] docs | refresh dae-optimizing readiness page
 
 - Updated [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) to reflect the current local state: public `dae-optimizing` and `dead-argument-elimination-optimizing` names exist, the module dispatcher runs the guarded touched-function nested cleanup lane, and the remaining hold point is full-parity nested replay rather than boundary-only request rejection.

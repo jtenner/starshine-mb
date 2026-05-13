@@ -9733,7 +9733,7 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     "dead-code-elimination", "optimize-instructions", "local-cse", "pick-load-signs",
     "heap-store-optimization", "heap2local", "optimize-casts", "code-pushing", "simplify-locals",
     "code-folding", "precompute", "merge-blocks", "remove-unused-brs", "remove-unused-names",
-    "merge-blocks", "reorder-locals", "vacuum",
+    "merge-blocks", "coalesce-locals", "reorder-locals", "vacuum",
   ]
 }
 
@@ -9962,6 +9962,45 @@ fn run_hot_pipeline_apply_local_cse_to_touched(
 }
 
 ///|
+fn run_hot_pipeline_apply_coalesce_locals_to_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Result[@lib.Module, String] {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Ok(mod_)
+  }
+  let params = cl_defined_func_param_cache(mod_)
+  let mut rewritten : Array[@lib.Func]? = None
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    if code_idx >= touched.length() || !touched[code_idx] {
+      continue
+    }
+    let func_params = match params.get(code_idx) {
+      Some(params) => params
+      None =>
+        return Err("missing defined function params for code index \{code_idx}")
+    }
+    let rewrite = cl_rewrite_func(funcs[code_idx], func_params)
+    if rewrite.changed {
+      match rewritten {
+        Some(copy) => copy[code_idx] = rewrite.func
+        None => {
+          let copy = funcs.copy()
+          copy[code_idx] = rewrite.func
+          rewritten = Some(copy)
+        }
+      }
+    }
+  }
+  match rewritten {
+    Some(copy) =>
+      Ok(mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec())
+    None => Ok(mod_)
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_reorder_locals_to_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -10067,6 +10106,14 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
     if pass_name == "local-cse" {
       current = match
         run_hot_pipeline_apply_local_cse_to_touched(current, touched, options) {
+        Ok(next) => next
+        Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+      }
+      continue
+    }
+    if pass_name == "coalesce-locals" {
+      current = match
+        run_hot_pipeline_apply_coalesce_locals_to_touched(current, touched) {
         Ok(next) => next
         Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
       }

@@ -47,7 +47,7 @@ Starshine currently has:
 
 - public pass names `dae-optimizing` and `dead-argument-elimination-optimizing` in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt);
 - a live module-pass dispatcher path in [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) that runs the shared DAE boundary rewrite plus a guarded touched-function nested cleanup slice;
-- focused regressions for touched-only nested cleanup order, size-skip tracing, and touched-only `optimize-casts` / `reorder-locals` behavior in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
+- focused regressions for touched-only nested cleanup order, size-skip tracing, and touched-only `optimize-casts` / `coalesce-locals` / `reorder-locals` behavior in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
 - an exact upstream-style nested cleanup prefix trace of `precompute-propagate`, but not the real `precompute-propagate` pass family itself;
 - no full default-function-pipeline replay on all touched functions, no broad-module nested replay, and no green debug-artifact compare yet.
 
@@ -136,7 +136,7 @@ Current reusable code surfaces:
   - future preset-spelling and documentation sync point if the partial/full split changes.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
   - current module-pass dispatcher surface, shared DAE boundary core, touched-function tracking, and guarded nested cleanup scheduler;
-  - current home of the function-filtered `local-cse` and `reorder-locals` adapters, nested-pass trace lines, and size-skip guards.
+  - current home of the function-filtered `local-cse`, `coalesce-locals`, and `reorder-locals` adapters, nested-pass trace lines, and size-skip guards.
 - [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
   - CLI/config plumbing for pass selection, tracing, and `closed_world` behavior.
 - [`src/lib/types.mbt`](../../../../../src/lib/types.mbt)

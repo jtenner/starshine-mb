@@ -1870,8 +1870,8 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     "pass[dae-optimizing]:nested-pass name=simplify-locals", "pass[dae-optimizing]:nested-pass name=code-folding",
     "pass[dae-optimizing]:nested-pass name=precompute", "pass[dae-optimizing]:nested-pass name=merge-blocks",
     "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
-    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=reorder-locals",
-    "pass[dae-optimizing]:nested-pass name=vacuum",
+    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=coalesce-locals",
+    "pass[dae-optimizing]:nested-pass name=reorder-locals", "pass[dae-optimizing]:nested-pass name=vacuum",
   ])
 }
 
@@ -1989,18 +1989,15 @@ test "dae-optimizing nested local-cse only rewrites touched functions" {
   let @lib.Func(untouched_locals, @lib.Expr(untouched_instrs)) = dae_test_defined_func(
     optimized, 2,
   )
-  @debug.assert_eq(
-    touched_locals,
-    @lib.Locals::from_types([@lib.ValType::i32()]),
-  )
+  @debug.assert_eq(touched_locals, @lib.Locals::empty())
   @debug.assert_eq(untouched_locals, @lib.Locals::empty())
   assert_true(
-    touched_instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(2U))),
+    touched_instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(0U))),
     msg=optimized.pretty_print_defined_func(0U),
   )
   assert_false(
     untouched_instrs.contains(
-      @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
     ),
     msg=optimized.pretty_print_defined_func(2U),
   )
@@ -2451,6 +2448,43 @@ test "dae-optimizing nested reorder-locals only trims touched functions" {
   @debug.assert_eq(
     untouched_locals,
     @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i64()]),
+  )
+}
+
+///|
+test "dae-optimizing nested coalesce-locals only cleans touched functions" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32) (local i32 i32)
+    #|    i32.const 11
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 22
+    #|    local.set 2
+    #|    local.get 2)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 99
+    #|    call $f)
+    #|  (func (export "untouched") (result i32) (local i32 i32)
+    #|    i32.const 11
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 22
+    #|    local.set 1
+    #|    local.get 1))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected DAE coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(touched_locals, _) = dae_test_defined_func(optimized, 0)
+  let @lib.Func(untouched_locals, _) = dae_test_defined_func(optimized, 2)
+  @debug.assert_eq(touched_locals, @lib.Locals::empty())
+  @debug.assert_eq(
+    untouched_locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
 }
 
