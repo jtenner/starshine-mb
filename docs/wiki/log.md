@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-12] passes | DAE002 touched remove-unused-names cleanup
+
+- Extended the guarded small-module `dae-optimizing` nested cleanup slice from `dead-code-elimination -> local-cse -> simplify-locals -> merge-blocks -> remove-unused-brs -> vacuum` to `dead-code-elimination -> local-cse -> simplify-locals -> merge-blocks -> remove-unused-brs -> remove-unused-names -> vacuum` while preserving the touched-function filter.
+- Added a focused regression proving DAE-touched functions can demote loop-without-continue cleanup while equivalent untouched siblings keep their loop shape unchanged.
+- Refreshed direct DAE evidence: `.tmp/dae002-remove-unused-names-200` reported `199/200` compared, `198` normalized matches, `1` mismatch, and `1` Binaryen/tool command failure; `.tmp/dae002-remove-unused-names-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures, preserving the prior local-declaration frontier. A traced debug-artifact run still skips nested cleanup at `touched=12`, so the large artifact lane is not broadened by this slice.
+
 ## [2026-05-12] passes | DAE002 touched remove-unused-brs cleanup
 
 - Extended the guarded small-module `dae-optimizing` nested cleanup slice from `dead-code-elimination -> local-cse -> simplify-locals -> merge-blocks -> vacuum` to `dead-code-elimination -> local-cse -> simplify-locals -> merge-blocks -> remove-unused-brs -> vacuum` while preserving the touched-function filter.
