@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] validation | MoonBit proof policy source refresh
+
+- Added [`raw/moonbit/2026-05-13-formal-verification-docs.md`](raw/moonbit/2026-05-13-formal-verification-docs.md) to record the official MoonBit formal-verification docs and v0.9.1 verification blog as current primary-source anchors for Starshine's proof policy.
+- Refreshed [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md) so it separates proved/exported `src/validate_proof` helpers from helpers actually imported by `src/validate`, keeps `moon prove src/validate_proof` as the only required proof gate, and updates the no-`proof_axiomatized` trust-surface audit to 2026-05-13.
+- Updated the wiki index entry for the proof-strategy page with the official-doc source layer and the corrected nine-helper live validator import map.
+
 ## [2026-05-13] passes | DAE002 touched heap-store-optimization cleanup
 
 - Extended the guarded small-module `dae-optimizing` nested cleanup slice from `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> heap2local -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` to `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> heap-store-optimization -> heap2local -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` while preserving the touched-function filter.
