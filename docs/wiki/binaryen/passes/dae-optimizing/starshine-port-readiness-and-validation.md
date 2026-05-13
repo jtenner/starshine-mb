@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
@@ -36,22 +36,22 @@ related:
 
 # Starshine `dae-optimizing` port readiness and validation
 
-This page turns the `dae-optimizing` dossier into an implementation-readiness checklist.
-It is not an implementation claim: Starshine still does **not** currently claim the exact upstream `dae-optimizing` spelling, and the local boundary-only registry spelling remains `dead-argument-elimination-optimizing`.
+This page turns the `dae-optimizing` dossier into an implementation-readiness and validation checklist.
+It is not a full-parity claim: Starshine now exposes the exact upstream spelling `dae-optimizing` plus the descriptive alias `dead-argument-elimination-optimizing`, but the implementation is still a guarded partial port rather than Binaryen's complete optimizing sibling.
 
-Use it when starting a future port or when reviewing whether a plain DAE change accidentally imported the optimizing sibling's nested rerun behavior.
+Use it when extending the current port or when reviewing whether a plain DAE change accidentally imported the optimizing sibling's nested rerun behavior.
 
 ## Current hold point
 
 Starshine currently has:
 
-- a local descriptive pass name, `dead-argument-elimination-optimizing`, in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt);
-- boundary-only request behavior through `run_hot_pipeline_expand_passes(...)`, which rejects that exact local spelling as not implemented in the hot pipeline;
-- no exact upstream alias `dae-optimizing` yet;
-- no owner file for module-level call-boundary analysis;
-- no active preset role for the optimizing sibling.
+- public pass names `dae-optimizing` and `dead-argument-elimination-optimizing` in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt);
+- a live module-pass dispatcher path in [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) that runs the shared DAE boundary rewrite plus a guarded touched-function nested cleanup slice;
+- focused regressions for touched-only nested cleanup order, size-skip tracing, and touched-only `optimize-casts` / `reorder-locals` behavior in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
+- an exact upstream-style nested cleanup prefix trace of `precompute-propagate`, but not the real `precompute-propagate` pass family itself;
+- no full default-function-pipeline replay on all touched functions, no broad-module nested replay, and no green debug-artifact compare yet.
 
-That is intentionally different from upstream Binaryen, where the public pass name is `dae-optimizing` and the same core `DeadArgumentElimination.cpp` engine is wrapped by the optimizing scheduler suffix.
+That is closer to upstream Binaryen than the earlier boundary-only hold point, but it is still intentionally narrower than the full optimizing sibling.
 
 ## Why this must be a module pass
 
@@ -123,7 +123,7 @@ It must not run the nested cleanup replay documented here.
 Practical test rule:
 
 - `--pass dead-argument-elimination` may leave callee-local setup or other cleanup debris that remains valid;
-- the optimizing sibling may clean that debris only when `dead-argument-elimination-optimizing` / a future exact `dae-optimizing` alias is requested.
+- the optimizing sibling may clean that debris only when `dae-optimizing` or `dead-argument-elimination-optimizing` is requested.
 
 If a future plain pass starts matching every optimizing golden, check whether it accidentally imported the sibling scheduler.
 
@@ -132,12 +132,13 @@ If a future plain pass starts matching every optimizing golden, check whether it
 Current reusable code surfaces:
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - the boundary-only registry list includes the local optimizing spelling and the request-rejection path still treats it as unimplemented in the hot pipeline;
-  - future registry and preset-spelling decision point for an exact upstream alias.
+  - the registry already exposes both `dae-optimizing` and `dead-argument-elimination-optimizing` with the same summary;
+  - future preset-spelling and documentation sync point if the partial/full split changes.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-  - current module-pass dispatcher surface; a future port needs a real owner path here once the pass stops being boundary-only.
+  - current module-pass dispatcher surface, shared DAE boundary core, touched-function tracking, and guarded nested cleanup scheduler;
+  - current home of the function-filtered `local-cse` and `reorder-locals` adapters, nested-pass trace lines, and size-skip guards.
 - [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
-  - CLI and config plumbing for `closed_world` and future pass-name acceptance.
+  - CLI/config plumbing for pass selection, tracing, and `closed_world` behavior.
 - [`src/lib/types.mbt`](../../../../../src/lib/types.mbt)
   - function types and direct / indirect / reference call instruction shapes.
 - [`src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
@@ -149,13 +150,11 @@ Current reusable code surfaces:
 
 Missing code surfaces for a faithful port:
 
-- module-level call-boundary summary;
-- function signature rewrite helper;
-- direct caller operand/result repair;
-- type-section user remapping;
-- body-local parameter-index repair;
-- nested cleanup replay hookup for touched functions;
-- Binaryen-oracle focused test harness entries for the exact upstream spelling.
+- a real `precompute-propagate` sibling or equivalent nested prefix replay;
+- a performant default-function-pipeline replay for touched functions without the current small-module guards;
+- broader function-filtered adapters or safe batching for still-module-shaped cleanup passes that Binaryen reruns after productive DAE changes;
+- final debug-artifact output parity and pass-local runtime attribution closure;
+- Binaryen-oracle focused test coverage for any newly enabled cleanup families beyond the current guarded slice.
 
 ## Validation ladder
 

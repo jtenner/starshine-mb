@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] docs | refresh dae-optimizing readiness page
+
+- Updated [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) to reflect the current local state: public `dae-optimizing` and `dead-argument-elimination-optimizing` names exist, the module dispatcher runs the guarded touched-function nested cleanup lane, and the remaining hold point is full-parity nested replay rather than boundary-only request rejection.
+- Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) so its `[DAE]002` backlog summary includes `simplify-locals`, `reorder-locals`, `vacuum`, and the differentiated nested-cleanup size-skip trace reasons.
+
 ## [2026-05-13] passes | dae touched reorder-locals cleanup
 
 - Added a focused `dae-optimizing` regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) that proves the guarded nested `reorder-locals` slot trims unused local declarations only in DAE-touched functions while preserving an equivalent untouched exported sibling.
