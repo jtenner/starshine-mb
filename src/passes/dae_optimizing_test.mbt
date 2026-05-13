@@ -2146,6 +2146,33 @@ test "dae-optimizing nested pick-load-signs only rewrites touched functions" {
 }
 
 ///|
+test "dae-optimizing nested heap2local only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (type $pair (sub (struct (field (mut i32)) (field (mut i32)))))
+    #|  (func $f (param i32) (result i32) (local $ref (ref null $pair))
+    #|    (struct.get $pair 0
+    #|      (local.tee $ref
+    #|        (struct.new_default $pair))))
+    #|  (func (export "run") (result i32)
+    #|    i32.const 99
+    #|    call $f)
+    #|  (func (export "untouched") (result i32) (local $ref (ref null $pair))
+    #|    (struct.get $pair 0
+    #|      (local.tee $ref
+    #|        (struct.new_default $pair)))))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE heap2local pipeline success, got \{err}")
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_false(touched.contains("struct.new_default"), msg=touched)
+  assert_false(touched.contains("struct.get"), msg=touched)
+  assert_true(untouched.contains("struct.new_default"), msg=untouched)
+}
+
+///|
 fn dae_test_bytes_from_ints(values : Array[Int]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
