@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] maintain | raw-source directory README health
+
+- During the whole-wiki health pass after adding the first `raw/wasm/` source snapshot, found [`raw/README.md`](raw/README.md) still described `raw/research/` but not the topic raw-source directories already in use for Binaryen, MoonBit, and Wasm primary-source manifests.
+- Updated [`raw/README.md`](raw/README.md) and the [`index.md`](index.md) catalog entry so future source ingests know where topic-family raw snapshots belong.
+
 ## [2026-05-13] wast | GC type authoring source refresh
 
 - Added [`raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md) to capture current official WebAssembly 3.0 GC type/text-type sources plus the custom-descriptors proposal overview.
