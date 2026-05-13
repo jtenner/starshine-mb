@@ -48,6 +48,8 @@ A good beginner summary is:
 - propagates that information through code, tables, GC heap types, and segments,
 - then deletes or weakens declarations while rewriting every surviving index surface.
 
+For the shared Starshine function-index section model that RUME must preserve while deleting or remapping functions, see [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md).
+
 That is much closer to the official source than “remove dead functions.”
 
 ## Why this pass matters

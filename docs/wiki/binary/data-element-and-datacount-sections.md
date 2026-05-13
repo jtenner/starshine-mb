@@ -13,6 +13,7 @@ sources:
   - ../../../src/wast/passive_typed_elem_surface_test.mbt
   - ../../../src/wast/module_wast_tests.mbt
 related:
+  - function-import-export-and-code-sections.md
   - custom-and-name-sections.md
   - ../wast/gc-type-authoring.md
   - ../validate/fuzz-hardening.md
@@ -59,7 +60,7 @@ Text data segments in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) acce
 | Active typed expression list | `Elem(Active(tableidx, offset), TypedExprsElemKind(rt, exprs))` | elem header `6`, table index, offset, ref type, expressions | selected table element type must accept the segment ref type. |
 | Declarative typed expression list | `Elem(Declarative, TypedExprsElemKind(rt, exprs))` | elem header `7`, ref type, expressions | no table or offset; expressions still typecheck. |
 
-[`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) are the canonical local code map for these headers. The `FuncExprsElemKind` cases encode through the expression segment headers and synthesize a `funcref` ref type where the binary form requires one.
+[`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) are the canonical local code map for these headers. The `FuncExprsElemKind` cases encode through the expression segment headers and synthesize a `funcref` ref type where the binary form requires one. Function-index element payloads use the same imported-prefix absolute `FuncIdx` model as calls, starts, and exports; see [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md).
 
 ## Data-Count Rules
 

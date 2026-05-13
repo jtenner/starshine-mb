@@ -36,6 +36,7 @@ related:
   - ./scheduler-validation-and-parity.md
   - ./type-compaction-and-metadata.md
   - ./parity.md
+  - ../../../binary/function-import-export-and-code-sections.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 ---
@@ -86,6 +87,7 @@ It is a small whole-module duplicate-function identity pass.
 - Non-semantic metadata differences like branch hints and debug locations do **not** block merging.
 - Semantics-altering function annotations do block merging unless they match.
 - Current Starshine type compaction, name stripping, element canonicalization, and annotation-map rewriting are local extras, not the upstream DFE algorithm itself.
+- The shared imported-prefix `FuncIdx` model that DFE must preserve while rewriting references is summarized in [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md).
 
 ## Biggest beginner correction
 

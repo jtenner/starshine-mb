@@ -61,7 +61,7 @@ In Starshine, that still belongs outside HOT IR because the mutation is module-g
 - exports, start, element expressions, table/global initializers, and body instructions can all mention `FuncIdx`,
 - name and annotation metadata can also be tied to function indices.
 
-The current module shape in [`src/lib/types.mbt`](../../../../../src/lib/types.mbt) makes that visible: `Module` owns `import_sec`, `func_sec`, `export_sec`, `start_sec`, `elem_sec`, `code_sec`, `name_sec`, and `func_annotation_sec`, while instructions such as `Call`, `ReturnCall`, and `RefFunc` carry numeric `FuncIdx` operands.
+The current module shape in [`src/lib/types.mbt`](../../../../../src/lib/types.mbt) makes that visible: `Module` owns `import_sec`, `func_sec`, `export_sec`, `start_sec`, `elem_sec`, `code_sec`, `name_sec`, and `func_annotation_sec`, while instructions such as `Call`, `ReturnCall`, and `RefFunc` carry numeric `FuncIdx` operands. The shared imported-prefix function-index contract is now summarized in [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md).
 
 That is different from Binaryen's source-level teaching point. Binaryen can reorder its function list while expressions still name the same logical functions. Starshine's lowered representation would need an explicit permutation and reference-remap step so the same logical targets survive changed numeric indices.
 

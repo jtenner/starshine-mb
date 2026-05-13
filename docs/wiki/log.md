@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] binary | function/import/export/code section guide
+
+- Added [`raw/wasm/2026-05-13-function-import-export-section-sources.md`](raw/wasm/2026-05-13-function-import-export-section-sources.md) after checking current official WebAssembly 3.0 syntax, validation, binary, and text module sources for function index spaces, imports, defined-function signatures/bodies, exports, start functions, code sections, and the official `ref.func` declaration source set.
+- Added [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md) as the canonical Starshine guide for `ImportSec` / `FuncSec` / `ExportSec` / `StartSec` / `CodeSec`, imported-prefix `FuncIdx` mapping, WAST lowering, section encode/decode, validation/proof helpers, and pass-remap obligations.
+- Kept the local/spec divergence explicit: official module validation includes the optional start function in function-reference declaration sources, while current Starshine has a regression asserting that `start` alone does not declare `ref.func`; future validator work should resolve or intentionally preserve that difference.
+- Cross-linked [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`binaryen/passes/reorder-functions/starshine-strategy.md`](binaryen/passes/reorder-functions/starshine-strategy.md), [`binaryen/passes/remove-unused-module-elements/index.md`](binaryen/passes/remove-unused-module-elements/index.md), [`binaryen/passes/duplicate-function-elimination/index.md`](binaryen/passes/duplicate-function-elimination/index.md), and [`index.md`](index.md) so function-index metadata, element payloads, and module-pass remap checklists point at one shared function-section contract.
+
 ## [2026-05-13] maintain | segment contract backlinks
 
 - During the whole-wiki health pass after adding the canonical data/element/data-count page, found pass dossiers that teach segment mutation or active-segment offset lowering without linking to the shared binary segment contract.
