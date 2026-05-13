@@ -9725,13 +9725,13 @@ fn run_hot_pipeline_apply_hot_pass(
 ///|
 fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
   [
-    // Narrow scheduler slice: consume fresh local traffic DAE creates with
-    // currently function-filterable passes, but do not run Starshine's full
-    // default function pipeline yet. The full Binaryen-equivalent lane still
-    // depends on a faster filtered batch runner plus a real
-    // `precompute-propagate` port.
-    "dead-code-elimination", "local-cse", "simplify-locals", "merge-blocks", "remove-unused-brs",
-    "remove-unused-names", "merge-blocks", "vacuum",
+    // Narrow scheduler slice: consume fresh expression/control/local cleanup
+    // opportunities DAE creates with currently function-filterable passes, but
+    // do not run Starshine's full default function pipeline yet. The full
+    // Binaryen-equivalent lane still depends on a faster filtered batch runner
+    // plus a real `precompute-propagate` port.
+    "dead-code-elimination", "optimize-instructions", "local-cse", "simplify-locals",
+    "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "vacuum",
   ]
 }
 
