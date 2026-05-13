@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-12] passes | DAE002 touched local-CSE adapter
+
+- Extended the guarded small-module `dae-optimizing` nested cleanup slice from `dead-code-elimination -> simplify-locals -> vacuum` to `dead-code-elimination -> local-cse -> simplify-locals -> vacuum` while preserving the touched-function filter.
+- Added a function-filtered raw `local-cse` adapter for the nested lane; direct public `local-cse` remains module-shaped, and focused tests prove DAE-touched functions can get local-CSE while equivalent untouched siblings stay unchanged.
+- Refreshed direct DAE evidence: `.tmp/dae002-local-cse-200` reported `199/200` compared, `198` normalized matches, `1` mismatch, and `1` Binaryen/tool command failure; `.tmp/dae002-local-cse-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures, preserving the prior local-declaration frontier. A traced debug-artifact run still skips nested cleanup at `touched=12`, so the large artifact lane is not broadened by this slice.
+
 ## [2026-05-12] passes | DAE002 call-summary runtime attribution
 
 - Attributed the post-scheduler debug-artifact timeout to DAE core work before the nested cleanup marker, specifically repeated per-callee call/dead-suffix scans over the 4,671-defined-function artifact.

@@ -9725,12 +9725,27 @@ fn run_hot_pipeline_apply_hot_pass(
 ///|
 fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
   [
-    // Narrow first scheduler slice: consume the fresh dead local traffic DAE
-    // creates, but do not run Starshine's full function pipeline here yet. The
-    // full Binaryen-equivalent lane still depends on a faster filtered batch
-    // runner plus a real `precompute-propagate` port.
-    "dead-code-elimination", "simplify-locals", "vacuum",
+    // Narrow scheduler slice: consume fresh local traffic DAE creates with
+    // currently function-filterable passes, but do not run Starshine's full
+    // default function pipeline yet. The full Binaryen-equivalent lane still
+    // depends on a faster filtered batch runner plus a real
+    // `precompute-propagate` port.
+    "dead-code-elimination", "local-cse", "simplify-locals", "vacuum",
   ]
+}
+
+///|
+fn run_hot_pipeline_dae_nested_cleanup_descriptor(
+  pass_name : String,
+) -> Result[@ir.HotPassDescriptor, String] {
+  match pass_registry_lookup_cached(pass_name) {
+    Some(entry) =>
+      match entry.descriptor {
+        Some(descriptor) => Ok(descriptor)
+        None => Err("DAE nested cleanup pass \{pass_name} is not a hot pass")
+      }
+    None => Err("DAE nested cleanup expanded to unknown pass \{pass_name}")
+  }
 }
 
 ///|
@@ -9889,6 +9904,45 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
 }
 
 ///|
+fn run_hot_pipeline_apply_local_cse_to_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  ignore(options)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Ok(mod_)
+  }
+  let params = cl_defined_func_param_cache(mod_)
+  let mut rewritten : Array[@lib.Func]? = None
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    if code_idx >= touched.length() || !touched[code_idx] {
+      continue
+    }
+    let (next_func, changed) = local_cse_run_raw_func_with_params(
+      funcs[code_idx],
+      params[code_idx],
+    )
+    if changed {
+      match rewritten {
+        Some(copy) => copy[code_idx] = next_func
+        None => {
+          let copy = funcs.copy()
+          copy[code_idx] = next_func
+          rewritten = Some(copy)
+        }
+      }
+    }
+  }
+  match rewritten {
+    Some(copy) =>
+      Ok(mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec())
+    None => Ok(mod_)
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_nested_cleanup_touched_too_large(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -9939,15 +9993,18 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   }
   let mut current = mod_
   for pass_name in run_hot_pipeline_dae_nested_cleanup_passes() {
-    let entry = match pass_registry_lookup_cached(pass_name) {
-      Some(entry) => entry
-      None =>
-        return Err("DAE nested cleanup expanded to unknown pass \{pass_name}")
+    if pass_name == "local-cse" {
+      current = match
+        run_hot_pipeline_apply_local_cse_to_touched(current, touched, options) {
+        Ok(next) => next
+        Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+      }
+      continue
     }
-    let descriptor = match entry.descriptor {
-      Some(descriptor) => descriptor
-      None =>
-        return Err("DAE nested cleanup pass \{pass_name} is not a hot pass")
+    let descriptor = match
+      run_hot_pipeline_dae_nested_cleanup_descriptor(pass_name) {
+      Ok(descriptor) => descriptor
+      Err(err) => return Err(err)
     }
     current = match
       run_hot_pipeline_apply_hot_pass_to_touched(

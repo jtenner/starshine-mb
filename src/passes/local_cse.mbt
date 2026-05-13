@@ -533,6 +533,15 @@ fn lcse_raw_rewrite_func(
 }
 
 ///|
+fn local_cse_run_raw_func_with_params(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> (@lib.Func, Bool) {
+  let rewrite = lcse_raw_rewrite_func(func, params)
+  (rewrite.func, rewrite.changed)
+}
+
+///|
 pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {

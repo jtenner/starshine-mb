@@ -49,6 +49,14 @@ fn dae_test_run(
 }
 
 ///|
+fn dae_test_defined_func(mod_ : @lib.Module, def_idx : Int) -> @lib.Func {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[def_idx]
+    None => abort("missing code section")
+  }
+}
+
+///|
 test "dae-optimizing is an active module pass under canonical and descriptive names" {
   @debug.assert_eq(
     pass_registry_category("dae-optimizing"),
@@ -1842,6 +1850,59 @@ test "dae-optimizing nested cleanup only rewrites touched functions" {
   let untouched = optimized.pretty_print_defined_func(2U)
   assert_false(touched_callee.contains("local.set"), msg=touched_callee)
   assert_true(untouched.contains("local.set"), msg=untouched)
+}
+
+///|
+test "dae-optimizing nested local-cse only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (import "env" "use" (func $use (param i32 i32)))
+    #|  (func $f (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add
+    #|    call $use)
+    #|  (func (export "run")
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    i32.const 30
+    #|    call $f)
+    #|  (func (export "untouched") (param i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add
+    #|    call $use))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(touched_locals, @lib.Expr(touched_instrs)) = dae_test_defined_func(
+    optimized, 0,
+  )
+  let @lib.Func(untouched_locals, @lib.Expr(untouched_instrs)) = dae_test_defined_func(
+    optimized, 2,
+  )
+  @debug.assert_eq(
+    touched_locals,
+    @lib.Locals::from_types([@lib.ValType::i32()]),
+  )
+  @debug.assert_eq(untouched_locals, @lib.Locals::empty())
+  assert_true(
+    touched_instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(2U))),
+    msg=optimized.pretty_print_defined_func(0U),
+  )
+  assert_false(
+    untouched_instrs.contains(
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    ),
+    msg=optimized.pretty_print_defined_func(2U),
+  )
 }
 
 ///|
