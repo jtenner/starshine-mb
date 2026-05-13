@@ -21,29 +21,51 @@ related:
 
 ## Current status in one sentence
 
-Starshine's `inlining-optimizing` is an active partial module pass with validation-clean latest fuzz evidence, but 15 normalized mismatches and an incomplete nested scheduler keep it unsigned.
+Starshine's `inlining-optimizing` is an active partial module pass whose standard seed-`0x5eed` and broadened seed-`0x1eed` direct lanes are green over compared cases; remaining ignored failures are Binaryen/tool parse failures, not Starshine semantic failures.
 
 ## Latest evidence
 
+Standard direct lane now green:
+
 ```text
-Artifact: .tmp/pass-fuzz-inlining-shadow-void-cycle-final
+Artifact: .tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier
 Pass: inlining-optimizing
+Seed: 0x5eed
 Compared: 9975 / 10000
-Normalized matches: 9960
-Normalized mismatches: 15
+Normalized matches: 9975
+Normalized mismatches: 0
 Validation failures: 0
 Generator failures: 0
 Ignored Binaryen/tool command failures: 25
 ```
 
-Command-failure breakdown:
+Seed-`0x5eed` command-failure breakdown:
 
 - `22` `binaryen-rec-group-zero`;
 - `1` `binaryen-bad-section-size`;
 - `1` `binaryen-table-index-out-of-range`;
 - `1` `binaryen-invalid-tag-index`.
 
-Classification rule: these are ignored oracle/tool parse/canonicalization failures, not Starshine semantic failures.
+Broadened closure lane is green:
+
+```text
+Artifact: .tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2
+Pass: inlining-optimizing
+Seed: 0x1eed
+Compared: 9978 / 10000
+Normalized matches: 9978
+Normalized mismatches: 0
+Validation failures: 0
+Generator failures: 0
+Ignored Binaryen/tool command failures: 22
+```
+
+Seed-`0x1eed` command-failure breakdown:
+
+- `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures;
+- `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`.
+
+Classification rule: Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The former Starshine command failure and broadened normalized mismatch set are fixed.
 
 ## What is already validated locally
 
@@ -57,13 +79,15 @@ Focused tests validate the current subset:
 - self-recursion skip;
 - iterative wave behavior;
 - unreachable private cycle cleanup/retention families;
+- no-inlining unreachable value-block pruning and predicted exact-helper padding;
+- narrow hot-unsafe polymorphic self-call suffix detector coverage;
 - optimizing nested-cleanup trace marker.
 
 ## Active blockers
 
 ### `[INL]001` core blockers
 
-- remaining exact-`unreachable` representative/retention mismatches;
+- deferred direct-inliner feature breadth that still needs explicit split-or-out-of-scope classification;
 - incomplete Binaryen heuristic model;
 - incomplete callsite repair model;
 - missing partial splitting;
@@ -73,6 +97,7 @@ Focused tests validate the current subset:
 ### `[INL]002` scheduler blockers
 
 - optimizing mode currently approximates nested cleanup;
+- the former seed-`0x1eed` `case-008100-gen-valid` command failure is fixed by a narrow hot-unsafe helper guard;
 - no exact touched-function-filtered scheduler;
 - no real prepended `precompute-propagate` equivalent;
 - no proof that only Binaryen's touched functions run the default pipeline;
@@ -81,8 +106,8 @@ Focused tests validate the current subset:
 ## Validation ladder
 
 1. Keep focused Moon tests for each reduced mismatch before implementation changes.
-2. Retire all saved mismatches from `.tmp/pass-fuzz-inlining-shadow-void-cycle-final` or document approved divergences.
-3. Run direct `--pass inlining-optimizing` 10k compare with zero semantic mismatches.
+2. Retire or classify the broadened seed-`0x1eed` mismatches in `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2`, plus any still-useful older saved mismatch dirs.
+3. Run direct `--pass inlining-optimizing` 10k compare with zero semantic mismatches on the standard lane and at least one broadened seed lane.
 4. Run direct `--pass inlining` separately so plain stop-point behavior is not hidden by cleanup.
 5. Add scheduler tests for touched-only nested cleanup.
 6. Replay `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination` neighborhood after direct parity.

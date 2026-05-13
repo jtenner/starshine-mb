@@ -60,6 +60,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 | --- | --- |
 | `src/passes/inlining.mbt` | shared implementation owner for both public names |
 | `src/passes/inlining_test.mbt` | focused public-pipeline tests and regression fixtures |
+| `src/passes/inlining_wbtest.mbt` | whitebox coverage for unreachable value-block pruning, predicted exact-helper padding, and the narrow hot-unsafe polymorphic self-call suffix detector |
 | `src/passes/optimize.mbt` | registry category and preset omission |
 | `src/passes/pass_manager.mbt` | module-pass dispatch and `optimize=true` routing |
 | `agent-todo.md` | `[INL]001` / `[INL]002` active blockers and latest artifact evidence |
@@ -92,9 +93,10 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - collapses conservative unreachable-root shapes.
 - Exact-unreachable predictor:
   - predicts alive exact-unreachable helper counts by signature;
+  - pads missing exact helpers to predicted signature counts before final trimming;
   - includes refinements for private cycles and shadowed void-cycle result-helper representatives.
 
-## Focused tests in `src/passes/inlining_test.mbt`
+## Focused tests in `src/passes/inlining_test.mbt` and `src/passes/inlining_wbtest.mbt`
 
 - active module category for both names;
 - tiny helper inline/remove;
@@ -108,24 +110,41 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - duplicate exact-unreachable helper retention;
 - non-inlined duplicate exported-signature retention;
 - root unreachable collapse cleanup;
+- no-inlining unreachable value-block pruning;
 - shadowed void-cycle result-helper retention;
-- optimizing nested-cleanup trace marker.
+- optimizing nested-cleanup trace marker;
+- whitebox predicted exact-helper padding;
+- whitebox detection of polymorphic self-call suffixes before the approximate hot cleanup lane.
 
 ## Current evidence and classification
 
-Latest artifact:
+Latest standard-lane artifact:
 
 ```text
-.tmp/pass-fuzz-inlining-shadow-void-cycle-final
+.tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier
+seed 0x5eed
 9975 compared
-9960 normalized matches
-15 mismatches
+9975 normalized matches
+0 mismatches
 0 validation failures
 0 generator failures
 25 ignored Binaryen/tool command failures
 ```
 
-Command failures are classified as ignored Binaryen/tool parse/canonicalization failures, not Starshine semantic failures.
+Broadened closure artifact:
+
+```text
+.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2
+seed 0x1eed
+9978 compared
+9978 normalized matches
+0 mismatches
+0 validation failures
+0 generator failures
+22 ignored Binaryen/tool command failures
+```
+
+Binaryen parse/canonicalization failures are classified as ignored oracle/tool failures, not Starshine semantic failures. The latest seed `0x1eed` lane has no Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`.
 
 ## Remaining implementation/test surfaces
 
@@ -137,4 +156,4 @@ Command failures are classified as ignored Binaryen/tool parse/canonicalization 
 - nondefaultable local fixtures;
 - exact touched-function scheduler tests;
 - direct plain `--pass inlining` standard compare evidence;
-- direct optimizing `--pass inlining-optimizing` standard compare with zero mismatches.
+- direct optimizing `--pass inlining-optimizing` compare with zero mismatches across the agreed standard and broadened seed lanes.

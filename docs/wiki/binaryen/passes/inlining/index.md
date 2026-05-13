@@ -89,16 +89,17 @@ Still missing or incomplete:
 - multi-result inlined wrapper block typing;
 - exact label/name collision behavior and annotation/name-section repair;
 - exact Binaryen action filtering, repeated-work caps, and giant-function size guard;
-- direct 10k parity for plain `--inlining` or optimizing `--inlining-optimizing`.
+- direct 10k parity for plain `--inlining`, and broadened-seed parity for optimizing `--inlining-optimizing`.
 
 ## Current evidence
 
-The current parent-thread evidence is for the optimizing sibling because that is the v0.1.0 `INL` focus:
+The current parent-thread evidence is for the optimizing sibling because that is the v0.1.0 `INL` focus. The standard seed lane is green:
 
-- `.tmp/pass-fuzz-inlining-shadow-void-cycle-final`
+- `.tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier`
+- seed `0x5eed`
 - `9975 / 10000` compared
-- `9960` normalized matches
-- `15` normalized mismatches
+- `9975` normalized matches
+- `0` normalized mismatches
 - `0` validation failures
 - `0` generator failures
 - `25` ignored Binaryen/tool parse/canonicalization command failures:
@@ -107,7 +108,19 @@ The current parent-thread evidence is for the optimizing sibling because that is
   - `1` `binaryen-table-index-out-of-range`
   - `1` `binaryen-invalid-tag-index`
 
-Per project policy and user preference, those Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The 15 normalized mismatches keep `[INL]001` and `[INL]002` active.
+The broadened seed lane is green over compared cases:
+
+- `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2`
+- seed `0x1eed`
+- `9978 / 10000` compared
+- `9978` normalized matches
+- `0` normalized mismatches
+- `0` validation failures
+- `0` generator failures
+- `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures
+- `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`
+
+Per project policy and user preference, those Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; exact nested scheduling remains `[INL]002`, and `[INL]001` should only stay open for explicitly split deferred direct-inliner breadth.
 
 ## Page map
 

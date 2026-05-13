@@ -108,16 +108,16 @@ The local equivalent is still missing. `[INL]002` remains active until the real 
 
 So direct `--pass inlining-optimizing` parity should come before preset scheduling, but final v0.1.0 confidence also needs ordered-neighborhood replay once direct mismatches are gone.
 
-## 8. Current mismatch frontier
+## 8. Current direct-lane frontier
 
-The latest artifact is validation-clean and command-failure-classified, but not parity-green. The remaining 15 normalized mismatches are exact-`unreachable` private-helper retention/representative cases.
+The standard seed-`0x5eed` artifact and the broadened seed-`0x1eed` artifact are both validation-clean and parity-green over compared cases, and the seed-`0x1eed` lane has no Starshine command failures after the narrow hot-unsafe helper guard.
 
-That means the immediate next useful questions are not “does the pass validate?” but:
+That means the immediate next useful questions are no longer about the four-function exact-`unreachable` survivor frontier. Instead focus on:
 
-- which private exact-unreachable helpers does Binaryen retain as representatives?
-- which signatures does Binaryen preserve for uncalled or duplicate unreachable helpers?
-- does Starshine over-remove or over-retain after helper compaction?
-- does nested cleanup approximation hide or introduce representative differences?
+- whether deferred direct-inliner Binaryen feature breadth should be split into follow-up slices or accepted as out of scope for the current supported surface;
+- whether plain `--pass inlining` should get its own independent broadened-seed signoff;
+- whether ordered-neighborhood or artifact replay is still needed before closing the direct optimizing slice;
+- how exact nested cleanup scheduling under `[INL]002` should be proved separately from the direct inliner core.
 
 ## Good future-agent checklist
 
@@ -129,6 +129,7 @@ When investigating an `inlining-optimizing` diff, classify it as one of:
 4. touched-function set mismatch;
 5. nested cleanup scheduler mismatch;
 6. downstream late-tail mismatch;
-7. Binaryen/tool parse/canonicalization failure.
+7. Binaryen/tool parse/canonicalization failure;
+8. Starshine command failure in the current nested-cleanup approximation.
 
 Only categories 1-5 belong to direct `INL` work. Category 7 is ignored oracle/tool failure per user preference.

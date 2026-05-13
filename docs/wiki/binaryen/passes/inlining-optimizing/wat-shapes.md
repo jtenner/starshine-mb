@@ -146,7 +146,7 @@ A simplified mismatch-family mental shape:
   unreachable)
 ```
 
-Binaryen and Starshine can agree semantically but differ on which private exact-unreachable helper representatives remain after inlining and cleanup. The latest artifact's 15 mismatches are in this family, not validation failures.
+Binaryen and Starshine can agree semantically but differ on which private exact-unreachable helper representatives remain after inlining and cleanup. The seed-`0x5eed` artifact is green for the earlier representative frontier, and the broadened seed-`0x1eed` four-function survivor/order frontier is now green too. These were never validation failures, and the latest seed `0x1eed` lane has no Starshine command failures.
 
 ## Shape 9: optimizing trace evidence
 

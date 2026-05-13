@@ -425,6 +425,354 @@ test "inlining-optimizing final-trims shadowed non-root self-loop helper" {
 }
 
 ///|
+test "inlining-optimizing retains root-signature member in mixed private cycle behind self-loop root" {
+  let source =
+    #|(module
+    #|  (type $root (func (result i32)))
+    #|  (type $mid (func (param i64) (result i32)))
+    #|  (type $other (func (param i64) (result i64)))
+    #|  (func $run (export "main") (type $root)
+    #|    block unreachable end
+    #|    i64.const 0
+    #|    call $mid
+    #|    drop
+    #|    call $a
+    #|    drop
+    #|    call $run)
+    #|  (func $a (type $root)
+    #|    block unreachable end
+    #|    i64.const 0
+    #|    call $other
+    #|    drop
+    #|    i32.const 1)
+    #|  (func $mid (type $mid)
+    #|    block unreachable end
+    #|    call $a
+    #|    drop
+    #|    i32.const 2)
+    #|  (func $other (type $other)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    call $mid
+    #|    drop
+    #|    i64.const 3))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  let helper = optimized.pretty_print_defined_func(1U)
+  assert_true(helper.contains("results: [I32]"), msg=helper)
+}
+
+///|
+test "inlining-optimizing retains root-signature member in void private cycle behind self-loop root" {
+  let source =
+    #|(module
+    #|  (type $root (func (result f64)))
+    #|  (type $void (func (param i32 i32)))
+    #|  (func $run (export "main") (type $root)
+    #|    block unreachable end
+    #|    call $run
+    #|    drop
+    #|    i32.const 0
+    #|    i32.const 0
+    #|    call $b
+    #|    f64.const 0)
+    #|  (func $c (type $void)
+    #|    block unreachable end
+    #|    i32.const 0
+    #|    i32.const 0
+    #|    call $b)
+    #|  (func $a (type $root)
+    #|    block unreachable end
+    #|    i32.const 0
+    #|    i32.const 0
+    #|    call $c
+    #|    f64.const 1)
+    #|  (func $b (type $void)
+    #|    block unreachable end
+    #|    call $a
+    #|    drop))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  let helper = optimized.pretty_print_defined_func(1U)
+  assert_true(helper.contains("results: [F64]"), msg=helper)
+}
+
+///|
+test "inlining-optimizing retains helper signature in self-loop root cycle with same-signature peer" {
+  let source =
+    #|(module
+    #|  (type $root (func (param i64) (result f64)))
+    #|  (type $helper (func (param f64 f32) (result f64)))
+    #|  (func $run (export "main") (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    call $run
+    #|    drop
+    #|    f64.const 0
+    #|    f32.const 0
+    #|    call $helper)
+    #|  (func $peer (type $helper)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $helper)
+    #|  (func $helper (type $helper)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $peer
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $helper
+    #|    drop
+    #|    i64.const 0
+    #|    call $shadow
+    #|    drop
+    #|    f64.const 0)
+    #|  (func $shadow (type $root)
+    #|    block unreachable end
+    #|    f64.const 0
+    #|    f32.const 0
+    #|    call $helper
+    #|    drop
+    #|    f64.const 1
+    #|    f32.const 1
+    #|    call $peer
+    #|    drop
+    #|    local.get 0
+    #|    call $run))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  let helper = optimized.pretty_print_defined_func(1U)
+  assert_true(helper.contains("params: [F64, F32]"), msg=helper)
+  assert_true(helper.contains("results: [F64]"), msg=helper)
+}
+
+///|
+test "inlining-optimizing drops private one-way self-loop chain behind duplicate root calls" {
+  let source =
+    #|(module
+    #|  (type $root (func (param i32) (result f32)))
+    #|  (func $run (export "main") (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    call $helper
+    #|    drop
+    #|    local.get 0
+    #|    call $helper)
+    #|  (func $helper (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    call $loop
+    #|    drop
+    #|    f32.const 1)
+    #|  (func $shadow (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    call $loop
+    #|    drop
+    #|    f32.const 2)
+    #|  (func $loop (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    call $loop
+    #|    drop
+    #|    local.get 0
+    #|    call $shadow))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+}
+
+///|
+test "inlining-optimizing retains self-loop helper signature in root dead-suffix cycle" {
+  let source =
+    #|(module
+    #|  (type $root (func (param f64 f64) (result f32)))
+    #|  (type $helper (func (param i64) (result f64)))
+    #|  (func $run (export "main") (type $root)
+    #|    block unreachable end
+    #|    i64.const 0
+    #|    call $helper
+    #|    drop
+    #|    f32.const 0)
+    #|  (func $helper (type $helper)
+    #|    block unreachable end
+    #|    f64.const 0
+    #|    f64.const 0
+    #|    call $shadow
+    #|    drop
+    #|    local.get 0
+    #|    call $helper)
+    #|  (func $orphan (type $helper)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    call $helper
+    #|    drop
+    #|    f64.const 1)
+    #|  (func $shadow (type $root)
+    #|    block unreachable end
+    #|    f64.const 0
+    #|    f64.const 0
+    #|    call $run
+    #|    drop
+    #|    f64.const 0
+    #|    f64.const 0
+    #|    call $run))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  let helper = optimized.pretty_print_defined_func(1U)
+  assert_true(helper.contains("params: [I64]"), msg=helper)
+  assert_true(helper.contains("results: [F64]"), msg=helper)
+  assert_false(helper.contains("call"), msg=helper)
+}
+
+///|
+test "inlining-optimizing retains same-signature root cycle helper with orphan dead suffix chain" {
+  let source =
+    #|(module
+    #|  (type $root (func (param i64 f32) (result i64)))
+    #|  (func $run (export "main") (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $helper
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $helper)
+    #|  (func $orphan_a (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $orphan_b
+    #|    drop
+    #|    i64.const 1)
+    #|  (func $orphan_b (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $helper
+    #|    drop
+    #|    i64.const 2)
+    #|  (func $helper (type $root)
+    #|    block unreachable end
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $run
+    #|    drop
+    #|    i64.const 3))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  let exact = optimized.pretty_print_defined_func(1U)
+  let helper = optimized.pretty_print_defined_func(2U)
+  assert_true(run.contains("call"), msg=run)
+  assert_false(exact.contains("call"), msg=exact)
+  assert_true(helper.contains("call"), msg=helper)
+}
+
+///|
+test "inlining-optimizing trims four-function same-signature dead-suffix chain to two representatives" {
+  let source =
+    #|(module
+    #|  (type $root (func (result f32)))
+    #|  (func $run (export "main") (type $root)
+    #|    block unreachable end
+    #|    call $c)
+    #|  (func $a (type $root)
+    #|    block unreachable end
+    #|    call $run
+    #|    drop
+    #|    call $a)
+    #|  (func $b (type $root)
+    #|    block unreachable end
+    #|    call $a)
+    #|  (func $c (type $root)
+    #|    block unreachable end
+    #|    call $b))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+}
+
+///|
+test "inlining-optimizing retains helper-cycle representative behind self-loop root" {
+  let source =
+    #|(module
+    #|  (type $root (func (param f32) (result i64)))
+    #|  (type $helper (func (param f64)))
+    #|  (func $run (export "main") (type $root)
+    #|    block unreachable end
+    #|    f64.const 0
+    #|    call $c
+    #|    local.get 0
+    #|    call $run)
+    #|  (func $a (type $helper)
+    #|    block unreachable end
+    #|    f64.const 0
+    #|    call $b)
+    #|  (func $b (type $helper)
+    #|    block unreachable end
+    #|    f64.const 0
+    #|    call $c)
+    #|  (func $c (type $helper)
+    #|    block unreachable end
+    #|    f64.const 0
+    #|    call $a))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  let helper = optimized.pretty_print_defined_func(1U)
+  assert_true(helper.contains("params: [F64]"), msg=helper)
+  assert_true(helper.contains("unreachable"), msg=helper)
+}
+
+///|
+test "inlining-optimizing prunes dead unreachable value blocks even without inlining" {
+  let source =
+    #|(module
+    #|  (func (export "run")
+    #|    i32.const 1
+    #|    drop
+    #|    loop (result i64)
+    #|      block (result v128)
+    #|        unreachable
+    #|        unreachable
+    #|      end
+    #|      unreachable
+    #|    end
+    #|    drop
+    #|    unreachable))
+  let optimized = inl_test_run(source)
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("V128BlockType"), msg=run)
+  assert_true(run.contains("unreachable"), msg=run)
+}
+
+///|
 test "inlining-optimizing emits nested cleanup trace for touched functions" {
   let source =
     #|(module

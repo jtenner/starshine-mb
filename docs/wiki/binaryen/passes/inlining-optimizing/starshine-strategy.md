@@ -31,10 +31,10 @@ related:
 
 `inlining-optimizing` is a **partial active module pass** in Starshine. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), shares its core with plain `inlining`, and adds the local optimizing-mode cleanup approximation.
 
-Do not claim full pass signoff yet because broader heuristic gaps and the exact optimizing nested scheduler remain open, but the direct seed-`0x5eed` mismatch frontier is currently green:
+Do not claim full pass signoff yet because broader heuristic gaps and the exact optimizing nested scheduler remain open. The standard direct seed-`0x5eed` mismatch frontier is green:
 
 ```text
-.tmp/pass-fuzz-inlining-selected-final-trim-retain2
+.tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier
 9975 compared
 9975 normalized matches
 0 mismatches
@@ -42,7 +42,18 @@ Do not claim full pass signoff yet because broader heuristic gaps and the exact 
 25 ignored Binaryen/tool command failures
 ```
 
-The latest lane used `--jobs auto` with a prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`; the 25 command failures remain Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. `[INL]001` and `[INL]002` remain active until broader heuristic/artifact evidence and the touched-function nested scheduler are complete.
+The broadened direct lane is also green over compared cases:
+
+```text
+.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2
+9978 compared
+9978 normalized matches
+0 mismatches
+0 validation failures
+22 ignored Binaryen/tool command failures
+```
+
+Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`. For seed `0x5eed`, all 25 command failures are Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. For seed `0x1eed`, all 22 command failures are ignored Binaryen/tool `binaryen-rec-group-zero` parse failures; the former `case-008100-gen-valid` Starshine command failure now replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`. `[INL]001` remains visible only for deferred direct-inliner breadth split/out-of-scope classification; `[INL]002` remains active for the touched-function nested scheduler.
 
 ## Exact local code map
 
@@ -56,6 +67,8 @@ The latest lane used `--jobs auto` with a prebuilt native `--starshine-bin _buil
   - shared core and optimizing approximation.
 - [`src/passes/inlining_test.mbt`](../../../../../src/passes/inlining_test.mbt)
   - focused public-pipeline tests and current mismatch-frontier regressions.
+- [`src/passes/inlining_wbtest.mbt`](../../../../../src/passes/inlining_wbtest.mbt)
+  - whitebox coverage for the narrow hot-unsafe polymorphic self-call suffix detector.
 - [`agent-todo.md`](../../../../../agent-todo.md)
   - active `[INL]001` and `[INL]002` deliverables and current artifact counts.
 - [`CHANGELOG.md`](../../../../../CHANGELOG.md)
@@ -85,11 +98,12 @@ The latest lane used `--jobs auto` with a prebuilt native `--starshine-bin _buil
 - multi-result typing;
 - label/name/annotation repair;
 - exact action filtering, iteration caps, and size guard;
-- remaining broader heuristic/artifact parity beyond the seed-`0x5eed` direct lane; the prior 7 saved exact-`unreachable` helper frontier (`001716`, `001838`, `003188`, `005502`, `005754`, `007720`, `008230`) is fixed in `.tmp/pass-fuzz-inlining-selected-final-trim-retain2`.
+- deferred direct-inliner breadth beyond the currently green direct lanes, including explicit split/out-of-scope treatment for Binaryen heuristic classes/options that Starshine still does not model;
 
 ### `[INL]002`: optimizing suffix parity
 
 - exact touched-function set;
+- former seed-`0x1eed` `case-008100-gen-valid` Starshine command failure is fixed by the narrow hot-unsafe helper guard;
 - real `precompute-propagate` equivalent first;
 - Binaryen default function pipeline on only touched functions;
 - scheduler tests distinguishing touched callers/callees/removed helpers/untouched functions;
@@ -118,7 +132,7 @@ The user explicitly prefers Binaryen parse/canonicalization failures to be class
 The correct local mental model is:
 
 - **active but partial**;
-- **validation-clean in latest 10k artifact range**;
-- **direct seed-`0x5eed` compare green over the compared range, but not fully signed off**;
+- **validation-clean in latest compared lanes, and command-clean for Starshine on the latest seed `0x1eed` lane**;
+- **direct seed-`0x5eed` and seed-`0x1eed` compares are green over the compared ranges**;
 - **core direct-call subset plus cleanup approximation**;
 - **INL backlog still open**.

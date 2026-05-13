@@ -129,7 +129,7 @@ Main clusters:
 | rewrite | direct `call` / `return_call` replacement, param/body-local append, local remap, simple return-to-branch | incomplete nested `return_call*`, label collision, nondefaultable-local, metadata/name repair |
 | removal | private helper deletion after refs disappear, function-index remap across module surfaces | exact Binaryen helper/annotation/name cleanup not complete |
 | optimizing approximation | trace marker, broad cleanup lane with untouched-body restoration, touched unused-local compaction, unreachable-root collapse | not exact `precompute-propagate` + touched-function filtered default pipeline |
-| exact-unreachable predictor | retained/trimmed private unreachable helper count refinements for current mismatches | still 15 normalized mismatches at latest artifact |
+| exact-unreachable predictor | retained/trimmed/padded private unreachable helper count refinements for the retired direct mismatch frontiers | seed-`0x5eed` and seed-`0x1eed` direct lanes are green over compared cases |
 
 ### `src/passes/optimize.mbt`
 
@@ -165,6 +165,7 @@ Focused tests currently cover:
 - unreachable private-cycle cleanup families;
 - duplicate exact-unreachable helper retention;
 - shadowed void-cycle result-helper representative retention;
+- no-inlining unreachable value-block pruning and predicted exact-helper padding;
 - optimizing nested-cleanup trace marker.
 
 These tests are necessary but not sufficient for Binaryen parity.
@@ -174,21 +175,37 @@ These tests are necessary but not sufficient for Binaryen parity.
 Latest recorded compare evidence from the parent thread:
 
 ```text
-.tmp/pass-fuzz-inlining-shadow-void-cycle-final
+.tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier
+seed 0x5eed
 9975/10000 compared
-9960 normalized matches
-15 normalized mismatches
+9975 normalized matches
+0 normalized mismatches
 0 validation failures
 0 generator failures
 25 ignored Binaryen/tool command failures
 ```
 
-Ignored command failures classify as oracle/tool parse/canonicalization failures, not Starshine semantic failures:
+The seed-`0x5eed` command failures classify as oracle/tool parse/canonicalization failures, not Starshine semantic failures:
 
 - `22` `binaryen-rec-group-zero`;
 - `1` `binaryen-bad-section-size`;
 - `1` `binaryen-table-index-out-of-range`;
 - `1` `binaryen-invalid-tag-index`.
+
+Broadened closure evidence is red:
+
+```text
+.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2
+seed 0x1eed
+9978/10000 compared
+9978 normalized matches
+0 normalized mismatches
+0 validation failures
+0 generator failures
+22 ignored Binaryen/tool command failures
+```
+
+For seed `0x1eed`, all `22` command failures are ignored Binaryen/tool `binaryen-rec-group-zero` parse failures. The former `case-008100-gen-valid` Starshine nested-cleanup command failure replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`.
 
 ## File-to-concept map
 
@@ -212,5 +229,5 @@ A future implementation slice should validate in this order:
 1. focused Moon tests in `src/passes/inlining_test.mbt` for each new shape;
 2. direct `bun scripts/pass-fuzz-compare.ts --pass inlining ...` for plain stop-point behavior;
 3. direct `bun scripts/pass-fuzz-compare.ts --pass inlining-optimizing ...` for optimizing behavior;
-4. saved mismatch replay from `.tmp/pass-fuzz-inlining-shadow-void-cycle-final` until retired;
-5. late-tail neighborhood replay only after direct pass semantics are green.
+4. saved mismatch replay from `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2` until retired or split;
+5. late-tail neighborhood replay only after direct pass semantics are green across the agreed seed lanes.

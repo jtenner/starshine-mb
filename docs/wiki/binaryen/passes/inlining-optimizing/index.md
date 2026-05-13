@@ -65,11 +65,12 @@ That is much closer to reality than “more aggressive inlining.”
 
 ## Current Starshine evidence
 
-`.tmp/pass-fuzz-inlining-shadow-void-cycle-final`:
+Standard seed lane, `.tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier`:
 
+- seed `0x5eed`;
 - `9975 / 10000` compared;
-- `9960` normalized matches;
-- `15` normalized mismatches;
+- `9975` normalized matches;
+- `0` normalized mismatches;
 - `0` validation failures;
 - `0` generator failures;
 - `25` ignored Binaryen/tool parse/canonicalization command failures:
@@ -78,7 +79,18 @@ That is much closer to reality than “more aggressive inlining.”
   - `1` `binaryen-table-index-out-of-range`;
   - `1` `binaryen-invalid-tag-index`.
 
-The remaining mismatches are still in the exact-`unreachable` private-helper representative/retention frontier: mostly extra exact-unreachable helpers retained by Starshine and one missing helper relative to Binaryen. Keep `[INL]001` and `[INL]002` active.
+Broadened closure lane, `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2`:
+
+- seed `0x1eed`;
+- `9978 / 10000` compared;
+- `9978` normalized matches;
+- `0` normalized mismatches;
+- `0` validation failures;
+- `0` generator failures;
+- `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures;
+- `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`.
+
+The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed-`0x1eed` four-function frontier are retired. Keep `[INL]002` active for the exact nested scheduler; keep `[INL]001` visible only until deferred direct-inliner breadth is explicitly split or accepted as out of scope.
 
 ## Page map
 
