@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | DAE002 touched heap-store-optimization cleanup
+
+- Extended the guarded small-module `dae-optimizing` nested cleanup slice from `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> heap2local -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` to `dead-code-elimination -> optimize-instructions -> local-cse -> pick-load-signs -> heap-store-optimization -> heap2local -> simplify-locals -> code-folding -> precompute -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> vacuum` while preserving the touched-function filter.
+- Added a focused regression proving DAE-touched functions can get `heap-store-optimization` escaped-GC-allocation store folding while equivalent untouched siblings keep their `struct.set` shape unchanged.
+- Refreshed direct DAE evidence: `.tmp/dae002-hso-200` reported `199/200` compared, `198` normalized matches, `1` mismatch, and `1` Binaryen/tool command failure; `.tmp/dae002-hso-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures, preserving the prior local-declaration frontier. A traced debug-artifact run still skips nested cleanup at `touched=12`, so the large artifact lane is not broadened by this slice.
+
 ## [2026-05-13] maintain | repair stale IR2 batch references
 
 - Ran a wiki health pass for stale IR2 registry references after the execution-plan refresh and updated living LICM / DFO pages that still cited the old `Batch 2` / `Batch 3` ordering or old line anchors.

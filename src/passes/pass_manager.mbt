@@ -9731,8 +9731,8 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     // Binaryen-equivalent lane still depends on a faster filtered batch runner
     // plus a real `precompute-propagate` port.
     "dead-code-elimination", "optimize-instructions", "local-cse", "pick-load-signs",
-    "heap2local", "simplify-locals", "code-folding", "precompute", "merge-blocks",
-    "remove-unused-brs", "remove-unused-names", "merge-blocks", "vacuum",
+    "heap-store-optimization", "heap2local", "simplify-locals", "code-folding", "precompute",
+    "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "vacuum",
   ]
 }
 

@@ -2146,6 +2146,115 @@ test "dae-optimizing nested pick-load-signs only rewrites touched functions" {
 }
 
 ///|
+test "dae-optimizing nested heap-store-optimization only rewrites touched functions" {
+  let pair = @lib.TypeIdx::new(0U)
+  let sink_type = @lib.TypeIdx::new(1U)
+  let callee_type = @lib.TypeIdx::new(2U)
+  let run_type = @lib.TypeIdx::new(3U)
+  let untouched_type = @lib.TypeIdx::new(4U)
+  let pair_ref = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let pair_struct = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let sink_func = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([pair_ref], [])),
+  )
+  let callee_func = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let nullary_i32 = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let make_body = fn(ref_local : @lib.LocalIdx) {
+    [
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(4)),
+      @lib.Instruction::struct_new(pair),
+      @lib.Instruction::local_tee(ref_local),
+      @lib.Instruction::i32_const(@lib.I32(9)),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(ref_local),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::local_get(ref_local),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]
+  }
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        pair_struct, sink_func, callee_func, nullary_i32, nullary_i32,
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("sink"),
+          @lib.ExternType::func(sink_type),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([callee_type, run_type, untouched_type]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("untouched"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([pair_ref]),
+          @lib.Expr::new(make_body(local1)),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(99)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([pair_ref]),
+          @lib.Expr::new(make_body(local0)),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected DAE heap-store-optimization pipeline success, got \{err}")
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_true(touched.contains("struct.new"), msg=touched)
+  assert_false(touched.contains("struct.set"), msg=touched)
+  assert_true(untouched.contains("struct.set"), msg=untouched)
+}
+
+///|
 test "dae-optimizing nested heap2local only rewrites touched functions" {
   let source =
     #|(module
