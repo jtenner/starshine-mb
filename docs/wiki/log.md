@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] tooling | fuzz runner command contract refresh
+
+- Refreshed [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) against current repository evidence in [`src/fuzz/main.mbt`](../../src/fuzz/main.mbt), [`src/fuzz/main_wbtest.mbt`](../../src/fuzz/main_wbtest.mbt), [`src/fuzz/invalid_repro.mbt`](../../src/fuzz/invalid_repro.mbt), [`scripts/lib/fuzz-task.ts`](../../scripts/lib/fuzz-task.ts), [`scripts/lib/pass-fuzz-compare-task.ts`](../../scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/task-family-commands.ts`](../../scripts/test/task-family-commands.ts).
+- Added the current suite/profile/seed/result-line contract, explicit `all smoke` default, no-reserved-suite state, JSONL output shape, coverage-forced `--emit-gen-valid-batch`, Moon-only `--emit-invalid-repro`, and the split between ordinary `bun fuzz run` forwarding and `bun fuzz compare-pass` Binaryen-oracle comparison.
+- Updated [`index.md`](index.md) so the tooling catalog points readers at the refreshed command-contract and wrapper-split facts. No external source was needed because this target documents Starshine-local runner behavior and the in-tree runner plus tests are the primary source of truth.
+
 ## [2026-05-13] maintain | log-relative link repair
 
 - During the whole-wiki health pass after the Node package surface refresh, found one old [`log.md`](log.md) entry whose link target redundantly included `docs/wiki/`, which made the relative link resolve under `docs/wiki/docs/wiki/...` instead of the real raw-source file.
