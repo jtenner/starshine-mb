@@ -2046,6 +2046,51 @@ test "dae-optimizing nested optimize-instructions only rewrites touched function
 }
 
 ///|
+test "dae-optimizing nested code-folding only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (import "env" "use" (func $use (param i32)))
+    #|  (func $f (param i32 i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      call $use
+    #|      i32.const 8
+    #|      call $use
+    #|    else
+    #|      i32.const 7
+    #|      call $use
+    #|      i32.const 8
+    #|      call $use
+    #|    end)
+    #|  (func (export "run")
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    call $f)
+    #|  (func (export "untouched") (param i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      call $use
+    #|      i32.const 8
+    #|      call $use
+    #|    else
+    #|      i32.const 7
+    #|      call $use
+    #|      i32.const 8
+    #|      call $use
+    #|    end))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE code-folding pipeline success, got \{err}")
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_false(touched.contains("(if"), msg=touched)
+  assert_true(untouched.contains("(if"), msg=untouched)
+}
+
+///|
 fn dae_test_bytes_from_ints(values : Array[Int]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
