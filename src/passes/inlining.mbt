@@ -335,16 +335,17 @@ fn inl_body_is_shrinking_trivial(
     }
   }
   if param_count == 3 && body.length() == 4 {
-    match (body[0], body[1], body[2], body[3]) {
-      (
-        @lib.LocalGet(first),
-        @lib.LocalGet(second),
-        @lib.LocalGet(third),
-        @lib.Select(_),
-      ) =>
+    match (body[0], body[1], body[2]) {
+      (@lib.LocalGet(first), @lib.LocalGet(second), @lib.LocalGet(third)) => {
+        let final_trivial = match body[3] {
+          @lib.Select(_) | @lib.MemoryFill(_) => true
+          _ => false
+        }
         return inl_local_idx_slot(first) == 0 &&
           inl_local_idx_slot(second) == 1 &&
-          inl_local_idx_slot(third) == 2
+          inl_local_idx_slot(third) == 2 &&
+          final_trivial
+      }
       _ => return false
     }
   }

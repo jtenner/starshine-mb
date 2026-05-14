@@ -78,7 +78,7 @@ Focused tests validate the current subset:
 - narrow direct `return_call` inlining;
 - self-recursion skip;
 - iterative wave behavior;
-- the `[INL]003` heuristic subsets for repeated two-parameter binary, three-parameter `select`, and two-parameter memory/table-store passthrough wrappers, including the latest `table.grow` table-store sibling;
+- the `[INL]003` heuristic subsets for repeated two-parameter binary, three-parameter `select`, and parameter-passthrough memory/table-store wrappers, including the latest `memory.fill` memory-fill sibling;
 - unreachable private cycle cleanup/retention families;
 - no-inlining unreachable value-block pruning and predicted exact-helper padding;
 - narrow hot-unsafe polymorphic self-call suffix detector coverage;

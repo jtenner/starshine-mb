@@ -73,7 +73,7 @@ The current plain pass handles:
 
 - tiny no-param private helpers;
 - one-use private helpers;
-- narrow shrinking-trivial two-parameter binary wrappers, three-parameter `select` wrappers, and two-parameter memory/table-store wrappers (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, `table.set`, and `table.grow`);
+- narrow shrinking-trivial two-parameter binary wrappers, three-parameter `select` wrappers, and parameter-passthrough memory/table-store wrappers (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, `table.set`, `table.grow`, and `memory.fill`);
 - direct `call` and narrow direct `return_call` sites;
 - callee param/body-local appending into the caller;
 - local-index remapping inside the copied body;
