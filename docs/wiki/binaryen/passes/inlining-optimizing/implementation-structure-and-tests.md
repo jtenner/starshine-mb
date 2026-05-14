@@ -73,7 +73,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - counts imports/definitions;
   - scans direct refs and roots;
   - computes simplified size and shape flags;
-  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, or a narrow shrinking-trivial two-parameter memory/table-store wrapper (through the current `table.set` table-store slice) and block type is void/single-result.
+  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, or a narrow shrinking-trivial two-parameter memory/table-store wrapper (through the current `table.grow` table-store slice) and block type is void/single-result.
 - Rewrite:
   - recurses through structured bodies;
   - rewrites direct `call` and `return_call`;
@@ -102,7 +102,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - active module category for both names;
 - tiny helper inline/remove;
 - parameter operand remap;
-- repeated parameter-passthrough binary, `select`, and memory/table-store wrappers as narrow shrinking-trivial heuristic subsets, including the latest `table.set` wrapper;
+- repeated parameter-passthrough binary, `select`, and memory/table-store wrappers as narrow shrinking-trivial heuristic subsets, including the latest `table.grow` wrapper;
 - exported tiny helper survival;
 - narrow direct `return_call` inline;
 - self-recursive skip;

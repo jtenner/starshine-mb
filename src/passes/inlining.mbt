@@ -314,7 +314,8 @@ fn inl_is_binary_trivial_op(instr : @lib.Instruction) -> Bool {
     | @lib.V128Store16Lane(_, _)
     | @lib.V128Store32Lane(_, _)
     | @lib.V128Store64Lane(_, _)
-    | @lib.TableSet(_) => true
+    | @lib.TableSet(_)
+    | @lib.TableGrow(_) => true
     _ => false
   }
 }

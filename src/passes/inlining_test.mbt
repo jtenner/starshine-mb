@@ -921,6 +921,33 @@ test "inlining treats repeated parameter passthrough table.set wrappers as shrin
 }
 
 ///|
+test "inlining treats repeated parameter passthrough table.grow wrappers as shrinking trivial" {
+  let source =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (func $grow (param funcref i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    table.grow 0)
+    #|  (func (export "run") (param funcref i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $grow
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $grow))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("table.grow"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
 test "inlining zero-initializes appended defaultable callee locals in plain mode" {
   let source =
     #|(module
