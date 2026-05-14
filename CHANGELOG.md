@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-14 Skills: add a reusable /handoff continuation-thread skill
+
+- **add a repo-local Pi `handoff` skill that triggers on `/handoff` and equivalent wording, creates a new thread with default thread parameters, and packages comprehensive task context into the child thread input so work can continue without rereading the full transcript** by **@OpenAI**. Updated [`.pi/skills/handoff/SKILL.md`](./.pi/skills/handoff/SKILL.md) and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-13 Passes: accept typed block siblings in DAE exact-literal call slicing
 
 - **teach `dae-optimizing`'s narrow exact-literal constant-actual slice to recover call argument boundaries when sibling operands are wrapped in explicit single-result type-index blocks, add a focused typed-block regression, and record that the live `moonbit.check_range` artifact diff still remains at `defined=11 abs=28` after this narrow fix** by **@OpenAI**. Updated [`src/passes/dead_argument_elimination.mbt`](./src/passes/dead_argument_elimination.mbt), [`src/passes/dae_optimizing_test.mbt`](./src/passes/dae_optimizing_test.mbt), [`docs/wiki/raw/research/0562-2026-05-13-dae002-typeidx-block-carriers.md`](./docs/wiki/raw/research/0562-2026-05-13-dae002-typeidx-block-carriers.md), [`docs/wiki/binaryen/passes/dae-optimizing/index.md`](./docs/wiki/binaryen/passes/dae-optimizing/index.md), [`docs/wiki/binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md), [`docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md`](./docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md). Validation for this slice used `moon info`, `moon fmt`, `moon test src/passes`, `moon build src/cmd --release`, and `.tmp/dae002-typeidx-block-artifact`.
