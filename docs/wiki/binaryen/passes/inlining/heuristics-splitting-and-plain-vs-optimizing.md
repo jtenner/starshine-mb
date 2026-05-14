@@ -91,7 +91,7 @@ Starshine currently does not model these classes exactly. It has a much smaller 
 
 - `try_delegate` blocks full inlining in the reviewed contract.
 - Loops are not invalid syntax, but default policy avoids loop-containing flexible inlines unless `allowFunctionsWithLoops` is enabled.
-- Calls in the callee matter because flexible cases generally require no calls.
+- Direct calls in the callee matter because flexible cases generally require no direct calls; `call_indirect` and `call_ref` in copied code are not chosen-action sites and do not by themselves set the flexible `hasCalls` blocker.
 - Tail-call-containing callees require special conservatism/repair.
 
 These are not parser limitations; they are optimizer policy and safety gates.

@@ -1238,6 +1238,44 @@ test "inlining optimize-level three flexible policy rejects loops and surviving 
 }
 
 ///|
+test "inlining optimize-level three flexible policy allows call_indirect bodies" {
+  let source =
+    #|(module
+    #|  (type $unary (func (param i32) (result i32)))
+    #|  (import "env" "imp" (func $imp (type $unary)))
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) $imp)
+    #|  (func $indwrap (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    call_indirect (type $unary)
+    #|    i32.const 1
+    #|    i32.add)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $indwrap
+    #|    local.get 0
+    #|    call $indwrap
+    #|    i32.add))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["inlining"],
+      options=HotPipelineOptions::new(optimize_level=3),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected inlining pipeline success, got \{err}")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("call_indirect"), msg=caller)
+  assert_false(caller.contains("call (Func"), msg=caller)
+}
+
+///|
 test "inlining treats repeated parameter passthrough i32x4.add wrappers as shrinking trivial" {
   let source =
     #|(module

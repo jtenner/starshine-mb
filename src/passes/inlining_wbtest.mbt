@@ -1,4 +1,23 @@
 ///|
+test "inlining shape scanner treats only direct calls as flexible call blockers" {
+  let (direct_calls, _, _, _) = inl_scan_shape_instrs([
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  assert_true(direct_calls)
+  let (indirect_calls, _, _, _) = inl_scan_shape_instrs([
+    @lib.Instruction::call_indirect(
+      @lib.TypeIdx::new(0U),
+      @lib.TableIdx::new(0U),
+    ),
+  ])
+  assert_false(indirect_calls)
+  let (ref_calls, _, _, _) = inl_scan_shape_instrs([
+    @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
+  ])
+  assert_false(ref_calls)
+}
+
+///|
 test "inlining combined binary size guard matches default threshold" {
   assert_true(inl_combined_binary_size_within_limit(1, 1))
   assert_true(inl_combined_binary_size_within_limit(100000, 63840))

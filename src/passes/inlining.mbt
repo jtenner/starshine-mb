@@ -192,8 +192,8 @@ fn inl_combined_binary_size_within_limit(
 ///|
 fn inl_scan_shape_instr(instr : @lib.Instruction) -> (Bool, Bool, Bool, Bool) {
   match instr {
-    @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
-      (true, false, false, false)
+    @lib.Call(_) => (true, false, false, false)
+    @lib.CallIndirect(_, _) | @lib.CallRef(_) => (false, false, false, false)
     @lib.ReturnCall(_)
     | @lib.ReturnCallIndirect(_, _)
     | @lib.ReturnCallRef(_) => (true, false, false, true)

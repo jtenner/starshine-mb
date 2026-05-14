@@ -74,7 +74,7 @@ The current plain pass handles:
 - tiny no-param private helpers;
 - one-use private helpers;
 - narrow shrinking-trivial two-parameter binary wrappers, three-parameter `select` wrappers, and parameter-passthrough memory/table/SIMD/GC operation wrappers (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, supported SIMD plus GC heap-operation wrappers, `table.set`, `table.grow`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, and `table.init`);
-- the first speed-focused flexible policy subset: no-call/no-loop callees with `size <= 20` inline when `optimize_level >= 3` and `shrink_level == 0`;
+- the first speed-focused flexible policy subset: no-direct-call/no-loop callees with `size <= 20` inline when `optimize_level >= 3` and `shrink_level == 0`, with `call_indirect` / `call_ref` bodies allowed by the shape scan;
 - direct `call` and narrow direct `return_call` sites;
 - callee param/body-local appending into the caller;
 - local-index remapping inside the copied body;
@@ -115,7 +115,7 @@ Missing repair surfaces should skip rather than emit invalid wasm:
 
 ## Main gaps
 
-- Full Binaryen heuristic classes beyond the narrow parameter-passthrough binary, `select`, memory/table/SIMD/GC operation `Shrinks` subsets, and first O3/no-shrink/no-call/no-loop flexible subset: any remaining `Shrinks` or flexible-policy details.
+- Full Binaryen heuristic classes beyond the narrow parameter-passthrough binary, `select`, memory/table/SIMD/GC operation `Shrinks` subsets, and first O3/no-shrink/no-direct-call/no-loop flexible subset: any remaining `Shrinks` or flexible-policy details.
 - partial-inlining-specific `no-inline*` behavior after the splitter lands.
 - Pattern A / Pattern B partial inlining and helper cleanup.
 - Exact nested `return_call*` and `return_call`-inside-`try` handling.

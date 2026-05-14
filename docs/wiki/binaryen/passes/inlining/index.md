@@ -62,7 +62,7 @@ A safe mental model:
 
 - Upstream `version_129` chosen inline actions are source-backed as reachable direct `call` / `return_call` sites. `ref.func`, `call_ref`, and `call_indirect` still matter for root survival and copied-body repair, but the living docs should not teach broad `call_ref` selection unless a later source ingest proves it.
 - `refs` is not just direct-call count. It includes `ref.func` uses, while exports and the start function mark global/root use.
-- Full-inline profitability is layered: `try_delegate` bailout, tiny threshold, one-use special case, shrinking trivial wrapper class, flexible max size, shrink/speed policy, no-calls and loop policy.
+- Full-inline profitability is layered: `try_delegate` bailout, tiny threshold, one-use special case, shrinking trivial wrapper class, flexible max size, shrink/speed policy, direct-call and loop policy.
 - Partial inlining is real but narrow: two top-of-function conditional split families, enabled only by heavier speed settings and `partialInliningIfs`.
 - Inline rewrite is structured IR surgery: operand storage, fresh caller locals, zeroing defaultable copied vars, copied-body metadata, return-to-break repair, nested `return_call*` repair, label uniquification, refinalization, and nondefaultable-local repair.
 - Plain `inlining` must not accidentally run `precompute-propagate` or the default function pipeline. That difference is the public split from `inlining-optimizing`.
@@ -82,7 +82,7 @@ Implemented subset:
 
 Still missing or incomplete:
 
-- full Binaryen heuristic parity, including remaining trivial-instruction classes and flexible policy beyond the narrow shrinking binary-wrapper, `select`-wrapper, memory/table/SIMD/GC operation-wrapper subsets (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, supported SIMD plus GC heap-operation wrappers, `table.set`, `table.grow`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, and `table.init`) and the first O3/no-shrink no-call/no-loop `size <= 20` flexible subset;
+- full Binaryen heuristic parity, including remaining trivial-instruction classes and flexible policy beyond the narrow shrinking binary-wrapper, `select`-wrapper, memory/table/SIMD/GC operation-wrapper subsets (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, supported SIMD plus GC heap-operation wrappers, `table.set`, `table.grow`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, and `table.init`) and the first O3/no-shrink no-direct-call/no-loop `size <= 20` flexible subset;
 - partial-inlining-specific `no-inline`, `no-full-inline`, and `no-partial-inline` behavior after the splitter lands;
 - partial Pattern A / Pattern B splitting;
 - nested `return_call*` repair and `return_call`-inside-`try` hoisting;
