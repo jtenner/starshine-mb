@@ -416,6 +416,14 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Investigated `.tmp/pass-fuzz-dae-no-param-result-caller-prune-1000/failures/case-000690-gen-valid` and recorded the durable Binaryen shape in [`raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md`](raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md).
 - Updated the `dae-optimizing` pages to record that Binaryen preserves the original parameter stranded under an escaped direct-call result used as an undropped dead-suffix self-call operand, while still pruning direct simple self-call operands.
 - Added a Starshine regression for the raw wasm failure and fixed the local DAE parameter-origin restoration path; `.tmp/pass-fuzz-dae-690-final2-200` reported `199/200` compared, `198` normalized matches, `1` local-declaration mismatch, and `1` Binaryen/tool command failure, while `.tmp/pass-fuzz-dae-690-final2-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures with `case-000690-gen-valid` gone.
+## [2026-05-14] passes | inlining shrinking-trivial v128.store8_lane heuristic
+
+- Added the thirteenth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `v128.store8_lane` are now full-inline candidates even with multiple refs under all-features/SIMD inputs.
+- Confirmed Binaryen behavior first with `wasm-opt --all-features --inlining -S --strip-debug` on `.tmp/inl003-v128-store8-lane-wrapper.wat`; Binaryen removed the helper and emitted two inlined `v128.store8_lane` blocks.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `v128.store8_lane` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `v128.store8_lane` branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt`, `moon test src/passes`, full `moon test`, `moon info`, and `git diff --check` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-v128-store8-lane-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-v128-store8-lane-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
 ## [2026-05-14] passes | inlining shrinking-trivial v128.store heuristic
 
 - Added the twelfth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `v128.store` are now full-inline candidates even with multiple refs under all-features/SIMD inputs.
