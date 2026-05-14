@@ -78,11 +78,11 @@ Implemented subset:
 - simple callee `return` rewrite to an inlined wrapper-block branch;
 - private helper removal when surviving refs disappear;
 - function-index rewriting after removals;
-- focused tests for no-param helpers, parameter operand storage, exported tiny-helper survival, `return_call`, self-recursion skip, iterative race-guard follow-up, narrow shrinking-trivial binary-wrapper, `select`-wrapper, scalar-store-wrapper heuristics (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, and `i32.store16`), defaultable copied-local zero-init, plain helper deletion without optimizing retain counts, plain no-call unreachable value-block cleanup, registry wiring, optimizing trace marker, and the first `no-inline*` policy split fixtures including imported WAT identifiers, deduplication, no-match behavior, annotation and function-name remapping across helper compaction, post-compaction policy matching by surviving names, and local-name dropping after inlining body rewrites.
+- focused tests for no-param helpers, parameter operand storage, exported tiny-helper survival, `return_call`, self-recursion skip, iterative race-guard follow-up, narrow shrinking-trivial binary-wrapper, `select`-wrapper, scalar-store-wrapper heuristics (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, and `i64.store8`), defaultable copied-local zero-init, plain helper deletion without optimizing retain counts, plain no-call unreachable value-block cleanup, registry wiring, optimizing trace marker, and the first `no-inline*` policy split fixtures including imported WAT identifiers, deduplication, no-match behavior, annotation and function-name remapping across helper compaction, post-compaction policy matching by surviving names, and local-name dropping after inlining body rewrites.
 
 Still missing or incomplete:
 
-- full Binaryen heuristic parity, including remaining trivial-instruction classes and flexible/O3 policy beyond the narrow shrinking binary-wrapper, `select`-wrapper, scalar-store-wrapper subsets (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, and `i32.store16`);
+- full Binaryen heuristic parity, including remaining trivial-instruction classes and flexible/O3 policy beyond the narrow shrinking binary-wrapper, `select`-wrapper, scalar-store-wrapper subsets (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, and `i64.store8`);
 - partial-inlining-specific `no-inline`, `no-full-inline`, and `no-partial-inline` behavior after the splitter lands;
 - partial Pattern A / Pattern B splitting;
 - nested `return_call*` repair and `return_call`-inside-`try` hoisting;
