@@ -78,7 +78,7 @@ Focused tests validate the current subset:
 - narrow direct `return_call` inlining;
 - self-recursion skip;
 - iterative wave behavior;
-- the `[INL]003` heuristic subsets for repeated two-parameter binary, three-parameter `select`, and two-parameter scalar-store passthrough wrappers, including the latest `i64.store8` width-store sibling;
+- the `[INL]003` heuristic subsets for repeated two-parameter binary, three-parameter `select`, and two-parameter scalar-store passthrough wrappers, including the latest `i64.store16` width-store sibling;
 - unreachable private cycle cleanup/retention families;
 - no-inlining unreachable value-block pruning and predicted exact-helper padding;
 - narrow hot-unsafe polymorphic self-call suffix detector coverage;
@@ -88,7 +88,7 @@ Focused tests validate the current subset:
 
 ### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003` heuristic classes, action filtering, and size/iteration policy; narrow two-parameter binary, three-parameter `select`, and scalar-store `Shrinks` subsets through `i64.store8` are implemented, while remaining trivial/flexible/action-filtering breadth stays active;
+- `[INL]003` heuristic classes, action filtering, and size/iteration policy; narrow two-parameter binary, three-parameter `select`, and scalar-store `Shrinks` subsets through `i64.store16` are implemented, while remaining trivial/flexible/action-filtering breadth stays active;
 - `[INL]004` accepted current `no-inline*` policy surface; initial name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and shared clone/copy policy helper are implemented;
 - `[INL]005` Pattern A / Pattern B partial splitting;
 - `[INL]006` nested tail-call, multi-result, and name/annotation repair.

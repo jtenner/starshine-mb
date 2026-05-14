@@ -306,7 +306,8 @@ fn inl_is_binary_trivial_op(instr : @lib.Instruction) -> Bool {
     | @lib.F64Store(_)
     | @lib.I32Store8(_)
     | @lib.I32Store16(_)
-    | @lib.I64Store8(_) => true
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_) => true
     _ => false
   }
 }
