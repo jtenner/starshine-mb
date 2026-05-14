@@ -80,6 +80,7 @@ The current plain pass handles:
 - local-index remapping inside the copied body;
 - simple callee `return` to wrapper-block branch rewriting;
 - iterative waves after same-wave race guards expose later calls;
+- combined-size action filtering using the default 400 KiB / 2.5-bytes-per-expression estimate and current caller size;
 - helper deletion only when refs disappear and no root is found;
 - function-index rewrites across exports/start/elements/tables/globals/code/data where represented by the local module APIs;
 - plain helper deletion without optimizing-only retain counts;
@@ -114,14 +115,14 @@ Missing repair surfaces should skip rather than emit invalid wasm:
 
 ## Main gaps
 
-- Full Binaryen heuristic classes beyond the narrow parameter-passthrough binary, `select`, memory/table/SIMD/GC operation `Shrinks` subsets, and first O3/no-shrink/no-call/no-loop flexible subset: remaining `Shrinks` and deeper action-size policy.
+- Full Binaryen heuristic classes beyond the narrow parameter-passthrough binary, `select`, memory/table/SIMD/GC operation `Shrinks` subsets, and first O3/no-shrink/no-call/no-loop flexible subset: any remaining `Shrinks` or flexible-policy details.
 - partial-inlining-specific `no-inline*` behavior after the splitter lands.
 - Pattern A / Pattern B partial inlining and helper cleanup.
 - Exact nested `return_call*` and `return_call`-inside-`try` handling.
 - Multi-result result-block support.
 - Full label/name collision avoidance and post-inline uniquification.
 - Nondefaultable-local repair and Binaryen-like refinalization behavior.
-- Exact Binaryen iteration/action filtering and size-growth guard.
+- Exact Binaryen repeated-work/action-order filtering beyond the implemented same-wave and combined-size guards.
 
 ## Relationship to `inlining-optimizing`
 

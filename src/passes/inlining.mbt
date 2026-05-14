@@ -12,6 +12,7 @@ pub fn inlining_optimizing_summary() -> String {
 priv struct InlFunctionInfo {
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
+  size : Int
   inlineable : Bool
 }
 
@@ -19,6 +20,7 @@ priv struct InlFunctionInfo {
 priv struct InlRewriteState {
   mut func : @lib.Func
   mut changed : Bool
+  mut size : Int
 }
 
 ///|
@@ -173,6 +175,18 @@ fn inl_count_instrs(instrs : Array[@lib.Instruction]) -> Int {
     count += inl_count_instr(instr)
   }
   count
+}
+
+///|
+fn inl_combined_binary_size_within_limit(
+  caller_size : Int,
+  callee_size : Int,
+) -> Bool {
+  // Binaryen's default guard is Measurer::BytesPerExpr (2.5) times the
+  // target+source expression counts against maxCombinedBinarySize (400 KiB).
+  // Use doubled integer math to avoid fractional arithmetic.
+  let combined_exprs = caller_size + callee_size
+  combined_exprs * 5 <= 400 * 1024 * 2
 }
 
 ///|
@@ -736,7 +750,7 @@ fn inl_build_function_infos(
         (refs[abs] == 1 && !used[abs]) ||
         may_not_shrink
       )
-    infos.push({ params, results, inlineable })
+    infos.push({ params, results, size, inlineable })
     abs += 1
   }
   infos
@@ -840,6 +854,24 @@ fn inl_push_inline_replacement(
 }
 
 ///|
+fn inl_can_inline_action(
+  caller_abs : Int,
+  caller_size : Int,
+  callee_abs : Int,
+  infos : Array[InlFunctionInfo],
+  touched : Array[Bool],
+) -> Bool {
+  callee_abs >= 0 &&
+  callee_abs < infos.length() &&
+  caller_abs >= 0 &&
+  caller_abs < infos.length() &&
+  callee_abs != caller_abs &&
+  infos[callee_abs].inlineable &&
+  (callee_abs >= touched.length() || !touched[callee_abs]) &&
+  inl_combined_binary_size_within_limit(caller_size, infos[callee_abs].size)
+}
+
+///|
 fn inl_inline_call_instrs(
   instrs : Array[@lib.Instruction],
   caller_abs : Int,
@@ -856,10 +888,13 @@ fn inl_inline_call_instrs(
       @lib.Call(func_idx) => {
         let callee_abs = inl_func_idx_slot(func_idx)
         if callee_abs >= imports &&
-          callee_abs < infos.length() &&
-          callee_abs != caller_abs &&
-          infos[callee_abs].inlineable &&
-          (callee_abs >= touched.length() || !touched[callee_abs]) {
+          inl_can_inline_action(
+            caller_abs,
+            state.size,
+            callee_abs,
+            infos,
+            touched,
+          ) {
           match
             inl_make_inline_replacement(
               state.func,
@@ -872,6 +907,7 @@ fn inl_inline_call_instrs(
             Some((next_func, replacement)) => {
               state.func = next_func
               state.changed = true
+              state.size += infos[callee_abs].size
               if caller_abs >= 0 && caller_abs < touched.length() {
                 touched[caller_abs] = true
               }
@@ -889,10 +925,13 @@ fn inl_inline_call_instrs(
       @lib.ReturnCall(func_idx) => {
         let callee_abs = inl_func_idx_slot(func_idx)
         if callee_abs >= imports &&
-          callee_abs < infos.length() &&
-          callee_abs != caller_abs &&
-          infos[callee_abs].inlineable &&
-          (callee_abs >= touched.length() || !touched[callee_abs]) {
+          inl_can_inline_action(
+            caller_abs,
+            state.size,
+            callee_abs,
+            infos,
+            touched,
+          ) {
           match
             inl_make_inline_replacement(
               state.func,
@@ -905,6 +944,7 @@ fn inl_inline_call_instrs(
             Some((next_func, replacement)) => {
               state.func = next_func
               state.changed = true
+              state.size += infos[callee_abs].size
               if caller_abs >= 0 && caller_abs < touched.length() {
                 touched[caller_abs] = true
               }
@@ -1086,8 +1126,16 @@ fn inl_rewrite_func_body(
   inlined_from : Array[Bool],
 ) -> @lib.Func {
   let caller_abs = imports + def_idx
-  let state : InlRewriteState = { func, changed: false }
   let @lib.Func(_, @lib.Expr(body)) = func
+  let state : InlRewriteState = {
+    func,
+    changed: false,
+    size: if caller_abs >= 0 && caller_abs < infos.length() {
+      infos[caller_abs].size
+    } else {
+      inl_count_instrs(body)
+    },
+  }
   if caller_abs >= 0 &&
     caller_abs < inlined_from.length() &&
     inlined_from[caller_abs] {

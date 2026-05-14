@@ -83,6 +83,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 - Simple return-to-wrapper-block branch repair.
 - Private helper removal after refs disappear.
 - Function-index remapping across represented module surfaces.
+- Combined-size action filtering using current caller size and the default 400 KiB estimate.
 - Nested-cleanup trace marker for optimizing mode.
 - Broad cleanup approximation with untouched-body restoration and touched-local compaction.
 - Exact-`unreachable` private-helper survivor prediction refinements, including shadowed void-cycle result-helper retention, duplicate trimming against non-exact same-signature survivors only when no used self-loop root is present, unique private self-loop representative drops inside root SCCs, selected final root-self-loop representative trimming, and one-helper retention for private result cycles behind self-looping roots.
@@ -91,7 +92,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 ### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and memory/table/SIMD/GC operation `Shrinks` subsets through the latest supported SIMD plus GC heap-operation breadth slice landed on 2026-05-14, and the first optimize-level-three/no-shrink flexible no-call/no-loop subset is implemented and covered by loop/call/shrink-mode focused tests; remaining trivial/flexible/action-size breadth remains active;
+- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and memory/table/SIMD/GC operation `Shrinks` subsets through the latest supported SIMD plus GC heap-operation breadth slice landed on 2026-05-14, and the first optimize-level-three/no-shrink flexible no-call/no-loop subset is implemented and covered by loop/call/shrink-mode focused tests; remaining trivial/flexible/repeated-work-cap breadth remains active;
 - `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
 - `[INL]005`: partial inlining splitter;
 - `[INL]006`: nested `return_call*`, multi-result typing, and label/name/annotation repair.

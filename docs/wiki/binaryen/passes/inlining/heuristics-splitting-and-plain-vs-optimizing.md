@@ -156,7 +156,7 @@ Binaryen discovers many opportunities but filters them to avoid bad same-wave in
 - bound total iterations;
 - enforce a combined-size limit.
 
-Starshine now has bounded iterative waves, which fixes the broad “same-wave guard exposes a later call” family, but it does not yet reproduce the full Binaryen action-order/filtering model.
+Starshine now has bounded iterative waves and the source-backed combined-size rail, which fixes the broad “same-wave guard exposes a later call” family and the giant-function action guard. It still does not reproduce Binaryen's full repeated-work/action-order model.
 
 ## 12. Plain `inlining` must leave cleanup debris
 

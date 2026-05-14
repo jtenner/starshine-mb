@@ -72,10 +72,11 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - resolves function types;
   - counts imports/definitions;
   - scans direct refs and roots;
-  - computes simplified size and shape flags;
+  - computes simplified size and shape flags, then carries current caller size for combined-size action filtering;
   - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, a narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation wrapper (through the current supported SIMD plus GC heap-operation breadth slice), or the first speed-focused flexible no-call/no-loop `size <= 20` subset at optimize level three with shrink level zero and block type is void/single-result.
 - Rewrite:
   - recurses through structured bodies;
+  - rejects actions over the default combined-size guard before copying;
   - rewrites direct `call` and `return_call`;
   - appends param/body locals;
   - maps local indices;

@@ -88,7 +88,7 @@ Focused tests validate the current subset:
 
 ### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003` heuristic classes, action filtering, and size/iteration policy; narrow two-parameter binary, three-parameter `select`, and memory/table/SIMD/GC operation `Shrinks` subsets through the supported SIMD plus GC heap-operation breadth slice are implemented, and optimize/shrink-level plumbing now enables the first speed-focused flexible `size <= 20` no-call/no-loop policy at optimize level three with shrink level zero; remaining trivial/flexible/action-filtering/action-size breadth stays active;
+- `[INL]003` heuristic classes, action filtering, and size/iteration policy; narrow two-parameter binary, three-parameter `select`, and memory/table/SIMD/GC operation `Shrinks` subsets through the supported SIMD plus GC heap-operation breadth slice are implemented, and optimize/shrink-level plumbing now enables the first speed-focused flexible `size <= 20` no-call/no-loop policy at optimize level three with shrink level zero; remaining trivial/flexible/action-filtering/repeated-work-cap breadth stays active;
 - `[INL]004` accepted current `no-inline*` policy surface; initial name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and shared clone/copy policy helper are implemented;
 - `[INL]005` Pattern A / Pattern B partial splitting;
 - `[INL]006` nested tail-call, multi-result, and name/annotation repair.

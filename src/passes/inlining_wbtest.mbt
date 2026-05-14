@@ -1,4 +1,11 @@
 ///|
+test "inlining combined binary size guard matches default threshold" {
+  assert_true(inl_combined_binary_size_within_limit(1, 1))
+  assert_true(inl_combined_binary_size_within_limit(100000, 63840))
+  assert_false(inl_combined_binary_size_within_limit(100000, 63841))
+}
+
+///|
 test "inlining prunes dead unreachable drops before terminal unreachable" {
   let body = [
     @lib.Instruction::loop_(
