@@ -338,7 +338,7 @@ fn inl_body_is_shrinking_trivial(
     match (body[0], body[1], body[2]) {
       (@lib.LocalGet(first), @lib.LocalGet(second), @lib.LocalGet(third)) => {
         let final_trivial = match body[3] {
-          @lib.Select(_) | @lib.MemoryFill(_) => true
+          @lib.Select(_) | @lib.MemoryFill(_) | @lib.MemoryCopy(_, _) => true
           _ => false
         }
         return inl_local_idx_slot(first) == 0 &&

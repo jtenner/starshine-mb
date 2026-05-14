@@ -977,6 +977,35 @@ test "inlining treats repeated parameter passthrough memory.fill wrappers as shr
 }
 
 ///|
+test "inlining treats repeated parameter passthrough memory.copy wrappers as shrinking trivial" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $copy (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    memory.copy)
+    #|  (func (export "run") (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $copy
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $copy))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("memory.copy"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
 test "inlining zero-initializes appended defaultable callee locals in plain mode" {
   let source =
     #|(module
