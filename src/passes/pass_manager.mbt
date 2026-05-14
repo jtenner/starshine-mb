@@ -8848,7 +8848,8 @@ fn run_hot_pipeline_lower_options_for_descriptor(
       preserve_nontrailing_nops=true,
       preserve_trailing_nops=true,
     )
-  } else if descriptor_name == "precompute" {
+  } else if descriptor_name == "precompute" ||
+    descriptor_name == "precompute-propagate-prefix" {
     @ir.HotLowerOptions::new(preserve_nontrailing_nops=true)
   } else if descriptor_name == "remove-unused-brs" {
     @ir.HotLowerOptions::new(
@@ -9244,7 +9245,8 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
   if result.unchanged_original {
     return None
   }
-  if descriptor_name == "precompute" {
+  if descriptor_name == "precompute" ||
+    descriptor_name == "precompute-propagate-prefix" {
     if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
         result.func,
       ) {
@@ -9729,11 +9731,14 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     // opportunities DAE creates with currently function-filterable passes, but
     // do not run Starshine's full default function pipeline yet. The full
     // Binaryen-equivalent lane still depends on a faster filtered batch runner
-    // plus a real `precompute-propagate` port.
-    "dead-code-elimination", "optimize-instructions", "local-cse", "pick-load-signs",
-    "heap-store-optimization", "heap2local", "optimize-casts", "code-pushing", "simplify-locals",
-    "code-folding", "precompute", "merge-blocks", "remove-unused-brs", "remove-unused-names",
-    "merge-blocks", "coalesce-locals", "reorder-locals", "vacuum",
+    // plus a real public `precompute-propagate` port. For now, start with a
+    // touched-only faithful prefix equivalent over default-init and SSA-backed
+    // local constant facts before the narrower cleanup subset.
+    "precompute-propagate-prefix", "dead-code-elimination", "optimize-instructions",
+    "local-cse", "pick-load-signs", "heap-store-optimization", "heap2local", "optimize-casts",
+    "code-pushing", "simplify-locals", "code-folding", "precompute", "merge-blocks",
+    "remove-unused-brs", "remove-unused-names", "merge-blocks", "coalesce-locals",
+    "reorder-locals", "vacuum",
   ]
 }
 
@@ -10103,6 +10108,19 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       "nested-pass",
       payload="name=\{pass_name}",
     )
+    if pass_name == "precompute-propagate-prefix" {
+      current = match
+        run_hot_pipeline_apply_hot_pass_to_touched(
+          current,
+          precompute_propagate_prefix_descriptor(),
+          touched,
+          options,
+        ) {
+        Ok(next) => next
+        Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+      }
+      continue
+    }
     if pass_name == "local-cse" {
       current = match
         run_hot_pipeline_apply_local_cse_to_touched(current, touched, options) {
@@ -10258,6 +10276,7 @@ pub fn hot_pass_run(
     "optimize-casts" => optimize_casts_run(ctx, func)
     "pick-load-signs" => pick_load_signs_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
+    "precompute-propagate-prefix" => precompute_propagate_prefix_run(ctx, func)
     "code-pushing" => code_pushing_run(ctx, func)
     "code-folding" => code_folding_run(ctx, func)
     "tuple-optimization" => tuple_optimization_run(ctx, func)

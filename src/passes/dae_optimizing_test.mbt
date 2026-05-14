@@ -2018,16 +2018,58 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     }
   }
   @debug.assert_eq(nested_passes, [
-    "pass[dae-optimizing]:nested-pass name=dead-code-elimination", "pass[dae-optimizing]:nested-pass name=optimize-instructions",
-    "pass[dae-optimizing]:nested-pass name=local-cse", "pass[dae-optimizing]:nested-pass name=pick-load-signs",
-    "pass[dae-optimizing]:nested-pass name=heap-store-optimization", "pass[dae-optimizing]:nested-pass name=heap2local",
-    "pass[dae-optimizing]:nested-pass name=optimize-casts", "pass[dae-optimizing]:nested-pass name=code-pushing",
-    "pass[dae-optimizing]:nested-pass name=simplify-locals", "pass[dae-optimizing]:nested-pass name=code-folding",
-    "pass[dae-optimizing]:nested-pass name=precompute", "pass[dae-optimizing]:nested-pass name=merge-blocks",
-    "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
-    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=coalesce-locals",
-    "pass[dae-optimizing]:nested-pass name=reorder-locals", "pass[dae-optimizing]:nested-pass name=vacuum",
+    "pass[dae-optimizing]:nested-pass name=precompute-propagate-prefix", "pass[dae-optimizing]:nested-pass name=dead-code-elimination",
+    "pass[dae-optimizing]:nested-pass name=optimize-instructions", "pass[dae-optimizing]:nested-pass name=local-cse",
+    "pass[dae-optimizing]:nested-pass name=pick-load-signs", "pass[dae-optimizing]:nested-pass name=heap-store-optimization",
+    "pass[dae-optimizing]:nested-pass name=heap2local", "pass[dae-optimizing]:nested-pass name=optimize-casts",
+    "pass[dae-optimizing]:nested-pass name=code-pushing", "pass[dae-optimizing]:nested-pass name=simplify-locals",
+    "pass[dae-optimizing]:nested-pass name=code-folding", "pass[dae-optimizing]:nested-pass name=precompute",
+    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=remove-unused-brs",
+    "pass[dae-optimizing]:nested-pass name=remove-unused-names", "pass[dae-optimizing]:nested-pass name=merge-blocks",
+    "pass[dae-optimizing]:nested-pass name=coalesce-locals", "pass[dae-optimizing]:nested-pass name=reorder-locals",
+    "pass[dae-optimizing]:nested-pass name=vacuum",
   ])
+}
+
+///|
+test "dae-optimizing nested precompute-propagate prefix only rewrites touched functions" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $f (param i32 i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 1
+    #|      global.set $g
+    #|    end
+    #|    local.get 2
+    #|    i32.const 1
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    call $f)
+    #|  (func (export "untouched") (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 1
+    #|      global.set $g
+    #|    end
+    #|    local.get 1
+    #|    i32.const 1
+    #|    i32.add))
+  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DAE precompute-propagate prefix pipeline success, got \{err}",
+      )
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  assert_true(touched.contains("I32(1)"), msg=touched)
+  assert_false(touched.contains("i32.add"), msg=touched)
+  assert_true(untouched.contains("i32.add"), msg=untouched)
 }
 
 ///|

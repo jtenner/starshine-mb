@@ -17,6 +17,29 @@ pub fn precompute_summary() -> String {
 }
 
 ///|
+pub fn precompute_propagate_prefix_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new(
+    "precompute-propagate-prefix",
+    requires=[@ir.HotAnalysis::ssa()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
+}
+
+///|
+priv struct PrecomputePropagatePrefixReplacement {
+  node_id : Int
+  payload : @ir.HotConstPayload
+}
+
+///|
 fn precompute_global_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2243,6 +2266,378 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     }
   }
   if changed_any {
+    HotPassResult::changed()
+  } else {
+    HotPassResult::unchanged()
+  }
+}
+
+///|
+fn precompute_propagate_prefix_const_payload_from_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @ir.HotConstPayload? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const | @ir.HotOp::RefNull =>
+      Some(@ir.hot_const_get(func, node.imm0))
+    @ir.HotOp::GlobalGet => precompute_global_const(ctx, func, node_id)
+    _ => None
+  }
+}
+
+///|
+fn precompute_propagate_prefix_const_payload_matches_type(
+  payload : @ir.HotConstPayload,
+  ty : @lib.ValType,
+) -> Bool {
+  match (payload, ty) {
+    (@ir.HotConstPayload::I32Const(_), @lib.NumTypeValType(@lib.I32NumType)) =>
+      true
+    (@ir.HotConstPayload::I64Const(_), @lib.NumTypeValType(@lib.I64NumType)) =>
+      true
+    (@ir.HotConstPayload::F32Const(_), @lib.NumTypeValType(@lib.F32NumType)) =>
+      true
+    (@ir.HotConstPayload::F64Const(_), @lib.NumTypeValType(@lib.F64NumType)) =>
+      true
+    (@ir.HotConstPayload::RefNullConst(ref_type), @lib.RefTypeValType(expected)) =>
+      ref_type == expected
+    _ => false
+  }
+}
+
+///|
+fn precompute_propagate_prefix_const_instr(
+  payload : @ir.HotConstPayload,
+) -> @lib.Instruction? {
+  match payload {
+    @ir.HotConstPayload::I32Const(value) =>
+      Some(@lib.Instruction::i32_const(value))
+    @ir.HotConstPayload::I64Const(value) =>
+      Some(@lib.Instruction::i64_const(value))
+    @ir.HotConstPayload::F32Const(value) =>
+      Some(@lib.Instruction::f32_const(value))
+    @ir.HotConstPayload::F64Const(value) =>
+      Some(@lib.Instruction::f64_const(value))
+    @ir.HotConstPayload::RefNullConst(ref_type) =>
+      Some(@lib.Instruction::ref_null(ref_type.get_heap_type()))
+    @ir.HotConstPayload::StringConst(value) =>
+      Some(@lib.Instruction::string_const(value))
+  }
+}
+
+///|
+fn precompute_propagate_prefix_const_payload_from_instr(
+  instr : @lib.Instruction,
+) -> @ir.HotConstPayload? {
+  match instr {
+    @lib.I32Const(value) => Some(@ir.HotConstPayload::i32_const(value))
+    @lib.I64Const(value) => Some(@ir.HotConstPayload::i64_const(value))
+    @lib.F32Const(value) => Some(@ir.HotConstPayload::f32_const(value))
+    @lib.F64Const(value) => Some(@ir.HotConstPayload::f64_const(value))
+    @lib.RefNull(ref_type) =>
+      Some(@ir.HotConstPayload::ref_null_const(ref_type))
+    @lib.StringConst(value) => Some(@ir.HotConstPayload::string_const(value))
+    _ => None
+  }
+}
+
+///|
+fn precompute_propagate_prefix_default_local_const(
+  func : @ir.HotFunc,
+  local_id : Int,
+) -> @ir.HotConstPayload? {
+  match @ir.hot_local_type(func, local_id) {
+    Some(@lib.NumTypeValType(@lib.I32NumType)) =>
+      Some(@ir.HotConstPayload::i32_const(@lib.I32(0)))
+    Some(@lib.NumTypeValType(@lib.I64NumType)) =>
+      Some(@ir.HotConstPayload::i64_const(@lib.I64(0L)))
+    Some(@lib.NumTypeValType(@lib.F32NumType)) =>
+      Some(@ir.HotConstPayload::f32_const(@lib.F32(0.0)))
+    Some(@lib.NumTypeValType(@lib.F64NumType)) =>
+      Some(@ir.HotConstPayload::f64_const(@lib.F64(0.0)))
+    Some(@lib.RefTypeValType(ref_type)) =>
+      Some(@ir.HotConstPayload::ref_null_const(ref_type))
+    _ => None
+  }
+}
+
+///|
+fn precompute_propagate_prefix_const_for_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  ssa : @ir.HotLocalSsa,
+  node_id : Int,
+  states : Array[Int],
+  value_consts : Array[@ir.HotConstPayload?],
+) -> @ir.HotConstPayload? {
+  match
+    precompute_propagate_prefix_const_payload_from_node(ctx, func, node_id) {
+    Some(payload) => return Some(payload)
+    None => ()
+  }
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet => {
+      let value_id = ssa.local_get_values[node_id]
+      if value_id < 0 {
+        return None
+      }
+      return precompute_propagate_prefix_const_for_value(
+        ctx, func, ssa, value_id, states, value_consts,
+      )
+    }
+    _ => ()
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return None
+  }
+  let child_count = @ir.hot_child_count(func, node_id)
+  if child_count == 1 {
+    let operand = match
+      precompute_propagate_prefix_const_for_node(
+        ctx,
+        func,
+        ssa,
+        @ir.hot_child_get(func, node_id, 0),
+        states,
+        value_consts,
+      ) {
+      Some(payload) => payload
+      None => return None
+    }
+    let operand_instr = match precompute_propagate_prefix_const_instr(operand) {
+      Some(instr) => instr
+      None => return None
+    }
+    return match precompute_raw_try_fold_unary(operand_instr, instr) {
+      Some(next) => precompute_propagate_prefix_const_payload_from_instr(next)
+      None => None
+    }
+  }
+  if child_count == 2 {
+    let lhs = match
+      precompute_propagate_prefix_const_for_node(
+        ctx,
+        func,
+        ssa,
+        @ir.hot_child_get(func, node_id, 0),
+        states,
+        value_consts,
+      ) {
+      Some(payload) => payload
+      None => return None
+    }
+    let rhs = match
+      precompute_propagate_prefix_const_for_node(
+        ctx,
+        func,
+        ssa,
+        @ir.hot_child_get(func, node_id, 1),
+        states,
+        value_consts,
+      ) {
+      Some(payload) => payload
+      None => return None
+    }
+    let lhs_instr = match precompute_propagate_prefix_const_instr(lhs) {
+      Some(instr) => instr
+      None => return None
+    }
+    let rhs_instr = match precompute_propagate_prefix_const_instr(rhs) {
+      Some(instr) => instr
+      None => return None
+    }
+    return match precompute_raw_try_fold_binary(lhs_instr, rhs_instr, instr) {
+      Some(next) => precompute_propagate_prefix_const_payload_from_instr(next)
+      None => None
+    }
+  }
+  None
+}
+
+///|
+fn precompute_propagate_prefix_const_for_value(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  ssa : @ir.HotLocalSsa,
+  value_id : Int,
+  states : Array[Int],
+  value_consts : Array[@ir.HotConstPayload?],
+) -> @ir.HotConstPayload? {
+  if value_id < 0 || value_id >= states.length() {
+    return None
+  }
+  match states[value_id] {
+    1 => return None
+    2 => return value_consts[value_id]
+    3 => return None
+    _ => ()
+  }
+  states[value_id] = 1
+  let expected_type = @ir.ssa_value_type(ssa, value_id)
+  let resolved = match @ir.ssa_value_origin(ssa, value_id) {
+    @ir.HotSsaValueOrigin::EntryParamDef(_) => None
+    @ir.HotSsaValueOrigin::EntryDefaultInitDef(local_id) =>
+      precompute_propagate_prefix_default_local_const(func, local_id)
+    @ir.HotSsaValueOrigin::LocalSetDef(node_id)
+    | @ir.HotSsaValueOrigin::LocalTeeDef(node_id) =>
+      if @ir.hot_child_count(func, node_id) != 1 {
+        None
+      } else {
+        match
+          precompute_propagate_prefix_const_for_node(
+            ctx,
+            func,
+            ssa,
+            @ir.hot_child_get(func, node_id, 0),
+            states,
+            value_consts,
+          ) {
+          Some(payload) =>
+            if precompute_propagate_prefix_const_payload_matches_type(
+                payload, expected_type,
+              ) {
+              Some(payload)
+            } else {
+              None
+            }
+          _ => None
+        }
+      }
+    @ir.HotSsaValueOrigin::PhiDef(phi_id) => {
+      let inputs = @ir.ssa_phi_inputs(ssa, phi_id)
+      if inputs.length() == 0 {
+        None
+      } else {
+        let mut candidate : @ir.HotConstPayload? = None
+        let mut ok = true
+        for input in inputs {
+          match
+            precompute_propagate_prefix_const_for_value(
+              ctx,
+              func,
+              ssa,
+              input.value_id,
+              states,
+              value_consts,
+            ) {
+            Some(payload) =>
+              if precompute_propagate_prefix_const_payload_matches_type(
+                  payload, expected_type,
+                ) {
+                match candidate {
+                  Some(existing) => if existing != payload { ok = false }
+                  None => candidate = Some(payload)
+                }
+              } else {
+                ok = false
+              }
+            _ => ok = false
+          }
+          if !ok {
+            break
+          }
+        }
+        if ok {
+          candidate
+        } else {
+          None
+        }
+      }
+    }
+  }
+  match resolved {
+    Some(payload) => {
+      states[value_id] = 2
+      value_consts[value_id] = Some(payload)
+      Some(payload)
+    }
+    None => {
+      states[value_id] = 3
+      None
+    }
+  }
+}
+
+///|
+fn precompute_propagate_prefix_fold_local_gets(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let ssa = pass_require_ssa(ctx, func)
+  let states = Array::make(ssa.value_types.length(), 0)
+  let value_consts : Array[@ir.HotConstPayload?] = Array::make(
+    ssa.value_types.length(),
+    None,
+  )
+  let replacements : Array[PrecomputePropagatePrefixReplacement] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::LocalGet => {
+        let value_id = ssa.local_get_values[node_id]
+        if value_id < 0 {
+          continue
+        }
+        match
+          precompute_propagate_prefix_const_for_value(
+            ctx, func, ssa, value_id, states, value_consts,
+          ) {
+          Some(payload) => replacements.push({ node_id, payload })
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  if replacements.length() == 0 {
+    return false
+  }
+  for replacement in replacements {
+    if !@ir.hot_node_is_live(func, replacement.node_id) {
+      continue
+    }
+    let temp = match replacement.payload {
+      @ir.HotConstPayload::I32Const(value) =>
+        @ir.hot_build_const_i32(func, value)
+      @ir.HotConstPayload::I64Const(value) =>
+        @ir.hot_build_const_i64(func, value)
+      @ir.HotConstPayload::F32Const(value) =>
+        @ir.hot_build_const_f32(func, value)
+      @ir.HotConstPayload::F64Const(value) =>
+        @ir.hot_build_const_f64(func, value)
+      @ir.HotConstPayload::RefNullConst(value) =>
+        @ir.hot_build_ref_null(func, value)
+      @ir.HotConstPayload::StringConst(value) =>
+        @ir.hot_build_string_const(func, value)
+    }
+    let next_node = @ir.hot_node_get(func, temp)
+    @ir.hot_delete_node(func, temp)
+    @ir.hot_replace_node(func, replacement.node_id, next_node)
+    pass_mark_mutated(ctx, func)
+  }
+  true
+}
+
+///|
+pub fn precompute_propagate_prefix_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> HotPassResult {
+  let propagated = precompute_propagate_prefix_fold_local_gets(ctx, func)
+  let precomputed = precompute_run(ctx, func)
+  if propagated || precomputed.changed {
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()

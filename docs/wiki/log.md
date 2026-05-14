@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae gets a touched-only precompute-propagate prefix equivalent
+
+- Updated [`../../src/passes/precompute.mbt`](../../src/passes/precompute.mbt) with a private `precompute-propagate-prefix` helper that folds SSA-backed default-init and direct local constant facts, then reruns plain `precompute`; this stays a touched-only nested cleanup helper and does **not** register or claim the public upstream `precompute-propagate` pass.
+- Prepended that helper in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) ahead of the guarded DAE nested cleanup subset, preserved the touched-only and size-guarded lane, and extended [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) so the guarded nested-pass trace now starts with `precompute-propagate-prefix` and a touched callee can fold a default-init local while an untouched sibling keeps its original `local.get` / `i32.add` shape.
+- Refreshed [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), [`../../agent-todo.md`](../../agent-todo.md), and [`../../CHANGELOG.md`](../../CHANGELOG.md) so the repo now records this as a faithful touched-only prefix equivalent rather than a public `precompute-propagate` port. Validation for this slice is currently focused Moon evidence (`moon fmt`, `moon test src/passes`); compare-pass lanes were not rerun in the same change.
+
 ## [2026-05-13] passes | dae local-subtyping blocker hunt collapses to local-decl-only frontier
 
 - Added explicit `dae-optimizing + local-subtyping` regressions in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the originally suspicious dominated and undominated sibling-join ref-local families, alongside the earlier `ref.as_non_null(local.get ...)`, loop-carried, block-wrapped `try_table`, and `call_ref` shapes.
