@@ -78,7 +78,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 - Active `inlining` and `inlining-optimizing` module-pass names.
 - Iterative direct `call` and narrow direct `return_call` rewrite waves.
-- Tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, and narrow shrinking-trivial two-parameter scalar-store-wrapper defined callee eligibility, now including the `i64.store32` width-store sibling.
+- Tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, and narrow shrinking-trivial two-parameter memory-store-wrapper defined callee eligibility, now including the `v128.store` SIMD-store sibling.
 - Callee parameter/body-local appending and local-index remapping.
 - Simple return-to-wrapper-block branch repair.
 - Private helper removal after refs disappear.
@@ -91,7 +91,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 ### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and scalar-store `Shrinks` subsets through the latest `i64.store32` width-store slice landed on 2026-05-14 and the rest remains active;
+- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and memory-store `Shrinks` subsets through the latest `v128.store` SIMD-store slice landed on 2026-05-14 and the rest remains active;
 - `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
 - `[INL]005`: partial inlining splitter;
 - `[INL]006`: nested `return_call*`, multi-result typing, and label/name/annotation repair.

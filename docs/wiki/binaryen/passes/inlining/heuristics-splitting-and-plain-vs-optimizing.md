@@ -85,7 +85,7 @@ Still tiny, but constants, repeated/skipped params, or extra scaffolding can gro
 
 Everything else.
 
-Starshine currently does not model these classes exactly. It has a much smaller tiny/one-use eligibility rule plus narrow `[INL]003` `Shrinks` subsets: two-parameter stack bodies of the form `local.get 0`, `local.get 1`, then a whitelisted binary numeric/ref operator; three-parameter stack bodies of the form `local.get 0`, `local.get 1`, `local.get 2`, then `select`; and two-parameter stack bodies of the form `local.get 0`, `local.get 1`, then one of `i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, or `i64.store32`, can inline even when multi-use.
+Starshine currently does not model these classes exactly. It has a much smaller tiny/one-use eligibility rule plus narrow `[INL]003` `Shrinks` subsets: two-parameter stack bodies of the form `local.get 0`, `local.get 1`, then a whitelisted binary numeric/ref operator; three-parameter stack bodies of the form `local.get 0`, `local.get 1`, `local.get 2`, then `select`; and two-parameter stack bodies of the form `local.get 0`, `local.get 1`, then one of `i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, or `v128.store`, can inline even when multi-use.
 
 ## 5. `try_delegate`, loops, and calls are policy gates
 
