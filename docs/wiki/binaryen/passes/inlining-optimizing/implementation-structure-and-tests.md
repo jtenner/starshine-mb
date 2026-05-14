@@ -73,7 +73,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - counts imports/definitions;
   - scans direct refs and roots;
   - computes simplified size and shape flags;
-  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, or a narrow shrinking-trivial two-parameter memory-store wrapper (through the current `v128.store16_lane` SIMD lane-store slice) and block type is void/single-result.
+  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, or a narrow shrinking-trivial two-parameter memory-store wrapper (through the current `v128.store32_lane` SIMD lane-store slice) and block type is void/single-result.
 - Rewrite:
   - recurses through structured bodies;
   - rewrites direct `call` and `return_call`;
@@ -102,7 +102,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - active module category for both names;
 - tiny helper inline/remove;
 - parameter operand remap;
-- repeated parameter-passthrough binary, `select`, and memory-store wrappers as narrow shrinking-trivial heuristic subsets, including the latest `v128.store16_lane` wrapper;
+- repeated parameter-passthrough binary, `select`, and memory-store wrappers as narrow shrinking-trivial heuristic subsets, including the latest `v128.store32_lane` wrapper;
 - exported tiny helper survival;
 - narrow direct `return_call` inline;
 - self-recursive skip;
