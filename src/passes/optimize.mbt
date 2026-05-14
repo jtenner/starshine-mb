@@ -293,6 +293,9 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "inlining-optimizing",
       inlining_optimizing_summary(),
     ),
+    pass_registry_entry_module("no-inline", no_inline_summary()),
+    pass_registry_entry_module("no-full-inline", no_full_inline_summary()),
+    pass_registry_entry_module("no-partial-inline", no_partial_inline_summary()),
     pass_registry_entry_module("string-gathering", string_gathering_summary()),
     pass_registry_entry_module("reorder-globals", reorder_globals_summary()),
     pass_registry_entry_module("directize", directize_summary()),
@@ -537,8 +540,17 @@ fn run_hot_pipeline_expand_passes(
 ) -> Result[Array[HotPassRegistryEntry], String] {
   let expanded : Array[HotPassRegistryEntry] = []
   for name in requested_passes {
-    let entry = match pass_registry_lookup_cached(name) {
-      Some(entry) => entry
+    let lookup_name = match no_inline_pass_pattern(name) {
+      Some((base, _)) => base
+      None => name
+    }
+    let entry = match pass_registry_lookup_cached(lookup_name) {
+      Some(entry) =>
+        if lookup_name == name {
+          entry
+        } else {
+          HotPassRegistryEntry::{ ..entry, name, }
+        }
       None => return Err("unknown pass flag \{name}")
     }
     match entry.category {

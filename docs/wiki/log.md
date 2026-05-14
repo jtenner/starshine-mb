@@ -416,6 +416,94 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Investigated `.tmp/pass-fuzz-dae-no-param-result-caller-prune-1000/failures/case-000690-gen-valid` and recorded the durable Binaryen shape in [`raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md`](raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md).
 - Updated the `dae-optimizing` pages to record that Binaryen preserves the original parameter stranded under an escaped direct-call result used as an undropped dead-suffix self-call operand, while still pruning direct simple self-call operands.
 - Added a Starshine regression for the raw wasm failure and fixed the local DAE parameter-origin restoration path; `.tmp/pass-fuzz-dae-690-final2-200` reported `199/200` compared, `198` normalized matches, `1` local-declaration mismatch, and `1` Binaryen/tool command failure, while `.tmp/pass-fuzz-dae-690-final2-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures with `case-000690-gen-valid` gone.
+## [2026-05-13] passes | inlining shrinking-trivial i32.store16 heuristic
+
+- Added the eighth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `i32.store16` are now full-inline candidates even with multiple refs.
+- Confirmed Binaryen behavior first with `wasm-opt --inlining -S --strip-debug` on `.tmp/inl003-i32-store16-wrapper.wat`; Binaryen removed the helper and emitted two inlined `i32.store16` blocks.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `i32.store16` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `i32.store16` branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt`, `moon test src/passes`, full `moon test`, `moon info`, and `git diff --check` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-i32-store16-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-i32-store16-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
+## [2026-05-13] passes | inlining shrinking-trivial i32.store8 heuristic
+
+- Added the seventh narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `i32.store8` are now full-inline candidates even with multiple refs.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `i32.store8` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `i32.store8` branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt` and `moon test src/passes` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-i32-store8-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-i32-store8-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
+## [2026-05-13] passes | inlining shrinking-trivial f64.store heuristic
+
+- Added the sixth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `f64.store` are now full-inline candidates even with multiple refs.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `f64.store` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `f64.store` branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt` and `moon test src/passes` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-f64-store-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-f64-store-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
+## [2026-05-13] passes | inlining shrinking-trivial f32.store heuristic
+
+- Added the fifth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `f32.store` are now full-inline candidates even with multiple refs.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `f32.store` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `f32.store` branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt` and `moon test src/passes` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-f32-store-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-f32-store-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
+## [2026-05-13] passes | inlining shrinking-trivial i64.store heuristic
+
+- Added the fourth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `i64.store` are now full-inline candidates even with multiple refs.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `i64.store` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `i64.store` branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt` and `moon test src/passes` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-i64-store-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-i64-store-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
+## [2026-05-13] passes | inlining shrinking-trivial i32.store heuristic
+
+- Added the third narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `i32.store` are now full-inline candidates even with multiple refs.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `i32.store` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `i32.store` branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt` and `moon test src/passes` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-store-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-store-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
+## [2026-05-13] passes | inlining shrinking-trivial select heuristic
+
+- Added the second narrow `[INL]003` heuristic sub-slice: repeated three-parameter stack bodies that load params `0`, `1`, and `2` in order and then execute `select` are now full-inline candidates even with multiple refs.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `select` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded select-wrapper branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt` and `moon test src/passes` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-select-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-select-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
+## [2026-05-13] passes | inlining shrinking-trivial binary heuristic
+
+- Added the first narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute a whitelisted binary numeric/ref op are now full-inline candidates even with multiple refs.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `i32.add` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded shrinking-trivial classifier and kept the rest of Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt` and `moon test src/passes` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-trivial-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-trivial-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
+## [2026-05-13] passes | inlining no-inline policy controls
+
+- Added `src/passes/no_inline.mbt` with `no-inline=<pattern>`, `no-full-inline=<pattern>`, and `no-partial-inline=<pattern>` policy marking over structured function names.
+- Registered the three policy names as module passes, taught dynamic `name=pattern` pass requests to resolve through the registry, and dispatched them before later `inlining` passes.
+- Updated `src/passes/inlining.mbt` so full-inline suppression blocks direct inlining; partial suppression is stored for future partial splitter work.
+- Taught WAT lowering to preserve function identifiers as structured function names, allowing command-level `--no-inline=*maybe* --inlining` over WAT inputs to match `$tiny-maybe-inline` without manual test name-section injection.
+- Added focused tests for CLI parsing, registry classification, wildcard blocking, the `no-full-inline` vs `no-partial-inline` split, WAT identifier-name lowering, command-level no-inline/inlining sequencing, and keeping `@metadata.code.inline` distinct from no-inline policy.
+- Follow-up hardening added imported WAT identifier matching, repeated-policy marker deduplication, no-match behavior, annotation remapping across helper compaction so a removed inlined helper cannot leak policy to index `0` and a surviving protected function keeps suppression before later inlining runs, function-name remapping so later policy passes can still match survivors after earlier inlining compaction, local-name dropping after inlining body rewrites to avoid stale invalid function-scoped name metadata, and `no_inline_copy_policy_annotations(...)` as the shared policy-copy hook for future clone/copy helpers.
+- Focused validation: `moon test src/cli src/passes src/cmd src/wast` passed; full `moon test` and `moon info` also passed. `[INL]004` is accepted for the current no-inline policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
+
+## [2026-05-13] passes | plain inlining direct signoff accepted
+
+- Added focused plain-`inlining` regressions for mixed-result dead helper deletion without optimizing helper-retention counts and for no-call unreachable value-block cleanup.
+- Updated `src/passes/inlining.mbt` so plain mode uses empty helper-retention counts and only the narrow unreachable value-block cleanup when no inline rewrite occurs; optimizing-only retain counts and nested cleanup remain restricted to `inlining-optimizing`.
+- Standard seed-`0x5eed` full plain evidence at `.tmp/pass-fuzz-inlining-seed-0x5eed-plain-moonrun-10k-full-after-plain-no-retain-prune` reports `9975/10000` compared, `9169` normalized matches, `806` mismatches, `0` validation failures, and `25` ignored Binaryen/tool parse failures; all `806/806` mismatches collapse after stripping `(local ...)` declaration lines.
+- Broadened seed-`0x1eed` full plain evidence at `.tmp/pass-fuzz-inlining-seed-0x1eed-plain-moonrun-10k-full-after-plain-no-retain-prune` reports `9978/10000` compared, `9208` normalized matches, `770` mismatches, `0` validation failures, and `22` ignored Binaryen/tool parse failures; all `770/770` mismatches collapse after stripping `(local ...)` declaration lines.
+- `[INL]007` is accepted for the current supported direct plain `inlining` surface. The remaining local-declaration/allocation drift is representation-only; broader inliner heuristics, no-inline policy, partial inlining, repair, and exact nested-scheduler work remain under `[INL]002`-`[INL]006`.
+
+## [2026-05-13] passes | plain inlining stop-point smoke narrowed
+
+- Added focused plain-`inlining` regressions in `src/passes/inlining_test.mbt` for defaultable copied-local zero-init and for preserving untouched private dead-body helpers after unrelated inlining.
+- Added a cmd-level reduced regression in `src/cmd/cmd_wbtest.mbt` that locks the expected output locals for a same-type dead-suffix plain inline run through the real command adapter.
+- Updated `src/passes/inlining.mbt` so plain mode stops after inline rewrite plus dead-helper cleanup, instead of leaking the optimizing-only unreachable-body cleanup path into plain `inlining`.
+- Added a follow-up plain-mode guard so the retain-helper collapse branch only runs for `inlining-optimizing`; after rebuilding native `src/cmd`, the previously observed standard-seed whole-body collapse family replays green as ordinary inlined output.
+- Standard seed-`0x5eed` plain smoke evidence at `.tmp/pass-fuzz-inlining-seed-0x5eed-plain-moonrun-200-after-plain-stop` reports `199/200` compared, `190` normalized matches, `9` remaining mismatches, `0` validation failures, and `1` ignored Binaryen/tool `binaryen-rec-group-zero` parse failure.
+- The wider standard-seed smoke sample at `.tmp/pass-fuzz-inlining-seed-0x5eed-plain-moonrun-1000-after-plain-stop2` reports `998/1000` compared, `910` normalized matches, `88` remaining mismatches, `0` validation failures, and `2` ignored Binaryen/tool parse failures.
+- The broadened seed smoke sample at `.tmp/pass-fuzz-inlining-seed-0x1eed-plain-moonrun-1000-after-plain-stop2` reports `997/1000` compared, `924` normalized matches, `73` remaining mismatches, `0` validation failures, and `3` ignored Binaryen/tool parse failures.
+- The capped standard 10k lane at `.tmp/pass-fuzz-inlining-seed-0x5eed-plain-moonrun-10k-after-plain-stop2` reports `4735/10000` compared, `4335` normalized matches, `400` mismatches, `0` validation failures, and `9` ignored Binaryen/tool parse failures.
+- After stripping `(local ...)` declaration lines, every compared case in the 200-case lane, every compared case in both 1000-case lanes, and `399/400` mismatches in the capped standard 10k lane match structurally; the remaining non-local case is `case-002984-gen-valid`, a dead-private exact-`unreachable` helper-survival drift that stays under `[INL]007`.
+- Direct replay on `case-000010-gen-valid` shows Starshine's emitted `starshine.raw.wasm` decodes back through Starshine with the expected inlined locals and without the extra printed carrier, strengthening the current hypothesis that the dominant residual smoke mismatches are Binaryen canonical text-printer/local-carrier artifacts rather than Starshine semantic failures.
+
 ## [2026-05-13] passes | inlining-optimizing broadened closure evidence green
 
 - Added narrow four-function exact-`unreachable` survivor/order prediction for the remaining broadened seed frontier in `src/passes/inlining.mbt`, plus focused public and whitebox regressions in `src/passes/inlining_test.mbt` and `src/passes/inlining_wbtest.mbt`.

@@ -166,6 +166,16 @@ test "parse_cli_args parses long-form kebab-case pass flags" {
 }
 
 ///|
+test "parse_cli_args accepts no-inline wildcard pass values" {
+  let parsed = parse_ok([
+    "--no-inline=*maybe*", "--no-full-inline", "full-*", "--no-partial-inline=partial-*",
+  ])
+  @debug.assert_eq(parsed.pass_flags, [
+    "no-inline=*maybe*", "no-full-inline=full-*", "no-partial-inline=partial-*",
+  ])
+}
+
+///|
 test "parse_cli_args accepts dump passes with separate and inline paths" {
   let parsed = parse_ok([
     "--dump", "before.wasm", "--ssa-nomerge", "--dump=after.wat", "--validate",

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-05-12
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
@@ -35,7 +35,7 @@ related:
 
 `inlining-optimizing` is Binaryen's late whole-module inliner with immediate post-inline cleanup. It uses the same upstream `src/passes/Inlining.cpp` engine as plain [`../inlining/index.md`](../inlining/index.md), then enables the optimizing suffix: `precompute-propagate` plus the default function optimization pipeline on changed functions.
 
-Current Starshine status: **partial active module pass**. It is not boundary-only anymore, and the current supported direct-call surface is accepted under former `[INL]001`, but the whole pass is not fully signed off. The shared owner is [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt); the active backlog now remains `[INL]002` plus deferred direct-inliner breadth slices `[INL]003`-`[INL]007` in [`agent-todo.md`](../../../../../agent-todo.md).
+Current Starshine status: **partial active module pass**. It is not boundary-only anymore, and the current supported direct-call surfaces are accepted under former `[INL]001` and plain `[INL]007`, but the whole optimizing pass is not fully signed off. The shared owner is [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt); the active backlog now remains `[INL]002` plus deferred direct-inliner breadth slices `[INL]003`, `[INL]005`, and `[INL]006` in [`agent-todo.md`](../../../../../agent-todo.md).
 
 ## Why it matters
 
@@ -61,7 +61,8 @@ That is much closer to reality than “more aggressive inlining.”
 - Reviewed `version_129` chosen inline actions are direct `call` / `return_call` based; `ref.func` and ref/indirect calls remain relevant to survival and repair.
 - The optimizing suffix is part of the public contract, not optional polish.
 - Starshine's current cleanup suffix is an approximation: trace marker plus broad cleanup lane with untouched-function restoration and touched unused-local compaction, not exact Binaryen filtered `precompute-propagate` + default function pipeline.
-- Latest compare evidence is validation-clean but mismatch-red.
+- The current `[INL]003` heuristic sub-slices recognize repeated parameter-passthrough binary wrappers, `select` wrappers, and scalar-store wrappers as shrinking trivial candidates; remaining heuristic/action-filtering breadth is still active.
+- Latest accepted direct evidence is validation-clean and green for optimizing over the recorded compared lanes; the latest `[INL]003` `i32.store16` smoke also stays green for optimizing over `199/200` compared cases.
 
 ## Current Starshine evidence
 
@@ -90,7 +91,7 @@ Broadened closure lane, `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-fro
 - `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures;
 - `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`.
 
-The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed-`0x1eed` four-function frontier are retired. `[INL]001` is accepted for the current supported direct surface. Keep `[INL]002` active for the exact nested scheduler and track deferred unsupported direct-inliner breadth under `[INL]003`-`[INL]007`.
+The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed-`0x1eed` four-function frontier are retired. `[INL]001` is accepted for the current supported optimizing direct surface, and `[INL]007` is accepted for the current supported plain direct surface. Keep `[INL]002` active for the exact nested scheduler and track deferred unsupported direct-inliner breadth under `[INL]003`, `[INL]005`, and `[INL]006`.
 
 ## Page map
 

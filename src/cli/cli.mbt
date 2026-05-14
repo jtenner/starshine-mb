@@ -1154,6 +1154,29 @@ pub fn parse_cli_args(
             if !is_kebab_case_flag_name(name) {
               return Err(CliParseError::invalid_long_flag(name))
             }
+            if name == "no-inline" ||
+              name == "no-full-inline" ||
+              name == "no-partial-inline" {
+              let (value, consumed_next) = match inline_value {
+                Some(v) if v.length() > 0 => (v, false)
+                Some(_) =>
+                  return Err(
+                    CliParseError::missing_flag_value(long_flag_name(name)),
+                  )
+                None =>
+                  if index + 1 < args.length() &&
+                    !looks_like_option_token(args[index + 1]) {
+                    (args[index + 1], true)
+                  } else {
+                    return Err(
+                      CliParseError::missing_flag_value(long_flag_name(name)),
+                    )
+                  }
+              }
+              parsed.pass_flags.push("\{name}=\{value}")
+              index += if consumed_next { 2 } else { 1 }
+              continue
+            }
             if name.has_prefix("print-") {
               let (value, consumed_next) = match inline_value {
                 Some(v) if v.length() > 0 => (v, false)

@@ -63,7 +63,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 | `src/passes/inlining_wbtest.mbt` | whitebox coverage for unreachable value-block pruning, predicted exact-helper padding, and the narrow hot-unsafe polymorphic self-call suffix detector |
 | `src/passes/optimize.mbt` | registry category and preset omission |
 | `src/passes/pass_manager.mbt` | module-pass dispatch and `optimize=true` routing |
-| `agent-todo.md` | accepted `[INL]001`, active `[INL]002`, deferred `[INL]003`-`[INL]007`, and latest artifact evidence |
+| `agent-todo.md` | accepted `[INL]001` and `[INL]007`, active `[INL]002`, deferred `[INL]003`, `[INL]005`, and `[INL]006`, and latest artifact evidence |
 | `CHANGELOG.md` | chronological implementation checkpoints |
 
 ## Current Starshine implementation clusters
@@ -73,7 +73,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - counts imports/definitions;
   - scans direct refs and roots;
   - computes simplified size and shape flags;
-  - marks inlineable when tiny or one-use private and block type is void/single-result.
+  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, or a narrow shrinking-trivial two-parameter scalar-store wrapper (through the current `i32.store16` width-store slice) and block type is void/single-result.
 - Rewrite:
   - recurses through structured bodies;
   - rewrites direct `call` and `return_call`;
@@ -84,7 +84,8 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - Removal/remap:
   - removes inlined private helpers when refs disappear;
   - remaps function indices in exports/start/elements/tables/globals/code/data where represented;
-  - strips name section after compaction.
+  - remaps function annotations and function names after compaction so no-inline policy and later function-name lookups stay attached to surviving functions, while dropping local/label name maps until full body-name repair exists;
+  - exposes `no_inline_copy_policy_annotations(...)` for future clone/copy transforms to preserve no-inline policy markers.
 - Nested approximation:
   - emits trace marker;
   - runs an unfiltered cleanup lane with validation disabled;
@@ -101,6 +102,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - active module category for both names;
 - tiny helper inline/remove;
 - parameter operand remap;
+- repeated parameter-passthrough binary, `select`, and scalar-store wrappers as narrow shrinking-trivial heuristic subsets, including the latest `i32.store16` wrapper;
 - exported tiny helper survival;
 - narrow direct `return_call` inline;
 - self-recursive skip;

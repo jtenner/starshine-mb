@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-12
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
@@ -125,9 +125,9 @@ Main clusters:
 | Cluster | Current role | Known gap |
 | --- | --- | --- |
 | summaries | import/defined counts, type lookup, simple size scan, refs/roots, shape flags | no full Binaryen cost/trivial/flexible/depth model |
-| eligibility | tiny or one-use private defined callee, block type must be void/single-result, skip `try_table` and return-call-containing callees | no no-inline flags, partial splitter, flexible/O3 policy, multi-result support |
+| eligibility | tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, or narrow shrinking-trivial two-parameter scalar-store-wrapper defined callee (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, or `i32.store16`); block type must be void/single-result; skip `try_table` and return-call-containing callees; honor internal full-inline suppression from `no-inline` / `no-full-inline` | remaining `Shrinks` / `MayNotShrink` classes, partial splitter, flexible/O3 policy, multi-result support, partial-inlining-specific no-inline behavior |
 | rewrite | direct `call` / `return_call` replacement, param/body-local append, local remap, simple return-to-branch | incomplete nested `return_call*`, label collision, nondefaultable-local, metadata/name repair |
-| removal | private helper deletion after refs disappear, function-index remap across module surfaces | exact Binaryen helper/annotation/name cleanup not complete |
+| removal | private helper deletion after refs disappear, function-index remap across module surfaces, function annotation remap, and function-name remap; local/label name maps are dropped until full repair exists | exact Binaryen helper/name cleanup beyond currently remapped function names is not complete |
 | optimizing approximation | trace marker, broad cleanup lane with untouched-body restoration, touched unused-local compaction, unreachable-root collapse | not exact `precompute-propagate` + touched-function filtered default pipeline |
 | exact-unreachable predictor | retained/trimmed/padded private unreachable helper count refinements for the retired direct mismatch frontiers | seed-`0x5eed` and seed-`0x1eed` direct lanes are green over compared cases |
 
@@ -137,7 +137,8 @@ Current registry status:
 
 - `pass_registry_entry_module("inlining", inlining_summary())`;
 - `pass_registry_entry_module("inlining-optimizing", inlining_optimizing_summary())`;
-- both names are no longer in `pass_registry_boundary_only_names()`.
+- `pass_registry_entry_module("no-inline", no_inline_summary())` and sibling entries for `no-full-inline` / `no-partial-inline`;
+- all five names are no longer in `pass_registry_boundary_only_names()`.
 
 Preset status:
 
@@ -149,15 +150,18 @@ Preset status:
 Current dispatch:
 
 - `"inlining" => inlining_run_module_pass(mod_, optimize=false, pass_name="inlining")`;
-- `"inlining-optimizing" => inlining_run_module_pass(mod_, optimize=true, trace=Some(options.trace), pass_name="inlining-optimizing")`.
+- `"inlining-optimizing" => inlining_run_module_pass(mod_, optimize=true, trace=Some(options.trace), pass_name="inlining-optimizing")`;
+- dynamic `no-inline=<pattern>` / `no-full-inline=<pattern>` / `no-partial-inline=<pattern>` names are normalized through the registry and dispatched to `no_inline_run_module_pass(...)`.
+- WAT lowering now maps function identifiers into structured function names, so the policy passes can match text inputs without a separate hand-authored name section.
 
 ### `src/passes/inlining_test.mbt`
 
 Focused tests currently cover:
 
-- registry classification for both names;
+- registry classification for `inlining`, `inlining-optimizing`, and the three `no-inline*` policy names;
 - tiny no-param callee inlining and helper removal;
 - operand storage into remapped params;
+- repeated parameter-passthrough binary, `select`, and scalar-store wrappers inline as narrow shrinking-trivial heuristic subsets;
 - exported tiny helper inlines but survives;
 - direct `return_call` callee inline subset;
 - self-recursion skip;
@@ -166,7 +170,8 @@ Focused tests currently cover:
 - duplicate exact-unreachable helper retention;
 - shadowed void-cycle result-helper representative retention;
 - no-inlining unreachable value-block pruning and predicted exact-helper padding;
-- optimizing nested-cleanup trace marker.
+- optimizing nested-cleanup trace marker;
+- no-inline wildcard policy blocking full inlining, WAT identifier based matching for defined and imported functions, command-level sequencing before plain `inlining`, `no-full-inline` vs `no-partial-inline` split behavior, repeated-policy marker deduplication, no-match behavior, annotation and function-name remapping across helper compaction, post-compaction policy matching by surviving names, dropping function-scoped local names after inlining body rewrites, copy-helper policy propagation for cloned functions, and the fact that `@metadata.code.inline` function hints are not no-inline policy.
 
 These tests are necessary but not sufficient for Binaryen parity.
 
@@ -216,11 +221,12 @@ For seed `0x1eed`, all `22` command failures are ignored Binaryen/tool `binaryen
 | Upstream public pass split | Binaryen `src/passes/pass.cpp` |
 | Optimizing suffix | Binaryen `src/passes/opt-utils.h` |
 | No-inline policy | Binaryen `src/passes/NoInline.cpp` + `module-utils.cpp` |
+| Starshine no-inline policy | `src/passes/no_inline.mbt` plus `src/passes/inlining.mbt` policy lookup |
 | Starshine active implementation | `src/passes/inlining.mbt` |
 | Starshine registry/presets | `src/passes/optimize.mbt` |
 | Starshine dispatch | `src/passes/pass_manager.mbt` |
 | Starshine focused tests | `src/passes/inlining_test.mbt` |
-| Active backlog | `agent-todo.md` accepted `[INL]001`, active `[INL]002`, and deferred breadth `[INL]003`-`[INL]007` |
+| Active backlog | `agent-todo.md` accepted `[INL]001` and `[INL]007`, keeps `[INL]002` active, and tracks deferred breadth `[INL]003`, `[INL]005`, and `[INL]006` |
 
 ## Validation guidance
 

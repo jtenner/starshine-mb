@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
@@ -195,6 +195,24 @@ If you need one short rule of thumb, use this:
 That summary matches the reviewed `version_129` code much better than the simpler but misleading claim:
 
 - “Binaryen uses inline-hint annotations as its ordinary no-inline mechanism.”
+
+## Starshine implementation note
+
+As of 2026-05-13, Starshine has a first local policy surface for this split:
+
+- `no-inline=<pattern>` marks both full and partial suppression;
+- `no-full-inline=<pattern>` marks full suppression only;
+- `no-partial-inline=<pattern>` marks partial suppression only;
+- the direct inliner honors full suppression, while partial suppression is stored for future splitter work;
+- WAT function identifiers, including imported function identifiers, are lowered into structured function names so CLI text inputs can match ordinary `$name` functions;
+- repeated policy passes deduplicate the internal markers instead of stacking duplicate annotations;
+- no-match policy passes leave the annotation section absent when no prior annotations exist;
+- helper-compaction remaps function annotations and function names alongside function indices, so surviving protected functions keep their policy, removed helpers do not leak policy to index `0`, and later policy passes can still match surviving WAT identifiers;
+- function-scoped local/label name maps are dropped after inlining rewrites until full name repair exists, avoiding invalid stale local-name metadata;
+- `no_inline_copy_policy_annotations(...)` copies the internal full/partial policy markers from an original function to a copied function, providing the shared hook future clone/copy transforms need to mirror Binaryen `copyFunction` flag preservation;
+- `@metadata.code.inline` annotations are still treated as metadata and do not block full inlining.
+
+The local policy matches names from the structured name section, including those produced from WAT function identifiers. The compaction remap preserves both function names and policy annotations through inlining helper removal, and the copy helper covers the currently available clone-survival surface even though Starshine does not yet have an active monomorphize/copy transform consuming it. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
 
 ## What future Starshine widening should preserve
 

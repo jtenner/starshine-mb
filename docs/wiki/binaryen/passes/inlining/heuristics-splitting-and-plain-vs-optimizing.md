@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-12
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
@@ -85,7 +85,7 @@ Still tiny, but constants, repeated/skipped params, or extra scaffolding can gro
 
 Everything else.
 
-Starshine currently does not model these classes exactly. It uses a much smaller tiny/one-use eligibility rule.
+Starshine currently does not model these classes exactly. It has a much smaller tiny/one-use eligibility rule plus narrow `[INL]003` `Shrinks` subsets: two-parameter stack bodies of the form `local.get 0`, `local.get 1`, then a whitelisted binary numeric/ref operator; three-parameter stack bodies of the form `local.get 0`, `local.get 1`, `local.get 2`, then `select`; and two-parameter stack bodies of the form `local.get 0`, `local.get 1`, then one of `i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, or `i32.store16`, can inline even when multi-use.
 
 ## 5. `try_delegate`, loops, and calls are policy gates
 
@@ -145,7 +145,7 @@ Binaryen preserves `@metadata.code.inline` bytes, but the practical `Inlining.cp
 
 See [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) for the detailed source map.
 
-Current Starshine gap: no-inline flags are not yet modeled by the local inliner subset.
+Current Starshine status: the first `no-inline*` policy surface is modeled through name-section wildcard marking and internal function annotations, WAT function identifiers now populate that name lookup for defined and imported functions, full-inline suppression is honored by the direct inliner, annotation/function-name remapping preserves policy and later matching across helper compaction, stale local names are dropped after inlining rewrites, and `no_inline_copy_policy_annotations(...)` is available for future clone/copy transforms. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
 
 ## 11. Iteration has race guards
 

@@ -221,6 +221,127 @@ fn inl_scan_shape_instrs(
 }
 
 ///|
+fn inl_is_binary_trivial_op(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign
+    | @lib.RefEq
+    | @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.F32Store(_)
+    | @lib.F64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_) => true
+    _ => false
+  }
+}
+
+///|
+fn inl_body_is_shrinking_trivial(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  if param_count == 2 && body.length() == 3 {
+    match (body[0], body[1]) {
+      (@lib.LocalGet(first), @lib.LocalGet(second)) =>
+        return inl_local_idx_slot(first) == 0 &&
+          inl_local_idx_slot(second) == 1 &&
+          inl_is_binary_trivial_op(body[2])
+      _ => return false
+    }
+  }
+  if param_count == 3 && body.length() == 4 {
+    match (body[0], body[1], body[2], body[3]) {
+      (
+        @lib.LocalGet(first),
+        @lib.LocalGet(second),
+        @lib.LocalGet(third),
+        @lib.Select(_),
+      ) =>
+        return inl_local_idx_slot(first) == 0 &&
+          inl_local_idx_slot(second) == 1 &&
+          inl_local_idx_slot(third) == 2
+      _ => return false
+    }
+  }
+  false
+}
+
+///|
 fn inl_mark_global_uses(mod_ : @lib.Module, used : Array[Bool]) -> Unit {
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
@@ -319,6 +440,7 @@ fn inl_build_function_infos(mod_ : @lib.Module) -> Array[InlFunctionInfo] {
     None => ()
   }
   let types = inl_collect_func_type_indices(mod_)
+  let (no_full_inline, _) = no_inline_policy_flags(mod_)
   let infos : Array[InlFunctionInfo] = []
   let mut abs = 0
   while abs < total {
@@ -330,11 +452,12 @@ fn inl_build_function_infos(mod_ : @lib.Module) -> Array[InlFunctionInfo] {
       has_loops,
       has_try_table,
       has_return_call,
+      trivial_shrinks,
     ) = if abs < imports {
       match inl_resolve_func_type(mod_, types, abs) {
         Some(@lib.FuncType(params, results)) =>
-          (params, results, 1000000, true, false, false, true)
-        None => ([], [], 1000000, true, false, false, true)
+          (params, results, 1000000, true, false, false, true, false)
+        None => ([], [], 1000000, true, false, false, true, false)
       }
     } else {
       let def_idx = abs - imports
@@ -346,16 +469,29 @@ fn inl_build_function_infos(mod_ : @lib.Module) -> Array[InlFunctionInfo] {
       let (calls, loops, tries, tails) = inl_scan_shape_instrs(body)
       match inl_resolve_func_type(mod_, types, abs) {
         Some(@lib.FuncType(params, results)) =>
-          (params, results, inl_count_instrs(body), calls, loops, tries, tails)
-        None => ([], [], 1000000, true, false, true, true)
+          (
+            params,
+            results,
+            inl_count_instrs(body),
+            calls,
+            loops,
+            tries,
+            tails,
+            inl_body_is_shrinking_trivial(body, params.length()),
+          )
+        None => ([], [], 1000000, true, false, true, true, false)
       }
     }
     let block_type_ok = inl_result_block_type(results) is Some(_)
+    let no_full_policy = abs >= 0 &&
+      abs < no_full_inline.length() &&
+      no_full_inline[abs]
     let inlineable = abs >= imports &&
+      !no_full_policy &&
       block_type_ok &&
       !has_try_table &&
       !has_return_call &&
-      (size <= 2 || (refs[abs] == 1 && !used[abs]))
+      (size <= 2 || trivial_shrinks || (refs[abs] == 1 && !used[abs]))
     ignore(has_calls)
     ignore(has_loops)
     infos.push({ params, results, inlineable })
@@ -598,6 +734,38 @@ fn inl_inline_call_instrs(
 }
 
 ///|
+fn inl_default_local_init_instrs(
+  local_type : @lib.ValType,
+  local_idx : Int,
+) -> Array[@lib.Instruction] {
+  let idx = @lib.LocalIdx::new(local_idx.reinterpret_as_uint())
+  let init = match local_type {
+    @lib.NumTypeValType(@lib.I32NumType) =>
+      Some(@lib.Instruction::i32_const(@lib.I32::new(0)))
+    @lib.NumTypeValType(@lib.I64NumType) =>
+      Some(@lib.Instruction::i64_const(@lib.I64::new(0L)))
+    @lib.NumTypeValType(@lib.F32NumType) =>
+      Some(@lib.Instruction::f32_const(@lib.F32::new(0.0)))
+    @lib.NumTypeValType(@lib.F64NumType) =>
+      Some(@lib.Instruction::f64_const(@lib.F64::new(0.0)))
+    @lib.VecTypeValType =>
+      Some(
+        @lib.Instruction::v128_const(
+          b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+          b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+        ),
+      )
+    @lib.RefTypeValType(rt) if rt.is_nullable() =>
+      Some(@lib.Instruction::ref_null_type(rt))
+    _ => None
+  }
+  match init {
+    Some(instr) => [instr, @lib.Instruction::local_set(idx)]
+    None => []
+  }
+}
+
+///|
 fn inl_make_inline_replacement(
   caller : @lib.Func,
   mod_ : @lib.Module,
@@ -639,6 +807,16 @@ fn inl_make_inline_replacement(
       ),
     )
     param_idx -= 1
+  }
+  let mut local_idx = 0
+  for local_type in callee_locals.iter() {
+    replacement.append(
+      inl_default_local_init_instrs(
+        local_type,
+        local_map[info.params.length() + local_idx],
+      ),
+    )
+    local_idx += 1
   }
   let body = inl_rewrite_callee_instrs(callee_body, local_map, 0)
   replacement.push(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
@@ -827,6 +1005,148 @@ fn inl_rewrite_elem_kind_func_idxs(
 }
 
 ///|
+fn inl_remap_name_map(
+  map : @lib.NameMap?,
+  remap : Array[UInt],
+  final_total : Int,
+) -> @lib.NameMap? {
+  let out : Array[@lib.NameAssoc] = []
+  match map {
+    Some(@lib.NameMap(entries)) =>
+      for entry in entries {
+        let @lib.NameAssoc(raw_idx, name) = entry
+        let old_idx = raw_idx.reinterpret_as_int()
+        if old_idx >= 0 && old_idx < remap.length() {
+          let next_idx = remap[old_idx].reinterpret_as_int()
+          if next_idx >= 0 && next_idx < final_total {
+            out.push(@lib.NameAssoc::new(next_idx.reinterpret_as_uint(), name))
+          }
+        }
+      }
+    None => ()
+  }
+  if out.length() == 0 {
+    None
+  } else {
+    Some(@lib.NameMap::new(out))
+  }
+}
+
+///|
+fn inl_name_sec_is_empty(sec : @lib.NameSec) -> Bool {
+  sec.module_name is None &&
+  sec.func_names is None &&
+  sec.local_names is None &&
+  sec.label_names is None &&
+  sec.type_names is None &&
+  sec.table_names is None &&
+  sec.memory_names is None &&
+  sec.global_names is None &&
+  sec.elem_names is None &&
+  sec.data_names is None &&
+  sec.field_names is None &&
+  sec.tag_names is None
+}
+
+///|
+fn inl_remap_name_sec(
+  sec : @lib.NameSec?,
+  remap : Array[UInt],
+  final_total : Int,
+) -> @lib.NameSec? {
+  match sec {
+    Some(sec) => {
+      let next = @lib.NameSec::new(
+        module_name=sec.module_name,
+        func_names=inl_remap_name_map(sec.func_names, remap, final_total),
+        // Inlining rewrites function bodies and may append/remap locals and labels.
+        // Keep function names for later policy matching, but drop function-scoped
+        // local/label name maps until full name repair lands.
+        local_names=None,
+        label_names=None,
+        type_names=sec.type_names,
+        table_names=sec.table_names,
+        memory_names=sec.memory_names,
+        global_names=sec.global_names,
+        elem_names=sec.elem_names,
+        data_names=sec.data_names,
+        field_names=sec.field_names,
+        tag_names=sec.tag_names,
+      )
+      if inl_name_sec_is_empty(next) {
+        None
+      } else {
+        Some(next)
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn inl_func_annotation_present(
+  annotations : Array[@lib.FuncAnnotation],
+  annotation : @lib.FuncAnnotation,
+) -> Bool {
+  for existing in annotations {
+    if existing == annotation {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn inl_remap_func_annotation_sec(
+  sec : @lib.FuncAnnotationSec?,
+  remap : Array[UInt],
+  final_total : Int,
+) -> @lib.FuncAnnotationSec? {
+  if final_total <= 0 {
+    return None
+  }
+  let by_func : Array[Array[@lib.FuncAnnotation]] = []
+  let mut idx = 0
+  while idx < final_total {
+    by_func.push([])
+    idx += 1
+  }
+  match sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
+        let old_idx = raw_idx.reinterpret_as_int()
+        if old_idx >= 0 && old_idx < remap.length() {
+          let next_idx = remap[old_idx].reinterpret_as_int()
+          if next_idx >= 0 && next_idx < final_total {
+            for annotation in annotations {
+              if !inl_func_annotation_present(by_func[next_idx], annotation) {
+                by_func[next_idx].push(annotation)
+              }
+            }
+          }
+        }
+      }
+    None => ()
+  }
+  let entries : Array[@lib.FuncAnnotationAssoc] = []
+  idx = 0
+  while idx < by_func.length() {
+    if by_func[idx].length() > 0 {
+      entries.push(
+        @lib.FuncAnnotationAssoc::new(idx.reinterpret_as_uint(), by_func[idx]),
+      )
+    }
+    idx += 1
+  }
+  if entries.length() == 0 {
+    None
+  } else {
+    Some(@lib.FuncAnnotationSec::new(entries))
+  }
+}
+
+///|
 fn inl_apply_func_remap(mod_ : @lib.Module, remap : Array[UInt]) -> @lib.Module {
   let mut rewritten = mod_
   match rewritten.export_sec {
@@ -940,7 +1260,38 @@ fn inl_apply_func_remap(mod_ : @lib.Module, remap : Array[UInt]) -> @lib.Module 
     }
     None => ()
   }
-  rewritten.without_name_sec()
+  let final_total = inl_imported_func_count(rewritten) +
+    inl_defined_func_count(rewritten)
+  let remapped_annotations = inl_remap_func_annotation_sec(
+    rewritten.func_annotation_sec,
+    remap,
+    final_total,
+  )
+  let remapped_names = inl_remap_name_sec(
+    rewritten.name_sec,
+    remap,
+    final_total,
+  )
+  @lib.Module::new(
+    custom_secs=rewritten.custom_secs,
+    type_sec=rewritten.type_sec,
+    import_sec=rewritten.import_sec,
+    func_annotation_sec=remapped_annotations,
+    func_sec=rewritten.func_sec,
+    table_sec=rewritten.table_sec,
+    mem_sec=rewritten.mem_sec,
+    tag_sec=rewritten.tag_sec,
+    stringrefs_sec=rewritten.stringrefs_sec,
+    global_sec=rewritten.global_sec,
+    export_sec=rewritten.export_sec,
+    start_sec=rewritten.start_sec,
+    elem_sec=rewritten.elem_sec,
+    data_cnt_sec=rewritten.data_cnt_sec,
+    code_sec=rewritten.code_sec,
+    data_sec=rewritten.data_sec,
+    name_sec=remapped_names,
+    raw_name_sec_payload=None,
+  )
 }
 
 ///|
@@ -1033,7 +1384,7 @@ fn inl_remove_dead_inlined_helpers(
   while def_idx < defined {
     let abs = imports + def_idx
     if remove[def_idx] {
-      remap[abs] = 0U
+      remap[abs] = total.reinterpret_as_uint()
     } else {
       remap[abs] = next_abs.reinterpret_as_uint()
       if abs < touched.length() {
@@ -2970,7 +3321,7 @@ fn inl_trim_unreachable_to_predicted_counts(
   while def_idx < defined {
     let abs = imports + def_idx
     if remove[def_idx] {
-      remap[abs] = 0U
+      remap[abs] = total.reinterpret_as_uint()
     } else {
       remap[abs] = next_abs.reinterpret_as_uint()
       next_type_idxs.push(old_type_idxs[def_idx])
@@ -3067,7 +3418,7 @@ fn inl_trim_unreachable_to_selected_counts(
   while def_idx < defined {
     let abs = imports + def_idx
     if remove[def_idx] {
-      remap[abs] = 0U
+      remap[abs] = total.reinterpret_as_uint()
     } else {
       remap[abs] = next_abs.reinterpret_as_uint()
       next_type_idxs.push(old_type_idxs[def_idx])
@@ -3161,7 +3512,7 @@ fn inl_remove_dead_unreachable_private_funcs(
   while def_idx < defined {
     let abs = imports + def_idx
     if remove[def_idx] {
-      remap[abs] = 0U
+      remap[abs] = total.reinterpret_as_uint()
     } else {
       remap[abs] = next_abs.reinterpret_as_uint()
       next_type_idxs.push(old_type_idxs[def_idx])
@@ -4216,19 +4567,28 @@ fn inl_run_module_pass_once(
   let infos = inl_build_function_infos(mod_)
   let result = inl_rewrite_all_calls(mod_, infos)
   if !result.changed {
-    if optimize {
-      return (inl_prune_dead_unreachable_drops(mod_), false)
-    }
-    return (mod_, false)
+    return (inl_prune_dead_unreachable_drops(mod_), false)
   }
   inl_trace_nested_cleanup(pass_name, optimize, result.touched, trace)
+  // Binaryen's plain `--inlining` deletes private helpers that become dead
+  // after direct substitution. The retain-count predictor is for the
+  // optimizing cleanup suffix only; using it here preserves dead helper
+  // representatives that Binaryen plain mode removes.
+  let plain_retain_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
   let removal = inl_remove_dead_inlined_helpers(
     result.mod_out,
     infos,
     result.touched,
     result.inlined_from,
-    original_graph_info.retain_inlined_helper_counts,
+    if optimize {
+      original_graph_info.retain_inlined_helper_counts
+    } else {
+      plain_retain_counts
+    },
   )
+  if !optimize {
+    return (removal.mod_out, true)
+  }
   let nested_cleaned = if preserve_root_cycle_cleanup && optimize {
     inl_compact_unused_locals(
       inl_collapse_unreachable_private_except_used_suffix_roots(removal.mod_out),
@@ -4291,7 +4651,8 @@ pub fn inlining_run_module_pass(
     }
     current = next
     iterations += 1
-    if inl_hash_has_positive(initial_graph_info.retain_inlined_helper_counts) {
+    if optimize &&
+      inl_hash_has_positive(initial_graph_info.retain_inlined_helper_counts) {
       let touched = Array::make(
         inl_imported_func_count(current) + inl_defined_func_count(current),
         false,

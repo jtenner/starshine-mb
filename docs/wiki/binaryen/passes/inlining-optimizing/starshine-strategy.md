@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-12
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
@@ -53,7 +53,7 @@ The broadened direct lane is also green over compared cases:
 22 ignored Binaryen/tool command failures
 ```
 
-Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`. For seed `0x5eed`, all 25 command failures are Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. For seed `0x1eed`, all 22 command failures are ignored Binaryen/tool `binaryen-rec-group-zero` parse failures; the former `case-008100-gen-valid` Starshine command failure now replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`. `[INL]001` is accepted for the current supported direct surface; `[INL]002` remains active for the touched-function nested scheduler, and `[INL]003`-`[INL]007` track deferred direct-inliner breadth.
+Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`. For seed `0x5eed`, all 25 command failures are Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. For seed `0x1eed`, all 22 command failures are ignored Binaryen/tool `binaryen-rec-group-zero` parse failures; the former `case-008100-gen-valid` Starshine command failure now replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`. `[INL]001` is accepted for the current supported optimizing direct surface, `[INL]007` is accepted for the current supported plain direct surface, `[INL]002` remains active for the touched-function nested scheduler, and `[INL]003`, `[INL]005`, and `[INL]006` track deferred direct-inliner breadth.
 
 ## Exact local code map
 
@@ -70,7 +70,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 - [`src/passes/inlining_wbtest.mbt`](../../../../../src/passes/inlining_wbtest.mbt)
   - whitebox coverage for the narrow hot-unsafe polymorphic self-call suffix detector.
 - [`agent-todo.md`](../../../../../agent-todo.md)
-  - active `[INL]002` scheduler work plus deferred direct-inliner breadth slices `[INL]003`-`[INL]007`.
+  - active `[INL]002` scheduler work plus deferred direct-inliner breadth slices `[INL]003`, `[INL]005`, and `[INL]006`; `[INL]007` is accepted for plain direct signoff.
 - [`CHANGELOG.md`](../../../../../CHANGELOG.md)
   - 2026-05-11 and 2026-05-12 implementation checkpoints.
 
@@ -78,7 +78,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 - Active `inlining` and `inlining-optimizing` module-pass names.
 - Iterative direct `call` and narrow direct `return_call` rewrite waves.
-- Tiny and one-use private defined callee eligibility.
+- Tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, and narrow shrinking-trivial two-parameter scalar-store-wrapper defined callee eligibility, now including the `i32.store16` width-store sibling.
 - Callee parameter/body-local appending and local-index remapping.
 - Simple return-to-wrapper-block branch repair.
 - Private helper removal after refs disappear.
@@ -89,13 +89,12 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 ## Current gaps
 
-### Deferred direct-inliner breadth after accepted `[INL]001`
+### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard;
-- `[INL]004`: `no-inline*` policy flags and clone-survival behavior;
+- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and scalar-store `Shrinks` subsets through the latest `i32.store16` width-store slice landed on 2026-05-13 and the rest remains active;
+- `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
 - `[INL]005`: partial inlining splitter;
-- `[INL]006`: nested `return_call*`, multi-result typing, and label/name/annotation repair;
-- `[INL]007`: separate plain `--pass inlining` direct signoff.
+- `[INL]006`: nested `return_call*`, multi-result typing, and label/name/annotation repair.
 
 ### `[INL]002`: optimizing suffix parity
 

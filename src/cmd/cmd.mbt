@@ -1972,7 +1972,11 @@ fn cmd_resolve_pipeline_steps(
         }
       None => ()
     }
-    match @passes.pass_registry_category(flag) {
+    let registry_flag = match @passes.no_inline_pass_pattern(flag) {
+      Some((base, _)) => base
+      None => flag
+    }
+    match @passes.pass_registry_category(registry_flag) {
       Some(@passes.HotPassRegistryCategory::HotPass)
       | Some(@passes.HotPassRegistryCategory::ModulePass)
       | Some(@passes.HotPassRegistryCategory::Preset) =>

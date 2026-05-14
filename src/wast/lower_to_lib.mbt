@@ -204,6 +204,28 @@ fn wt_func_annotations(
 }
 
 ///|
+fn wt_name_from_id(id : String) -> @lib.Name {
+  let text = if id.length() > 0 && id[0] == '$' {
+    id.sub(start=1).to_owned()
+  } else {
+    id
+  }
+  @lib.Name::from_string(text)
+}
+
+///|
+fn wt_push_func_name(
+  entries : Array[@lib.NameAssoc],
+  idx : UInt,
+  id : String?,
+) -> Unit {
+  match id {
+    Some(id) => entries.push(@lib.NameAssoc::new(idx, wt_name_from_id(id)))
+    None => ()
+  }
+}
+
+///|
 fn wt_align_pow_from_text_align(align : UInt64) -> Result[UInt, String] {
   if align == 0UL {
     return Err("alignment must be a positive power of two")
@@ -2892,6 +2914,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
 
   let imports : Array[@lib.Import] = []
   let func_annotation_entries : Array[@lib.FuncAnnotationAssoc] = []
+  let func_name_entries : Array[@lib.NameAssoc] = []
   let func_defs : Array[(Func, UInt)] = []
   let table_defs_raw : Array[Table] = []
   let mem_defs_raw : Array[Memory] = []
@@ -2927,6 +2950,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
                 @lib.ExternType::func(@lib.TypeIdx::new(ti)),
               ),
             )
+            wt_push_func_name(func_name_entries, ctx.next_func_idx, im.id)
             match im.id {
               Some(id) => ctx.func_ids[id] = ctx.next_func_idx
               None => ()
@@ -3031,6 +3055,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
           Err(e) => return Err(e)
         }
         func_defs.push((f, ti))
+        wt_push_func_name(func_name_entries, ctx.next_func_idx, f.id)
         match f.id {
           Some(id) => ctx.func_ids[id] = ctx.next_func_idx
           None => ()
@@ -3500,6 +3525,11 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   if func_annotation_entries.length() > 0 {
     out = out.with_func_annotation_sec(
       @lib.FuncAnnotationSec::new(func_annotation_entries),
+    )
+  }
+  if func_name_entries.length() > 0 {
+    out = out.with_name_sec(
+      @lib.NameSec::new(func_names=Some(@lib.NameMap::new(func_name_entries))),
     )
   }
   if func_type_idxs.length() > 0 {
@@ -5294,6 +5324,37 @@ test "wast_to_binary_module supports imported funcs exported via explicit export
     }
     _ =>
       fail("expected lowered export section for explicit import+export fixture")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers function identifiers into function names" {
+  let src =
+    #|(module
+    #|  (type $t (func))
+    #|  (import "env" "imp" (func $imp (type $t)))
+    #|  (func $f (type $t)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected function name lowering success: \{e}")
+  }
+  match lowered.name_sec {
+    Some(name_sec) =>
+      match name_sec.func_names {
+        Some(
+          @lib.NameMap(
+            [
+              @lib.NameAssoc(0U, @lib.Name(imp_name)),
+              @lib.NameAssoc(1U, @lib.Name(func_name)),
+            ]
+          )
+        ) => {
+          @debug.assert_eq(imp_name.to_owned(), "imp")
+          @debug.assert_eq(func_name.to_owned(), "f")
+        }
+        _ => fail("expected lowered function names")
+      }
+    None => fail("expected name section")
   }
 }
 

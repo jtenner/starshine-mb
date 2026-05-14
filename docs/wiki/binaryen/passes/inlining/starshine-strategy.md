@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-12
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
@@ -38,7 +38,7 @@ Current behavior:
 - same implementation file also powers `inlining-optimizing` with `optimize=true`;
 - plain mode does not emit or run the optimizing nested-cleanup approximation.
 
-Current status is **not fully signed off**. Former `[INL]001` is accepted for the current supported optimizing direct surface, but plain `inlining` still needs its own signoff and deferred unsupported direct-inliner breadth now lives under `[INL]003`-`[INL]007`, while `[INL]002` remains active for the optimizing sibling's exact nested scheduler.
+Current status is **direct-surface signed off but not universal Binaryen inliner parity**. Former `[INL]001` is accepted for the current supported optimizing direct surface, `[INL]007` is accepted for the current supported plain direct surface, deferred unsupported direct-inliner breadth now lives under `[INL]003`, `[INL]005`, and `[INL]006`, and `[INL]002` remains active for the optimizing sibling's exact nested scheduler.
 
 ## Exact local code map
 
@@ -50,8 +50,13 @@ Current status is **not fully signed off**. Former `[INL]001` is accepted for th
   - `inl_make_inline_replacement(...)` appends/remaps callee locals and builds wrapper-block replacement.
   - `inl_remove_dead_inlined_helpers(...)` removes private helpers and rewrites function indices.
   - `inl_run_nested_cleanup(...)` is used only when `optimize=true`.
+- [`src/passes/no_inline.mbt`](../../../../../src/passes/no_inline.mbt)
+  - implements the first local no-inline policy surface for `no-inline=<pattern>`, `no-full-inline=<pattern>`, and `no-partial-inline=<pattern>`.
+  - stores matched policy in internal function annotations and exposes policy flags to the inliner.
+- [`src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt)
+  - lowers WAT function identifiers into structured function names so no-inline wildcard policy can match text inputs.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - registers `inlining` and `inlining-optimizing` as module passes.
+  - registers `inlining`, `inlining-optimizing`, and the three `no-inline*` policy passes as module passes.
   - public `optimize` / `shrink` presets still omit the Binaryen late `INL` slot.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
   - dispatches plain `inlining` with `optimize=false`.
@@ -60,7 +65,7 @@ Current status is **not fully signed off**. Former `[INL]001` is accepted for th
   - focused public-pipeline coverage for the current subset.
 - [`agent-todo.md`](../../../../../agent-todo.md)
   - `[INL]002` tracks exact nested useful-pass replay for the optimizing sibling.
-  - `[INL]003`-`[INL]007` track deferred unsupported direct-inliner breadth and plain-pass signoff.
+  - `[INL]003`, `[INL]005`, and `[INL]006` track deferred unsupported direct-inliner breadth; `[INL]007` records accepted plain direct signoff.
 
 ## Implemented subset
 
@@ -68,6 +73,7 @@ The current plain pass handles:
 
 - tiny no-param private helpers;
 - one-use private helpers;
+- narrow shrinking-trivial two-parameter binary wrappers, three-parameter `select` wrappers, and two-parameter scalar store wrappers (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, and `i32.store16`);
 - direct `call` and narrow direct `return_call` sites;
 - callee param/body-local appending into the caller;
 - local-index remapping inside the copied body;
@@ -75,13 +81,16 @@ The current plain pass handles:
 - iterative waves after same-wave race guards expose later calls;
 - helper deletion only when refs disappear and no root is found;
 - function-index rewrites across exports/start/elements/tables/globals/code/data where represented by the local module APIs;
-- exact-`unreachable` helper retention prediction shared with the optimizing path.
+- plain helper deletion without optimizing-only retain counts;
+- narrow no-call unreachable value-block cleanup matching Binaryen plain `--inlining`;
+- exact-`unreachable` helper retention prediction for the optimizing path;
+- name-section wildcard policy marking for `no-inline`, `no-full-inline`, and `no-partial-inline`, including names lowered from defined/imported WAT identifiers, with the direct inliner honoring full-inline suppression, function annotation/name remapping preserving policy and later name matching across helper compaction, and local/label name maps dropped after inlining body rewrites until full repair exists.
 
 ## Strategy constraints
 
 ### Keep plain mode plain
 
-Do not add cleanup behavior to `inlining` only because it helps a test. Plain mode is allowed to leave debris. Cleanup belongs to `inlining-optimizing` or later explicit passes.
+Do not add broad cleanup behavior to `inlining` only because it helps a test. Plain mode is allowed to leave debris. The only current plain cleanup is the narrow unreachable value-block pruning observed in Binaryen's own `--inlining` no-call path; broader cleanup belongs to `inlining-optimizing` or later explicit passes.
 
 ### Preserve the shared-engine design
 
@@ -104,15 +113,14 @@ Missing repair surfaces should skip rather than emit invalid wasm:
 
 ## Main gaps
 
-- Full Binaryen heuristic classes: `Shrinks`, `MayNotShrink`, flexible size, loop policy, optimize/shrink-level sensitivity.
-- `no-inline*` policy flags and clone-survival behavior.
+- Full Binaryen heuristic classes beyond the narrow parameter-passthrough binary, `select`, and scalar-store `Shrinks` subsets: remaining `Shrinks`, `MayNotShrink`, flexible size, loop policy, optimize/shrink-level sensitivity.
+- partial-inlining-specific `no-inline*` behavior after the splitter lands.
 - Pattern A / Pattern B partial inlining and helper cleanup.
 - Exact nested `return_call*` and `return_call`-inside-`try` handling.
 - Multi-result result-block support.
 - Full label/name collision avoidance and post-inline uniquification.
 - Nondefaultable-local repair and Binaryen-like refinalization behavior.
 - Exact Binaryen iteration/action filtering and size-growth guard.
-- Direct standard `--pass inlining` 10k parity evidence.
 
 ## Relationship to `inlining-optimizing`
 
@@ -123,7 +131,7 @@ Plain `inlining` and `inlining-optimizing` should share all core rewrite work. T
 - default function-pipeline rerun on exactly touched functions;
 - late-tail scheduler significance in the no-DWARF path.
 
-Current Starshine has only an approximation of that optimizing suffix, so do not use optimizing evidence as plain signoff.
+Current Starshine has only an approximation of that optimizing suffix. Plain signoff therefore relies on its own direct lanes, not optimizing evidence.
 
 ## Bottom line
 
@@ -131,6 +139,7 @@ The correct local mental model is:
 
 - **active partial module pass**;
 - **shared direct-call inliner core**;
-- **plain mode stops after rewrite/helper cleanup**;
-- **not Binaryen-parity complete**;
-- **INL backlog remains active**.
+- **plain mode stops after rewrite/helper cleanup plus the narrow no-call unreachable value-block cleanup**;
+- **plain `[INL]007` direct surface accepted with locals-only representation drift**;
+- **not universal Binaryen-inliner parity complete**;
+- **INL backlog remains active for `[INL]002`, `[INL]003`, `[INL]005`, and `[INL]006`; `[INL]004` is accepted for the current no-inline policy surface, including direct name-section policy marking, annotation/function-name compaction remapping, stale local-name dropping, and a shared policy-copy helper for future clone/copy transforms**.

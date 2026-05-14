@@ -1958,6 +1958,164 @@ test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
 }
 
 ///|
+test "run_cmd_with_adapter plain inlining does not add an extra scratch local on same-type dead-suffix inline" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      (
+        #|(module
+        #|  (func $run (export "run") (param i32 f64)
+        #|    (local i64)
+        #|    block
+        #|      unreachable
+        #|    end
+        #|    i32.const 7
+        #|    local.tee 0
+        #|    drop
+        #|    i32.const 11
+        #|    i32.const 22
+        #|    i32.const 1
+        #|    select
+        #|    drop
+        #|    i32.const 923
+        #|    f64.const 33
+        #|    call $helper
+        #|    block
+        #|      i32.const 0
+        #|      br_if 0
+        #|    end
+        #|    loop
+        #|      i32.const 1
+        #|      br_if 0
+        #|    end
+        #|    i32.const 1
+        #|    if
+        #|      block
+        #|        br 0
+        #|      end
+        #|    else
+        #|      nop
+        #|    end)
+        #|  (func $helper (param i32 f64)
+        #|    (local f32 i32 i64 i32)
+        #|    i32.const 7
+        #|    local.tee 0
+        #|    drop
+        #|    i32.const 11
+        #|    i32.const 22
+        #|    i32.const 1
+        #|    select
+        #|    drop
+        #|    i32.const 607
+        #|    local.get 1
+        #|    call $run
+        #|    block
+        #|      i32.const 0
+        #|      br_if 0
+        #|    end
+        #|    loop
+        #|      i32.const 0
+        #|      br_if 0
+        #|    end
+        #|    i32.const 1
+        #|    if
+        #|      block
+        #|        br 0
+        #|      end
+        #|    else
+        #|      nop
+        #|    end))
+      ),
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["inl.wasm"] },
+    file_exists=fn(path) { path == "inl.wasm" },
+    read_file=fn(path) {
+      if path == "inl.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--inlining", "--out", "out.wasm", "inl.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected inlining run failure: \{e}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["inlining"])
+  @debug.assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(CodeSec([Func(run_locals, _)])) =>
+      @debug.assert_eq(
+        run_locals,
+        @lib.Locals::from_types([
+          @lib.ValType::i64(),
+          @lib.ValType::i32(),
+          @lib.ValType::f64(),
+          @lib.ValType::f32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i64(),
+          @lib.ValType::i32(),
+        ]),
+      )
+    Some(_) => fail(optimized.pretty_print_defined_func(0U))
+    None => fail("expected transformed code section")
+  }
+}
+
+///|
+test "run_cmd_with_adapter applies no-inline wildcard before plain inlining on wat identifiers" {
+  let wat =
+    #|(module
+    #|  (type $t0 (func (result i32)))
+    #|  (func $tiny-maybe-inline (type $t0)
+    #|    i32.const 7)
+    #|  (func $run (export "run") (result i32)
+    #|    call $tiny-maybe-inline))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["inl.wat"] },
+    file_exists=fn(path) { path == "inl.wat" },
+    read_file=fn(path) {
+      if path == "inl.wat" {
+        Ok(bytes_from_string(wat))
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--format", "wat", "--no-inline=*maybe*", "--inlining", "--out", "out.wasm",
+        "inl.wat",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected no-inline/inlining run failure: \{e}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["no-inline=*maybe*", "inlining"])
+  @debug.assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+}
+
+///|
 test "run_cmd_with_adapter accepts merge-blocks" {
   let wasm = encode_module_bytes(
     @passes.pass_test_module_from_wat(

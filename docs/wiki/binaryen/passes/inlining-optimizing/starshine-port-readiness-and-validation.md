@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-12
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
@@ -78,6 +78,7 @@ Focused tests validate the current subset:
 - narrow direct `return_call` inlining;
 - self-recursion skip;
 - iterative wave behavior;
+- the `[INL]003` heuristic subsets for repeated two-parameter binary, three-parameter `select`, and two-parameter scalar-store passthrough wrappers, including the latest `i32.store16` width-store sibling;
 - unreachable private cycle cleanup/retention families;
 - no-inlining unreachable value-block pruning and predicted exact-helper padding;
 - narrow hot-unsafe polymorphic self-call suffix detector coverage;
@@ -85,13 +86,12 @@ Focused tests validate the current subset:
 
 ## Active blockers
 
-### Deferred direct-inliner breadth after accepted `[INL]001`
+### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003` heuristic classes, action filtering, and size/iteration policy;
-- `[INL]004` `no-inline*` flags and clone survival;
+- `[INL]003` heuristic classes, action filtering, and size/iteration policy; narrow two-parameter binary, three-parameter `select`, and scalar-store `Shrinks` subsets through `i32.store16` are implemented, while remaining trivial/flexible/action-filtering breadth stays active;
+- `[INL]004` accepted current `no-inline*` policy surface; initial name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and shared clone/copy policy helper are implemented;
 - `[INL]005` Pattern A / Pattern B partial splitting;
-- `[INL]006` nested tail-call, multi-result, and name/annotation repair;
-- `[INL]007` separate plain `--pass inlining` signoff.
+- `[INL]006` nested tail-call, multi-result, and name/annotation repair.
 
 ### `[INL]002` scheduler blockers
 
@@ -107,14 +107,14 @@ Focused tests validate the current subset:
 1. Keep focused Moon tests for each reduced mismatch before implementation changes.
 2. Retire or classify the broadened seed-`0x1eed` mismatches in `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2`, plus any still-useful older saved mismatch dirs.
 3. Run direct `--pass inlining-optimizing` 10k compare with zero semantic mismatches on the standard lane and at least one broadened seed lane.
-4. Run direct `--pass inlining` separately so plain stop-point behavior is not hidden by cleanup.
+4. Keep direct `--pass inlining` evidence separate when future plain work changes; `[INL]007` is accepted for the current surface.
 5. Add scheduler tests for touched-only nested cleanup.
 6. Replay `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination` neighborhood after direct parity.
 7. Only then consider public preset placement.
 
 ## Acceptance criteria
 
-Treat `[INL]001` as complete only for the currently implemented direct-call surface already proven by the green seed lanes. New direct-inliner work should land under `[INL]003`-`[INL]007`, not by reopening the accepted direct slice without a new semantic mismatch.
+Treat `[INL]001` and `[INL]007` as complete only for the currently implemented direct-call surfaces already proven by the green seed lanes. New direct-inliner work should land under `[INL]003`, `[INL]005`, and `[INL]006`, not by reopening accepted direct slices without a new semantic mismatch.
 
 Do not mark `[INL]002` complete until:
 
@@ -126,5 +126,5 @@ Do not mark `[INL]002` complete until:
 ## Unresolved uncertainty
 
 - The current exact-`unreachable` predictor is artifact-driven and may need refactoring after broader helper deletion and exact scheduler behavior land.
-- The exact local representation for Binaryen no-inline flags is not yet settled.
+- The current local representation for Binaryen no-inline flags uses internal function annotations and remaps them with function compaction; function names are also remapped for later policy matching, while local/label names are dropped after inlining rewrites until full repair exists. Future clone/copy transforms should call `no_inline_copy_policy_annotations(...)`; partial-inlining-specific official no-inline shapes move with `[INL]005`.
 - The best shared scheduler abstraction for DAE/INL/SGO remains open; avoid building three incompatible nested runners.

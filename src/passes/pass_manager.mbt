@@ -10223,10 +10223,41 @@ fn run_hot_pipeline_apply_module_pass(
         trace=Some(options.trace),
         pass_name="inlining-optimizing",
       )
-    "string-gathering" => string_gathering_run_module_pass(mod_)
-    "reorder-globals" => reorder_globals_run_module_pass(mod_)
-    "directize" => directize_run_module_pass(mod_)
-    _ => return Err("unsupported module pass \{entry.name}")
+    _ =>
+      match no_inline_pass_pattern(entry.name) {
+        Some((base, pattern)) =>
+          match base {
+            "no-inline" =>
+              no_inline_run_module_pass(
+                mod_,
+                pattern,
+                mark_full=true,
+                mark_partial=true,
+              )
+            "no-full-inline" =>
+              no_inline_run_module_pass(
+                mod_,
+                pattern,
+                mark_full=true,
+                mark_partial=false,
+              )
+            "no-partial-inline" =>
+              no_inline_run_module_pass(
+                mod_,
+                pattern,
+                mark_full=false,
+                mark_partial=true,
+              )
+            _ => return Err("unsupported module pass \{entry.name}")
+          }
+        None =>
+          match entry.name {
+            "string-gathering" => string_gathering_run_module_pass(mod_)
+            "reorder-globals" => reorder_globals_run_module_pass(mod_)
+            "directize" => directize_run_module_pass(mod_)
+            _ => return Err("unsupported module pass \{entry.name}")
+          }
+      }
   }
   perf_stop_timer_opt(options.perf, "pass:\{entry.name}", pass_timer_start)
   match options.verify_policy {

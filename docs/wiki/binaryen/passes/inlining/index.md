@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-05-12
+last_reviewed: 2026-05-13
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
@@ -38,7 +38,7 @@ related:
 
 Current Starshine status has changed since the older April port-readiness notes: `inlining` is now a **partial active module pass**, not boundary-only. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), registered as a module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), dispatched by [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), and covered by focused public-pipeline tests in [`src/passes/inlining_test.mbt`](../../../../../src/passes/inlining_test.mbt).
 
-Do not read that as universal parity signoff. The current local implementation has an accepted direct optimizing slice under former `[INL]001`, but plain `inlining` itself still needs its own follow-up signoff and deferred breadth is tracked in [`agent-todo.md`](../../../../../agent-todo.md) under `[INL]002`-`[INL]007`.
+Do not read that as universal Binaryen inliner parity. The current local implementation has accepted direct current-supported surfaces for optimizing `[INL]001` and plain `[INL]007`, but deferred breadth is still tracked in [`agent-todo.md`](../../../../../agent-todo.md) under `[INL]002`-`[INL]006`.
 
 ## Why this pass matters
 
@@ -67,33 +67,54 @@ A safe mental model:
 - Inline rewrite is structured IR surgery: operand storage, fresh caller locals, zeroing defaultable copied vars, copied-body metadata, return-to-break repair, nested `return_call*` repair, label uniquification, refinalization, and nondefaultable-local repair.
 - Plain `inlining` must not accidentally run `precompute-propagate` or the default function pipeline. That difference is the public split from `inlining-optimizing`.
 
-## Starshine status snapshot: 2026-05-12
+## Starshine status snapshot: 2026-05-13
 
 Implemented subset:
 
-- active module-pass names: `inlining` and `inlining-optimizing`;
+- active module-pass names: `inlining`, `inlining-optimizing`, `no-inline`, `no-full-inline`, and `no-partial-inline`;
 - bounded iterative direct `call` and `return_call` rewrite waves;
 - tiny and one-use private defined callee eligibility;
 - callee param/body-local appending and local-index remapping in callers;
 - simple callee `return` rewrite to an inlined wrapper-block branch;
 - private helper removal when surviving refs disappear;
 - function-index rewriting after removals;
-- focused tests for no-param helpers, parameter operand storage, exported tiny-helper survival, `return_call`, self-recursion skip, iterative race-guard follow-up, registry wiring, and optimizing trace marker.
+- focused tests for no-param helpers, parameter operand storage, exported tiny-helper survival, `return_call`, self-recursion skip, iterative race-guard follow-up, narrow shrinking-trivial binary-wrapper, `select`-wrapper, scalar-store-wrapper heuristics (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, and `i32.store16`), defaultable copied-local zero-init, plain helper deletion without optimizing retain counts, plain no-call unreachable value-block cleanup, registry wiring, optimizing trace marker, and the first `no-inline*` policy split fixtures including imported WAT identifiers, deduplication, no-match behavior, annotation and function-name remapping across helper compaction, post-compaction policy matching by surviving names, and local-name dropping after inlining body rewrites.
 
 Still missing or incomplete:
 
-- full Binaryen heuristic parity, including trivial-instruction classes and flexible/O3 policy;
-- `no-inline`, `no-full-inline`, and `no-partial-inline` flag handling;
+- full Binaryen heuristic parity, including remaining trivial-instruction classes and flexible/O3 policy beyond the narrow shrinking binary-wrapper, `select`-wrapper, scalar-store-wrapper subsets (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, and `i32.store16`);
+- partial-inlining-specific `no-inline`, `no-full-inline`, and `no-partial-inline` behavior after the splitter lands;
 - partial Pattern A / Pattern B splitting;
 - nested `return_call*` repair and `return_call`-inside-`try` hoisting;
 - multi-result inlined wrapper block typing;
 - exact label/name collision behavior and annotation/name-section repair;
-- exact Binaryen action filtering, repeated-work caps, and giant-function size guard;
-- direct 10k parity for plain `--inlining`, and broadened-seed parity for optimizing `--inlining-optimizing`.
+- exact Binaryen action filtering, repeated-work caps, and giant-function size guard.
 
 ## Current evidence
 
-The current parent-thread evidence is for the optimizing sibling because that is the v0.1.0 `INL` focus. The standard seed lane is green:
+Plain `inlining` direct signoff is accepted for the current supported surface. The standard plain seed lane is structurally clean after local-declaration stripping:
+
+- `.tmp/pass-fuzz-inlining-seed-0x5eed-plain-moonrun-10k-full-after-plain-no-retain-prune`
+- seed `0x5eed`
+- `9975 / 10000` compared
+- `9169` normalized matches
+- `806` normalized mismatches, all local-declaration/allocation representation drift
+- `0` structural mismatches after stripping `(local ...)` declaration lines
+- `0` validation failures
+- `25` ignored Binaryen/tool parse/canonicalization command failures
+
+The broadened plain seed lane has the same classification:
+
+- `.tmp/pass-fuzz-inlining-seed-0x1eed-plain-moonrun-10k-full-after-plain-no-retain-prune`
+- seed `0x1eed`
+- `9978 / 10000` compared
+- `9208` normalized matches
+- `770` normalized mismatches, all local-declaration/allocation representation drift
+- `0` structural mismatches after stripping `(local ...)` declaration lines
+- `0` validation failures
+- `22` ignored Binaryen/tool parse/canonicalization command failures
+
+The optimizing sibling's current-supported direct surface is also green. The standard optimizing seed lane is:
 
 - `.tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier`
 - seed `0x5eed`
@@ -120,7 +141,7 @@ The broadened seed lane is green over compared cases:
 - `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures
 - `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`
 
-Per project policy and user preference, those Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; exact nested scheduling remains `[INL]002`, deferred unsupported direct-inliner breadth now lives under `[INL]003`-`[INL]007`, and plain `inlining` still needs its own direct signoff.
+Per project policy and user preference, Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; exact nested scheduling remains `[INL]002`, deferred unsupported direct-inliner breadth now lives under `[INL]003`, `[INL]005`, and `[INL]006`, and plain `[INL]007` is accepted with local-declaration/allocation drift classified as representation-only.
 
 ## Page map
 

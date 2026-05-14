@@ -95,6 +95,16 @@ pub fn merge_locals_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn merge_locals_summary() -> String
 
+pub fn no_full_inline_summary() -> String
+
+pub fn no_inline_copy_policy_annotations(@lib.Module, UInt, UInt) -> @lib.Module
+
+pub fn no_inline_pass_pattern(String) -> (String, String)?
+
+pub fn no_inline_summary() -> String
+
+pub fn no_partial_inline_summary() -> String
+
 pub fn once_reduction_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn once_reduction_summary() -> String
