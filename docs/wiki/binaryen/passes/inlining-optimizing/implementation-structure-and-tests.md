@@ -73,7 +73,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - counts imports/definitions;
   - scans direct refs and roots;
   - computes simplified size and shape flags;
-  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, a narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation wrapper (through the current supported SIMD plus GC heap-operation breadth slice), or the first speed-focused flexible no-call/no-loop `size <= 20` subset at optimize level three and block type is void/single-result.
+  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, a narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation wrapper (through the current supported SIMD plus GC heap-operation breadth slice), or the first speed-focused flexible no-call/no-loop `size <= 20` subset at optimize level three with shrink level zero and block type is void/single-result.
 - Rewrite:
   - recurses through structured bodies;
   - rewrites direct `call` and `return_call`;
@@ -103,7 +103,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - tiny helper inline/remove;
 - parameter operand remap;
 - repeated parameter-passthrough binary, `select`, and memory/table/SIMD/GC operation wrappers as narrow shrinking-trivial heuristic subsets, including the latest supported SIMD plus GC heap-operation wrappers;
-- optimize-level-three flexible policy for a repeated-param helper that is intentionally not inlined under default plain `inlining`;
+- optimize-level-three/no-shrink flexible policy for a repeated-param helper that is intentionally not inlined under default plain `inlining`, O3+shrink mode, or when the callee contains a loop or surviving imported call;
 - exported tiny helper survival;
 - narrow direct `return_call` inline;
 - self-recursive skip;

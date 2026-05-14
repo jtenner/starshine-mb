@@ -1168,11 +1168,73 @@ test "inlining uses optimize-level three for may-not-shrink repeated-param wrapp
     Err(err) => abort("expected inlining pipeline success, got \{err}")
   }
   match optimized_with_shrink.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
     None => fail("expected function section")
   }
-  let shrink_caller = optimized_with_shrink.pretty_print_defined_func(0U)
-  assert_false(shrink_caller.contains("call"), msg=shrink_caller)
+  let shrink_caller = optimized_with_shrink.pretty_print_defined_func(1U)
+  assert_true(shrink_caller.contains("call"), msg=shrink_caller)
+}
+
+///|
+test "inlining optimize-level three flexible policy rejects loops and surviving calls" {
+  let loop_source =
+    #|(module
+    #|  (func $loopwrap (param i32) (result i32)
+    #|    (loop
+    #|      local.get 0
+    #|      drop)
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $loopwrap
+    #|    local.get 0
+    #|    call $loopwrap
+    #|    i32.add))
+  let loop_out = match
+    pass_test_run_pipeline(
+      loop_source,
+      ["inlining"],
+      options=HotPipelineOptions::new(optimize_level=3),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected inlining pipeline success, got \{err}")
+  }
+  match loop_out.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let loop_caller = loop_out.pretty_print_defined_func(1U)
+  assert_true(loop_caller.contains("call"), msg=loop_caller)
+
+  let call_source =
+    #|(module
+    #|  (import "env" "imp" (func $imp (param i32) (result i32)))
+    #|  (func $callwrap (param i32) (result i32)
+    #|    local.get 0
+    #|    call $imp
+    #|    i32.const 1
+    #|    i32.add)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $callwrap
+    #|    local.get 0
+    #|    call $callwrap
+    #|    i32.add))
+  let call_out = match
+    pass_test_run_pipeline(
+      call_source,
+      ["inlining"],
+      options=HotPipelineOptions::new(optimize_level=3),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected inlining pipeline success, got \{err}")
+  }
+  match call_out.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let call_caller = call_out.pretty_print_defined_func(1U)
+  assert_true(call_caller.contains("call"), msg=call_caller)
 }
 
 ///|

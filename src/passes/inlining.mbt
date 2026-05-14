@@ -663,7 +663,6 @@ fn inl_build_function_infos(
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
 ) -> Array[InlFunctionInfo] {
-  ignore(shrink_level)
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
   let refs = Array::make(total, 0)
@@ -724,7 +723,7 @@ fn inl_build_function_infos(
     let no_full_policy = abs >= 0 &&
       abs < no_full_inline.length() &&
       no_full_inline[abs]
-    let speed_focused = optimize_level >= 3
+    let speed_focused = optimize_level >= 3 && shrink_level == 0
     let may_not_shrink = speed_focused && !has_calls && !has_loops && size <= 20
     let inlineable = abs >= imports &&
       !no_full_policy &&
