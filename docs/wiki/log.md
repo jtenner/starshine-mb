@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining shrinking-trivial SIMD breadth
+
+- Added the twenty-sixth narrow `[INL]003` heuristic sub-slice: repeated parameter-ordered SIMD wrappers now cover the remaining Binaryen-confirmed, Starshine-supported two-parameter SIMD comparisons/arithmetic/minmax/extmul, shifts, lane replacement, load-lane operations, and selected ternary `v128.bitselect` plus relaxed madd/nmadd shapes.
+- Kept Binaryen-unsupported relaxed laneselect and relaxed dot text forms out of the whitelist for now, even though related local enum/lowering names exist.
+- Added focused `src/passes/inlining_test.mbt` coverage for multi-use SIMD binary wrappers (`i8x16.add_sat_s`, `i32x4.eq`, `i64x2.shr_s`, `i8x16.replace_lane`) and ternary `f32x4.relaxed_madd`; the tests failed before implementation with `8 != 4` and `2 != 1` function counts.
+- Updated `src/passes/inlining.mbt` by extending the guarded shrinking-trivial whitelists rather than broadening all instructions or all SIMD opcodes.
+- Smoke validation: plain `.tmp/pass-fuzz-inlining-inl003-simd-breadth-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`; optimizing `.tmp/pass-fuzz-inlining-optimizing-inl003-simd-breadth-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
 ## [2026-05-14] passes | inlining shrinking-trivial i32x4.add heuristic
 
 - Added the twenty-fifth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `i32x4.add` are now full-inline candidates even with multiple refs under SIMD/all-features inputs.

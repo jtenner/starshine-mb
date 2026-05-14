@@ -300,7 +300,155 @@ fn inl_is_binary_trivial_op(instr : @lib.Instruction) -> Bool {
     | @lib.F64Max
     | @lib.F64Copysign
     | @lib.RefEq
+    | @lib.V128And
+    | @lib.V128Andnot
+    | @lib.V128Or
+    | @lib.V128Xor
+    | @lib.I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.I8x16Swizzle
+    | @lib.I8x16Eq
+    | @lib.I8x16Ne
+    | @lib.I8x16LtS
+    | @lib.I8x16LtU
+    | @lib.I8x16GtS
+    | @lib.I8x16GtU
+    | @lib.I8x16LeS
+    | @lib.I8x16LeU
+    | @lib.I8x16GeS
+    | @lib.I8x16GeU
+    | @lib.I8x16NarrowI16x8S
+    | @lib.I8x16NarrowI16x8U
+    | @lib.I8x16Shl
+    | @lib.I8x16ShrS
+    | @lib.I8x16ShrU
+    | @lib.I8x16Add
+    | @lib.I8x16AddSatS
+    | @lib.I8x16AddSatU
+    | @lib.I8x16Sub
+    | @lib.I8x16SubSatS
+    | @lib.I8x16SubSatU
+    | @lib.I8x16MinS
+    | @lib.I8x16MinU
+    | @lib.I8x16MaxS
+    | @lib.I8x16MaxU
+    | @lib.I8x16AvgrU
+    | @lib.I16x8Eq
+    | @lib.I16x8Ne
+    | @lib.I16x8LtS
+    | @lib.I16x8LtU
+    | @lib.I16x8GtS
+    | @lib.I16x8GtU
+    | @lib.I16x8LeS
+    | @lib.I16x8LeU
+    | @lib.I16x8GeS
+    | @lib.I16x8GeU
+    | @lib.I16x8Q15mulrSatS
+    | @lib.I16x8NarrowI32x4S
+    | @lib.I16x8NarrowI32x4U
+    | @lib.I16x8Shl
+    | @lib.I16x8ShrS
+    | @lib.I16x8ShrU
+    | @lib.I16x8Add
+    | @lib.I16x8AddSatS
+    | @lib.I16x8AddSatU
+    | @lib.I16x8Sub
+    | @lib.I16x8SubSatS
+    | @lib.I16x8SubSatU
+    | @lib.I16x8Mul
+    | @lib.I16x8MinS
+    | @lib.I16x8MinU
+    | @lib.I16x8MaxS
+    | @lib.I16x8MaxU
+    | @lib.I16x8AvgrU
+    | @lib.I16x8ExtmulLowI8x16S
+    | @lib.I16x8ExtmulHighI8x16S
+    | @lib.I16x8ExtmulLowI8x16U
+    | @lib.I16x8ExtmulHighI8x16U
+    | @lib.I32x4Eq
+    | @lib.I32x4Ne
+    | @lib.I32x4LtS
+    | @lib.I32x4LtU
+    | @lib.I32x4GtS
+    | @lib.I32x4GtU
+    | @lib.I32x4LeS
+    | @lib.I32x4LeU
+    | @lib.I32x4GeS
+    | @lib.I32x4GeU
+    | @lib.I32x4Shl
+    | @lib.I32x4ShrS
+    | @lib.I32x4ShrU
     | @lib.I32x4Add
+    | @lib.I32x4Sub
+    | @lib.I32x4Mul
+    | @lib.I32x4MinS
+    | @lib.I32x4MinU
+    | @lib.I32x4MaxS
+    | @lib.I32x4MaxU
+    | @lib.I32x4DotI16x8S
+    | @lib.I32x4ExtmulLowI16x8S
+    | @lib.I32x4ExtmulHighI16x8S
+    | @lib.I32x4ExtmulLowI16x8U
+    | @lib.I32x4ExtmulHighI16x8U
+    | @lib.I64x2Eq
+    | @lib.I64x2Ne
+    | @lib.I64x2LtS
+    | @lib.I64x2GtS
+    | @lib.I64x2LeS
+    | @lib.I64x2GeS
+    | @lib.I64x2Shl
+    | @lib.I64x2ShrS
+    | @lib.I64x2ShrU
+    | @lib.I64x2Add
+    | @lib.I64x2Sub
+    | @lib.I64x2Mul
+    | @lib.I64x2ExtmulLowI32x4S
+    | @lib.I64x2ExtmulHighI32x4S
+    | @lib.I64x2ExtmulLowI32x4U
+    | @lib.I64x2ExtmulHighI32x4U
+    | @lib.F32x4Eq
+    | @lib.F32x4Ne
+    | @lib.F32x4Lt
+    | @lib.F32x4Gt
+    | @lib.F32x4Le
+    | @lib.F32x4Ge
+    | @lib.F32x4Add
+    | @lib.F32x4Sub
+    | @lib.F32x4Mul
+    | @lib.F32x4Div
+    | @lib.F32x4Min
+    | @lib.F32x4Max
+    | @lib.F32x4Pmin
+    | @lib.F32x4Pmax
+    | @lib.F64x2Eq
+    | @lib.F64x2Ne
+    | @lib.F64x2Lt
+    | @lib.F64x2Gt
+    | @lib.F64x2Le
+    | @lib.F64x2Ge
+    | @lib.F64x2Add
+    | @lib.F64x2Sub
+    | @lib.F64x2Mul
+    | @lib.F64x2Div
+    | @lib.F64x2Min
+    | @lib.F64x2Max
+    | @lib.F64x2Pmin
+    | @lib.F64x2Pmax
+    | @lib.I8x16ReplaceLane(_)
+    | @lib.I16x8ReplaceLane(_)
+    | @lib.I32x4ReplaceLane(_)
+    | @lib.I64x2ReplaceLane(_)
+    | @lib.F32x4ReplaceLane(_)
+    | @lib.F64x2ReplaceLane(_)
+    | @lib.V128Load8Lane(_, _)
+    | @lib.V128Load16Lane(_, _)
+    | @lib.V128Load32Lane(_, _)
+    | @lib.V128Load64Lane(_, _)
+    | @lib.I8x16RelaxedSwizzle
+    | @lib.F32x4RelaxedMin
+    | @lib.F32x4RelaxedMax
+    | @lib.F64x2RelaxedMin
+    | @lib.F64x2RelaxedMax
+    | @lib.I16x8RelaxedQ15mulrS
     | @lib.I32Store(_)
     | @lib.I64Store(_)
     | @lib.F32Store(_)
@@ -340,6 +488,11 @@ fn inl_body_is_shrinking_trivial(
       (@lib.LocalGet(first), @lib.LocalGet(second), @lib.LocalGet(third)) => {
         let final_trivial = match body[3] {
           @lib.Select(_)
+          | @lib.V128Bitselect
+          | @lib.F32x4RelaxedMadd
+          | @lib.F32x4RelaxedNmadd
+          | @lib.F64x2RelaxedMadd
+          | @lib.F64x2RelaxedNmadd
           | @lib.MemoryFill(_)
           | @lib.MemoryCopy(_, _)
           | @lib.MemoryInit(_, _)

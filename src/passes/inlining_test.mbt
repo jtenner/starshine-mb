@@ -1150,6 +1150,100 @@ test "inlining treats repeated parameter passthrough i32x4.add wrappers as shrin
 }
 
 ///|
+test "inlining treats broader SIMD two-parameter wrappers as shrinking trivial" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $sat (param v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.add_sat_s)
+    #|  (func $cmp (param v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32x4.eq)
+    #|  (func $shift (param v128 i32) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i64x2.shr_s)
+    #|  (func $replace (param v128 i32) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.replace_lane 0)
+    #|  (func (export "sat") (param v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $sat
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $sat
+    #|    i8x16.add)
+    #|  (func (export "cmp") (param v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $cmp
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $cmp
+    #|    i8x16.add)
+    #|  (func (export "shift") (param v128 i32) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $shift
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $shift
+    #|    i8x16.add)
+    #|  (func (export "replace") (param v128 i32) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $replace
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $replace
+    #|    i8x16.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 4)
+    None => fail("expected function section")
+  }
+  for i in 0..<4 {
+    let caller = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(caller.contains("call"), msg=caller)
+  }
+}
+
+///|
+test "inlining treats SIMD ternary wrappers as shrinking trivial" {
+  let source =
+    #|(module
+    #|  (func $madd (param v128 v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    f32x4.relaxed_madd)
+    #|  (func (export "run") (param v128 v128 v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $madd
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $madd
+    #|    drop))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("f32x4.relaxed_madd"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
 test "inlining zero-initializes appended defaultable callee locals in plain mode" {
   let source =
     #|(module
