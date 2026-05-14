@@ -484,10 +484,39 @@ fn inl_is_binary_trivial_op(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn inl_body_is_ordered_param_passthrough_prefix(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  if body.length() < param_count {
+    return false
+  }
+  let mut idx = 0
+  while idx < param_count {
+    match body[idx] {
+      @lib.LocalGet(local_idx) =>
+        if inl_local_idx_slot(local_idx) != idx {
+          return false
+        }
+      _ => return false
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
 fn inl_body_is_shrinking_trivial(
   body : Array[@lib.Instruction],
   param_count : Int,
 ) -> Bool {
+  if body.length() == param_count + 1 &&
+    inl_body_is_ordered_param_passthrough_prefix(body, param_count) {
+    match body[param_count] {
+      @lib.Call(_) => return true
+      _ => ()
+    }
+  }
   if param_count == 2 && body.length() == 3 {
     match (body[0], body[1]) {
       (@lib.LocalGet(first), @lib.LocalGet(second)) => {

@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining shrinking direct-call wrappers
+
+- Added the thirty-second `[INL]003` sub-slice: ordered parameter-passthrough direct-call wrappers are now classified as shrinking trivial and inline under plain `inlining` even when multi-use.
+- Confirmed Binaryen behavior with `.tmp/inl003-direct-call-wrapper.wat`: plain `--inlining` removes a two-param wrapper around an imported direct call and leaves the imported calls in the exported function.
+- Added focused public-pipeline coverage for the repeated direct-call wrapper.
+- Smoke validation: plain `.tmp/pass-fuzz-inlining-inl003-direct-call-wrapper-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`; optimizing `.tmp/pass-fuzz-inlining-optimizing-inl003-direct-call-wrapper-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
 ## [2026-05-14] passes | inlining flexible indirect-call bodies
 
 - Added the thirty-first `[INL]003` sub-slice: the flexible-policy call blocker now matches Binaryen's source-backed direct-call-only `hasCalls` scan, so `call_indirect` and `call_ref` in a callee body do not by themselves block O3/no-shrink flexible inlining.

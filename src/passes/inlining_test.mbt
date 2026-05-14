@@ -1176,6 +1176,33 @@ test "inlining uses optimize-level three for may-not-shrink repeated-param wrapp
 }
 
 ///|
+test "inlining treats repeated direct call wrappers as shrinking trivial" {
+  let source =
+    #|(module
+    #|  (import "env" "add" (func $add (param i32 i32) (result i32)))
+    #|  (func $wrap (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $add)
+    #|  (func (export "run") (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $wrap
+    #|    local.get 1
+    #|    local.get 0
+    #|    call $wrap
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
+  assert_false(caller.contains("call (Func 1)"), msg=caller)
+}
+
+///|
 test "inlining optimize-level three flexible policy rejects loops and surviving calls" {
   let loop_source =
     #|(module
