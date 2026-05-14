@@ -197,3 +197,51 @@ test "inlining detects polymorphic self-call suffixes before hot cleanup" {
   let func = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body))
   assert_true(inl_func_has_hot_unsafe_self_suffix(func, 1))
 }
+
+///|
+test "inlining classifies GC heap wrappers as shrinking trivial" {
+  let ty = @lib.TypeIdx::new(0U)
+  let data = @lib.DataIdx::new(0U)
+  let elem = @lib.ElemIdx::new(0U)
+  let body2 = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::struct_set(ty, @lib.U32::new(0U)),
+  ]
+  assert_true(inl_body_is_shrinking_trivial(body2, 2), msg="struct.set")
+  let body3 = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::array_set(ty),
+  ]
+  assert_true(inl_body_is_shrinking_trivial(body3, 3), msg="array.set")
+  let body4 = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::array_init_data(ty, data),
+  ]
+  assert_true(inl_body_is_shrinking_trivial(body4, 4), msg="array.init_data")
+  let body4_elem = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::array_init_elem(ty, elem),
+  ]
+  assert_true(
+    inl_body_is_shrinking_trivial(body4_elem, 4),
+    msg="array.init_elem",
+  )
+  let body5 = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::array_copy(ty, ty),
+  ]
+  assert_true(inl_body_is_shrinking_trivial(body5, 5), msg="array.copy")
+}

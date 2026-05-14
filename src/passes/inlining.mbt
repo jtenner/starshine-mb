@@ -476,10 +476,25 @@ fn inl_body_is_shrinking_trivial(
 ) -> Bool {
   if param_count == 2 && body.length() == 3 {
     match (body[0], body[1]) {
-      (@lib.LocalGet(first), @lib.LocalGet(second)) =>
+      (@lib.LocalGet(first), @lib.LocalGet(second)) => {
+        let gc_trivial = match body[2] {
+          @lib.StructSet(_, _)
+          | @lib.StructNew(_)
+          | @lib.StructNewDesc(_)
+          | @lib.ArrayNew(_)
+          | @lib.ArrayNewFixed(_, _)
+          | @lib.ArrayNewData(_, _)
+          | @lib.ArrayNewElem(_, _)
+          | @lib.ArrayGet(_)
+          | @lib.ArrayGetS(_)
+          | @lib.ArrayGetU(_) => true
+          _ => false
+        }
+        let final_trivial = inl_is_binary_trivial_op(body[2]) || gc_trivial
         return inl_local_idx_slot(first) == 0 &&
           inl_local_idx_slot(second) == 1 &&
-          inl_is_binary_trivial_op(body[2])
+          final_trivial
+      }
       _ => return false
     }
   }
@@ -498,12 +513,59 @@ fn inl_body_is_shrinking_trivial(
           | @lib.MemoryInit(_, _)
           | @lib.TableFill(_)
           | @lib.TableCopy(_, _)
-          | @lib.TableInit(_, _) => true
+          | @lib.TableInit(_, _)
+          | @lib.ArraySet(_) => true
           _ => false
         }
         return inl_local_idx_slot(first) == 0 &&
           inl_local_idx_slot(second) == 1 &&
           inl_local_idx_slot(third) == 2 &&
+          final_trivial
+      }
+      _ => return false
+    }
+  }
+  if param_count == 4 && body.length() == 5 {
+    match (body[0], body[1], body[2], body[3]) {
+      (
+        @lib.LocalGet(first),
+        @lib.LocalGet(second),
+        @lib.LocalGet(third),
+        @lib.LocalGet(fourth),
+      ) => {
+        let final_trivial = match body[4] {
+          @lib.ArrayFill(_)
+          | @lib.ArrayInitData(_, _)
+          | @lib.ArrayInitElem(_, _) => true
+          _ => false
+        }
+        return inl_local_idx_slot(first) == 0 &&
+          inl_local_idx_slot(second) == 1 &&
+          inl_local_idx_slot(third) == 2 &&
+          inl_local_idx_slot(fourth) == 3 &&
+          final_trivial
+      }
+      _ => return false
+    }
+  }
+  if param_count == 5 && body.length() == 6 {
+    match (body[0], body[1], body[2], body[3], body[4]) {
+      (
+        @lib.LocalGet(first),
+        @lib.LocalGet(second),
+        @lib.LocalGet(third),
+        @lib.LocalGet(fourth),
+        @lib.LocalGet(fifth),
+      ) => {
+        let final_trivial = match body[5] {
+          @lib.ArrayCopy(_, _) => true
+          _ => false
+        }
+        return inl_local_idx_slot(first) == 0 &&
+          inl_local_idx_slot(second) == 1 &&
+          inl_local_idx_slot(third) == 2 &&
+          inl_local_idx_slot(fourth) == 3 &&
+          inl_local_idx_slot(fifth) == 4 &&
           final_trivial
       }
       _ => return false

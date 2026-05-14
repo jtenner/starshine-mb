@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining shrinking-trivial GC heap wrappers
+
+- Added the twenty-seventh narrow `[INL]003` heuristic sub-slice: ordered parameter-passthrough GC heap wrappers now classify as shrinking trivial for `struct.set`, `struct.new`, `struct.new_desc`, `array.new`, `array.new_fixed`, `array.new_data`, `array.new_elem`, `array.get*`, `array.set`, `array.fill`, `array.init_data`, `array.init_elem`, and `array.copy`.
+- Confirmed Binaryen behavior first with reduced `wasm-opt --all-features --inlining -S --strip-debug` fixtures for representative struct, array write, array init, array copy, constructor, and read shapes.
+- Added whitebox `src/passes/inlining_wbtest.mbt` classifier coverage because the current blackbox WAT pass-test path does not expose a stable GC heap-operation fixture surface for this inliner slice.
+- Smoke validation: plain `.tmp/pass-fuzz-inlining-inl003-gc-wrapper-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`; optimizing `.tmp/pass-fuzz-inlining-optimizing-inl003-gc-wrapper-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
 ## [2026-05-14] passes | inlining shrinking-trivial SIMD breadth
 
 - Added the twenty-sixth narrow `[INL]003` heuristic sub-slice: repeated parameter-ordered SIMD wrappers now cover the remaining Binaryen-confirmed, Starshine-supported two-parameter SIMD comparisons/arithmetic/minmax/extmul, shifts, lane replacement, load-lane operations, and selected ternary `v128.bitselect` plus relaxed madd/nmadd shapes.
