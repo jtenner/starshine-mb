@@ -343,7 +343,8 @@ fn inl_body_is_shrinking_trivial(
           | @lib.MemoryCopy(_, _)
           | @lib.MemoryInit(_, _)
           | @lib.TableFill(_)
-          | @lib.TableCopy(_, _) => true
+          | @lib.TableCopy(_, _)
+          | @lib.TableInit(_, _) => true
           _ => false
         }
         return inl_local_idx_slot(first) == 0 &&
