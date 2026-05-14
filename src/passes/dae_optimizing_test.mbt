@@ -289,6 +289,90 @@ test "dae-optimizing materializes shared constant actuals into private callee pa
 }
 
 ///|
+test "dae-optimizing materializes shared constant actuals when sibling args use loads" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $f (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 2
+    #|    i32.le_s
+    #|    if
+    #|      local.get 0
+    #|      local.get 1
+    #|      i32.ge_s
+    #|      if
+    #|      else
+    #|        unreachable
+    #|      end
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (export "run1")
+    #|    i32.const 0
+    #|    i32.load
+    #|    i32.const 0
+    #|    i32.const 20
+    #|    call $f)
+    #|  (func (export "run2")
+    #|    i32.const 4
+    #|    i32.load
+    #|    i32.const 0
+    #|    i32.const 21
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  let callee = optimized.pretty_print_defined_func(0U)
+  assert_true(callee.contains("I32(0)"), msg=callee)
+  assert_false(callee.contains("Local2"), msg=callee)
+}
+
+///|
+test "dae-optimizing materializes shared constant actuals through typed block carriers" {
+  let source =
+    #|(module
+    #|  (type $one (func (result i32)))
+    #|  (func $f (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 2
+    #|    i32.le_s
+    #|    if
+    #|      local.get 0
+    #|      local.get 1
+    #|      i32.ge_s
+    #|      if
+    #|      else
+    #|        unreachable
+    #|      end
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (export "run1")
+    #|    block (type $one)
+    #|      i32.const 10
+    #|    end
+    #|    i32.const 0
+    #|    block (type $one)
+    #|      i32.const 20
+    #|    end
+    #|    call $f)
+    #|  (func (export "run2")
+    #|    block (type $one)
+    #|      i32.const 5
+    #|    end
+    #|    i32.const 0
+    #|    block (type $one)
+    #|      i32.const 21
+    #|    end
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  let callee = optimized.pretty_print_defined_func(0U)
+  assert_true(callee.contains("I32(0)"), msg=callee)
+  assert_false(callee.contains("Local2"), msg=callee)
+}
+
+///|
 test "dae-optimizing preserves side effects from removed actual operands" {
   let source =
     #|(module

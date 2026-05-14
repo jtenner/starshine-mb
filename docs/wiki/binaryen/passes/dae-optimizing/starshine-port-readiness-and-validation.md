@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-13
 sources:
+  - ../../../raw/research/0562-2026-05-13-dae002-typeidx-block-carriers.md
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
@@ -49,10 +50,10 @@ Starshine currently has:
 - a live module-pass dispatcher path in [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) that runs the shared DAE boundary rewrite plus a guarded touched-function nested cleanup slice;
 - focused regressions for touched-only nested cleanup order, size-skip tracing, touched-only `optimize-casts` / `coalesce-locals` / `reorder-locals` behavior, and a narrow every-direct-caller-same-literal constant-actual family in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
 - a touched-only private `precompute-propagate-prefix` helper that folds SSA-backed default-init and direct local constant facts, then reruns plain `precompute`, but still not the real public `precompute-propagate` pass family itself;
-- a narrow constant-actual materialization slice for exact literals on read-only params, but no broader operand localization, GC refinement, or result-refinement family yet;
+- a narrow constant-actual materialization slice for exact literals on read-only params, now including scalar memory-load sibling carriers and typed single-result `TypeIdxBlockType` wrappers in the callsite-slice recovery path, but no broader operand localization, GC refinement, or result-refinement family yet;
 - no full default-function-pipeline replay on all touched functions, no broad-module nested replay, and no green debug-artifact compare yet.
 
-That is closer to upstream Binaryen than the earlier boundary-only hold point, but it is still intentionally narrower than the full optimizing sibling.
+That is closer to upstream Binaryen than the earlier boundary-only hold point, but it is still intentionally narrower than the full optimizing sibling. The 2026-05-13 `moonbit.check_range` follow-up in [`../../../raw/research/0561-2026-05-13-dae002-check-range-load-shape-attribution.md`](../../../raw/research/0561-2026-05-13-dae002-check-range-load-shape-attribution.md) showed that fixing scalar-load sibling carriers alone does not move the live debug-artifact first diff at `defined=11 abs=28`, and the later typed-block follow-up in [`../../../raw/research/0562-2026-05-13-dae002-typeidx-block-carriers.md`](../../../raw/research/0562-2026-05-13-dae002-typeidx-block-carriers.md) showed the same for typed single-result `TypeIdxBlockType` wrappers. The next candidate therefore needs another multivalue-adjacent call-carrier family beyond loads and simple typed-block wrappers.
 
 ## Why this must be a module pass
 

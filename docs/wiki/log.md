@@ -2,6 +2,30 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae exact-literal callsite slicing now accepts typed single-result block wrappers
+
+- Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so DAE's exact-literal constant-actual slice can recover call argument boundaries when sibling operands are wrapped in explicit single-result `TypeIdxBlockType` block carriers; block / loop / `try_table` wrappers now resolve their input/output arity through the module type section, and typed `if` wrappers add the condition input on top.
+- Added a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) proving a private direct callee can still materialize a shared middle literal when the other arguments are wrapped in explicit `(block (type ...))` single-result carriers.
+- Rechecked the live debug artifact with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/dae002-typeidx-block-artifact --starshine-bin target/native/release/build/cmd/cmd.exe --dae-optimizing`; the first diff still stayed at `defined=11 abs=28`, so typed single-result block wrappers were one more real call-shape blocker, but not the remaining `moonbit.check_range` artifact blocker by themselves.
+
+## [2026-05-13] research | attribute typed block carrier follow-up after unchanged check_range artifact
+
+- Added [`raw/research/0562-2026-05-13-dae002-typeidx-block-carriers.md`](raw/research/0562-2026-05-13-dae002-typeidx-block-carriers.md) after validating a new typed single-result block-carrier regression and re-running the debug artifact compare.
+- Recorded that the new typed-block fix is real and regression-covered, but `.tmp/dae002-typeidx-block-artifact` still stays red at `defined=11 abs=28` with Starshine pass time `10139.424ms` versus Binaryen `928.830ms`.
+- Filed the updated conclusion back into the DAE strategy and backlog pages: the remaining `moonbit.check_range` blocker is narrower than the earlier scalar-load and simple typed-block-wrapper gaps, so the next slice should stay focused on a direct lane-extraction / `tuple.extract` / broader multivalue-adjacent carrier family rather than on broader scheduler experiments.
+
+## [2026-05-13] passes | dae exact-literal callsite slicing now accepts scalar load siblings
+
+- Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so DAE's exact-literal constant-actual slice can recover call argument boundaries when sibling operands use the scalar memory-load family (`i32.load`, `i64.load`, `f32.load`, `f64.load`, and the scalar load8/load16/load32 variants).
+- Added a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) proving a private direct callee can still materialize a shared middle literal even when another argument comes from `i32.load`.
+- Rechecked the live debug artifact with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/dae002-load-only-artifact --starshine-bin target/native/release/build/cmd/cmd.exe --dae-optimizing`; the first diff stayed at `defined=11 abs=28`, so scalar-load support is real but not sufficient to close the `moonbit.check_range` artifact family.
+
+## [2026-05-13] research | attribute remaining check_range constant-actual miss beyond scalar loads
+
+- Added [`raw/research/0561-2026-05-13-dae002-check-range-load-shape-attribution.md`](raw/research/0561-2026-05-13-dae002-check-range-load-shape-attribution.md) after re-parsing `.tmp/dae002-orig.print.wat` and the current artifact outputs.
+- Recorded that all `370` observed direct `moonbit.check_range` callers still pass literal `0` for the middle `lo` argument, while the folded caller census still includes `127` scalar loads plus surviving carrier families such as `tuple.extract`, local carriers, and block wrappers.
+- Filed the updated conclusion back into the DAE strategy and backlog pages: scalar-load siblings were one real call-shape blocker for the exact-literal slice, but the unchanged `defined=11 abs=28` artifact diff now points at another caller-carrier family beyond loads, with `tuple.extract` / multivalue carriers the leading next suspect.
+
 ## [2026-05-13] passes | dae gains a narrow exact-literal constant-actual slice
 
 - Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so `dae-optimizing` can now remove a private direct-call parameter when every direct caller passes the same exact literal and the callee only reads that parameter; Starshine rewrites touched callsites, replaces the callee `local.get`s with the literal, and leaves the remaining folding to the guarded nested cleanup lane.

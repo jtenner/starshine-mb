@@ -428,6 +428,27 @@ fn dae_instr_result_arity_from_block_type(block_type : @lib.BlockType) -> Int? {
 }
 
 ///|
+fn dae_instr_stack_effect_from_block_type(
+  block_type : @lib.BlockType,
+  mod_ : @lib.Module,
+) -> (Int, Int)? {
+  match block_type {
+    @lib.VoidBlockType => Some((0, 0))
+    @lib.ValTypeBlockType(_) => Some((0, 1))
+    @lib.TypeIdxBlockType(type_idx) =>
+      match mod_.type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              Some((params.length(), results.length()))
+            None => None
+          }
+        None => None
+      }
+  }
+}
+
+///|
 fn dae_instr_stack_effect(
   instr : @lib.Instruction,
   mod_ : @lib.Module,
@@ -509,7 +530,21 @@ fn dae_instr_stack_effect(
     | @lib.I64TruncSatF32S
     | @lib.I64TruncSatF32U
     | @lib.I64TruncSatF64S
-    | @lib.I64TruncSatF64U => Some((1, 1))
+    | @lib.I64TruncSatF64U
+    | @lib.I32Load(_)
+    | @lib.I64Load(_)
+    | @lib.F32Load(_)
+    | @lib.F64Load(_)
+    | @lib.I32Load8S(_)
+    | @lib.I32Load8U(_)
+    | @lib.I32Load16S(_)
+    | @lib.I32Load16U(_)
+    | @lib.I64Load8S(_)
+    | @lib.I64Load8U(_)
+    | @lib.I64Load16S(_)
+    | @lib.I64Load16U(_)
+    | @lib.I64Load32S(_)
+    | @lib.I64Load32U(_) => Some((1, 1))
     @lib.I32Eq
     | @lib.I32Ne
     | @lib.I32LtS
@@ -617,13 +652,10 @@ fn dae_instr_stack_effect(
     @lib.Block(block_type, _)
     | @lib.Loop(block_type, _)
     | @lib.TryTable(block_type, _, _) =>
-      match dae_instr_result_arity_from_block_type(block_type) {
-        Some(out) => Some((0, out))
-        None => None
-      }
+      dae_instr_stack_effect_from_block_type(block_type, mod_)
     @lib.If(block_type, _, _) =>
-      match dae_instr_result_arity_from_block_type(block_type) {
-        Some(out) => Some((1, out))
+      match dae_instr_stack_effect_from_block_type(block_type, mod_) {
+        Some((inputs, outputs)) => Some((inputs + 1, outputs))
         None => None
       }
     _ => None
