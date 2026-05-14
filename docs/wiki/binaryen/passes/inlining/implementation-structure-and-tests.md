@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-14
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
@@ -125,7 +125,7 @@ Main clusters:
 | Cluster | Current role | Known gap |
 | --- | --- | --- |
 | summaries | import/defined counts, type lookup, simple size scan, refs/roots, shape flags | no full Binaryen cost/trivial/flexible/depth model |
-| eligibility | tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, or narrow shrinking-trivial two-parameter scalar-store-wrapper defined callee (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, or `i64.store16`); block type must be void/single-result; skip `try_table` and return-call-containing callees; honor internal full-inline suppression from `no-inline` / `no-full-inline` | remaining `Shrinks` / `MayNotShrink` classes, partial splitter, flexible/O3 policy, multi-result support, partial-inlining-specific no-inline behavior |
+| eligibility | tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, or narrow shrinking-trivial two-parameter scalar-store-wrapper defined callee (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, or `i64.store32`); block type must be void/single-result; skip `try_table` and return-call-containing callees; honor internal full-inline suppression from `no-inline` / `no-full-inline` | remaining `Shrinks` / `MayNotShrink` classes, partial splitter, flexible/O3 policy, multi-result support, partial-inlining-specific no-inline behavior |
 | rewrite | direct `call` / `return_call` replacement, param/body-local append, local remap, simple return-to-branch | incomplete nested `return_call*`, label collision, nondefaultable-local, metadata/name repair |
 | removal | private helper deletion after refs disappear, function-index remap across module surfaces, function annotation remap, and function-name remap; local/label name maps are dropped until full repair exists | exact Binaryen helper/name cleanup beyond currently remapped function names is not complete |
 | optimizing approximation | trace marker, broad cleanup lane with untouched-body restoration, touched unused-local compaction, unreachable-root collapse | not exact `precompute-propagate` + touched-function filtered default pipeline |

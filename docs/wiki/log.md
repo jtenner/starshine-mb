@@ -416,6 +416,14 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Investigated `.tmp/pass-fuzz-dae-no-param-result-caller-prune-1000/failures/case-000690-gen-valid` and recorded the durable Binaryen shape in [`raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md`](raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md).
 - Updated the `dae-optimizing` pages to record that Binaryen preserves the original parameter stranded under an escaped direct-call result used as an undropped dead-suffix self-call operand, while still pruning direct simple self-call operands.
 - Added a Starshine regression for the raw wasm failure and fixed the local DAE parameter-origin restoration path; `.tmp/pass-fuzz-dae-690-final2-200` reported `199/200` compared, `198` normalized matches, `1` local-declaration mismatch, and `1` Binaryen/tool command failure, while `.tmp/pass-fuzz-dae-690-final2-1000` reported `998/1000` compared, `985` normalized matches, `13` mismatches, and `2` Binaryen/tool command failures with `case-000690-gen-valid` gone.
+## [2026-05-14] passes | inlining shrinking-trivial i64.store32 heuristic
+
+- Added the eleventh narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `i64.store32` are now full-inline candidates even with multiple refs.
+- Confirmed Binaryen behavior first with `wasm-opt --inlining -S --strip-debug` on `.tmp/inl003-i64-store32-wrapper.wat`; Binaryen removed the helper and emitted two inlined `i64.store32` blocks.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `i64.store32` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `i64.store32` branch while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt`, `moon test src/passes`, full `moon test`, `moon info`, and `git diff --check` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-i64-store32-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`. Optimizing smoke `.tmp/pass-fuzz-inlining-optimizing-inl003-i64-store32-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
+
 ## [2026-05-13] passes | inlining shrinking-trivial i64.store16 heuristic
 
 - Added the tenth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `i64.store16` are now full-inline candidates even with multiple refs.

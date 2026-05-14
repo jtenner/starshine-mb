@@ -739,6 +739,32 @@ test "inlining treats repeated parameter passthrough i64.store16 wrappers as shr
 }
 
 ///|
+test "inlining treats repeated parameter passthrough i64.store32 wrappers as shrinking trivial" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $store (param i32 i64)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i64.store32)
+    #|  (func (export "run") (param i32 i64)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $store
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $store))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("i64.store32"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
 test "inlining zero-initializes appended defaultable callee locals in plain mode" {
   let source =
     #|(module
