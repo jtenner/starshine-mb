@@ -310,7 +310,8 @@ fn inl_is_binary_trivial_op(instr : @lib.Instruction) -> Bool {
     | @lib.I64Store16(_)
     | @lib.I64Store32(_)
     | @lib.V128Store(_)
-    | @lib.V128Store8Lane(_, _) => true
+    | @lib.V128Store8Lane(_, _)
+    | @lib.V128Store16Lane(_, _) => true
     _ => false
   }
 }
