@@ -203,6 +203,10 @@ pub fn pipeline_verify_checkpoint(HotPipelineVerifyPolicy, String, HotPipelineVe
 
 pub fn precompute_descriptor() -> @ir.HotPassDescriptor
 
+pub fn precompute_propagate_prefix_descriptor() -> @ir.HotPassDescriptor
+
+pub fn precompute_propagate_prefix_run(HotPassContext, @ir.HotFunc) -> HotPassResult
+
 pub fn precompute_summary() -> String
 
 pub fn remove_unused_brs_descriptor() -> @ir.HotPassDescriptor

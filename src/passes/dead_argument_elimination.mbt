@@ -753,6 +753,77 @@ fn dae_rewrite_locals_instrs(
 }
 
 ///|
+fn dae_instr_is_materializable_const(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.StringConst(_) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_rewrite_instruction_param_consts(
+  instr : @lib.Instruction,
+  const_params : Array[@lib.Instruction?],
+) -> @lib.Instruction {
+  match instr {
+    @lib.LocalGet(local_idx) => {
+      let slot = dae_local_idx_slot(local_idx)
+      if slot >= 0 && slot < const_params.length() {
+        match const_params[slot] {
+          Some(const_instr) => const_instr
+          None => instr
+        }
+      } else {
+        instr
+      }
+    }
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::block(
+        block_type,
+        @lib.Expr::new(dae_rewrite_param_const_instrs(body, const_params)),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(dae_rewrite_param_const_instrs(body, const_params)),
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      @lib.Instruction::try_table(
+        block_type,
+        catches,
+        @lib.Expr::new(dae_rewrite_param_const_instrs(body, const_params)),
+      )
+    @lib.If(block_type, then_body, else_body) =>
+      @lib.Instruction::if_(
+        block_type,
+        dae_rewrite_param_const_instrs(then_body, const_params),
+        match else_body {
+          Some(body) => Some(dae_rewrite_param_const_instrs(body, const_params))
+          None => None
+        },
+      )
+    _ => instr
+  }
+}
+
+///|
+fn dae_rewrite_param_const_instrs(
+  instrs : Array[@lib.Instruction],
+  const_params : Array[@lib.Instruction?],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    out.push(dae_rewrite_instruction_param_consts(instr, const_params))
+  }
+  out
+}
+
+///|
 fn dae_build_local_map(
   param_count : Int,
   body_local_count : Int,
@@ -793,6 +864,30 @@ fn dae_build_local_map(
 }
 
 ///|
+fn dae_collect_callsite_shapes(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  arg_count : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (Array[DaeCallShape], Int)? {
+  let shapes = Array::make(arg_count, { start: 0, end: 0, pure: false })
+  let mut cursor = call_idx
+  let mut arg_idx = arg_count - 1
+  while arg_idx >= 0 {
+    match dae_find_value_slice(instrs, cursor, mod_, func_type_indices) {
+      Some(shape) => {
+        shapes[arg_idx] = shape
+        cursor = shape.start
+      }
+      None => return None
+    }
+    arg_idx -= 1
+  }
+  Some((shapes, cursor))
+}
+
+///|
 fn dae_rewrite_callsite_at(
   instrs : Array[@lib.Instruction],
   call_idx : Int,
@@ -800,18 +895,16 @@ fn dae_rewrite_callsite_at(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> (Array[@lib.Instruction], Bool) {
-  let shapes = Array::make(remove.length(), { start: 0, end: 0, pure: false })
-  let mut cursor = call_idx
-  let mut arg_idx = remove.length() - 1
-  while arg_idx >= 0 {
-    match dae_find_value_slice(instrs, cursor, mod_, func_type_indices) {
-      Some(shape) => {
-        shapes[arg_idx] = shape
-        cursor = shape.start
-      }
-      None => return ([], false)
-    }
-    arg_idx -= 1
+  let (shapes, cursor) = match
+    dae_collect_callsite_shapes(
+      instrs,
+      call_idx,
+      remove.length(),
+      mod_,
+      func_type_indices,
+    ) {
+    Some(result) => result
+    None => return ([], false)
   }
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -1055,6 +1148,121 @@ fn dae_rewrite_calls_instrs_after_rewritten(
     calls_rewritten: calls_so_far + tail_result.calls_rewritten,
     ok: true,
   }
+}
+
+///|
+fn dae_collect_uniform_const_actuals_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  param_count : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  seen : Array[Bool],
+  invalid : Array[Bool],
+  candidates : Array[@lib.Instruction?],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        match
+          dae_collect_callsite_shapes(
+            instrs, idx, param_count, mod_, func_type_indices,
+          ) {
+          Some((shapes, _)) => {
+            let mut p = 0
+            while p < param_count {
+              if !invalid[p] {
+                let shape = shapes[p]
+                if shape.end - shape.start != 1 {
+                  invalid[p] = true
+                } else {
+                  let candidate = instrs[shape.start]
+                  if !dae_instr_is_materializable_const(candidate) {
+                    invalid[p] = true
+                  } else if !seen[p] {
+                    seen[p] = true
+                    candidates[p] = Some(candidate)
+                  } else if candidates[p] != Some(candidate) {
+                    invalid[p] = true
+                  }
+                }
+              }
+              p += 1
+            }
+          }
+          None => return false
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if !dae_collect_uniform_const_actuals_instrs(
+            body, callee_abs, param_count, mod_, func_type_indices, seen, invalid,
+            candidates,
+          ) {
+          return false
+        }
+      @lib.If(_, then_body, Some(else_body)) => {
+        if !dae_collect_uniform_const_actuals_instrs(
+            then_body, callee_abs, param_count, mod_, func_type_indices, seen, invalid,
+            candidates,
+          ) {
+          return false
+        }
+        if !dae_collect_uniform_const_actuals_instrs(
+            else_body, callee_abs, param_count, mod_, func_type_indices, seen, invalid,
+            candidates,
+          ) {
+          return false
+        }
+      }
+      @lib.If(_, then_body, None) =>
+        if !dae_collect_uniform_const_actuals_instrs(
+            then_body, callee_abs, param_count, mod_, func_type_indices, seen, invalid,
+            candidates,
+          ) {
+          return false
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+fn dae_collect_uniform_const_actuals(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  param_count : Int,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> Array[@lib.Instruction?]? {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Some(Array::make(param_count, None))
+  }
+  let seen = Array::make(param_count, false)
+  let invalid = Array::make(param_count, false)
+  let candidates : Array[@lib.Instruction?] = Array::make(param_count, None)
+  for func in funcs {
+    let @lib.Func(_, @lib.Expr(body)) = func
+    if !dae_collect_uniform_const_actuals_instrs(
+        body, callee_abs, param_count, mod_, func_type_indices, seen, invalid, candidates,
+      ) {
+      return None
+    }
+  }
+  let out : Array[@lib.Instruction?] = []
+  let mut p = 0
+  while p < param_count {
+    if invalid[p] || !seen[p] {
+      out.push(None)
+    } else {
+      out.push(candidates[p])
+    }
+    p += 1
+  }
+  Some(out)
 }
 
 ///|
@@ -1390,6 +1598,7 @@ fn dae_try_rewrite_candidate(
   mod_ : @lib.Module,
   callee_abs : Int,
   remove : Array[Bool],
+  const_params : Array[@lib.Instruction?],
   local_use : DaeLocalUse,
   direct_call_count : Int,
 ) -> DaePassResult {
@@ -1452,7 +1661,8 @@ fn dae_try_rewrite_candidate(
     remove,
     local_use,
   )
-  let new_body = dae_rewrite_locals_instrs(old_body, local_map)
+  let body_with_consts = dae_rewrite_param_const_instrs(old_body, const_params)
+  let new_body = dae_rewrite_locals_instrs(body_with_consts, local_map)
   let new_locals = @lib.Locals::from_types(removed_written_types)
   new_locals.append(old_locals)
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -5624,12 +5834,35 @@ fn dae_run_core_once(
             params.length(),
           )
           let remove = Array::make(params.length(), false)
+          let const_params : Array[@lib.Instruction?] = Array::make(
+            params.length(),
+            None,
+          )
+          let uniform_const_params = dae_collect_uniform_const_actuals(
+            mod_,
+            callee_abs,
+            params.length(),
+            type_indices,
+          )
           let mut any = false
           let mut p = 0
           while p < params.length() {
             if !local_use.gets[p] {
               remove[p] = true
               any = true
+            } else if !local_use.writes[p] {
+              match uniform_const_params {
+                Some(values) =>
+                  match values[p] {
+                    Some(value) => {
+                      remove[p] = true
+                      const_params[p] = Some(value)
+                      any = true
+                    }
+                    None => ()
+                  }
+                None => ()
+              }
             }
             p += 1
           }
@@ -5638,6 +5871,7 @@ fn dae_run_core_once(
               mod_,
               callee_abs,
               remove,
+              const_params,
               local_use,
               direct_calls[callee_abs],
             )
@@ -5842,12 +6076,39 @@ fn dae_run_core_once(
       params.length(),
     )
     let remove = Array::make(params.length(), false)
+    let const_params : Array[@lib.Instruction?] = Array::make(
+      params.length(),
+      None,
+    )
+    let uniform_const_params = if self_calls_anywhere == 0 {
+      dae_collect_uniform_const_actuals(
+        mod_,
+        callee_abs,
+        params.length(),
+        type_indices,
+      )
+    } else {
+      None
+    }
     let mut any = false
     let mut p = 0
     while p < params.length() {
       if !local_use.gets[p] {
         remove[p] = true
         any = true
+      } else if !local_use.writes[p] {
+        match uniform_const_params {
+          Some(values) =>
+            match values[p] {
+              Some(value) => {
+                remove[p] = true
+                const_params[p] = Some(value)
+                any = true
+              }
+              None => ()
+            }
+          None => ()
+        }
       }
       p += 1
     }
@@ -5943,6 +6204,7 @@ fn dae_run_core_once(
         mod_,
         callee_abs,
         remove,
+        const_params,
         local_use,
         direct_calls[callee_abs],
       )

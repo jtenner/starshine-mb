@@ -238,16 +238,54 @@ test "dae-optimizing removes a private unused scalar parameter at direct calls" 
     #|(module
     #|  (func $f (param i32 i32) (result i32)
     #|    local.get 0)
-    #|  (func (export "run") (result i32)
-    #|    i32.const 10
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
     #|    i32.const 20
     #|    call $f))
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
   let caller = optimized.pretty_print_defined_func(1U)
   assert_true(caller.contains("(call (Func 0))"), msg=caller)
-  assert_true(caller.contains("i32.const I32(10)"), msg=caller)
+  assert_true(caller.contains("local.get (Local 0)"), msg=caller)
   assert_false(caller.contains("i32.const I32(20)"), msg=caller)
+}
+
+///|
+test "dae-optimizing materializes shared constant actuals into private callee params" {
+  let source =
+    #|(module
+    #|  (func $f (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 2
+    #|    i32.le_s
+    #|    if
+    #|      local.get 0
+    #|      local.get 1
+    #|      i32.ge_s
+    #|      if
+    #|      else
+    #|        unreachable
+    #|      end
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (export "run1")
+    #|    i32.const 10
+    #|    i32.const 0
+    #|    i32.const 20
+    #|    call $f)
+    #|  (func (export "run2")
+    #|    i32.const 5
+    #|    i32.const 0
+    #|    i32.const 6
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  let callee = optimized.pretty_print_defined_func(0U)
+  let caller1 = optimized.pretty_print_defined_func(1U)
+  assert_true(callee.contains("I32(0)"), msg=callee)
+  assert_false(callee.contains("Local2"), msg=callee)
+  assert_false(caller1.contains("i32.const I32(0)"), msg=caller1)
 }
 
 ///|
@@ -2104,10 +2142,10 @@ test "dae-optimizing traces nested local-cse before simplify-locals" {
     #|    local.get 1
     #|    i32.add
     #|    call $use)
-    #|  (func (export "run")
-    #|    i32.const 10
-    #|    i32.const 20
-    #|    i32.const 30
+    #|  (func (export "run") (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
     #|    call $f))
   let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
     Ok(trace) => trace
@@ -2163,10 +2201,10 @@ test "dae-optimizing nested local-cse only rewrites touched functions" {
     #|    local.get 1
     #|    i32.add
     #|    call $use)
-    #|  (func (export "run")
-    #|    i32.const 10
-    #|    i32.const 20
-    #|    i32.const 30
+    #|  (func (export "run") (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
     #|    call $f)
     #|  (func (export "untouched") (param i32 i32)
     #|    local.get 0

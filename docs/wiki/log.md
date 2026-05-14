@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-13] passes | dae gains a narrow exact-literal constant-actual slice
+
+- Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so `dae-optimizing` can now remove a private direct-call parameter when every direct caller passes the same exact literal and the callee only reads that parameter; Starshine rewrites touched callsites, replaces the callee `local.get`s with the literal, and leaves the remaining folding to the guarded nested cleanup lane.
+- Added focused regressions in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the new constant-actual family and refreshed neighboring touched-only fixtures so they keep testing local-CSE / dead-param intent instead of accidentally triggering the new literal-materialization path.
+- Revalidated the slice with `moon test src/passes`, `.tmp/dae002-const-actual-200` (`199/200`, `198` normalized matches, `1` unchanged `gen-valid` mismatch, `1` unchanged `binaryen-rec-group-zero` command failure), and `.tmp/dae002-const-actual-artifact`; the artifact replay stayed red at first diff `defined=11 abs=28`, so this exact-literal slice does not yet close the current `moonbit.check_range` artifact gap.
+
 ## [2026-05-13] passes | dae gets a touched-only precompute-propagate prefix equivalent
 
 - Updated [`../../src/passes/precompute.mbt`](../../src/passes/precompute.mbt) with a private `precompute-propagate-prefix` helper that folds SSA-backed default-init and direct local constant facts, then reruns plain `precompute`; this stays a touched-only nested cleanup helper and does **not** register or claim the public upstream `precompute-propagate` pass.

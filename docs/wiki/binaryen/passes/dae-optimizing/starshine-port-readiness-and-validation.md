@@ -47,8 +47,9 @@ Starshine currently has:
 
 - public pass names `dae-optimizing` and `dead-argument-elimination-optimizing` in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt);
 - a live module-pass dispatcher path in [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) that runs the shared DAE boundary rewrite plus a guarded touched-function nested cleanup slice;
-- focused regressions for touched-only nested cleanup order, size-skip tracing, and touched-only `optimize-casts` / `coalesce-locals` / `reorder-locals` behavior in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
+- focused regressions for touched-only nested cleanup order, size-skip tracing, touched-only `optimize-casts` / `coalesce-locals` / `reorder-locals` behavior, and a narrow every-direct-caller-same-literal constant-actual family in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
 - a touched-only private `precompute-propagate-prefix` helper that folds SSA-backed default-init and direct local constant facts, then reruns plain `precompute`, but still not the real public `precompute-propagate` pass family itself;
+- a narrow constant-actual materialization slice for exact literals on read-only params, but no broader operand localization, GC refinement, or result-refinement family yet;
 - no full default-function-pipeline replay on all touched functions, no broad-module nested replay, and no green debug-artifact compare yet.
 
 That is closer to upstream Binaryen than the earlier boundary-only hold point, but it is still intentionally narrower than the full optimizing sibling.
@@ -105,7 +106,7 @@ It should not be implemented by locally deleting `local.get` or by editing only 
 
 After the scalar slice is green, port the remaining Binaryen families one at a time:
 
-- **constant actual materialization**: if all owned callers pass the same constant, insert the callee-local value before removing the incoming parameter;
+- **broader constant actual materialization**: extend the new exact-literal read-only slice toward Binaryen's fuller every-owned-caller-same-constant behavior, including nontrivial constant shapes and the callee-local insertion cases Starshine still misses;
 - **recursive and forwarding cycles**: remove parameters forwarded through direct-call cycles only when the entry value is never otherwise observed;
 - **GC parameter refinement**: keep live parameters but narrow their reference type from call-operand least-upper-bound evidence;
 - **result refinement**: narrow result types from returned-value evidence and repair call expression types;
