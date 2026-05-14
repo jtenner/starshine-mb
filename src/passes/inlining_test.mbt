@@ -1006,6 +1006,36 @@ test "inlining treats repeated parameter passthrough memory.copy wrappers as shr
 }
 
 ///|
+test "inlining treats repeated parameter passthrough memory.init wrappers as shrinking trivial" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (data $d "hello")
+    #|  (func $init (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    memory.init $d)
+    #|  (func (export "run") (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $init
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $init))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("memory.init"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
 test "inlining treats repeated parameter passthrough table.fill wrappers as shrinking trivial" {
   let source =
     #|(module

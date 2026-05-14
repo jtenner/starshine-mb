@@ -341,6 +341,7 @@ fn inl_body_is_shrinking_trivial(
           @lib.Select(_)
           | @lib.MemoryFill(_)
           | @lib.MemoryCopy(_, _)
+          | @lib.MemoryInit(_, _)
           | @lib.TableFill(_) => true
           _ => false
         }
