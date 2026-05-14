@@ -1124,6 +1124,58 @@ test "inlining treats repeated parameter passthrough table.init wrappers as shri
 }
 
 ///|
+test "inlining uses optimize-level three for may-not-shrink repeated-param wrappers" {
+  let source =
+    #|(module
+    #|  (func $dbl (param i32) (result i32)
+    #|    local.get 0
+    #|    local.get 0
+    #|    i32.add)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $dbl
+    #|    local.get 0
+    #|    call $dbl
+    #|    i32.add))
+  let default_out = inl_test_run(source, pass_name="inlining")
+  match default_out.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["inlining"],
+      options=HotPipelineOptions::new(optimize_level=3),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected inlining pipeline success, got \{err}")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_false(caller.contains("call"), msg=caller)
+
+  let optimized_with_shrink = match
+    pass_test_run_pipeline(
+      source,
+      ["inlining"],
+      options=HotPipelineOptions::new(optimize_level=3, shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected inlining pipeline success, got \{err}")
+  }
+  match optimized_with_shrink.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let shrink_caller = optimized_with_shrink.pretty_print_defined_func(0U)
+  assert_false(shrink_caller.contains("call"), msg=shrink_caller)
+}
+
+///|
 test "inlining treats repeated parameter passthrough i32x4.add wrappers as shrinking trivial" {
   let source =
     #|(module

@@ -62,7 +62,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
   - direct pass selection accepts it;
   - public `optimize` / `shrink` presets still omit the late Binaryen `INL` slot.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-  - dispatches `inlining-optimizing` to `inlining_run_module_pass(... optimize=true, trace=Some(options.trace), pass_name="inlining-optimizing")`.
+  - dispatches `inlining-optimizing` to `inlining_run_module_pass(... optimize=true, trace=Some(options.trace), pass_name="inlining-optimizing", optimize_level=options.optimize_level, shrink_level=options.shrink_level)`.
 - [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt)
   - shared core and optimizing approximation.
 - [`src/passes/inlining_test.mbt`](../../../../../src/passes/inlining_test.mbt)
@@ -78,7 +78,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 - Active `inlining` and `inlining-optimizing` module-pass names.
 - Iterative direct `call` and narrow direct `return_call` rewrite waves.
-- Tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, and narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation-wrapper defined callee eligibility, now including the supported SIMD plus GC heap-operation breadth.
+- Tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation-wrapper defined callee eligibility, now including the supported SIMD plus GC heap-operation breadth, plus the first speed-focused flexible no-call/no-loop `size <= 20` subset when `optimize_level >= 3`.
 - Callee parameter/body-local appending and local-index remapping.
 - Simple return-to-wrapper-block branch repair.
 - Private helper removal after refs disappear.
@@ -91,7 +91,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 ### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and memory/table/SIMD/GC operation `Shrinks` subsets through the latest supported SIMD plus GC heap-operation breadth slice landed on 2026-05-14 and the rest remains active;
+- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and memory/table/SIMD/GC operation `Shrinks` subsets through the latest supported SIMD plus GC heap-operation breadth slice landed on 2026-05-14, and the first optimize-level-three flexible no-call/no-loop subset is implemented; remaining trivial/flexible/action-size breadth remains active;
 - `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
 - `[INL]005`: partial inlining splitter;
 - `[INL]006`: nested `return_call*`, multi-result typing, and label/name/annotation repair.

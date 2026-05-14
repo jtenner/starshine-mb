@@ -1705,6 +1705,8 @@ fn optimize_options_to_hot_pipeline_options(
     },
     validate_final_module~,
     closed_world=options.closed_world,
+    optimize_level=options.optimize_level,
+    shrink_level=options.shrink_level,
     trace~,
     perf=match trace {
       Some(cb) =>

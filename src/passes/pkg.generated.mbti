@@ -67,7 +67,7 @@ pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String
 
 pub fn inlining_optimizing_summary() -> String
 
-pub fn inlining_run_module_pass(@lib.Module, optimize? : Bool, trace? : ((String) -> Unit)?, pass_name? : String) -> @lib.Module
+pub fn inlining_run_module_pass(@lib.Module, optimize? : Bool, trace? : ((String) -> Unit)?, pass_name? : String, optimize_level? : Int, shrink_level? : Int) -> @lib.Module
 
 pub fn inlining_summary() -> String
 
@@ -378,11 +378,13 @@ pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
   closed_world : Bool
+  optimize_level : Int
+  shrink_level : Int
   trace_enabled : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
-pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
+pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, optimize_level? : Int, shrink_level? : Int, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
 
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly

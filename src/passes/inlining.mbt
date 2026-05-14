@@ -658,7 +658,12 @@ fn inl_scan_refs(
 }
 
 ///|
-fn inl_build_function_infos(mod_ : @lib.Module) -> Array[InlFunctionInfo] {
+fn inl_build_function_infos(
+  mod_ : @lib.Module,
+  optimize_level? : Int = 0,
+  shrink_level? : Int = 0,
+) -> Array[InlFunctionInfo] {
+  ignore(shrink_level)
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
   let refs = Array::make(total, 0)
@@ -719,14 +724,19 @@ fn inl_build_function_infos(mod_ : @lib.Module) -> Array[InlFunctionInfo] {
     let no_full_policy = abs >= 0 &&
       abs < no_full_inline.length() &&
       no_full_inline[abs]
+    let speed_focused = optimize_level >= 3
+    let may_not_shrink = speed_focused && !has_calls && !has_loops && size <= 20
     let inlineable = abs >= imports &&
       !no_full_policy &&
       block_type_ok &&
       !has_try_table &&
       !has_return_call &&
-      (size <= 2 || trivial_shrinks || (refs[abs] == 1 && !used[abs]))
-    ignore(has_calls)
-    ignore(has_loops)
+      (
+        size <= 2 ||
+        trivial_shrinks ||
+        (refs[abs] == 1 && !used[abs]) ||
+        may_not_shrink
+      )
     infos.push({ params, results, inlineable })
     abs += 1
   }
@@ -4792,12 +4802,14 @@ fn inl_run_module_pass_once(
   optimize : Bool,
   trace : ((String) -> Unit)?,
   pass_name : String,
+  optimize_level : Int,
+  shrink_level : Int,
 ) -> (@lib.Module, Bool) {
   let original_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
   let preserve_root_cycle_cleanup = inl_has_same_sig_root_cycle_dead_suffix(
     mod_,
   )
-  let infos = inl_build_function_infos(mod_)
+  let infos = inl_build_function_infos(mod_, optimize_level~, shrink_level~)
   let result = inl_rewrite_all_calls(mod_, infos)
   if !result.changed {
     return (inl_prune_dead_unreachable_drops(mod_), false)
@@ -4867,6 +4879,8 @@ pub fn inlining_run_module_pass(
   optimize? : Bool = false,
   trace? : ((String) -> Unit)? = None,
   pass_name? : String = "inlining",
+  optimize_level? : Int = 0,
+  shrink_level? : Int = 0,
 ) -> @lib.Module {
   let initial_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
   let mut current = mod_
@@ -4874,7 +4888,7 @@ pub fn inlining_run_module_pass(
   let max_iterations = inl_defined_func_count(mod_) + 1
   while iterations < max_iterations {
     let (next, changed) = inl_run_module_pass_once(
-      current, optimize, trace, pass_name,
+      current, optimize, trace, pass_name, optimize_level, shrink_level,
     )
     if !changed {
       return inl_trim_unreachable_to_selected_counts(

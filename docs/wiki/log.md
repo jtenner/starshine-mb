@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining optimize-level-three flexible policy
+
+- Added the twenty-eighth `[INL]003` heuristic sub-slice: CLI optimize/shrink levels now propagate through `HotPipelineOptions` into `inlining`, and no-call/no-loop callees with `size <= 20` become flexible inline candidates when `optimize_level >= 3`.
+- Confirmed Binaryen behavior first with `.tmp/inl003-maynot-repeat.wat`: `wasm-opt --all-features --inlining` preserves the multi-use repeated-param `$dbl` wrapper, while `wasm-opt --all-features --inlining -O3` removes it; `--inlining -O3 --shrink-level=1` also removes it.
+- Added focused `src/passes/inlining_test.mbt` coverage that checks Starshine's default `inlining` keeps the helper, `HotPipelineOptions::new(optimize_level=3)` removes it, and `HotPipelineOptions::new(optimize_level=3, shrink_level=1)` also removes it; the shrink-level combination failed before implementation with `2 != 1` functions.
+- Starshine CLI dumps with `--inlining` versus `--inlining --optimize-level 3` show the same split. Smoke validation: plain `.tmp/pass-fuzz-inlining-inl003-o3-policy-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`; optimizing `.tmp/pass-fuzz-inlining-optimizing-inl003-o3-policy-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
 ## [2026-05-14] passes | inlining shrinking-trivial GC heap wrappers
 
 - Added the twenty-seventh narrow `[INL]003` heuristic sub-slice: ordered parameter-passthrough GC heap wrappers now classify as shrinking trivial for `struct.set`, `struct.new`, `struct.new_desc`, `array.new`, `array.new_fixed`, `array.new_data`, `array.new_elem`, `array.get*`, `array.set`, `array.fill`, `array.init_data`, `array.init_elem`, and `array.copy`.

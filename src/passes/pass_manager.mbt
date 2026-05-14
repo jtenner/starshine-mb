@@ -24,6 +24,8 @@ pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
   closed_world : Bool
+  optimize_level : Int
+  shrink_level : Int
   trace_enabled : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
@@ -34,6 +36,8 @@ pub fn HotPipelineOptions::new(
   verify_policy? : HotPipelineVerifyPolicy = HotPipelineVerifyPolicy::final_module_only(),
   validate_final_module? : Bool = true,
   closed_world? : Bool = false,
+  optimize_level? : Int = 0,
+  shrink_level? : Int = 0,
   trace? : ((String) -> Unit)? = None,
   perf? : HotPerfSession? = None,
 ) -> HotPipelineOptions {
@@ -41,6 +45,8 @@ pub fn HotPipelineOptions::new(
     verify_policy,
     validate_final_module,
     closed_world,
+    optimize_level,
+    shrink_level,
     trace_enabled: trace is Some(_),
     trace: match trace {
       Some(cb) => cb
@@ -10215,13 +10221,21 @@ fn run_hot_pipeline_apply_module_pass(
         Err(err) => return Err(err)
       }
     "inlining" =>
-      inlining_run_module_pass(mod_, optimize=false, pass_name="inlining")
+      inlining_run_module_pass(
+        mod_,
+        optimize=false,
+        pass_name="inlining",
+        optimize_level=options.optimize_level,
+        shrink_level=options.shrink_level,
+      )
     "inlining-optimizing" =>
       inlining_run_module_pass(
         mod_,
         optimize=true,
         trace=Some(options.trace),
         pass_name="inlining-optimizing",
+        optimize_level=options.optimize_level,
+        shrink_level=options.shrink_level,
       )
     _ =>
       match no_inline_pass_pattern(entry.name) {

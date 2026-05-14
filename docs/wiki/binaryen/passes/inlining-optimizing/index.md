@@ -61,8 +61,8 @@ That is much closer to reality than “more aggressive inlining.”
 - Reviewed `version_129` chosen inline actions are direct `call` / `return_call` based; `ref.func` and ref/indirect calls remain relevant to survival and repair.
 - The optimizing suffix is part of the public contract, not optional polish.
 - Starshine's current cleanup suffix is an approximation: trace marker plus broad cleanup lane with untouched-function restoration and touched unused-local compaction, not exact Binaryen filtered `precompute-propagate` + default function pipeline.
-- The current `[INL]003` heuristic sub-slices recognize repeated parameter-passthrough binary wrappers, `select` wrappers, and memory/table/SIMD/GC operation wrappers as shrinking trivial candidates; remaining heuristic/action-filtering breadth is still active.
-- Latest accepted direct evidence is validation-clean and green for optimizing over the recorded compared lanes; the latest `[INL]003` SIMD/GC breadth smoke also stays green for optimizing over `199/200` compared cases.
+- The current `[INL]003` heuristic sub-slices recognize repeated parameter-passthrough binary wrappers, `select` wrappers, and memory/table/SIMD/GC operation wrappers as shrinking trivial candidates, and now thread optimize/shrink levels for the first O3 no-call/no-loop `size <= 20` flexible subset; remaining heuristic/action-filtering/action-size breadth is still active.
+- Latest accepted direct evidence is validation-clean and green for optimizing over the recorded compared lanes; the latest `[INL]003` SIMD/GC breadth smoke also stays green for optimizing over `199/200` compared cases, while the O3 flexible slice has reduced Binaryen/Starshine CLI evidence rather than a full compare lane.
 
 ## Current Starshine evidence
 
