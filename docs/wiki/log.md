@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining shrinking-trivial i32x4.add heuristic
+
+- Added the twenty-fifth narrow `[INL]003` heuristic sub-slice: repeated two-parameter stack bodies that load params `0` and `1` in order and then execute `i32x4.add` are now full-inline candidates even with multiple refs under SIMD/all-features inputs.
+- Confirmed Binaryen behavior first with `wasm-opt --all-features --inlining -S --strip-debug` on `.tmp/inl003-i32x4-add-wrapper.wat`; Binaryen removed the helper and emitted two inlined `i32x4.add` blocks.
+- Added `src/passes/inlining_test.mbt` coverage proving a multi-use private `i32x4.add` wrapper is inlined and removed under plain `inlining`; the test failed before implementation with `2 != 1` functions.
+- Updated `src/passes/inlining.mbt` with a guarded `i32x4.add` branch in the two-parameter trivial-wrapper path while keeping broader Binaryen `Shrinks` / `MayNotShrink` / flexible/action-filtering breadth active under `[INL]003`.
+- Validation: `moon fmt`, `moon test src/passes`, full `moon test`, `moon info`, and `git diff --check` passed. Plain smoke `.tmp/pass-fuzz-inlining-inl003-i32x4-add-plain-200` reported `199/200` compared, `190` normalized matches, `9` locals-only mismatches after stripping `(local ...)`, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`; optimizing `.tmp/pass-fuzz-inlining-optimizing-inl003-i32x4-add-200` reported `199/200` compared, `199` matches, `0` mismatches, `0` validation failures, and `1` ignored `binaryen-rec-group-zero`.
 ## [2026-05-13] passes | dae exact-literal callsite slicing now accepts typed single-result block wrappers
 
 - Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so DAE's exact-literal constant-actual slice can recover call argument boundaries when sibling operands are wrapped in explicit single-result `TypeIdxBlockType` block carriers; block / loop / `try_table` wrappers now resolve their input/output arity through the module type section, and typed `if` wrappers add the condition input on top.

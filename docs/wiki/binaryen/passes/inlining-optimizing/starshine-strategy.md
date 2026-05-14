@@ -78,7 +78,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 - Active `inlining` and `inlining-optimizing` module-pass names.
 - Iterative direct `call` and narrow direct `return_call` rewrite waves.
-- Tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, and narrow shrinking-trivial parameter-passthrough memory/table operation-wrapper defined callee eligibility, now including the `table.init` table-init sibling.
+- Tiny, one-use private, narrow shrinking-trivial two-parameter binary-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, and narrow shrinking-trivial parameter-passthrough memory/table/SIMD operation-wrapper defined callee eligibility, now including the `i32x4.add` SIMD-arithmetic sibling.
 - Callee parameter/body-local appending and local-index remapping.
 - Simple return-to-wrapper-block branch repair.
 - Private helper removal after refs disappear.
@@ -91,7 +91,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 ### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and memory/table operation `Shrinks` subsets through the latest `table.init` table-init slice landed on 2026-05-14 and the rest remains active;
+- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, three-parameter `select`, and memory/table/SIMD operation `Shrinks` subsets through the latest `i32x4.add` SIMD-arithmetic slice landed on 2026-05-14 and the rest remains active;
 - `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
 - `[INL]005`: partial inlining splitter;
 - `[INL]006`: nested `return_call*`, multi-result typing, and label/name/annotation repair.

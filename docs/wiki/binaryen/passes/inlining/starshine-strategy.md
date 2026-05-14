@@ -73,7 +73,7 @@ The current plain pass handles:
 
 - tiny no-param private helpers;
 - one-use private helpers;
-- narrow shrinking-trivial two-parameter binary wrappers, three-parameter `select` wrappers, and parameter-passthrough memory/table operation wrappers (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, `table.set`, `table.grow`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, and `table.init`);
+- narrow shrinking-trivial two-parameter binary wrappers, three-parameter `select` wrappers, and parameter-passthrough memory/table/SIMD operation wrappers (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, `i32x4.add`, `table.set`, `table.grow`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, and `table.init`);
 - direct `call` and narrow direct `return_call` sites;
 - callee param/body-local appending into the caller;
 - local-index remapping inside the copied body;
@@ -113,7 +113,7 @@ Missing repair surfaces should skip rather than emit invalid wasm:
 
 ## Main gaps
 
-- Full Binaryen heuristic classes beyond the narrow parameter-passthrough binary, `select`, and memory/table operation `Shrinks` subsets: remaining `Shrinks`, `MayNotShrink`, flexible size, loop policy, optimize/shrink-level sensitivity.
+- Full Binaryen heuristic classes beyond the narrow parameter-passthrough binary, `select`, and memory/table/SIMD operation `Shrinks` subsets: remaining `Shrinks`, `MayNotShrink`, flexible size, loop policy, optimize/shrink-level sensitivity.
 - partial-inlining-specific `no-inline*` behavior after the splitter lands.
 - Pattern A / Pattern B partial inlining and helper cleanup.
 - Exact nested `return_call*` and `return_call`-inside-`try` handling.

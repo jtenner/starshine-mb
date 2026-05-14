@@ -1124,6 +1124,32 @@ test "inlining treats repeated parameter passthrough table.init wrappers as shri
 }
 
 ///|
+test "inlining treats repeated parameter passthrough i32x4.add wrappers as shrinking trivial" {
+  let source =
+    #|(module
+    #|  (func $add (param v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32x4.add)
+    #|  (func (export "run") (param v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $add
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $add
+    #|    i32x4.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("i32x4.add"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
 test "inlining zero-initializes appended defaultable callee locals in plain mode" {
   let source =
     #|(module

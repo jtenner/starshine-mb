@@ -300,6 +300,7 @@ fn inl_is_binary_trivial_op(instr : @lib.Instruction) -> Bool {
     | @lib.F64Max
     | @lib.F64Copysign
     | @lib.RefEq
+    | @lib.I32x4Add
     | @lib.I32Store(_)
     | @lib.I64Store(_)
     | @lib.F32Store(_)
