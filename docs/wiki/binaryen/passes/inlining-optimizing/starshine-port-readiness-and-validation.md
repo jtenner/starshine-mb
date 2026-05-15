@@ -82,7 +82,8 @@ Focused tests validate the current subset:
 - unreachable private cycle cleanup/retention families;
 - no-inlining unreachable value-block pruning and predicted exact-helper padding;
 - narrow hot-unsafe polymorphic self-call suffix detector coverage;
-- optimizing nested-cleanup trace marker.
+- optimizing nested-cleanup trace marker and explicit first nested-pass trace for `precompute-propagate-prefix`;
+- touched-caller/default-init local folding through the private prefix while an untouched sibling remains body-shape unchanged.
 
 ## Active blockers
 
@@ -97,9 +98,9 @@ Focused tests validate the current subset:
 
 - optimizing mode currently approximates nested cleanup;
 - the former seed-`0x1eed` `case-008100-gen-valid` command failure is fixed by a narrow hot-unsafe helper guard;
-- no exact touched-function-filtered scheduler;
-- no real prepended `precompute-propagate` equivalent;
-- no proof that only Binaryen's touched functions run the default pipeline;
+- a private touched-only `precompute-propagate-prefix` now runs before the older cleanup lane, but the real public `precompute-propagate` sibling is still unavailable;
+- no exact touched-function-filtered scheduler for the remaining default pipeline;
+- no proof that only Binaryen's touched functions run the default pipeline after the prefix;
 - no ordered late-tail artifact parity.
 
 ## Validation ladder
@@ -118,9 +119,9 @@ Treat `[INL]001` and `[INL]007` as complete only for the currently implemented d
 
 Do not mark `[INL]002` complete until:
 
-- the nested cleanup starts with the real `precompute-propagate` equivalent;
+- the nested cleanup starts with the real `precompute-propagate` equivalent rather than only the current private prefix approximation;
 - the default function pipeline runs only on Binaryen's touched set;
-- untouched functions are proven unchanged by the nested scheduler;
+- untouched functions are proven unchanged by the full nested scheduler, not only by body restoration after a whole-module cleanup lane;
 - focused trace/scheduler tests and direct compare evidence agree.
 
 ## Unresolved uncertainty

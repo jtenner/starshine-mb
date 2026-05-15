@@ -4788,6 +4788,24 @@ fn inl_has_two_func_exact_root_hot_unsafe_helper(mod_ : @lib.Module) -> Bool {
 }
 
 ///|
+fn inl_abs_touched_to_defined(
+  touched : Array[Bool],
+  imports : Int,
+  defined : Int,
+) -> Array[Bool] {
+  let out = Array::make(defined, false)
+  let mut def_idx = 0
+  while def_idx < defined {
+    let abs = imports + def_idx
+    if abs >= 0 && abs < touched.length() {
+      out[def_idx] = touched[abs]
+    }
+    def_idx += 1
+  }
+  out
+}
+
+///|
 fn inl_restore_untouched_funcs(
   original : @lib.Module,
   cleaned : @lib.Module,
@@ -4840,6 +4858,30 @@ fn inl_run_nested_cleanup(
     return inl_compact_unused_locals(mod_, touched)
   }
   let prepared = inl_collapse_unreachable_roots(mod_, touched)
+  let options = HotPipelineOptions::new(validate_final_module=false, trace~)
+  let imports = inl_imported_func_count(prepared)
+  let def_touched = inl_abs_touched_to_defined(
+    touched,
+    imports,
+    inl_defined_func_count(prepared),
+  )
+  match trace {
+    Some(cb) =>
+      cb(
+        "pass[inlining-optimizing]:nested-pass name=precompute-propagate-prefix",
+      )
+    None => ()
+  }
+  let prefixed = match
+    run_hot_pipeline_apply_hot_pass_to_touched(
+      prepared,
+      precompute_propagate_prefix_descriptor(),
+      def_touched,
+      options,
+    ) {
+    Ok(next) => next
+    Err(_) => prepared
+  }
   let passes = [
     "precompute", "ssa-nomerge", "dead-code-elimination", "remove-unused-names",
     "remove-unused-brs", "vacuum", "remove-unused-brs", "optimize-instructions",
@@ -4849,8 +4891,7 @@ fn inl_run_nested_cleanup(
     "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute", "optimize-instructions",
     "heap-store-optimization",
   ]
-  let options = HotPipelineOptions::new(validate_final_module=false, trace~)
-  match run_hot_pipeline(prepared, options, passes) {
+  match run_hot_pipeline(prefixed, options, passes) {
     Ok(cleaned) =>
       inl_compact_unused_locals(
         inl_collapse_unreachable_roots(

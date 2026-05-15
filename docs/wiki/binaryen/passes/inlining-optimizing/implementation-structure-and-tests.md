@@ -89,8 +89,10 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - exposes `no_inline_copy_policy_annotations(...)` for future clone/copy transforms to preserve no-inline policy markers.
 - Nested approximation:
   - emits trace marker;
-  - runs an unfiltered cleanup lane with validation disabled;
-  - restores untouched function bodies;
+  - prepends the private touched-only `precompute-propagate-prefix` helper and traces that nested-pass slot explicitly;
+  - converts absolute touched-function bits to defined-function bits before running the prefix so imports do not shift the touched set;
+  - still runs the remaining cleanup lane unfiltered with validation disabled;
+  - restores untouched function bodies after that unfiltered lane;
   - compacts unused locals on touched functions;
   - collapses conservative unreachable-root shapes.
 - Exact-unreachable predictor:
@@ -116,7 +118,8 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - root unreachable collapse cleanup;
 - no-inlining unreachable value-block pruning;
 - shadowed void-cycle result-helper retention;
-- optimizing nested-cleanup trace marker;
+- optimizing nested-cleanup trace marker plus a focused first nested-pass trace for `precompute-propagate-prefix`;
+- touched-caller/default-local prefix folding coverage that keeps an untouched sibling's body-local `local.get` shape unchanged;
 - whitebox predicted exact-helper padding;
 - whitebox detection of polymorphic self-call suffixes before the approximate hot cleanup lane.
 
@@ -158,6 +161,7 @@ Binaryen parse/canonicalization failures are classified as ignored oracle/tool f
 - nested `return_call*` / `try` hoist fixtures;
 - multi-result wrapper fixtures;
 - nondefaultable local fixtures;
-- exact touched-function scheduler tests;
+- broader exact touched-function scheduler tests for callers/callees/removed helpers after the prefix;
+- replacing the remaining whole-module cleanup-plus-restore lane with a truly filtered default-function pipeline;
 - direct plain `--pass inlining` standard compare evidence;
-- direct optimizing `--pass inlining-optimizing` compare with zero mismatches across the agreed standard and broadened seed lanes.
+- direct optimizing `--pass inlining-optimizing` compare with zero mismatches across the agreed standard and broadened seed lanes after each scheduler expansion.

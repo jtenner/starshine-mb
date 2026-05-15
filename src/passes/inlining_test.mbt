@@ -2352,3 +2352,64 @@ test "inlining-optimizing emits nested cleanup trace for touched functions" {
     msg=trace.to_string(),
   )
 }
+
+///|
+test "inlining-optimizing nested scheduler starts with precompute-propagate prefix" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  let mut cleanup_idx = -1
+  let mut prefix_idx = -1
+  let mut idx = 0
+  for line in trace {
+    if cleanup_idx < 0 &&
+      line.contains("pass[inlining-optimizing]:nested-cleanup") {
+      cleanup_idx = idx
+    }
+    if prefix_idx < 0 &&
+      line.contains(
+        "pass[inlining-optimizing]:nested-pass name=precompute-propagate-prefix",
+      ) {
+      prefix_idx = idx
+    }
+    idx += 1
+  }
+  assert_true(cleanup_idx >= 0, msg=trace.to_string())
+  assert_true(prefix_idx > cleanup_idx, msg=trace.to_string())
+}
+
+///|
+test "inlining-optimizing nested prefix propagates default locals only in touched callers" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (result i32)))
+    #|  (func $tiny (type $t0)
+    #|    i32.const 1)
+    #|  (func $idle (type $t0)
+    #|    (local i32)
+    #|    local.get 0
+    #|    i32.eqz)
+    #|  (func $run (export "run") (type $t0)
+    #|    (local i32)
+    #|    call $tiny
+    #|    drop
+    #|    local.get 0
+    #|    i32.eqz))
+  let optimized = inl_test_run(source)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let idle = optimized.pretty_print_defined_func(0U)
+  assert_true(idle.contains("local.get (Local 0)"), msg=idle)
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_true(run.contains("i32.const I32(1)"), msg=run)
+  assert_false(run.contains("local.get"), msg=run)
+}

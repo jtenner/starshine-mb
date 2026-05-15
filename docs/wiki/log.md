@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining-optimizing nested prefix approximation
+
+- Advanced `[INL]002` by prepending Starshine's private touched-only `precompute-propagate-prefix` helper to `inlining-optimizing`'s nested cleanup approximation before the existing cleanup lane.
+- Added focused scheduler coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt): the trace must emit `pass[inlining-optimizing]:nested-pass name=precompute-propagate-prefix`, and a touched caller/default-local fixture folds after the prefix while an untouched sibling keeps its original `local.get` body shape.
+- Updated [`../../src/passes/inlining.mbt`](../../src/passes/inlining.mbt) with absolute-to-defined touched-set conversion so the private prefix helper only runs on touched defined functions, including modules with imports.
+- Smoke validation: `.tmp/pass-fuzz-inlining-optimizing-inl002-prefix-200` reported `199/200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, and `1` ignored Binaryen/tool command failure.
+- `[INL]002` remains open: the suffix still uses whole-module cleanup plus untouched-body restoration after the prefix, not Binaryen's exact touched-function-filtered default pipeline.
 ## [2026-05-14] passes | inlining repeated-work cap and INL003 closeout
 
 - Added the thirty-third and closing `[INL]003` sub-slice: Starshine now tracks which original functions were inlined into across outer inlining iterations and stops when a function reaches Binaryen's `MaxIterationsForFunc = 5` repeated-work cap.
