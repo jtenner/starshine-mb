@@ -2488,6 +2488,65 @@ test "inlining-optimizing nested scheduler replays code-folding before merge-blo
 }
 
 ///|
+test "inlining-optimizing nested scheduler replays late local cleanup before code-folding" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  let mut simplify_idx = -1
+  let mut first_vacuum_idx = -1
+  let mut first_reorder_idx = -1
+  let mut coalesce_idx = -1
+  let mut second_reorder_idx = -1
+  let mut second_vacuum_idx = -1
+  let mut folding_idx = -1
+  let mut idx = 0
+  for line in trace {
+    if simplify_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=simplify-locals" {
+      simplify_idx = idx
+    } else if simplify_idx >= 0 &&
+      first_vacuum_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=vacuum" {
+      first_vacuum_idx = idx
+    } else if first_vacuum_idx >= 0 &&
+      first_reorder_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=reorder-locals" {
+      first_reorder_idx = idx
+    } else if first_reorder_idx >= 0 &&
+      coalesce_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=coalesce-locals" {
+      coalesce_idx = idx
+    } else if coalesce_idx >= 0 &&
+      second_reorder_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=reorder-locals" {
+      second_reorder_idx = idx
+    } else if second_reorder_idx >= 0 &&
+      second_vacuum_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=vacuum" {
+      second_vacuum_idx = idx
+    } else if second_vacuum_idx >= 0 &&
+      folding_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=code-folding" {
+      folding_idx = idx
+    }
+    idx += 1
+  }
+  assert_true(first_vacuum_idx > simplify_idx, msg=trace.to_string())
+  assert_true(first_reorder_idx > first_vacuum_idx, msg=trace.to_string())
+  assert_true(coalesce_idx > first_reorder_idx, msg=trace.to_string())
+  assert_true(second_reorder_idx > coalesce_idx, msg=trace.to_string())
+  assert_true(second_vacuum_idx > second_reorder_idx, msg=trace.to_string())
+  assert_true(folding_idx > second_vacuum_idx, msg=trace.to_string())
+}
+
+///|
 test "inlining-optimizing nested prefix propagates default locals only in touched callers" {
   let source =
     #|(module
