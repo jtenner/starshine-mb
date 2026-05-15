@@ -1,4 +1,28 @@
 ///|
+test "raw vacuum preclean removes stacked pure local drops in one pass" {
+  let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(7),
+  ])
+  assert_true(changed)
+  @debug.assert_eq(cleaned, [@lib.Instruction::i32_const(7)])
+}
+
+///|
+test "raw vacuum preclean truncates dead tail after nonfallthrough" {
+  let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs([
+    @lib.Instruction::unreachable_(),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ])
+  assert_true(changed)
+  @debug.assert_eq(cleaned, [@lib.Instruction::unreachable_()])
+}
+
+///|
 test "hot pipeline debug dump targets stay disabled without trace" {
   let options = HotPipelineOptions::new()
 

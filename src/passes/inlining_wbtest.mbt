@@ -48,6 +48,10 @@ test "inlining final local cleanup coalesces artifact-like local bloat safely" {
     #|     nop
     #|     i32.const 0
     #|     drop
+    #|     local.get 0
+    #|     local.get 0
+    #|     drop
+    #|     drop
     #|     local.get 4))
   let input = pass_test_module_from_wat(source)
   let cleaned = inl_run_final_local_cleanup(input)

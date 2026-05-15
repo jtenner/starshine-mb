@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-15] passes | INL002 stacked pure-drop cleanup
+
+- Extended the raw vacuum precleaner in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so pure dropped `local.get` / `global.get` leaves, stacked pure-leaf/drop clusters, and direct dead tails after raw nonfallthrough terminators are removed before/after final inlining local cleanup. This preserves the earlier validation guard and avoids the unsafe full HOT `vacuum` tail.
+- Added focused coverage in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) for one-pass stacked `local.get local.get drop drop` cleanup and dead-tail truncation after `unreachable`; expanded [`../../src/passes/inlining_wbtest.mbt`](../../src/passes/inlining_wbtest.mbt) so final cleanup covers local-read drop debris as well as `nop` and const/drop debris.
+- Validation/evidence: `moon fmt`, `moon test src/passes` (`1070/1070`), `moon build --target native --release --package jtenner/starshine/cmd`, direct replay `.tmp/inl002-deadtail-preclean-20260515-220109` (`exit=0`, `wasm-tools validate` green). Canonical bytes/text still differ from Binaryen, but top aligned function `S2356->B2289` dropped to about `116K` WAT-byte delta with `0` printed drops and `172` locals.
+- `[INL]002` remains open. Current largest residual aligned drifts are local-carrier/scheduler differences such as `S1578->B1523` (about `928K`) and start/export `S3060->B2945` (about `427K`), plus 119 skipped Starshine functions in the heuristic alignment.
 ## [2026-05-15] passes | INL002 artifact local bloat reduced
 
 - Ranked `.tmp/self-opt-inlining-optimizing-inl002-manual-20260515-185400/{starshine,binaryen}.print.wat` by function-size deltas. The largest meaningful aligned differences were local-declaration/coalescing bloat in large functions such as `S93->B93`, `S1675->B1612`, and start/export (`S3059/S3060 -> B2944/B2945`), not a new native abort.

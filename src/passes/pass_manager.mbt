@@ -8039,7 +8039,9 @@ fn run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(
     | @lib.F64Const(_)
     | @lib.RefNull(_)
     | @lib.RefFunc(_)
-    | @lib.StringConst(_) => true
+    | @lib.StringConst(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_) => true
     _ => false
   }
 }
@@ -8051,7 +8053,12 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut idx = 0
+  let mut prev_may_fallthrough = true
   while idx < instrs.length() {
+    if !prev_may_fallthrough {
+      changed = true
+      break
+    }
     let instr = instrs[idx]
     match instr {
       @lib.Nop => {
@@ -8107,6 +8114,18 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
       _ => {
+        match instr {
+          @lib.Drop if rewritten.length() > 0 &&
+            run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(
+              rewritten[rewritten.length() - 1],
+            ) => {
+            ignore(rewritten.pop())
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          _ => ()
+        }
         if idx + 1 < instrs.length() &&
           run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(instr) {
           match instrs[idx + 1] {
@@ -8120,6 +8139,15 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         }
         rewritten.push(instr)
       }
+    }
+    prev_may_fallthrough = match rewritten[rewritten.length() - 1] {
+      @lib.Unreachable
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallRef(_)
+      | @lib.Br(_)
+      | @lib.BrTable(_, _) => false
+      _ => true
     }
     idx = idx + 1
   }
