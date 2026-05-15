@@ -4873,6 +4873,22 @@ fn inl_run_nested_cleanup(
 }
 
 ///|
+fn inl_touched_original_abs(
+  touched : Array[Bool],
+  original_abs : Array[Int],
+) -> Array[Int] {
+  let out : Array[Int] = []
+  let mut idx = 0
+  while idx < touched.length() && idx < original_abs.length() {
+    if touched[idx] {
+      out.push(original_abs[idx])
+    }
+    idx += 1
+  }
+  out
+}
+
+///|
 fn inl_run_module_pass_once(
   mod_ : @lib.Module,
   optimize : Bool,
@@ -4880,7 +4896,7 @@ fn inl_run_module_pass_once(
   pass_name : String,
   optimize_level : Int,
   shrink_level : Int,
-) -> (@lib.Module, Bool) {
+) -> (@lib.Module, Bool, Array[Int]) {
   let original_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
   let preserve_root_cycle_cleanup = inl_has_same_sig_root_cycle_dead_suffix(
     mod_,
@@ -4888,7 +4904,7 @@ fn inl_run_module_pass_once(
   let infos = inl_build_function_infos(mod_, optimize_level~, shrink_level~)
   let result = inl_rewrite_all_calls(mod_, infos)
   if !result.changed {
-    return (inl_prune_dead_unreachable_drops(mod_), false)
+    return (inl_prune_dead_unreachable_drops(mod_), false, [])
   }
   inl_trace_nested_cleanup(pass_name, optimize, result.touched, trace)
   // Binaryen's plain `--inlining` deletes private helpers that become dead
@@ -4907,8 +4923,12 @@ fn inl_run_module_pass_once(
       plain_retain_counts
     },
   )
+  let touched_original_abs = inl_touched_original_abs(
+    removal.touched,
+    removal.original_abs,
+  )
   if !optimize {
-    return (removal.mod_out, true)
+    return (removal.mod_out, true, touched_original_abs)
   }
   let nested_cleaned = if preserve_root_cycle_cleanup && optimize {
     inl_compact_unused_locals(
@@ -4946,6 +4966,7 @@ fn inl_run_module_pass_once(
       original_graph_info.predicted_unreachable_counts,
     ),
     true,
+    touched_original_abs,
   )
 }
 
@@ -4959,11 +4980,15 @@ pub fn inlining_run_module_pass(
   shrink_level? : Int = 0,
 ) -> @lib.Module {
   let initial_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
+  let initial_total = inl_imported_func_count(mod_) +
+    inl_defined_func_count(mod_)
+  let iteration_counts = Array::make(initial_total, 0)
+  let max_iterations_for_func = 5
   let mut current = mod_
   let mut iterations = 0
   let max_iterations = inl_defined_func_count(mod_) + 1
   while iterations < max_iterations {
-    let (next, changed) = inl_run_module_pass_once(
+    let (next, changed, touched_original_abs) = inl_run_module_pass_once(
       current, optimize, trace, pass_name, optimize_level, shrink_level,
     )
     if !changed {
@@ -4974,6 +4999,17 @@ pub fn inlining_run_module_pass(
     }
     current = next
     iterations += 1
+    for original_abs in touched_original_abs {
+      if original_abs >= 0 && original_abs < iteration_counts.length() {
+        iteration_counts[original_abs] += 1
+        if iteration_counts[original_abs] >= max_iterations_for_func {
+          return inl_trim_unreachable_to_selected_counts(
+            current,
+            initial_graph_info.final_trim_counts,
+          )
+        }
+      }
+    }
     if optimize &&
       inl_hash_has_positive(initial_graph_info.retain_inlined_helper_counts) {
       let touched = Array::make(

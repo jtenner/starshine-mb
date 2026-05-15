@@ -63,7 +63,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 | `src/passes/inlining_wbtest.mbt` | whitebox coverage for unreachable value-block pruning, predicted exact-helper padding, and the narrow hot-unsafe polymorphic self-call suffix detector |
 | `src/passes/optimize.mbt` | registry category and preset omission |
 | `src/passes/pass_manager.mbt` | module-pass dispatch, `optimize=true` routing, and optimize/shrink-level propagation into inlining |
-| `agent-todo.md` | accepted `[INL]001` and `[INL]007`, active `[INL]002`, deferred `[INL]003`, `[INL]005`, and `[INL]006`, and latest artifact evidence |
+| `agent-todo.md` | accepted `[INL]001` and `[INL]007`, active `[INL]002`, accepted `[INL]003`, deferred `[INL]005` and `[INL]006`, and latest artifact evidence |
 | `CHANGELOG.md` | chronological implementation checkpoints |
 
 ## Current Starshine implementation clusters
@@ -72,8 +72,8 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - resolves function types;
   - counts imports/definitions;
   - scans direct refs and roots;
-  - computes simplified size and shape flags, then carries current caller size for combined-size action filtering;
-  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, an ordered direct-call wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, a narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation wrapper (through the current supported SIMD plus GC heap-operation breadth slice), or the first speed-focused flexible no-direct-call/no-loop `size <= 20` subset at optimize level three with shrink level zero and block type is void/single-result.
+  - computes simplified size and shape flags, carries current caller size for combined-size action filtering, and tracks original touched callers for repeated-work caps;
+  - marks inlineable when tiny, one-use private, a narrow shrinking-trivial two-parameter binary wrapper, an ordered direct-call wrapper, a narrow shrinking-trivial three-parameter `select` wrapper, a narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation wrapper (through the current supported SIMD plus GC heap-operation breadth slice), or the first speed-focused flexible no-direct-call/no-loop `size <= 20` subset at optimize level three with shrink level zero and block type is void/single-result; repeated outer iterations stop at Binaryen's five-iteration cap per original function.
 - Rewrite:
   - recurses through structured bodies;
   - rejects actions over the default combined-size guard before copying;

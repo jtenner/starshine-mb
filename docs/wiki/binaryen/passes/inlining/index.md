@@ -67,7 +67,7 @@ A safe mental model:
 - Inline rewrite is structured IR surgery: operand storage, fresh caller locals, zeroing defaultable copied vars, copied-body metadata, return-to-break repair, nested `return_call*` repair, label uniquification, refinalization, and nondefaultable-local repair.
 - Plain `inlining` must not accidentally run `precompute-propagate` or the default function pipeline. That difference is the public split from `inlining-optimizing`.
 
-## Starshine status snapshot: 2026-05-13
+## Starshine status snapshot: 2026-05-14
 
 Implemented subset:
 
@@ -78,17 +78,17 @@ Implemented subset:
 - simple callee `return` rewrite to an inlined wrapper-block branch;
 - private helper removal when surviving refs disappear;
 - function-index rewriting after removals;
-- focused tests for no-param helpers, parameter operand storage, exported tiny-helper survival, `return_call`, self-recursion skip, iterative race-guard follow-up, narrow shrinking-trivial binary-wrapper, direct-call-wrapper, `select`-wrapper, memory/table/SIMD/GC operation-wrapper heuristics (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, supported SIMD plus GC heap-operation wrappers, `table.set`, `table.grow`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, and `table.init`), the first optimize-level-three/no-shrink flexible no-call/no-loop policy, combined-size action guard coverage, defaultable copied-local zero-init, plain helper deletion without optimizing retain counts, plain no-call unreachable value-block cleanup, registry wiring, optimizing trace marker, and the first `no-inline*` policy split fixtures including imported WAT identifiers, deduplication, no-match behavior, annotation and function-name remapping across helper compaction, post-compaction policy matching by surviving names, and local-name dropping after inlining body rewrites.
+- focused tests for no-param helpers, parameter operand storage, exported tiny-helper survival, `return_call`, self-recursion skip, iterative race-guard follow-up, narrow shrinking-trivial binary-wrapper, direct-call-wrapper, `select`-wrapper, memory/table/SIMD/GC operation-wrapper heuristics (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, supported SIMD plus GC heap-operation wrappers, `table.set`, `table.grow`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, and `table.init`), the first optimize-level-three/no-shrink flexible no-call/no-loop policy, combined-size action guard coverage, Binaryen-style per-original-function repeated-work cap coverage, defaultable copied-local zero-init, plain helper deletion without optimizing retain counts, plain no-call unreachable value-block cleanup, registry wiring, optimizing trace marker, and the first `no-inline*` policy split fixtures including imported WAT identifiers, deduplication, no-match behavior, annotation and function-name remapping across helper compaction, post-compaction policy matching by surviving names, and local-name dropping after inlining body rewrites.
 
 Still missing or incomplete:
 
-- full Binaryen heuristic parity, including remaining trivial-instruction classes and flexible policy beyond the narrow shrinking binary-wrapper, direct-call-wrapper, `select`-wrapper, memory/table/SIMD/GC operation-wrapper subsets (`i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, supported SIMD plus GC heap-operation wrappers, `table.set`, `table.grow`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, and `table.init`) and the first O3/no-shrink no-direct-call/no-loop `size <= 20` flexible subset;
+- unsupported or unparsed instruction breadth such as atomic-wrapper text/parser coverage when a Starshine-supported repro exists;
 - partial-inlining-specific `no-inline`, `no-full-inline`, and `no-partial-inline` behavior after the splitter lands;
 - partial Pattern A / Pattern B splitting;
 - nested `return_call*` repair and `return_call`-inside-`try` hoisting;
 - multi-result inlined wrapper block typing;
 - exact label/name collision behavior and annotation/name-section repair;
-- exact Binaryen repeated-work caps and any remaining action-filtering refinements beyond the combined-size guard.
+- nondefaultable-local repair and Binaryen-like refinalization behavior.
 
 ## Current evidence
 
@@ -141,7 +141,7 @@ The broadened seed lane is green over compared cases:
 - `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures
 - `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`
 
-Per project policy and user preference, Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; exact nested scheduling remains `[INL]002`, deferred unsupported direct-inliner breadth now lives under `[INL]003`, `[INL]005`, and `[INL]006`, and plain `[INL]007` is accepted with local-declaration/allocation drift classified as representation-only.
+Per project policy and user preference, Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; `[INL]003` is accepted for the current supported heuristic/action-filtering surface after the repeated-work cap fix. Exact nested scheduling remains `[INL]002`, deferred unsupported direct-inliner breadth now lives under `[INL]005` and `[INL]006`, and plain `[INL]007` is accepted with local-declaration/allocation drift classified as representation-only. Latest closeout lanes are `.tmp/pass-fuzz-inlining-inl003-after-repeated-cap-plain-10000` (806/806 locals-only mismatches, 0 validation failures) and `.tmp/pass-fuzz-inlining-optimizing-inl003-after-repeated-cap-10000` (9975/9975 matches).
 
 ## Page map
 

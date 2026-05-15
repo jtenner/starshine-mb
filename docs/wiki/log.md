@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining repeated-work cap and INL003 closeout
+
+- Added the thirty-third and closing `[INL]003` sub-slice: Starshine now tracks which original functions were inlined into across outer inlining iterations and stops when a function reaches Binaryen's `MaxIterationsForFunc = 5` repeated-work cap.
+- Confirmed Binaryen behavior with `.tmp/inl003-b-recursive-cap10.wat`: with extra dummy functions raising the original-function-count rail, Binaryen stops after five recursive `$b` inlines into exported `$a`; before this slice Starshine kept going to eleven.
+- Added focused public-pipeline coverage for the repeated recursive work cap and kept same-iteration many-call inlining unlimited, matching the source distinction between many callsites in one wave and repeated work across waves.
+- Final `[INL]003` evidence after the cap fix: plain `.tmp/pass-fuzz-inlining-inl003-after-repeated-cap-plain-10000` reported `9975/10000` compared, `9169` normalized matches, `806` local-declaration-only mismatches after stripping `(local ...)`, `0` validation failures, and `25` ignored Binaryen/tool command failures; optimizing `.tmp/pass-fuzz-inlining-optimizing-inl003-after-repeated-cap-10000` reported `9975/10000` compared, `9975` matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool command failures.
+- Source/test audit found no remaining current-supported `[INL]003` heuristic/action-filtering blocker: unresolved broader inliner parity stays under `[INL]002` nested cleanup, `[INL]005` partial splitting, or `[INL]006` repair/tail-call/multivalue/name behavior.
 ## [2026-05-14] passes | inlining shrinking direct-call wrappers
 
 - Added the thirty-second `[INL]003` sub-slice: ordered parameter-passthrough direct-call wrappers are now classified as shrinking trivial and inline under plain `inlining` even when multi-use.

@@ -78,7 +78,7 @@ Focused tests validate the current subset:
 - narrow direct `return_call` inlining;
 - self-recursion skip;
 - iterative wave behavior;
-- the `[INL]003` heuristic subsets for repeated two-parameter binary, ordered direct-call, three-parameter `select`, parameter-passthrough memory/table/SIMD/GC operation wrappers, and the first optimize-level-three/no-shrink flexible no-direct-call/no-loop policy; this includes the latest supported SIMD plus GC heap-operation breadth;
+- the accepted `[INL]003` heuristic/action-filtering surface for repeated two-parameter binary, ordered direct-call, three-parameter `select`, parameter-passthrough memory/table/SIMD/GC operation wrappers, the first optimize-level-three/no-shrink flexible no-direct-call/no-loop policy, combined-size filtering, and repeated-work caps;
 - unreachable private cycle cleanup/retention families;
 - no-inlining unreachable value-block pruning and predicted exact-helper padding;
 - narrow hot-unsafe polymorphic self-call suffix detector coverage;
@@ -88,7 +88,7 @@ Focused tests validate the current subset:
 
 ### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003` heuristic classes, action filtering, and size/iteration policy; narrow two-parameter binary, ordered direct-call, three-parameter `select`, and memory/table/SIMD/GC operation `Shrinks` subsets through the supported SIMD plus GC heap-operation breadth slice are implemented, and optimize/shrink-level plumbing now enables the first speed-focused flexible `size <= 20` no-direct-call/no-loop policy at optimize level three with shrink level zero; remaining trivial/flexible/action-filtering/repeated-work-cap breadth stays active;
+- `[INL]003` accepted current-supported heuristic/action-filtering surface on 2026-05-14 after the repeated-work cap closeout; reopen only for a new Starshine-supported semantic mismatch in heuristic/action filtering;
 - `[INL]004` accepted current `no-inline*` policy surface; initial name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and shared clone/copy policy helper are implemented;
 - `[INL]005` Pattern A / Pattern B partial splitting;
 - `[INL]006` nested tail-call, multi-result, and name/annotation repair.
@@ -114,7 +114,7 @@ Focused tests validate the current subset:
 
 ## Acceptance criteria
 
-Treat `[INL]001` and `[INL]007` as complete only for the currently implemented direct-call surfaces already proven by the green seed lanes. New direct-inliner work should land under `[INL]003`, `[INL]005`, and `[INL]006`, not by reopening accepted direct slices without a new semantic mismatch.
+Treat `[INL]001` and `[INL]007` as complete only for the currently implemented direct-call surfaces already proven by the green seed lanes. New direct-inliner work should land under `[INL]005` or `[INL]006` unless a new Starshine-supported heuristic/action-filtering semantic mismatch justifies reopening `[INL]003`; do not reopen accepted direct slices without a new semantic mismatch.
 
 Do not mark `[INL]002` complete until:
 

@@ -70,7 +70,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 - [`src/passes/inlining_wbtest.mbt`](../../../../../src/passes/inlining_wbtest.mbt)
   - whitebox coverage for the narrow hot-unsafe polymorphic self-call suffix detector.
 - [`agent-todo.md`](../../../../../agent-todo.md)
-  - active `[INL]002` scheduler work plus deferred direct-inliner breadth slices `[INL]003`, `[INL]005`, and `[INL]006`; `[INL]007` is accepted for plain direct signoff.
+  - active `[INL]002` scheduler work plus accepted `[INL]003` plus deferred direct-inliner breadth slices `[INL]005` and `[INL]006`; `[INL]007` is accepted for plain direct signoff.
 - [`CHANGELOG.md`](../../../../../CHANGELOG.md)
   - 2026-05-11 and 2026-05-12 implementation checkpoints.
 
@@ -92,7 +92,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 
 ### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
-- `[INL]003`: exact Binaryen heuristic classes/options plus action filtering, iteration caps, and size guard; narrow two-parameter binary, ordered direct-call, three-parameter `select`, and memory/table/SIMD/GC operation `Shrinks` subsets through the latest supported SIMD plus GC heap-operation breadth slice landed on 2026-05-14, and the first optimize-level-three/no-shrink flexible no-direct-call/no-loop subset is implemented and covered by loop/call/shrink-mode focused tests; remaining trivial/flexible/repeated-work-cap breadth remains active;
+- `[INL]003`: accepted current-supported heuristic/action-filtering surface on 2026-05-14 after adding Binaryen's per-function repeated-work cap; shrinking-trivial wrappers, O3/no-shrink flexible policy, direct-call-only `hasCalls`, combined-size filtering, same-wave guards, and repeated-work caps have 10k closeout evidence;
 - `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
 - `[INL]005`: partial inlining splitter;
 - `[INL]006`: nested `return_call*`, multi-result typing, and label/name/annotation repair.

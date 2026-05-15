@@ -502,6 +502,29 @@ test "inlining treats repeated parameter passthrough binary wrappers as shrinkin
 }
 
 ///|
+test "inlining covers repeated parameter passthrough unary wrappers via tiny eligibility" {
+  let source =
+    #|(module
+    #|  (func $iszero (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.eqz)
+    #|  (func (export "run") (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    call $iszero
+    #|    local.get 1
+    #|    call $iszero
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("i32.eqz"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
 test "inlining treats repeated parameter passthrough select wrappers as shrinking trivial" {
   let source =
     #|(module
@@ -1601,6 +1624,34 @@ test "inlining inlines tiny return_call callees" {
   let caller = optimized.pretty_print_defined_func(0U)
   assert_true(caller.contains("i32.const I32(7)"), msg=caller)
   assert_false(caller.contains("return_call"), msg=caller)
+}
+
+///|
+test "inlining caps repeated recursive work per caller" {
+  let source =
+    #|(module
+    #|  (func $a (export "A") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $b (export "B") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $d0)
+    #|  (func $d1)
+    #|  (func $d2)
+    #|  (func $d3)
+    #|  (func $d4)
+    #|  (func $d5)
+    #|  (func $d6)
+    #|  (func $d7))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(locals, _) = funcs[0]
+      @debug.assert_eq(locals.length(), 5)
+    }
+    None => fail("expected code section")
+  }
 }
 
 ///|
