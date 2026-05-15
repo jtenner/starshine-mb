@@ -1,13 +1,24 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-05-05
+status: supported
+last_reviewed: 2026-05-14
 sources:
   - ../../README.md
   - ../../../agent-todo.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/gen_valid.mbt
+  - ../../../src/validate/gen_invalid.mbt
+  - ../../../src/fuzz/invalid_binary.mbt
+  - ../../../src/fuzz/invalid_repro.mbt
+  - ../../../src/wast/arbitrary.mbt
+  - ../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../scripts/test/pass-fuzz-compare-command.ts
 related:
+  - ./wast-arbitrary-parity-plan.md
+  - ../tooling/fuzz-runner.md
+  - ../tooling/validation-gates.md
+  - ../validate/fuzz-hardening.md
+  - ../binary/data-element-and-datacount-sections.md
   - ../binary/custom-and-name-sections.md
 ---
 
@@ -19,7 +30,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 
 - `src/validate/validate.mbt` owns the public ledger API: `validate_valid_feature_ledger(stats, floors)` returns one row per intended surface with a stable key, label, observed count, required minimum, and status.
 - `check_validate_valid_feature_floors(stats, floors)` still fails only for floors explicitly listed by a profile or caller. Missing future FZG families are reported as `MissingOptional` until a profile adds a nonzero floor.
-- Existing smoke/CI/stress profiles keep their previous floors. The new FZG rows are available for diagnostics and later floor retuning, but they are not required by default yet.
+- Smoke/CI/stress no longer treat completed FZG rows as purely optional. `validate_valid_run_config("smoke"|"ci"|"stress")` now uses coverage-forced valid generation and applies profile floors of `1`/`10`/`100` to the completed valid-generator rows through `[FZG]023`; future rows still report as `MissingOptional` until they get explicit floors.
 - `[FZG]002` attaches the first widened-surface counter: `NumericFullOps` now counts modules whose instruction scan sees expanded scalar numeric opcodes.
 - `[FZG]003` attaches exact core-control counters for `br_table`, standalone `unreachable`, `local.tee`, and typed `select`; coverage-forced modules emit a deterministic valid prelude for those forms.
 - `[FZG]004` attaches the tail-call counter: `TailCalls` reports nonzero coverage when direct, indirect, or ref tail-call forms appear. Coverage-forced modules now emit all three valid tail-call forms where callable results match the current function return type.
@@ -46,6 +57,17 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 - `[FZG]026` is documented separately in [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md): WAST arbitrary generation remains a text-roundtrip generator instead of calling `gen_valid` directly, but duplicated opcode pickers must stay tied to the FZG ledger vocabulary.
 - `[FZG]028` retunes `validate-valid` smoke/ci/stress feature floors for the completed gen-valid widening rows. These profiles now use coverage-forced gen-valid configs so smoke requires at least one observation for every `[FZG]002`-`[FZG]023` family, while ci and stress require minimums of `10` and `100` respectively.
 - `[FZG]029` makes `pass-fuzz-compare` failure directories self-describing. Every persisted generator failure, invalid generated base, validation failure, command failure, or normalized mismatch now includes `failure-metadata.json` with the case index, generator, detail, copied artifact list, and relative replay input plus pass flags, alongside the existing `failure.txt`, `input.wasm`, and best-effort `input.print.wat`.
+
+## How to use the ledger
+
+Use this page as the bridge between generator work, fuzz-runner commands, and validation gates:
+
+1. **When adding a valid-generator surface**, add a stable `ValidateValidFeatureKey`, record it in `validate_valid_feature_ledger_keys()`, update `GenValidFeatureStats` / feature scanning, add a coverage-forced generator shape, and land a focused validation-anchor test in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt). Do not raise smoke/CI/stress floors until the coverage-forced shape validates deterministically.
+2. **When adding an invalid lane**, keep the deterministic mutation/repro path in the invalid AST or binary helpers, make the expected validation family explicit, and link the replay contract back to [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) rather than treating it as a valid-generator floor.
+3. **When adding WAST text generation**, update [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md) and keep `src/wast/arbitrary.mbt` independent from `gen_valid`; WAST mirrors the FZG vocabulary but is a parser/printer surface, not a typed module-validity oracle.
+4. **When using `bun fuzz compare-pass`**, treat `[FZG]029` failure metadata as the durable replay bridge: persisted failures should carry `failure-metadata.json` plus the copied input artifacts, while the generated-input batch still comes from `src/fuzz --emit-gen-valid-batch` through the wrapper described in [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md).
+
+The official WebAssembly module-validation rules are still the external semantic anchor for segment, table, memory, ref, and code-body validity; the local ledger's job is narrower: prove Starshine's generator can deliberately produce and measure those families, and prove each required profile fails only for the rows it explicitly requires.
 
 ## Ledger status meanings
 
@@ -92,8 +114,8 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - `gen_valid coverage-forced emits subtyping topology surface` proves the `[FZG]018` module validates, emits final/open subtype topology and a three-subtype rec group, and satisfies an explicit `SubtypingTopology` floor.
 - `gen_valid coverage-forced emits rich GC field plans` proves the `[FZG]019` module scan observes rich GC field plans and satisfies an explicit `RichGcFieldPlans` floor.
 - `gen_valid coverage-forced emits import/export topology surface` proves the `[FZG]020` module scan observes import/export topology and satisfies an explicit `ImportExportTopology` floor.
-- `gen_valid coverage-forced emits element segment range surface` proves the `[FZG]021` module scan observes widened element-segment range and satisfies an explicit `ElementSegmentRange` floor once the pre-existing coverage-forced validation cluster is fixed.
-- `gen_valid coverage-forced emits data segment range surface` proves the `[FZG]022` module scan observes widened data-segment range and satisfies an explicit `DataSegmentRange` floor once the pre-existing coverage-forced validation cluster is fixed.
+- `gen_valid coverage-forced emits element segment range surface` proves the `[FZG]021` module scan observes widened element-segment range and satisfies an explicit `ElementSegmentRange` floor.
+- `gen_valid coverage-forced emits data segment range surface` proves the `[FZG]022` module scan observes widened data-segment range and satisfies an explicit `DataSegmentRange` floor.
 - `gen_valid coverage-forced emits name and custom section surface` proves the `[FZG]023` portable coverage-forced module validates, emits a structured name section plus a non-`name` custom section, and satisfies an explicit `NameCustomSections` floor.
 - `shared memory64 without max strategy rejects with MemorySection family` proves the `[FZG]024` invalid-AST memory64/shared mutation starts from a valid base and is rejected by the memory-section validator family.
 - `runPassFuzzCompareCommandFailureAccumulationTest` proves `[FZG]029` command-failure persistence writes `failure-metadata.json` with reproducible case metadata, artifact names, relative replay input, and pass flags.
@@ -106,3 +128,13 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - `.tmp/pass-fuzz-genvalid-fzg008-rume` is the post-FZG008 compare smoke: `remove-unused-module-elements` over 1000 widened `gen-valid` cases reached `1000/1000` normalized matches with no validation, generator, command, or semantic failures.
 - `.tmp/pass-fuzz-genvalid-fzg009-rume` is the post-FZG009 compare smoke: `remove-unused-module-elements` over 1000 widened `gen-valid` cases reached `1000/1000` normalized matches with no validation, generator, command, or semantic failures.
 - `.tmp/pass-fuzz-genvalid-fzg010-rume` is the post-FZG010 compare smoke: `remove-unused-module-elements` over 1000 widened `gen-valid` cases reached `1000/1000` normalized matches with no validation, generator, command, or semantic failures.
+
+## Sources
+
+- Primary plan: [`../../README.md`](../../README.md), [`../../../agent-todo.md`](../../../agent-todo.md)
+- Ledger implementation and validation-anchor tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
+- Valid generator implementation: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)
+- Invalid AST/binary/repro surfaces: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt)
+- WAST text-generation boundary: [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md)
+- Compare-pass failure metadata: [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts)
+- External semantic anchor checked during this review: current WebAssembly 3.0 module validation docs for [module validation](https://webassembly.github.io/spec/core/valid/modules.html), [validation index](https://webassembly.github.io/spec/core/valid/index.html), and [binary module section / segment encoding](https://webassembly.github.io/spec/core/binary/modules.html).
