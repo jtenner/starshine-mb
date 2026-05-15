@@ -2456,6 +2456,48 @@ test "inlining-optimizing nested scheduler replays early second remove-unused-na
 }
 
 ///|
+test "inlining-optimizing nested scheduler replays O3 merge-locals slot" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(
+        optimize_level=3,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["inlining-optimizing"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  let mut heap2local_idx = -1
+  let mut merge_idx = -1
+  let mut casts_idx = -1
+  let mut idx = 0
+  for line in trace {
+    if line == "pass[inlining-optimizing]:nested-pass name=heap2local" {
+      heap2local_idx = idx
+    } else if heap2local_idx >= 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=merge-locals" {
+      merge_idx = idx
+    } else if merge_idx >= 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=optimize-casts" {
+      casts_idx = idx
+    }
+    idx += 1
+  }
+  assert_true(heap2local_idx >= 0, msg=trace.to_string())
+  assert_true(merge_idx > heap2local_idx, msg=trace.to_string())
+  assert_true(casts_idx > merge_idx, msg=trace.to_string())
+}
+
+///|
 test "inlining-optimizing nested scheduler replays local reorder slot" {
   let source =
     #|(module

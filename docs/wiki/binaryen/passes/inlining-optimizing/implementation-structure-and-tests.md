@@ -91,7 +91,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - emits trace marker;
   - prepends the private touched-only `precompute-propagate-prefix` helper and traces that nested-pass slot explicitly;
   - converts absolute touched-function bits to defined-function bits before running filtered nested helpers so imports do not shift the touched set;
-  - runs the remaining cleanup lane through touched-function filtered hot-pass adapters plus narrow touched adapters for module-shaped `local-subtyping`, `coalesce-locals`, `local-cse`, and `reorder-locals`, and includes the early second `remove-unused-names`, touched late local cleanup cluster, `code-folding` before the first late `merge-blocks` cluster, and final `vacuum` after late `heap-store-optimization`;
+  - runs the remaining cleanup lane through touched-function filtered hot-pass adapters plus narrow touched adapters for module-shaped `local-subtyping`, `coalesce-locals`, `local-cse`, and `reorder-locals`, and includes the early second `remove-unused-names`, O3/shrink2 `merge-locals`, touched late local cleanup cluster, `code-folding` before the first late `merge-blocks` cluster, and final `vacuum` after late `heap-store-optimization`;
   - keeps body restoration as a safety net, but no longer launches the old whole-module cleanup batch;
   - compacts unused locals on touched functions;
   - collapses conservative unreachable-root shapes.
@@ -121,6 +121,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - optimizing nested-cleanup trace marker plus a focused first nested-pass trace for `precompute-propagate-prefix`;
 - trace coverage proving the nested suffix no longer launches the old `pipeline:start requested=29` whole-module cleanup batch;
 - trace coverage proving the early cleanup neighborhood includes `dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> vacuum`;
+- trace coverage proving the O3 local-copy cleanup neighborhood includes `heap2local -> merge-locals -> optimize-casts`;
 - trace coverage proving the local cleanup neighborhood includes `simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`;
 - trace coverage proving the late cleanup includes `simplify-locals -> code-folding -> merge-blocks`;
 - trace coverage proving the full late local cleanup cluster `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum -> code-folding`;

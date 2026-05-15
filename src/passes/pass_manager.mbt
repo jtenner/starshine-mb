@@ -10012,6 +10012,46 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
 }
 
 ///|
+fn run_hot_pipeline_apply_merge_locals_to_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Result[@lib.Module, String] {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Ok(mod_)
+  }
+  let params = cl_defined_func_param_cache(mod_)
+  let mut rewritten : Array[@lib.Func]? = None
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    if code_idx >= touched.length() || !touched[code_idx] {
+      continue
+    }
+    let func_params = match params.get(code_idx) {
+      Some(params) => params
+      None =>
+        return Err("missing defined function params for code index \{code_idx}")
+    }
+    match merge_locals_run_func(funcs[code_idx], func_params) {
+      Some(func) =>
+        match rewritten {
+          Some(copy) => copy[code_idx] = func
+          None => {
+            let copy = funcs.copy()
+            copy[code_idx] = func
+            rewritten = Some(copy)
+          }
+        }
+      None => ()
+    }
+  }
+  match rewritten {
+    Some(copy) =>
+      Ok(mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec())
+    None => Ok(mod_)
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_local_subtyping_to_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],

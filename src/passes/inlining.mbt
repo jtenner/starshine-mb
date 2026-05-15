@@ -4863,6 +4863,9 @@ fn inl_run_nested_cleanup_pass(
   if pass_name == "reorder-locals" {
     return run_hot_pipeline_apply_reorder_locals_to_touched(mod_, def_touched)
   }
+  if pass_name == "merge-locals" {
+    return run_hot_pipeline_apply_merge_locals_to_touched(mod_, def_touched)
+  }
   if pass_name == "local-subtyping" {
     pipeline_trace_hook(options.trace, "local-subtyping", "start")
     let next = match
@@ -4921,6 +4924,8 @@ fn inl_run_nested_cleanup(
   optimize : Bool,
   trace : ((String) -> Unit)?,
   touched : Array[Bool],
+  optimize_level : Int,
+  shrink_level : Int,
 ) -> @lib.Module {
   if !optimize {
     return mod_
@@ -4962,12 +4967,17 @@ fn inl_run_nested_cleanup(
     "remove-unused-brs", "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
     "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "tuple-optimization",
     "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
-    "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
-    "simplify-locals", "vacuum", "reorder-locals", "coalesce-locals", "reorder-locals",
-    "vacuum", "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
-    "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-    "vacuum",
+    "heap2local",
   ]
+  if optimize_level >= 3 || shrink_level >= 2 {
+    passes.push("merge-locals")
+  }
+  passes.append([
+    "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals",
+    "vacuum", "reorder-locals", "coalesce-locals", "reorder-locals", "vacuum", "code-folding",
+    "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute",
+    "optimize-instructions", "heap-store-optimization", "vacuum",
+  ])
   match
     inl_run_nested_cleanup_passes(prefixed, passes, def_touched, options, trace) {
     Ok(cleaned) =>
@@ -5055,7 +5065,14 @@ fn inl_run_module_pass_once(
       removal.touched,
     )
   } else {
-    inl_run_nested_cleanup(removal.mod_out, optimize, trace, removal.touched)
+    inl_run_nested_cleanup(
+      removal.mod_out,
+      optimize,
+      trace,
+      removal.touched,
+      optimize_level,
+      shrink_level,
+    )
   }
   let cleaned = inl_remove_dead_unreachable_private_funcs(
     nested_cleaned,

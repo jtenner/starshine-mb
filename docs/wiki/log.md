@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining-optimizing nested merge-locals slot
+
+- Advanced `[INL]002` by adding the option-gated touched `merge-locals` slot after `heap2local` and before `optimize-casts` in `inlining-optimizing` nested cleanup when `optimize_level >= 3 || shrink_level >= 2`.
+- Binaryen source evidence in `.tmp/binaryen-pass-version129.cpp` shows the default function pipeline scheduling `merge-locals` under those options.
+- Added a touched `merge-locals` adapter in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and focused trace coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving the O3 nested order `heap2local -> merge-locals -> optimize-casts`.
+- Validation: `moon test src/passes` (`1056/1056` after the focused test failed first), `moon fmt`, `moon info`, full `moon test` (`3118/3118`), `git diff --check`, `bun validate readme-api-sync`, `.tmp/pass-fuzz-inlining-optimizing-inl002-merge-locals-200` reported `199/200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, and `1` ignored Binaryen/tool command failure; `.tmp/pass-fuzz-inlining-optimizing-inl002-merge-locals-1000` reported `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, and `2` ignored Binaryen/tool command failures.
+- `[INL]002` remains open because this is still Starshine's approximate lane, not Binaryen's exact public `precompute-propagate` plus option-specific default function pipeline.
 ## [2026-05-14] passes | inlining-optimizing nested early remove-unused-names
 
 - Advanced `[INL]002` by restoring the second early touched `remove-unused-names` slot in the `inlining-optimizing` nested cleanup lane.
