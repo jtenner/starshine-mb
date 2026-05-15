@@ -4944,13 +4944,19 @@ fn inl_run_nested_cleanup(
     return inl_compact_unused_locals(mod_, touched)
   }
   let prepared = inl_collapse_unreachable_roots(mod_, touched)
-  let options = HotPipelineOptions::new(validate_final_module=false, trace~)
-  let imports = inl_imported_func_count(prepared)
-  let def_touched = inl_abs_touched_to_defined(
-    touched,
-    imports,
-    inl_defined_func_count(prepared),
+  let defined_count = inl_defined_func_count(prepared)
+  let nested_verify_policy = if defined_count > 1000 {
+    HotPipelineVerifyPolicy::AfterEachPass
+  } else {
+    HotPipelineVerifyPolicy::FinalModuleOnly
+  }
+  let options = HotPipelineOptions::new(
+    verify_policy=nested_verify_policy,
+    validate_final_module=false,
+    trace~,
   )
+  let imports = inl_imported_func_count(prepared)
+  let def_touched = inl_abs_touched_to_defined(touched, imports, defined_count)
   inl_trace_nested_pass(trace, "precompute-propagate-prefix")
   let prefixed = match
     run_hot_pipeline_apply_hot_pass_to_touched(

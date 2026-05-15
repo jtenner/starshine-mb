@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-15] passes | INL002 artifact abort cleared
+
+- Added a narrow unchecked small structured call-mesh no-op guard for the artifact's later nested `simplify-locals` shape, and made large `inlining-optimizing` nested cleanup use HOT after-each verification so invalid HOT state is caught before unverified lowering.
+- Focused coverage lives in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt). Validation: `moon fmt`, `moon info`, `moon test src/ir` (`245/245`), `moon test src/passes` (`1067/1067`), full `moon test` (`3130/3130`), `moon build --target native --release --package jtenner/starshine/cmd`, `git diff --check`, and `bun validate readme-api-sync`.
+- `[INL]002` native abort is cleared: `_build/native/release/build/cmd/cmd.exe --inlining-optimizing --out .tmp/inl002-direct-debug-artifact-current-20260515-184415/starshine.raw.wasm tests/node/dist/starshine-debug-wasi.wasm` exits `0`, emits a `3.5M` raw wasm, and `wasm-tools validate` accepts it.
+- `[INL]002` remains open on artifact parity/runtime: manual compare artifacts in `.tmp/self-opt-inlining-optimizing-inl002-manual-20260515-185400` show Starshine still differs from Binaryen (`starshine.wasm` about `3.4M`, `binaryen.wasm` about `2.2M`; normalized WAT text about `175M` vs `134M`) and takes about `522s` versus Binaryen direct `--inlining-optimizing` at about `11s`.
 ## [2026-05-15] passes | nested lift/no-op guards during INL002 replay
 
 - Added result-returning HOT lift entrypoints in [`../../src/ir/hot_lift.mbt`](../../src/ir/hot_lift.mbt) and made unchecked nested hot-pass runs skip per-function lift errors instead of aborting the native process.

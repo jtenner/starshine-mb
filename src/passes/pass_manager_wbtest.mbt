@@ -109,6 +109,37 @@ test "raw remove-unused-brs decision ladder skips empty value-if arms" {
 }
 
 ///|
+test "unchecked simplify-locals verifies hot state before lower" {
+  let hot = @ir.HotFunc::new()
+  let invalid_branch = @ir.hot_build_br(hot, 99)
+  @ir.hot_root_append(hot, invalid_branch)
+  let unchecked_options = HotPipelineOptions::new(validate_final_module=false)
+  let checked_options = HotPipelineOptions::new(validate_final_module=true)
+
+  match
+    run_hot_pipeline_unchecked_verify_before_lower_skip_reason(
+      hot, "simplify-locals", unchecked_options,
+    ) {
+    Some(reason) =>
+      assert_true(reason.contains("verify before lower"), msg=reason)
+    None =>
+      fail("expected unchecked simplify-locals to report invalid hot state")
+  }
+  @debug.assert_eq(
+    run_hot_pipeline_unchecked_verify_before_lower_skip_reason(
+      hot, "vacuum", unchecked_options,
+    ),
+    None,
+  )
+  @debug.assert_eq(
+    run_hot_pipeline_unchecked_verify_before_lower_skip_reason(
+      hot, "simplify-locals", checked_options,
+    ),
+    None,
+  )
+}
+
+///|
 test "hot pipeline skips lift errors in unchecked nested-style runs" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -276,6 +307,42 @@ test "raw simplify-locals branchy structured gate accepts target-like stats" {
       ..accepted,
       loop_count: 1,
     }),
+  )
+}
+
+///|
+test "raw simplify-locals unchecked small structured call mesh gate accepts artifact-like stats" {
+  let accepted = {
+    locals_count: 4,
+    instr_count: 257,
+    has_structured_control: true,
+    if_count: 15,
+    block_count: 2,
+    loop_count: 1,
+    local_set_count: 6,
+    local_get_count: 94,
+    call_count: 59,
+    return_count: 7,
+    exact_tail_count: 0,
+  }
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_unchecked_small_structured_call_mesh_stats(
+      accepted,
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_unchecked_small_structured_call_mesh_stats({
+        ..accepted,
+        exact_tail_count: 1,
+      },
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_unchecked_small_structured_call_mesh_stats({
+        ..accepted,
+        call_count: 16,
+      },
+    ),
   )
 }
 

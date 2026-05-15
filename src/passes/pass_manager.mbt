@@ -2164,6 +2164,29 @@ fn run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_unchecked_small_structured_call_mesh_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count <= 8 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 192 &&
+  stats.instr_count <= 384 &&
+  stats.if_count >= 12 &&
+  stats.if_count <= 24 &&
+  stats.block_count <= 4 &&
+  stats.loop_count <= 2 &&
+  stats.local_set_count >= 4 &&
+  stats.local_set_count <= 12 &&
+  stats.local_get_count >= 64 &&
+  stats.local_get_count <= 128 &&
+  stats.call_count >= 48 &&
+  stats.call_count <= 72 &&
+  stats.return_count >= 4 &&
+  stats.return_count <= 12 &&
+  stats.exact_tail_count == 0
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats(
   stats : RawSimplifyLocalsGateStats,
 ) -> Bool {
@@ -5478,6 +5501,10 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.call_count >= 16 &&
     stats.call_count <= 96 &&
     stats.return_count <= 4
+  let should_skip_unchecked_small_structured_call_mesh = !options.validate_final_module &&
+    run_hot_pipeline_raw_simplify_locals_unchecked_small_structured_call_mesh_stats(
+      stats,
+    )
   let should_skip_giant_validator_structured_call_heavy = run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats(
     stats,
   )
@@ -5563,6 +5590,14 @@ fn run_hot_pipeline_raw_simplify_locals(
       should_skip_multivalue_call_ladder {
       return Some({
         reason: "multivalue-call-heavy-ladder",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_unchecked_small_structured_call_mesh {
+      return Some({
+        reason: "unchecked-small-structured-call-mesh-noop",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,
@@ -8993,6 +9028,39 @@ fn run_hot_pipeline_lower_options_for_descriptor(
 }
 
 ///|
+fn run_hot_pipeline_unchecked_should_verify_before_lower(
+  descriptor_name : String,
+) -> Bool {
+  descriptor_name == "simplify-locals" ||
+  descriptor_name == "simplify-locals-nostructure" ||
+  descriptor_name == "simplify-locals-no-structure" ||
+  descriptor_name == "simplify-locals-notee-nostructure"
+}
+
+///|
+fn run_hot_pipeline_unchecked_verify_before_lower_skip_reason(
+  func : @ir.HotFunc,
+  descriptor_name : String,
+  options : HotPipelineOptions,
+) -> String? {
+  if options.validate_final_module ||
+    !run_hot_pipeline_unchecked_should_verify_before_lower(descriptor_name) {
+    return None
+  }
+  match
+    pipeline_verify_checkpoint_with_perf(
+      options.perf,
+      HotPipelineVerifyPolicy::AfterEachPass,
+      "verify before lower",
+      HotPipelineVerifyTarget::HotFuncTarget(func),
+      "verify:before-lower",
+    ) {
+    Ok(_) => None
+    Err(err) => Some(err)
+  }
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -9315,6 +9383,28 @@ fn run_hot_pipeline_func(
         Err(err) => Err(err)
       }
     HotPipelineVerifyPolicy::FinalModuleOnly => {
+      match
+        run_hot_pipeline_unchecked_verify_before_lower_skip_reason(
+          func,
+          descriptor.name,
+          options,
+        ) {
+        Some(err) => {
+          pipeline_trace_hook(
+            options.trace,
+            descriptor.name,
+            "verify-before-lower-error",
+            payload="func_idx=\{func_idx} err=\{err}",
+          )
+          return Ok({
+            reason: "hot-verify-before-lower-error",
+            func: run_hot_pipeline_original_func(mod_, func_idx),
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+        }
+        None => ()
+      }
       run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
       let lowered = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
