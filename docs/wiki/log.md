@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-15] passes | INL002 artifact local bloat reduced
+
+- Ranked `.tmp/self-opt-inlining-optimizing-inl002-manual-20260515-185400/{starshine,binaryen}.print.wat` by function-size deltas. The largest meaningful aligned differences were local-declaration/coalescing bloat in large functions such as `S93->B93`, `S1675->B1612`, and start/export (`S3059/S3060 -> B2944/B2945`), not a new native abort.
+- Added a validation-guarded final optimizing-mode raw vacuum preclean plus `coalesce-locals -> reorder-locals` and type-section compaction cleanup in [`../../src/passes/inlining.mbt`](../../src/passes/inlining.mbt), with focused coverage in [`../../src/passes/inlining_wbtest.mbt`](../../src/passes/inlining_wbtest.mbt). The cleanup keeps the original module if validation rejects the candidate.
+- Validation/evidence: `moon test src/passes -f "inlining final local cleanup coalesces artifact-like local bloat safely"` (`1/1`), `moon test src/passes` (`1068/1068`), `moon build --target native --release --package jtenner/starshine/cmd`, and direct artifact replay `.tmp/inl002-final-raw-preclean-20260515-204256` (`exit=0`, `wasm-tools validate` green).
+- The artifact is now size-competitive (`starshine.raw.wasm` about `1.7M` vs Binaryen `2.2M`; canonical WAT `95M` vs `134M`) but bytes/text still differ, so `[INL]002` remains open on canonical/semantic artifact parity. Wall-time is intentionally deferred.
 ## [2026-05-15] passes | INL002 artifact abort cleared
 
 - Added a narrow unchecked small structured call-mesh no-op guard for the artifact's later nested `simplify-locals` shape, and made large `inlining-optimizing` nested cleanup use HOT after-each verification so invalid HOT state is caught before unverified lowering.

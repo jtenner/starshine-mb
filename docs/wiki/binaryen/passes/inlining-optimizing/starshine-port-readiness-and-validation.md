@@ -80,7 +80,7 @@ Validation failures: 0
 Ignored Binaryen/tool command failures: 25
 ```
 
-Debug-artifact direct replay is now non-aborting: `_build/native/release/build/cmd/cmd.exe --inlining-optimizing --out .tmp/inl002-direct-debug-artifact-current-20260515-184415/starshine.raw.wasm tests/node/dist/starshine-debug-wasi.wasm` exits `0`, produces a `3.5M` raw wasm, and `wasm-tools validate` accepts it. This closes the former native `exit=134` blocker, but `[INL]002` is not closed: manual compare artifacts in `.tmp/self-opt-inlining-optimizing-inl002-manual-20260515-185400` show Binaryen direct `--inlining-optimizing` succeeds in about `11s`, while Starshine direct replay takes about `522s` and still differs (`starshine.wasm` about `3.4M`, `binaryen.wasm` about `2.2M`; normalized WAT text about `175M` vs `134M`).
+Debug-artifact direct replay is now non-aborting and no longer has the previous local-bloat size gap. The first non-aborting replay at `.tmp/inl002-direct-debug-artifact-current-20260515-184415` produced a valid `3.5M` raw wasm, but function-level WAT ranking showed huge local-declaration/coalescing drift in aligned large functions and in the start/export functions. A validation-guarded final raw vacuum preclean plus `coalesce-locals -> reorder-locals` and type-section compaction cleanup for optimizing mode reduces the direct artifact in `.tmp/inl002-final-raw-preclean-20260515-204256` to about `1.7M` raw wasm; `wasm-tools validate` accepts it. Binaryen direct `--inlining-optimizing` remains about `2.2M`. `[INL]002` is still not closed because canonical wasm/WAT still differ (`95M` Starshine WAT vs `134M` Binaryen WAT after strip-debug canonicalization), but the remaining blocker is semantic/canonical artifact parity rather than native abort or gross size bloat. Wall-time remains deferred to `[WALL]001` unless a pass-local correctness issue is identified.
 
 ## What is already validated locally
 
@@ -108,7 +108,8 @@ Focused tests validate the current subset:
 - traced full late local cleanup cluster through `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum -> code-folding`;
 - traced O2 final cleanup tail through `heap-store-optimization -> redundant-set-elimination -> vacuum`;
 - traced final cleanup tail ending with `heap-store-optimization -> vacuum` when the RSE option gate is inactive;
-- touched-caller/default-init local folding through the private prefix while an untouched sibling remains body-shape unchanged.
+- touched-caller/default-init local folding through the private prefix while an untouched sibling remains body-shape unchanged;
+- final optimizing-mode local cleanup coalesces artifact-like local chains, drops unused function types, and validates the candidate before accepting it.
 
 ## Active blockers
 

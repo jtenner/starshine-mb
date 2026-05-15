@@ -25,6 +25,52 @@ test "inlining combined binary size guard matches default threshold" {
 }
 
 ///|
+test "inlining final local cleanup coalesces artifact-like local bloat safely" {
+  let source =
+    #| (module
+    #|   (type $dead (func (param i64)))
+    #|   (func (export "run") (param i32) (result i32)
+    #|     (local i32 i32 i32 i32)
+    #|     local.get 0
+    #|     local.set 1
+    #|     local.get 1
+    #|     i32.const 1
+    #|     i32.add
+    #|     local.set 2
+    #|     local.get 2
+    #|     i32.const 2
+    #|     i32.add
+    #|     local.set 3
+    #|     local.get 3
+    #|     i32.const 3
+    #|     i32.add
+    #|     local.set 4
+    #|     nop
+    #|     i32.const 0
+    #|     drop
+    #|     local.get 4))
+  let input = pass_test_module_from_wat(source)
+  let cleaned = inl_run_final_local_cleanup(input)
+  match @validate.validate_module(cleaned) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected final local cleanup output to validate, got \{err}")
+  }
+  match cleaned.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(instrs))])) => {
+      assert_true(locals.length() < 4, msg="locals=\{locals.length()}")
+      assert_false(instrs.any(fn(instr) { instr == @lib.Instruction::nop() }))
+      assert_false(instrs.any(fn(instr) { instr == @lib.Instruction::drop() }))
+    }
+    _ => fail("expected one cleaned function")
+  }
+  match cleaned.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 1)
+    None => fail("expected compacted type section")
+  }
+}
+
+///|
 test "inlining prunes dead unreachable drops before terminal unreachable" {
   let body = [
     @lib.Instruction::loop_(

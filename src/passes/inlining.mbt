@@ -4919,6 +4919,91 @@ fn inl_run_nested_cleanup_passes(
 }
 
 ///|
+fn inl_all_defined_touched(mod_ : @lib.Module) -> Array[Bool] {
+  let count = inl_defined_func_count(mod_)
+  let touched : Array[Bool] = []
+  let mut idx = 0
+  while idx < count {
+    touched.push(true)
+    idx += 1
+  }
+  touched
+}
+
+///|
+fn inl_validate_or_original(
+  candidate : @lib.Module,
+  original : @lib.Module,
+) -> @lib.Module {
+  match @validate.validate_module(candidate) {
+    Ok(_) => candidate
+    Err(_) => original
+  }
+}
+
+///|
+fn inl_run_final_raw_vacuum_preclean(mod_ : @lib.Module) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let mut rewritten : Array[@lib.Func]? = None
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    let @lib.Func(locals, @lib.Expr(instrs)) = funcs[code_idx]
+    let (next_instrs, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+      instrs,
+    )
+    if changed {
+      let next_func = @lib.Func::new(locals, @lib.Expr::new(next_instrs))
+      match rewritten {
+        Some(copy) => copy[code_idx] = next_func
+        None => {
+          let copy = funcs.copy()
+          copy[code_idx] = next_func
+          rewritten = Some(copy)
+        }
+      }
+    }
+  }
+  match rewritten {
+    Some(copy) => mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec()
+    None => mod_
+  }
+}
+
+///|
+fn inl_run_final_local_cleanup(mod_ : @lib.Module) -> @lib.Module {
+  let touched = inl_all_defined_touched(mod_)
+  let precleaned = inl_run_final_raw_vacuum_preclean(mod_)
+  let coalesced = match
+    run_hot_pipeline_apply_coalesce_locals_to_touched(precleaned, touched) {
+    Ok(next) => next
+    Err(_) => return mod_
+  }
+  let reordered = match
+    run_hot_pipeline_apply_reorder_locals_to_touched(coalesced, touched) {
+    Ok(next) => next
+    Err(_) => return mod_
+  }
+  inl_validate_or_original(
+    rume_compact_type_sec(inl_run_final_raw_vacuum_preclean(reordered)),
+    mod_,
+  )
+}
+
+///|
+fn inl_finalize_module_pass_result(
+  mod_ : @lib.Module,
+  optimize : Bool,
+) -> @lib.Module {
+  if optimize {
+    inl_run_final_local_cleanup(mod_)
+  } else {
+    mod_
+  }
+}
+
+///|
 fn inl_run_nested_cleanup(
   mod_ : @lib.Module,
   optimize : Bool,
@@ -5166,9 +5251,12 @@ pub fn inlining_run_module_pass(
       current, optimize, trace, pass_name, optimize_level, shrink_level,
     )
     if !changed {
-      return inl_trim_unreachable_to_selected_counts(
-        next,
-        initial_graph_info.final_trim_counts,
+      return inl_finalize_module_pass_result(
+        inl_trim_unreachable_to_selected_counts(
+          next,
+          initial_graph_info.final_trim_counts,
+        ),
+        optimize,
       )
     }
     current = next
@@ -5177,9 +5265,12 @@ pub fn inlining_run_module_pass(
       if original_abs >= 0 && original_abs < iteration_counts.length() {
         iteration_counts[original_abs] += 1
         if iteration_counts[original_abs] >= max_iterations_for_func {
-          return inl_trim_unreachable_to_selected_counts(
-            current,
-            initial_graph_info.final_trim_counts,
+          return inl_finalize_module_pass_result(
+            inl_trim_unreachable_to_selected_counts(
+              current,
+              initial_graph_info.final_trim_counts,
+            ),
+            optimize,
           )
         }
       }
@@ -5204,14 +5295,20 @@ pub fn inlining_run_module_pass(
       } else {
         collapsed
       }
-      return inl_trim_unreachable_to_selected_counts(
-        padded,
-        initial_graph_info.final_trim_counts,
+      return inl_finalize_module_pass_result(
+        inl_trim_unreachable_to_selected_counts(
+          padded,
+          initial_graph_info.final_trim_counts,
+        ),
+        optimize,
       )
     }
   }
-  inl_trim_unreachable_to_selected_counts(
-    current,
-    initial_graph_info.final_trim_counts,
+  inl_finalize_module_pass_result(
+    inl_trim_unreachable_to_selected_counts(
+      current,
+      initial_graph_info.final_trim_counts,
+    ),
+    optimize,
   )
 }
