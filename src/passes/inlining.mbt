@@ -4962,22 +4962,47 @@ fn inl_run_nested_cleanup(
     Ok(next) => next
     Err(_) => prepared
   }
-  let passes = ["precompute"]
+  let passes : Array[String] = []
   if optimize_level >= 3 || shrink_level >= 1 {
     passes.push("ssa-nomerge")
   }
   passes.append([
     "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
     "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization",
-    "pick-load-signs", "precompute", "code-pushing", "tuple-optimization", "simplify-locals-nostructure",
-    "vacuum", "reorder-locals", "remove-unused-brs", "heap2local",
   ])
+  if optimize_level >= 2 || shrink_level >= 2 {
+    passes.push("pick-load-signs")
+  }
+  passes.push("precompute")
+  if optimize_level >= 2 || shrink_level >= 2 {
+    passes.push("code-pushing")
+  }
+  passes.append([
+    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+    "remove-unused-brs",
+  ])
+  if optimize_level > 1 {
+    passes.push("heap2local")
+  }
   if optimize_level >= 3 || shrink_level >= 2 {
     passes.push("merge-locals")
   }
+  if optimize_level > 1 {
+    passes.push("optimize-casts")
+    passes.push("local-subtyping")
+  }
+  passes.push("coalesce-locals")
+  if optimize_level >= 3 || shrink_level >= 1 {
+    passes.push("local-cse")
+  }
   passes.append([
-    "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals",
-    "vacuum", "reorder-locals", "coalesce-locals", "reorder-locals", "vacuum", "code-folding",
+    "simplify-locals", "vacuum", "reorder-locals", "coalesce-locals", "reorder-locals",
+    "vacuum",
+  ])
+  if optimize_level >= 3 || shrink_level >= 1 {
+    passes.push("code-folding")
+  }
+  passes.append([
     "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute",
     "optimize-instructions", "heap-store-optimization",
   ])

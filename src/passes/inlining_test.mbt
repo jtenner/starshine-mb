@@ -2408,7 +2408,7 @@ test "inlining-optimizing nested scheduler does not launch whole-module cleanup 
 }
 
 ///|
-test "inlining-optimizing nested scheduler gates ssa-nomerge by options" {
+test "inlining-optimizing nested scheduler gates default function prelude by options" {
   let source =
     #|(module
     #|  (func $tiny (result i32)
@@ -2420,12 +2420,36 @@ test "inlining-optimizing nested scheduler gates ssa-nomerge by options" {
     Ok(trace) => trace
     Err(err) => fail("expected traced default inlining success, got \{err}")
   }
-  assert_false(
-    default_trace.any(fn(line) {
-      line == "pass[inlining-optimizing]:nested-pass name=ssa-nomerge"
-    }),
-    msg=default_trace.to_string(),
+  let mut prefix_idx = -1
+  let mut first_after_prefix = ""
+  let mut idx = 0
+  for line in default_trace {
+    if line ==
+      "pass[inlining-optimizing]:nested-pass name=precompute-propagate-prefix" {
+      prefix_idx = idx
+    } else if prefix_idx >= 0 &&
+      first_after_prefix == "" &&
+      line.contains("pass[inlining-optimizing]:nested-pass name=") {
+      first_after_prefix = line
+    }
+    idx += 1
+  }
+  assert_true(prefix_idx >= 0, msg=default_trace.to_string())
+  @debug.assert_eq(
+    first_after_prefix, "pass[inlining-optimizing]:nested-pass name=dead-code-elimination",
   )
+  let default_option_gated = [
+    "ssa-nomerge", "pick-load-signs", "code-pushing", "heap2local", "merge-locals",
+    "optimize-casts", "local-subtyping", "local-cse", "code-folding", "redundant-set-elimination",
+  ]
+  for pass_name in default_option_gated {
+    assert_false(
+      default_trace.any(fn(line) {
+        line == "pass[inlining-optimizing]:nested-pass name=\{pass_name}"
+      }),
+      msg="unexpected default nested pass \{pass_name}: \{default_trace}",
+    )
+  }
   let o3_trace : Array[String] = []
   match
     run_hot_pipeline(
@@ -2589,9 +2613,18 @@ test "inlining-optimizing nested scheduler replays code-folding before merge-blo
     #|    i32.const 1)
     #|  (func (export "run") (result i32)
     #|    call $tiny))
-  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
-    Ok(trace) => trace
-    Err(err) => fail("expected traced inlining success, got \{err}")
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(
+        optimize_level=3,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["inlining-optimizing"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced O3 inlining success, got \{err}")
   }
   let mut simplify_idx = -1
   let mut folding_idx = -1
@@ -2625,9 +2658,18 @@ test "inlining-optimizing nested scheduler replays late local cleanup before cod
     #|    i32.const 1)
     #|  (func (export "run") (result i32)
     #|    call $tiny))
-  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
-    Ok(trace) => trace
-    Err(err) => fail("expected traced inlining success, got \{err}")
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(
+        optimize_level=3,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["inlining-optimizing"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced O3 inlining success, got \{err}")
   }
   let mut simplify_idx = -1
   let mut first_vacuum_idx = -1

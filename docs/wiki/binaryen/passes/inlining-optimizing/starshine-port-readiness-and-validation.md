@@ -84,7 +84,8 @@ Focused tests validate the current subset:
 - narrow hot-unsafe polymorphic self-call suffix detector coverage;
 - optimizing nested-cleanup trace marker and explicit first nested-pass trace for `precompute-propagate-prefix`;
 - absence of the old post-prefix `pipeline:start requested=29` whole-module cleanup batch in the nested trace;
-- traced `ssa-nomerge` option gating: absent from the default O0 nested lane and present at O3;
+- traced default-function prelude alignment: the private prefix is followed by `dead-code-elimination` at O0 rather than an extra pre-default `precompute`;
+- traced option gating: the default O0 nested lane omits `ssa-nomerge`, `pick-load-signs`, `code-pushing`, `heap2local`, `merge-locals`, `optimize-casts`, `local-subtyping`, `local-cse`, `code-folding`, and `redundant-set-elimination`, while O3 still includes `ssa-nomerge`;
 - traced early cleanup order through `dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> vacuum`;
 - traced O3 nested cleanup order through `heap2local -> merge-locals -> optimize-casts`;
 - traced nested local cleanup order through `simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`;
@@ -108,7 +109,7 @@ Focused tests validate the current subset:
 - optimizing mode currently approximates nested cleanup;
 - the former seed-`0x1eed` `case-008100-gen-valid` command failure is fixed by a narrow hot-unsafe helper guard;
 - a private touched-only `precompute-propagate-prefix` now runs before the cleanup lane, but the real public `precompute-propagate` sibling is still unavailable;
-- the remaining cleanup lane is touched-filtered and includes the O3/shrink1 `ssa-nomerge` gate, the early second `remove-unused-names` after `remove-unused-brs`, the O3/shrink2 `merge-locals` slot after `heap2local`, the local `reorder-locals` slot after `simplify-locals-nostructure -> vacuum`, the late local cleanup cluster after `simplify-locals`, `code-folding` before `merge-blocks`, the O2/shrink1 `redundant-set-elimination` slot before final `vacuum`, and the final `vacuum` after late `heap-store-optimization`, but it is still Starshine's approximation rather than a proven exact Binaryen default pipeline expansion;
+- the remaining cleanup lane is touched-filtered and drops the former extra pre-default `precompute`; it includes option gates for `ssa-nomerge`, `pick-load-signs`, `code-pushing`, `heap2local`, `optimize-casts`, `local-subtyping`, `local-cse`, `code-folding`, `merge-locals`, and `redundant-set-elimination`, plus the early second `remove-unused-names`, local `reorder-locals`, late local cleanup cluster, and final `vacuum` after late `heap-store-optimization`, but it is still Starshine's approximation rather than a proven exact Binaryen default pipeline expansion;
 - no artifact proof that only Binaryen's touched functions see exactly the same default-pipeline effects after the prefix;
 - no ordered late-tail artifact parity.
 
