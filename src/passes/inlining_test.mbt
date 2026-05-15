@@ -2408,6 +2408,54 @@ test "inlining-optimizing nested scheduler does not launch whole-module cleanup 
 }
 
 ///|
+test "inlining-optimizing nested scheduler replays early second remove-unused-names" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  let mut dce_idx = -1
+  let mut first_run_idx = -1
+  let mut rub_idx = -1
+  let mut second_run_idx = -1
+  let mut first_vacuum_idx = -1
+  let mut idx = 0
+  for line in trace {
+    if dce_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=dead-code-elimination" {
+      dce_idx = idx
+    } else if dce_idx >= 0 &&
+      first_run_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=remove-unused-names" {
+      first_run_idx = idx
+    } else if first_run_idx >= 0 &&
+      rub_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=remove-unused-brs" {
+      rub_idx = idx
+    } else if rub_idx >= 0 &&
+      second_run_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=remove-unused-names" {
+      second_run_idx = idx
+    } else if rub_idx >= 0 &&
+      first_vacuum_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=vacuum" {
+      first_vacuum_idx = idx
+    }
+    idx += 1
+  }
+  assert_true(dce_idx >= 0, msg=trace.to_string())
+  assert_true(first_run_idx > dce_idx, msg=trace.to_string())
+  assert_true(rub_idx > first_run_idx, msg=trace.to_string())
+  assert_true(second_run_idx > rub_idx, msg=trace.to_string())
+  assert_true(first_vacuum_idx > second_run_idx, msg=trace.to_string())
+}
+
+///|
 test "inlining-optimizing nested scheduler replays local reorder slot" {
   let source =
     #|(module

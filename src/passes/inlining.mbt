@@ -4959,7 +4959,7 @@ fn inl_run_nested_cleanup(
   }
   let passes = [
     "precompute", "ssa-nomerge", "dead-code-elimination", "remove-unused-names",
-    "remove-unused-brs", "vacuum", "remove-unused-brs", "optimize-instructions",
+    "remove-unused-brs", "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
     "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "tuple-optimization",
     "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
     "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
