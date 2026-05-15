@@ -2,6 +2,49 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-15] wiki | fuzz-runner command contract and pass-oracle guidance now reflects `bun fuzz compare-pass`
+
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) to document the compare-pass runner contract from the actual parser: `--pass`/flag form, list commands (`--list-passes`, `--list-failure-classes`), replay filtering (`--replay-failures-from`, `--failure-class`, `--case-index`), and concurrency constraints (`--jobs`, `--starshine-bin` requirement when `>1`).
+- Updated [`tooling/validation-gates.md`](tooling/validation-gates.md) to point the pass-oracle lane at the project wrapper `bun fuzz compare-pass` (keeping `scripts/pass-fuzz-compare.ts` as the implementation equivalent).
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`index.md`](index.md) to include the fuller compare-pass contract (pass/failure-class listing and replay controls).
+- Added a small operational note in both pages that ordinary suite fuzz (`bun fuzz run`) remains separate from optimizer oracle signoff and that pass evidence still belongs in per-pass dockets.
+
+## [2026-05-14] tests | DAE core can starve a later exact-literal candidate after eight earlier rewrites
+
+- Added a focused characterization regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) where `9` earlier productive dead-param candidates (`g0`..`g8`) appear before one later `moonbit.check_range`-shaped exact-literal candidate.
+- Confirmed via external reduced replay that Binaryen still rewrites the later `$check` callee to `2` params, while Starshine rewrites only the earlier frontier within the current fixed `8`-iteration core and leaves `$check` at `3` params.
+- Added a small `pass[dae-optimizing]:core iter=... primary_def=...` trace line and locked the current reduced frontier directly: the productive iterations are `primary_def=0..7`, and no traced core iteration reaches defs `8` or `9` before the bounded loop ends.
+- Replaced the earlier weaker carrier-only suspicion in [`raw/research/0563-2026-05-14-dae002-later-candidate-starvation.md`](raw/research/0563-2026-05-14-dae002-later-candidate-starvation.md) with this bounded-frontier evidence and filed it back into the DAE strategy/backlog pages as the leading DAE002 explanation.
+
+## [2026-05-14] tests | check_range now rewrites in the artifact core, remaining diff is nested-cleanup skip
+
+- Added focused public regressions for two real caller-rewrite blockers: typed-loop ambient entry-value callsite slices and same-caller multi-call rewriting in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
+- Added whitebox artifact characterizations in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) proving that on `tests/node/dist/starshine-debug-wasi.wasm` the DAE core frontier now starts with `primary_def=11`, `dae_try_rewrite_candidate(...)` rewrites all `370` direct `moonbit.check_range` calls, and all `check_range` callsite shapes are now recoverable.
+- Re-ran full artifact compare at [`../../.tmp/dae002-loop-carried-and-multicall-artifact`](../../.tmp/dae002-loop-carried-and-multicall-artifact): Func 28 now matches Binaryen’s 2-param signature, but the first differing function is still `defined=11 abs=28` because large-artifact nested cleanup still skips at `touched=190`.
+- Filed the new attribution into [`raw/research/0564-2026-05-14-dae002-check-range-rewrite-and-nested-skip.md`](raw/research/0564-2026-05-14-dae002-check-range-rewrite-and-nested-skip.md) and the live DAE strategy/readiness pages.
+
+## [2026-05-14] tests | touched rewritten-control simplifier moves the live artifact frontier to Func 42
+
+- Added a tiny touched-only rewritten-control simplifier in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that folds `compare ; i32.eqz` and `compare ; if (void) else unreachable` guard forms after exact-literal callee rewriting.
+- Strengthened the same-caller multi-call regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to assert the rewritten callee body now contains `i32.lt_s` and no longer contains `i32.eqz` / `i32.ge_s`.
+- Re-ran full artifact compare at [`../../.tmp/dae002-post-control-simplify-artifact`](../../.tmp/dae002-post-control-simplify-artifact): the first differing function moved forward from `defined=11 abs=28` to `defined=25 abs=42`.
+- Filed the new frontier move into [`raw/research/0565-2026-05-14-dae002-check-range-frontier-moved-to-func42.md`](raw/research/0565-2026-05-14-dae002-check-range-frontier-moved-to-func42.md) and updated the live DAE status pages so Func 42 is now the active DAE002 blocker.
+
+## [2026-05-14] tests | Func 42 is blocked by a forwarding-wrapper chain
+
+- Added whitebox characterization in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) showing the first non-literal middle actual for artifact Func 42 comes from caller `abs=4559` as `[local.get 1]`, not from another shape-recovery failure.
+- Proved the wrapper dependency chain on the original artifact: Func 4558 is already directly exact-literal rewritable, Func 4559 becomes rewritable after 4558, and Func 42 becomes rewritable only after rewriting 4558 then 4559.
+- Confirmed the current core still does not reach that chain soon enough in whitebox replay: the first two productive rewrites are `[11, 227]`, and Func 42 still reports `Some([None, None, None])` even after `64` repeated `dae_run_core_once(...)` applications in the test helper.
+- Re-ran full artifact compare at [`../../.tmp/dae002-func42-wrapper-chain-artifact`](../../.tmp/dae002-func42-wrapper-chain-artifact): the first differing function remains `defined=25 abs=42`.
+- Filed the new attribution into [`raw/research/0566-2026-05-14-dae002-func42-forwarding-wrapper-chain.md`](raw/research/0566-2026-05-14-dae002-func42-forwarding-wrapper-chain.md) and updated the live DAE status pages.
+
+## [2026-05-14] tests | bounded reverse exact-literal still misses the real wrapper-chain root
+
+- Added a reduced public repro in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) showing that a later exact-literal candidate can now be recovered after the eight core iterations and another reduced wrapper-chain repro showing the same reverse lane can chase a tiny forwarding chain.
+- Added whitebox characterization in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) proving that on the real artifact the reverse exact-literal frontier is still crowded above the relevant chain root: the first `20` reverse defs are `4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584, 4582, 4562, 4580, 4561, 4579, 4560, 4559, 4558, 4577, 4557, 4556, 4555`.
+- This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
+- Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
+
 ## [2026-05-13] passes | dae exact-literal callsite slicing now accepts typed single-result block wrappers
 
 - Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so DAE's exact-literal constant-actual slice can recover call argument boundaries when sibling operands are wrapped in explicit single-result `TypeIdxBlockType` block carriers; block / loop / `try_table` wrappers now resolve their input/output arity through the module type section, and typed `if` wrappers add the condition input on top.

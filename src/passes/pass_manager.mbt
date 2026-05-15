@@ -10166,7 +10166,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
-  let result = dae_run_core(mod_)
+  let result = dae_run_core(mod_, options.trace)
   let repaired = dae_repair_dead_suffix_calls_to_touched(
     result.mod_out,
     result.touched,

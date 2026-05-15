@@ -373,6 +373,779 @@ test "dae-optimizing materializes shared constant actuals through typed block ca
 }
 
 ///|
+test "dae-optimizing materializes shared constant actuals through loop-carried ambient args" {
+  let source =
+    #|(module
+    #|  (type $loop1 (func (param i32) (result i32)))
+    #|  (func $check (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 2
+    #|    i32.le_s
+    #|    if
+    #|      local.get 0
+    #|      local.get 1
+    #|      i32.ge_s
+    #|      if
+    #|      else
+    #|        unreachable
+    #|      end
+    #|    else
+    #|      unreachable
+    #|    end
+    #|    i32.const 0)
+    #|  (func (export "run1") (result i32) (local i32 i32)
+    #|    i32.const 10
+    #|    loop (type $loop1)
+    #|      local.tee 0
+    #|      local.tee 1
+    #|      i32.const 0
+    #|      i32.const 20
+    #|      call $check
+    #|      drop
+    #|      i32.const 0
+    #|    end)
+    #|  (func (export "run2") (result i32) (local i32 i32)
+    #|    i32.const 5
+    #|    loop (type $loop1)
+    #|      local.tee 0
+    #|      local.tee 1
+    #|      i32.const 0
+    #|      i32.const 21
+    #|      call $check
+    #|      drop
+    #|      i32.const 0
+    #|    end))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  let callee = optimized.pretty_print_defined_func(0U)
+  assert_true(callee.contains("I32(0)"), msg=callee)
+  assert_false(callee.contains("Local2"), msg=callee)
+}
+
+///|
+test "dae-optimizing rewrites every direct call when a caller hits the same callee twice" {
+  let source =
+    #|(module
+    #|  (func $check (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 2
+    #|    i32.le_s
+    #|    if
+    #|      local.get 0
+    #|      local.get 1
+    #|      i32.ge_s
+    #|      if
+    #|      else
+    #|        unreachable
+    #|      end
+    #|    else
+    #|      unreachable
+    #|    end
+    #|    i32.const 0)
+    #|  (func (export "run1")
+    #|    i32.const 10
+    #|    i32.const 0
+    #|    i32.const 20
+    #|    call $check
+    #|    drop
+    #|    i32.const 11
+    #|    i32.const 0
+    #|    i32.const 21
+    #|    call $check
+    #|    drop)
+    #|  (func (export "run2")
+    #|    i32.const 5
+    #|    i32.const 0
+    #|    i32.const 22
+    #|    call $check
+    #|    drop
+    #|    i32.const 6
+    #|    i32.const 0
+    #|    i32.const 23
+    #|    call $check
+    #|    drop))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  let callee = optimized.pretty_print_defined_func(0U)
+  assert_true(callee.contains("I32(0)"), msg=callee)
+  assert_false(callee.contains("Local2"), msg=callee)
+  assert_true(callee.contains("i32.lt_s"), msg=callee)
+  assert_false(callee.contains("i32.eqz"), msg=callee)
+  assert_false(callee.contains("i32.ge_s"), msg=callee)
+}
+
+///|
+test "dae-optimizing can recover a later exact-literal candidate after the eight core iterations" {
+  let source =
+    #|(module
+    #|  (func $g0 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g1 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g2 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g3 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g4 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g5 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g6 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g7 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g8 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $check (param i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 2
+    #|    i32.le_s
+    #|    if
+    #|      local.get 0
+    #|      local.get 1
+    #|      i32.ge_s
+    #|      if
+    #|      else
+    #|        unreachable
+    #|      end
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (export "run1")
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g0
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g1
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g2
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g3
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g4
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g5
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g6
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g7
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g8
+    #|    i32.const 10
+    #|    i32.const 0
+    #|    i32.const 20
+    #|    call $check)
+    #|  (func (export "run2")
+    #|    i32.const 5
+    #|    i32.const 0
+    #|    i32.const 21
+    #|    call $check))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 7).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 8).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 9).length(), 2)
+  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced DAE success, got \{err}")
+  }
+  let core_trace : Array[String] = []
+  let reverse_trace : Array[String] = []
+  for line in trace {
+    if line.contains("pass[dae-optimizing]:core") {
+      core_trace.push(line)
+    }
+    if line.contains("pass[dae-optimizing]:reverse-exact-literal") {
+      reverse_trace.push(line)
+    }
+  }
+  @debug.assert_eq(core_trace, [
+    "pass[dae-optimizing]:core iter=0 primary_def=0", "pass[dae-optimizing]:core iter=1 primary_def=1",
+    "pass[dae-optimizing]:core iter=2 primary_def=2", "pass[dae-optimizing]:core iter=3 primary_def=3",
+    "pass[dae-optimizing]:core iter=4 primary_def=4", "pass[dae-optimizing]:core iter=5 primary_def=5",
+    "pass[dae-optimizing]:core iter=6 primary_def=6", "pass[dae-optimizing]:core iter=7 primary_def=7",
+  ])
+  @debug.assert_eq(reverse_trace, [
+    "pass[dae-optimizing]:reverse-exact-literal iter=0 primary_def=9",
+  ])
+}
+
+///|
+test "dae-optimizing can chase a later exact-literal forwarding-wrapper chain" {
+  let source =
+    #|(module
+    #|  (func $g0 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g1 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g2 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g3 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g4 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g5 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g6 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g7 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $check (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $wrap2 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $check)
+    #|  (func $wrap1 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $wrap2)
+    #|  (func (export "run1")
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g0
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g1
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g2
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g3
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g4
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g5
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g6
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g7
+    #|    i32.const 10
+    #|    i32.const 0
+    #|    i32.const 20
+    #|    call $wrap1
+    #|    drop)
+    #|  (func (export "run2")
+    #|    i32.const 5
+    #|    i32.const 0
+    #|    i32.const 21
+    #|    call $wrap1
+    #|    drop))
+  let optimized = dae_test_run(source)
+  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced DAE success, got \{err}")
+  }
+  let reverse_trace : Array[String] = []
+  for line in trace {
+    if line.contains("pass[dae-optimizing]:reverse-exact-literal") {
+      reverse_trace.push(line)
+    }
+  }
+  @debug.assert_eq(reverse_trace, [
+    "pass[dae-optimizing]:reverse-exact-literal iter=0 primary_def=10", "pass[dae-optimizing]:reverse-exact-literal iter=1 primary_def=9",
+    "pass[dae-optimizing]:reverse-exact-literal iter=2 primary_def=8",
+  ])
+  @debug.assert_eq(dae_test_func_params(optimized, 8).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 9).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 10).length(), 2)
+}
+
+///|
+test "dae-optimizing materializes forwarded const actuals before a reverse-starved wrapper chain" {
+  let source =
+    #|(module
+    #|  (func $g0 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g1 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g2 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g3 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g4 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g5 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $check (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $wrap2 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $check)
+    #|  (func $wrap1 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $wrap2)
+    #|  (func $h0 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h1 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h2 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h3 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h4 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h5 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h6 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h7 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h8 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func (export "run1")
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g0
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g1
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g2
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g3
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g4
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g5
+    #|    i32.const 10
+    #|    i32.const 0
+    #|    i32.const 20
+    #|    call $wrap1
+    #|    drop
+    #|    i32.const 30
+    #|    i32.const 0
+    #|    i32.const 40
+    #|    call $h0
+    #|    drop
+    #|    i32.const 31
+    #|    i32.const 0
+    #|    i32.const 41
+    #|    call $h1
+    #|    drop
+    #|    i32.const 32
+    #|    i32.const 0
+    #|    i32.const 42
+    #|    call $h2
+    #|    drop
+    #|    i32.const 33
+    #|    i32.const 0
+    #|    i32.const 43
+    #|    call $h3
+    #|    drop
+    #|    i32.const 34
+    #|    i32.const 0
+    #|    i32.const 44
+    #|    call $h4
+    #|    drop
+    #|    i32.const 35
+    #|    i32.const 0
+    #|    i32.const 45
+    #|    call $h5
+    #|    drop
+    #|    i32.const 36
+    #|    i32.const 0
+    #|    i32.const 46
+    #|    call $h6
+    #|    drop
+    #|    i32.const 37
+    #|    i32.const 0
+    #|    i32.const 47
+    #|    call $h7
+    #|    drop
+    #|    i32.const 38
+    #|    i32.const 0
+    #|    i32.const 48
+    #|    call $h8
+    #|    drop)
+    #|  (func (export "run2")
+    #|    i32.const 5
+    #|    i32.const 0
+    #|    i32.const 21
+    #|    call $wrap1
+    #|    drop
+    #|    i32.const 50
+    #|    i32.const 0
+    #|    i32.const 60
+    #|    call $h0
+    #|    drop
+    #|    i32.const 51
+    #|    i32.const 0
+    #|    i32.const 61
+    #|    call $h1
+    #|    drop
+    #|    i32.const 52
+    #|    i32.const 0
+    #|    i32.const 62
+    #|    call $h2
+    #|    drop
+    #|    i32.const 53
+    #|    i32.const 0
+    #|    i32.const 63
+    #|    call $h3
+    #|    drop
+    #|    i32.const 54
+    #|    i32.const 0
+    #|    i32.const 64
+    #|    call $h4
+    #|    drop
+    #|    i32.const 55
+    #|    i32.const 0
+    #|    i32.const 65
+    #|    call $h5
+    #|    drop
+    #|    i32.const 56
+    #|    i32.const 0
+    #|    i32.const 66
+    #|    call $h6
+    #|    drop
+    #|    i32.const 57
+    #|    i32.const 0
+    #|    i32.const 67
+    #|    call $h7
+    #|    drop
+    #|    i32.const 58
+    #|    i32.const 0
+    #|    i32.const 68
+    #|    call $h8
+    #|    drop))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 6).length(), 2)
+  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced DAE success, got \{err}")
+  }
+  assert_true(
+    trace.contains("pass[dae-optimizing]:core iter=6 primary_def=6"),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing revisits low forwarded-const candidates after the reverse-starved core budget" {
+  let source =
+    #|(module
+    #|  (func $g0 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g1 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g2 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g3 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g4 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g5 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g6 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g7 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $g8 (param i32 i32)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $check (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $wrap2 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $check)
+    #|  (func $wrap1 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $wrap2)
+    #|  (func $h0 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h1 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h2 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h3 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h4 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h5 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h6 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h7 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func $h8 (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2)
+    #|  (func (export "run1")
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g0
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g1
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g2
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g3
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g4
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g5
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g6
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g7
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $g8
+    #|    i32.const 10
+    #|    i32.const 0
+    #|    i32.const 20
+    #|    call $wrap1
+    #|    drop
+    #|    i32.const 30
+    #|    i32.const 0
+    #|    i32.const 40
+    #|    call $h0
+    #|    drop
+    #|    i32.const 31
+    #|    i32.const 0
+    #|    i32.const 41
+    #|    call $h1
+    #|    drop
+    #|    i32.const 32
+    #|    i32.const 0
+    #|    i32.const 42
+    #|    call $h2
+    #|    drop
+    #|    i32.const 33
+    #|    i32.const 0
+    #|    i32.const 43
+    #|    call $h3
+    #|    drop
+    #|    i32.const 34
+    #|    i32.const 0
+    #|    i32.const 44
+    #|    call $h4
+    #|    drop
+    #|    i32.const 35
+    #|    i32.const 0
+    #|    i32.const 45
+    #|    call $h5
+    #|    drop
+    #|    i32.const 36
+    #|    i32.const 0
+    #|    i32.const 46
+    #|    call $h6
+    #|    drop
+    #|    i32.const 37
+    #|    i32.const 0
+    #|    i32.const 47
+    #|    call $h7
+    #|    drop
+    #|    i32.const 38
+    #|    i32.const 0
+    #|    i32.const 48
+    #|    call $h8
+    #|    drop)
+    #|  (func (export "run2")
+    #|    i32.const 5
+    #|    i32.const 0
+    #|    i32.const 21
+    #|    call $wrap1
+    #|    drop
+    #|    i32.const 50
+    #|    i32.const 0
+    #|    i32.const 60
+    #|    call $h0
+    #|    drop
+    #|    i32.const 51
+    #|    i32.const 0
+    #|    i32.const 61
+    #|    call $h1
+    #|    drop
+    #|    i32.const 52
+    #|    i32.const 0
+    #|    i32.const 62
+    #|    call $h2
+    #|    drop
+    #|    i32.const 53
+    #|    i32.const 0
+    #|    i32.const 63
+    #|    call $h3
+    #|    drop
+    #|    i32.const 54
+    #|    i32.const 0
+    #|    i32.const 64
+    #|    call $h4
+    #|    drop
+    #|    i32.const 55
+    #|    i32.const 0
+    #|    i32.const 65
+    #|    call $h5
+    #|    drop
+    #|    i32.const 56
+    #|    i32.const 0
+    #|    i32.const 66
+    #|    call $h6
+    #|    drop
+    #|    i32.const 57
+    #|    i32.const 0
+    #|    i32.const 67
+    #|    call $h7
+    #|    drop
+    #|    i32.const 58
+    #|    i32.const 0
+    #|    i32.const 68
+    #|    call $h8
+    #|    drop))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 9).length(), 2)
+}
+
+///|
 test "dae-optimizing preserves side effects from removed actual operands" {
   let source =
     #|(module

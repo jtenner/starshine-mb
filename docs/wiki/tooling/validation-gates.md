@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-15
 sources:
   - ../raw/moonbit/2026-05-13-moon-cli-validation-docs.md
   - ../../README.md
@@ -11,6 +11,8 @@ sources:
   - ../../../scripts/validate.ts
   - ../../../scripts/lib/validate-task.ts
   - ../../../scripts/lib/task-runtime.ts
+  - ../../../scripts/lib/fuzz-task.ts
+  - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/test/task-family-commands.ts
 related:
   - ./fuzz-runner.md
@@ -77,10 +79,12 @@ The target whitelist is local to [`scripts/lib/task-runtime.ts`](../../../script
 Use pass comparison lanes when a mutating optimizer pass changes:
 
 ```text
-bun scripts/pass-fuzz-compare.ts --pass <canonical-pass> --count 10000 --seed 0x5eed --out-dir .tmp/<run-name>
+bun fuzz compare-pass --pass <canonical-pass>|--<pass-flag> --count 10000 --seed 0x5eed --out-dir .tmp/<run-name>
 ```
 
-The pass comparison harness has its own contract: generated inputs, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, and command-failure classification. Keep pass evidence in the affected pass dossier; keep this page as the shared gate map.
+For script-level compatibility, `bun scripts/pass-fuzz-compare.ts` is the same underlying implementation and still valid when invoked directly.
+
+The pass-comparison harness has its own contract: generated inputs, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, and optional replay by failure class/case. Keep pass evidence in the affected pass dossier; keep this page as the shared gate map.
 
 ## Coverage Gate Semantics
 

@@ -47,7 +47,7 @@ This section mirrors `AGENTS.md` and is intentionally compact enough to reuse in
 - Match oracle Binaryen semantics at minimum; byte-for-byte wasm, raw canonical wasm/text, or transform-for-transform parity is not required when normalized/canonical semantic evidence proves equivalence.
 - Every transform must be safe and produce a valid wasm module.
 - Target `< 1s` or `>= 50%` of Binaryen pass-local wall time where possible.
-- Verify parity with `bun fuzz compare-pass ...` or `bun scripts/pass-fuzz-compare.ts ...` at `10000` comparisons.
+- Verify parity with `bun fuzz compare-pass ...` (the project wrapper); `bun scripts/pass-fuzz-compare.ts` remains the same underlying implementation when invoked directly, at `10000` comparisons.
 - Prefer `--pass <name>` with canonical pass names and treat the harness as pass-targeted before expanding to combined-pass runs.
 - Use `.pi/skills/starshine-pass-implementation/SKILL.md` as the detailed pass creation, porting, parity-fix, registry-wiring, and signoff workflow.
 
@@ -94,7 +94,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 - Common MoonBit commands: `moon info`, `moon fmt`, `moon check`, `moon test`, and `moon test --update`.
 - Common Bun workflows: `bun validate ...`, `bun fuzz ...`, `bun self-opt ...`, `bun make ...`, and `bun examples ...`.
 - Run fuzzing via `moon run src/fuzz ...` or `bun fuzz run ...`; do not put heavy randomized loops inside `moon test`.
-- Use `bun scripts/pass-fuzz-compare.ts --list-passes` to discover supported canonical pass names.
+- Use `bun fuzz compare-pass --list-passes` to discover supported canonical pass names (equivalently, `bun scripts/pass-fuzz-compare.ts --list-passes`).
 - The pass-comparison harness alternates `wasm-tools smith` and in-repo `gen_valid`, validates with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` output; use `--jobs auto` or `--jobs <n>` with `--starshine-bin` on long lanes to run independent cases concurrently without parallel `moon` lock contention.
 - Ask before running the full self-optimize pipeline.
 - Ask before running `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize`.

@@ -663,6 +663,17 @@ fn dae_instr_stack_effect(
 }
 
 ///|
+fn dae_block_type_entry_stack_values(
+  block_type : @lib.BlockType,
+  mod_ : @lib.Module,
+) -> Int? {
+  match dae_instr_stack_effect_from_block_type(block_type, mod_) {
+    Some((inputs, _)) => Some(inputs)
+    None => None
+  }
+}
+
+///|
 fn dae_instr_is_trivially_droppable(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.I32Const(_)
@@ -698,9 +709,10 @@ fn dae_slice_is_trivially_droppable(
 fn dae_find_value_slice(
   instrs : Array[@lib.Instruction],
   end : Int,
+  entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> DaeCallShape? {
+) -> (DaeCallShape, Int, Int)? {
   let mut need = 1
   let mut idx = end - 1
   while idx >= 0 {
@@ -710,17 +722,35 @@ fn dae_find_value_slice(
       None => return None
     }
     if outs == 0 && need > 0 {
+      if need <= entry_stack_values {
+        return Some(
+          (
+            { start: idx + 1, end, pure: false },
+            idx + 1,
+            entry_stack_values - need,
+          ),
+        )
+      }
       return None
     }
     need = need - outs + ins
     if need <= 0 {
-      return Some({
-        start: idx,
-        end,
-        pure: dae_slice_is_trivially_droppable(instrs, idx, end),
-      })
+      return Some(
+        (
+          {
+            start: idx,
+            end,
+            pure: dae_slice_is_trivially_droppable(instrs, idx, end),
+          },
+          idx,
+          entry_stack_values,
+        ),
+      )
     }
     idx -= 1
+  }
+  if need <= entry_stack_values {
+    return Some(({ start: 0, end, pure: false }, 0, entry_stack_values - need))
   }
   None
 }
@@ -780,6 +810,120 @@ fn dae_rewrite_locals_instrs(
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
     out.push(dae_rewrite_instruction_locals(instr, local_map))
+  }
+  out
+}
+
+///|
+fn dae_negate_compare_instr(instr : @lib.Instruction) -> @lib.Instruction? {
+  match instr {
+    @lib.I32Eq => Some(@lib.Instruction::i32_ne())
+    @lib.I32Ne => Some(@lib.Instruction::i32_eq())
+    @lib.I32LtS => Some(@lib.Instruction::i32_ge_s())
+    @lib.I32LtU => Some(@lib.Instruction::i32_ge_u())
+    @lib.I32LeS => Some(@lib.Instruction::i32_gt_s())
+    @lib.I32LeU => Some(@lib.Instruction::i32_gt_u())
+    @lib.I32GtS => Some(@lib.Instruction::i32_le_s())
+    @lib.I32GtU => Some(@lib.Instruction::i32_le_u())
+    @lib.I32GeS => Some(@lib.Instruction::i32_lt_s())
+    @lib.I32GeU => Some(@lib.Instruction::i32_lt_u())
+    @lib.I64Eq => Some(@lib.Instruction::i64_ne())
+    @lib.I64Ne => Some(@lib.Instruction::i64_eq())
+    @lib.I64LtS => Some(@lib.Instruction::i64_ge_s())
+    @lib.I64LtU => Some(@lib.Instruction::i64_ge_u())
+    @lib.I64LeS => Some(@lib.Instruction::i64_gt_s())
+    @lib.I64LeU => Some(@lib.Instruction::i64_gt_u())
+    @lib.I64GtS => Some(@lib.Instruction::i64_le_s())
+    @lib.I64GtU => Some(@lib.Instruction::i64_le_u())
+    @lib.I64GeS => Some(@lib.Instruction::i64_lt_s())
+    @lib.I64GeU => Some(@lib.Instruction::i64_lt_u())
+    @lib.F32Eq => Some(@lib.Instruction::f32_ne())
+    @lib.F32Ne => Some(@lib.Instruction::f32_eq())
+    @lib.F32Lt => Some(@lib.Instruction::f32_ge())
+    @lib.F32Gt => Some(@lib.Instruction::f32_le())
+    @lib.F32Le => Some(@lib.Instruction::f32_gt())
+    @lib.F32Ge => Some(@lib.Instruction::f32_lt())
+    @lib.F64Eq => Some(@lib.Instruction::f64_ne())
+    @lib.F64Ne => Some(@lib.Instruction::f64_eq())
+    @lib.F64Lt => Some(@lib.Instruction::f64_ge())
+    @lib.F64Gt => Some(@lib.Instruction::f64_le())
+    @lib.F64Le => Some(@lib.Instruction::f64_gt())
+    @lib.F64Ge => Some(@lib.Instruction::f64_lt())
+    _ => None
+  }
+}
+
+///|
+fn dae_simplify_rewritten_control_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  for instr in instrs {
+    rewritten.push(
+      match instr {
+        @lib.Block(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(dae_simplify_rewritten_control_instrs(body)),
+          )
+        @lib.Loop(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(dae_simplify_rewritten_control_instrs(body)),
+          )
+        @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(dae_simplify_rewritten_control_instrs(body)),
+          )
+        @lib.If(block_type, then_body, Some(else_body)) =>
+          @lib.Instruction::if_(
+            block_type,
+            dae_simplify_rewritten_control_instrs(then_body),
+            Some(dae_simplify_rewritten_control_instrs(else_body)),
+          )
+        @lib.If(block_type, then_body, None) =>
+          @lib.Instruction::if_(
+            block_type,
+            dae_simplify_rewritten_control_instrs(then_body),
+            None,
+          )
+        _ => instr
+      },
+    )
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < rewritten.length() {
+    if idx + 1 < rewritten.length() {
+      match (dae_negate_compare_instr(rewritten[idx]), rewritten[idx + 1]) {
+        (Some(negated), @lib.If(block_type, then_body, Some(else_body))) if block_type ==
+          @lib.BlockType::void_() &&
+          then_body.length() == 0 &&
+          else_body.length() == 1 &&
+          else_body[0] == @lib.Instruction::unreachable_() => {
+          out.push(negated)
+          out.push(
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [@lib.Instruction::unreachable_()],
+              None,
+            ),
+          )
+          idx += 2
+          continue
+        }
+        (Some(negated), @lib.I32Eqz) => {
+          out.push(negated)
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    out.push(rewritten[idx])
+    idx += 1
   }
   out
 }
@@ -900,17 +1044,23 @@ fn dae_collect_callsite_shapes(
   instrs : Array[@lib.Instruction],
   call_idx : Int,
   arg_count : Int,
+  entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> (Array[DaeCallShape], Int)? {
   let shapes = Array::make(arg_count, { start: 0, end: 0, pure: false })
   let mut cursor = call_idx
+  let mut ambient_remaining = entry_stack_values
   let mut arg_idx = arg_count - 1
   while arg_idx >= 0 {
-    match dae_find_value_slice(instrs, cursor, mod_, func_type_indices) {
-      Some(shape) => {
+    match
+      dae_find_value_slice(
+        instrs, cursor, ambient_remaining, mod_, func_type_indices,
+      ) {
+      Some((shape, next_cursor, next_ambient_remaining)) => {
         shapes[arg_idx] = shape
-        cursor = shape.start
+        cursor = next_cursor
+        ambient_remaining = next_ambient_remaining
       }
       None => return None
     }
@@ -924,19 +1074,21 @@ fn dae_rewrite_callsite_at(
   instrs : Array[@lib.Instruction],
   call_idx : Int,
   remove : Array[Bool],
+  entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (Array[@lib.Instruction], Bool) {
+) -> (Array[@lib.Instruction], Int, Bool) {
   let (shapes, cursor) = match
     dae_collect_callsite_shapes(
       instrs,
       call_idx,
       remove.length(),
+      entry_stack_values,
       mod_,
       func_type_indices,
     ) {
     Some(result) => result
-    None => return ([], false)
+    None => return ([], -1, false)
   }
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -965,13 +1117,14 @@ fn dae_rewrite_callsite_at(
     }
     p += 1
   }
+  let new_call_idx = out.length()
   out.push(instrs[call_idx])
   idx = call_idx + 1
   while idx < instrs.length() {
     out.push(instrs[idx])
     idx += 1
   }
-  (out, true)
+  (out, new_call_idx, true)
 }
 
 ///|
@@ -984,8 +1137,13 @@ fn dae_rewrite_calls_instr(
 ) -> (@lib.Instruction, Int, Bool) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
+      let entry_stack_values = match
+        dae_block_type_entry_stack_values(block_type, mod_) {
+        Some(count) => count
+        None => return (instr, 0, false)
+      }
       let result = dae_rewrite_calls_instrs(
-        body, callee_abs, remove, mod_, func_type_indices,
+        body, callee_abs, remove, entry_stack_values, mod_, func_type_indices,
       )
       (
         @lib.Instruction::block(block_type, @lib.Expr::new(result.instrs)),
@@ -994,8 +1152,13 @@ fn dae_rewrite_calls_instr(
       )
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
+      let entry_stack_values = match
+        dae_block_type_entry_stack_values(block_type, mod_) {
+        Some(count) => count
+        None => return (instr, 0, false)
+      }
       let result = dae_rewrite_calls_instrs(
-        body, callee_abs, remove, mod_, func_type_indices,
+        body, callee_abs, remove, entry_stack_values, mod_, func_type_indices,
       )
       (
         @lib.Instruction::loop_(block_type, @lib.Expr::new(result.instrs)),
@@ -1004,8 +1167,13 @@ fn dae_rewrite_calls_instr(
       )
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let entry_stack_values = match
+        dae_block_type_entry_stack_values(block_type, mod_) {
+        Some(count) => count
+        None => return (instr, 0, false)
+      }
       let result = dae_rewrite_calls_instrs(
-        body, callee_abs, remove, mod_, func_type_indices,
+        body, callee_abs, remove, entry_stack_values, mod_, func_type_indices,
       )
       (
         @lib.Instruction::try_table(
@@ -1018,8 +1186,13 @@ fn dae_rewrite_calls_instr(
       )
     }
     @lib.If(block_type, then_body, else_body) => {
+      let entry_stack_values = match
+        dae_block_type_entry_stack_values(block_type, mod_) {
+        Some(count) => count
+        None => return (instr, 0, false)
+      }
       let then_result = dae_rewrite_calls_instrs(
-        then_body, callee_abs, remove, mod_, func_type_indices,
+        then_body, callee_abs, remove, entry_stack_values, mod_, func_type_indices,
       )
       if !then_result.ok {
         return (instr, then_result.calls_rewritten, false)
@@ -1028,7 +1201,7 @@ fn dae_rewrite_calls_instr(
       let rewritten_else = match else_body {
         Some(body) => {
           let else_result = dae_rewrite_calls_instrs(
-            body, callee_abs, remove, mod_, func_type_indices,
+            body, callee_abs, remove, entry_stack_values, mod_, func_type_indices,
           )
           calls += else_result.calls_rewritten
           if !else_result.ok {
@@ -1049,79 +1222,37 @@ fn dae_rewrite_calls_instr(
 }
 
 ///|
-fn dae_find_next_direct_call(
-  instrs : Array[@lib.Instruction],
-  start : Int,
-  callee_abs : Int,
-) -> Int? {
-  let mut idx = start
-  while idx < instrs.length() {
-    match instrs[idx] {
-      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
-        return Some(idx)
-      _ => ()
-    }
-    idx += 1
-  }
-  None
-}
-
-///|
 fn dae_rewrite_calls_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
   remove : Array[Bool],
+  entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> DaeRewriteResult {
-  let out : Array[@lib.Instruction] = []
+  let current = instrs.copy()
   let mut idx = 0
   let mut calls = 0
-  while idx < instrs.length() {
-    if dae_instr_is_unreachable_root(instrs[idx]) {
-      out.push(@lib.Instruction::unreachable_())
+  while idx < current.length() {
+    if dae_instr_is_unreachable_root(current[idx]) {
       break
     }
-    match instrs[idx] {
+    match current[idx] {
       @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
-        let prefix = out
-        let suffix : Array[@lib.Instruction] = []
-        let mut tail = idx
-        while tail < instrs.length() {
-          suffix.push(instrs[tail])
-          tail += 1
-        }
-        let joined : Array[@lib.Instruction] = []
-        joined.append(prefix)
-        joined.append(suffix)
-        let (rewritten, ok) = dae_rewrite_callsite_at(
-          joined,
-          prefix.length(),
-          remove,
-          mod_,
-          func_type_indices,
+        let (rewritten, new_call_idx, ok) = dae_rewrite_callsite_at(
+          current, idx, remove, entry_stack_values, mod_, func_type_indices,
         )
         if !ok {
           return { instrs: [], calls_rewritten: calls, ok: false }
         }
-        let next_start = match
-          dae_find_next_direct_call(rewritten, prefix.length(), callee_abs) {
-          Some(call_pos) => call_pos + 1
-          None => prefix.length() + 1
-        }
-        return dae_rewrite_calls_instrs_after_rewritten(
-          rewritten,
-          next_start,
-          callee_abs,
-          remove,
-          mod_,
-          func_type_indices,
-          calls + 1,
-        )
+        current.clear()
+        current.append(rewritten)
+        calls += 1
+        idx = new_call_idx + 1
       }
       _ => {
         let (rewritten, nested_calls, ok) = dae_rewrite_calls_instr(
-          instrs[idx],
+          current[idx],
           callee_abs,
           remove,
           mod_,
@@ -1135,50 +1266,149 @@ fn dae_rewrite_calls_instrs(
           }
         }
         calls += nested_calls
-        out.push(rewritten)
+        current[idx] = rewritten
+        idx += 1
       }
     }
-    idx += 1
   }
-  { instrs: out, calls_rewritten: calls, ok: true }
+  { instrs: current, calls_rewritten: calls, ok: true }
 }
 
 ///|
-fn dae_rewrite_calls_instrs_after_rewritten(
-  instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  callee_abs : Int,
-  remove : Array[Bool],
-  mod_ : @lib.Module,
-  func_type_indices : Array[@lib.TypeIdx],
-  calls_so_far : Int,
-) -> DaeRewriteResult {
-  let prefix : Array[@lib.Instruction] = []
-  let mut i = 0
-  while i < start_idx && i < instrs.length() {
-    prefix.push(instrs[i])
-    i += 1
+fn dae_func_is_simple_full_param_forwarder(
+  func : @lib.Func,
+  param_count : Int,
+) -> Bool {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  if locals.length() > 0 || body.length() != param_count + 1 {
+    return false
   }
-  let tail : Array[@lib.Instruction] = []
-  while i < instrs.length() {
-    tail.push(instrs[i])
-    i += 1
-  }
-  let tail_result = dae_rewrite_calls_instrs(
-    tail, callee_abs, remove, mod_, func_type_indices,
-  )
-  if !tail_result.ok {
-    return {
-      instrs: [],
-      calls_rewritten: calls_so_far + tail_result.calls_rewritten,
-      ok: false,
+  let mut idx = 0
+  while idx < param_count {
+    match body[idx] {
+      @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == idx => ()
+      _ => return false
     }
+    idx += 1
   }
-  prefix.append(tail_result.instrs)
-  {
-    instrs: prefix,
-    calls_rewritten: calls_so_far + tail_result.calls_rewritten,
-    ok: true,
+  match body[param_count] {
+    @lib.Call(_) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_materialized_const_equal(
+  lhs : @lib.Instruction,
+  rhs : @lib.Instruction,
+) -> Bool {
+  match (lhs, rhs) {
+    (@lib.I32Const(a), @lib.I32Const(b)) => a == b
+    (@lib.I64Const(a), @lib.I64Const(b)) => a == b
+    (@lib.F32Const(a), @lib.F32Const(b)) => a == b
+    (@lib.F64Const(a), @lib.F64Const(b)) => a == b
+    (@lib.RefNull(a), @lib.RefNull(b)) => a == b
+    (@lib.StringConst(a), @lib.StringConst(b)) => a == b
+    _ => false
+  }
+}
+
+///|
+fn dae_resolve_forwarded_uniform_const_local_get(
+  mod_ : @lib.Module,
+  caller_abs : Int,
+  local_slot : Int,
+  func_type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
+  tail_calls : Array[Bool],
+  visited : Array[Bool],
+) -> @lib.Instruction? {
+  if caller_abs < 0 || caller_abs >= func_type_indices.length() ||
+    caller_abs >= visited.length() || visited[caller_abs] {
+    return None
+  }
+  if caller_abs < escaped.length() && escaped[caller_abs] {
+    return None
+  }
+  if caller_abs < tail_calls.length() && tail_calls[caller_abs] {
+    return None
+  }
+  let imported = dae_imported_func_count(mod_)
+  let def_idx = caller_abs - imported
+  if def_idx < 0 {
+    return None
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return None
+  }
+  if def_idx >= funcs.length() {
+    return None
+  }
+  let func_type = match dae_resolve_func_type(mod_, func_type_indices, caller_abs) {
+    Some(ft) => ft
+    None => return None
+  }
+  let @lib.FuncType(params, _) = func_type
+  if local_slot < 0 || local_slot >= params.length() {
+    return None
+  }
+  let func = funcs[def_idx]
+  if dae_count_self_calls_anywhere(func, caller_abs) > 0 {
+    return None
+  }
+  let @lib.Func(locals, _) = func
+  let local_use = dae_local_use_for_callee(
+    func,
+    params.length() + locals.length(),
+    caller_abs,
+    params.length(),
+  )
+  if local_use.writes[local_slot] {
+    return None
+  }
+  visited[caller_abs] = true
+  let resolved = match dae_collect_uniform_const_actuals_visited(
+    mod_,
+    caller_abs,
+    params.length(),
+    func_type_indices,
+    escaped,
+    tail_calls,
+    visited,
+  ) {
+    Some(values) => values[local_slot]
+    None => None
+  }
+  visited[caller_abs] = false
+  resolved
+}
+
+///|
+fn dae_resolve_uniform_const_candidate(
+  mod_ : @lib.Module,
+  caller_abs : Int,
+  candidate : @lib.Instruction,
+  func_type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
+  tail_calls : Array[Bool],
+  visited : Array[Bool],
+) -> @lib.Instruction? {
+  if dae_instr_is_materializable_const(candidate) {
+    return Some(candidate)
+  }
+  match candidate {
+    @lib.LocalGet(local_idx) =>
+      dae_resolve_forwarded_uniform_const_local_get(
+        mod_,
+        caller_abs,
+        dae_local_idx_slot(local_idx),
+        func_type_indices,
+        escaped,
+        tail_calls,
+        visited,
+      )
+    _ => None
   }
 }
 
@@ -1187,8 +1417,13 @@ fn dae_collect_uniform_const_actuals_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
   param_count : Int,
+  entry_stack_values : Int,
+  caller_abs : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
+  tail_calls : Array[Bool],
+  visited : Array[Bool],
   seen : Array[Bool],
   invalid : Array[Bool],
   candidates : Array[@lib.Instruction?],
@@ -1199,7 +1434,7 @@ fn dae_collect_uniform_const_actuals_instrs(
       @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
         match
           dae_collect_callsite_shapes(
-            instrs, idx, param_count, mod_, func_type_indices,
+            instrs, idx, param_count, entry_stack_values, mod_, func_type_indices,
           ) {
           Some((shapes, _)) => {
             let mut p = 0
@@ -1209,14 +1444,29 @@ fn dae_collect_uniform_const_actuals_instrs(
                 if shape.end - shape.start != 1 {
                   invalid[p] = true
                 } else {
-                  let candidate = instrs[shape.start]
-                  if !dae_instr_is_materializable_const(candidate) {
-                    invalid[p] = true
-                  } else if !seen[p] {
-                    seen[p] = true
-                    candidates[p] = Some(candidate)
-                  } else if candidates[p] != Some(candidate) {
-                    invalid[p] = true
+                  match dae_resolve_uniform_const_candidate(
+                      mod_,
+                      caller_abs,
+                      instrs[shape.start],
+                      func_type_indices,
+                      escaped,
+                      tail_calls,
+                      visited,
+                    ) {
+                    Some(candidate) =>
+                      if !seen[p] {
+                        seen[p] = true
+                        candidates[p] = Some(candidate)
+                      } else {
+                        match candidates[p] {
+                          Some(existing) =>
+                            if !dae_materialized_const_equal(existing, candidate) {
+                              invalid[p] = true
+                            }
+                          None => invalid[p] = true
+                        }
+                      }
+                    None => invalid[p] = true
                   }
                 }
               }
@@ -1225,36 +1475,97 @@ fn dae_collect_uniform_const_actuals_instrs(
           }
           None => return false
         }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if !dae_collect_uniform_const_actuals_instrs(
-            body, callee_abs, param_count, mod_, func_type_indices, seen, invalid,
-            candidates,
-          ) {
-          return false
-        }
-      @lib.If(_, then_body, Some(else_body)) => {
-        if !dae_collect_uniform_const_actuals_instrs(
-            then_body, callee_abs, param_count, mod_, func_type_indices, seen, invalid,
-            candidates,
-          ) {
-          return false
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body))
+      | @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return false
         }
         if !dae_collect_uniform_const_actuals_instrs(
-            else_body, callee_abs, param_count, mod_, func_type_indices, seen, invalid,
+            body,
+            callee_abs,
+            param_count,
+            child_entry_stack_values,
+            caller_abs,
+            mod_,
+            func_type_indices,
+            escaped,
+            tail_calls,
+            visited,
+            seen,
+            invalid,
             candidates,
           ) {
           return false
         }
       }
-      @lib.If(_, then_body, None) =>
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return false
+        }
         if !dae_collect_uniform_const_actuals_instrs(
-            then_body, callee_abs, param_count, mod_, func_type_indices, seen, invalid,
+            then_body,
+            callee_abs,
+            param_count,
+            child_entry_stack_values,
+            caller_abs,
+            mod_,
+            func_type_indices,
+            escaped,
+            tail_calls,
+            visited,
+            seen,
+            invalid,
             candidates,
           ) {
           return false
         }
+        if !dae_collect_uniform_const_actuals_instrs(
+            else_body,
+            callee_abs,
+            param_count,
+            child_entry_stack_values,
+            caller_abs,
+            mod_,
+            func_type_indices,
+            escaped,
+            tail_calls,
+            visited,
+            seen,
+            invalid,
+            candidates,
+          ) {
+          return false
+        }
+      }
+      @lib.If(block_type, then_body, None) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return false
+        }
+        if !dae_collect_uniform_const_actuals_instrs(
+            then_body,
+            callee_abs,
+            param_count,
+            child_entry_stack_values,
+            caller_abs,
+            mod_,
+            func_type_indices,
+            escaped,
+            tail_calls,
+            visited,
+            seen,
+            invalid,
+            candidates,
+          ) {
+          return false
+        }
+      }
       _ => ()
     }
     idx += 1
@@ -1263,26 +1574,44 @@ fn dae_collect_uniform_const_actuals_instrs(
 }
 
 ///|
-fn dae_collect_uniform_const_actuals(
+fn dae_collect_uniform_const_actuals_visited(
   mod_ : @lib.Module,
   callee_abs : Int,
   param_count : Int,
   func_type_indices : Array[@lib.TypeIdx],
+  escaped : Array[Bool],
+  tail_calls : Array[Bool],
+  visited : Array[Bool],
 ) -> Array[@lib.Instruction?]? {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Some(Array::make(param_count, None))
   }
+  let imported = dae_imported_func_count(mod_)
   let seen = Array::make(param_count, false)
   let invalid = Array::make(param_count, false)
   let candidates : Array[@lib.Instruction?] = Array::make(param_count, None)
-  for func in funcs {
-    let @lib.Func(_, @lib.Expr(body)) = func
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     if !dae_collect_uniform_const_actuals_instrs(
-        body, callee_abs, param_count, mod_, func_type_indices, seen, invalid, candidates,
+        body,
+        callee_abs,
+        param_count,
+        0,
+        imported + def_idx,
+        mod_,
+        func_type_indices,
+        escaped,
+        tail_calls,
+        visited,
+        seen,
+        invalid,
+        candidates,
       ) {
       return None
     }
+    def_idx += 1
   }
   let out : Array[@lib.Instruction?] = []
   let mut p = 0
@@ -1295,6 +1624,27 @@ fn dae_collect_uniform_const_actuals(
     p += 1
   }
   Some(out)
+}
+
+///|
+fn dae_collect_uniform_const_actuals(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  param_count : Int,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> Array[@lib.Instruction?]? {
+  let total = func_type_indices.length()
+  let escaped = dae_collect_escapes(mod_, total)
+  let tail_calls = dae_collect_calls(mod_, total).1
+  dae_collect_uniform_const_actuals_visited(
+    mod_,
+    callee_abs,
+    param_count,
+    func_type_indices,
+    escaped,
+    tail_calls,
+    Array::make(total, false),
+  )
 }
 
 ///|
@@ -1650,12 +2000,13 @@ fn dae_try_rewrite_candidate(
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let rewritten_funcs = funcs.copy()
+  let touched = Array::make(funcs.length(), false)
   let mut rewritten_calls = 0
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller_def]
     let result = dae_rewrite_calls_instrs(
-      body, callee_abs, remove, mod_, type_indices,
+      body, callee_abs, remove, 0, mod_, type_indices,
     )
     if !result.ok {
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -1665,6 +2016,7 @@ fn dae_try_rewrite_candidate(
         locals,
         @lib.Expr::new(result.instrs),
       )
+      touched[caller_def] = true
       rewritten_calls += result.calls_rewritten
     }
     caller_def += 1
@@ -1694,7 +2046,9 @@ fn dae_try_rewrite_candidate(
     local_use,
   )
   let body_with_consts = dae_rewrite_param_const_instrs(old_body, const_params)
-  let new_body = dae_rewrite_locals_instrs(body_with_consts, local_map)
+  let new_body = dae_simplify_rewritten_control_instrs(
+    dae_rewrite_locals_instrs(body_with_consts, local_map),
+  )
   let new_locals = @lib.Locals::from_types(removed_written_types)
   new_locals.append(old_locals)
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -1712,20 +2066,7 @@ fn dae_try_rewrite_candidate(
     .with_func_sec(@lib.FuncSec::new(func_types))
     .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
     .without_name_sec()
-  let touched = Array::make(funcs.length(), false)
   touched[def_idx] = true
-  caller_def = 0
-  while caller_def < funcs.length() {
-    let before = funcs[caller_def]
-    let after = match next_mod.code_sec {
-      Some(@lib.CodeSec(next_funcs)) => next_funcs[caller_def]
-      None => before
-    }
-    if before != after {
-      touched[caller_def] = true
-    }
-    caller_def += 1
-  }
   { mod_out: next_mod, touched, changed: true, primary_def: def_idx }
 }
 
@@ -5222,6 +5563,7 @@ fn dae_run_core_once(
   original_dead_suffix_undropped_escaped_result_calls : Array[Bool],
   original_dead_suffix_dropped_escaped_result_calls : Array[Bool],
   original_dead_suffix_mutual_calls : Array[Bool],
+  max_def_exclusive? : Int = -1,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -5235,8 +5577,13 @@ fn dae_run_core_once(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let scan_limit = if max_def_exclusive >= 0 && max_def_exclusive < defined {
+    max_def_exclusive
+  } else {
+    defined
+  }
   let mut def_idx = 0
-  while def_idx < defined {
+  while def_idx < scan_limit {
     let callee_abs = imported + def_idx
     if def_idx < already_rewritten_defs.length() &&
       already_rewritten_defs[def_idx] {
@@ -6267,6 +6614,238 @@ fn dae_run_core_once(
 }
 
 ///|
+fn dae_try_rewrite_reverse_exact_literal_once(
+  mod_ : @lib.Module,
+  original_param_counts : Array[Int],
+  original_call_counts : Array[Int],
+  original_active_nonself_call_counts : Array[Int],
+  original_active_parameterized_nonself_call_counts : Array[Int],
+  original_nonself_undropped_call_counts : Array[Int],
+  original_self_call_counts : Array[Int],
+  original_private_result_dead_suffix_calls_from_escaped_operand_callees : Array[
+    Int,
+  ],
+  original_escaped_dead_suffix_call_counts : Array[Int],
+  original_dead_suffix_undropped_self_calls : Array[Bool],
+  original_dead_suffix_dropped_self_calls : Array[Bool],
+  original_dead_suffix_block_undropped_self_calls : Array[Bool],
+  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int],
+  original_dead_suffix_result_calls_from_no_param_undropped_self_callers : Array[
+    Int,
+  ],
+  original_dead_suffix_same_self_result_operand_calls : Array[Bool],
+  original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
+  original_dead_suffix_result_other_calls : Array[Bool],
+  original_dead_suffix_undropped_escaped_result_calls : Array[Bool],
+  original_dead_suffix_dropped_escaped_result_calls : Array[Bool],
+  original_dead_suffix_mutual_calls : Array[Bool],
+  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[Int],
+  original_dead_suffix_escaped_result_operand_call_counts : Array[Int],
+  original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
+    Int,
+  ],
+  reverse? : Bool = true,
+  max_def_exclusive? : Int = -1,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let escaped = dae_collect_escapes(mod_, total)
+  let (direct_calls, tail_calls) = dae_collect_calls(mod_, total)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let scan_limit = if max_def_exclusive >= 0 && max_def_exclusive < defined {
+    max_def_exclusive
+  } else {
+    defined
+  }
+  let mut def_idx = if reverse { scan_limit - 1 } else { 0 }
+  while (if reverse { def_idx >= 0 } else { def_idx < scan_limit }) {
+    let callee_abs = imported + def_idx
+    if escaped[callee_abs] || tail_calls[callee_abs] {
+      if reverse { def_idx -= 1 } else { def_idx += 1 }
+      continue
+    }
+    let self_calls_anywhere = dae_count_self_calls_anywhere(
+      funcs[def_idx],
+      callee_abs,
+    )
+    if self_calls_anywhere > 0 {
+      if reverse { def_idx -= 1 } else { def_idx += 1 }
+      continue
+    }
+    let func_type = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(ft) => ft
+      None => {
+        if reverse { def_idx -= 1 } else { def_idx += 1 }
+        continue
+      }
+    }
+    let @lib.FuncType(params, _) = func_type
+    if params.length() == 0 || direct_calls[callee_abs] == 0 {
+      if reverse { def_idx -= 1 } else { def_idx += 1 }
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[def_idx]
+    let local_use = dae_local_use_for_callee(
+      funcs[def_idx],
+      params.length() + locals.length(),
+      callee_abs,
+      params.length(),
+    )
+    let uniform_const_params = dae_collect_uniform_const_actuals(
+      mod_,
+      callee_abs,
+      params.length(),
+      type_indices,
+    )
+    let remove = Array::make(params.length(), false)
+    let const_params : Array[@lib.Instruction?] = Array::make(
+      params.length(),
+      None,
+    )
+    let mut any_const = false
+    let mut has_dead_param = false
+    let mut p = 0
+    while p < params.length() {
+      if !local_use.gets[p] {
+        has_dead_param = true
+      } else if !local_use.writes[p] {
+        match uniform_const_params {
+          Some(values) =>
+            match values[p] {
+              Some(value) => {
+                remove[p] = true
+                const_params[p] = Some(value)
+                any_const = true
+              }
+              None => ()
+            }
+          None => ()
+        }
+      }
+      p += 1
+    }
+    let preserve_current_same_self_result_operand = def_idx <
+      original_param_counts.length() &&
+      original_param_counts[def_idx] > 0 &&
+      def_idx < original_self_call_counts.length() &&
+      original_self_call_counts[def_idx] > 0 &&
+      def_idx < original_call_counts.length() &&
+      original_call_counts[def_idx] >= original_self_call_counts[def_idx] &&
+      def_idx < original_dead_suffix_same_self_result_operand_calls.length() &&
+      original_dead_suffix_same_self_result_operand_calls[def_idx] &&
+      def_idx < original_nonself_undropped_call_counts.length() &&
+      original_nonself_undropped_call_counts[def_idx] > 0
+    let preserve_current_result_from_undropped_self_caller = def_idx <
+      original_param_counts.length() &&
+      original_param_counts[def_idx] > 0 &&
+      def_idx < original_self_call_counts.length() &&
+      original_self_call_counts[def_idx] == 0 &&
+      def_idx <
+      original_dead_suffix_result_calls_from_undropped_self_callers.length() &&
+      original_dead_suffix_result_calls_from_undropped_self_callers[def_idx] > 0 &&
+      def_idx <
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers.length() &&
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers[def_idx] ==
+      0 &&
+      def_idx < original_escaped_dead_suffix_call_counts.length() &&
+      original_escaped_dead_suffix_call_counts[def_idx] == 0 &&
+      def_idx < original_active_nonself_call_counts.length() &&
+      original_active_nonself_call_counts[def_idx] > 0
+    let preserve_current_escaped_result_operand_chain = (
+        def_idx < original_param_counts.length() &&
+        original_param_counts[def_idx] > 0 &&
+        def_idx <
+        original_dead_suffix_escaped_result_operand_call_counts.length() &&
+        original_dead_suffix_escaped_result_operand_call_counts[def_idx] > 0
+      ) ||
+      (
+        def_idx < original_param_counts.length() &&
+        original_param_counts[def_idx] == 0 &&
+        def_idx <
+        original_private_result_dead_suffix_calls_from_escaped_operand_callees.length() &&
+        original_private_result_dead_suffix_calls_from_escaped_operand_callees[def_idx] >
+        0
+      )
+    let preserve_current_mixed_self_result = def_idx <
+      original_param_counts.length() &&
+      original_param_counts[def_idx] > 0 &&
+      def_idx < original_dead_suffix_undropped_self_calls.length() &&
+      original_dead_suffix_undropped_self_calls[def_idx] &&
+      def_idx < original_dead_suffix_dropped_self_calls.length() &&
+      original_dead_suffix_dropped_self_calls[def_idx] &&
+      def_idx < original_escaped_dead_suffix_call_counts.length() &&
+      original_escaped_dead_suffix_call_counts[def_idx] == 0
+    let preserve_current_escaped_block_self_result = def_idx <
+      original_param_counts.length() &&
+      original_param_counts[def_idx] > 0 &&
+      def_idx < original_dead_suffix_undropped_self_calls.length() &&
+      original_dead_suffix_undropped_self_calls[def_idx] &&
+      def_idx < original_dead_suffix_dropped_self_calls.length() &&
+      original_dead_suffix_dropped_self_calls[def_idx] &&
+      def_idx < original_dead_suffix_block_undropped_self_calls.length() &&
+      original_dead_suffix_block_undropped_self_calls[def_idx] &&
+      def_idx < original_escaped_dead_suffix_call_counts.length() &&
+      original_escaped_dead_suffix_call_counts[def_idx] > 0
+    let preserve_current_undropped_self_result_from_no_param_dropped_caller = dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
+      def_idx, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+      original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+      original_dead_suffix_mutual_calls,
+    )
+    let preserve_current_dropped_escaped_result_under_self_caller = def_idx <
+      original_param_counts.length() &&
+      original_param_counts[def_idx] > 0 &&
+      def_idx < original_self_call_counts.length() &&
+      original_self_call_counts[def_idx] == 0 &&
+      def_idx < original_dead_suffix_dropped_escaped_result_calls.length() &&
+      original_dead_suffix_dropped_escaped_result_calls[def_idx] &&
+      def_idx <
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers.length() &&
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers[def_idx] >
+      0 &&
+      def_idx < original_escaped_dead_suffix_call_counts.length() &&
+      original_escaped_dead_suffix_call_counts[def_idx] == 0
+    if any_const &&
+      !has_dead_param &&
+      !preserve_current_same_self_result_operand &&
+      !preserve_current_result_from_undropped_self_caller &&
+      !preserve_current_escaped_result_operand_chain &&
+      !preserve_current_mixed_self_result &&
+      !preserve_current_escaped_block_self_result &&
+      !preserve_current_undropped_self_result_from_no_param_dropped_caller &&
+      !preserve_current_dropped_escaped_result_under_self_caller &&
+      def_idx <
+      original_dead_suffix_calls_from_param_operand_self_result_callers.length() &&
+      original_dead_suffix_calls_from_param_operand_self_result_callers[def_idx] ==
+      0 &&
+      def_idx < original_dead_suffix_undropped_escaped_result_calls.length() &&
+      !original_dead_suffix_undropped_escaped_result_calls[def_idx] {
+      let result = dae_try_rewrite_candidate(
+        mod_,
+        callee_abs,
+        remove,
+        const_params,
+        local_use,
+        direct_calls[callee_abs],
+      )
+      if result.changed {
+        return result
+      }
+    }
+    if reverse { def_idx -= 1 } else { def_idx += 1 }
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
 fn dae_merge_touched(dst : Array[Bool], src : Array[Bool]) -> Array[Bool] {
   if dst.length() == 0 {
     return src.copy()
@@ -6361,7 +6940,7 @@ fn dae_restore_dead_suffix_self_operand_params(
 }
 
 ///|
-fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
+fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
   let mut changed = false
@@ -6497,7 +7076,9 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
     }
     current = result.mod_out
     touched = dae_merge_touched(touched, result.touched)
-    ignore(result.primary_def)
+    trace(
+      "pass[dae-optimizing]:core iter=\{iter} primary_def=\{result.primary_def}",
+    )
     changed = true
     iter += 1
   }
@@ -6506,6 +7087,72 @@ fn dae_run_core(mod_ : @lib.Module) -> DaePassResult {
     current = restored.mod_out
     touched = dae_merge_touched(touched, restored.touched)
     changed = true
+  }
+  let mut reverse_iter = 0
+  while reverse_iter < 8 {
+    let reverse_result = dae_try_rewrite_reverse_exact_literal_once(
+      current, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+      original_self_call_counts, original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls, original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_result_calls_from_undropped_self_callers, original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+      original_dead_suffix_same_self_result_operand_calls, original_dead_suffix_undropped_self_call_param_operands,
+      original_dead_suffix_result_other_calls, original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls, original_dead_suffix_mutual_calls,
+      original_dead_suffix_calls_from_param_operand_self_result_callers, original_dead_suffix_escaped_result_operand_call_counts,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+    )
+    if !reverse_result.changed {
+      break
+    }
+    current = reverse_result.mod_out
+    touched = dae_merge_touched(touched, reverse_result.touched)
+    trace(
+      "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_result.primary_def}",
+    )
+    changed = true
+    reverse_iter += 1
+  }
+  let mut low_revisit_iter = 0
+  while low_revisit_iter < 64 {
+    let low_revisit_result = dae_try_rewrite_reverse_exact_literal_once(
+      current,
+      original_param_counts,
+      original_call_counts,
+      original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts,
+      original_nonself_undropped_call_counts,
+      original_self_call_counts,
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts,
+      original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls,
+      original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_result_calls_from_undropped_self_callers,
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+      original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_undropped_self_call_param_operands,
+      original_dead_suffix_result_other_calls,
+      original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls,
+      original_dead_suffix_mutual_calls,
+      original_dead_suffix_calls_from_param_operand_self_result_callers,
+      original_dead_suffix_escaped_result_operand_call_counts,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+      reverse=false,
+      max_def_exclusive=64,
+    )
+    if !low_revisit_result.changed {
+      break
+    }
+    current = low_revisit_result.mod_out
+    touched = dae_merge_touched(touched, low_revisit_result.touched)
+    trace(
+      "pass[dae-optimizing]:low-forwarded-const-revisit iter=\{low_revisit_iter} primary_def=\{low_revisit_result.primary_def}",
+    )
+    changed = true
+    low_revisit_iter += 1
   }
   { mod_out: current, touched, changed, primary_def: -1 }
 }
@@ -6587,15 +7234,15 @@ pub fn dae_run_module_pass(
   optimize? : Bool = false,
   trace? : ((String) -> Unit)? = None,
 ) -> @lib.Module {
-  let result = dae_run_core(mod_)
-  let repaired = dae_repair_dead_suffix_calls_to_touched(
-    result.mod_out,
-    result.touched,
-  )
   let trace_fn = match trace {
     Some(cb) => cb
     None => fn(_line : String) { () }
   }
+  let result = dae_run_core(mod_, trace_fn)
+  let repaired = dae_repair_dead_suffix_calls_to_touched(
+    result.mod_out,
+    result.touched,
+  )
   dae_prune_unused_simple_func_types(
     dae_run_nested_cleanup(repaired, result.touched, trace_fn, optimize),
   )

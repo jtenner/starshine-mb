@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-15
 sources:
   - ../raw/research/0003-2026-03-12-fuzz-migration.md
   - ../../../src/fuzz/main.mbt
@@ -102,13 +102,44 @@ It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...
 
 ## Bun Wrapper And Compare-Pass Split
 
-[`bun fuzz run`](../../../scripts/lib/fuzz-task.ts) is a strict wrapper around `moon run src/fuzz` for the ordinary runner commands. It adds:
+[`bun fuzz run`](../../../scripts/lib/fuzz-task.ts) is a strict wrapper around `moon run src/fuzz` for ordinary suite commands:
 
-- `--target <target>` / `--target=<target>` for Moon target selection, defaulting to `wasm-gc`.
-- `--moon <path>` / `--moon=<path>` for overriding the Moon executable.
+- `--target <target>` / `--target=<target>` (default `wasm-gc`).
+- `--moon <path>` / `--moon=<path>`.
 - `--suite`, `--profile`, `--seed`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding.
 
-`bun fuzz compare-pass ...` is a sibling subcommand, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine and Binaryen pass comparisons. Use it for optimizer parity signoff, not for validator-suite coverage.
+`bun fuzz compare-pass ...` is a sibling entrypoint, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine and Binaryen.
+
+`bun fuzz compare-pass` contract (defaults shown):
+
+```text
+bun fuzz compare-pass \
+  --pass <canonical-pass>|--<pass-flag> [--pass ...] \
+  --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
+  [--generator both|wasm-smith|gen-valid] \
+  [--max-failures 20] [--keep-going-after-command-failures] \
+  [--jobs 1]
+```
+
+Passes can be supplied by canonical name (`vacuum`, `optimize-casts`) or short flag form (`--vacuum`, `--optimize-casts`); repeat `--pass` for multiple passes.
+
+`--pass` is required; unsupported names fail fast. Discovery helpers:
+
+- `bun fuzz compare-pass --list-passes`
+- `bun fuzz compare-pass --list-failure-classes`
+
+Replay helpers:
+
+- `--replay-failures-from <dir>` reloads `cases.jsonl` and saved inputs from a prior compare run.
+- `--failure-class <id>` and `--case-index <n>` narrow replay.
+
+Concurrency and execution invariants:
+
+- `--jobs <n|auto>` defaults to `1`; `auto` uses runtime parallelism.
+- `--jobs >1` requires `--starshine-bin` so workers reuse a prebuilt native Starshine binary (preventing concurrent `moon run src/cmd` invocations).
+- `--list-passes` and `--list-failure-classes` are metadata-only entrypoints (they are independent of compare-run configuration like `--count`, `--out-dir`, and `--jobs`).
+
+Use compare-pass for optimizer parity signoff or failure-replay workflows, not broad fuzz-suite coverage.
 
 ## Maintenance Guidance
 
@@ -125,4 +156,4 @@ It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...
 - MoonBit runner and command tests: [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt)
 - Invalid repro dispatcher: [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt)
 - Bun wrapper and pass compare task: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)
-- Wrapper command tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)
+- Wrapper command tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts)

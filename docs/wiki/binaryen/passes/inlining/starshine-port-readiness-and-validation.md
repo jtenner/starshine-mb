@@ -144,11 +144,13 @@ Once a Starshine module-pass lane can run `inlining`, compare against Binaryen i
 6. `inlining_splitting_basics.wast` and `inlining_splitting.wast` only after split support lands;
 7. neighborhood replay with `inline-main`, `monomorphize`, `duplicate-function-elimination`, and `inlining-optimizing`.
 
-Use the pass-targeted harness when available, for example a future equivalent of:
+Use the pass-targeted harness when available:
 
 ```text
-bun scripts/pass-fuzz-compare.ts --pass inlining ...
+bun fuzz compare-pass --pass inlining ...
 ```
+
+`bun scripts/pass-fuzz-compare.ts --pass inlining ...` is an implementation-equivalent direct entrypoint if needed for local tooling compatibility.
 
 Keep exact normalization expectations separate for plain `inlining` and `inlining-optimizing` because the latter intentionally runs additional cleanup.
 

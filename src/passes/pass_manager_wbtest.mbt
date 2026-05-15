@@ -906,6 +906,727 @@ fn pass_manager_test_native_read_repo_fixture(path : String) -> Bytes? {
 }
 
 ///|
+fn pass_manager_test_dae_core_apply_iters(
+  mod_ : @lib.Module,
+  limit : Int,
+) -> @lib.Module {
+  let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_call_summary = dae_collect_original_call_summary(mod_)
+  let original_call_counts = original_call_summary.call_counts
+  let original_prior_call_counts = original_call_summary.prior_call_counts
+  let original_prior_undropped_call_counts = original_call_summary.prior_undropped_call_counts
+  let original_active_nonself_call_counts = original_call_summary.active_nonself_call_counts
+  let original_active_parameterized_nonself_call_counts = original_call_summary.active_parameterized_nonself_call_counts
+  let original_active_parameterized_result_nonself_call_counts = original_call_summary.active_parameterized_result_nonself_call_counts
+  let original_nonself_undropped_call_counts = original_call_summary.nonself_undropped_call_counts
+  let original_self_call_counts = original_call_summary.self_call_counts
+  let original_private_result_dead_suffix_call_counts = dae_collect_original_private_result_dead_suffix_call_counts(
+    mod_, original_call_counts,
+  )
+  let original_private_result_same_operand_call_counts = dae_collect_original_private_result_same_operand_call_counts(
+    mod_,
+  )
+  let original_private_result_escaped_operand_call_counts = dae_collect_original_private_result_escaped_operand_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts(
+    mod_,
+  )
+  let original_private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
+    mod_, original_dead_suffix_escaped_result_operand_call_counts,
+  )
+  let original_escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts(
+    mod_,
+  )
+  let original_escaped_undropped_dead_suffix_call_counts = dae_collect_original_escaped_undropped_dead_suffix_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_other_calls = dae_collect_original_dead_suffix_other_calls(
+    mod_,
+  )
+  let original_dead_suffix_undropped_self_calls = dae_collect_original_dead_suffix_undropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_self_calls = dae_collect_original_dead_suffix_dropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_block_undropped_self_calls = dae_collect_original_dead_suffix_block_undropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_self_call_full_param_forwards = dae_collect_original_dead_suffix_dropped_self_call_full_param_forwards(
+    mod_,
+  )
+  let original_dead_suffix_result_calls_from_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers(
+    mod_, original_nonself_undropped_call_counts,
+  )
+  let original_dead_suffix_result_calls_from_no_param_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_callers(
+    mod_,
+  )
+  let original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers = dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers(
+    mod_,
+  )
+  let original_dead_suffix_dropped_calls_from_parameterized_self_callers = dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
+    mod_,
+  )
+  let original_dead_suffix_dropped_calls_from_no_param_result_callers = dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
+    mod_,
+  )
+  let original_dead_suffix_mixed_dropped_undropped_call_counts = dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_dropped_earlier_result_calls = dae_collect_original_dead_suffix_dropped_earlier_result_calls(
+    mod_,
+  )
+  let original_later_dead_suffix_dropped_call_counts = dae_collect_original_later_dead_suffix_dropped_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_same_self_result_operand_calls = dae_collect_original_dead_suffix_same_self_result_operand_calls(
+    mod_,
+  )
+  let original_dead_suffix_undropped_self_call_param_operands = dae_collect_original_dead_suffix_undropped_self_call_param_operands(
+    mod_,
+  )
+  let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls(
+    mod_,
+  )
+  let original_dead_suffix_self_recursive_void_side_calls = dae_collect_original_dead_suffix_self_recursive_void_side_calls(
+    mod_,
+  )
+  let original_dead_suffix_self_recursive_result_side_calls = dae_collect_original_dead_suffix_self_recursive_result_side_calls(
+    mod_,
+  )
+  let original_dead_suffix_undropped_escaped_result_calls = dae_collect_original_dead_suffix_undropped_escaped_result_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_escaped_result_calls = dae_collect_original_dead_suffix_dropped_escaped_result_calls(
+    mod_,
+  )
+  let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
+    mod_,
+  )
+  let original_dead_suffix_calls_from_param_operand_self_result_callers = dae_collect_original_dead_suffix_calls_from_param_operand_self_result_callers(
+    mod_, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+    original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+    original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+    original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+    original_dead_suffix_mutual_calls,
+  )
+  let mut current = mod_
+  let mut iter = 0
+  while iter < limit {
+    let result = dae_run_core_once(
+      current,
+      Array::make(dae_defined_func_count(current), false),
+      original_param_counts,
+      original_call_counts,
+      original_prior_call_counts,
+      original_prior_undropped_call_counts,
+      original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts,
+      original_active_parameterized_result_nonself_call_counts,
+      original_nonself_undropped_call_counts,
+      original_self_call_counts,
+      original_private_result_dead_suffix_call_counts,
+      original_private_result_same_operand_call_counts,
+      original_private_result_escaped_operand_call_counts,
+      original_dead_suffix_escaped_result_operand_call_counts,
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts,
+      original_escaped_undropped_dead_suffix_call_counts,
+      original_dead_suffix_other_calls,
+      original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls,
+      original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_dropped_self_call_full_param_forwards,
+      original_dead_suffix_result_calls_from_undropped_self_callers,
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+      original_dead_suffix_dropped_calls_from_no_param_result_callers,
+      original_dead_suffix_mixed_dropped_undropped_call_counts,
+      original_dead_suffix_dropped_earlier_result_calls,
+      original_later_dead_suffix_dropped_call_counts,
+      original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_undropped_self_call_param_operands,
+      original_dead_suffix_calls_from_param_operand_self_result_callers,
+      original_dead_suffix_result_other_calls,
+      original_dead_suffix_self_recursive_void_side_calls,
+      original_dead_suffix_self_recursive_result_side_calls,
+      original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls,
+      original_dead_suffix_mutual_calls,
+    )
+    if !result.changed {
+      break
+    }
+    current = result.mod_out
+    iter += 1
+  }
+  current
+}
+
+///|
+fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
+  mod_ : @lib.Module,
+  limit : Int,
+) -> Array[Int] {
+  let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_call_summary = dae_collect_original_call_summary(mod_)
+  let original_call_counts = original_call_summary.call_counts
+  let original_active_nonself_call_counts = original_call_summary.active_nonself_call_counts
+  let original_active_parameterized_nonself_call_counts = original_call_summary.active_parameterized_nonself_call_counts
+  let original_nonself_undropped_call_counts = original_call_summary.nonself_undropped_call_counts
+  let original_self_call_counts = original_call_summary.self_call_counts
+  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts(
+    mod_,
+  )
+  let original_private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
+    mod_, original_dead_suffix_escaped_result_operand_call_counts,
+  )
+  let original_escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_undropped_self_calls = dae_collect_original_dead_suffix_undropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_self_calls = dae_collect_original_dead_suffix_dropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_block_undropped_self_calls = dae_collect_original_dead_suffix_block_undropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_result_calls_from_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers(
+    mod_, original_nonself_undropped_call_counts,
+  )
+  let original_dead_suffix_result_calls_from_no_param_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_callers(
+    mod_,
+  )
+  let original_dead_suffix_same_self_result_operand_calls = dae_collect_original_dead_suffix_same_self_result_operand_calls(
+    mod_,
+  )
+  let original_dead_suffix_undropped_self_call_param_operands = dae_collect_original_dead_suffix_undropped_self_call_param_operands(
+    mod_,
+  )
+  let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls(
+    mod_,
+  )
+  let original_dead_suffix_undropped_escaped_result_calls = dae_collect_original_dead_suffix_undropped_escaped_result_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_escaped_result_calls = dae_collect_original_dead_suffix_dropped_escaped_result_calls(
+    mod_,
+  )
+  let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
+    mod_,
+  )
+  let original_dead_suffix_calls_from_param_operand_self_result_callers = dae_collect_original_dead_suffix_calls_from_param_operand_self_result_callers(
+    mod_, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+    original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+    original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+    original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+    original_dead_suffix_mutual_calls,
+  )
+  let primary_defs : Array[Int] = []
+  let mut current = mod_
+  let mut iter = 0
+  while iter < limit {
+    let result = dae_try_rewrite_reverse_exact_literal_once(
+      current,
+      original_param_counts,
+      original_call_counts,
+      original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts,
+      original_nonself_undropped_call_counts,
+      original_self_call_counts,
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts,
+      original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls,
+      original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_result_calls_from_undropped_self_callers,
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+      original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_undropped_self_call_param_operands,
+      original_dead_suffix_result_other_calls,
+      original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls,
+      original_dead_suffix_mutual_calls,
+      original_dead_suffix_calls_from_param_operand_self_result_callers,
+      original_dead_suffix_escaped_result_operand_call_counts,
+      dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
+        mod_,
+      ),
+    )
+    if !result.changed {
+      break
+    }
+    primary_defs.push(result.primary_def)
+    current = result.mod_out
+    iter += 1
+  }
+  primary_defs
+}
+
+///|
+fn pass_manager_test_dae_core_primary_defs(
+  mod_ : @lib.Module,
+  limit : Int,
+) -> Array[Int] {
+  let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_call_summary = dae_collect_original_call_summary(mod_)
+  let original_call_counts = original_call_summary.call_counts
+  let original_prior_call_counts = original_call_summary.prior_call_counts
+  let original_prior_undropped_call_counts = original_call_summary.prior_undropped_call_counts
+  let original_active_nonself_call_counts = original_call_summary.active_nonself_call_counts
+  let original_active_parameterized_nonself_call_counts = original_call_summary.active_parameterized_nonself_call_counts
+  let original_active_parameterized_result_nonself_call_counts = original_call_summary.active_parameterized_result_nonself_call_counts
+  let original_nonself_undropped_call_counts = original_call_summary.nonself_undropped_call_counts
+  let original_self_call_counts = original_call_summary.self_call_counts
+  let original_private_result_dead_suffix_call_counts = dae_collect_original_private_result_dead_suffix_call_counts(
+    mod_, original_call_counts,
+  )
+  let original_private_result_same_operand_call_counts = dae_collect_original_private_result_same_operand_call_counts(
+    mod_,
+  )
+  let original_private_result_escaped_operand_call_counts = dae_collect_original_private_result_escaped_operand_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts(
+    mod_,
+  )
+  let original_private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
+    mod_, original_dead_suffix_escaped_result_operand_call_counts,
+  )
+  let original_escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts(
+    mod_,
+  )
+  let original_escaped_undropped_dead_suffix_call_counts = dae_collect_original_escaped_undropped_dead_suffix_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_other_calls = dae_collect_original_dead_suffix_other_calls(
+    mod_,
+  )
+  let original_dead_suffix_undropped_self_calls = dae_collect_original_dead_suffix_undropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_self_calls = dae_collect_original_dead_suffix_dropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_block_undropped_self_calls = dae_collect_original_dead_suffix_block_undropped_self_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_self_call_full_param_forwards = dae_collect_original_dead_suffix_dropped_self_call_full_param_forwards(
+    mod_,
+  )
+  let original_dead_suffix_result_calls_from_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers(
+    mod_, original_nonself_undropped_call_counts,
+  )
+  let original_dead_suffix_result_calls_from_no_param_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_callers(
+    mod_,
+  )
+  let original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers = dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers(
+    mod_,
+  )
+  let original_dead_suffix_dropped_calls_from_parameterized_self_callers = dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
+    mod_,
+  )
+  let original_dead_suffix_dropped_calls_from_no_param_result_callers = dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
+    mod_,
+  )
+  let original_dead_suffix_mixed_dropped_undropped_call_counts = dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_dropped_earlier_result_calls = dae_collect_original_dead_suffix_dropped_earlier_result_calls(
+    mod_,
+  )
+  let original_later_dead_suffix_dropped_call_counts = dae_collect_original_later_dead_suffix_dropped_call_counts(
+    mod_,
+  )
+  let original_dead_suffix_same_self_result_operand_calls = dae_collect_original_dead_suffix_same_self_result_operand_calls(
+    mod_,
+  )
+  let original_dead_suffix_undropped_self_call_param_operands = dae_collect_original_dead_suffix_undropped_self_call_param_operands(
+    mod_,
+  )
+  let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls(
+    mod_,
+  )
+  let original_dead_suffix_self_recursive_void_side_calls = dae_collect_original_dead_suffix_self_recursive_void_side_calls(
+    mod_,
+  )
+  let original_dead_suffix_self_recursive_result_side_calls = dae_collect_original_dead_suffix_self_recursive_result_side_calls(
+    mod_,
+  )
+  let original_dead_suffix_undropped_escaped_result_calls = dae_collect_original_dead_suffix_undropped_escaped_result_calls(
+    mod_,
+  )
+  let original_dead_suffix_dropped_escaped_result_calls = dae_collect_original_dead_suffix_dropped_escaped_result_calls(
+    mod_,
+  )
+  let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
+    mod_,
+  )
+  let original_dead_suffix_calls_from_param_operand_self_result_callers = dae_collect_original_dead_suffix_calls_from_param_operand_self_result_callers(
+    mod_, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+    original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+    original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+    original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
+    original_dead_suffix_mutual_calls,
+  )
+  let primary_defs : Array[Int] = []
+  let mut current = mod_
+  let mut iter = 0
+  while iter < limit {
+    let result = dae_run_core_once(
+      current,
+      Array::make(dae_defined_func_count(current), false),
+      original_param_counts,
+      original_call_counts,
+      original_prior_call_counts,
+      original_prior_undropped_call_counts,
+      original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts,
+      original_active_parameterized_result_nonself_call_counts,
+      original_nonself_undropped_call_counts,
+      original_self_call_counts,
+      original_private_result_dead_suffix_call_counts,
+      original_private_result_same_operand_call_counts,
+      original_private_result_escaped_operand_call_counts,
+      original_dead_suffix_escaped_result_operand_call_counts,
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts,
+      original_escaped_undropped_dead_suffix_call_counts,
+      original_dead_suffix_other_calls,
+      original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls,
+      original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_dropped_self_call_full_param_forwards,
+      original_dead_suffix_result_calls_from_undropped_self_callers,
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+      original_dead_suffix_dropped_calls_from_no_param_result_callers,
+      original_dead_suffix_mixed_dropped_undropped_call_counts,
+      original_dead_suffix_dropped_earlier_result_calls,
+      original_later_dead_suffix_dropped_call_counts,
+      original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_undropped_self_call_param_operands,
+      original_dead_suffix_calls_from_param_operand_self_result_callers,
+      original_dead_suffix_result_other_calls,
+      original_dead_suffix_self_recursive_void_side_calls,
+      original_dead_suffix_self_recursive_result_side_calls,
+      original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls,
+      original_dead_suffix_mutual_calls,
+    )
+    if !result.changed {
+      break
+    }
+    primary_defs.push(result.primary_def)
+    current = result.mod_out
+    iter += 1
+  }
+  primary_defs
+}
+
+///|
+fn pass_manager_test_first_shape_failure_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  param_count : Int,
+  entry_stack_values : Int,
+  caller_abs : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (Int, Int)? {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        if dae_collect_callsite_shapes(
+            instrs, idx, param_count, entry_stack_values, mod_, func_type_indices,
+          )
+          is None {
+          return Some((caller_abs, idx))
+        }
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body))
+      | @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return Some((caller_abs, idx))
+        }
+        match
+          pass_manager_test_first_shape_failure_instrs(
+            body, callee_abs, param_count, child_entry_stack_values, caller_abs,
+            mod_, func_type_indices,
+          ) {
+          Some(hit) => return Some(hit)
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return Some((caller_abs, idx))
+        }
+        match
+          pass_manager_test_first_shape_failure_instrs(
+            then_body, callee_abs, param_count, child_entry_stack_values, caller_abs,
+            mod_, func_type_indices,
+          ) {
+          Some(hit) => return Some(hit)
+          None => ()
+        }
+        match
+          pass_manager_test_first_shape_failure_instrs(
+            else_body, callee_abs, param_count, child_entry_stack_values, caller_abs,
+            mod_, func_type_indices,
+          ) {
+          Some(hit) => return Some(hit)
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, None) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return Some((caller_abs, idx))
+        }
+        match
+          pass_manager_test_first_shape_failure_instrs(
+            then_body, callee_abs, param_count, child_entry_stack_values, caller_abs,
+            mod_, func_type_indices,
+          ) {
+          Some(hit) => return Some(hit)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn pass_manager_test_first_shape_failure(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  param_count : Int,
+) -> (Int, Int)? {
+  let imported = dae_imported_func_count(mod_)
+  let func_type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return None
+  }
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    match
+      pass_manager_test_first_shape_failure_instrs(
+        body,
+        callee_abs,
+        param_count,
+        0,
+        imported + def_idx,
+        mod_,
+        func_type_indices,
+      ) {
+      Some(hit) => return Some(hit)
+      None => ()
+    }
+    def_idx += 1
+  }
+  None
+}
+
+///|
+fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  param_count : Int,
+  param_idx : Int,
+  entry_stack_values : Int,
+  caller_abs : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (Int, Array[@lib.Instruction])? {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        match
+          dae_collect_callsite_shapes(
+            instrs, idx, param_count, entry_stack_values, mod_, func_type_indices,
+          ) {
+          Some((shapes, _)) => {
+            let shape = shapes[param_idx]
+            let actual : Array[@lib.Instruction] = []
+            let mut j = shape.start
+            while j < shape.end {
+              actual.push(instrs[j])
+              j += 1
+            }
+            if actual.length() != 1 ||
+              actual[0] != @lib.Instruction::i32_const(0) {
+              return Some((caller_abs, actual))
+            }
+          }
+          None => ()
+        }
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body))
+      | @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return Some((caller_abs, []))
+        }
+        match
+          pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
+            body, callee_abs, param_count, param_idx, child_entry_stack_values, caller_abs,
+            mod_, func_type_indices,
+          ) {
+          Some(hit) => return Some(hit)
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return Some((caller_abs, []))
+        }
+        match
+          pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
+            then_body, callee_abs, param_count, param_idx, child_entry_stack_values,
+            caller_abs, mod_, func_type_indices,
+          ) {
+          Some(hit) => return Some(hit)
+          None => ()
+        }
+        match
+          pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
+            else_body, callee_abs, param_count, param_idx, child_entry_stack_values,
+            caller_abs, mod_, func_type_indices,
+          ) {
+          Some(hit) => return Some(hit)
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, None) => {
+        let child_entry_stack_values = match
+          dae_block_type_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return Some((caller_abs, []))
+        }
+        match
+          pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
+            then_body, callee_abs, param_count, param_idx, child_entry_stack_values,
+            caller_abs, mod_, func_type_indices,
+          ) {
+          Some(hit) => return Some(hit)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn pass_manager_test_first_nonconst_i32_actual_instrs(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  param_count : Int,
+  param_idx : Int,
+) -> (Int, Array[@lib.Instruction])? {
+  let imported = dae_imported_func_count(mod_)
+  let func_type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return None
+  }
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    match
+      pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
+        body,
+        callee_abs,
+        param_count,
+        param_idx,
+        0,
+        imported + def_idx,
+        mod_,
+        func_type_indices,
+      ) {
+      Some(hit) => return Some(hit)
+      None => ()
+    }
+    def_idx += 1
+  }
+  None
+}
+
+///|
+fn pass_manager_test_rewrite_call_progress(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  remove : Array[Bool],
+) -> (Int, Int, Int)? {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return None
+  }
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    let result = dae_rewrite_calls_instrs(
+      body, callee_abs, remove, 0, mod_, type_indices,
+    )
+    if !result.ok {
+      return Some((caller_def, imported + caller_def, result.calls_rewritten))
+    }
+    caller_def += 1
+  }
+  None
+}
+
+///|
+fn pass_manager_test_total_rewritten_calls(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  remove : Array[Bool],
+) -> Int {
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return 0
+  }
+  let mut total = 0
+  for func in funcs {
+    let @lib.Func(_, @lib.Expr(body)) = func
+    let result = dae_rewrite_calls_instrs(
+      body, callee_abs, remove, 0, mod_, type_indices,
+    )
+    if !result.ok {
+      return -1
+    }
+    total += result.calls_rewritten
+  }
+  total
+}
+
+///|
 #cfg(target="native")
 fn pass_manager_test_run_hot_pipeline_func(
   mod_ : @lib.Module,
@@ -1083,6 +1804,560 @@ fn pass_manager_test_imported_func_count(mod_ : @lib.Module) -> Int {
     None => ()
   }
   count
+}
+
+///|
+fn pass_manager_test_try_rewrite_exact_literal_candidate(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let total = dae_collect_func_type_indices(mod_).length()
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let callee_abs = imported + def_idx
+  let func_type = match
+    dae_resolve_func_type(mod_, dae_collect_func_type_indices(mod_), callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, _) = func_type
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  let uniform_const_params = dae_collect_uniform_const_actuals(
+    mod_,
+    callee_abs,
+    params.length(),
+    dae_collect_func_type_indices(mod_),
+  )
+  let remove = Array::make(params.length(), false)
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  let mut p = 0
+  while p < params.length() {
+    if !local_use.gets[p] {
+      remove[p] = true
+    } else if !local_use.writes[p] {
+      match uniform_const_params {
+        Some(values) =>
+          match values[p] {
+            Some(value) => {
+              remove[p] = true
+              const_params[p] = Some(value)
+            }
+            None => ()
+          }
+        None => ()
+      }
+    }
+    p += 1
+  }
+  let direct_calls = dae_collect_calls(mod_, total).0
+  dae_try_rewrite_candidate(
+    mod_,
+    callee_abs,
+    remove,
+    const_params,
+    local_use,
+    direct_calls[callee_abs],
+  )
+}
+
+///|
+fn pass_manager_test_defined_func_params(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> Array[@lib.ValType] {
+  let type_idx = match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => type_idxs[def_idx]
+    None => abort("expected func section")
+  }
+  match (mod_.type_sec, type_idx) {
+    (Some(@lib.TypeSec(rec_types)), @lib.TypeIdx(raw)) =>
+      match rec_types[raw.reinterpret_as_int()] {
+        @lib.SingleRecType(subtype) =>
+          match subtype.get_comptype() {
+            @lib.FuncCompType(params, _) => params
+            _ => abort("expected func comp type")
+          }
+        @lib.GroupRecType(_) => abort("unexpected group type")
+      }
+    _ => abort("expected concrete type")
+  }
+}
+
+///|
+test "dae core debug artifact frontier now reaches check_range first" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let primary_defs = pass_manager_test_dae_core_primary_defs(mod_, 12)
+  @debug.assert_eq(primary_defs, [
+    11, 227, 233, 236, 237, 246, 256, 267, 268, 287, 288, 298,
+  ])
+}
+
+///|
+test "dae core debug artifact check_range is now directly rewritable" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let imported = dae_imported_func_count(mod_)
+  let total = dae_collect_func_type_indices(mod_).length()
+  let escaped = dae_collect_escapes(mod_, total)
+  let (_, tail_calls) = dae_collect_calls(mod_, total)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let def_idx = 11
+  let callee_abs = imported + def_idx
+  let func_type = match
+    dae_resolve_func_type(mod_, dae_collect_func_type_indices(mod_), callee_abs) {
+    Some(ft) => ft
+    None => fail("expected func type")
+  }
+  let @lib.FuncType(params, _) = func_type
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  let self_calls_anywhere = dae_count_self_calls_anywhere(
+    funcs[def_idx],
+    callee_abs,
+  )
+  let uniform_const_params = dae_collect_uniform_const_actuals(
+    mod_,
+    callee_abs,
+    params.length(),
+    dae_collect_func_type_indices(mod_),
+  )
+  let remove = Array::make(params.length(), false)
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  let mut any = false
+  let mut p = 0
+  while p < params.length() {
+    if !local_use.gets[p] {
+      remove[p] = true
+      any = true
+    } else if !local_use.writes[p] {
+      match uniform_const_params {
+        Some(values) =>
+          match values[p] {
+            Some(value) => {
+              remove[p] = true
+              const_params[p] = Some(value)
+              any = true
+            }
+            None => ()
+          }
+        None => ()
+      }
+    }
+    p += 1
+  }
+  let direct_calls = dae_collect_calls(mod_, total).0
+  let try_rewrite = dae_try_rewrite_candidate(
+    mod_,
+    callee_abs,
+    remove,
+    const_params,
+    local_use,
+    direct_calls[callee_abs],
+  )
+  let rewrite_progress = pass_manager_test_rewrite_call_progress(
+    mod_, callee_abs, remove,
+  )
+  let total_rewritten_calls = pass_manager_test_total_rewritten_calls(
+    mod_, callee_abs, remove,
+  )
+  @debug.assert_eq(escaped[callee_abs], false)
+  @debug.assert_eq(tail_calls[callee_abs], false)
+  @debug.assert_eq(self_calls_anywhere, 0)
+  @debug.assert_eq(local_use.gets, [true, true, true])
+  @debug.assert_eq(local_use.writes, [false, false, false])
+  @debug.assert_eq(
+    uniform_const_params,
+    Some([None, Some(@lib.Instruction::i32_const(0)), None]),
+  )
+  @debug.assert_eq(any, true)
+  @debug.assert_eq(try_rewrite.changed, true)
+  @debug.assert_eq(remove, [false, true, false])
+  @debug.assert_eq(rewrite_progress, None)
+  @debug.assert_eq(total_rewritten_calls, 370)
+  @debug.assert_eq(direct_calls[callee_abs], 370)
+  @debug.assert_eq(
+    pass_manager_test_defined_func_params(try_rewrite.mod_out, 11).length(),
+    2,
+  )
+}
+
+///|
+test "dae core debug artifact check_range callsite shapes are all recoverable" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let callee_abs = dae_imported_func_count(mod_) + 11
+  @debug.assert_eq(
+    pass_manager_test_first_shape_failure(mod_, callee_abs, 3),
+    None,
+  )
+}
+
+///|
+test "dae core debug artifact first two productive rewrites still stay below Func 42" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let primary_defs = pass_manager_test_dae_core_primary_defs(mod_, 2)
+  @debug.assert_eq(primary_defs, [11, 227])
+}
+
+///|
+test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals on the original artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let imported = dae_imported_func_count(mod_)
+  let total = dae_collect_func_type_indices(mod_).length()
+  let escaped = dae_collect_escapes(mod_, total)
+  let (_, tail_calls) = dae_collect_calls(mod_, total)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let def_idx = 25
+  let callee_abs = imported + def_idx
+  let func_type = match
+    dae_resolve_func_type(mod_, dae_collect_func_type_indices(mod_), callee_abs) {
+    Some(ft) => ft
+    None => fail("expected func type")
+  }
+  let @lib.FuncType(params, _) = func_type
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  let self_calls_anywhere = dae_count_self_calls_anywhere(
+    funcs[def_idx],
+    callee_abs,
+  )
+  @debug.assert_eq(
+    pass_manager_test_first_shape_failure(mod_, callee_abs, params.length()),
+    None,
+  )
+  match pass_manager_test_first_nonconst_i32_actual_instrs(
+    mod_,
+    callee_abs,
+    params.length(),
+    1,
+  ) {
+    Some((4559, instrs)) => {
+      @debug.assert_eq(instrs.length(), 1)
+      match instrs[0] {
+        @lib.LocalGet(@lib.LocalIdx(raw)) => @debug.assert_eq(raw, 1U)
+        _ => fail("expected Func 42 blocker to be local.get 1")
+      }
+    }
+    _ => fail("expected Func 42 blocker to come from Func 4559 local.get 1")
+  }
+  let uniform_const_params = dae_collect_uniform_const_actuals(
+    mod_,
+    callee_abs,
+    params.length(),
+    dae_collect_func_type_indices(mod_),
+  )
+  let remove = Array::make(params.length(), false)
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  let mut any = false
+  let mut p = 0
+  while p < params.length() {
+    if !local_use.gets[p] {
+      remove[p] = true
+      any = true
+    } else if !local_use.writes[p] {
+      match uniform_const_params {
+        Some(values) =>
+          match values[p] {
+            Some(value) => {
+              remove[p] = true
+              const_params[p] = Some(value)
+              any = true
+            }
+            None => ()
+          }
+        None => ()
+      }
+    }
+    p += 1
+  }
+  let direct_calls = dae_collect_calls(mod_, total).0
+  let rewrite_progress = pass_manager_test_rewrite_call_progress(
+    mod_, callee_abs, remove,
+  )
+  @debug.assert_eq(escaped[callee_abs], false)
+  @debug.assert_eq(tail_calls[callee_abs], false)
+  @debug.assert_eq(self_calls_anywhere, 0)
+  @debug.assert_eq(local_use.gets[0], true)
+  @debug.assert_eq(local_use.gets[1], true)
+  @debug.assert_eq(local_use.gets[2], true)
+  @debug.assert_eq(local_use.writes[0], false)
+  @debug.assert_eq(local_use.writes[1], false)
+  @debug.assert_eq(local_use.writes[2], false)
+  @debug.assert_eq(
+    uniform_const_params,
+    Some([None, Some(@lib.Instruction::i32_const(0)), None]),
+  )
+  @debug.assert_eq(any, true)
+  @debug.assert_eq(remove, [false, true, false])
+  @debug.assert_eq(rewrite_progress, None)
+  @debug.assert_eq(direct_calls[callee_abs] > 0, true)
+}
+
+///|
+test "dae core debug artifact Func 4558 is directly rewritable" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let callee_abs = 4558
+  @debug.assert_eq(
+    dae_collect_uniform_const_actuals(
+      mod_,
+      callee_abs,
+      3,
+      dae_collect_func_type_indices(mod_),
+    ),
+    Some([None, Some(@lib.Instruction::i32_const(0)), None]),
+  )
+}
+
+///|
+test "dae reverse exact-literal artifact frontier still has many later candidates ahead of Func 4559" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  @debug.assert_eq(
+    pass_manager_test_dae_reverse_exact_literal_primary_defs(mod_, 20),
+    [
+      4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584, 4582, 4580, 4579, 4578, 4577,
+      4576, 4575, 4574, 4573, 4572, 4571, 4570,
+    ],
+  )
+}
+
+///|
+test "dae core debug artifact Func 4559 becomes directly rewritable after Func 4558 rewrites" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let rewrite_4558 = pass_manager_test_try_rewrite_exact_literal_candidate(
+    mod_, 4541,
+  )
+  @debug.assert_eq(rewrite_4558.changed, true)
+  match dae_collect_uniform_const_actuals(
+    rewrite_4558.mod_out,
+    4559,
+    3,
+    dae_collect_func_type_indices(rewrite_4558.mod_out),
+  ) {
+    Some(values) => {
+      @debug.assert_eq(values.length(), 3)
+      match values[0] {
+        None => ()
+        _ => fail("expected Func 4559 first actual to stay non-uniform")
+      }
+      match values[2] {
+        None => ()
+        _ => fail("expected Func 4559 third actual to stay non-uniform")
+      }
+      match values[1] {
+        Some(@lib.I32Const(@lib.I32(0))) => ()
+        _ => fail("expected Func 4559 middle actual to resolve to i32.const 0")
+      }
+    }
+    None => fail("expected Func 4559 forwarded-const analysis to succeed")
+  }
+  let rewrite_4559 = pass_manager_test_try_rewrite_exact_literal_candidate(
+    rewrite_4558.mod_out,
+    4542,
+  )
+  @debug.assert_eq(rewrite_4559.changed, true)
+  @debug.assert_eq(
+    pass_manager_test_defined_func_params(rewrite_4559.mod_out, 4542).length(),
+    2,
+  )
+}
+
+///|
+test "dae core debug artifact Func 42 stays rewritable after earlier core progress" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let after_64 = pass_manager_test_dae_core_apply_iters(mod_, 64)
+  @debug.assert_eq(pass_manager_test_defined_func_params(after_64, 25).length(), 2)
+}
+
+///|
+test "dae core debug artifact Func 4559 is a simple full-param forwarder" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  assert_true(dae_func_is_simple_full_param_forwarder(funcs[4542], 3))
+}
+
+///|
+test "dae core debug artifact Func 4559 still sees Func 4558 as the first non-const middle actual source" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  match pass_manager_test_first_nonconst_i32_actual_instrs(mod_, 4559, 3, 1) {
+    Some((4558, instrs)) => {
+      @debug.assert_eq(instrs.length(), 1)
+      match instrs[0] {
+        @lib.LocalGet(@lib.LocalIdx(raw)) => @debug.assert_eq(raw, 1U)
+        _ => fail("expected Func 4559 blocker to be local.get 1")
+      }
+    }
+    _ => fail("expected Func 4559 blocker to come from Func 4558 local.get 1")
+  }
+}
+
+///|
+test "dae core debug artifact Func 42 becomes directly rewritable after Func 4558 and Func 4559 rewrite" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let rewrite_4558 = pass_manager_test_try_rewrite_exact_literal_candidate(
+    mod_, 4541,
+  )
+  @debug.assert_eq(rewrite_4558.changed, true)
+  let rewrite_4559 = pass_manager_test_try_rewrite_exact_literal_candidate(
+    rewrite_4558.mod_out,
+    4542,
+  )
+  @debug.assert_eq(rewrite_4559.changed, true)
+  match dae_collect_uniform_const_actuals(
+    rewrite_4559.mod_out,
+    42,
+    3,
+    dae_collect_func_type_indices(rewrite_4559.mod_out),
+  ) {
+    Some(values) => {
+      @debug.assert_eq(values.length(), 3)
+      match values[0] {
+        None => ()
+        _ => fail("expected Func 42 first actual to stay non-uniform")
+      }
+      match values[2] {
+        None => ()
+        _ => fail("expected Func 42 third actual to stay non-uniform")
+      }
+      match values[1] {
+        Some(@lib.I32Const(@lib.I32(0))) => ()
+        _ => fail("expected Func 42 middle actual to resolve to i32.const 0")
+      }
+    }
+    None => fail("expected Func 42 forwarded-const analysis to succeed")
+  }
 }
 
 ///|

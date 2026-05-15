@@ -126,6 +126,14 @@ pub fn write_file_bytes(path : String, bytes : Bytes) -> Result[Unit, String] {
 }
 
 ///|
+pub fn read_file_bytes(path : String) -> Result[Bytes, String] {
+  let bytes = @xfs.read_file_to_bytes(path) catch {
+    e => return Err("read_file_bytes failed for \{path}: \{e}")
+  }
+  Ok(bytes)
+}
+
+///|
 pub fn list_files_recursive(root : String) -> Result[Array[String], String] {
   let normalized_root = fs_normalize_path(root)
   let is_dir = @xfs.is_dir(normalized_root) catch {

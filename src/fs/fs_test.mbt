@@ -97,6 +97,32 @@ test "mini fs writes and deletes files" {
 }
 
 ///|
+test "mini fs reads raw file bytes" {
+  let dir = fs_test_tmp_path("read-bytes")
+  let path = "\{dir}/payload.bin"
+  let payload = fs_test_bytes_from_string("raw bytes payload\n")
+
+  ignore(remove_file(path))
+  ignore(remove_dir(dir))
+  match create_dir(dir) {
+    Ok(_) => ()
+    Err(e) => fail("expected create_dir success, got \{e}")
+  }
+  match write_file_bytes(path, payload) {
+    Ok(_) => ()
+    Err(e) => fail("expected write_file_bytes success, got \{e}")
+  }
+
+  match read_file_bytes(path) {
+    Ok(bytes) => @debug.assert_eq(bytes, payload)
+    Err(e) => fail("expected read_file_bytes success, got \{e}")
+  }
+
+  ignore(remove_file(path))
+  ignore(remove_dir(dir))
+}
+
+///|
 test "mini fs recursively lists nested files for glob candidate expansion" {
   let root = fs_test_tmp_path("walk")
   let nested = "\{root}/nested"
