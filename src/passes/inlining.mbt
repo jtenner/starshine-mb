@@ -4966,6 +4966,7 @@ fn inl_run_nested_cleanup(
     "simplify-locals", "vacuum", "reorder-locals", "coalesce-locals", "reorder-locals",
     "vacuum", "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
     "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
+    "vacuum",
   ]
   match
     inl_run_nested_cleanup_passes(prefixed, passes, def_touched, options, trace) {

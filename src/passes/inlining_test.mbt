@@ -2547,6 +2547,39 @@ test "inlining-optimizing nested scheduler replays late local cleanup before cod
 }
 
 ///|
+test "inlining-optimizing nested scheduler ends with final vacuum" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  let mut last_hso_idx = -1
+  let mut last_vacuum_idx = -1
+  let mut last_nested_idx = -1
+  let mut idx = 0
+  for line in trace {
+    if line.contains("pass[inlining-optimizing]:nested-pass name=") {
+      last_nested_idx = idx
+    }
+    if line ==
+      "pass[inlining-optimizing]:nested-pass name=heap-store-optimization" {
+      last_hso_idx = idx
+    } else if line == "pass[inlining-optimizing]:nested-pass name=vacuum" {
+      last_vacuum_idx = idx
+    }
+    idx += 1
+  }
+  assert_true(last_hso_idx >= 0, msg=trace.to_string())
+  assert_true(last_vacuum_idx > last_hso_idx, msg=trace.to_string())
+  assert_true(last_nested_idx == last_vacuum_idx, msg=trace.to_string())
+}
+
+///|
 test "inlining-optimizing nested prefix propagates default locals only in touched callers" {
   let source =
     #|(module

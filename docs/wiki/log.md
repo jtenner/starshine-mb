@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining-optimizing nested final vacuum
+
+- Advanced `[INL]002` by appending the unconditional touched `vacuum` tail after the late `heap-store-optimization` in the `inlining-optimizing` nested cleanup lane.
+- Binaryen source evidence in `.tmp/binaryen-pass-version129.cpp` shows `PassRunner::addDefaultFunctionOptimizationPasses()` ending with `vacuum`; this slice deliberately did not add the conditional `rse` slot.
+- Added focused trace coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving the nested scheduler's last nested pass is final `vacuum` after the late `heap-store-optimization`.
+- Validation: `moon test src/passes` (`1054/1054` after the focused test failed first), `moon fmt`, `moon info`, full `moon test` (`3116/3116`), `git diff --check`, `bun validate readme-api-sync`, `.tmp/pass-fuzz-inlining-optimizing-inl002-final-vacuum-200` reported `199/200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, and `1` ignored Binaryen/tool command failure; `.tmp/pass-fuzz-inlining-optimizing-inl002-final-vacuum-1000` reported `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, and `2` ignored Binaryen/tool command failures.
+- `[INL]002` remains open because this is still Starshine's approximate lane, not Binaryen's exact public `precompute-propagate` plus option-specific default function pipeline.
 ## [2026-05-14] passes | inlining-optimizing nested late local cleanup cluster
 
 - Advanced `[INL]002` by inserting the late local cleanup cluster `vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` between `simplify-locals` and `code-folding` in the touched-filtered `inlining-optimizing` nested cleanup lane.

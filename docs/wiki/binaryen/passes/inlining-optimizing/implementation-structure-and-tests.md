@@ -91,7 +91,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - emits trace marker;
   - prepends the private touched-only `precompute-propagate-prefix` helper and traces that nested-pass slot explicitly;
   - converts absolute touched-function bits to defined-function bits before running filtered nested helpers so imports do not shift the touched set;
-  - runs the remaining cleanup lane through touched-function filtered hot-pass adapters plus narrow touched adapters for module-shaped `local-subtyping`, `coalesce-locals`, `local-cse`, and `reorder-locals`, and includes the touched late local cleanup cluster plus `code-folding` before the first late `merge-blocks` cluster;
+  - runs the remaining cleanup lane through touched-function filtered hot-pass adapters plus narrow touched adapters for module-shaped `local-subtyping`, `coalesce-locals`, `local-cse`, and `reorder-locals`, and includes the touched late local cleanup cluster plus `code-folding` before the first late `merge-blocks` cluster and final `vacuum` after late `heap-store-optimization`;
   - keeps body restoration as a safety net, but no longer launches the old whole-module cleanup batch;
   - compacts unused locals on touched functions;
   - collapses conservative unreachable-root shapes.
@@ -123,6 +123,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - trace coverage proving the local cleanup neighborhood includes `simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`;
 - trace coverage proving the late cleanup includes `simplify-locals -> code-folding -> merge-blocks`;
 - trace coverage proving the full late local cleanup cluster `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum -> code-folding`;
+- trace coverage proving the nested cleanup tail ends with final `vacuum` after late `heap-store-optimization`;
 - touched-caller/default-local prefix folding coverage that keeps an untouched sibling's body-local `local.get` shape unchanged;
 - whitebox predicted exact-helper padding;
 - whitebox detection of polymorphic self-call suffixes before the approximate hot cleanup lane.
