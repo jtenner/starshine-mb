@@ -4976,8 +4976,12 @@ fn inl_run_nested_cleanup(
     "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals",
     "vacuum", "reorder-locals", "coalesce-locals", "reorder-locals", "vacuum", "code-folding",
     "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute",
-    "optimize-instructions", "heap-store-optimization", "vacuum",
+    "optimize-instructions", "heap-store-optimization",
   ])
+  if optimize_level >= 2 || shrink_level >= 1 {
+    passes.push("redundant-set-elimination")
+  }
+  passes.push("vacuum")
   match
     inl_run_nested_cleanup_passes(prefixed, passes, def_touched, options, trace) {
     Ok(cleaned) =>

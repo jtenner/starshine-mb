@@ -2670,6 +2670,53 @@ test "inlining-optimizing nested scheduler ends with final vacuum" {
 }
 
 ///|
+test "inlining-optimizing nested scheduler replays O2 redundant-set-elimination tail" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(
+        optimize_level=2,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["inlining-optimizing"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  let mut hso_idx = -1
+  let mut rse_idx = -1
+  let mut final_vacuum_idx = -1
+  let mut last_nested_idx = -1
+  let mut idx = 0
+  for line in trace {
+    if line.contains("pass[inlining-optimizing]:nested-pass name=") {
+      last_nested_idx = idx
+    }
+    if line ==
+      "pass[inlining-optimizing]:nested-pass name=heap-store-optimization" {
+      hso_idx = idx
+    } else if line ==
+      "pass[inlining-optimizing]:nested-pass name=redundant-set-elimination" {
+      rse_idx = idx
+    } else if line == "pass[inlining-optimizing]:nested-pass name=vacuum" {
+      final_vacuum_idx = idx
+    }
+    idx += 1
+  }
+  assert_true(hso_idx >= 0, msg=trace.to_string())
+  assert_true(rse_idx > hso_idx, msg=trace.to_string())
+  assert_true(final_vacuum_idx > rse_idx, msg=trace.to_string())
+  assert_true(last_nested_idx == final_vacuum_idx, msg=trace.to_string())
+}
+
+///|
 test "inlining-optimizing nested prefix propagates default locals only in touched callers" {
   let source =
     #|(module
