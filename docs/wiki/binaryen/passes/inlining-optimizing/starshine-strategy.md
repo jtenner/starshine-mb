@@ -31,7 +31,7 @@ related:
 
 `inlining-optimizing` is a **partial active module pass** in Starshine. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), shares its core with plain `inlining`, and adds the local optimizing-mode cleanup approximation.
 
-Do not claim full pass signoff yet because broader heuristic gaps, the exact optimizing nested scheduler, and the current debug-artifact nested-prefix abort remain open. The standard direct seed-`0x5eed` mismatch frontier is green:
+Do not claim full pass signoff yet because broader heuristic gaps, the exact optimizing nested scheduler, and the current debug-artifact nested cleanup abort remain open. The standard direct seed-`0x5eed` mismatch frontier is green:
 
 ```text
 .tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier
@@ -53,7 +53,7 @@ The broadened direct lane is also green over compared cases:
 22 ignored Binaryen/tool command failures
 ```
 
-The `[INL]002` closeout fuzz lane `.tmp/pass-fuzz-inlining-optimizing-inl002-closeout-10000-keep` is also green over compared cases (`9975/10000`, `9975` matches, `0` mismatches, `25` ignored Binaryen/tool command failures), but debug-artifact replay is not green: direct native `--inlining-optimizing` on `tests/node/dist/starshine-debug-wasi.wasm` currently aborts with exit `134` during nested `precompute-propagate-prefix` (last traced `Func 3700`).
+The `[INL]002` closeout fuzz lane `.tmp/pass-fuzz-inlining-optimizing-inl002-closeout-10000-keep` is also green over compared cases (`9975/10000`, `9975` matches, `0` mismatches, `25` ignored Binaryen/tool command failures), but debug-artifact replay is not green: after the constant-if splice guards, direct native `--inlining-optimizing` on `tests/node/dist/starshine-debug-wasi.wasm` still aborts with exit `134`, now during nested `remove-unused-brs` (last traced `Func 916`).
 
 Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/native/release/build/cmd/cmd.exe`. For seed `0x5eed`, all 25 command failures are Binaryen/tool parse or canonicalization failures and do not count as Starshine semantic parity failures. For seed `0x1eed`, all 22 command failures are ignored Binaryen/tool `binaryen-rec-group-zero` parse failures; the former `case-008100-gen-valid` Starshine command failure now replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`. `[INL]001` is accepted for the current supported optimizing direct surface, `[INL]007` is accepted for the current supported plain direct surface, `[INL]002` remains active for the touched-function nested scheduler, and `[INL]003`, `[INL]005`, and `[INL]006` track deferred direct-inliner breadth.
 

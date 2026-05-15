@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-15] passes | constant-if splice guards during INL002 replay
+
+- Hardened `precompute` and `optimize-instructions` so constant-if folding does not inline/splice chosen regions with multiple roots, or a sole block/loop root whose body has multiple roots.
+- `optimize-instructions` also skips zero-constant `eqz` condition flips instead of aborting while trying to flip an already-constant-false condition.
+- Added focused coverage in [`../../src/passes/precompute_wbtest.mbt`](../../src/passes/precompute_wbtest.mbt) and [`../../src/passes/optimize_instructions_test.mbt`](../../src/passes/optimize_instructions_test.mbt). Validation: `moon test src/passes` (`1061/1061`), `moon fmt`, `moon info`, full `moon test` (`3123/3123`), `git diff --check`, and `bun validate readme-api-sync`.
+- `[INL]002` remains open: direct `--inlining-optimizing` on `tests/node/dist/starshine-debug-wasi.wasm` now progresses past the earlier constant-if/prefix abort and still aborts with exit `134` during nested `remove-unused-brs` at `Func 916`.
 ## [2026-05-14] validation | record INL002 artifact closeout blocker
 
 - Reran `[INL]002` closeout fuzz after the nested option-gate alignment: `.tmp/pass-fuzz-inlining-optimizing-inl002-closeout-10000-keep` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool command failures.

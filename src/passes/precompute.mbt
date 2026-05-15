@@ -676,6 +676,32 @@ fn precompute_try_fold_binary(
 }
 
 ///|
+fn precompute_constant_if_chosen_region_can_inline(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count > 1 {
+    return false
+  }
+  if root_count == 1 {
+    let root = @ir.hot_region_get(func, region_ref, 0)
+    if root >= 0 && @ir.hot_node_is_live(func, root) {
+      match @ir.hot_node_get(func, root).op {
+        @ir.HotOp::Block | @ir.HotOp::Loop =>
+          return @ir.hot_region_root_count(
+              func,
+              @ir.hot_region_body_ref(func, root),
+            ) <=
+            1
+        _ => ()
+      }
+    }
+  }
+  true
+}
+
+///|
 fn precompute_try_fold_constant_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -706,6 +732,9 @@ fn precompute_try_fold_constant_if(
     }
   }
   let root_count = @ir.hot_region_root_count(func, chosen_region)
+  if !precompute_constant_if_chosen_region_can_inline(func, chosen_region) {
+    return false
+  }
   if root_count == 0 {
     let nop = @ir.hot_build_nop(func)
     @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
@@ -940,28 +969,37 @@ fn precompute_simplify_region_roots(
                 } else {
                   @ir.hot_region_else_ref(func, node_id)
                 }
-                match chosen_region {
+                let can_splice = match chosen_region {
                   Some(chosen_region) =>
-                    for root_idx = 0
-                        root_idx <
-                       @ir.hot_region_root_count(func, chosen_region)
-                        root_idx = root_idx + 1 {
-                      replacement.push(
-                        @ir.hot_region_get(func, chosen_region, root_idx),
-                      )
-                    }
-                  None => ()
+                    precompute_constant_if_chosen_region_can_inline(
+                      func, chosen_region,
+                    )
+                  None => true
                 }
-                if replacement.length() == 0 &&
-                  @ir.hot_region_root_count(func, region_ref) == 1 {
-                  replacement.push(@ir.hot_build_nop(func))
+                if can_splice {
+                  match chosen_region {
+                    Some(chosen_region) =>
+                      for root_idx = 0
+                          root_idx <
+                         @ir.hot_region_root_count(func, chosen_region)
+                          root_idx = root_idx + 1 {
+                        replacement.push(
+                          @ir.hot_region_get(func, chosen_region, root_idx),
+                        )
+                      }
+                    None => ()
+                  }
+                  if replacement.length() == 0 &&
+                    @ir.hot_region_root_count(func, region_ref) == 1 {
+                    replacement.push(@ir.hot_build_nop(func))
+                  }
+                  let removed = pass_splice_region(
+                    ctx, func, region_ref, idx, 1, replacement,
+                  )
+                  pass_delete_detached_nodes(ctx, func, removed)
+                  changed = true
+                  continue
                 }
-                let removed = pass_splice_region(
-                  ctx, func, region_ref, idx, 1, replacement,
-                )
-                pass_delete_detached_nodes(ctx, func, removed)
-                changed = true
-                continue
               }
               None => ()
             }

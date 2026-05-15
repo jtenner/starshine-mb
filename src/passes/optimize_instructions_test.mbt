@@ -1719,6 +1719,38 @@ test "optimize-instructions flips if i32.eqz conditions with live else arms" {
 }
 
 ///|
+test "optimize-instructions keeps multi-root constant-if chosen regions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 0 if (result i32) i32.const 1 else i32.const 2 local.set 0 i32.const 3 end))",
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected optimize-instructions multi-root constant if success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
+test "optimize-instructions keeps zero eqz if conditions unflipped" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (if (result i32) (i32.eqz (i32.const 0)) (then (i32.const 1)) (else (i32.const 2)))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let cond = @ir.hot_child_get(func, root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, cond),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+}
+
+///|
 test "optimize-instructions keeps i64.eq zero if conditions in compare form" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i64 i64 i32) (result i32) local.get 2 if (result i32) local.get 0 i64.const 0 i64.eq if (result i32) i32.const 1 else local.get 0 local.get 1 i64.gt_u end else i32.const 1 end))",

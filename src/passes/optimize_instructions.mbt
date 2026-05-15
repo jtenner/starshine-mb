@@ -271,6 +271,9 @@ fn optimize_instructions_try_fold_constant_if_condition(
       }
     }
   }
+  if !precompute_constant_if_chosen_region_can_inline(func, chosen_region) {
+    return false
+  }
   let root_count = @ir.hot_region_root_count(func, chosen_region)
   if root_count == 0 {
     let nop = @ir.hot_build_nop(func)
@@ -2107,15 +2110,13 @@ fn optimize_instructions_try_optimize_if_condition(
   let cond_id = func.children[node.child_base]
   let then_region = func.children[node.child_base + 1]
   let else_region = func.children[node.child_base + 2]
-  let flip_if = fn(next_cond : Int) {
+  let flip_if = fn(next_cond : Int) -> Bool {
     match optimize_instructions_i32_const(func, dead, next_cond) {
-      Some(@lib.I32(raw)) if raw == 0 =>
-        abort("debug-optimize-instructions: flip_if with const-zero condition")
+      Some(@lib.I32(raw)) if raw == 0 => return false
       _ => ()
     }
     match optimize_instructions_i64_const(func, dead, next_cond) {
-      Some(@lib.I64(raw)) if raw == 0L =>
-        abort("debug-optimize-instructions: flip_if with i64-zero condition")
+      Some(@lib.I64(raw)) if raw == 0L => return false
       _ => ()
     }
     ignore(
@@ -2124,6 +2125,7 @@ fn optimize_instructions_try_optimize_if_condition(
       ]),
     )
     pass_mark_mutated(ctx, func)
+    true
   }
   let cond_instr = match @ir.hot_node_exact_instr(func, cond_id) {
     Some(instr) => instr
@@ -2176,7 +2178,6 @@ fn optimize_instructions_try_optimize_if_condition(
           ) =>
           if @ir.hot_node_is_live(func, else_region) {
             flip_if(operand_id)
-            true
           } else {
             optimize_instructions_replace_with_exact_unary(
               ctx,
@@ -2201,7 +2202,6 @@ fn optimize_instructions_try_optimize_if_condition(
         return false
       }
       flip_if(operand_id)
-      true
     }
     _ => false
   }

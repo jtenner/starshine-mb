@@ -80,7 +80,7 @@ Validation failures: 0
 Ignored Binaryen/tool command failures: 25
 ```
 
-Debug-artifact direct replay is not green yet: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-inlining-optimizing-inl002-closeout --starshine-bin _build/native/release/build/cmd/cmd.exe --inlining-optimizing` fails because the Starshine command aborts with exit `134` while tracing nested `precompute-propagate-prefix` over the live artifact. A direct repro is `_build/native/release/build/cmd/cmd.exe --inlining-optimizing --out .tmp/inl002-direct-debug-artifact/starshine.raw.wasm tests/node/dist/starshine-debug-wasi.wasm`; the traced repro last reached nested `precompute-propagate-prefix` on `Func 3700` before aborting.
+Debug-artifact direct replay is not green yet: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-inlining-optimizing-inl002-closeout --starshine-bin _build/native/release/build/cmd/cmd.exe --inlining-optimizing` fails because the Starshine command aborts with exit `134` on the live artifact. After the constant-if splice guards, a direct traced repro (`_build/native/release/build/cmd/cmd.exe --tracing pass --inlining-optimizing --out .tmp/inl002-direct-debug-artifact-clean-guards/starshine.raw.wasm tests/node/dist/starshine-debug-wasi.wasm`) progresses past the earlier nested `precompute-propagate-prefix`/constant-if abort and now stops during nested `remove-unused-brs` at `Func 916`.
 
 ## What is already validated locally
 
@@ -125,7 +125,7 @@ Focused tests validate the current subset:
 - the former seed-`0x1eed` `case-008100-gen-valid` command failure is fixed by a narrow hot-unsafe helper guard;
 - a private touched-only `precompute-propagate-prefix` now runs before the cleanup lane, but the real public `precompute-propagate` sibling is still unavailable;
 - the remaining cleanup lane is touched-filtered and drops the former extra pre-default `precompute`; it includes option gates for `ssa-nomerge`, `pick-load-signs`, `code-pushing`, `heap2local`, `optimize-casts`, `local-subtyping`, `local-cse`, `code-folding`, `merge-locals`, and `redundant-set-elimination`, plus the early second `remove-unused-names`, local `reorder-locals`, late local cleanup cluster, and final `vacuum` after late `heap-store-optimization`, but it is still Starshine's approximation rather than a proven exact Binaryen default pipeline expansion;
-- debug-artifact direct replay currently aborts natively during nested `precompute-propagate-prefix` (`exit=134`, last traced `Func 3700`), so `[INL]002` cannot be closed on fuzz evidence alone;
+- debug-artifact direct replay currently aborts natively during nested `remove-unused-brs` (`exit=134`, last traced `Func 916` after the constant-if splice guards), so `[INL]002` cannot be closed on fuzz evidence alone;
 - no artifact proof that only Binaryen's touched functions see exactly the same default-pipeline effects after the prefix;
 - no ordered late-tail artifact parity.
 
