@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining-optimizing nested ssa-nomerge gate
+
+- Advanced `[INL]002` by gating the touched `ssa-nomerge` nested cleanup slot to Binaryen's `optimize_level >= 3 || shrink_level >= 1` condition.
+- Binaryen source evidence in `.tmp/binaryen-pass-version129.cpp` shows `PassRunner::addDefaultFunctionOptimizationPasses()` schedules `ssa-nomerge` only under that option gate; Starshine previously traced and ran it even for the default O0 direct pass.
+- Added focused trace coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving default nested cleanup omits `ssa-nomerge` while O3 nested cleanup includes it; updated [`../../src/passes/inlining.mbt`](../../src/passes/inlining.mbt).
+- Validation: `moon test src/passes` (`1058/1058` after the focused test failed first), `moon fmt`, `moon info`, full `moon test` (`3120/3120`), `git diff --check`, `bun validate readme-api-sync`, `.tmp/pass-fuzz-inlining-optimizing-inl002-ssa-gate-200` reported `199/200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, and `1` ignored Binaryen/tool `binaryen-rec-group-zero` command failure; `.tmp/pass-fuzz-inlining-optimizing-inl002-ssa-gate-1000` reported `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, and `2` ignored Binaryen/tool `binaryen-rec-group-zero` command failures.
+- `[INL]002` remains open because this is still Starshine's approximate lane, not Binaryen's exact public `precompute-propagate` plus option-specific default function pipeline.
 ## [2026-05-14] passes | inlining-optimizing nested RSE tail
 
 - Advanced `[INL]002` by adding the option-gated touched `redundant-set-elimination` tail before final `vacuum` in `inlining-optimizing` nested cleanup when `optimize_level >= 2 || shrink_level >= 1`.

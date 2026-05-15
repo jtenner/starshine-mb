@@ -2408,6 +2408,46 @@ test "inlining-optimizing nested scheduler does not launch whole-module cleanup 
 }
 
 ///|
+test "inlining-optimizing nested scheduler gates ssa-nomerge by options" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let default_trace = match
+    pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced default inlining success, got \{err}")
+  }
+  assert_false(
+    default_trace.any(fn(line) {
+      line == "pass[inlining-optimizing]:nested-pass name=ssa-nomerge"
+    }),
+    msg=default_trace.to_string(),
+  )
+  let o3_trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(
+        optimize_level=3,
+        trace=Some(fn(line) { o3_trace.push(line) }),
+      ),
+      ["inlining-optimizing"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced O3 inlining success, got \{err}")
+  }
+  assert_true(
+    o3_trace.any(fn(line) {
+      line == "pass[inlining-optimizing]:nested-pass name=ssa-nomerge"
+    }),
+    msg=o3_trace.to_string(),
+  )
+}
+
+///|
 test "inlining-optimizing nested scheduler replays early second remove-unused-names" {
   let source =
     #|(module
