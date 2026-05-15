@@ -4860,6 +4860,9 @@ fn inl_run_nested_cleanup_pass(
   if pass_name == "coalesce-locals" {
     return run_hot_pipeline_apply_coalesce_locals_to_touched(mod_, def_touched)
   }
+  if pass_name == "reorder-locals" {
+    return run_hot_pipeline_apply_reorder_locals_to_touched(mod_, def_touched)
+  }
   if pass_name == "local-subtyping" {
     pipeline_trace_hook(options.trace, "local-subtyping", "start")
     let next = match
@@ -4958,10 +4961,10 @@ fn inl_run_nested_cleanup(
     "precompute", "ssa-nomerge", "dead-code-elimination", "remove-unused-names",
     "remove-unused-brs", "vacuum", "remove-unused-brs", "optimize-instructions",
     "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "tuple-optimization",
-    "simplify-locals-nostructure", "vacuum", "remove-unused-brs", "heap2local", "optimize-casts",
-    "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals", "merge-blocks",
-    "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute", "optimize-instructions",
-    "heap-store-optimization",
+    "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
+    "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
+    "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+    "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
   ]
   match
     inl_run_nested_cleanup_passes(prefixed, passes, def_touched, options, trace) {

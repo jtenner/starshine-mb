@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining-optimizing nested reorder-locals slot
+
+- Advanced `[INL]002` by inserting `reorder-locals` into the touched-filtered `inlining-optimizing` nested cleanup lane after `simplify-locals-nostructure -> vacuum` and before the following `remove-unused-brs` slot.
+- Reused the existing function-filtered `run_hot_pipeline_apply_reorder_locals_to_touched(...)` adapter from the DAE scheduler instead of launching a whole-module module pass.
+- Added focused trace coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) for the local cleanup order.
+- Validation: `.tmp/pass-fuzz-inlining-optimizing-inl002-reorder-200` reported `199/200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, and `1` ignored Binaryen/tool command failure; `.tmp/pass-fuzz-inlining-optimizing-inl002-reorder-1000` reported `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, and `2` ignored Binaryen/tool command failures.
+- `[INL]002` remains open because this is still Starshine's approximate lane, not Binaryen's exact public `precompute-propagate` plus option-specific default function pipeline.
 ## [2026-05-14] passes | inlining-optimizing touched nested cleanup lane
 
 - Advanced `[INL]002` by replacing the post-prefix `inlining-optimizing` whole-module cleanup batch with a touched-function filtered scheduler over Starshine's current cleanup lane.

@@ -2408,6 +2408,50 @@ test "inlining-optimizing nested scheduler does not launch whole-module cleanup 
 }
 
 ///|
+test "inlining-optimizing nested scheduler replays local reorder slot" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  let mut seen_slns = false
+  let mut vacuum_idx = -1
+  let mut reorder_idx = -1
+  let mut rub_idx = -1
+  let mut idx = 0
+  for line in trace {
+    if line.contains(
+        "pass[inlining-optimizing]:nested-pass name=simplify-locals-nostructure",
+      ) {
+      seen_slns = true
+    } else if seen_slns &&
+      vacuum_idx < 0 &&
+      line.contains("pass[inlining-optimizing]:nested-pass name=vacuum") {
+      vacuum_idx = idx
+    } else if vacuum_idx >= 0 &&
+      reorder_idx < 0 &&
+      line.contains("pass[inlining-optimizing]:nested-pass name=reorder-locals") {
+      reorder_idx = idx
+    } else if reorder_idx >= 0 &&
+      rub_idx < 0 &&
+      line.contains(
+        "pass[inlining-optimizing]:nested-pass name=remove-unused-brs",
+      ) {
+      rub_idx = idx
+    }
+    idx += 1
+  }
+  assert_true(vacuum_idx >= 0, msg=trace.to_string())
+  assert_true(reorder_idx > vacuum_idx, msg=trace.to_string())
+  assert_true(rub_idx > reorder_idx, msg=trace.to_string())
+}
+
+///|
 test "inlining-optimizing nested prefix propagates default locals only in touched callers" {
   let source =
     #|(module
