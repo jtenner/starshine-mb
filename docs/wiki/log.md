@@ -61,6 +61,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] validation | record INL002 artifact closeout blocker
+
+- Reran `[INL]002` closeout fuzz after the nested option-gate alignment: `.tmp/pass-fuzz-inlining-optimizing-inl002-closeout-10000-keep` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool command failures.
+- Attempted debug-artifact replay with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-inlining-optimizing-inl002-closeout --starshine-bin _build/native/release/build/cmd/cmd.exe --inlining-optimizing`; the harness failed because direct native Starshine `--inlining-optimizing` aborts with exit `134` on the live artifact.
+- Traced direct repros show the abort occurs during the nested `precompute-propagate-prefix` replay, with the last observed touched function before abort at `Func 3700`. `[INL]002` remains open despite green fuzz closeout evidence until this artifact crash is fixed or explicitly scoped.
 ## [2026-05-14] passes | inlining-optimizing nested option gates
 
 - Advanced `[INL]002` by removing the extra pre-default `precompute` after the private prefix and gating option-controlled touched cleanup slots to Binaryen's optimize/shrink thresholds.
