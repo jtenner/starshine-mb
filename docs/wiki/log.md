@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-15] passes | nested lift/no-op guards during INL002 replay
+
+- Added result-returning HOT lift entrypoints in [`../../src/ir/hot_lift.mbt`](../../src/ir/hot_lift.mbt) and made unchecked nested hot-pass runs skip per-function lift errors instead of aborting the native process.
+- Hardened raw `remove-unused-brs` decision-ladder rewriting against empty value-if arms, added an unchecked moderate call-mesh no-op guard for the artifact's later nested `remove-unused-brs` shape, and added a giant validator-mesh no-op guard before `simplify-locals-nostructure` tries its validator carrier rewrite path.
+- Focused coverage lives in [`../../src/ir/hot_lift_test.mbt`](../../src/ir/hot_lift_test.mbt) and [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt). Validation: `moon fmt`, `moon info`, `moon test src/ir` (`245/245`), `moon test src/passes` (`1065/1065`), full `moon test` (`3128/3128`), `moon build --target native --release --package jtenner/starshine/cmd` (success with existing warnings), `git diff --check`, and `bun validate readme-api-sync`.
+- `[INL]002` remains open: direct traced replay now passes the earlier nested `remove-unused-brs` / `Func 916` abort but still aborts with exit `134` later in nested `simplify-locals`, after `Func 931` traces `done changed=true` in `.tmp/inl002-direct-debug-artifact-final-20260515-154522`; the rerun self-optimize compare `.tmp/self-opt-inlining-optimizing-inl002-final-20260515-155935.log` exits `1` on the same Starshine abort.
 ## [2026-05-15] passes | constant-if splice guards during INL002 replay
 
 - Hardened `precompute` and `optimize-instructions` so constant-if folding does not inline/splice chosen regions with multiple roots, or a sole block/loop root whose body has multiple roots.

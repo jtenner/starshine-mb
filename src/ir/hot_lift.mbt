@@ -2577,17 +2577,17 @@ pub fn hot_lift_body_with_context(
 }
 
 ///|
-pub fn hot_lift_body_with_context_unverified(
+pub fn hot_lift_body_with_context_result(
   body : Expr,
   locals : HotLocals,
   ctx : HotModuleContext,
   body_result_type? : BlockType = BlockType::void_(),
-) -> HotFunc {
+) -> Result[HotFunc, HotLiftError] {
   let return_env = hot_lift_impl_env_from_context(ctx, locals, [])
   let (_, return_types) = match
     hot_lift_impl_block_results(return_env, body_result_type) {
     Ok(types) => types
-    Err(err) => abort(err.to_string())
+    Err(err) => return Err(err)
   }
   let env = hot_lift_impl_env_from_context(ctx, locals, return_types)
   let func = HotFunc::new(locals~)
@@ -2610,7 +2610,21 @@ pub fn hot_lift_body_with_context_unverified(
       label_frames,
       label_stack_head,
     ) {
-    Ok((roots, _, _)) => hot_lift_impl_finish(func, roots, verify=false)
+    Ok((roots, _, _)) => Ok(hot_lift_impl_finish(func, roots, verify=false))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub fn hot_lift_body_with_context_unverified(
+  body : Expr,
+  locals : HotLocals,
+  ctx : HotModuleContext,
+  body_result_type? : BlockType = BlockType::void_(),
+) -> HotFunc {
+  match
+    hot_lift_body_with_context_result(body, locals, ctx, body_result_type~) {
+    Ok(func) => func
     Err(err) => abort(err.to_string())
   }
 }
@@ -2643,29 +2657,29 @@ pub fn hot_lift_func_with_context(
 }
 
 ///|
-pub fn hot_lift_func_with_context_unverified(
+pub fn hot_lift_func_with_context_result(
   mod_ : Module,
   func_idx : FuncIdx,
   ctx : HotModuleContext,
-) -> HotFunc {
+) -> Result[HotFunc, HotLiftError] {
   let func_type = match hot_module_resolve_func_type(ctx, func_idx) {
     Some(type_) => type_
-    None => abort(HotLiftError::InvalidFunctionIndex(func_idx).to_string())
+    None => return Err(HotLiftError::InvalidFunctionIndex(func_idx))
   }
   let code_idx = match func_idx {
     FuncIdx(raw) =>
       raw.reinterpret_as_int() - hot_lift_impl_imported_func_count(mod_)
   }
   if code_idx < 0 {
-    abort(HotLiftError::MissingFunctionBody(func_idx).to_string())
+    return Err(HotLiftError::MissingFunctionBody(func_idx))
   }
   let def = match mod_.code_sec {
     Some(@lib.CodeSec(defs)) =>
       match defs.get(code_idx) {
         Some(def_) => def_
-        None => abort(HotLiftError::MissingFunctionBody(func_idx).to_string())
+        None => return Err(HotLiftError::MissingFunctionBody(func_idx))
       }
-    None => abort(HotLiftError::MissingFunctionBody(func_idx).to_string())
+    None => return Err(HotLiftError::MissingFunctionBody(func_idx))
   }
   let @lib.Func(body_locals, body) = def
   let @lib.FuncType(params, results) = func_type
@@ -2680,17 +2694,28 @@ pub fn hot_lift_func_with_context_unverified(
       match results {
         [] => BlockType::void_()
         [result] => BlockType::val_type(result)
-        _ => abort(HotLiftError::MissingFunctionType(func_idx).to_string())
+        _ => return Err(HotLiftError::MissingFunctionType(func_idx))
       }
   }
-  let hot = hot_lift_body_with_context_unverified(
-    body,
-    locals,
-    ctx,
-    body_result_type~,
-  )
+  let hot = match
+    hot_lift_body_with_context_result(body, locals, ctx, body_result_type~) {
+    Ok(hot) => hot
+    Err(err) => return Err(err)
+  }
   hot.func_type_idx = func_type_idx
-  hot
+  Ok(hot)
+}
+
+///|
+pub fn hot_lift_func_with_context_unverified(
+  mod_ : Module,
+  func_idx : FuncIdx,
+  ctx : HotModuleContext,
+) -> HotFunc {
+  match hot_lift_func_with_context_result(mod_, func_idx, ctx) {
+    Ok(func) => func
+    Err(err) => abort(err.to_string())
+  }
 }
 
 ///|

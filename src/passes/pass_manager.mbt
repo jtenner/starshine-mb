@@ -1237,6 +1237,79 @@ fn run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_unchecked_moderate_call_mesh_stats(
+  locals_count : Int,
+  instr_count : Int,
+  has_structured_control : Bool,
+  has_branches : Bool,
+  has_drop : Bool,
+  has_dead_tail : Bool,
+  shape : RawRemoveUnusedBrsShape,
+  has_condition_child_value_if : Bool,
+  has_prefix_guard_payload_branch : Bool,
+) -> Bool {
+  locals_count >= 24 &&
+  locals_count <= 96 &&
+  has_structured_control &&
+  has_branches &&
+  has_drop &&
+  has_dead_tail &&
+  instr_count >= 400 &&
+  instr_count <= 640 &&
+  shape.call_count >= 96 &&
+  shape.call_count <= 128 &&
+  shape.local_set_count >= 24 &&
+  shape.local_set_count <= 64 &&
+  shape.local_tee_count <= 8 &&
+  shape.if_count >= 16 &&
+  shape.if_count <= 32 &&
+  shape.return_count == 0 &&
+  shape.select_count <= 2 &&
+  shape.br_if_count == 0 &&
+  shape.block_count >= 8 &&
+  shape.block_count <= 16 &&
+  shape.loop_count <= 2 &&
+  shape.br_count >= 8 &&
+  shape.br_count <= 16 &&
+  shape.br_table_count == 0 &&
+  shape.drop_count <= 16 &&
+  !has_condition_child_value_if &&
+  !has_prefix_guard_payload_branch
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_unchecked_moderate_call_mesh(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let (
+    _,
+    has_structured_control,
+    has_branches,
+    has_drop,
+    has_dead_tail,
+    instr_count,
+  ) = run_hot_pipeline_instr_scan(instrs)
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  run_hot_pipeline_raw_remove_unused_brs_unchecked_moderate_call_mesh_stats(
+    locals.length(),
+    instr_count,
+    has_structured_control,
+    has_branches,
+    has_drop,
+    has_dead_tail,
+    shape,
+    run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
+      instrs,
+    ),
+    run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+      instrs,
+    ),
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_ladder(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1375,28 +1448,31 @@ fn run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
             Some(else_body)
           ),
         ) if result_type == @lib.ValType::i32() =>
-          match
-            (
-              then_body.length(),
-              else_body.length(),
-              run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
-                then_body[0],
-              ),
-              run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
-                else_body[0],
-              ),
-            ) {
-            (1, 1, Some(then_value), Some(else_value)) => {
-              rewritten.push(@lib.Instruction::i32_const(then_value))
-              rewritten.push(@lib.Instruction::i32_const(else_value))
-              rewritten.push(@lib.Instruction::local_get(local_id))
-              rewritten.push(@lib.Instruction::i32_const(cond_const))
-              rewritten.push(@lib.Instruction::i32_eq())
-              rewritten.push(@lib.Instruction::select())
-              rewrite_count = rewrite_count + 1
-              idx = idx + 4
-              continue
-            }
+          match (then_body.get(0), else_body.get(0)) {
+            (Some(then_instr), Some(else_instr)) if then_body.length() == 1 &&
+              else_body.length() == 1 =>
+              match
+                (
+                  run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
+                    then_instr,
+                  ),
+                  run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
+                    else_instr,
+                  ),
+                ) {
+                (Some(then_value), Some(else_value)) => {
+                  rewritten.push(@lib.Instruction::i32_const(then_value))
+                  rewritten.push(@lib.Instruction::i32_const(else_value))
+                  rewritten.push(@lib.Instruction::local_get(local_id))
+                  rewritten.push(@lib.Instruction::i32_const(cond_const))
+                  rewritten.push(@lib.Instruction::i32_eq())
+                  rewritten.push(@lib.Instruction::select())
+                  rewrite_count = rewrite_count + 1
+                  idx = idx + 4
+                  continue
+                }
+                _ => ()
+              }
             _ => ()
           }
         _ => ()
@@ -2085,6 +2161,23 @@ fn run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats(
   stats.call_count <= 144 &&
   stats.return_count >= 4 &&
   stats.return_count <= 8
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count >= 1024 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 8000 &&
+  stats.if_count >= 256 &&
+  stats.block_count >= 64 &&
+  stats.loop_count >= 4 &&
+  stats.local_set_count >= 1024 &&
+  stats.local_get_count >= 2048 &&
+  stats.call_count >= 1024 &&
+  stats.return_count <= 32 &&
+  stats.exact_tail_count == 0
 }
 
 ///|
@@ -5385,6 +5478,9 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.call_count >= 16 &&
     stats.call_count <= 96 &&
     stats.return_count <= 4
+  let should_skip_giant_validator_structured_call_heavy = run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats(
+    stats,
+  )
   let should_skip_branch_dense_structured_call_heavy = run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
     stats,
   )
@@ -5467,6 +5563,14 @@ fn run_hot_pipeline_raw_simplify_locals(
       should_skip_multivalue_call_ladder {
       return Some({
         reason: "multivalue-call-heavy-ladder",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_giant_validator_structured_call_heavy {
+      return Some({
+        reason: "giant-validator-structured-call-heavy-noop",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,
@@ -8145,6 +8249,7 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "remove-unused-brs" {
     return None
@@ -8256,6 +8361,17 @@ fn run_hot_pipeline_raw_remove_unused_brs(
     ) {
     return Some({
       reason: "structured-return-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if !options.validate_final_module &&
+    run_hot_pipeline_raw_remove_unused_brs_can_skip_unchecked_moderate_call_mesh(
+      locals, instrs,
+    ) {
+    return Some({
+      reason: "unchecked-moderate-call-mesh-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -8931,7 +9047,8 @@ fn run_hot_pipeline_func(
     "func",
     payload="func_idx=\{func_idx}",
   )
-  match run_hot_pipeline_raw_remove_unused_brs(mod_, func_idx, descriptor) {
+  match
+    run_hot_pipeline_raw_remove_unused_brs(mod_, func_idx, descriptor, options) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -8946,9 +9063,27 @@ fn run_hot_pipeline_func(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
-  let func = @ir.hot_lift_func_with_context_unverified(
-    mod_, func_idx, module_ctx,
-  )
+  let func = match
+    @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+    Ok(func) => func
+    Err(err) => {
+      pipeline_trace_hook(
+        options.trace,
+        descriptor.name,
+        "lift-error",
+        payload="func_idx=\{func_idx} err=\{err}",
+      )
+      if !options.validate_final_module {
+        return Ok({
+          reason: "hot-lift-error",
+          func: run_hot_pipeline_original_func(mod_, func_idx),
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+      }
+      return Err("lift: \{err}")
+    }
+  }
   let lifted_revision = @ir.hot_revision_current(func)
   if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
     func_idx == @lib.FuncIdx::new(2944U) {

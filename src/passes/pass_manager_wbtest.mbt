@@ -53,6 +53,106 @@ test "hot pipeline debug dump targets require traced vacuum or tuple targets" {
 }
 
 ///|
+test "raw remove-unused-brs unchecked moderate call mesh gate accepts artifact-like stats" {
+  let shape = RawRemoveUnusedBrsShape::new()
+  shape.call_count = 103
+  shape.local_set_count = 29
+  shape.local_tee_count = 6
+  shape.if_count = 21
+  shape.return_count = 0
+  shape.select_count = 1
+  shape.br_if_count = 0
+  shape.block_count = 11
+  shape.loop_count = 2
+  shape.br_count = 12
+  shape.br_table_count = 0
+  shape.drop_count = 9
+
+  assert_true(
+    run_hot_pipeline_raw_remove_unused_brs_unchecked_moderate_call_mesh_stats(
+      35, 454, true, true, true, true, shape, false, false,
+    ),
+  )
+  shape.return_count = 1
+  assert_false(
+    run_hot_pipeline_raw_remove_unused_brs_unchecked_moderate_call_mesh_stats(
+      35, 454, true, true, true, true, shape, false, false,
+    ),
+  )
+  shape.return_count = 0
+  assert_false(
+    run_hot_pipeline_raw_remove_unused_brs_unchecked_moderate_call_mesh_stats(
+      35, 454, true, true, true, true, shape, true, false,
+    ),
+  )
+}
+
+///|
+test "raw remove-unused-brs decision ladder skips empty value-if arms" {
+  let instrs = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_eq(),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [],
+      Some([@lib.Instruction::i32_const(@lib.I32(1))]),
+    ),
+  ]
+  let (rewritten, rewrite_count, saw_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+    instrs,
+  )
+
+  @debug.assert_eq(rewrite_count, 0)
+  @debug.assert_eq(saw_br_table, false)
+  @debug.assert_eq(rewritten, instrs)
+}
+
+///|
+test "hot pipeline skips lift errors in unchecked nested-style runs" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+        ),
+      ]),
+    )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        validate_final_module=false,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unchecked hot-lift skip success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+    input.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[remove-unused-brs]:lift-error") }),
+    msg="expected lift-error trace in \{trace}",
+  )
+  assert_true(
+    trace.any(fn(line) { line.contains("skip-raw reason=hot-lift-error") }),
+    msg="expected hot-lift-error skip trace in \{trace}",
+  )
+}
+
+///|
 test "pass registry cache indexes known flags and prefilters help entries" {
   let simplify_locals_idx = match
     pass_registry_lookup_index("simplify-locals") {
@@ -176,6 +276,42 @@ test "raw simplify-locals branchy structured gate accepts target-like stats" {
       ..accepted,
       loop_count: 1,
     }),
+  )
+}
+
+///|
+test "raw simplify-locals giant validator gate accepts artifact-like stats" {
+  let accepted = {
+    locals_count: 1368,
+    instr_count: 10699,
+    has_structured_control: true,
+    if_count: 584,
+    block_count: 136,
+    loop_count: 4,
+    local_set_count: 1577,
+    local_get_count: 2853,
+    call_count: 1227,
+    return_count: 14,
+    exact_tail_count: 0,
+  }
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats(
+      accepted,
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats({
+        ..accepted,
+        call_count: 512,
+      },
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats({
+        ..accepted,
+        exact_tail_count: 1,
+      },
+    ),
   )
 }
 

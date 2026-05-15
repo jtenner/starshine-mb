@@ -94,6 +94,22 @@ test "hot lift can preserve representative exact-payload families in module cont
 }
 
 ///|
+test "hot lift context result reports invalid body instead of aborting" {
+  let result = hot_lift_body_with_context_result(
+    @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+    HotLocals::new(),
+    hot_module_context_from_module(@lib.Module::new()),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  match result {
+    Ok(_) => fail("expected invalid lift body to return an error")
+    Err(err) =>
+      assert_true(err.to_string().contains("stack underflow"), msg="\{err}")
+  }
+}
+
+///|
 fn hot_lift_test_func_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(

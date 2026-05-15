@@ -376,11 +376,15 @@ pub fn hot_lift_body_result(@lib.Expr, HotLocals, body_result_type? : @lib.Block
 
 pub fn hot_lift_body_with_context(@lib.Expr, HotLocals, HotModuleContext, body_result_type? : @lib.BlockType) -> HotFunc
 
+pub fn hot_lift_body_with_context_result(@lib.Expr, HotLocals, HotModuleContext, body_result_type? : @lib.BlockType) -> Result[HotFunc, HotLiftError]
+
 pub fn hot_lift_body_with_context_unverified(@lib.Expr, HotLocals, HotModuleContext, body_result_type? : @lib.BlockType) -> HotFunc
 
 pub fn hot_lift_func(@lib.Module, @lib.FuncIdx) -> HotFunc
 
 pub fn hot_lift_func_with_context(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
+
+pub fn hot_lift_func_with_context_result(@lib.Module, @lib.FuncIdx, HotModuleContext) -> Result[HotFunc, HotLiftError]
 
 pub fn hot_lift_func_with_context_unverified(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
 
