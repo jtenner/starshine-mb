@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining-optimizing nested code-folding slot
+
+- Advanced `[INL]002` by inserting `code-folding` into the touched-filtered `inlining-optimizing` nested cleanup lane after `simplify-locals` and before the following `merge-blocks` cluster.
+- Added focused trace coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) for the late `simplify-locals -> code-folding -> merge-blocks` order.
+- Validation: `.tmp/pass-fuzz-inlining-optimizing-inl002-code-folding-200` reported `199/200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, and `1` ignored Binaryen/tool command failure; `.tmp/pass-fuzz-inlining-optimizing-inl002-code-folding-1000` reported `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, and `2` ignored Binaryen/tool command failures.
+- `[INL]002` remains open because this is still Starshine's approximate lane, not Binaryen's exact public `precompute-propagate` plus option-specific default function pipeline.
 ## [2026-05-14] passes | inlining-optimizing nested reorder-locals slot
 
 - Advanced `[INL]002` by inserting `reorder-locals` into the touched-filtered `inlining-optimizing` nested cleanup lane after `simplify-locals-nostructure -> vacuum` and before the following `remove-unused-brs` slot.

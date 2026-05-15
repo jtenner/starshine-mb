@@ -2452,6 +2452,42 @@ test "inlining-optimizing nested scheduler replays local reorder slot" {
 }
 
 ///|
+test "inlining-optimizing nested scheduler replays code-folding before merge-blocks" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  let mut simplify_idx = -1
+  let mut folding_idx = -1
+  let mut merge_idx = -1
+  let mut idx = 0
+  for line in trace {
+    if simplify_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=simplify-locals" {
+      simplify_idx = idx
+    } else if simplify_idx >= 0 &&
+      folding_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=code-folding" {
+      folding_idx = idx
+    } else if folding_idx >= 0 &&
+      merge_idx < 0 &&
+      line == "pass[inlining-optimizing]:nested-pass name=merge-blocks" {
+      merge_idx = idx
+    }
+    idx += 1
+  }
+  assert_true(simplify_idx >= 0, msg=trace.to_string())
+  assert_true(folding_idx > simplify_idx, msg=trace.to_string())
+  assert_true(merge_idx > folding_idx, msg=trace.to_string())
+}
+
+///|
 test "inlining-optimizing nested prefix propagates default locals only in touched callers" {
   let source =
     #|(module

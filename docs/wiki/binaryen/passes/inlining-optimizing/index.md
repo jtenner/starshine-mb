@@ -60,10 +60,10 @@ That is much closer to reality than “more aggressive inlining.”
 - The core inliner is module-level boundary work, not HOT-local peepholing.
 - Reviewed `version_129` chosen inline actions are direct `call` / `return_call` based; `ref.func` and ref/indirect calls remain relevant to survival and repair.
 - The optimizing suffix is part of the public contract, not optional polish.
-- Starshine's current cleanup suffix is an approximation: trace marker plus private touched-only `precompute-propagate-prefix`, followed by a touched-function filtered Starshine cleanup lane that now includes the local `reorder-locals` slot, not exact Binaryen filtered public `precompute-propagate` + option-specific default function pipeline.
+- Starshine's current cleanup suffix is an approximation: trace marker plus private touched-only `precompute-propagate-prefix`, followed by a touched-function filtered Starshine cleanup lane that now includes the local `reorder-locals` and late `code-folding` slots, not exact Binaryen filtered public `precompute-propagate` + option-specific default function pipeline.
 - `[INL]003` is accepted for the current shared heuristic/action-filtering surface: shrinking-trivial parameter-passthrough wrappers, direct-call wrappers, memory/table/SIMD/GC operation wrappers, O3/no-shrink no-direct-call/no-loop flexible inlining, direct-call-only `hasCalls`, combined-size filtering, same-wave guards, and the five-iteration repeated-work cap are all covered.
 - Latest `[INL]003` optimizing closeout evidence is `.tmp/pass-fuzz-inlining-optimizing-inl003-after-repeated-cap-10000`: `9975/10000` compared, `9975` matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool command failures.
-- Latest `[INL]002` filtered-lane smoke evidence is `.tmp/pass-fuzz-inlining-optimizing-inl002-reorder-1000`: `998/1000` compared, `998` matches, `0` mismatches, `0` validation failures, and `2` ignored Binaryen/tool command failures.
+- Latest `[INL]002` filtered-lane smoke evidence is `.tmp/pass-fuzz-inlining-optimizing-inl002-code-folding-1000`: `998/1000` compared, `998` matches, `0` mismatches, `0` validation failures, and `2` ignored Binaryen/tool command failures.
 
 ## Current Starshine evidence
 

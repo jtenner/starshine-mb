@@ -4963,7 +4963,7 @@ fn inl_run_nested_cleanup(
     "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "tuple-optimization",
     "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
     "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
-    "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+    "simplify-locals", "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
     "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
   ]
   match

@@ -91,7 +91,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - emits trace marker;
   - prepends the private touched-only `precompute-propagate-prefix` helper and traces that nested-pass slot explicitly;
   - converts absolute touched-function bits to defined-function bits before running filtered nested helpers so imports do not shift the touched set;
-  - runs the remaining cleanup lane through touched-function filtered hot-pass adapters plus narrow touched adapters for module-shaped `local-subtyping`, `coalesce-locals`, `local-cse`, and `reorder-locals`;
+  - runs the remaining cleanup lane through touched-function filtered hot-pass adapters plus narrow touched adapters for module-shaped `local-subtyping`, `coalesce-locals`, `local-cse`, and `reorder-locals`, and includes the touched `code-folding` slot before the first late `merge-blocks` cluster;
   - keeps body restoration as a safety net, but no longer launches the old whole-module cleanup batch;
   - compacts unused locals on touched functions;
   - collapses conservative unreachable-root shapes.
@@ -121,6 +121,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - optimizing nested-cleanup trace marker plus a focused first nested-pass trace for `precompute-propagate-prefix`;
 - trace coverage proving the nested suffix no longer launches the old `pipeline:start requested=29` whole-module cleanup batch;
 - trace coverage proving the local cleanup neighborhood includes `simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`;
+- trace coverage proving the late cleanup includes `simplify-locals -> code-folding -> merge-blocks`;
 - touched-caller/default-local prefix folding coverage that keeps an untouched sibling's body-local `local.get` shape unchanged;
 - whitebox predicted exact-helper padding;
 - whitebox detection of polymorphic self-call suffixes before the approximate hot cleanup lane.
