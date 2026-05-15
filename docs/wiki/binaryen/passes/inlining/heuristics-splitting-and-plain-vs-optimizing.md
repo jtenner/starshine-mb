@@ -46,7 +46,7 @@ Both public names share the same upstream engine.
 
 The optimizing suffix is not a log label. It means: prepend `precompute-propagate`, then rerun Binaryen's default function optimization pipeline on changed functions.
 
-Current Starshine mirrors that split at the entrypoint level: plain `inlining` calls `inlining_run_module_pass(... optimize=false ...)`, while `inlining-optimizing` calls the same function with `optimize=true`. The optimizing cleanup now prepends the private touched-only `precompute-propagate-prefix` helper, but the rest of the cleanup lane is still a whole-module approximation with untouched-body restoration, so the public split exists locally but is not parity-complete.
+Current Starshine mirrors that split at the entrypoint level: plain `inlining` calls `inlining_run_module_pass(... optimize=false ...)`, while `inlining-optimizing` calls the same function with `optimize=true`. The optimizing cleanup now prepends the private touched-only `precompute-propagate-prefix` helper and runs the remaining cleanup lane through touched-function filtered adapters, but the lane is still Starshine's approximation rather than a proven exact Binaryen default-pipeline expansion, so the public split exists locally but is not parity-complete.
 
 ## 2. Direct-call planning stays the source-backed baseline
 

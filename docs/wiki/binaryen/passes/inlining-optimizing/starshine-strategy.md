@@ -86,7 +86,7 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 - Combined-size action filtering using current caller size and the default 400 KiB estimate.
 - Nested-cleanup trace marker for optimizing mode, plus an explicit nested-pass trace when the private `precompute-propagate-prefix` helper starts.
 - Private touched-only `precompute-propagate-prefix` before the optimizing cleanup lane, using an absolute-to-defined touched-set conversion so imported functions do not shift touched defined-function indexes.
-- Broad cleanup approximation with untouched-body restoration and touched-local compaction after the prefix.
+- Touched-function filtered cleanup approximation after the prefix, using the shared hot-pass touched runner plus narrow touched adapters for `local-subtyping`, `coalesce-locals`, and `local-cse`; body restoration remains a safety net but the old whole-module nested cleanup batch no longer runs.
 - Exact-`unreachable` private-helper survivor prediction refinements, including shadowed void-cycle result-helper retention, duplicate trimming against non-exact same-signature survivors only when no used self-loop root is present, unique private self-loop representative drops inside root SCCs, selected final root-self-loop representative trimming, and one-helper retention for private result cycles behind self-looping roots.
 
 ## Current gaps
@@ -103,8 +103,8 @@ Both lanes used `--jobs auto` with the prebuilt native `--starshine-bin _build/n
 - exact touched-function set for every nested scheduler family;
 - former seed-`0x1eed` `case-008100-gen-valid` Starshine command failure is fixed by the narrow hot-unsafe helper guard;
 - private `precompute-propagate-prefix` now runs first, but the real public `precompute-propagate` sibling remains unavailable;
-- Binaryen default function pipeline on only touched functions; Starshine still uses whole-module cleanup plus untouched-body restoration after the prefix;
-- broader scheduler tests distinguishing touched callers/callees/removed helpers/untouched functions;
+- Binaryen default function pipeline on only touched functions; Starshine now runs a touched-filtered cleanup approximation, but the exact option-specific default pipeline expansion is not yet proven;
+- broader scheduler tests distinguishing touched callers/callees/removed helpers/untouched functions and module-shaped local cleanup effects;
 - late-tail artifact replay after direct parity.
 
 ## Dependency map

@@ -4835,6 +4835,84 @@ fn inl_restore_untouched_funcs(
 }
 
 ///|
+fn inl_trace_nested_pass(
+  trace : ((String) -> Unit)?,
+  pass_name : String,
+) -> Unit {
+  match trace {
+    Some(cb) => cb("pass[inlining-optimizing]:nested-pass name=\{pass_name}")
+    None => ()
+  }
+}
+
+///|
+fn inl_run_nested_cleanup_pass(
+  mod_ : @lib.Module,
+  pass_name : String,
+  def_touched : Array[Bool],
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  if pass_name == "local-cse" {
+    return run_hot_pipeline_apply_local_cse_to_touched(
+      mod_, def_touched, options,
+    )
+  }
+  if pass_name == "coalesce-locals" {
+    return run_hot_pipeline_apply_coalesce_locals_to_touched(mod_, def_touched)
+  }
+  if pass_name == "local-subtyping" {
+    pipeline_trace_hook(options.trace, "local-subtyping", "start")
+    let next = match
+      run_hot_pipeline_apply_local_subtyping_to_touched(mod_, def_touched) {
+      Ok(next) => next
+      Err(err) => return Err(err)
+    }
+    pipeline_trace_hook(options.trace, "local-subtyping", "done")
+    return Ok(next)
+  }
+  let descriptor = match pass_registry_lookup_cached(pass_name) {
+    Some(entry) =>
+      match entry.descriptor {
+        Some(descriptor) => descriptor
+        None =>
+          return Err(
+            "inlining-optimizing nested cleanup pass \{pass_name} is not a hot pass",
+          )
+      }
+    None =>
+      return Err(
+        "inlining-optimizing nested cleanup expanded to unknown pass \{pass_name}",
+      )
+  }
+  run_hot_pipeline_apply_hot_pass_to_touched(
+    mod_, descriptor, def_touched, options,
+  )
+}
+
+///|
+fn inl_run_nested_cleanup_passes(
+  mod_ : @lib.Module,
+  passes : Array[String],
+  def_touched : Array[Bool],
+  options : HotPipelineOptions,
+  trace : ((String) -> Unit)?,
+) -> Result[@lib.Module, String] {
+  let mut current = mod_
+  for pass_name in passes {
+    inl_trace_nested_pass(trace, pass_name)
+    current = match
+      inl_run_nested_cleanup_pass(current, pass_name, def_touched, options) {
+      Ok(next) => next
+      Err(err) =>
+        return Err(
+          "inlining-optimizing nested cleanup pass \{pass_name}: \{err}",
+        )
+    }
+  }
+  Ok(current)
+}
+
+///|
 fn inl_run_nested_cleanup(
   mod_ : @lib.Module,
   optimize : Bool,
@@ -4865,13 +4943,7 @@ fn inl_run_nested_cleanup(
     imports,
     inl_defined_func_count(prepared),
   )
-  match trace {
-    Some(cb) =>
-      cb(
-        "pass[inlining-optimizing]:nested-pass name=precompute-propagate-prefix",
-      )
-    None => ()
-  }
+  inl_trace_nested_pass(trace, "precompute-propagate-prefix")
   let prefixed = match
     run_hot_pipeline_apply_hot_pass_to_touched(
       prepared,
@@ -4891,7 +4963,8 @@ fn inl_run_nested_cleanup(
     "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute", "optimize-instructions",
     "heap-store-optimization",
   ]
-  match run_hot_pipeline(prefixed, options, passes) {
+  match
+    inl_run_nested_cleanup_passes(prefixed, passes, def_touched, options, trace) {
     Ok(cleaned) =>
       inl_compact_unused_locals(
         inl_collapse_unreachable_roots(

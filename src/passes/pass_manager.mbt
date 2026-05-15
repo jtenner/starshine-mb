@@ -10012,6 +10012,48 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
 }
 
 ///|
+fn run_hot_pipeline_apply_local_subtyping_to_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Result[@lib.Module, String] {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Ok(mod_)
+  }
+  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let mut rewritten : Array[@lib.Func]? = None
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    if code_idx >= touched.length() || !touched[code_idx] {
+      continue
+    }
+    let func_idx = @lib.FuncIdx::new(
+      (imported_func_count + code_idx).reinterpret_as_uint(),
+    )
+    let (next_func, changed) = ls_rewrite_func(
+      funcs[code_idx],
+      func_idx,
+      mod_,
+      module_ctx,
+    )
+    if changed {
+      match rewritten {
+        Some(copy) => copy[code_idx] = next_func
+        None => {
+          let copy = funcs.copy()
+          copy[code_idx] = next_func
+          rewritten = Some(copy)
+        }
+      }
+    }
+  }
+  match rewritten {
+    Some(copy) => Ok(mod_.with_code_sec(@lib.CodeSec::new(copy)))
+    None => Ok(mod_)
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_reorder_locals_to_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],

@@ -2386,6 +2386,28 @@ test "inlining-optimizing nested scheduler starts with precompute-propagate pref
 }
 
 ///|
+test "inlining-optimizing nested scheduler does not launch whole-module cleanup batch" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func $idle (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    i32.eqz)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced inlining success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pipeline:start requested=29") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "inlining-optimizing nested prefix propagates default locals only in touched callers" {
   let source =
     #|(module

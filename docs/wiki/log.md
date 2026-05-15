@@ -61,6 +61,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-14] passes | inlining-optimizing touched nested cleanup lane
+
+- Advanced `[INL]002` by replacing the post-prefix `inlining-optimizing` whole-module cleanup batch with a touched-function filtered scheduler over Starshine's current cleanup lane.
+- Added a focused trace regression in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving the nested suffix no longer emits the old `pipeline:start requested=29` whole-module cleanup run after the prefix.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) with a touched `local-subtyping` adapter, reusing the existing touched hot-pass runner and local `local-cse` / `coalesce-locals` adapters for the rest of the lane.
+- Smoke validation: `.tmp/pass-fuzz-inlining-optimizing-inl002-filtered-200` reported `199/200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, and `1` ignored Binaryen/tool command failure; follow-up `.tmp/pass-fuzz-inlining-optimizing-inl002-filtered-1000` reported `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, and `2` ignored Binaryen/tool command failures.
+- `[INL]002` remains open: the scheduler is now touched-filtered, but the prefix is still the private approximation and the cleanup sequence is Starshine's current lane rather than a proven exact Binaryen default-function pipeline expansion.
 ## [2026-05-14] passes | inlining-optimizing nested prefix approximation
 
 - Advanced `[INL]002` by prepending Starshine's private touched-only `precompute-propagate-prefix` helper to `inlining-optimizing`'s nested cleanup approximation before the existing cleanup lane.
