@@ -808,6 +808,49 @@ test "raw simplify-locals pure suffix collapses terminal dupable const wrappers"
 }
 
 ///|
+test "raw simplify-locals skipped-carrier path applies pure suffix copy cleanup" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let locals = @lib.Locals::from_types([@lib.ValType::i32()])
+  let instrs = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(instrs))]),
+    )
+
+  let result = match
+    run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      { module_ctx: None },
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      HotPipelineOptions::new(),
+      locals,
+      instrs,
+      "skipped-carrier-test",
+    ) {
+    Some(result) => result
+    None => fail("expected skipped-carrier pure suffix cleanup to rewrite")
+  }
+
+  @debug.assert_eq(result.reason, "skipped-carrier-test")
+  assert_false(result.unchanged_original)
+  let @lib.Func(_, @lib.Expr(rewritten)) = result.func
+  @debug.assert_eq(rewritten.length(), 3)
+  @debug.assert_eq(rewritten[0], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten[1], @lib.Instruction::nop())
+  @debug.assert_eq(rewritten[2], @lib.Instruction::i32_const(@lib.I32(0)))
+}
+
+///|
 test "raw simplify-locals pure suffix collapses terminal dupable local wrappers across safe middle statements" {
   let env = @validate.Env::new().with_locals(
     @lib.Locals::from_types([

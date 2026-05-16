@@ -5089,13 +5089,18 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
     mod_, func_idx, module_ctx, locals,
   )
+  let (pure_suffix_instrs, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
+    instrs, env,
+  )
   let (carrier_instrs, carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
-    instrs,
+    pure_suffix_instrs,
   )
   let (rewritten_instrs, effectful_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
     carrier_instrs, env,
   )
-  let rewrite_count = carrier_rewrites + effectful_rewrites
+  let rewrite_count = pure_suffix_rewrites +
+    carrier_rewrites +
+    effectful_rewrites
   if rewrite_count == 0 {
     return None
   }

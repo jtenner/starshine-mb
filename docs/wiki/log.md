@@ -61,6 +61,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-16] passes | INL002 skipped simplify pure-suffix cleanup
+
+- Extended the skipped large-function raw `simplify-locals` carrier fallback in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so it runs the existing pure-suffix local-copy cleanup before control/effectful carrier rewrites. This targets the artifact's residual local-copy carrier bloat without re-enabling the unsafe full simplifier on giant structured call-heavy functions.
+- Added focused coverage in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) proving the skipped-carrier path rewrites a terminal dupable `local.set`/`local.get` copy instead of returning `None`.
+- Validation/evidence: `moon fmt`, `moon test src/passes` (`1071/1071` after reverting the unsafe multi-result probe), `moon build --target native --release --package jtenner/starshine/cmd`, direct replay `.tmp/inl002-puresuffix-only-20260516-002821` (`exit=0`, `wasm-tools validate` green). The top aligned Starshine-larger WAT delta falls to about `25K` and `skip_bytes` to `585064`; canonical wasm still differs, with 119 Starshine-only skipped functions in the heuristic alignment. A 200-case `inlining-optimizing` smoke at `.tmp/pass-fuzz-inlining-optimizing-inl002-puresuffix-200` preserves the known current frontier shape (`53/200` compared, `34` normalized matches, `19` mismatches, `0` validation failures, `1` command failure), so it is not used as a closeout claim.
+- `[INL]002` remains open on canonical artifact parity.
 ## [2026-05-15] passes | INL002 stacked pure-drop cleanup
 
 - Extended the raw vacuum precleaner in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so pure dropped `local.get` / `global.get` leaves, stacked pure-leaf/drop clusters, and direct dead tails after raw nonfallthrough terminators are removed before/after final inlining local cleanup. This preserves the earlier validation guard and avoids the unsafe full HOT `vacuum` tail.
