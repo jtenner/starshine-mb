@@ -72,6 +72,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a helper containing `return_call_indirect` can be inlined at an outer direct `return_call` callsite while preserving the indirect tail call.
 - No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused test passed; `moon test src/passes` passed (`1077/1077`). Remaining `[INL]006` work includes `return_call` inside `try`, `return_call_ref` breadth, and full name/annotation repair.
 
+## [2026-05-16] tests | INL006 name repair around type synthesis
+
+- Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving function names still compact and non-function names for types, tables, memories, and globals survive when multi-result inlining appends a synthetic zero-param result block type.
+- No implementation change was needed. Validation/evidence: focused test passed; `moon fmt`, `moon info`, `moon test src/passes` (`1080/1080`), full `moon test` (`3143/3143`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-name-type-wasm-smith-1000` (`996/1000` compared, `996` matches, `0` mismatches, `0` validation failures, `4` Binaryen/tool command failures). Starshine still intentionally drops function-scoped local/label names after body rewrites instead of reconstructing Binaryen-like collision-repaired local/label maps.
 ## [2026-05-16] tests | INL006 remaining tail-form coverage
 
 - Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving helpers containing `return_call_indirect` and `return_call_ref` can be inlined at outer direct `return_call` callsites while preserving the nested tail call, and proving direct `return_call` inlining remains valid inside a `try_table` callsite.

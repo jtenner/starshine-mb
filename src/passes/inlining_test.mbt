@@ -240,6 +240,101 @@ test "no-inline can match surviving names after prior inlining compaction" {
 }
 
 ///|
+test "inlining remaps non-function names when type synthesis appends block types" {
+  let source =
+    #|(module
+    #|  (type $callee_t (func (param i32) (result i32 i32)))
+    #|  (type $run_t (func (param i32) (result i32)))
+    #|  (table 1 funcref)
+    #|  (memory 1)
+    #|  (global i32 (i32.const 0))
+    #|  (func $pair (type $callee_t)
+    #|    local.get 0
+    #|    i32.const 1)
+    #|  (func $run (export "run") (type $run_t)
+    #|    local.get 0
+    #|    call $pair
+    #|    i32.add))
+  let input = pass_test_module_from_wat(source).with_name_sec(
+    @lib.NameSec::new(
+      func_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("pair")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("run")),
+        ]),
+      ),
+      type_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("callee_t")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("run_t")),
+        ]),
+      ),
+      table_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("table0")),
+        ]),
+      ),
+      memory_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("memory0")),
+        ]),
+      ),
+      global_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("global0")),
+        ]),
+      ),
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["inlining"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected inlining success, got \{err}")
+  }
+  match optimized.name_sec {
+    Some(name_sec) => {
+      match name_sec.func_names {
+        Some(@lib.NameMap([@lib.NameAssoc(0U, @lib.Name("run"))])) => ()
+        other =>
+          fail(
+            "expected compacted run function name, got \{@debug.to_string(other)}",
+          )
+      }
+      match name_sec.type_names {
+        Some(
+          @lib.NameMap(
+            [
+              @lib.NameAssoc(0U, @lib.Name("callee_t")),
+              @lib.NameAssoc(1U, @lib.Name("run_t")),
+            ]
+          )
+        ) => ()
+        other =>
+          fail(
+            "expected original type names without synthesized entry, got \{@debug.to_string(other)}",
+          )
+      }
+      match name_sec.table_names {
+        Some(@lib.NameMap([@lib.NameAssoc(0U, @lib.Name("table0"))])) => ()
+        other =>
+          fail("expected preserved table name, got \{@debug.to_string(other)}")
+      }
+      match name_sec.memory_names {
+        Some(@lib.NameMap([@lib.NameAssoc(0U, @lib.Name("memory0"))])) => ()
+        other =>
+          fail("expected preserved memory name, got \{@debug.to_string(other)}")
+      }
+      match name_sec.global_names {
+        Some(@lib.NameMap([@lib.NameAssoc(0U, @lib.Name("global0"))])) => ()
+        other =>
+          fail("expected preserved global name, got \{@debug.to_string(other)}")
+      }
+    }
+    None => fail("expected name section after inlining")
+  }
+}
+
+///|
 test "inlining keeps function names but drops function-scoped local names after compaction" {
   let source =
     #|(module

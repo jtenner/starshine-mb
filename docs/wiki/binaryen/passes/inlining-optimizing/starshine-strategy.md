@@ -98,7 +98,7 @@ Both direct fuzz lanes used `--jobs auto` with the prebuilt native `--starshine-
 - `[INL]003`: accepted current-supported heuristic/action-filtering surface on 2026-05-14 after adding Binaryen's per-function repeated-work cap; shrinking-trivial wrappers, O3/no-shrink flexible policy, direct-call-only `hasCalls`, combined-size filtering, same-wave guards, and repeated-work caps have 10k closeout evidence;
 - `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
 - `[INL]005`: partial inlining splitter;
-- `[INL]006`: active; one narrow nested direct-`return_call` tail-call subset, focused `return_call_indirect` and `return_call_ref` tail-preserving coverage, direct `return_call` inside `try_table`, and typed multi-result wrapper subsets are implemented, including synthesized zero-param result block types for otherwise-inlineable parameterized multi-result helpers. Label/name/annotation repair remains open.
+- `[INL]006`: active; one narrow nested direct-`return_call` tail-call subset, focused `return_call_indirect` and `return_call_ref` tail-preserving coverage, direct `return_call` inside `try_table`, and typed multi-result wrapper subsets are implemented, including synthesized zero-param result block types for otherwise-inlineable parameterized multi-result helpers. Function names and non-function name maps are covered across type synthesis; function-scoped local/label names remain intentionally dropped after body rewrites rather than reconstructed with Binaryen-like collision repair.
 
 ### `[INL]002`: optimizing suffix parity
 
