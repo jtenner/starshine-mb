@@ -12,6 +12,7 @@ pub fn inlining_optimizing_summary() -> String {
 priv struct InlFunctionInfo {
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
+  type_idx : @lib.TypeIdx?
   size : Int
   has_return_call : Bool
   inlineable : Bool
@@ -148,10 +149,19 @@ fn inl_resolve_func_type(
 }
 
 ///|
-fn inl_result_block_type(results : Array[@lib.ValType]) -> @lib.BlockType? {
+fn inl_result_block_type(
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+  type_idx : @lib.TypeIdx?,
+) -> @lib.BlockType? {
   match results.length() {
     0 => Some(@lib.BlockType::void_())
     1 => Some(@lib.BlockType::val_type(results[0]))
+    _ if params.length() == 0 =>
+      match type_idx {
+        Some(type_idx) => Some(@lib.BlockType::type_idx(type_idx))
+        None => None
+      }
     _ => None
   }
 }
@@ -763,7 +773,13 @@ fn inl_build_function_infos(
         None => ([], [], 1000000, true, false, true, true, false)
       }
     }
-    let block_type_ok = inl_result_block_type(results) is Some(_)
+    let type_idx = if abs >= 0 && abs < types.length() {
+      Some(types[abs])
+    } else {
+      None
+    }
+    let block_type_ok = inl_result_block_type(params, results, type_idx)
+      is Some(_)
     let no_full_policy = abs >= 0 &&
       abs < no_full_inline.length() &&
       no_full_inline[abs]
@@ -779,7 +795,7 @@ fn inl_build_function_infos(
         (refs[abs] == 1 && !used[abs]) ||
         may_not_shrink
       )
-    infos.push({ params, results, size, has_return_call, inlineable })
+    infos.push({ params, results, type_idx, size, has_return_call, inlineable })
     abs += 1
   }
   infos
@@ -1096,7 +1112,8 @@ fn inl_make_inline_replacement(
   let @lib.Func(caller_locals, _) = caller
   let @lib.Func(callee_locals, @lib.Expr(callee_body)) = callee
   let info = infos[callee_abs]
-  let block_type = match inl_result_block_type(info.results) {
+  let block_type = match
+    inl_result_block_type(info.params, info.results, info.type_idx) {
     Some(block_type) => block_type
     None => return None
   }

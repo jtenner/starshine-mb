@@ -61,6 +61,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-16] passes | INL006 no-param multi-result subset
+
+- Advanced `[INL]006` by allowing no-param multi-result callees to inline when their existing function type can serve as the copied-body wrapper block type. This keeps the broader parameterized multi-result problem gated until Starshine can synthesize or reuse a separate zero-param result type safely.
+- Added focused coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a no-param `(result i32 i32)` helper is removed and its constants are visible in the caller after inlining.
+- Validation/evidence: the focused test first failed with the helper still present, then passed after implementation; `moon fmt`, `moon info`, `moon test src/passes` (`1074/1074`), full `moon test` (`3137/3137`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-multivalue-wasm-smith-1000` (`997/1000` compared, `997` matches, `0` mismatches, `0` validation failures, `3` Binaryen/tool command failures). Remaining `[INL]006` work includes parameterized multi-result wrapper typing, `return_call` inside `try`, indirect/ref tail-call forms, and full name/annotation repair.
 ## [2026-05-16] passes | INL006 nested direct tail-call subset
 
 - Advanced `[INL]006` by recording whether an inline candidate contains `return_call*` and permitting that candidate only when the outer callsite is a direct `return_call`. This covers the safe tail-call-preserving nested direct case without broadening non-tail callsites that still need Binaryen-style repair.

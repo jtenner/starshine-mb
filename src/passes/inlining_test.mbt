@@ -1627,6 +1627,28 @@ test "inlining inlines tiny return_call callees" {
 }
 
 ///|
+test "inlining inlines no-param multi-result callees using type-indexed wrapper blocks" {
+  let source =
+    #|(module
+    #|  (type $pair_t (func (result i32 i32)))
+    #|  (func $pair (type $pair_t)
+    #|    i32.const 4
+    #|    i32.const 5)
+    #|  (func (export "run") (result i32)
+    #|    call $pair
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_true(run.contains("i32.const I32(4)"), msg=run)
+  assert_true(run.contains("i32.const I32(5)"), msg=run)
+  assert_false(run.contains("call"), msg=run)
+}
+
+///|
 test "inlining preserves nested return_call when the callsite is tail" {
   let source =
     #|(module
