@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-16 Docs: record deferred INL005 and INL006 work
+
+- **documented the INL follow-up work that remains intentionally undone** by **@OpenAI**. Added [`docs/wiki/binaryen/passes/inlining-optimizing/deferred-inl005-inl006-work.md`](./docs/wiki/binaryen/passes/inlining-optimizing/deferred-inl005-inl006-work.md), linked it from the inlining-optimizing index and readiness page, and recorded it in the wiki log. `[INL]005` Pattern A/B partial splitting remains unimplemented pending a concrete correctness/performance/size/user-facing reason; `[INL]006` residual Binaryen-like function-scoped local/label name reconstruction and broader annotation collision repair remain intentionally unsupported after the landed tail-call, multivalue, function-name, non-function-name, and policy-annotation subsets.
+
 ## 2026-05-16 Tests: protect INL006 name repair across type synthesis
 
 - **expanded `[INL]006` name/annotation repair coverage around synthesized multi-result block types** by **@OpenAI**. Added focused coverage in [`src/passes/inlining_test.mbt`](./src/passes/inlining_test.mbt) proving function names still compact correctly and non-function name maps for types, tables, memories, and globals survive when inlining appends a synthetic block type. No implementation change was needed. Validation/evidence: focused test passed; `moon fmt`, `moon info`, `moon test src/passes` (`1080/1080`), full `moon test` (`3143/3143`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-name-type-wasm-smith-1000` (`996/1000` compared, `996` matches, `0` mismatches, `0` validation failures, `4` Binaryen/tool command failures). Remaining broad name repair work is local/label collision-preserving reconstruction, which Starshine intentionally drops today after body rewrites.

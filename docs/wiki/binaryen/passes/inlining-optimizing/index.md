@@ -96,6 +96,7 @@ The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed
 
 ## Page map
 
+- [`./deferred-inl005-inl006-work.md`](./deferred-inl005-inl006-work.md) - durable record of partial-splitting work not done under `[INL]005` and residual local/label-name repair not done under `[INL]006`.
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) - upstream strategy with the optimizing suffix centered.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Binaryen owner/helper/test map and current Starshine code/test map.
 - [`./planning-partial-inlining-and-reruns.md`](./planning-partial-inlining-and-reruns.md) - focused planner/root/partial/rerun explainer.

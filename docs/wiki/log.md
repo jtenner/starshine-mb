@@ -72,6 +72,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a helper containing `return_call_indirect` can be inlined at an outer direct `return_call` callsite while preserving the indirect tail call.
 - No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused test passed; `moon test src/passes` passed (`1077/1077`). Remaining `[INL]006` work includes `return_call` inside `try`, `return_call_ref` breadth, and full name/annotation repair.
 
+## [2026-05-16] docs | deferred INL005 and INL006 work recorded
+
+- Added [`binaryen/passes/inlining-optimizing/deferred-inl005-inl006-work.md`](./binaryen/passes/inlining-optimizing/deferred-inl005-inl006-work.md) as the durable handoff for work not completed in the INL follow-up.
+- Recorded that `[INL]005` Pattern A / Pattern B partial splitting, helper creation/cleanup, and real no-partial splitter policy behavior remain unimplemented and should not be chased for cosmetic Binaryen WAT/byte parity alone.
+- Recorded that `[INL]006` tail-call and multi-result surfaces are now narrowed by focused tests, while Binaryen-like function-scoped local/label name reconstruction and broader annotation collision repair remain intentionally unsupported unless a future semantic, validation, user-facing, or performance/code-size reason appears.
 ## [2026-05-16] tests | INL006 name repair around type synthesis
 
 - Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving function names still compact and non-function names for types, tables, memories, and globals survive when multi-result inlining appends a synthetic zero-param result block type.

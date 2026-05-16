@@ -121,8 +121,8 @@ Focused tests validate the current subset:
 
 - `[INL]003` accepted current-supported heuristic/action-filtering surface on 2026-05-14 after the repeated-work cap closeout; reopen only for a new Starshine-supported semantic mismatch in heuristic/action filtering;
 - `[INL]004` accepted current `no-inline*` policy surface; initial name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and shared clone/copy policy helper are implemented;
-- `[INL]005` Pattern A / Pattern B partial splitting;
-- `[INL]006` residual local/label name repair remains intentionally scoped as unsupported after the narrow direct/indirect/ref tail, multi-result block-typing, function-name, non-function-name, and policy-annotation subsets.
+- `[INL]005` Pattern A / Pattern B partial splitting remains deferred; details and future acceptance bar are recorded in [`deferred-inl005-inl006-work.md`](./deferred-inl005-inl006-work.md);
+- `[INL]006` residual local/label name repair remains intentionally scoped as unsupported after the narrow direct/indirect/ref tail, multi-result block-typing, function-name, non-function-name, and policy-annotation subsets; details are recorded in [`deferred-inl005-inl006-work.md`](./deferred-inl005-inl006-work.md).
 
 ### `[INL]002` accepted representation drift
 
