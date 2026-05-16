@@ -92,7 +92,7 @@ Focused tests validate the current subset:
 - direct tiny helper inlining/removal;
 - parameter remapping;
 - exported-helper survival;
-- narrow direct `return_call` inlining;
+- narrow direct `return_call` inlining plus the `[INL]006` nested direct-`return_call` tail-call subset, with a focused non-tail guard;
 - self-recursion skip;
 - iterative wave behavior;
 - the accepted `[INL]003` heuristic/action-filtering surface for repeated two-parameter binary, ordered direct-call, three-parameter `select`, parameter-passthrough memory/table/SIMD/GC operation wrappers, the first optimize-level-three/no-shrink flexible no-direct-call/no-loop policy, combined-size filtering, and repeated-work caps;
@@ -121,7 +121,7 @@ Focused tests validate the current subset:
 - `[INL]003` accepted current-supported heuristic/action-filtering surface on 2026-05-14 after the repeated-work cap closeout; reopen only for a new Starshine-supported semantic mismatch in heuristic/action filtering;
 - `[INL]004` accepted current `no-inline*` policy surface; initial name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and shared clone/copy policy helper are implemented;
 - `[INL]005` Pattern A / Pattern B partial splitting;
-- `[INL]006` nested tail-call, multi-result, and name/annotation repair.
+- `[INL]006` remaining nested tail-call, multi-result, and name/annotation repair after the narrow direct-tail subset.
 
 ### `[INL]002` accepted representation drift
 

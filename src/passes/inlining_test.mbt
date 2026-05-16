@@ -1627,6 +1627,51 @@ test "inlining inlines tiny return_call callees" {
 }
 
 ///|
+test "inlining preserves nested return_call when the callsite is tail" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (param i32) (result i32)))
+    #|  (import "env" "leaf" (func $leaf (type $t0)))
+    #|  (func $tail (param i32) (result i32)
+    #|    local.get 0
+    #|    return_call $leaf)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    return_call $tail))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_true(run.contains("return_call (Func 0)"), msg=run)
+  assert_false(run.contains("return_call (Func 1)"), msg=run)
+}
+
+///|
+test "inlining leaves nested return_call callees alone at non-tail callsites" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (param i32) (result i32)))
+    #|  (import "env" "leaf" (func $leaf (type $t0)))
+    #|  (func $tail (param i32) (result i32)
+    #|    local.get 0
+    #|    return_call $leaf)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $tail
+    #|    i32.const 1
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_true(run.contains("call (Func 1)"), msg=run)
+}
+
+///|
 test "inlining caps repeated recursive work per caller" {
   let source =
     #|(module

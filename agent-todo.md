@@ -90,8 +90,9 @@ Completed direct-pass slices
   - Deliverables: implement or explicitly reject/scope out Pattern A and Pattern B splitting, add reduced splitter fixtures and helper-cleanup tests, and compare direct `--pass inlining` / `--pass inlining-optimizing` behavior on split-family repros.
 
 - [INL]006 - Tail-Call, Multi-Result, and Name/Annotation Repair
-  - Status: active unsupported direct-inliner breadth. Starshine still avoids or incompletely repairs nested `return_call*` forms, `return_call`-inside-`try` hoisting, multi-result inlined wrapper block typing, and full Binaryen-like label/name/annotation collision and compaction behavior.
+  - Status: active unsupported direct-inliner breadth. Starshine now supports the narrow safe nested direct-`return_call` subset where a return-call-containing callee is inlined only at an outer direct `return_call` callsite; non-tail callsites remain gated. Starshine still avoids or incompletely repairs `return_call`-inside-`try` hoisting, indirect/ref tail-call forms, multi-result inlined wrapper block typing, and full Binaryen-like label/name/annotation collision and compaction behavior.
   - Deliverables: add focused repair tests first, implement the missing repair/hoist/typing/name surfaces or explicitly gate them out of scope, and keep any unsupported forms classified here rather than against the current accepted direct surface.
+  - Current evidence: focused TDD coverage in `src/passes/inlining_test.mbt` for nested imported direct `return_call` tail-call inlining and the non-tail guard; `moon fmt`, `moon info`, `moon test src/passes` (`1073/1073`), full `moon test` (`3136/3136`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-wasm-smith-1000` (`997/1000` compared, `997` matches, `0` mismatches, `0` validation failures, `3` Binaryen/tool command failures). Mixed-generator keep-going smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-1000-keep` has `0` validation failures but preserves the known gen-valid local-declaration/frontier mismatch shape, so it is not closeout evidence.
 
 #### SGO - Simplify Globals Optimizing
 

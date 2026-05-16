@@ -113,7 +113,7 @@ Do not use this as a first-slice expected inline. Reviewed `version_129` chosen 
   call $callee)
 ```
 
-Binaryen must repair the nested return-call semantics if it inlines. Current Starshine avoids most return-call-containing callees and only covers a narrow outer direct `return_call` shape.
+Binaryen must repair the nested return-call semantics if it inlines. Current Starshine still avoids non-tail callsites here, but `[INL]006` now covers the narrow safe direct-tail subset: when the outer callsite is also a direct `return_call`, Starshine may inline the callee and preserve the nested `return_call` to the final target.
 
 ## Shape 7: partial inlining payoff
 

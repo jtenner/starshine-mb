@@ -13,6 +13,7 @@ priv struct InlFunctionInfo {
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
   size : Int
+  has_return_call : Bool
   inlineable : Bool
 }
 
@@ -772,14 +773,13 @@ fn inl_build_function_infos(
       !no_full_policy &&
       block_type_ok &&
       !has_try_table &&
-      !has_return_call &&
       (
         size <= 2 ||
         trivial_shrinks ||
         (refs[abs] == 1 && !used[abs]) ||
         may_not_shrink
       )
-    infos.push({ params, results, size, inlineable })
+    infos.push({ params, results, size, has_return_call, inlineable })
     abs += 1
   }
   infos
@@ -889,6 +889,7 @@ fn inl_can_inline_action(
   callee_abs : Int,
   infos : Array[InlFunctionInfo],
   touched : Array[Bool],
+  tail_callsite? : Bool = false,
 ) -> Bool {
   callee_abs >= 0 &&
   callee_abs < infos.length() &&
@@ -896,6 +897,7 @@ fn inl_can_inline_action(
   caller_abs < infos.length() &&
   callee_abs != caller_abs &&
   infos[callee_abs].inlineable &&
+  (tail_callsite || !infos[callee_abs].has_return_call) &&
   (callee_abs >= touched.length() || !touched[callee_abs]) &&
   inl_combined_binary_size_within_limit(caller_size, infos[callee_abs].size)
 }
@@ -960,6 +962,7 @@ fn inl_inline_call_instrs(
             callee_abs,
             infos,
             touched,
+            tail_callsite=true,
           ) {
           match
             inl_make_inline_replacement(

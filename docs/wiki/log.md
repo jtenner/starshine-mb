@@ -61,6 +61,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - This pins `4559` and `4558` at reverse iterations `14` and `15`, explaining why a cheap bounded reverse sweep does not move the real artifact frontier even though the reduced repros improve.
 - Filed the new attribution into [`raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md`](raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md) and updated the live DAE status pages.
 
+## [2026-05-16] passes | INL006 nested direct tail-call subset
+
+- Advanced `[INL]006` by recording whether an inline candidate contains `return_call*` and permitting that candidate only when the outer callsite is a direct `return_call`. This covers the safe tail-call-preserving nested direct case without broadening non-tail callsites that still need Binaryen-style repair.
+- Added focused coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt): an imported target keeps the inner `return_call` from being simplified away, the tail callsite inlines and removes the helper, and the non-tail callsite remains gated.
+- Validation/evidence: `moon fmt`, `moon info`, `moon test src/passes` (`1073/1073`), full `moon test` (`3136/3136`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-wasm-smith-1000` (`997/1000` compared, `997` matches, `0` mismatches, `0` validation failures, `3` Binaryen/tool command failures). Mixed-generator keep-going smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-1000-keep` has `0` validation failures but preserves the known gen-valid local-declaration/frontier mismatch shape. Remaining `[INL]006` work includes `return_call` inside `try`, indirect/ref tail-call forms, multi-result wrapper typing, and full name/annotation repair.
 ## [2026-05-16] passes | INL002 representation drift accepted
 
 - Closed `[INL]002` for v0.1.0 as accepted representation/factoring drift rather than exact Binaryen byte/WAT parity. The latest debug-artifact replay `.tmp/inl002-puresuffix-only-20260516-002821` validates, and direct fuzz closeout `.tmp/pass-fuzz-inlining-optimizing-inl002-closeout-10000-keep` already reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool command failures.
