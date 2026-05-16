@@ -1898,7 +1898,7 @@ fn pass_manager_test_defined_func_params(
 }
 
 ///|
-test "dae core debug artifact frontier now reaches check_range first" {
+test "dae core debug artifact frontier now reaches Func 42 immediately after check_range" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let bytes = match @sfs.read_file_bytes(input_path) {
     Ok(bytes) => bytes
@@ -1910,7 +1910,7 @@ test "dae core debug artifact frontier now reaches check_range first" {
   }
   let primary_defs = pass_manager_test_dae_core_primary_defs(mod_, 12)
   @debug.assert_eq(primary_defs, [
-    11, 227, 233, 236, 237, 246, 256, 267, 268, 287, 288, 298,
+    11, 25, 227, 233, 236, 237, 246, 256, 267, 268, 287, 288,
   ])
 }
 
@@ -2040,7 +2040,7 @@ test "dae core debug artifact check_range callsite shapes are all recoverable" {
 }
 
 ///|
-test "dae core debug artifact first two productive rewrites still stay below Func 42" {
+test "dae core debug artifact first two productive rewrites now hit check_range then Func 42" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let bytes = match @sfs.read_file_bytes(input_path) {
     Ok(bytes) => bytes
@@ -2051,7 +2051,7 @@ test "dae core debug artifact first two productive rewrites still stay below Fun
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   let primary_defs = pass_manager_test_dae_core_primary_defs(mod_, 2)
-  @debug.assert_eq(primary_defs, [11, 227])
+  @debug.assert_eq(primary_defs, [11, 25])
 }
 
 ///|
@@ -2096,12 +2096,13 @@ test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals 
     pass_manager_test_first_shape_failure(mod_, callee_abs, params.length()),
     None,
   )
-  match pass_manager_test_first_nonconst_i32_actual_instrs(
-    mod_,
-    callee_abs,
-    params.length(),
-    1,
-  ) {
+  match
+    pass_manager_test_first_nonconst_i32_actual_instrs(
+      mod_,
+      callee_abs,
+      params.length(),
+      1,
+    ) {
     Some((4559, instrs)) => {
       @debug.assert_eq(instrs.length(), 1)
       match instrs[0] {
@@ -2225,12 +2226,13 @@ test "dae core debug artifact Func 4559 becomes directly rewritable after Func 4
     mod_, 4541,
   )
   @debug.assert_eq(rewrite_4558.changed, true)
-  match dae_collect_uniform_const_actuals(
-    rewrite_4558.mod_out,
-    4559,
-    3,
-    dae_collect_func_type_indices(rewrite_4558.mod_out),
-  ) {
+  match
+    dae_collect_uniform_const_actuals(
+      rewrite_4558.mod_out,
+      4559,
+      3,
+      dae_collect_func_type_indices(rewrite_4558.mod_out),
+    ) {
     Some(values) => {
       @debug.assert_eq(values.length(), 3)
       match values[0] {
@@ -2271,11 +2273,14 @@ test "dae core debug artifact Func 42 stays rewritable after earlier core progre
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   let after_64 = pass_manager_test_dae_core_apply_iters(mod_, 64)
-  @debug.assert_eq(pass_manager_test_defined_func_params(after_64, 25).length(), 2)
+  @debug.assert_eq(
+    pass_manager_test_defined_func_params(after_64, 25).length(),
+    2,
+  )
 }
 
 ///|
-test "dae core debug artifact Func 4559 is a simple full-param forwarder" {
+test "dae core debug artifact Func 42 rewrite does not leave add-zero memory.copy address drift" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let bytes = match @sfs.read_file_bytes(input_path) {
     Ok(bytes) => bytes
@@ -2285,11 +2290,57 @@ test "dae core debug artifact Func 4559 is a simple full-param forwarder" {
     Ok(mod_) => mod_
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => fail("expected code section")
+  let rewrite_42 = pass_manager_test_try_rewrite_exact_literal_candidate(
+    mod_, 25,
+  )
+  @debug.assert_eq(rewrite_42.changed, true)
+  let pretty = rewrite_42.mod_out.pretty_print_defined_func(25U)
+  assert_false(pretty.contains("i32.add(i32.const I32(0))"), msg=pretty)
+  assert_false(pretty.contains("(i32.const I32(0))i32.add"), msg=pretty)
+  assert_false(
+    pretty.contains("(i32.const I32(8))(local.get (Local 2))i32.add"),
+    msg=pretty,
+  )
+  assert_false(
+    pretty.contains("(i32.const I32(8))(local.get (Local 0))i32.add"),
+    msg=pretty,
+  )
+}
+
+///|
+test "dae core artifact also rewrites the high Func 1530 callee behind low Func 51" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
   }
-  assert_true(dae_func_is_simple_full_param_forwarder(funcs[4542], 3))
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let core = dae_run_core(mod_, fn(_line) { () }).mod_out
+  @debug.assert_eq(
+    pass_manager_test_defined_func_params(core, 1513).length(),
+    2,
+  )
+}
+
+///|
+test "dae core artifact also rewrites the high Func 1571 callee behind low Func 58" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match @sfs.read_file_bytes(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected artifact read success, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let core = dae_run_core(mod_, fn(_line) { () }).mod_out
+  @debug.assert_eq(
+    pass_manager_test_defined_func_params(core, 1554).length(),
+    2,
+  )
 }
 
 ///|
@@ -2335,12 +2386,13 @@ test "dae core debug artifact Func 42 becomes directly rewritable after Func 455
     4542,
   )
   @debug.assert_eq(rewrite_4559.changed, true)
-  match dae_collect_uniform_const_actuals(
-    rewrite_4559.mod_out,
-    42,
-    3,
-    dae_collect_func_type_indices(rewrite_4559.mod_out),
-  ) {
+  match
+    dae_collect_uniform_const_actuals(
+      rewrite_4559.mod_out,
+      42,
+      3,
+      dae_collect_func_type_indices(rewrite_4559.mod_out),
+    ) {
     Some(values) => {
       @debug.assert_eq(values.length(), 3)
       match values[0] {

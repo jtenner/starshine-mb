@@ -9,6 +9,22 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`index.md`](index.md) to include the fuller compare-pass contract (pass/failure-class listing and replay controls).
 - Added a small operational note in both pages that ordinary suite fuzz (`bun fuzz run`) remains separate from optimizer oracle signoff and that pass evidence still belongs in per-pass dockets.
 
+## [2026-05-15] tests | Func 42 shape cleanup plus low-callee revisit moves DAE002 to Func 81
+
+- Added a tiny post-rewrite DAE body cleanup in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that removes adjacent add-zero drift and normalizes the nearby const/local `i32.add` shape left by the direct Func 42 rewrite.
+- Added a reduced regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) proving DAE now removes add-zero `memory.copy` address drift after const parameter removal.
+- Added whitebox artifact checks in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) proving the direct original-artifact Func 42 rewrite no longer leaves add-zero / const-before-local address drift and that `dae_run_core(...)` now also rewrites the higher original-artifact callees behind low wrappers at Func 51 / Func 58.
+- Re-ran full artifact compare at [`../../.tmp/dae002-confirmed-artifact`](../../.tmp/dae002-confirmed-artifact): the first differing function moved forward from `defined=25 abs=42` to `defined=64 abs=81`, while Starshine still remains much slower than Binaryen (`120946.581ms` vs `939.053ms` pass-local).
+- Filed the new state into [`raw/research/0569-2026-05-15-dae002-func42-shape-fix-and-low-callee-prefix.md`](raw/research/0569-2026-05-15-dae002-func42-shape-fix-and-low-callee-prefix.md) and updated the live DAE status pages/backlog. The rejected `128`-caller local experiment is recorded there as evidence only and was not retained.
+
+## [2026-05-14] tests | forwarded-const low-prefix revisit reaches Func 42 in the core but not in the artifact compare
+
+- Added narrow forwarded-const analysis through wrapper-local `local.get` chains in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), plus a low-prefix forward exact-literal revisit over the first `64` defined functions after the existing reverse lane.
+- Added focused reduced regressions in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) proving the new slice can recover a reverse-starved low-index wrapper-chain candidate without reopening the `case 000690` escaped self-call operand regression.
+- Updated whitebox artifact characterization in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) so the original debug-artifact core frontier now starts `11, 25, 227, 233, 236, 237, 246, 256, 267, 268, 287, 288`; Func 42 is now the second productive core rewrite on the original artifact.
+- Re-ran full artifact compare at [`../../.tmp/dae002-forwarded-const-low-revisit-artifact`](../../.tmp/dae002-forwarded-const-low-revisit-artifact): the first differing function still remains `defined=25 abs=42`, so the remaining blocker is now the post-rewrite Func 42 family shape rather than candidate reach alone.
+- Filed the new state into [`raw/research/0568-2026-05-14-dae002-forwarded-const-low-prefix-revisit.md`](raw/research/0568-2026-05-14-dae002-forwarded-const-low-prefix-revisit.md) and updated the live DAE status pages/backlog.
+
 ## [2026-05-14] tests | DAE core can starve a later exact-literal candidate after eight earlier rewrites
 
 - Added a focused characterization regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) where `9` earlier productive dead-param candidates (`g0`..`g8`) appear before one later `moonbit.check_range`-shaped exact-literal candidate.

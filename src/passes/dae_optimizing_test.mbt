@@ -688,6 +688,50 @@ test "dae-optimizing can chase a later exact-literal forwarding-wrapper chain" {
 }
 
 ///|
+test "dae-optimizing folds add-zero address drift after removing a const memory.copy offset param" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $copy (param i32 i32 i32) (result i32)
+    #|    i32.const 8
+    #|    local.get 0
+    #|    i32.add
+    #|    local.get 1
+    #|    i32.add
+    #|    i32.const 16
+    #|    local.get 0
+    #|    i32.add
+    #|    local.get 1
+    #|    i32.add
+    #|    local.get 2
+    #|    memory.copy
+    #|    local.get 0)
+    #|  (func $a (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    local.get 1
+    #|    call $copy)
+    #|  (func $b (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    local.get 1
+    #|    call $copy)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 32
+    #|    i32.const 4
+    #|    call $a
+    #|    drop
+    #|    i32.const 64
+    #|    i32.const 8
+    #|    call $b))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  let callee = optimized.pretty_print_defined_func(0U)
+  assert_false(callee.contains("i32.add(i32.const I32(0))"), msg=callee)
+  assert_false(callee.contains("(i32.const I32(0))i32.add"), msg=callee)
+}
+
+///|
 test "dae-optimizing materializes forwarded const actuals before a reverse-starved wrapper chain" {
   let source =
     #|(module
