@@ -115,7 +115,7 @@ Do not use this as a first-slice expected inline. Reviewed `version_129` chosen 
 
 Binaryen must repair the nested return-call semantics if it inlines. Current Starshine still avoids non-tail callsites here, but `[INL]006` now covers the narrow safe direct-tail subset: when the outer callsite is also a direct `return_call`, Starshine may inline the callee and preserve the nested `return_call` to the final target.
 
-## Shape 6b: no-param multi-result wrapper subset
+## Shape 6b: existing-type multi-result wrapper subset
 
 ```wat
 (type $pair_t (func (result i32 i32)))
@@ -127,7 +127,7 @@ Binaryen must repair the nested return-call semantics if it inlines. Current Sta
   i32.add)
 ```
 
-`[INL]006` now supports this narrow case by using the callee's zero-param function type as the wrapper block type. Parameterized multi-result helpers remain gated because they need a separate zero-param result block type or safe type synthesis.
+`[INL]006` now supports this narrow case by using the callee's zero-param function type as the wrapper block type. It also supports parameterized multi-result helpers when the module already has a separate zero-param function type for the same result tuple. Other parameterized multi-result helpers remain gated until Starshine can synthesize the needed block type safely.
 
 ## Shape 7: partial inlining payoff
 

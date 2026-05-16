@@ -80,7 +80,7 @@ Both direct fuzz lanes used `--jobs auto` with the prebuilt native `--starshine-
 
 - Active `inlining` and `inlining-optimizing` module-pass names.
 - Iterative direct `call` and narrow direct `return_call` rewrite waves, including the guarded `[INL]006` subset that can inline a return-call-containing callee only at an outer direct `return_call` callsite while keeping non-tail callsites gated.
-- Tiny, one-use private, narrow no-param multi-result, narrow shrinking-trivial two-parameter binary-wrapper, ordered direct-call-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation-wrapper defined callee eligibility, now including the supported SIMD plus GC heap-operation breadth, plus the first speed-focused flexible no-direct-call/no-loop `size <= 20` subset when `optimize_level >= 3` and `shrink_level == 0`.
+- Tiny, one-use private, narrow typed multi-result, narrow shrinking-trivial two-parameter binary-wrapper, ordered direct-call-wrapper, narrow shrinking-trivial three-parameter `select`-wrapper, narrow shrinking-trivial parameter-passthrough memory/table/SIMD/GC operation-wrapper defined callee eligibility, now including the supported SIMD plus GC heap-operation breadth, plus the first speed-focused flexible no-direct-call/no-loop `size <= 20` subset when `optimize_level >= 3` and `shrink_level == 0`.
 - Callee parameter/body-local appending and local-index remapping.
 - Simple return-to-wrapper-block branch repair.
 - Private helper removal after refs disappear.
@@ -98,7 +98,7 @@ Both direct fuzz lanes used `--jobs auto` with the prebuilt native `--starshine-
 - `[INL]003`: accepted current-supported heuristic/action-filtering surface on 2026-05-14 after adding Binaryen's per-function repeated-work cap; shrinking-trivial wrappers, O3/no-shrink flexible policy, direct-call-only `hasCalls`, combined-size filtering, same-wave guards, and repeated-work caps have 10k closeout evidence;
 - `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
 - `[INL]005`: partial inlining splitter;
-- `[INL]006`: active; one narrow nested direct-`return_call` tail-call subset and no-param multi-result wrapper subset are implemented, while `return_call`-inside-`try`, indirect/ref tail-call forms, parameterized multi-result typing, and label/name/annotation repair remain open.
+- `[INL]006`: active; one narrow nested direct-`return_call` tail-call subset and typed multi-result wrapper subsets are implemented, while `return_call`-inside-`try`, indirect/ref tail-call forms, general multi-result type synthesis, and label/name/annotation repair remain open.
 
 ### `[INL]002`: optimizing suffix parity
 

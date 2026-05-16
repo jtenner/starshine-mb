@@ -149,20 +149,46 @@ fn inl_resolve_func_type(
 }
 
 ///|
+fn inl_find_zero_param_result_type(
+  mod_ : @lib.Module,
+  results : Array[@lib.ValType],
+) -> @lib.TypeIdx? {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => {
+      let mut idx = 0
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(subtype) =>
+            match subtype.get_comptype() {
+              @lib.FuncCompType(params, type_results) =>
+                if params.length() == 0 && type_results == results {
+                  return Some(@lib.TypeIdx::new(idx.reinterpret_as_uint()))
+                }
+              _ => ()
+            }
+          @lib.GroupRecType(_) => ()
+        }
+        idx += 1
+      }
+      None
+    }
+    None => None
+  }
+}
+
+///|
 fn inl_result_block_type(
-  params : Array[@lib.ValType],
   results : Array[@lib.ValType],
   type_idx : @lib.TypeIdx?,
 ) -> @lib.BlockType? {
   match results.length() {
     0 => Some(@lib.BlockType::void_())
     1 => Some(@lib.BlockType::val_type(results[0]))
-    _ if params.length() == 0 =>
+    _ =>
       match type_idx {
         Some(type_idx) => Some(@lib.BlockType::type_idx(type_idx))
         None => None
       }
-    _ => None
   }
 }
 
@@ -773,13 +799,19 @@ fn inl_build_function_infos(
         None => ([], [], 1000000, true, false, true, true, false)
       }
     }
-    let type_idx = if abs >= 0 && abs < types.length() {
+    let func_type_idx = if abs >= 0 && abs < types.length() {
       Some(types[abs])
     } else {
       None
     }
-    let block_type_ok = inl_result_block_type(params, results, type_idx)
-      is Some(_)
+    let type_idx = if results.length() <= 1 {
+      None
+    } else if params.length() == 0 {
+      func_type_idx
+    } else {
+      inl_find_zero_param_result_type(mod_, results)
+    }
+    let block_type_ok = inl_result_block_type(results, type_idx) is Some(_)
     let no_full_policy = abs >= 0 &&
       abs < no_full_inline.length() &&
       no_full_inline[abs]
@@ -1112,8 +1144,7 @@ fn inl_make_inline_replacement(
   let @lib.Func(caller_locals, _) = caller
   let @lib.Func(callee_locals, @lib.Expr(callee_body)) = callee
   let info = infos[callee_abs]
-  let block_type = match
-    inl_result_block_type(info.params, info.results, info.type_idx) {
+  let block_type = match inl_result_block_type(info.results, info.type_idx) {
     Some(block_type) => block_type
     None => return None
   }
