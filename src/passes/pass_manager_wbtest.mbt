@@ -2090,15 +2090,17 @@ fn pass_manager_test_try_rewrite_exact_literal_candidate(
   def_idx : Int,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
-  let total = dae_collect_func_type_indices(mod_).length()
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let total = type_indices.length()
+  let call_facts = dae_collect_current_call_facts(mod_, total)
+  let escaped = call_facts.escaped
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let callee_abs = imported + def_idx
-  let func_type = match
-    dae_resolve_func_type(mod_, dae_collect_func_type_indices(mod_), callee_abs) {
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -2111,11 +2113,14 @@ fn pass_manager_test_try_rewrite_exact_literal_candidate(
     callee_abs,
     params.length(),
   )
-  let uniform_const_params = dae_collect_uniform_const_actuals(
+  let uniform_const_params = dae_collect_uniform_const_actuals_with_facts(
     mod_,
     callee_abs,
     params.length(),
-    dae_collect_func_type_indices(mod_),
+    type_indices,
+    escaped,
+    call_facts.tail_calls,
+    call_facts.direct_callers,
   )
   let remove = Array::make(params.length(), false)
   let const_params : Array[@lib.Instruction?] = Array::make(
@@ -2141,7 +2146,7 @@ fn pass_manager_test_try_rewrite_exact_literal_candidate(
     }
     p += 1
   }
-  let direct_calls = dae_collect_calls(mod_, total).0
+  let direct_calls = call_facts.direct_calls
   dae_try_rewrite_candidate(
     mod_,
     callee_abs,
@@ -2149,6 +2154,28 @@ fn pass_manager_test_try_rewrite_exact_literal_candidate(
     const_params,
     local_use,
     direct_calls[callee_abs],
+    call_facts.direct_callers[callee_abs],
+  )
+}
+
+///|
+fn pass_manager_test_collect_uniform_const_actuals(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  param_count : Int,
+) -> Array[@lib.Instruction?]? {
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let total = type_indices.length()
+  let call_facts = dae_collect_current_call_facts(mod_, total)
+  let escaped = call_facts.escaped
+  dae_collect_uniform_const_actuals_with_facts(
+    mod_,
+    callee_abs,
+    param_count,
+    type_indices,
+    escaped,
+    call_facts.tail_calls,
+    call_facts.direct_callers,
   )
 }
 
@@ -2609,17 +2636,18 @@ test "dae core debug artifact frontier now reaches Func 42 immediately after che
 test "dae core debug artifact check_range is now directly rewritable" {
   let mod_ = pass_manager_test_debug_artifact_module()
   let imported = dae_imported_func_count(mod_)
-  let total = dae_collect_func_type_indices(mod_).length()
-  let escaped = dae_collect_escapes(mod_, total)
-  let (_, tail_calls) = dae_collect_calls(mod_, total)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let total = type_indices.length()
+  let call_facts = dae_collect_current_call_facts(mod_, total)
+  let escaped = call_facts.escaped
+  let tail_calls = call_facts.tail_calls
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => fail("expected code section")
   }
   let def_idx = 11
   let callee_abs = imported + def_idx
-  let func_type = match
-    dae_resolve_func_type(mod_, dae_collect_func_type_indices(mod_), callee_abs) {
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
     None => fail("expected func type")
   }
@@ -2635,11 +2663,10 @@ test "dae core debug artifact check_range is now directly rewritable" {
     funcs[def_idx],
     callee_abs,
   )
-  let uniform_const_params = dae_collect_uniform_const_actuals(
+  let uniform_const_params = pass_manager_test_collect_uniform_const_actuals(
     mod_,
     callee_abs,
     params.length(),
-    dae_collect_func_type_indices(mod_),
   )
   let remove = Array::make(params.length(), false)
   let const_params : Array[@lib.Instruction?] = Array::make(
@@ -2668,7 +2695,7 @@ test "dae core debug artifact check_range is now directly rewritable" {
     }
     p += 1
   }
-  let direct_calls = dae_collect_calls(mod_, total).0
+  let direct_calls = call_facts.direct_calls
   let try_rewrite = dae_try_rewrite_candidate(
     mod_,
     callee_abs,
@@ -2676,6 +2703,7 @@ test "dae core debug artifact check_range is now directly rewritable" {
     const_params,
     local_use,
     direct_calls[callee_abs],
+    call_facts.direct_callers[callee_abs],
   )
   let rewrite_progress = pass_manager_test_rewrite_call_progress(
     mod_, callee_abs, remove,
@@ -2730,17 +2758,18 @@ test "dae core debug artifact first two productive rewrites now hit check_range 
 test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals on the original artifact" {
   let mod_ = pass_manager_test_debug_artifact_module()
   let imported = dae_imported_func_count(mod_)
-  let total = dae_collect_func_type_indices(mod_).length()
-  let escaped = dae_collect_escapes(mod_, total)
-  let (_, tail_calls) = dae_collect_calls(mod_, total)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let total = type_indices.length()
+  let call_facts = dae_collect_current_call_facts(mod_, total)
+  let escaped = call_facts.escaped
+  let tail_calls = call_facts.tail_calls
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => fail("expected code section")
   }
   let def_idx = 25
   let callee_abs = imported + def_idx
-  let func_type = match
-    dae_resolve_func_type(mod_, dae_collect_func_type_indices(mod_), callee_abs) {
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
     None => fail("expected func type")
   }
@@ -2776,11 +2805,10 @@ test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals 
     }
     _ => fail("expected Func 42 blocker to come from Func 4559 local.get 1")
   }
-  let uniform_const_params = dae_collect_uniform_const_actuals(
+  let uniform_const_params = pass_manager_test_collect_uniform_const_actuals(
     mod_,
     callee_abs,
     params.length(),
-    dae_collect_func_type_indices(mod_),
   )
   let remove = Array::make(params.length(), false)
   let const_params : Array[@lib.Instruction?] = Array::make(
@@ -2809,7 +2837,7 @@ test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals 
     }
     p += 1
   }
-  let direct_calls = dae_collect_calls(mod_, total).0
+  let direct_calls = call_facts.direct_calls
   let rewrite_progress = pass_manager_test_rewrite_call_progress(
     mod_, callee_abs, remove,
   )
@@ -2855,11 +2883,10 @@ test "dae core debug artifact Func 4559 becomes directly rewritable after Func 4
   let rewrite_4558 = pass_manager_test_debug_artifact_rewrite_4558()
   @debug.assert_eq(rewrite_4558.changed, true)
   match
-    dae_collect_uniform_const_actuals(
+    pass_manager_test_collect_uniform_const_actuals(
       rewrite_4558.mod_out,
       4559,
       3,
-      dae_collect_func_type_indices(rewrite_4558.mod_out),
     ) {
     Some(values) => {
       @debug.assert_eq(values.length(), 3)
@@ -3036,12 +3063,7 @@ test "dae core debug artifact Func 42 becomes directly rewritable after Func 455
   let rewrite_4559 = pass_manager_test_debug_artifact_rewrite_4558_then_4559()
   @debug.assert_eq(rewrite_4559.changed, true)
   match
-    dae_collect_uniform_const_actuals(
-      rewrite_4559.mod_out,
-      42,
-      3,
-      dae_collect_func_type_indices(rewrite_4559.mod_out),
-    ) {
+    pass_manager_test_collect_uniform_const_actuals(rewrite_4559.mod_out, 42, 3) {
     Some(values) => {
       @debug.assert_eq(values.length(), 3)
       match values[0] {
