@@ -11,7 +11,6 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
-  - ../../../../../CHANGELOG.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -31,7 +30,7 @@ related:
 
 `inlining-optimizing` is a **partial active module pass** in Starshine. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), shares its core with plain `inlining`, and adds the local optimizing-mode cleanup approximation.
 
-Do not claim full pass signoff yet because broader heuristic gaps, the exact optimizing nested scheduler, and the current debug-artifact nested cleanup abort remain open. The standard direct seed-`0x5eed` mismatch frontier is green:
+The current v0.1.0 surface is accepted. This is not universal Binaryen inliner parity: broader partial-splitting and residual name/annotation repair are deferred to v0.2.0. The standard direct seed-`0x5eed` mismatch frontier is green:
 
 ```text
 .tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier
@@ -72,9 +71,7 @@ Both direct fuzz lanes used `--jobs auto` with the prebuilt native `--starshine-
 - [`src/passes/inlining_wbtest.mbt`](../../../../../src/passes/inlining_wbtest.mbt)
   - whitebox coverage for the narrow hot-unsafe polymorphic self-call suffix detector.
 - [`agent-todo.md`](../../../../../agent-todo.md)
-  - active `[INL]002` scheduler work plus accepted `[INL]003` plus deferred direct-inliner breadth slices `[INL]005` and `[INL]006`; `[INL]007` is accepted for plain direct signoff.
-- [`CHANGELOG.md`](../../../../../CHANGELOG.md)
-  - 2026-05-11 and 2026-05-12 implementation checkpoints.
+  - v0.1.0 accepts `[INL]001`, `[INL]002`, `[INL]003`, `[INL]004`, and `[INL]007`; v0.2.0 tracks deferred direct-inliner breadth slices `[INL]005` and `[INL]006`.
 
 ## Current implemented behavior
 
@@ -93,21 +90,16 @@ Both direct fuzz lanes used `--jobs auto` with the prebuilt native `--starshine-
 
 ## Current gaps
 
-### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
+### v0.2.0 direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
 - `[INL]003`: accepted current-supported heuristic/action-filtering surface on 2026-05-14 after adding Binaryen's per-function repeated-work cap; shrinking-trivial wrappers, O3/no-shrink flexible policy, direct-call-only `hasCalls`, combined-size filtering, same-wave guards, and repeated-work caps have 10k closeout evidence;
 - `[INL]004`: accepted current `no-inline*` policy surface; name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and the shared clone/copy policy helper landed on 2026-05-13;
-- `[INL]005`: partial inlining splitter;
-- `[INL]006`: active; one narrow nested direct-`return_call` tail-call subset, focused `return_call_indirect` and `return_call_ref` tail-preserving coverage, direct `return_call` inside `try_table`, and typed multi-result wrapper subsets are implemented, including synthesized zero-param result block types for otherwise-inlineable parameterized multi-result helpers. Function names and non-function name maps are covered across type synthesis; function-scoped local/label names remain intentionally dropped after body rewrites rather than reconstructed with Binaryen-like collision repair.
+- `[INL]005`: v0.2.0-only partial inlining splitter. Do not implement for v0.1.0 or for cosmetic Binaryen WAT/byte-shape parity; resume only with a reduced correctness, validation, performance, size, or user-facing policy reason.
+- `[INL]006`: v0.2.0-only residual name/annotation repair. The tail-call and multi-result correctness subsets are covered; function names and non-function name maps are covered across type synthesis; function-scoped local/label names remain intentionally dropped after body rewrites rather than reconstructed with Binaryen-like collision repair.
 
-### `[INL]002`: optimizing suffix parity
+### `[INL]002`: accepted optimizing suffix representation drift
 
-- exact touched-function set for every nested scheduler family;
-- former seed-`0x1eed` `case-008100-gen-valid` Starshine command failure is fixed by the narrow hot-unsafe helper guard;
-- private `precompute-propagate-prefix` now runs first, but the real public `precompute-propagate` sibling remains unavailable;
-- Binaryen default function pipeline on only touched functions; Starshine now runs a touched-filtered cleanup approximation that omits the former extra pre-default `precompute` and gates option-controlled slots to Binaryen's thresholds, but the exact option-specific default pipeline expansion is not yet proven because public `precompute-propagate` and feature gating remain unresolved;
-- broader scheduler tests distinguishing touched callers/callees/removed helpers/untouched functions and further module-shaped local cleanup effects;
-- late-tail artifact replay after direct parity.
+`[INL]002` is accepted for v0.1.0. The private `precompute-propagate-prefix` and touched-function cleanup lane remain an approximation of Binaryen's exact public `precompute-propagate` plus option-specific default function pipeline, but direct fuzz signoff, artifact validation, and targeted triage found no correctness or validation evidence that justifies more v0.1.0 INL work. Do not reopen `[INL]002` for cosmetic canonical drift alone.
 
 ## Dependency map
 
@@ -135,4 +127,5 @@ The correct local mental model is:
 - **validation-clean in latest compared lanes, and command-clean for Starshine on the latest seed `0x1eed` lane**;
 - **direct seed-`0x5eed` and seed-`0x1eed` compares are green over the compared ranges**;
 - **core direct-call subset plus cleanup approximation**;
-- **INL backlog still open**.
+- **no active v0.1.0 INL implementation blocker**;
+- **`[INL]005` and residual `[INL]006` are v0.2.0 backlog only unless new evidence justifies reopening them**.

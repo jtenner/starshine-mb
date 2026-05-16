@@ -182,4 +182,4 @@ Before:
   ;; cleanup-looking debris)
 ```
 
-Binaryen's filtered runner should clean only changed functions. Current Starshine's approximation restores untouched bodies after broad cleanup, but exact touched-function scheduler tests still need to land under `[INL]002`.
+Binaryen's filtered runner should clean only changed functions. Current Starshine's approximation restores untouched bodies after broad cleanup, and `[INL]002` is accepted for v0.1.0 as representation/factoring drift. Reopen scheduler work only with new correctness, validation, performance, or size evidence.

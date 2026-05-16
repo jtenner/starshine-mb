@@ -227,7 +227,7 @@ For seed `0x1eed`, all `22` command failures are ignored Binaryen/tool `binaryen
 | Starshine registry/presets | `src/passes/optimize.mbt` |
 | Starshine dispatch | `src/passes/pass_manager.mbt` |
 | Starshine focused tests | `src/passes/inlining_test.mbt` |
-| Active backlog | `agent-todo.md` accepted `[INL]001` and `[INL]007`, keeps `[INL]002` active, and tracks accepted `[INL]003` and deferred breadth `[INL]005` and `[INL]006` |
+| Active backlog | `agent-todo.md` accepts `[INL]001`, `[INL]002`, `[INL]003`, `[INL]004`, and `[INL]007` for v0.1.0; deferred breadth `[INL]005` and residual `[INL]006` are v0.2.0-only |
 
 ## Validation guidance
 

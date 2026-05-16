@@ -15,7 +15,6 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
-  - ../../../../../CHANGELOG.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -38,7 +37,7 @@ related:
 
 Current Starshine status has changed since the older April port-readiness notes: `inlining` is now a **partial active module pass**, not boundary-only. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), registered as a module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), dispatched by [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), and covered by focused public-pipeline tests in [`src/passes/inlining_test.mbt`](../../../../../src/passes/inlining_test.mbt).
 
-Do not read that as universal Binaryen inliner parity. The current local implementation has accepted direct current-supported surfaces for optimizing `[INL]001` and plain `[INL]007`, but deferred breadth is still tracked in [`agent-todo.md`](../../../../../agent-todo.md) under `[INL]002`-`[INL]006`.
+Do not read that as universal Binaryen inliner parity. The current local implementation has accepted the v0.1.0 current-supported surfaces for `[INL]001`, `[INL]002`, `[INL]003`, `[INL]004`, and plain `[INL]007`. Deferred breadth is v0.2.0-only and tracked in [`agent-todo.md`](../../../../../agent-todo.md) under `[INL]005` and residual `[INL]006`.
 
 ## Why this pass matters
 
@@ -141,7 +140,7 @@ The broadened seed lane is green over compared cases:
 - `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures
 - `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`
 
-Per project policy and user preference, Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; `[INL]003` is accepted for the current supported heuristic/action-filtering surface after the repeated-work cap fix. Exact nested scheduling remains `[INL]002`, deferred unsupported direct-inliner breadth now lives under `[INL]005` and `[INL]006`, and plain `[INL]007` is accepted with local-declaration/allocation drift classified as representation-only. Latest closeout lanes are `.tmp/pass-fuzz-inlining-inl003-after-repeated-cap-plain-10000` (806/806 locals-only mismatches, 0 validation failures) and `.tmp/pass-fuzz-inlining-optimizing-inl003-after-repeated-cap-10000` (9975/9975 matches).
+Per project policy and user preference, Binaryen parse/canonicalization failures are ignored oracle/tool failures, not Starshine semantic failures. The previous broadened mismatches are retired; `[INL]002` is accepted for v0.1.0 as representation/factoring drift, `[INL]003` is accepted for the current supported heuristic/action-filtering surface after the repeated-work cap fix, and plain `[INL]007` is accepted with local-declaration/allocation drift classified as representation-only. Deferred unsupported direct-inliner breadth now lives in the v0.2.0 backlog under `[INL]005` and residual `[INL]006`; do not treat it as the next task after DAE without new evidence. Latest closeout lanes are `.tmp/pass-fuzz-inlining-inl003-after-repeated-cap-plain-10000` (806/806 locals-only mismatches, 0 validation failures) and `.tmp/pass-fuzz-inlining-optimizing-inl003-after-repeated-cap-10000` (9975/9975 matches).
 
 ## Page map
 

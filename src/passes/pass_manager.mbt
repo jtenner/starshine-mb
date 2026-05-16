@@ -10513,12 +10513,12 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
   let result = dae_run_core(mod_, options.trace)
-  let repaired = dae_repair_dead_suffix_calls_to_touched(
-    result.mod_out,
-    result.touched,
-  )
   let cleaned = match
-    run_hot_pipeline_apply_dae_nested_cleanup(repaired, result.touched, options) {
+    run_hot_pipeline_apply_dae_nested_cleanup(
+      result.mod_out,
+      result.touched,
+      options,
+    ) {
     Ok(next) => next
     Err(err) => return Err(err)
   }

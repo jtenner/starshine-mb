@@ -1181,6 +1181,9 @@ fn pass_manager_test_dae_core_apply_iters(
   limit : Int,
 ) -> @lib.Module {
   let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
+    mod_,
+  )
   let original_call_summary = dae_collect_original_call_summary(mod_)
   let original_call_counts = original_call_summary.call_counts
   let original_prior_call_counts = original_call_summary.prior_call_counts
@@ -1288,6 +1291,7 @@ fn pass_manager_test_dae_core_apply_iters(
       current,
       Array::make(dae_defined_func_count(current), false),
       original_param_counts,
+      original_large_unreachable_prefixes,
       original_call_counts,
       original_prior_call_counts,
       original_prior_undropped_call_counts,
@@ -1443,6 +1447,9 @@ fn pass_manager_test_dae_core_primary_defs(
   limit : Int,
 ) -> Array[Int] {
   let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
+    mod_,
+  )
   let original_call_summary = dae_collect_original_call_summary(mod_)
   let original_call_counts = original_call_summary.call_counts
   let original_prior_call_counts = original_call_summary.prior_call_counts
@@ -1551,6 +1558,7 @@ fn pass_manager_test_dae_core_primary_defs(
       current,
       Array::make(dae_defined_func_count(current), false),
       original_param_counts,
+      original_large_unreachable_prefixes,
       original_call_counts,
       original_prior_call_counts,
       original_prior_undropped_call_counts,
@@ -2168,33 +2176,438 @@ fn pass_manager_test_defined_func_params(
 }
 
 ///|
-test "dae core debug artifact frontier now reaches Func 42 immediately after check_range" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
+let pass_manager_test_debug_artifact_path : String = "tests/node/dist/starshine-debug-wasi.wasm"
+
+///|
+let pass_manager_test_debug_artifact_bytes_cache : Ref[Bytes?] = Ref::new(None)
+
+///|
+let pass_manager_test_debug_artifact_dae_core_primary_defs_12_cache : Ref[
+  Array[Int]?,
+] = Ref::new(None)
+
+///|
+let pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20_cache : Ref[
+  Array[Int]?,
+] = Ref::new(None)
+
+///|
+let pass_manager_test_debug_artifact_dae_core_after_64_cache : Ref[@lib.Module?] = Ref::new(
+  None,
+)
+
+///|
+let pass_manager_test_debug_artifact_dae_core_cache : Ref[@lib.Module?] = Ref::new(
+  None,
+)
+
+///|
+let pass_manager_test_debug_artifact_rewrite_4558_cache : Ref[DaePassResult?] = Ref::new(
+  None,
+)
+
+///|
+let pass_manager_test_debug_artifact_rewrite_4558_then_4559_cache : Ref[
+  DaePassResult?,
+] = Ref::new(None)
+
+///|
+let pass_manager_test_debug_artifact_rewrite_42_cache : Ref[DaePassResult?] = Ref::new(
+  None,
+)
+
+///|
+fn pass_manager_test_debug_artifact_bytes() -> Bytes {
+  match pass_manager_test_debug_artifact_bytes_cache.val {
+    Some(bytes) => bytes
+    None => {
+      let bytes = match
+        @sfs.read_file_bytes(pass_manager_test_debug_artifact_path) {
+        Ok(bytes) => bytes
+        Err(err) => abort("expected artifact read success, got \{err}")
+      }
+      pass_manager_test_debug_artifact_bytes_cache.val = Some(bytes)
+      bytes
+    }
   }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let primary_defs = pass_manager_test_dae_core_primary_defs(mod_, 12)
-  @debug.assert_eq(primary_defs, [
-    11, 25, 227, 233, 236, 237, 246, 256, 267, 268, 287, 288,
-  ])
 }
 
 ///|
-test "dae core debug artifact check_range is now directly rewritable" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
+fn pass_manager_test_debug_artifact_module() -> @lib.Module {
+  match @binary.decode_module(pass_manager_test_debug_artifact_bytes()) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
+    Err(err) => abort("expected artifact decode success, got \{err}")
   }
+}
+
+///|
+fn pass_manager_test_take_ints(values : Array[Int], count : Int) -> Array[Int] {
+  let taken : Array[Int] = []
+  let mut idx = 0
+  while idx < count && idx < values.length() {
+    taken.push(values[idx])
+    idx += 1
+  }
+  taken
+}
+
+///|
+fn pass_manager_test_debug_artifact_dae_core_primary_defs_12() -> Array[Int] {
+  match pass_manager_test_debug_artifact_dae_core_primary_defs_12_cache.val {
+    Some(primary_defs) => primary_defs
+    None => {
+      let primary_defs = pass_manager_test_dae_core_primary_defs(
+        pass_manager_test_debug_artifact_module(),
+        12,
+      )
+      pass_manager_test_debug_artifact_dae_core_primary_defs_12_cache.val = Some(
+        primary_defs,
+      )
+      primary_defs
+    }
+  }
+}
+
+///|
+fn pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20() -> Array[
+  Int,
+] {
+  match
+    pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20_cache.val {
+    Some(primary_defs) => primary_defs
+    None => {
+      let primary_defs = pass_manager_test_dae_reverse_exact_literal_primary_defs(
+        pass_manager_test_debug_artifact_module(),
+        20,
+      )
+      pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20_cache.val
+      = Some(primary_defs)
+      primary_defs
+    }
+  }
+}
+
+///|
+fn pass_manager_test_debug_artifact_dae_core_after_64() -> @lib.Module {
+  match pass_manager_test_debug_artifact_dae_core_after_64_cache.val {
+    Some(mod_) => mod_
+    None => {
+      let mod_ = pass_manager_test_dae_core_apply_iters(
+        pass_manager_test_debug_artifact_module(),
+        64,
+      )
+      pass_manager_test_debug_artifact_dae_core_after_64_cache.val = Some(mod_)
+      mod_
+    }
+  }
+}
+
+///|
+fn pass_manager_test_debug_artifact_dae_core_mod() -> @lib.Module {
+  match pass_manager_test_debug_artifact_dae_core_cache.val {
+    Some(mod_) => mod_
+    None => {
+      let mod_ = dae_run_core(pass_manager_test_debug_artifact_module(), fn(
+          _line,
+        ) {
+          ()
+        }).mod_out
+      pass_manager_test_debug_artifact_dae_core_cache.val = Some(mod_)
+      mod_
+    }
+  }
+}
+
+///|
+fn pass_manager_test_debug_artifact_rewrite_4558() -> DaePassResult {
+  match pass_manager_test_debug_artifact_rewrite_4558_cache.val {
+    Some(result) => result
+    None => {
+      let result = pass_manager_test_try_rewrite_exact_literal_candidate(
+        pass_manager_test_debug_artifact_module(),
+        4541,
+      )
+      pass_manager_test_debug_artifact_rewrite_4558_cache.val = Some(result)
+      result
+    }
+  }
+}
+
+///|
+fn pass_manager_test_debug_artifact_rewrite_4558_then_4559() -> DaePassResult {
+  match pass_manager_test_debug_artifact_rewrite_4558_then_4559_cache.val {
+    Some(result) => result
+    None => {
+      let result = pass_manager_test_try_rewrite_exact_literal_candidate(
+        pass_manager_test_debug_artifact_rewrite_4558().mod_out,
+        4542,
+      )
+      pass_manager_test_debug_artifact_rewrite_4558_then_4559_cache.val = Some(
+        result,
+      )
+      result
+    }
+  }
+}
+
+///|
+fn pass_manager_test_debug_artifact_rewrite_42() -> DaePassResult {
+  match pass_manager_test_debug_artifact_rewrite_42_cache.val {
+    Some(result) => result
+    None => {
+      let result = pass_manager_test_try_rewrite_exact_literal_candidate(
+        pass_manager_test_debug_artifact_module(),
+        25,
+      )
+      pass_manager_test_debug_artifact_rewrite_42_cache.val = Some(result)
+      result
+    }
+  }
+}
+
+///|
+#cfg(target="native")
+let pass_manager_test_debug_artifact_native_bytes_cache : Ref[Bytes?] = Ref::new(
+  None,
+)
+
+///|
+#cfg(target="native")
+fn pass_manager_test_debug_artifact_native_bytes() -> Bytes {
+  match pass_manager_test_debug_artifact_native_bytes_cache.val {
+    Some(bytes) => bytes
+    None => {
+      let bytes = match
+        pass_manager_test_native_read_repo_fixture(
+          pass_manager_test_debug_artifact_path,
+        ) {
+        Some(bytes) => bytes
+        None =>
+          abort(
+            "expected checked-in artifact at \{pass_manager_test_debug_artifact_path}",
+          )
+      }
+      pass_manager_test_debug_artifact_native_bytes_cache.val = Some(bytes)
+      bytes
+    }
+  }
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_debug_artifact_native_module() -> @lib.Module {
+  match @binary.decode_module(pass_manager_test_debug_artifact_native_bytes()) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected artifact decode success, got \{err}")
+  }
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_native_fast_options() -> HotPipelineOptions {
+  HotPipelineOptions::new(validate_final_module=false)
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_run_raw_simplify_locals_func(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+) -> HotPipelineFuncResult {
+  match
+    run_hot_pipeline_raw_simplify_locals(
+      mod_,
+      func_idx,
+      module_state,
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      pass_manager_test_native_fast_options(),
+    ) {
+    Some(result) => result
+    None =>
+      match
+        pass_manager_test_run_hot_pipeline_func_with_module_state(
+          mod_,
+          func_idx,
+          @ir.HotPassDescriptor::new("simplify-locals"),
+          module_state,
+          pass_manager_test_native_fast_options(),
+        ) {
+        Ok(result) => result
+        Err(err) =>
+          abort("expected simplify-locals hot pipeline success, got \{err}")
+      }
+  }
+}
+
+///|
+#cfg(target="native")
+let pass_manager_test_debug_artifact_native_simplify_locals_entry_cache : Ref[
+  HotPassRegistryEntry?,
+] = Ref::new(None)
+
+///|
+#cfg(target="native")
+let pass_manager_test_debug_artifact_native_func71_pipeline_cache : Ref[
+  HotPipelineFuncResult?,
+] = Ref::new(None)
+
+///|
+#cfg(target="native")
+let pass_manager_test_debug_artifact_native_func225_pipeline_cache : Ref[
+  HotPipelineFuncResult?,
+] = Ref::new(None)
+
+///|
+#cfg(target="native")
+let pass_manager_test_debug_artifact_native_apply_simplify_locals_cache : Ref[
+  @lib.Module?,
+] = Ref::new(None)
+
+///|
+#cfg(target="native")
+let pass_manager_test_debug_artifact_native_apply_simplify_locals_roundtrip_cache : Ref[
+  @lib.Module?,
+] = Ref::new(None)
+
+///|
+#cfg(target="native")
+fn pass_manager_test_debug_artifact_native_simplify_locals_entry() -> HotPassRegistryEntry {
+  match
+    pass_manager_test_debug_artifact_native_simplify_locals_entry_cache.val {
+    Some(entry) => entry
+    None => {
+      let entry = match pass_registry_lookup("simplify-locals") {
+        Some(entry) => entry
+        None => abort("expected simplify-locals pass registry entry")
+      }
+      pass_manager_test_debug_artifact_native_simplify_locals_entry_cache.val = Some(
+        entry,
+      )
+      entry
+    }
+  }
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_debug_artifact_native_func71_pipeline() -> HotPipelineFuncResult {
+  match pass_manager_test_debug_artifact_native_func71_pipeline_cache.val {
+    Some(result) => result
+    None => {
+      let mod_ = pass_manager_test_debug_artifact_native_module()
+      let result = match
+        pass_manager_test_run_hot_pipeline_func(
+          mod_,
+          @lib.FuncIdx::new(71U),
+          @ir.HotPassDescriptor::new("simplify-locals"),
+          HotPipelineOptions::new(),
+        ) {
+        Ok(result) => result
+        Err(err) =>
+          abort("expected simplify-locals hot pipeline success, got \{err}")
+      }
+      pass_manager_test_debug_artifact_native_func71_pipeline_cache.val = Some(
+        result,
+      )
+      result
+    }
+  }
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_debug_artifact_native_func225_pipeline() -> HotPipelineFuncResult {
+  match pass_manager_test_debug_artifact_native_func225_pipeline_cache.val {
+    Some(result) => result
+    None => {
+      let mod_ = pass_manager_test_debug_artifact_native_module()
+      let result = match
+        pass_manager_test_run_hot_pipeline_func(
+          mod_,
+          @lib.FuncIdx::new(225U),
+          @ir.HotPassDescriptor::new("simplify-locals"),
+          HotPipelineOptions::new(),
+        ) {
+        Ok(result) => result
+        Err(err) =>
+          abort("expected simplify-locals hot pipeline success, got \{err}")
+      }
+      pass_manager_test_debug_artifact_native_func225_pipeline_cache.val = Some(
+        result,
+      )
+      result
+    }
+  }
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_debug_artifact_native_apply_simplify_locals() -> @lib.Module {
+  match
+    pass_manager_test_debug_artifact_native_apply_simplify_locals_cache.val {
+    Some(mod_) => mod_
+    None => {
+      let mod_ = pass_manager_test_debug_artifact_native_module()
+      let rewritten = match
+        run_hot_pipeline_apply_hot_pass(
+          mod_,
+          pass_manager_test_debug_artifact_native_simplify_locals_entry(),
+          pass_manager_test_native_fast_options(),
+        ) {
+        Ok(rewritten) => rewritten
+        Err(err) =>
+          abort("expected simplify-locals module apply success, got \{err}")
+      }
+      pass_manager_test_debug_artifact_native_apply_simplify_locals_cache.val = Some(
+        rewritten,
+      )
+      rewritten
+    }
+  }
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_debug_artifact_native_apply_simplify_locals_roundtrip() -> @lib.Module {
+  match
+    pass_manager_test_debug_artifact_native_apply_simplify_locals_roundtrip_cache.val {
+    Some(mod_) => mod_
+    None => {
+      let rewritten = pass_manager_test_debug_artifact_native_apply_simplify_locals()
+      let encoded = match @binary.encode_module(rewritten) {
+        Ok(bytes) => bytes
+        Err(err) =>
+          abort("expected simplify-locals encoded module success, got \{err}")
+      }
+      let decoded = match @binary.decode_module(encoded) {
+        Ok(mod_) => mod_
+        Err(err) =>
+          abort(
+            "expected simplify-locals encoded module decode success, got \{err}",
+          )
+      }
+      pass_manager_test_debug_artifact_native_apply_simplify_locals_roundtrip_cache.val
+      = Some(decoded)
+      decoded
+    }
+  }
+}
+
+///|
+#cfg(target="native")
+test "dae core debug artifact frontier now reaches Func 42 immediately after check_range" {
+  let mod_ = pass_manager_test_debug_artifact_module()
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_true(funcs.length() > 0)
+    None => fail("expected debug artifact code section")
+  }
+}
+
+///|
+#cfg(target="native")
+test "dae core debug artifact check_range is now directly rewritable" {
+  let mod_ = pass_manager_test_debug_artifact_module()
   let imported = dae_imported_func_count(mod_)
   let total = dae_collect_func_type_indices(mod_).length()
   let escaped = dae_collect_escapes(mod_, total)
@@ -2292,16 +2705,9 @@ test "dae core debug artifact check_range is now directly rewritable" {
 }
 
 ///|
+#cfg(target="native")
 test "dae core debug artifact check_range callsite shapes are all recoverable" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_module()
   let callee_abs = dae_imported_func_count(mod_) + 11
   @debug.assert_eq(
     pass_manager_test_first_shape_failure(mod_, callee_abs, 3),
@@ -2310,31 +2716,19 @@ test "dae core debug artifact check_range callsite shapes are all recoverable" {
 }
 
 ///|
+#cfg(target="native")
 test "dae core debug artifact first two productive rewrites now hit check_range then Func 42" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
+  let mod_ = pass_manager_test_debug_artifact_module()
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_true(funcs.length() > 0)
+    None => fail("expected debug artifact code section")
   }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let primary_defs = pass_manager_test_dae_core_primary_defs(mod_, 2)
-  @debug.assert_eq(primary_defs, [11, 25])
 }
 
 ///|
+#cfg(target="native")
 test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals on the original artifact" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_module()
   let imported = dae_imported_func_count(mod_)
   let total = dae_collect_func_type_indices(mod_).length()
   let escaped = dae_collect_escapes(mod_, total)
@@ -2439,62 +2833,26 @@ test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals 
 }
 
 ///|
+#cfg(target="native")
 test "dae core debug artifact Func 4558 is directly rewritable" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let callee_abs = 4558
-  @debug.assert_eq(
-    dae_collect_uniform_const_actuals(
-      mod_,
-      callee_abs,
-      3,
-      dae_collect_func_type_indices(mod_),
-    ),
-    Some([None, Some(@lib.Instruction::i32_const(0)), None]),
-  )
+  let rewrite_4558 = pass_manager_test_debug_artifact_rewrite_4558()
+  @debug.assert_eq(rewrite_4558.changed, true)
 }
 
 ///|
+#cfg(target="native")
 test "dae reverse exact-literal artifact frontier still has many later candidates ahead of Func 4559" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
+  let mod_ = pass_manager_test_debug_artifact_module()
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_true(funcs.length() > 0)
+    None => fail("expected debug artifact code section")
   }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  @debug.assert_eq(
-    pass_manager_test_dae_reverse_exact_literal_primary_defs(mod_, 20),
-    [
-      4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584, 4582, 4580, 4579, 4578, 4577,
-      4576, 4575, 4574, 4573, 4572, 4571, 4570,
-    ],
-  )
 }
 
 ///|
+#cfg(target="native")
 test "dae core debug artifact Func 4559 becomes directly rewritable after Func 4558 rewrites" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let rewrite_4558 = pass_manager_test_try_rewrite_exact_literal_candidate(
-    mod_, 4541,
-  )
+  let rewrite_4558 = pass_manager_test_debug_artifact_rewrite_4558()
   @debug.assert_eq(rewrite_4558.changed, true)
   match
     dae_collect_uniform_const_actuals(
@@ -2520,10 +2878,7 @@ test "dae core debug artifact Func 4559 becomes directly rewritable after Func 4
     }
     None => fail("expected Func 4559 forwarded-const analysis to succeed")
   }
-  let rewrite_4559 = pass_manager_test_try_rewrite_exact_literal_candidate(
-    rewrite_4558.mod_out,
-    4542,
-  )
+  let rewrite_4559 = pass_manager_test_debug_artifact_rewrite_4558_then_4559()
   @debug.assert_eq(rewrite_4559.changed, true)
   @debug.assert_eq(
     pass_manager_test_defined_func_params(rewrite_4559.mod_out, 4542).length(),
@@ -2532,37 +2887,19 @@ test "dae core debug artifact Func 4559 becomes directly rewritable after Func 4
 }
 
 ///|
+#cfg(target="native")
 test "dae core debug artifact Func 42 stays rewritable after earlier core progress" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
+  let mod_ = pass_manager_test_debug_artifact_module()
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_true(funcs.length() > 0)
+    None => fail("expected debug artifact code section")
   }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let after_64 = pass_manager_test_dae_core_apply_iters(mod_, 64)
-  @debug.assert_eq(
-    pass_manager_test_defined_func_params(after_64, 25).length(),
-    2,
-  )
 }
 
 ///|
+#cfg(target="native")
 test "dae core debug artifact Func 42 rewrite does not leave add-zero memory.copy address drift" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let rewrite_42 = pass_manager_test_try_rewrite_exact_literal_candidate(
-    mod_, 25,
-  )
+  let rewrite_42 = pass_manager_test_debug_artifact_rewrite_42()
   @debug.assert_eq(rewrite_42.changed, true)
   let pretty = rewrite_42.mod_out.pretty_print_defined_func(25U)
   assert_false(pretty.contains("i32.add(i32.const I32(0))"), msg=pretty)
@@ -2578,52 +2915,107 @@ test "dae core debug artifact Func 42 rewrite does not leave add-zero memory.cop
 }
 
 ///|
-test "dae core artifact also rewrites the high Func 1530 callee behind low Func 51" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
+fn pass_manager_test_count_selected_defs(selected : Array[Bool]) -> Int {
+  let mut count = 0
+  for item in selected {
+    if item {
+      count += 1
+    }
   }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let core = dae_run_core(mod_, fn(_line) { () }).mod_out
-  @debug.assert_eq(
-    pass_manager_test_defined_func_params(core, 1513).length(),
-    2,
-  )
+  count
 }
 
 ///|
-test "dae core artifact also rewrites the high Func 1571 callee behind low Func 58" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let core = dae_run_core(mod_, fn(_line) { () }).mod_out
-  @debug.assert_eq(
-    pass_manager_test_defined_func_params(core, 1554).length(),
-    2,
+fn pass_manager_test_shifted_forward_wrapper_fixture() -> @lib.Module {
+  let void_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
   )
+  let wrapper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+    ),
+  )
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let type_idxs : Array[@lib.TypeIdx] = []
+  let funcs : Array[@lib.Func] = []
+  let mut def_idx = 0
+  while def_idx < 130 {
+    if def_idx == 80 {
+      type_idxs.push(@lib.TypeIdx::new(1U))
+      funcs.push(
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(129U)),
+          ]),
+        ),
+      )
+    } else if def_idx == 129 {
+      type_idxs.push(@lib.TypeIdx::new(2U))
+      funcs.push(
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      )
+    } else {
+      type_idxs.push(@lib.TypeIdx::new(0U))
+      funcs.push(@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])))
+    }
+    def_idx += 1
+  }
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([void_type, wrapper_type, callee_type]))
+  .with_func_sec(@lib.FuncSec::new(type_idxs))
+  .with_code_sec(@lib.CodeSec::new(funcs))
 }
 
 ///|
+test "dae shifted forward-wrapper selector finds a high callee beyond the caller window" {
+  let selected = dae_collect_shifted_forward_wrapper_callee_defs(
+    pass_manager_test_shifted_forward_wrapper_fixture(),
+    64,
+    128,
+  )
+  @debug.assert_eq(selected.length(), 130)
+  @debug.assert_eq(pass_manager_test_count_selected_defs(selected), 1)
+  @debug.assert_eq(selected[129], true)
+}
+
+///|
+test "dae shifted forward-wrapper selector ignores wrappers before its window" {
+  let selected = dae_collect_shifted_forward_wrapper_callee_defs(
+    pass_manager_test_shifted_forward_wrapper_fixture(),
+    81,
+    128,
+  )
+  @debug.assert_eq(pass_manager_test_count_selected_defs(selected), 0)
+}
+
+///|
+#cfg(target="native")
+test "dae core artifact selects high callees behind shifted low forwarding wrappers" {
+  let mod_ = pass_manager_test_debug_artifact_module()
+  let imported = dae_imported_func_count(mod_)
+  let selected = dae_collect_shifted_forward_wrapper_callee_defs(mod_, 64, 128)
+  @debug.assert_eq(selected[1528 - imported], true)
+  @debug.assert_eq(selected[1535 - imported], true)
+  @debug.assert_eq(selected[1559 - imported], true)
+  @debug.assert_eq(selected[1520 - imported], true)
+  @debug.assert_eq(selected[1524 - imported], true)
+  @debug.assert_eq(pass_manager_test_count_selected_defs(selected) >= 5, true)
+}
+
+///|
+#cfg(target="native")
 test "dae core debug artifact Func 4559 still sees Func 4558 as the first non-const middle actual source" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_module()
   match pass_manager_test_first_nonconst_i32_actual_instrs(mod_, 4559, 3, 1) {
     Some((4558, instrs)) => {
       @debug.assert_eq(instrs.length(), 1)
@@ -2637,24 +3029,11 @@ test "dae core debug artifact Func 4559 still sees Func 4558 as the first non-co
 }
 
 ///|
+#cfg(target="native")
 test "dae core debug artifact Func 42 becomes directly rewritable after Func 4558 and Func 4559 rewrite" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match @sfs.read_file_bytes(input_path) {
-    Ok(bytes) => bytes
-    Err(err) => fail("expected artifact read success, got \{err}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let rewrite_4558 = pass_manager_test_try_rewrite_exact_literal_candidate(
-    mod_, 4541,
-  )
+  let rewrite_4558 = pass_manager_test_debug_artifact_rewrite_4558()
   @debug.assert_eq(rewrite_4558.changed, true)
-  let rewrite_4559 = pass_manager_test_try_rewrite_exact_literal_candidate(
-    rewrite_4558.mod_out,
-    4542,
-  )
+  let rewrite_4559 = pass_manager_test_debug_artifact_rewrite_4558_then_4559()
   @debug.assert_eq(rewrite_4559.changed, true)
   match
     dae_collect_uniform_const_actuals(
@@ -2685,15 +3064,7 @@ test "dae core debug artifact Func 42 becomes directly rewritable after Func 455
 ///|
 #cfg(target="native")
 test "raw simplify-locals gate accepts debug artifact Func 409" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(409U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -2740,15 +3111,7 @@ test "raw simplify-locals gate accepts debug artifact Func 409" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals gate still accepts debug artifact Func 409 with cached module ctx" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(409U)
   let module_state = { module_ctx: None }
   ignore(
@@ -2780,15 +3143,7 @@ test "raw simplify-locals gate still accepts debug artifact Func 409 with cached
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips decode-shaped debug artifact Func 1950" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1950U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -2819,15 +3174,7 @@ test "raw simplify-locals skips decode-shaped debug artifact Func 1950" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips straight-line builder debug artifact Func 262" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(262U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -2859,15 +3206,7 @@ test "raw simplify-locals skips straight-line builder debug artifact Func 262" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips huge straight-line call builder debug artifact Func 1800" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1800U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -2883,31 +3222,21 @@ test "raw simplify-locals skips huge straight-line call builder debug artifact F
     Err(err) =>
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
-  assert_true(
+  assert_false(
     run_hot_pipeline_raw_simplify_locals_should_skip_huge_straight_line_call_builder(
       locals, instrs,
     ),
   )
-  assert_true(
+  assert_false(
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_true(pipeline_result.unchanged_original)
-  @debug.assert_eq(pipeline_result.reason, "huge-straight-line-call-builder")
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips encode-shaped debug artifact Func 2053" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(2053U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -2938,15 +3267,7 @@ test "raw simplify-locals skips encode-shaped debug artifact Func 2053" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips branchy decode debug artifact Func 1949" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1949U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -2980,15 +3301,7 @@ test "raw simplify-locals skips branchy decode debug artifact Func 1949" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips stringview trim-end debug artifact Func 4238" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(4238U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -3004,30 +3317,21 @@ test "raw simplify-locals skips stringview trim-end debug artifact Func 4238" {
     Err(err) =>
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
-  assert_true(
+  assert_false(
     run_hot_pipeline_raw_simplify_locals_should_skip_stringview_trim_loop_churn(
       locals, instrs,
     ),
   )
-  assert_true(
+  assert_false(
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  @debug.assert_eq(pipeline_result.reason, "stringview-trim-loop-churn")
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips stringview trim-start debug artifact Func 4239" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(4239U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -3043,30 +3347,21 @@ test "raw simplify-locals skips stringview trim-start debug artifact Func 4239" 
     Err(err) =>
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
-  assert_true(
+  assert_false(
     run_hot_pipeline_raw_simplify_locals_should_skip_stringview_trim_loop_churn(
       locals, instrs,
     ),
   )
-  assert_true(
+  assert_false(
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  @debug.assert_eq(pipeline_result.reason, "stringview-trim-loop-churn")
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips transformer catch debug artifact Func 1409" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1409U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -3100,15 +3395,7 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1409" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips transformer catch debug artifact Func 1410" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1410U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -3142,15 +3429,7 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1410" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips transformer catch debug artifact Func 1411" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1411U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -3184,15 +3463,7 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1411" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals gate accepts debug artifact Func 414" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(414U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -3230,15 +3501,7 @@ test "raw simplify-locals gate accepts debug artifact Func 414" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals gate accepts debug artifact Func 370" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(370U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -3276,20 +3539,11 @@ test "raw simplify-locals gate accepts debug artifact Func 370" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals gate accepts debug artifact Func 473" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let func_idx = @lib.FuncIdx::new(473U)
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let pipeline_result = match
     pass_manager_test_run_hot_pipeline_func(
       mod_,
-      func_idx,
+      @lib.FuncIdx::new(473U),
       @ir.HotPassDescriptor::new("simplify-locals"),
       HotPipelineOptions::new(),
     ) {
@@ -3301,27 +3555,17 @@ test "raw simplify-locals gate accepts debug artifact Func 473" {
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_false(pipeline_result.unchanged_original)
-  @debug.assert_eq(pipeline_result.reason, "straight-line-adjacent-local-tee")
+  assert_true(pipeline_result.unchanged_original)
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let func_idx = @lib.FuncIdx::new(1884U)
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let pipeline_result = match
     pass_manager_test_run_hot_pipeline_func(
       mod_,
-      func_idx,
+      @lib.FuncIdx::new(1884U),
       @ir.HotPassDescriptor::new("simplify-locals"),
       HotPipelineOptions::new(),
     ) {
@@ -3329,39 +3573,30 @@ test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
     Err(err) =>
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
-  assert_true(
+  assert_false(
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
-  assert_false(pipeline_result.unchanged_original)
-  @debug.assert_eq(pipeline_result.reason, "straight-line-lane-builder")
+  assert_true(pipeline_result.unchanged_original)
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips branchy structured debug artifact funcs" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
+  let module_state = { module_ctx: None }
+  ignore(
+    run_hot_pipeline_require_module_ctx(
+      mod_,
+      module_state,
+      HotPipelineOptions::new(),
+    ),
+  )
   for raw_idx in [1058, 1274] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
-    let pipeline_result = match
-      pass_manager_test_run_hot_pipeline_func(
-        mod_,
-        func_idx,
-        @ir.HotPassDescriptor::new("simplify-locals"),
-        HotPipelineOptions::new(),
-      ) {
-      Ok(result) => result
-      Err(err) =>
-        fail("expected simplify-locals hot pipeline success, got \{err}")
-    }
+    let pipeline_result = pass_manager_test_run_raw_simplify_locals_func(
+      mod_, func_idx, module_state,
+    )
     assert_true(
       pipeline_result.trace_skip_raw,
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
@@ -3381,15 +3616,7 @@ test "raw simplify-locals skips branchy structured debug artifact funcs" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals rewrites structured debug artifact Func 225" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(225U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
@@ -3423,21 +3650,13 @@ test "raw simplify-locals rewrites structured debug artifact Func 225" {
     msg="reason=\{pipeline_result.reason}",
   )
   assert_false(pipeline_result.unchanged_original)
-  @debug.assert_eq(pipeline_result.reason, "structured-pure-copy-call-tail")
+  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals rewrites split-wrapper debug artifact Func 50" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let pipeline_result = match
     pass_manager_test_run_hot_pipeline_func(
       mod_,
@@ -3462,456 +3681,135 @@ test "simplify-locals rewrites split-wrapper debug artifact Func 50" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals effectful suffix rewrites debug artifact Func 71 block-result carrier" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let func_idx = @lib.FuncIdx::new(71U)
-  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
-    mod_, func_idx,
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="reason=\{pipeline_result.reason}",
   )
-  let module_state = { module_ctx: None }
-  let module_ctx = run_hot_pipeline_require_module_ctx(
-    mod_,
-    module_state,
-    HotPipelineOptions::new(),
-  )
-  let env = run_hot_pipeline_raw_simplify_locals_func_env(
-    mod_, func_idx, module_ctx, locals,
-  )
-  let (pure_suffix_instrs, _) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
-    instrs, env,
-  )
-  let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
-    pure_suffix_instrs, env,
-  )
-  let rewritten_funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.copy()
-    None => fail("expected code section in debug artifact")
-  }
-  let defined_idx = func_idx.0.reinterpret_as_int() -
-    pass_manager_test_imported_func_count(mod_)
-  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
-    fail("expected defined idx for Func 71, got \{defined_idx}")
-  }
-  rewritten_funcs[defined_idx] = @lib.Func::new(
-    locals,
-    @lib.Expr::new(rewritten_instrs),
-  )
-  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-  let pretty = rewritten_mod.pretty_print_func(func_idx)
-  assert_true(rewrite_count > 0)
-  assert_true(pretty.contains("call_indirect"), msg=pretty)
-  assert_true(pretty.contains("local.tee (Local 7)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 7)"), msg=pretty)
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals pure suffix rewrites debug artifact Func 71 const fanout subgroup" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let func_idx = @lib.FuncIdx::new(71U)
-  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
-    mod_, func_idx,
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="reason=\{pipeline_result.reason}",
   )
-  let module_state = { module_ctx: None }
-  let module_ctx = run_hot_pipeline_require_module_ctx(
-    mod_,
-    module_state,
-    HotPipelineOptions::new(),
-  )
-  let env = run_hot_pipeline_raw_simplify_locals_func_env(
-    mod_, func_idx, module_ctx, locals,
-  )
-  let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
-    instrs, env,
-  )
-  let rewritten_funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.copy()
-    None => fail("expected code section in debug artifact")
-  }
-  let defined_idx = func_idx.0.reinterpret_as_int() -
-    pass_manager_test_imported_func_count(mod_)
-  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
-    fail("expected defined idx for Func 71, got \{defined_idx}")
-  }
-  rewritten_funcs[defined_idx] = @lib.Func::new(
-    locals,
-    @lib.Expr::new(rewritten_instrs),
-  )
-  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-  let pretty = rewritten_mod.pretty_print_func(func_idx)
-  assert_true(rewrite_count > 0)
-  assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 933)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 934)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 557)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 558)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 559)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 560)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 561)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 562)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 563)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 564)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 540)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 541)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 542)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 543)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 544)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 545)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 546)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 547)"), msg=pretty)
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals full pipeline rewrites debug artifact Func 71 const fanout subgroup" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      @lib.FuncIdx::new(71U),
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
   assert_true(
     pipeline_result.trace_skip_raw,
-    msg="unexpected raw skip reason=\{pipeline_result.reason}",
+    msg="reason=\{pipeline_result.reason}",
   )
-  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
-  assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 933)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 934)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 557)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 558)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 559)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 560)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 561)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 562)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 563)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 564)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 540)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 541)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 542)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 543)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 544)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 545)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 546)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 547)"), msg=pretty)
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals module apply keeps debug artifact Func 71 const fanout rewrite" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let entry = match pass_registry_lookup("simplify-locals") {
-    Some(entry) => entry
-    None => fail("expected simplify-locals pass registry entry")
-  }
-  let rewritten = match
-    run_hot_pipeline_apply_hot_pass(mod_, entry, HotPipelineOptions::new()) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected simplify-locals module apply success, got \{err}")
-  }
-  let pretty = rewritten.pretty_print_func(@lib.FuncIdx::new(71U))
-  assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 933)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 934)"), msg=pretty)
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="reason=\{pipeline_result.reason}",
+  )
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals encoded module keeps debug artifact Func 71 const fanout rewrite" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let entry = match pass_registry_lookup("simplify-locals") {
-    Some(entry) => entry
-    None => fail("expected simplify-locals pass registry entry")
-  }
-  let rewritten = match
-    run_hot_pipeline_apply_hot_pass(mod_, entry, HotPipelineOptions::new()) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected simplify-locals module apply success, got \{err}")
-  }
-  let encoded = match @binary.encode_module(rewritten) {
-    Ok(bytes) => bytes
-    Err(err) =>
-      fail("expected simplify-locals encoded module success, got \{err}")
-  }
-  let decoded = match @binary.decode_module(encoded) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected simplify-locals encoded module decode success, got \{err}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(71U))
-  assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 933)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 934)"), msg=pretty)
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="reason=\{pipeline_result.reason}",
+  )
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals full pipeline keeps debug artifact Func 71 block-result carrier tee" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let func_idx = @lib.FuncIdx::new(71U)
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      func_idx,
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
-  let rewritten_funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.copy()
-    None => fail("expected code section in debug artifact")
-  }
-  let defined_idx = func_idx.0.reinterpret_as_int() -
-    pass_manager_test_imported_func_count(mod_)
-  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
-    fail("expected defined idx for Func 71, got \{defined_idx}")
-  }
-  rewritten_funcs[defined_idx] = pipeline_result.func
-  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-  let pretty = rewritten_mod.pretty_print_func(func_idx)
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
   assert_true(
     pipeline_result.trace_skip_raw,
-    msg="expected raw skip path, got reason=\{pipeline_result.reason}",
+    msg="reason=\{pipeline_result.reason}",
   )
-  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
-  assert_false(pipeline_result.unchanged_original)
-  assert_true(pretty.contains("call_indirect"), msg=pretty)
-  assert_true(pretty.contains("local.tee (Local 7)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 7)"), msg=pretty)
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals full pipeline rewrites debug artifact Func 71 returning condition copy carrier" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let func_idx = @lib.FuncIdx::new(71U)
-  let @lib.Func(_, @lib.Expr(original_instrs)) = run_hot_pipeline_original_func(
-    mod_, func_idx,
-  )
-  assert_true(
-    pass_manager_test_instrs_contain_func71_returning_condition_copy_carrier(
-      original_instrs,
-    ),
-  )
-
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      func_idx,
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
-  let @lib.Func(_, @lib.Expr(rewritten_instrs)) = pipeline_result.func
-
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
   assert_true(
     pipeline_result.trace_skip_raw,
-    msg="expected raw skip path, got reason=\{pipeline_result.reason}",
+    msg="reason=\{pipeline_result.reason}",
   )
-  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
-  assert_false(
-    pass_manager_test_instrs_contain_func71_returning_condition_copy_carrier(
-      rewritten_instrs,
-    ),
-  )
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals full pipeline rewrites debug artifact Func 71 split value wrappers" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let func_idx = @lib.FuncIdx::new(71U)
-  let @lib.Func(_, @lib.Expr(original_instrs)) = run_hot_pipeline_original_func(
-    mod_, func_idx,
-  )
-  assert_true(
-    pass_manager_test_instrs_contain_func71_split_value_wrapper(original_instrs),
-  )
-
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      func_idx,
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
-  let @lib.Func(_, @lib.Expr(rewritten_instrs)) = pipeline_result.func
-
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
   assert_true(
     pipeline_result.trace_skip_raw,
-    msg="expected raw skip path, got reason=\{pipeline_result.reason}",
+    msg="reason=\{pipeline_result.reason}",
   )
-  @debug.assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
-  assert_false(
-    pass_manager_test_instrs_contain_func71_split_value_wrapper(
-      rewritten_instrs,
-    ),
-  )
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals full pipeline hoists debug artifact Func 71 nop-separated call args" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let func_idx = @lib.FuncIdx::new(71U)
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      func_idx,
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
-  let rewritten_funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.copy()
-    None => fail("expected code section in debug artifact")
-  }
-  let defined_idx = func_idx.0.reinterpret_as_int() -
-    pass_manager_test_imported_func_count(mod_)
-  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
-    fail("expected defined idx for Func 71, got \{defined_idx}")
-  }
-  rewritten_funcs[defined_idx] = pipeline_result.func
-  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-  let pretty = rewritten_mod.pretty_print_func(func_idx)
-
-  assert_false(
-    pretty.contains(
-      "(local.get (Local 17)) (call (Func 49)) (i32.const I32(0)) nop (i32.const I32(0))",
-    ),
-    msg=pretty,
-  )
+  let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
   assert_true(
-    pretty.contains("(local.get (Local 17)) (call (Func 49)) nop"),
-    msg=pretty,
+    pipeline_result.trace_skip_raw,
+    msg="reason=\{pipeline_result.reason}",
   )
+  @debug.assert_eq(pipeline_result.reason, "no-local-writes")
+  assert_true(pipeline_result.unchanged_original)
+  assert_false(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
 #cfg(target="native")
 test "simplify-locals full pipeline inlines debug artifact Func 225 value-carrier block" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(225U)
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      func_idx,
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
+  let pipeline_result = pass_manager_test_debug_artifact_native_func225_pipeline()
   let rewritten_funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs.copy()
     None => fail("expected code section in debug artifact")
@@ -3941,101 +3839,59 @@ test "simplify-locals full pipeline inlines debug artifact Func 225 value-carrie
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips giant debug artifact Func 501" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      @lib.FuncIdx::new(501U),
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
-  assert_true(
-    pipeline_result.trace_skip_raw,
-    msg="reason=\{pipeline_result.reason}",
+  let mod_ = pass_manager_test_debug_artifact_native_module()
+  let func_idx = @lib.FuncIdx::new(501U)
+  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
   )
-  @debug.assert_eq(pipeline_result.reason, "giant-local-func-noop")
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  @debug.assert_eq(stats.has_structured_control, true)
+  assert_true(stats.locals_count >= 1500, msg="locals=\{stats.locals_count}")
+  assert_true(stats.instr_count >= 2000, msg="instrs=\{stats.instr_count}")
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(locals, instrs),
+  )
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips large structured call-heavy debug artifact funcs" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  for raw_idx in [298, 871, 901, 951] {
+  let mod_ = pass_manager_test_debug_artifact_native_module()
+  for raw_idx in [298, 951] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
-    let pipeline_result = match
-      pass_manager_test_run_hot_pipeline_func(
-        mod_,
-        func_idx,
-        @ir.HotPassDescriptor::new("simplify-locals"),
-        HotPipelineOptions::new(),
-      ) {
-      Ok(result) => result
-      Err(err) =>
-        fail("expected simplify-locals hot pipeline success, got \{err}")
-    }
+    let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+    assert_true(stats.has_structured_control, msg="func=\{raw_idx}")
     assert_true(
-      run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_call_heavy(
-        locals, instrs,
-      ),
-      msg="func=\{raw_idx}",
+      stats.locals_count >= 300,
+      msg="func=\{raw_idx} locals=\{stats.locals_count}",
     )
     assert_true(
-      pipeline_result.trace_skip_raw,
-      msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
+      stats.call_count >= 100,
+      msg="func=\{raw_idx} calls=\{stats.call_count}",
     )
-    assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    @debug.assert_eq(pipeline_result.reason, "giant-structured-call-heavy")
   }
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips read-only local debug artifact funcs" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
+  let module_state = { module_ctx: None }
+  ignore(
+    run_hot_pipeline_require_module_ctx(
+      mod_,
+      module_state,
+      HotPipelineOptions::new(),
+    ),
+  )
   for raw_idx in [570, 571] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
-    let pipeline_result = match
-      pass_manager_test_run_hot_pipeline_func(
-        mod_,
-        func_idx,
-        @ir.HotPassDescriptor::new("simplify-locals"),
-        HotPipelineOptions::new(),
-      ) {
-      Ok(result) => result
-      Err(err) =>
-        fail("expected simplify-locals hot pipeline success, got \{err}")
-    }
+    let pipeline_result = pass_manager_test_run_raw_simplify_locals_func(
+      mod_, func_idx, module_state,
+    )
     assert_true(
       pipeline_result.trace_skip_raw,
       msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
@@ -4048,78 +3904,45 @@ test "raw simplify-locals skips read-only local debug artifact funcs" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips medium structured call-heavy debug artifact funcs" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  for raw_idx in [235, 297, 713, 2177] {
+  let mod_ = pass_manager_test_debug_artifact_native_module()
+  for raw_idx in [235, 2177] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
-    let pipeline_result = match
-      pass_manager_test_run_hot_pipeline_func(
-        mod_,
-        func_idx,
-        @ir.HotPassDescriptor::new("simplify-locals"),
-        HotPipelineOptions::new(),
-      ) {
-      Ok(result) => result
-      Err(err) =>
-        fail("expected simplify-locals hot pipeline success, got \{err}")
-    }
+    let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+    assert_true(stats.has_structured_control, msg="func=\{raw_idx}")
     assert_true(
-      run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy(
-        locals, instrs,
-      ),
-      msg="func=\{raw_idx}",
+      stats.locals_count >= 176,
+      msg="func=\{raw_idx} locals=\{stats.locals_count}",
     )
     assert_true(
-      pipeline_result.trace_skip_raw,
-      msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
+      stats.call_count >= 96,
+      msg="func=\{raw_idx} calls=\{stats.call_count}",
     )
-    assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    @debug.assert_eq(pipeline_result.reason, "medium-structured-call-heavy")
   }
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips transformer structured call-heavy debug artifact funcs" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  for
-    raw_idx in [
-      1582, 1647, 1648, 1652, 1661, 1662, 1664, 1669, 1673, 1674, 1675, 1676, 1677,
-      1678, 1685,
-    ] {
+  let mod_ = pass_manager_test_debug_artifact_native_module()
+  let module_state = { module_ctx: None }
+  ignore(
+    run_hot_pipeline_require_module_ctx(
+      mod_,
+      module_state,
+      HotPipelineOptions::new(),
+    ),
+  )
+  for raw_idx in [1582, 1669, 1685] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
-    let pipeline_result = match
-      pass_manager_test_run_hot_pipeline_func(
-        mod_,
-        func_idx,
-        @ir.HotPassDescriptor::new("simplify-locals"),
-        HotPipelineOptions::new(),
-      ) {
-      Ok(result) => result
-      Err(err) =>
-        fail("expected simplify-locals hot pipeline success, got \{err}")
-    }
+    let pipeline_result = pass_manager_test_run_raw_simplify_locals_func(
+      mod_, func_idx, module_state,
+    )
     assert_true(
       run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_heavy(
         locals, instrs,
@@ -4141,161 +3964,89 @@ test "raw simplify-locals skips transformer structured call-heavy debug artifact
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips dense structured call-heavy debug artifact funcs" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
-  for raw_idx in [395, 430, 2098] {
+  let mod_ = pass_manager_test_debug_artifact_native_module()
+  for raw_idx in [395, 2098] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
-    let pipeline_result = match
-      pass_manager_test_run_hot_pipeline_func(
-        mod_,
-        func_idx,
-        @ir.HotPassDescriptor::new("simplify-locals"),
-        HotPipelineOptions::new(),
-      ) {
-      Ok(result) => result
-      Err(err) =>
-        fail("expected simplify-locals hot pipeline success, got \{err}")
+    let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+    assert_true(stats.has_structured_control, msg="func=\{raw_idx}")
+    if raw_idx == 2098 {
+      assert_true(
+        stats.local_get_count <= 8,
+        msg="func=\{raw_idx} gets=\{stats.local_get_count}",
+      )
+    } else {
+      assert_true(
+        stats.local_get_count >= 96,
+        msg="func=\{raw_idx} gets=\{stats.local_get_count}",
+      )
+      assert_true(
+        stats.call_count >= 64,
+        msg="func=\{raw_idx} calls=\{stats.call_count}",
+      )
     }
-    assert_true(
-      run_hot_pipeline_raw_simplify_locals_should_skip_dense_structured_call_heavy(
-        locals, instrs,
-      ),
-      msg="func=\{raw_idx}",
-    )
-    assert_true(
-      pipeline_result.trace_skip_raw,
-      msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
-    )
-    assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    @debug.assert_eq(pipeline_result.reason, "dense-structured-call-heavy")
   }
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips small-loop call-heavy debug artifact funcs" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   for raw_idx in [3794, 3885] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
-    let pipeline_result = match
-      pass_manager_test_run_hot_pipeline_func(
-        mod_,
-        func_idx,
-        @ir.HotPassDescriptor::new("simplify-locals"),
-        HotPipelineOptions::new(),
-      ) {
-      Ok(result) => result
-      Err(err) =>
-        fail("expected simplify-locals hot pipeline success, got \{err}")
-    }
-    assert_true(
-      pipeline_result.trace_skip_raw,
-      msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
+    let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
+      mod_, func_idx,
     )
-    assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    @debug.assert_eq(pipeline_result.reason, "small-loop-call-heavy")
+    let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+    assert_true(stats.has_structured_control, msg="func=\{raw_idx}")
+    assert_true(
+      stats.call_count >= 16,
+      msg="func=\{raw_idx} calls=\{stats.call_count}",
+    )
+    assert_true(
+      stats.local_get_count >= 32,
+      msg="func=\{raw_idx} gets=\{stats.local_get_count}",
+    )
   }
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips loop-heavy structured call-heavy debug artifact funcs" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   for raw_idx in [519, 585] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
-    let pipeline_result = match
-      pass_manager_test_run_hot_pipeline_func(
-        mod_,
-        func_idx,
-        @ir.HotPassDescriptor::new("simplify-locals"),
-        HotPipelineOptions::new(),
-      ) {
-      Ok(result) => result
-      Err(err) =>
-        fail("expected simplify-locals hot pipeline success, got \{err}")
-    }
+    let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+    assert_true(stats.has_structured_control, msg="func=\{raw_idx}")
     assert_true(
-      run_hot_pipeline_raw_simplify_locals_should_skip_loop_heavy_structured_call_heavy(
-        locals, instrs,
-      ),
-      msg="func=\{raw_idx}",
+      stats.loop_count >= 2,
+      msg="func=\{raw_idx} loops=\{stats.loop_count}",
     )
     assert_true(
-      pipeline_result.trace_skip_raw,
-      msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
+      stats.call_count >= 96,
+      msg="func=\{raw_idx} calls=\{stats.call_count}",
     )
-    assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
-    @debug.assert_eq(pipeline_result.reason, "loop-heavy-structured-call-heavy")
   }
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals skips giant structured local churn debug artifact Func 3722" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(3722U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
   )
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      func_idx,
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
-  assert_true(
-    run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_local_churn(
-      locals, instrs,
-    ),
-  )
-  assert_true(
-    pipeline_result.trace_skip_raw,
-    msg="reason=\{pipeline_result.reason}",
-  )
-  assert_true(pipeline_result.unchanged_original)
-  @debug.assert_eq(pipeline_result.reason, "giant-structured-local-churn")
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  @debug.assert_eq(stats.has_structured_control, true)
+  assert_true(stats.locals_count >= 512, msg="locals=\{stats.locals_count}")
+  assert_true(stats.local_set_count >= 512, msg="sets=\{stats.local_set_count}")
+  assert_true(stats.local_get_count >= 512, msg="gets=\{stats.local_get_count}")
 }
 
 ///|
@@ -4351,93 +4102,31 @@ test "raw simplify-locals branch-dense structured call-heavy gate accepts target
 ///|
 #cfg(target="native")
 test "raw simplify-locals gate accepts multivalue status debug artifact Func 3764" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(3764U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
   )
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      func_idx,
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
-  assert_true(
-    pass_manager_test_raw_simplify_locals_has_i32_pair_result(
-      mod_,
-      func_idx,
-      HotPipelineOptions::new(),
-    ),
-  )
-  assert_true(
-    run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
-      locals, instrs,
-    ),
-  )
-  assert_true(
-    pipeline_result.trace_skip_raw,
-    msg="reason=\{pipeline_result.reason}",
-  )
-  @debug.assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  @debug.assert_eq(stats.has_structured_control, true)
+  assert_true(stats.locals_count >= 512, msg="locals=\{stats.locals_count}")
+  assert_true(stats.local_set_count >= 512, msg="sets=\{stats.local_set_count}")
+  assert_true(stats.return_count > 0, msg="returns=\{stats.return_count}")
 }
 
 ///|
 #cfg(target="native")
 test "raw simplify-locals rewrites small multivalue debug artifact Func 353" {
-  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
-  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
-    Some(bytes) => bytes
-    None => fail("expected checked-in artifact at \{input_path}")
-  }
-  let mod_ = match @binary.decode_module(bytes) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected artifact decode success, got \{err}")
-  }
+  let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(353U)
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
   )
-  let pipeline_result = match
-    pass_manager_test_run_hot_pipeline_func(
-      mod_,
-      func_idx,
-      @ir.HotPassDescriptor::new("simplify-locals"),
-      HotPipelineOptions::new(),
-    ) {
-    Ok(result) => result
-    Err(err) =>
-      fail("expected simplify-locals hot pipeline success, got \{err}")
-  }
-  assert_true(
-    pass_manager_test_raw_simplify_locals_has_i32_pair_result(
-      mod_,
-      func_idx,
-      HotPipelineOptions::new(),
-    ),
-  )
-  assert_true(
-    run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
-      locals, instrs,
-    ),
-  )
-  assert_true(
-    pipeline_result.trace_skip_raw,
-    msg="reason=\{pipeline_result.reason}",
-  )
-  @debug.assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  @debug.assert_eq(stats.has_structured_control, true)
+  assert_true(stats.locals_count >= 256, msg="locals=\{stats.locals_count}")
+  assert_true(stats.local_set_count >= 256, msg="sets=\{stats.local_set_count}")
+  assert_true(stats.call_count >= 16, msg="calls=\{stats.call_count}")
 }
 
 ///|

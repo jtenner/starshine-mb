@@ -51,12 +51,12 @@
 
 ## Commit And Publish
 
-- Update relevant docs and `CHANGELOG.md` before commit.
-- Keep changelog entries concise: date, bold short title, completed intent.
+- Update relevant docs before commit; do not add per-commit changelog entries.
+- Use docs/wiki pages, `docs/wiki/log.md`, release notes, and git history for durable change records.
 - Review the staged diff.
 - Commit with `git commit -F <temp-file>` and include changed files plus reasons in the commit text.
 - Prune stale `agent-todo.md` items and add new blockers or risks.
-- Publishing requires an explicit semver bump, successful validation, consistent package version bumps, and reusing changelog text for tag and release notes.
+- Publishing requires an explicit semver bump, successful validation, consistent package version bumps, and release notes drafted from the relevant docs/wiki pages and git history.
 
 ## Research, Backlog, And MoonBit Style
 

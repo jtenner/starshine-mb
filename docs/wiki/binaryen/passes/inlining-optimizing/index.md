@@ -15,7 +15,6 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
-  - ../../../../../CHANGELOG.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -35,7 +34,7 @@ related:
 
 `inlining-optimizing` is Binaryen's late whole-module inliner with immediate post-inline cleanup. It uses the same upstream `src/passes/Inlining.cpp` engine as plain [`../inlining/index.md`](../inlining/index.md), then enables the optimizing suffix: `precompute-propagate` plus the default function optimization pipeline on changed functions.
 
-Current Starshine status: **partial active module pass**. It is not boundary-only anymore; the current supported direct-call surfaces are accepted under former `[INL]001` and plain `[INL]007`, and `[INL]002` is accepted as representation/factoring drift rather than exact artifact parity. The shared owner is [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt); the active direct-inliner breadth backlog now remains `[INL]005` and `[INL]006`, while `[INL]003` is accepted for current heuristic/action-filtering parity in [`agent-todo.md`](../../../../../agent-todo.md).
+Current Starshine status: **partial active module pass**. It is not boundary-only anymore; the current supported direct-call surfaces are accepted under former `[INL]001` and plain `[INL]007`, and `[INL]002` is accepted as representation/factoring drift rather than exact artifact parity. The shared owner is [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt); remaining direct-inliner breadth is v0.2.0-only under `[INL]005` and residual `[INL]006`, while `[INL]003` is accepted for current heuristic/action-filtering parity in [`agent-todo.md`](../../../../../agent-todo.md).
 
 ## Why it matters
 
@@ -92,7 +91,7 @@ Broadened closure lane, `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-fro
 - `22` ignored Binaryen/tool `binaryen-rec-group-zero` parse failures;
 - `0` Starshine command failures; `case-008100-gen-valid` replays green in `.tmp/pass-fuzz-inlining-seed-0x1eed-replay-case008100-narrow-hotunsafe`.
 
-The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed-`0x1eed` four-function frontier are retired. `[INL]001` is accepted for the current supported optimizing direct surface, and `[INL]007` is accepted for the current supported plain direct surface. Keep `[INL]002` active for the exact nested scheduler and track deferred unsupported direct-inliner breadth under `[INL]005` and `[INL]006`; `[INL]003` is closed for the current supported heuristic/action-filtering surface.
+The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed-`0x1eed` four-function frontier are retired. `[INL]001` is accepted for the current supported optimizing direct surface, `[INL]002` is accepted for v0.1.0 as representation/factoring drift, `[INL]007` is accepted for the current supported plain direct surface, and `[INL]003` is closed for the current supported heuristic/action-filtering surface. Deferred unsupported direct-inliner breadth belongs to the v0.2.0 backlog under `[INL]005` and residual `[INL]006`; do not treat those as active v0.1.0 blockers.
 
 ## Page map
 
@@ -106,4 +105,4 @@ The old seed-`0x5eed` exact-`unreachable` helper frontier and the broadened seed
 
 ## Maintenance rule
 
-Update this folder whenever the shared inliner changes, but do not claim `inlining-optimizing` parity until both halves are proven: Binaryen-equivalent inlining core and Binaryen-equivalent touched-function nested cleanup. Binaryen/tool parse/canonicalization failures must stay classified separately from Starshine semantic mismatches.
+Update this folder whenever the shared inliner changes. Current v0.1.0 signoff accepts the implemented core and nested cleanup approximation with documented representation/factoring drift; future universal Binaryen inliner parity work must remain explicit v0.2.0+ backlog unless new correctness evidence appears. Binaryen/tool parse/canonicalization failures must stay classified separately from Starshine semantic mismatches.

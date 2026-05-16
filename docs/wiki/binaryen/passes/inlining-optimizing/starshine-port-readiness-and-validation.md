@@ -8,7 +8,6 @@ sources:
   - ../../../../../src/passes/inlining.mbt
   - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../agent-todo.md
-  - ../../../../../CHANGELOG.md
 related:
   - ./index.md
   - ./starshine-strategy.md
@@ -115,35 +114,34 @@ Focused tests validate the current subset:
 - final optimizing-mode local cleanup coalesces artifact-like local chains, removes `nop`, const/ref/string/local/global drop debris plus direct raw dead tails, drops unused function types, and validates the candidate before accepting it;
 - skipped large raw `simplify-locals` paths still run the proven pure-suffix local-copy cleanup before narrower carrier rewrites.
 
-## Active blockers
+## Blocker and backlog classification
 
-### Deferred direct-inliner breadth after accepted `[INL]001` / `[INL]007`
+### v0.2.0 direct-inliner breadth after accepted `[INL]001` / `[INL]007`
 
 - `[INL]003` accepted current-supported heuristic/action-filtering surface on 2026-05-14 after the repeated-work cap closeout; reopen only for a new Starshine-supported semantic mismatch in heuristic/action filtering;
 - `[INL]004` accepted current `no-inline*` policy surface; initial name-section/WAT-identifier wildcard marking, full-inline suppression, inlining-compaction annotation/function-name remap, stale local-name dropping, and shared clone/copy policy helper are implemented;
-- `[INL]005` Pattern A / Pattern B partial splitting remains deferred; details and future acceptance bar are recorded in [`deferred-inl005-inl006-work.md`](./deferred-inl005-inl006-work.md);
-- `[INL]006` residual local/label name repair remains intentionally scoped as unsupported after the narrow direct/indirect/ref tail, multi-result block-typing, function-name, non-function-name, and policy-annotation subsets; details are recorded in [`deferred-inl005-inl006-work.md`](./deferred-inl005-inl006-work.md).
+- `[INL]005` Pattern A / Pattern B partial splitting is v0.2.0 backlog only, not a v0.1.0 blocker or the next task after DAE; details and future acceptance bar are recorded in [`deferred-inl005-inl006-work.md`](./deferred-inl005-inl006-work.md);
+- `[INL]006` residual local/label name repair is v0.2.0 backlog only after the narrow direct/indirect/ref tail, multi-result block-typing, function-name, non-function-name, and policy-annotation subsets; details are recorded in [`deferred-inl005-inl006-work.md`](./deferred-inl005-inl006-work.md).
 
 ### `[INL]002` accepted representation drift
 
 - `[INL]002` is accepted for v0.1.0 as a correctness-focused nested replay slice. The scheduler remains an approximation of Binaryen's exact private `precompute-propagate` + default-function pipeline, but direct pass fuzz signoff, artifact validation, and targeted mismatch triage found no correctness or validation evidence that justifies chasing exact Binaryen byte/WAT shape.
 - Remaining exact artifact differences are classified as representation/factoring drift: Binaryen often expands/inlines into larger bodies, while Starshine retains helper factoring and currently produces smaller wasm/code-section/WAT/static metrics on the debug artifact.
-- Future work that has independent correctness or performance evidence should use dedicated slices: `[INL]005` for partial splitting, `[INL]006` for tail-call/multi-result/name repair, and `[WALL]001` for whole-command runtime. Do not reopen `[INL]002` for cosmetic canonical drift alone.
+- Future work that has independent correctness or performance evidence should use dedicated v0.2.0 slices: `[INL]005` for partial splitting, `[INL]006` for residual name/annotation repair, and `[WALL]001` for whole-command runtime. Do not reopen `[INL]002` for cosmetic canonical drift alone.
 
 ## Validation ladder
 
 1. Keep focused Moon tests for each reduced mismatch before implementation changes.
 2. Retire or classify the broadened seed-`0x1eed` mismatches in `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2`, plus any still-useful older saved mismatch dirs.
 3. Run direct `--pass inlining-optimizing` 10k compare with zero semantic mismatches on the standard lane and at least one broadened seed lane.
-4. Fix the current debug-artifact `--inlining-optimizing` native abort, then rerun `self-optimize-compare` on `tests/node/dist/starshine-debug-wasi.wasm` before claiming `[INL]002` closeout.
-5. Keep direct `--pass inlining` evidence separate when future plain work changes; `[INL]007` is accepted for the current surface.
+4. Keep direct `--pass inlining` evidence separate when future plain work changes; `[INL]007` is accepted for the current surface.
 6. Add scheduler tests for touched-only nested cleanup.
 7. Replay `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination` neighborhood after direct parity.
 8. Only then consider public preset placement.
 
 ## Acceptance criteria
 
-Treat `[INL]001` and `[INL]007` as complete only for the currently implemented direct-call surfaces already proven by the green seed lanes. New direct-inliner work should land under `[INL]005` or `[INL]006` unless a new Starshine-supported heuristic/action-filtering semantic mismatch justifies reopening `[INL]003`; do not reopen accepted direct slices without a new semantic mismatch.
+Treat `[INL]001` and `[INL]007` as complete only for the currently implemented direct-call surfaces already proven by the green seed lanes. New direct-inliner work belongs to v0.2.0 `[INL]005` or residual `[INL]006` unless a new Starshine-supported heuristic/action-filtering semantic mismatch justifies reopening `[INL]003`; do not reopen accepted direct slices without a new semantic mismatch.
 
 `[INL]002` is complete for v0.1.0 under the accepted representation-drift decision above. Reopen it only if new evidence shows a `--inlining-optimizing` nested replay correctness bug, wasm validation failure, exported/start/table/ref.func semantic discrepancy, or a proven pass-local performance/correctness issue in the nested scheduler itself. Do not reopen it solely because canonical wasm/WAT differs from Binaryen when both outputs validate and the difference is classified as representation/factoring drift.
 

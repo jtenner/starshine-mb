@@ -66,6 +66,15 @@ fn dae_test_many_i32_locals(count : Int) -> String {
 }
 
 ///|
+fn dae_test_many_i32_const_drops(count : Int) -> String {
+  let out = StringBuilder::new()
+  for i = 0; i < count; i = i + 1 {
+    out.write_string("\n    i32.const 0\n    drop")
+  }
+  out.to_string()
+}
+
+///|
 fn dae_test_call_ref_fixture() -> @lib.Module {
   let call_ref_type = @lib.TypeIdx::new(0U)
   let f_type = @lib.TypeIdx::new(1U)
@@ -244,6 +253,8 @@ test "dae-optimizing removes a private unused scalar parameter at direct calls" 
     #|    call $f))
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(callee_locals.length(), 0)
   let caller = optimized.pretty_print_defined_func(1U)
   assert_true(caller.contains("(call (Func 0))"), msg=caller)
   assert_true(caller.contains("local.get (Local 0)"), msg=caller)
@@ -1298,6 +1309,83 @@ test "dae-optimizing preserves uncalled no-param results like Binaryen" {
     #|  (func (export "run")))
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 1)
+}
+
+///|
+test "dae-optimizing removes dropped large dead-prefix result bodies like Binaryen" {
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      #|(module
+      #|  (func (export "main")
+      #|    call $f
+      #|    drop)
+      #|  (func $f (result f64)
+    ),
+  )
+  out.write_string(dae_test_many_i32_const_drops(70))
+  out.write_string(
+    (
+      #|
+      #|    block
+      #|      unreachable
+      #|    end
+      #|    f64.const 1))
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+  let body = optimized.pretty_print_defined_func(1U)
+  assert_true(body.contains("unreachable"), msg=body)
+  assert_false(body.contains("i32.const"), msg=body)
+}
+
+///|
+test "dae-optimizing preserves results with undropped dead-suffix callers" {
+  let source =
+    #|(module
+    #|  (func (export "main")
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f
+    #|    drop)
+    #|  (func $f (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i64.const 1)
+    #|  (func $h (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+}
+
+///|
+test "dae-optimizing repairs dropped dead-suffix calls when removing result" {
+  let source =
+    #|(module
+    #|  (func (export "main")
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f
+    #|    drop)
+    #|  (func $f (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    f64.const 1))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("(call (Func 1))"), msg=caller)
+  assert_false(caller.contains("drop"), msg=caller)
 }
 
 ///|
@@ -2911,6 +2999,51 @@ test "dae-optimizing prunes unused simple function types like Binaryen" {
   match optimized.type_sec {
     Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 1)
     None => fail("expected type section")
+  }
+}
+
+///|
+test "dae-optimizing keeps simple function types referenced by table and global refs" {
+  let type_idx = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.RefType::new(true, @lib.HeapType::new(type_idx))
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(ref_type, @lib.Limits::i32(0U, None)),
+          Some(@lib.Expr::new([@lib.Instruction::ref_null_type(ref_type)])),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::ref_null_type(ref_type), false),
+          @lib.Expr::new([@lib.Instruction::ref_null_type(ref_type)]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => fail("expected input module to validate, got \{err}")
+  }
+  let optimized = dae_run_module_pass(mod_)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 1)
+    None => fail("expected type section")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected DAE output to validate, got \{err}")
   }
 }
 

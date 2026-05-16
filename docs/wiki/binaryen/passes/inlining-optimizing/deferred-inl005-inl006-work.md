@@ -2,12 +2,12 @@
 
 Last updated: 2026-05-16.
 
-This page records the inlining follow-up work that was **not** completed after `[INL]002` was accepted as representation/factoring drift. Use this as the durable handoff point before reopening accepted INL slices.
+This page records the inlining follow-up work that was **not** completed after `[INL]002` was accepted as representation/factoring drift. These items are **v0.2.0 backlog only**. They are not active v0.1.0 work and should not be picked up after DAE without new correctness, validation, performance, size, or user-facing evidence.
 
 ## Status summary
 
-- `[INL]005 - Partial Inlining Splitter`: **not implemented**. Still active if future evidence shows partial splitting is worth the code-size/complexity tradeoff.
-- `[INL]006 - Tail-Call, Multi-Result, and Name/Annotation Repair`: **mostly narrowed**. Tail-call and multi-result correctness surfaces now have focused coverage; the remaining unsupported surface is local/label name reconstruction after body rewrites.
+- `[INL]005 - Partial Inlining Splitter`: **deferred to v0.2.0**. Not implemented, not a v0.1.0 blocker, and not worth doing merely for Binaryen WAT/byte-shape parity.
+- `[INL]006 - Residual Name/Annotation Repair`: **deferred to v0.2.0**. Tail-call and multi-result correctness surfaces now have focused coverage; the remaining unsupported surface is local/label name reconstruction and broader annotation collision repair after body rewrites.
 
 ## `[INL]005` deferred work
 
@@ -36,9 +36,9 @@ Binaryen Pattern B recognizes a small number of top-level cheap `if` guards with
 
 Binaryen has partial-inlining-specific policy knobs and no-partial-inline behavior. Starshine parses and preserves `no-partial-inline` policy markers, but there is no partial splitter for the marker to suppress. Official no-partial behavior remains deferred with `[INL]005`.
 
-### Why deferred
+### Why deferred to v0.2.0
 
-Partial inlining can deliberately increase code size. No reduced Starshine correctness, validation, or clear pass-local performance/size win was established during this follow-up. Do not implement it merely for Binaryen WAT/byte-shape parity.
+Partial inlining can deliberately increase code size. No reduced Starshine correctness, validation, or clear pass-local performance/size win was established during this follow-up. Do not implement it for v0.1.0, and do not implement it merely for Binaryen WAT/byte-shape parity.
 
 ### Suggested future acceptance bar
 
@@ -66,14 +66,14 @@ The following `[INL]006` surfaces now have focused tests and commits in this fol
 - non-function name maps for types, tables, memories, and globals survive synthesized type appends;
 - no-inline policy annotations continue to remap/deduplicate across compaction via the existing policy helper.
 
-Key evidence recorded in `agent-todo.md`, `CHANGELOG.md`, and `docs/wiki/log.md` includes:
+Key evidence recorded in `agent-todo.md`, `docs/wiki/log.md`, and git history includes:
 
 - `moon test src/passes` latest follow-up lane: `1080/1080`;
 - full `moon test` latest follow-up lane: `3143/3143`;
 - wasm-smith smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-name-type-wasm-smith-1000`: `996/1000` compared, `996` normalized matches, `0` mismatches, `0` validation failures, `4` Binaryen/tool command failures;
 - previous wasm-smith smokes for tail forms and multivalue synthesis also had `0` mismatches and `0` validation failures.
 
-## `[INL]006` deferred work
+## `[INL]006` v0.2.0 deferred work
 
 ### Local/label name reconstruction not done
 
@@ -87,7 +87,7 @@ Binaryen-like full repair would need to:
 - handle nested inlining waves and later helper compaction;
 - preserve determinism and avoid stale function-scoped maps after any body rewrite.
 
-This was not implemented because it is debug-name fidelity, not semantic correctness. Existing behavior is documented and tested: function names and non-function names survive where safe; local/label names are dropped after inlining rewrites.
+This was not implemented because it is debug-name fidelity, not semantic correctness. Existing behavior is documented and tested: function names and non-function names survive where safe; local/label names are dropped after inlining rewrites. Keep this deferred unless a concrete user-facing debug-name or correctness requirement appears.
 
 ### Broader annotation collision repair not done
 
@@ -99,6 +99,6 @@ Do not reopen accepted `[INL]001`, `[INL]002`, `[INL]003`, `[INL]004`, or `[INL]
 
 Use:
 
-- `[INL]005` for partial-splitting implementation or explicit rejection;
-- a new `[INL]006` follow-up only for local/label/name/annotation repair with a concrete user-facing or correctness reason;
+- v0.2.0 `[INL]005` for partial-splitting implementation or explicit rejection;
+- v0.2.0 `[INL]006` only for local/label/name/annotation repair with a concrete user-facing or correctness reason;
 - `[WALL]001` for aggregate whole-command runtime issues.

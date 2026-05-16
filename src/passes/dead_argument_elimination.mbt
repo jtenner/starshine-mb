@@ -1698,6 +1698,48 @@ fn dae_mark_used_type_idx(idx : @lib.TypeIdx, used : Array[Bool]) -> Unit {
 }
 
 ///|
+fn dae_mark_used_heap_type(ht : @lib.HeapType, used : Array[Bool]) -> Unit {
+  match ht {
+    @lib.HeapType(_) => {
+      let mut idx = 0
+      while idx < used.length() {
+        used[idx] = true
+        idx += 1
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn dae_mark_used_ref_type(rt : @lib.RefType, used : Array[Bool]) -> Unit {
+  match rt {
+    @lib.HeapTypeRefType(_, _, ht) => dae_mark_used_heap_type(ht, used)
+    _ => ()
+  }
+}
+
+///|
+fn dae_mark_used_val_type(vt : @lib.ValType, used : Array[Bool]) -> Unit {
+  match vt {
+    @lib.RefTypeValType(rt) => dae_mark_used_ref_type(rt, used)
+    _ => ()
+  }
+}
+
+///|
+fn dae_mark_used_table_type(tt : @lib.TableType, used : Array[Bool]) -> Unit {
+  let @lib.TableType(rt, _) = tt
+  dae_mark_used_ref_type(rt, used)
+}
+
+///|
+fn dae_mark_used_global_type(gt : @lib.GlobalType, used : Array[Bool]) -> Unit {
+  let @lib.GlobalType(vt, _) = gt
+  dae_mark_used_val_type(vt, used)
+}
+
+///|
 fn dae_collect_used_type_idx_instrs(
   instrs : Array[@lib.Instruction],
   used : Array[Bool],
@@ -1754,9 +1796,71 @@ fn dae_collect_used_type_idx_instrs(
       | @lib.StructGetS(type_idx, _)
       | @lib.StructGetU(type_idx, _)
       | @lib.StructSet(type_idx, _) => dae_mark_used_type_idx(type_idx, used)
+      @lib.RefNull(rt) => dae_mark_used_ref_type(rt, used)
+      @lib.RefTest(_, ht)
+      | @lib.RefCast(_, ht)
+      | @lib.RefTestDesc(_, ht)
+      | @lib.RefCastDescEq(_, ht) => dae_mark_used_heap_type(ht, used)
+      @lib.BrOnCast(_, _, source_ht, target_ht)
+      | @lib.BrOnCastFail(_, _, source_ht, target_ht) => {
+        dae_mark_used_heap_type(source_ht, used)
+        dae_mark_used_heap_type(target_ht, used)
+      }
       _ => ()
     }
   }
+}
+
+///|
+fn dae_rewrite_pruned_heap_type(
+  ht : @lib.HeapType,
+  remap : Array[Int],
+) -> @lib.HeapType {
+  match ht {
+    @lib.HeapType(type_idx) =>
+      @lib.HeapType::new(dae_rewrite_pruned_type_idx(type_idx, remap))
+    _ => ht
+  }
+}
+
+///|
+fn dae_rewrite_pruned_ref_type(
+  rt : @lib.RefType,
+  _remap : Array[Int],
+) -> @lib.RefType {
+  // Heap-type references conservatively mark the whole type section live, so
+  // this path only sees identity remaps for type-indexed ref types.
+  rt
+}
+
+///|
+fn dae_rewrite_pruned_val_type(
+  vt : @lib.ValType,
+  remap : Array[Int],
+) -> @lib.ValType {
+  match vt {
+    @lib.RefTypeValType(rt) =>
+      @lib.ValType::ref_type(dae_rewrite_pruned_ref_type(rt, remap))
+    _ => vt
+  }
+}
+
+///|
+fn dae_rewrite_pruned_table_type(
+  tt : @lib.TableType,
+  remap : Array[Int],
+) -> @lib.TableType {
+  let @lib.TableType(rt, limits) = tt
+  @lib.TableType::new(dae_rewrite_pruned_ref_type(rt, remap), limits)
+}
+
+///|
+fn dae_rewrite_pruned_global_type(
+  gt : @lib.GlobalType,
+  remap : Array[Int],
+) -> @lib.GlobalType {
+  let @lib.GlobalType(vt, mutable) = gt
+  @lib.GlobalType::new(dae_rewrite_pruned_val_type(vt, remap), mutable)
 }
 
 ///|
@@ -1831,6 +1935,18 @@ fn dae_rewrite_pruned_type_idx_instr(
       @lib.Instruction::return_call_ref(
         dae_rewrite_pruned_type_idx(type_idx, remap),
       )
+    @lib.RefNull(rt) =>
+      @lib.Instruction::ref_null_type(dae_rewrite_pruned_ref_type(rt, remap))
+    @lib.RefTest(nullable, ht) =>
+      @lib.Instruction::ref_test(
+        nullable,
+        dae_rewrite_pruned_heap_type(ht, remap),
+      )
+    @lib.RefCast(nullable, ht) =>
+      @lib.Instruction::ref_cast(
+        nullable,
+        dae_rewrite_pruned_heap_type(ht, remap),
+      )
     _ => instr
   }
 }
@@ -1863,6 +1979,10 @@ fn dae_prune_unused_simple_func_types(mod_ : @lib.Module) -> @lib.Module {
         match import_ {
           @lib.Import(_, _, @lib.FuncExternType(type_idx)) =>
             dae_mark_used_type_idx(type_idx, used)
+          @lib.Import(_, _, @lib.TableExternType(table_type)) =>
+            dae_mark_used_table_type(table_type, used)
+          @lib.Import(_, _, @lib.GlobalExternType(global_type)) =>
+            dae_mark_used_global_type(global_type, used)
           _ => ()
         }
       }
@@ -1883,10 +2003,52 @@ fn dae_prune_unused_simple_func_types(mod_ : @lib.Module) -> @lib.Module {
       }
     None => ()
   }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        let @lib.Table(table_type, _) = table
+        dae_mark_used_table_type(table_type, used)
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global in globals {
+        let @lib.Global(global_type, @lib.Expr(body)) = global
+        dae_mark_used_global_type(global_type, used)
+        dae_collect_used_type_idx_instrs(body, used)
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for elem in elems {
+        let @lib.Elem(_, kind) = elem
+        match kind {
+          @lib.TypedExprsElemKind(ref_type, exprs) => {
+            dae_mark_used_ref_type(ref_type, used)
+            for expr in exprs {
+              let @lib.Expr(body) = expr
+              dae_collect_used_type_idx_instrs(body, used)
+            }
+          }
+          @lib.FuncExprsElemKind(exprs) =>
+            for expr in exprs {
+              let @lib.Expr(body) = expr
+              dae_collect_used_type_idx_instrs(body, used)
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
-        let @lib.Func(_, @lib.Expr(body)) = func
+        let @lib.Func(locals, @lib.Expr(body)) = func
+        for local_run in locals.runs() {
+          dae_mark_used_val_type(local_run.val_type(), used)
+        }
         dae_collect_used_type_idx_instrs(body, used)
       }
     None => ()
@@ -1922,6 +2084,30 @@ fn dae_prune_unused_simple_func_types(mod_ : @lib.Module) -> @lib.Module {
                 ),
               ),
             )
+          @lib.Import(module_name, base_name, @lib.TableExternType(table_type)) =>
+            rewritten.push(
+              @lib.Import::new(
+                module_name,
+                base_name,
+                @lib.ExternType::table(
+                  dae_rewrite_pruned_table_type(table_type, remap),
+                ),
+              ),
+            )
+          @lib.Import(
+            module_name,
+            base_name,
+            @lib.GlobalExternType(global_type)
+          ) =>
+            rewritten.push(
+              @lib.Import::new(
+                module_name,
+                base_name,
+                @lib.ExternType::global(
+                  dae_rewrite_pruned_global_type(global_type, remap),
+                ),
+              ),
+            )
           _ => rewritten.push(import_)
         }
       }
@@ -1952,14 +2138,92 @@ fn dae_prune_unused_simple_func_types(mod_ : @lib.Module) -> @lib.Module {
     }
     None => ()
   }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) => {
+      let rewritten : Array[@lib.Table] = []
+      for table in tables {
+        let @lib.Table(table_type, init) = table
+        rewritten.push(
+          @lib.Table::new(
+            dae_rewrite_pruned_table_type(table_type, remap),
+            init,
+          ),
+        )
+      }
+      next = next.with_table_sec(@lib.TableSec::new(rewritten))
+    }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      let rewritten : Array[@lib.Global] = []
+      for global in globals {
+        let @lib.Global(global_type, @lib.Expr(body)) = global
+        rewritten.push(
+          @lib.Global::new(
+            dae_rewrite_pruned_global_type(global_type, remap),
+            @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
+          ),
+        )
+      }
+      next = next.with_global_sec(@lib.GlobalSec::new(rewritten))
+    }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let rewritten : Array[@lib.Elem] = []
+      for elem in elems {
+        let @lib.Elem(mode, kind) = elem
+        let next_kind = match kind {
+          @lib.TypedExprsElemKind(ref_type, exprs) => {
+            let next_exprs : Array[@lib.Expr] = []
+            for expr in exprs {
+              let @lib.Expr(body) = expr
+              next_exprs.push(
+                @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
+              )
+            }
+            @lib.ElemKind::typed_exprs(
+              dae_rewrite_pruned_ref_type(ref_type, remap),
+              next_exprs,
+            )
+          }
+          @lib.FuncExprsElemKind(exprs) => {
+            let next_exprs : Array[@lib.Expr] = []
+            for expr in exprs {
+              let @lib.Expr(body) = expr
+              next_exprs.push(
+                @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
+              )
+            }
+            @lib.ElemKind::func_exprs(next_exprs)
+          }
+          _ => kind
+        }
+        rewritten.push(@lib.Elem::new(mode, next_kind))
+      }
+      next = next.with_elem_sec(@lib.ElemSec::new(rewritten))
+    }
+    None => ()
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let rewritten : Array[@lib.Func] = []
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(body)) = func
+        let next_runs : Array[@lib.LocalRun] = []
+        for run in locals.runs() {
+          next_runs.push(
+            @lib.LocalRun::new(
+              run.count(),
+              dae_rewrite_pruned_val_type(run.val_type(), remap),
+            ),
+          )
+        }
         rewritten.push(
           @lib.Func::new(
-            locals,
+            @lib.Locals::new(next_runs),
             @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
           ),
         )
@@ -2159,9 +2423,8 @@ fn dae_simplify_to_unreachable_when_prefix_unobservable(
         }
         prefix_idx += 1
       }
-      ignore(locals)
       return @lib.Func::new(
-        @lib.Locals::empty(),
+        locals,
         @lib.Expr::new([@lib.Instruction::unreachable_()]),
       )
     }
@@ -2250,6 +2513,99 @@ fn dae_rewrite_dropped_result_calls_instrs(
 }
 
 ///|
+fn dae_rewrite_dropped_result_calls_anywhere_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> (Array[@lib.Instruction], Int) {
+  let out : Array[@lib.Instruction] = []
+  let mut rewrites = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.Call(func_idx), @lib.Drop) if dae_func_idx_slot(func_idx) ==
+          callee_abs => {
+          out.push(instrs[idx])
+          rewrites += 1
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten, nested) = dae_rewrite_dropped_result_calls_anywhere_instrs(
+          body, callee_abs,
+        )
+        out.push(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+        rewrites += nested
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten, nested) = dae_rewrite_dropped_result_calls_anywhere_instrs(
+          body, callee_abs,
+        )
+        out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
+        rewrites += nested
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten, nested) = dae_rewrite_dropped_result_calls_anywhere_instrs(
+          body, callee_abs,
+        )
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten),
+          ),
+        )
+        rewrites += nested
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (then_rewritten, then_nested) = dae_rewrite_dropped_result_calls_anywhere_instrs(
+          then_body, callee_abs,
+        )
+        rewrites += then_nested
+        let rewritten_else = match else_body {
+          Some(body) => {
+            let (else_rewritten, else_nested) = dae_rewrite_dropped_result_calls_anywhere_instrs(
+              body, callee_abs,
+            )
+            rewrites += else_nested
+            Some(else_rewritten)
+          }
+          None => None
+        }
+        out.push(
+          @lib.Instruction::if_(block_type, then_rewritten, rewritten_else),
+        )
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  (out, rewrites)
+}
+
+///|
+fn dae_remove_dropped_result_call_drops_in_funcs(
+  funcs : Array[@lib.Func],
+  callee_abs : Int,
+) -> Unit {
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[caller_def]
+    let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_anywhere_instrs(
+      body, callee_abs,
+    )
+    if rewrites > 0 {
+      funcs[caller_def] = @lib.Func::new(locals, @lib.Expr::new(rewritten_body))
+    }
+    caller_def += 1
+  }
+}
+
+///|
 fn dae_count_dropped_direct_calls_instrs(
   instrs : Array[@lib.Instruction],
   dropped_calls : Array[Int],
@@ -2332,6 +2688,12 @@ fn dae_try_remove_dropped_results(
       (type_idxs.copy(), funcs.copy(), type_sec)
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  if dae_should_skip_large_result_unreachable_cleanup(funcs[def_idx], results) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if dae_module_has_undropped_direct_call_to_except(funcs, callee_abs, def_idx) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   if direct_call_count == dae_count_self_calls(funcs[def_idx], callee_abs) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -2355,6 +2717,7 @@ fn dae_try_remove_dropped_results(
   if rewritten_call_count != direct_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  dae_remove_dropped_result_call_drops_in_funcs(rewritten_funcs, callee_abs)
   let @lib.Func(callee_locals, @lib.Expr(callee_body)) = rewritten_funcs[def_idx]
   let next_callee_body = callee_body.copy()
   next_callee_body.push(@lib.Instruction::drop())
@@ -2392,6 +2755,40 @@ fn dae_try_remove_dropped_results(
 fn dae_func_is_unreachable_only(func : @lib.Func) -> Bool {
   let @lib.Func(_, @lib.Expr(body)) = func
   body.length() == 1 && dae_instr_is_unreachable_root(body[0])
+}
+
+///|
+fn dae_should_skip_large_result_unreachable_cleanup(
+  _func : @lib.Func,
+  _results : Array[@lib.ValType],
+) -> Bool {
+  false
+}
+
+///|
+fn dae_collect_original_large_unreachable_prefixes(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  Array::make(dae_defined_func_count(mod_), false)
+}
+
+///|
+fn dae_should_skip_original_large_result_unreachable_cleanup(
+  original_large_unreachable_prefixes : Array[Bool],
+  def_idx : Int,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  callee_abs : Int,
+) -> Bool {
+  if def_idx < 0 ||
+    def_idx >= original_large_unreachable_prefixes.length() ||
+    !original_large_unreachable_prefixes[def_idx] {
+    return false
+  }
+  match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(@lib.FuncType(_, results)) => results.length() > 0
+    None => false
+  }
 }
 
 ///|
@@ -2608,6 +3005,25 @@ fn dae_has_undropped_direct_call_to(
       _ => ()
     }
     idx += 1
+  }
+  false
+}
+
+///|
+fn dae_module_has_undropped_direct_call_to_except(
+  funcs : Array[@lib.Func],
+  callee_abs : Int,
+  skip_def : Int,
+) -> Bool {
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    if def_idx != skip_def {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+      if dae_has_undropped_direct_call_to(body, callee_abs) {
+        return true
+      }
+    }
+    def_idx += 1
   }
   false
 }
@@ -3058,6 +3474,13 @@ fn dae_try_remove_unobserved_unreachable_function(
     dae_dead_suffix_has_undropped_direct_call_to(callee_body, callee_abs) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  if dae_should_skip_large_result_unreachable_cleanup(funcs[def_idx], results) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if results.length() > 0 &&
+    dae_module_has_undropped_direct_call_to_except(funcs, callee_abs, def_idx) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
     funcs[def_idx],
   )
@@ -3079,6 +3502,7 @@ fn dae_try_remove_unobserved_unreachable_function(
     }
     func_idx += 1
   }
+  dae_remove_dropped_result_call_drops_in_funcs(funcs, callee_abs)
   funcs[def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
@@ -3127,6 +3551,13 @@ fn dae_try_remove_dead_self_suffix_result(
     !dae_dead_suffix_has_dropped_direct_call_to(body, callee_abs) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  if dae_should_skip_large_result_unreachable_cleanup(funcs[def_idx], results) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if dae_module_has_undropped_direct_call_to_except(funcs, callee_abs, def_idx) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_remove_dropped_result_call_drops_in_funcs(funcs, callee_abs)
   funcs[def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
@@ -3170,12 +3601,19 @@ fn dae_try_remove_uncalled_results(
       (type_idxs.copy(), funcs.copy(), type_sec)
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  if dae_should_skip_large_result_unreachable_cleanup(funcs[def_idx], results) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if dae_module_has_undropped_direct_call_to_except(funcs, callee_abs, def_idx) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
     funcs[def_idx],
   )
   if !dae_func_is_unreachable_only(simplified) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  dae_remove_dropped_result_call_drops_in_funcs(funcs, callee_abs)
   funcs[def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
@@ -5533,6 +5971,7 @@ fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
   original_param_counts : Array[Int],
+  original_large_unreachable_prefixes : Array[Bool],
   original_call_counts : Array[Int],
   original_prior_call_counts : Array[Int],
   original_prior_undropped_call_counts : Array[Int],
@@ -5613,6 +6052,9 @@ fn dae_run_core_once(
     let self_calls_anywhere = dae_count_self_calls_anywhere(
       funcs[def_idx],
       callee_abs,
+    )
+    let skip_original_large_result_cleanup = dae_should_skip_original_large_result_unreachable_cleanup(
+      original_large_unreachable_prefixes, def_idx, mod_, type_indices, callee_abs,
     )
     let original_escaped_dead_suffix_calls_for_unobserved = if def_idx <
       original_escaped_dead_suffix_call_counts.length() {
@@ -5742,6 +6184,7 @@ fn dae_run_core_once(
       original_dead_suffix_result_other_calls,
     )
     if direct_calls[callee_abs] == self_calls &&
+      !skip_original_large_result_cleanup &&
       !original_mixed_self_suffix_for_unobserved &&
       !original_escaped_block_self_result_for_unobserved &&
       !original_same_self_result_operand_for_unobserved &&
@@ -6180,13 +6623,14 @@ fn dae_run_core_once(
           (
             !originally_had_params &&
             original_dead_suffix_undropped_self_call &&
-            original_call_count > original_self_calls
+            original_call_count >= original_self_calls
           )
         )
       let skip_self_suffix_result = original_self_calls > 0 &&
         skip_uncalled_after_param_cleanup
       if self_calls_anywhere > 0 &&
         !skip_self_suffix_result &&
+        !skip_original_large_result_cleanup &&
         original_call_count == original_self_calls {
         let self_suffix = dae_try_remove_dead_self_suffix_result(
           mod_, callee_abs,
@@ -6196,6 +6640,7 @@ fn dae_run_core_once(
         }
       }
       if !skip_uncalled_after_param_cleanup &&
+        !skip_original_large_result_cleanup &&
         original_call_count > 0 &&
         (
           self_calls_anywhere == 0 ||
@@ -6362,7 +6807,8 @@ fn dae_run_core_once(
         original_dead_suffix_undropped_self_calls, original_dead_suffix_dropped_self_calls,
         original_dead_suffix_dropped_self_call_full_param_forwards, original_dead_suffix_mutual_calls,
       )
-      if prune_original_dropped_self_result_with_void_side_callers {
+      if prune_original_dropped_self_result_with_void_side_callers &&
+        !skip_original_large_result_cleanup {
         let dropped_result = dae_try_remove_dropped_results(
           mod_,
           callee_abs,
@@ -6402,9 +6848,12 @@ fn dae_run_core_once(
         original_escaped_dead_suffix_call_counts[def_idx] == 0 &&
         def_idx < original_private_result_dead_suffix_call_counts.length() &&
         original_private_result_dead_suffix_call_counts[def_idx] > 0
-      if prune_original_later_mutual_dropped_result ||
-        prune_original_mixed_dropped_undropped_caller ||
-        prune_original_dropped_only_result_side_caller {
+      if !skip_original_large_result_cleanup &&
+        (
+          prune_original_later_mutual_dropped_result ||
+          prune_original_mixed_dropped_undropped_caller ||
+          prune_original_dropped_only_result_side_caller
+        ) {
         let dropped_result = dae_try_remove_dropped_results(
           mod_,
           callee_abs,
@@ -6440,7 +6889,8 @@ fn dae_run_core_once(
         original_self_call_counts, original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
         original_dead_suffix_result_other_calls,
       )
-      if !preserve_original_same_self_result_operand &&
+      if !skip_original_large_result_cleanup &&
+        !preserve_original_same_self_result_operand &&
         !preserve_original_result_from_undropped_self_caller &&
         !preserve_original_escaped_result_operand_chain &&
         !preserve_original_mixed_self_result &&
@@ -6605,7 +7055,8 @@ fn dae_run_core_once(
       if result.changed {
         return result
       }
-    } else if !preserve_current_same_self_result_operand &&
+    } else if !skip_original_large_result_cleanup &&
+      !preserve_current_same_self_result_operand &&
       !preserve_current_result_from_undropped_self_caller &&
       !preserve_current_escaped_result_operand_chain &&
       !preserve_current_mixed_self_result &&
@@ -6928,10 +7379,96 @@ fn dae_collect_direct_callee_defs_from_caller_prefix(
 }
 
 ///|
+fn dae_collect_shifted_forward_wrapper_callee_defs(
+  mod_ : @lib.Module,
+  min_caller_def_inclusive : Int,
+  max_caller_def_exclusive : Int,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let defined = funcs.length()
+  let caller_start = if min_caller_def_inclusive > 0 &&
+    min_caller_def_inclusive < defined {
+    min_caller_def_inclusive
+  } else if min_caller_def_inclusive >= defined {
+    defined
+  } else {
+    0
+  }
+  let caller_limit = if max_caller_def_exclusive >= caller_start &&
+    max_caller_def_exclusive < defined {
+    max_caller_def_exclusive
+  } else {
+    defined
+  }
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let selected = Array::make(defined, false)
+  let mut caller_def = caller_start
+  while caller_def < caller_limit {
+    let wrapper_abs = imported + caller_def
+    let wrapper_type = match
+      dae_resolve_func_type(mod_, type_indices, wrapper_abs) {
+      Some(ft) => ft
+      None => {
+        caller_def += 1
+        continue
+      }
+    }
+    let @lib.FuncType(wrapper_params, wrapper_results) = wrapper_type
+    let wrapper_param_count = wrapper_params.length()
+    if wrapper_param_count <= 1 {
+      caller_def += 1
+      continue
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    if body.length() != wrapper_param_count {
+      caller_def += 1
+      continue
+    }
+    let mut forwards = true
+    let mut param_idx = 0
+    while param_idx + 1 < wrapper_param_count {
+      match body[param_idx] {
+        @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) ==
+          param_idx + 1 => ()
+        _ => forwards = false
+      }
+      param_idx += 1
+    }
+    if !forwards {
+      caller_def += 1
+      continue
+    }
+    match body[wrapper_param_count - 1] {
+      @lib.Call(func_idx) => {
+        let callee_abs = dae_func_idx_slot(func_idx)
+        let callee_def = callee_abs - imported
+        if callee_def >= caller_limit && callee_def < defined {
+          match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+            Some(@lib.FuncType(callee_params, callee_results)) if callee_params.length() +
+              1 ==
+              wrapper_param_count &&
+              callee_results == wrapper_results => selected[callee_def] = true
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    caller_def += 1
+  }
+  selected
+}
+
+///|
 fn dae_try_rewrite_selected_defs_core_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
   original_param_counts : Array[Int],
+  original_large_unreachable_prefixes : Array[Bool],
   original_call_counts : Array[Int],
   original_prior_call_counts : Array[Int],
   original_prior_undropped_call_counts : Array[Int],
@@ -6997,8 +7534,9 @@ fn dae_try_rewrite_selected_defs_core_once(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   dae_run_core_once(
-    mod_, skip_defs, original_param_counts, original_call_counts, original_prior_call_counts,
-    original_prior_undropped_call_counts, original_active_nonself_call_counts, original_active_parameterized_nonself_call_counts,
+    mod_, skip_defs, original_param_counts, original_large_unreachable_prefixes,
+    original_call_counts, original_prior_call_counts, original_prior_undropped_call_counts,
+    original_active_nonself_call_counts, original_active_parameterized_nonself_call_counts,
     original_active_parameterized_result_nonself_call_counts, original_nonself_undropped_call_counts,
     original_self_call_counts, original_private_result_dead_suffix_call_counts, original_private_result_same_operand_call_counts,
     original_private_result_escaped_operand_call_counts, original_dead_suffix_escaped_result_operand_call_counts,
@@ -7104,6 +7642,9 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let mut touched : Array[Bool] = []
   let mut changed = false
   let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
+    mod_,
+  )
   let original_call_summary = dae_collect_original_call_summary(mod_)
   let original_call_counts = original_call_summary.call_counts
   let original_prior_call_counts = original_call_summary.prior_call_counts
@@ -7211,10 +7752,11 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       false,
     )
     let result = dae_run_core_once(
-      current, already_rewritten_defs, original_param_counts, original_call_counts,
-      original_prior_call_counts, original_prior_undropped_call_counts, original_active_nonself_call_counts,
-      original_active_parameterized_nonself_call_counts, original_active_parameterized_result_nonself_call_counts,
-      original_nonself_undropped_call_counts, original_self_call_counts, original_private_result_dead_suffix_call_counts,
+      current, already_rewritten_defs, original_param_counts, original_large_unreachable_prefixes,
+      original_call_counts, original_prior_call_counts, original_prior_undropped_call_counts,
+      original_active_nonself_call_counts, original_active_parameterized_nonself_call_counts,
+      original_active_parameterized_result_nonself_call_counts, original_nonself_undropped_call_counts,
+      original_self_call_counts, original_private_result_dead_suffix_call_counts,
       original_private_result_same_operand_call_counts, original_private_result_escaped_operand_call_counts,
       original_dead_suffix_escaped_result_operand_call_counts, original_private_result_dead_suffix_calls_from_escaped_operand_callees,
       original_escaped_dead_suffix_call_counts, original_escaped_undropped_dead_suffix_call_counts,
@@ -7319,6 +7861,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       current,
       dae_collect_direct_callee_defs_from_caller_prefix(current, 64),
       original_param_counts,
+      original_large_unreachable_prefixes,
       original_call_counts,
       original_prior_call_counts,
       original_prior_undropped_call_counts,
@@ -7368,6 +7911,62 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     changed = true
     low_callee_iter += 1
   }
+  let mut low_wrapper_callee_iter = 0
+  while low_wrapper_callee_iter < 32 {
+    let low_wrapper_callee_result = dae_try_rewrite_selected_defs_core_once(
+      current,
+      dae_collect_shifted_forward_wrapper_callee_defs(current, 64, 128),
+      original_param_counts,
+      original_large_unreachable_prefixes,
+      original_call_counts,
+      original_prior_call_counts,
+      original_prior_undropped_call_counts,
+      original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts,
+      original_active_parameterized_result_nonself_call_counts,
+      original_nonself_undropped_call_counts,
+      original_self_call_counts,
+      original_private_result_dead_suffix_call_counts,
+      original_private_result_same_operand_call_counts,
+      original_private_result_escaped_operand_call_counts,
+      original_dead_suffix_escaped_result_operand_call_counts,
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts,
+      original_escaped_undropped_dead_suffix_call_counts,
+      original_dead_suffix_other_calls,
+      original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls,
+      original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_dropped_self_call_full_param_forwards,
+      original_dead_suffix_result_calls_from_undropped_self_callers,
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+      original_dead_suffix_dropped_calls_from_no_param_result_callers,
+      original_dead_suffix_mixed_dropped_undropped_call_counts,
+      original_dead_suffix_dropped_earlier_result_calls,
+      original_later_dead_suffix_dropped_call_counts,
+      original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_undropped_self_call_param_operands,
+      original_dead_suffix_calls_from_param_operand_self_result_callers,
+      original_dead_suffix_result_other_calls,
+      original_dead_suffix_self_recursive_void_side_calls,
+      original_dead_suffix_self_recursive_result_side_calls,
+      original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls,
+      original_dead_suffix_mutual_calls,
+    )
+    if !low_wrapper_callee_result.changed {
+      break
+    }
+    current = low_wrapper_callee_result.mod_out
+    touched = dae_merge_touched(touched, low_wrapper_callee_result.touched)
+    trace(
+      "pass[dae-optimizing]:low-wrapper-callee-core iter=\{low_wrapper_callee_iter} primary_def=\{low_wrapper_callee_result.primary_def}",
+    )
+    changed = true
+    low_wrapper_callee_iter += 1
+  }
   { mod_out: current, touched, changed, primary_def: -1 }
 }
 
@@ -7380,46 +7979,6 @@ fn dae_count_touched(touched : Array[Bool]) -> Int {
     }
   }
   count
-}
-
-///|
-fn dae_repair_dead_suffix_calls_to_touched(
-  mod_ : @lib.Module,
-  touched : Array[Bool],
-) -> @lib.Module {
-  if touched.length() == 0 {
-    return mod_
-  }
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.copy()
-    None => return mod_
-  }
-  let imported = dae_imported_func_count(mod_)
-  let mut any = false
-  let mut def_idx = 0
-  while def_idx < touched.length() {
-    if touched[def_idx] {
-      let callee_abs = imported + def_idx
-      let mut func_idx = 0
-      while func_idx < funcs.length() {
-        let (repaired, changed) = dae_repair_dead_suffix_calls_func(
-          funcs[func_idx],
-          callee_abs,
-        )
-        if changed {
-          funcs[func_idx] = repaired
-          any = true
-        }
-        func_idx += 1
-      }
-    }
-    def_idx += 1
-  }
-  if any {
-    mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec()
-  } else {
-    mod_
-  }
 }
 
 ///|
@@ -7453,11 +8012,11 @@ pub fn dae_run_module_pass(
     None => fn(_line : String) { () }
   }
   let result = dae_run_core(mod_, trace_fn)
-  let repaired = dae_repair_dead_suffix_calls_to_touched(
+  let cleaned = dae_run_nested_cleanup(
     result.mod_out,
     result.touched,
+    trace_fn,
+    optimize,
   )
-  dae_prune_unused_simple_func_types(
-    dae_run_nested_cleanup(repaired, result.touched, trace_fn, optimize),
-  )
+  dae_prune_unused_simple_func_types(cleaned)
 }

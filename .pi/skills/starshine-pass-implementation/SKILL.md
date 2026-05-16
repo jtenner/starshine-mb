@@ -78,7 +78,7 @@ Read the relevant sources before substantial pass work:
    - CLI/pass flag exposure: usually `src/cmd/cmd.mbt`.
    - Package imports: `package*/imports.mbt` when new imports are needed.
    - Public API snapshots: review `.mbti` diffs when public surfaces change.
-   - Docs/backlog: update relevant docs, `CHANGELOG.md`, and `agent-todo.md` before commit when behavior or status changes.
+   - Docs/backlog: update relevant docs and `agent-todo.md` before commit when behavior or status changes; do not add per-commit changelog entries.
 
 6. Handle mismatches deliberately.
    - Classify semantic mismatches separately from decode, validation, tool, or Binaryen parser failures.
@@ -150,7 +150,7 @@ Use when changing `optimize`, `shrink`, or pass order:
 
 Use before committing pass work:
 
-1. Update relevant docs and `CHANGELOG.md`.
+1. Update relevant docs.
 2. Prune completed pass items from `agent-todo.md`; keep active blockers visible.
 3. Prefer `bun validate` before commit.
 4. Use `bun validate readme-api-sync` for README/API drift.
@@ -171,7 +171,7 @@ When reporting pass signoff, include:
 - `10000` compare-pass command, seed, out dir, compared count, normalized match count, mismatch count, and command-failure classification
 - replayed failure dirs and their outcomes, if any
 - pass-local performance numbers, artifact comparisons, any `[WALL]001` attribution, or why they were not applicable
-- docs, changelog, and backlog updates
+- docs and backlog updates
 - remaining blockers, uncertainty, or explicitly deferred Binaryen differences
 - commands not run and why
 
@@ -184,5 +184,5 @@ A pass is done only when:
 - direct pass execution matches Binaryen semantics on the standard compare-pass run or any semantic divergence is approved and documented
 - every transform is covered as safe and valid, with validation evidence for changed modules when applicable
 - relevant performance/artifact evidence is captured when applicable, and pass-local Starshine timing is at least 50% of Binaryen speed unless explicitly accepted
-- docs/changelog/backlog updates are complete
+- docs/backlog updates are complete
 - the final report states exact evidence instead of broad claims

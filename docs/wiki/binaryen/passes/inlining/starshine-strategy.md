@@ -11,7 +11,6 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
-  - ../../../../../CHANGELOG.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -38,7 +37,7 @@ Current behavior:
 - same implementation file also powers `inlining-optimizing` with `optimize=true`;
 - plain mode does not emit or run the optimizing nested-cleanup approximation.
 
-Current status is **direct-surface signed off but not universal Binaryen inliner parity**. Former `[INL]001` is accepted for the current supported optimizing direct surface, `[INL]007` is accepted for the current supported plain direct surface, `[INL]003` is accepted for the current heuristic/action-filtering surface, deferred unsupported direct-inliner breadth now lives under `[INL]005` and `[INL]006`, and `[INL]002` remains active for the optimizing sibling's exact nested scheduler.
+Current status is **direct-surface signed off for v0.1.0 but not universal Binaryen inliner parity**. Former `[INL]001` is accepted for the current supported optimizing direct surface, `[INL]002` is accepted as representation/factoring drift, `[INL]007` is accepted for the current supported plain direct surface, and `[INL]003` / `[INL]004` are accepted for the current heuristic and no-inline policy surfaces. Deferred unsupported direct-inliner breadth now lives in the v0.2.0 backlog under `[INL]005` and residual `[INL]006`. Do not treat those as the next task after DAE without new evidence.
 
 ## Exact local code map
 
@@ -64,8 +63,8 @@ Current status is **direct-surface signed off but not universal Binaryen inliner
 - [`src/passes/inlining_test.mbt`](../../../../../src/passes/inlining_test.mbt)
   - focused public-pipeline coverage for the current subset.
 - [`agent-todo.md`](../../../../../agent-todo.md)
-  - `[INL]002` tracks exact nested useful-pass replay for the optimizing sibling.
-  - `[INL]003` records accepted heuristic/action-filtering closeout; `[INL]005` and `[INL]006` track deferred unsupported direct-inliner breadth; `[INL]007` records accepted plain direct signoff.
+  - v0.1.0 accepts `[INL]001`, `[INL]002`, `[INL]003`, `[INL]004`, and `[INL]007` for their current surfaces.
+  - v0.2.0 tracks deferred unsupported direct-inliner breadth under `[INL]005` and residual `[INL]006`.
 
 ## Implemented subset
 
@@ -116,13 +115,12 @@ Missing repair surfaces should skip rather than emit invalid wasm:
 
 ## Main gaps
 
+These are **not** active v0.1.0 blockers. They are v0.2.0 or later follow-up unless a future Starshine-supported repro proves a semantic mismatch, wasm validation failure, exported/start/table/ref.func discrepancy, or proven pass-local performance/code-size issue.
+
 - Unsupported instruction/parser breadth such as atomic wrapper fixtures if a future Starshine-supported repro proves a remaining `Shrinks` gap.
-- partial-inlining-specific `no-inline*` behavior after the splitter lands.
-- Pattern A / Pattern B partial inlining and helper cleanup.
-- Exact nested `return_call*` and `return_call`-inside-`try` handling.
-- Multi-result result-block support.
-- Full label/name collision avoidance and post-inline uniquification.
-- Nondefaultable-local repair and Binaryen-like refinalization behavior.
+- `[INL]005`: partial-inlining-specific `no-inline*` behavior after the splitter lands, Pattern A / Pattern B partial inlining, and helper cleanup.
+- Residual `[INL]006`: full local/label name collision avoidance, post-inline debug-name reconstruction, and broader annotation collision repair.
+- Nondefaultable-local repair and Binaryen-like refinalization behavior only if future evidence shows correctness or validation need.
 
 ## Relationship to `inlining-optimizing`
 
@@ -144,4 +142,5 @@ The correct local mental model is:
 - **plain mode stops after rewrite/helper cleanup plus the narrow no-call unreachable value-block cleanup**;
 - **plain `[INL]007` direct surface accepted with locals-only representation drift**;
 - **not universal Binaryen-inliner parity complete**;
-- **INL backlog remains active for `[INL]002`, `[INL]005`, and `[INL]006`; `[INL]003` is accepted for the current heuristic/action-filtering surface, and `[INL]004` is accepted for the current no-inline policy surface, including direct name-section policy marking, annotation/function-name compaction remapping, stale local-name dropping, and a shared policy-copy helper for future clone/copy transforms**.
+- **no active v0.1.0 INL implementation blocker remains**;
+- **`[INL]005` and residual `[INL]006` are v0.2.0 backlog only unless new correctness, validation, user-facing, performance, or code-size evidence justifies them**.

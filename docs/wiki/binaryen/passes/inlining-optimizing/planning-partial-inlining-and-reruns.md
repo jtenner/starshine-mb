@@ -95,7 +95,7 @@ Current Starshine approximates this by running a broad cleanup lane, then restor
 
 Binaryen prepends `precompute-propagate` before the default function pipeline. This is the concrete reason the optimizing suffix is powerful: inlined constants and copied expressions often become foldable before later cleanup passes see them.
 
-The local equivalent is still missing. `[INL]002` remains active until the real touched-function scheduler lands.
+The local equivalent remains an approximation. `[INL]002` is accepted for v0.1.0 on correctness grounds; do not reopen it solely to chase exact scheduler byte/WAT shape without new correctness, validation, performance, or size evidence.
 
 ## 7. The late-tail neighborhood consumes the result
 
@@ -116,8 +116,8 @@ That means the immediate next useful questions are no longer about the four-func
 
 - whether deferred direct-inliner Binaryen feature breadth should be split into follow-up slices or accepted as out of scope for the current supported surface;
 - whether plain `--pass inlining` should get its own independent broadened-seed signoff;
-- whether ordered-neighborhood or artifact replay is still needed before closing the direct optimizing slice;
-- how exact nested cleanup scheduling under `[INL]002` should be proved separately from the direct inliner core.
+- whether ordered-neighborhood replay is needed for later preset placement;
+- whether future exact nested cleanup work has evidence strong enough to reopen or supersede accepted `[INL]002`.
 
 ## Good future-agent checklist
 
