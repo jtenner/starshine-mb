@@ -80,7 +80,9 @@ Validation failures: 0
 Ignored Binaryen/tool command failures: 25
 ```
 
-Debug-artifact direct replay is now non-aborting and no longer has the previous local-bloat size gap. The first non-aborting replay at `.tmp/inl002-direct-debug-artifact-current-20260515-184415` produced a valid `3.5M` raw wasm, but function-level WAT ranking showed huge local-declaration/coalescing drift in aligned large functions and in the start/export functions. A validation-guarded final raw vacuum preclean plus `coalesce-locals -> reorder-locals` and type-section compaction cleanup for optimizing mode reduces the direct artifact in `.tmp/inl002-final-raw-preclean-20260515-204256` to about `1.7M` raw wasm; follow-up raw preclean support for dropped local/global reads, stacked pure-drop clusters, and direct nonfallthrough dead tails validates at `.tmp/inl002-deadtail-preclean-20260515-220109` and narrows the former `S2356->B2289` aligned WAT delta to about `116K`. A subsequent skipped-raw-`simplify-locals` pure-suffix cleanup replay validates at `.tmp/inl002-puresuffix-only-20260516-002821`, reducing the top aligned Starshine-larger WAT delta to about `25K` and `skip_bytes` to `585064`. `wasm-tools validate` accepts these outputs. Binaryen direct `--inlining-optimizing` remains about `2.2M`. `[INL]002` is still not closed because canonical wasm/WAT still differ (the latest replay prints about `35M` Starshine WAT vs `134M` Binaryen WAT after the current strip/print path), but the remaining blocker is semantic/canonical artifact parity rather than native abort or gross size bloat. Wall-time remains deferred to `[WALL]001` unless a pass-local correctness issue is identified.
+Debug-artifact direct replay is now non-aborting and no longer has the previous local-bloat size gap. The first non-aborting replay at `.tmp/inl002-direct-debug-artifact-current-20260515-184415` produced a valid `3.5M` raw wasm, but function-level WAT ranking showed huge local-declaration/coalescing drift in aligned large functions and in the start/export functions. A validation-guarded final raw vacuum preclean plus `coalesce-locals -> reorder-locals` and type-section compaction cleanup for optimizing mode reduces the direct artifact in `.tmp/inl002-final-raw-preclean-20260515-204256` to about `1.7M` raw wasm; follow-up raw preclean support for dropped local/global reads, stacked pure-drop clusters, and direct nonfallthrough dead tails validates at `.tmp/inl002-deadtail-preclean-20260515-220109` and narrows the former `S2356->B2289` aligned WAT delta to about `116K`. A subsequent skipped-raw-`simplify-locals` pure-suffix cleanup replay validates at `.tmp/inl002-puresuffix-only-20260516-002821`, reducing the top aligned Starshine-larger WAT delta to about `25K` and `skip_bytes` to `585064`. `wasm-tools validate` accepts these outputs. Binaryen direct `--inlining-optimizing` remains about `2.2M`.
+
+`[INL]002` is accepted as of 2026-05-16 on correctness grounds rather than exact byte/WAT parity. Canonical wasm/WAT still differ: the latest replay prints about `35M` Starshine WAT vs `134M` Binaryen WAT, Starshine's wasm is about `1.7M` vs Binaryen's about `2.2M`, `wasm-tools objdump` reports Starshine's code section at `1,560,895` bytes vs Binaryen's `2,106,285`, and `wasm-opt --all-features --metrics` reports `762,965` total Starshine nodes vs `977,216` Binaryen nodes. Targeted mismatch triage found no wasm validation error, no exported/start/table/ref.func semantic discrepancy, and no meaning-changing evidence: the top Starshine-larger aligned examples are local/control representation drift, the large Binaryen-larger examples are Binaryen expansion/factoring drift, and the remaining 119 Starshine-only skipped functions are mostly referenced helper factoring with 12 unreferenced cleanup candidates. A 200-case smoke at `.tmp/pass-fuzz-inlining-optimizing-inl002-puresuffix-200` preserved the known local-declaration/frontier mismatch shape with `0` validation failures. Exact Binaryen canonical artifact shape is therefore not a v0.1.0 `[INL]002` blocker. Wall-time remains deferred to `[WALL]001` unless a pass-local correctness issue is identified.
 
 ## What is already validated locally
 
@@ -121,15 +123,11 @@ Focused tests validate the current subset:
 - `[INL]005` Pattern A / Pattern B partial splitting;
 - `[INL]006` nested tail-call, multi-result, and name/annotation repair.
 
-### `[INL]002` scheduler blockers
+### `[INL]002` accepted representation drift
 
-- optimizing mode currently approximates nested cleanup;
-- the former seed-`0x1eed` `case-008100-gen-valid` command failure is fixed by a narrow hot-unsafe helper guard;
-- a private touched-only `precompute-propagate-prefix` now runs before the cleanup lane, but the real public `precompute-propagate` sibling is still unavailable;
-- the remaining cleanup lane is touched-filtered and drops the former extra pre-default `precompute`; it includes option gates for `ssa-nomerge`, `pick-load-signs`, `code-pushing`, `heap2local`, `optimize-casts`, `local-subtyping`, `local-cse`, `code-folding`, `merge-locals`, and `redundant-set-elimination`, plus the early second `remove-unused-names`, local `reorder-locals`, late local cleanup cluster, and final `vacuum` after late `heap-store-optimization`, but it is still Starshine's approximation rather than a proven exact Binaryen default pipeline expansion;
-- debug-artifact direct replay now exits `0` and validates at `.tmp/inl002-puresuffix-only-20260516-002821`, but artifact parity/runtime remain open: `.tmp/self-opt-inlining-optimizing-inl002-manual-20260515-185400` shows Starshine still differs from Binaryen and runs far slower on the full artifact, so `[INL]002` cannot be closed on fuzz evidence plus non-aborting replay alone;
-- no artifact proof that only Binaryen's touched functions see exactly the same default-pipeline effects after the prefix;
-- no ordered late-tail artifact parity.
+- `[INL]002` is accepted for v0.1.0 as a correctness-focused nested replay slice. The scheduler remains an approximation of Binaryen's exact private `precompute-propagate` + default-function pipeline, but direct pass fuzz signoff, artifact validation, and targeted mismatch triage found no correctness or validation evidence that justifies chasing exact Binaryen byte/WAT shape.
+- Remaining exact artifact differences are classified as representation/factoring drift: Binaryen often expands/inlines into larger bodies, while Starshine retains helper factoring and currently produces smaller wasm/code-section/WAT/static metrics on the debug artifact.
+- Future work that has independent correctness or performance evidence should use dedicated slices: `[INL]005` for partial splitting, `[INL]006` for tail-call/multi-result/name repair, and `[WALL]001` for whole-command runtime. Do not reopen `[INL]002` for cosmetic canonical drift alone.
 
 ## Validation ladder
 
@@ -146,15 +144,10 @@ Focused tests validate the current subset:
 
 Treat `[INL]001` and `[INL]007` as complete only for the currently implemented direct-call surfaces already proven by the green seed lanes. New direct-inliner work should land under `[INL]005` or `[INL]006` unless a new Starshine-supported heuristic/action-filtering semantic mismatch justifies reopening `[INL]003`; do not reopen accepted direct slices without a new semantic mismatch.
 
-Do not mark `[INL]002` complete until:
-
-- the nested cleanup starts with the real `precompute-propagate` equivalent rather than only the current private prefix approximation;
-- the default function pipeline expansion matches Binaryen's option-specific order and runs only on Binaryen's touched set;
-- untouched functions are proven unchanged by the full nested scheduler, including module-shaped local cleanup adapters;
-- focused trace/scheduler tests and direct compare evidence agree.
+`[INL]002` is complete for v0.1.0 under the accepted representation-drift decision above. Reopen it only if new evidence shows a `--inlining-optimizing` nested replay correctness bug, wasm validation failure, exported/start/table/ref.func semantic discrepancy, or a proven pass-local performance/correctness issue in the nested scheduler itself. Do not reopen it solely because canonical wasm/WAT differs from Binaryen when both outputs validate and the difference is classified as representation/factoring drift.
 
 ## Unresolved uncertainty
 
-- The current exact-`unreachable` predictor is artifact-driven and may need refactoring after broader helper deletion and exact scheduler behavior land.
+- The current exact-`unreachable` predictor is artifact-driven and may need refactoring if future `[INL]005` or `[INL]006` work broadens helper deletion, multi-result inlining, or exact repair behavior.
 - The current local representation for Binaryen no-inline flags uses internal function annotations and remaps them with function compaction; function names are also remapped for later policy matching, while local/label names are dropped after inlining rewrites until full repair exists. Future clone/copy transforms should call `no_inline_copy_policy_annotations(...)`; partial-inlining-specific official no-inline shapes move with `[INL]005`.
 - The best shared scheduler abstraction for DAE/INL/SGO remains open; avoid building three incompatible nested runners.
