@@ -1701,6 +1701,31 @@ test "inlining synthesizes zero-param multi-result block types when absent" {
 }
 
 ///|
+test "inlining preserves nested return_call_indirect when the callsite is tail" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (param i32) (result i32)))
+    #|  (table funcref (elem $leaf))
+    #|  (func $leaf (type $t0)
+    #|    local.get 0)
+    #|  (func $tail (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    return_call_indirect (type $t0))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    return_call $tail))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_true(run.contains("return_call_indirect"), msg=run)
+  assert_false(run.contains("return_call (Func 1)"), msg=run)
+}
+
+///|
 test "inlining preserves nested return_call when the callsite is tail" {
   let source =
     #|(module

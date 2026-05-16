@@ -67,6 +67,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added focused coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a no-param `(result i32 i32)` helper is removed and its constants are visible in the caller after inlining.
 - Validation/evidence: the focused test first failed with the helper still present, then passed after implementation; `moon fmt`, `moon info`, `moon test src/passes` (`1074/1074`), full `moon test` (`3137/3137`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-multivalue-wasm-smith-1000` (`997/1000` compared, `997` matches, `0` mismatches, `0` validation failures, `3` Binaryen/tool command failures). Remaining `[INL]006` work includes parameterized multi-result wrapper typing, `return_call` inside `try`, indirect/ref tail-call forms, and full name/annotation repair.
 
+## [2026-05-16] tests | INL006 nested return_call_indirect tail coverage
+
+- Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a helper containing `return_call_indirect` can be inlined at an outer direct `return_call` callsite while preserving the indirect tail call.
+- No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused test passed; `moon test src/passes` passed (`1077/1077`). Remaining `[INL]006` work includes `return_call` inside `try`, `return_call_ref` breadth, and full name/annotation repair.
 ## [2026-05-16] passes | INL006 synthesized multi-result block types
 
 - Advanced `[INL]006` by appending a missing zero-param function type for a parameterized multi-result callee's result tuple when the helper is referenced and otherwise passes the narrow inline gates. The copied-body wrapper block can then use that synthesized type instead of rejecting the helper.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-16 Tests: cover nested tail-call-indirect inlining
+
+- **expanded `[INL]006` repair coverage for nested tail calls** by **@OpenAI**. Added focused coverage in [`src/passes/inlining_test.mbt`](./src/passes/inlining_test.mbt) proving a helper containing `return_call_indirect` can be safely inlined at an outer direct `return_call` callsite while preserving the indirect tail call. No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused test passed; `moon test src/passes` (`1077/1077`). Remaining `[INL]006` repair work is `return_call` inside `try`, `return_call_ref` breadth, and full label/name/annotation repair.
+
 ## 2026-05-16 Passes: synthesize INL006 multivalue block types
 
 - **advanced `[INL]006` by synthesizing missing zero-param multi-result wrapper block types for otherwise-inlineable parameterized helpers** by **@OpenAI**. The inliner now appends a zero-param function type for a callee result tuple only when a referenced parameterized multi-result helper passes the narrow direct-inline gates and no reusable result type exists, then uses that type for the copied-body wrapper block. Added focused TDD coverage in [`src/passes/inlining_test.mbt`](./src/passes/inlining_test.mbt). Validation/evidence: focused test first failed with the helper still present, then passed after implementation; `moon fmt`, `moon info`, `moon test src/passes` (`1076/1076`), full `moon test` (`3139/3139`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-synth-type-wasm-smith-1000` (`997/1000` compared, `997` matches, `0` mismatches, `0` validation failures, `3` Binaryen/tool command failures). Remaining `[INL]006` repair work is tail-call-in-try hoisting, indirect/ref tail calls, and full label/name/annotation repair.
