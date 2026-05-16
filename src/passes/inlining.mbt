@@ -158,7 +158,7 @@ fn inl_find_zero_param_result_type(
       let mut idx = 0
       for rec_type in rec_types {
         match rec_type {
-          @lib.SingleRecType(subtype) =>
+          @lib.SingleRecType(subtype) => {
             match subtype.get_comptype() {
               @lib.FuncCompType(params, type_results) =>
                 if params.length() == 0 && type_results == results {
@@ -166,14 +166,90 @@ fn inl_find_zero_param_result_type(
                 }
               _ => ()
             }
-          @lib.GroupRecType(_) => ()
+            idx += 1
+          }
+          @lib.GroupRecType(group) =>
+            for subtype in group {
+              match subtype.get_comptype() {
+                @lib.FuncCompType(params, type_results) =>
+                  if params.length() == 0 && type_results == results {
+                    return Some(@lib.TypeIdx::new(idx.reinterpret_as_uint()))
+                  }
+                _ => ()
+              }
+              idx += 1
+            }
         }
-        idx += 1
       }
       None
     }
     None => None
   }
+}
+
+///|
+fn inl_append_zero_param_result_type(
+  mod_ : @lib.Module,
+  results : Array[@lib.ValType],
+) -> @lib.Module {
+  let rec_types = match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => rec_types.copy()
+    None => []
+  }
+  rec_types.push(
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], results))),
+  )
+  mod_.with_type_sec(@lib.TypeSec::new(rec_types))
+}
+
+///|
+fn inl_prepare_multivalue_block_types(
+  mod_ : @lib.Module,
+  optimize_level : Int,
+  shrink_level : Int,
+) -> @lib.Module {
+  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let refs = Array::make(func_type_indices.length(), 0)
+  let used = Array::make(func_type_indices.length(), false)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
+  }
+  for func in funcs {
+    let @lib.Func(_, @lib.Expr(body)) = func
+    inl_scan_refs(body, refs, used)
+  }
+  let (no_full_inline, _) = no_inline_policy_flags(mod_)
+  let imports = inl_imported_func_count(mod_)
+  let speed_focused = optimize_level >= 3 && shrink_level == 0
+  let mut current = mod_
+  let mut abs = imports
+  while abs < func_type_indices.length() {
+    let def_idx = abs - imports
+    if def_idx >= 0 && def_idx < funcs.length() && refs[abs] > 0 {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+      let (calls, loops, tries, _) = inl_scan_shape_instrs(body)
+      let size = inl_count_instrs(body)
+      let no_full_policy = abs >= 0 &&
+        abs < no_full_inline.length() &&
+        no_full_inline[abs]
+      let may_not_shrink = speed_focused && !calls && !loops && size <= 20
+      match inl_resolve_func_type(current, func_type_indices, abs) {
+        Some(@lib.FuncType(params, results)) =>
+          if !no_full_policy &&
+            !tries &&
+            params.length() > 0 &&
+            results.length() > 1 &&
+            (size <= 2 || refs[abs] == 1 || may_not_shrink) &&
+            inl_find_zero_param_result_type(current, results) is None {
+            current = inl_append_zero_param_result_type(current, results)
+          }
+        None => ()
+      }
+    }
+    abs += 1
+  }
+  current
 }
 
 ///|
@@ -5204,8 +5280,11 @@ fn inl_run_module_pass_once(
   let preserve_root_cycle_cleanup = inl_has_same_sig_root_cycle_dead_suffix(
     mod_,
   )
-  let infos = inl_build_function_infos(mod_, optimize_level~, shrink_level~)
-  let result = inl_rewrite_all_calls(mod_, infos)
+  let prepared = inl_prepare_multivalue_block_types(
+    mod_, optimize_level, shrink_level,
+  )
+  let infos = inl_build_function_infos(prepared, optimize_level~, shrink_level~)
+  let result = inl_rewrite_all_calls(prepared, infos)
   if !result.changed {
     return (inl_prune_dead_unreachable_drops(mod_), false, [])
   }

@@ -127,7 +127,7 @@ Binaryen must repair the nested return-call semantics if it inlines. Current Sta
   i32.add)
 ```
 
-`[INL]006` now supports this narrow case by using the callee's zero-param function type as the wrapper block type. It also supports parameterized multi-result helpers when the module already has a separate zero-param function type for the same result tuple. Other parameterized multi-result helpers remain gated until Starshine can synthesize the needed block type safely.
+`[INL]006` now supports this narrow case by using the callee's zero-param function type as the wrapper block type. It also supports parameterized multi-result helpers when the module already has a separate zero-param function type for the same result tuple, and can synthesize that missing zero-param result type for otherwise-inlineable helpers before copying the body.
 
 ## Shape 7: partial inlining payoff
 

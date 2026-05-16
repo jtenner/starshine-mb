@@ -1674,6 +1674,33 @@ test "inlining reuses existing zero-param multi-result block types for parameter
 }
 
 ///|
+test "inlining synthesizes zero-param multi-result block types when absent" {
+  let source =
+    #|(module
+    #|  (type $pair_t (func (param i32) (result i32 i32)))
+    #|  (func $pair (type $pair_t)
+    #|    local.get 0
+    #|    i32.const 1)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $pair
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
+    None => fail("expected synthesized type section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_true(run.contains("local.set"), msg=run)
+  assert_true(run.contains("i32.const I32(1)"), msg=run)
+  assert_false(run.contains("call"), msg=run)
+}
+
+///|
 test "inlining preserves nested return_call when the callsite is tail" {
   let source =
     #|(module
