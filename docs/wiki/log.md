@@ -71,7 +71,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a helper containing `return_call_indirect` can be inlined at an outer direct `return_call` callsite while preserving the indirect tail call.
 - No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused test passed; `moon test src/passes` passed (`1077/1077`). Remaining `[INL]006` work includes `return_call` inside `try`, `return_call_ref` breadth, and full name/annotation repair.
-## [2026-05-16] passes | INL006 synthesized multi-result block types
+
+## [2026-05-16] tests | INL006 remaining tail-form coverage
+
+- Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving helpers containing `return_call_indirect` and `return_call_ref` can be inlined at outer direct `return_call` callsites while preserving the nested tail call, and proving direct `return_call` inlining remains valid inside a `try_table` callsite.
+- No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused tests passed; `moon fmt`, `moon info`, `moon test src/passes` (`1079/1079`), full `moon test` (`3142/3142`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-forms-wasm-smith-1000` (`991/1000` compared, `991` matches, `0` mismatches, `0` validation failures, `9` Binaryen/tool command failures). Remaining `[INL]006` work is full name/annotation repair.## [2026-05-16] passes | INL006 synthesized multi-result block types
 
 - Advanced `[INL]006` by appending a missing zero-param function type for a parameterized multi-result callee's result tuple when the helper is referenced and otherwise passes the narrow inline gates. The copied-body wrapper block can then use that synthesized type instead of rejecting the helper.
 - Added focused coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a `(param i32) (result i32 i32)` helper inlines even when the input module has no pre-existing zero-param result type.

@@ -1,8 +1,8 @@
 # Changelog
 
-## 2026-05-16 Tests: cover nested tail-call-indirect inlining
+## 2026-05-16 Tests: cover remaining INL006 tail forms
 
-- **expanded `[INL]006` repair coverage for nested tail calls** by **@OpenAI**. Added focused coverage in [`src/passes/inlining_test.mbt`](./src/passes/inlining_test.mbt) proving a helper containing `return_call_indirect` can be safely inlined at an outer direct `return_call` callsite while preserving the indirect tail call. No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused test passed; `moon test src/passes` (`1077/1077`). Remaining `[INL]006` repair work is `return_call` inside `try`, `return_call_ref` breadth, and full label/name/annotation repair.
+- **expanded `[INL]006` repair coverage for remaining tail-call shapes** by **@OpenAI**. Added focused coverage in [`src/passes/inlining_test.mbt`](./src/passes/inlining_test.mbt) proving helpers containing `return_call_indirect` and `return_call_ref` can be safely inlined at outer direct `return_call` callsites while preserving the nested tail calls, and proving direct `return_call` inlining remains valid inside a `try_table` callsite. No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused tests passed; `moon fmt`, `moon info`, `moon test src/passes` (`1079/1079`), full `moon test` (`3142/3142`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-forms-wasm-smith-1000` (`991/1000` compared, `991` matches, `0` mismatches, `0` validation failures, `9` Binaryen/tool command failures). Remaining `[INL]006` repair work is full label/name/annotation repair.
 
 ## 2026-05-16 Passes: synthesize INL006 multivalue block types
 

@@ -1726,6 +1726,52 @@ test "inlining preserves nested return_call_indirect when the callsite is tail" 
 }
 
 ///|
+test "inlining preserves nested return_call_ref when the callsite is tail" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (param i32) (result i32)))
+    #|  (func $leaf (type $t0)
+    #|    local.get 0)
+    #|  (elem declare func $leaf)
+    #|  (func $tail (param i32) (result i32)
+    #|    local.get 0
+    #|    ref.func $leaf
+    #|    return_call_ref (type $t0))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    return_call $tail))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_true(run.contains("return_call_ref"), msg=run)
+  assert_false(run.contains("return_call (Func 1)"), msg=run)
+}
+
+///|
+test "inlining preserves return_call in try_table callsite" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run") (result i32)
+    #|    try_table (result i32)
+    #|      return_call $tiny
+    #|    end))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_true(run.contains("try_table"), msg=run)
+  assert_true(run.contains("i32.const I32(7)"), msg=run)
+  assert_false(run.contains("return_call"), msg=run)
+}
+
+///|
 test "inlining preserves nested return_call when the callsite is tail" {
   let source =
     #|(module
