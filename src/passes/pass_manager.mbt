@@ -10508,6 +10508,124 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
 }
 
 ///|
+fn run_hot_pipeline_sgo_nested_cleanup_passes() -> Array[String] {
+  [
+    // Binaryen's simplify-globals-optimizing reruns ordinary default function
+    // optimization on changed functions, but does not prepend the
+    // precompute-propagate prefix used by DAE / inlining after-inlining lanes.
+    "dead-code-elimination", "optimize-instructions", "local-cse", "pick-load-signs",
+    "heap-store-optimization", "heap2local", "optimize-casts", "code-pushing", "simplify-locals",
+    "code-folding", "precompute", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+    "merge-blocks", "coalesce-locals", "reorder-locals", "vacuum",
+  ]
+}
+
+///|
+fn run_hot_pipeline_sgo_nested_cleanup_descriptor(
+  pass_name : String,
+) -> Result[@ir.HotPassDescriptor, String] {
+  match pass_registry_lookup_cached(pass_name) {
+    Some(entry) =>
+      match entry.descriptor {
+        Some(descriptor) => Ok(descriptor)
+        None => Err("SGO nested cleanup pass \{pass_name} is not a hot pass")
+      }
+    None => Err("SGO nested cleanup expanded to unknown pass \{pass_name}")
+  }
+}
+
+///|
+fn run_hot_pipeline_apply_sgo_nested_cleanup(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  let touched_count = sgo_count_touched(touched)
+  if touched_count == 0 {
+    return Ok(mod_)
+  }
+  (options.trace)(
+    "pass[simplify-globals-optimizing]:nested-cleanup touched=\{touched_count} prefix=default",
+  )
+  let size_skip_reason = run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
+    mod_, touched,
+  )
+  if touched_count > 8 || size_skip_reason != None {
+    let reason = if touched_count > 8 {
+      "large-touched-set"
+    } else {
+      size_skip_reason.unwrap()
+    }
+    pipeline_trace_hook(
+      options.trace,
+      "simplify-globals-optimizing",
+      "nested-cleanup-skip",
+      payload="reason=\{reason} touched=\{touched_count}",
+    )
+    return Ok(mod_)
+  }
+  let mut current = mod_
+  for pass_name in run_hot_pipeline_sgo_nested_cleanup_passes() {
+    pipeline_trace_hook(
+      options.trace,
+      "simplify-globals-optimizing",
+      "nested-pass",
+      payload="name=\{pass_name}",
+    )
+    if pass_name == "local-cse" {
+      current = match
+        run_hot_pipeline_apply_local_cse_to_touched(current, touched, options) {
+        Ok(next) => next
+        Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+      }
+      continue
+    }
+    if pass_name == "coalesce-locals" {
+      current = match
+        run_hot_pipeline_apply_coalesce_locals_to_touched(current, touched) {
+        Ok(next) => next
+        Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+      }
+      continue
+    }
+    if pass_name == "reorder-locals" {
+      current = match
+        run_hot_pipeline_apply_reorder_locals_to_touched(current, touched) {
+        Ok(next) => next
+        Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+      }
+      continue
+    }
+    let descriptor = match
+      run_hot_pipeline_sgo_nested_cleanup_descriptor(pass_name) {
+      Ok(descriptor) => descriptor
+      Err(err) => return Err(err)
+    }
+    current = match
+      run_hot_pipeline_apply_hot_pass_to_touched(
+        current, descriptor, touched, options,
+      ) {
+      Ok(next) => next
+      Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+    }
+  }
+  Ok(current)
+}
+
+///|
+fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
+  mod_ : @lib.Module,
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  let result = sgo_run_core(mod_, options.trace)
+  run_hot_pipeline_apply_sgo_nested_cleanup(
+    result.mod_out,
+    result.touched,
+    options,
+  )
+}
+
+///|
 fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
@@ -10555,6 +10673,11 @@ fn run_hot_pipeline_apply_module_pass(
     "local-cse" => local_cse_run_module_pass(mod_)
     "merge-locals" => merge_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
+    "simplify-globals-optimizing" =>
+      match run_hot_pipeline_apply_sgo_optimizing_module_pass(mod_, options) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>
       match run_hot_pipeline_apply_dae_optimizing_module_pass(mod_, options) {
         Ok(next) => next

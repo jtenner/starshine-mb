@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
@@ -34,7 +35,7 @@ related:
 ## Role
 
 - `simplify-globals-optimizing` is an upstream Binaryen late global optimizing pass.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). The exact local status and future-port map now live in [`./starshine-strategy.md`](./starshine-strategy.md).
+- It is currently **partially implemented** in Starshine as an active module pass in [`../../../../../src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt), with registry and dispatcher wiring in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt). The exact local status and remaining port map live in [`./starshine-strategy.md`](./starshine-strategy.md).
 - Binaryen also exposes the related plain pass name `simplify-globals`.
 - The `simplify-globals-optimizing` variant is the same core global pass **plus** a nested rerun of the default function optimization pipeline on changed functions.
 
@@ -86,11 +87,12 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
   - it does **not** prepend `precompute-propagate`
   - it reruns per changed function through a nested `PassRunner`
 - Imports, exports, actual calls, nonlinear control flow, and type mismatches are major bailout or conservatism families.
-- A future Starshine port must preserve both halves:
-  - the multi-phase global rewrite algorithm
-  - the no-extra-`precompute-propagate` nested rerun behavior of the optimizing variant
-- Current Starshine tracks the pass as boundary-only, rejects explicit requests honestly, and has `SGO` backlog slices, but it has no owner file, no global-use fact table, and no nested-rerun scheduler yet.
-- The 2026-04-25 port-readiness bridge found no teaching-relevant Binaryen current-main drift and adds a dedicated Starshine implementation-readiness / validation ladder without claiming local implementation.
+- The active Starshine slice preserves both halves narrowly:
+  - a first module-owned global rewrite algorithm for private never-written globals, single-use initializer folding into later globals, exact-type immutable copy-chain canonicalization, never-read, single-const same-as-init, and adjacent/transparent read-only-to-write dead writes, supported constant global reads, startup constants in table/global/offset module expressions, and straight-line runtime propagation for single-const private global writes
+  - a touched-function nested default cleanup lane without the `precompute-propagate` prefix
+- Current Starshine no longer rejects direct `simplify-globals-optimizing` requests, but it remains incomplete: broader same-as-init expression matching, broader `read-only-to-write` shapes beyond the current adjacent/transparent self-guard matcher, broader copy-chain/type-refinalization cases, broader runtime linear-trace propagation, debug-artifact oracle parity, and public-preset scheduling are still open.
+- The first active slice has generated-input oracle evidence: 10000/10000 `gen-valid` normalized matches against Binaryen and 9975/9975 compared mixed-generator matches, with only known Binaryen/tool command failures in the mixed lane.
+- The 2026-04-25 port-readiness bridge found no teaching-relevant Binaryen current-main drift; the 2026-05-16 local implementation slice should be read as a partial port against that contract, not as full parity.
 
 ## Page map
 
@@ -103,15 +105,15 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future-port map: boundary-only registry tracking, honest request rejection, missing owner code, `SGO` backlog slices, and the exact neighboring late-tail pass dossiers to compose with.
+  Current Starshine status and remaining port map: active partial module-pass wiring, implemented constant/dead-set/touched-cleanup subset, open `SGO` backlog work, and the exact neighboring late-tail pass dossiers to compose with.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge for a future port: minimum viable slice order, transformed-shape test plan, scheduler validation, Binaryen oracle comparison, and late-tail replay sequencing.
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `simplify-globals-optimizing` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real late boundary/global pass plus the correct nested rerun scheduler behavior.
-- New `simplify-globals-optimizing` findings should update the strategy page, the linear-trace / read-only-to-write page, and the port-readiness page together so the global algorithm story, scheduler story, and future Starshine validation plan stay aligned.
+- Treat this folder as the canonical home for `simplify-globals-optimizing` research, implementation notes, and port planning.
+- Keep it explicitly marked as **partial** until Starshine grows the remaining Binaryen global rewrite families plus debug-artifact oracle parity and preset scheduling.
+- New `simplify-globals-optimizing` findings should update the strategy page, the linear-trace / read-only-to-write page, and the port-readiness page together so the global algorithm story, scheduler story, and Starshine validation plan stay aligned.
 
 ## Sources
 
@@ -121,6 +123,7 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

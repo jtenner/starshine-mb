@@ -153,7 +153,7 @@ Why it matters locally:
 - both public passes come from the same upstream `SimplifyGlobals.cpp` engine
 - a future Starshine port should likely share most low-level global-analysis and rewrite machinery between the siblings
 - the most important semantic difference to preserve is the stop point: plain `simplify-globals` stops after global rewrites and type repair, while `simplify-globals-optimizing` continues into the nested default-function rerun
-- the current repo already has planning coverage only for the optimizing sibling, so a future contributor must decide whether to land shared primitives first or expose only the optimizing wrapper initially
+- the current repo now exposes a partial optimizing-wrapper slice first, so a future contributor must decide whether to extract shared primitives for plain `simplify-globals` or continue broadening the optimizing sibling before exposing the smaller plain stop point
 
 ### `propagate-globals-globally` is the startup-only sibling, not a random helper
 

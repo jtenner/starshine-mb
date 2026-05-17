@@ -8,6 +8,7 @@ sources:
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -34,54 +35,60 @@ Use this page after the source contract pages:
 - [`./wat-shapes.md`](./wat-shapes.md) shows the important transformed shapes.
 - [`./starshine-strategy.md`](./starshine-strategy.md) records current local status.
 
-This page answers the next practical question: if Starshine implements this boundary pass later, what is the safest first slice and how should it be validated?
+This page answers the practical porting question: now that Starshine has a first partial module-pass slice, what remains and how should each next slice be validated?
 
 ## Current port-readiness summary
 
-`simplify-globals-optimizing` is **not implemented** in Starshine today.
+`simplify-globals-optimizing` is **partially implemented** in Starshine today.
 The useful local status is:
 
 | Surface | Current state | Code / doc anchor |
 | --- | --- | --- |
-| Public pass name | known as boundary-only | [`src/passes/optimize.mbt#L127-L141`](../../../../../src/passes/optimize.mbt#L127-L141) |
-| Active request behavior | rejected honestly as boundary-only | [`src/passes/optimize.mbt#L448-L466`](../../../../../src/passes/optimize.mbt#L448-L466) |
-| Active presets | local `optimize` / `shrink` stop before the late Binaryen post-pass tail | [`src/passes/optimize.mbt#L248-L270`](../../../../../src/passes/optimize.mbt#L248-L270) |
-| Backlog | split into global rewrite / mutation tracking plus nested rerun | [`agent-todo.md#L546-L561`](../../../../../agent-todo.md#L546-L561) |
+| Public pass name | active module pass; plain `simplify-globals` remains boundary-only | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) |
+| Active request behavior | direct requests run the partial SGO core plus touched nested cleanup | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) |
+| Implementation owner | first constant/dead-set/same-init/read-only-to-write/startup/single-use-init/exact-copy-chain/straight-line-runtime subset | [`src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt) |
+| Focused tests | registry, constants, single-use init folding, exact-type immutable copy chains, dead sets, single-const same-init writes, narrow read-only-to-write self guards including `nop` / void-`block` transparent bodies, straight-line runtime propagation and call barrier, startup offsets, touched-only nested cleanup, typed element item bailout, exported bailout | [`src/passes/simplify_globals_optimizing_test.mbt`](../../../../../src/passes/simplify_globals_optimizing_test.mbt) |
+| Direct fuzz evidence | 10000/10000 gen-valid normalized matches; 9975/10000 mixed-generator compared matches with only Binaryen/tool command failures | [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) |
+| Active presets | local `optimize` / `shrink` still stop before the late Binaryen post-pass tail | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) |
+| Backlog | still split into broader global rewrite parity plus nested/artifact parity | [`agent-todo.md`](../../../../../agent-todo.md) |
 | Canonical placement | after `duplicate-import-elimination`, before `remove-unused-module-elements` | [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) |
 
-That means the wiki should continue to teach the pass as a future boundary/module port, not as a HOT peephole already hiding in the local pass manager.
+That means the wiki should now teach the pass as an active but incomplete module/global port, not as a HOT peephole and not as full Binaryen parity.
 
 ## Minimum viable Starshine slice
 
-A source-faithful first slice should preserve Binaryen's two identities:
+A source-faithful complete port must preserve Binaryen's two identities:
 
 1. shared global-simplification algorithm, and
 2. optimizing wrapper that reruns ordinary function cleanup on exactly the changed functions.
 
-A practical local landing order is:
+The current first slice covers fact collection, single-use initializer folding into later globals, exact-type immutable copy-chain canonicalization, a small constant/dead-set/same-init/read-only-to-write subset including `nop` / void-`block` transparent self-guard bodies, startup propagation for supported constants, straight-line runtime propagation for single-const private global writes, reference-typed element item bailouts, and the no-`precompute-propagate` touched cleanup wrapper. The remaining practical landing order is:
 
-1. **Fact table first**
-   - collect imported/exported/read/written/non-init-written/read-only-to-write facts per global;
-   - scan function bodies and module-level initializer / segment-offset expressions;
-   - keep this module-owned, not HOT-region-owned.
-2. **Startup-only propagation**
-   - replace known earlier constant `global.get`s in later global initializers, element offsets, and data offsets;
-   - keep this separate from runtime code propagation because startup order is the proof.
-3. **Dead or redundant write repair**
-   - rewrite removable `global.set $g value` as `drop(value)`;
-   - preserve operand evaluation and mark the containing function as changed.
-4. **Small immutable-copy canonicalization**
-   - chase immutable global-copy chains only when the replacement type is exactly valid at the use;
+1. **Broaden the fact table**
+   - add Binaryen's `nonInitWritten` and `readOnlyToWrite` facts to the landed imported/exported/read/written table;
+   - keep scanning function bodies and module-level initializer / segment-offset expressions through the module-owned path.
+2. **Complete startup-only propagation**
+   - keep the landed supported-constant propagation into table initializers, global initializers, element offsets, and data offsets;
+   - keep the landed single-use global-initializer folding into later globals;
+   - add any remaining Binaryen startup families without reintroducing unsafe reference-typed element item replacement.
+3. **Complete dead or redundant write repair**
+   - keep rewriting removable `global.set $g value` as `drop(value)`;
+   - keep the landed single-const same-as-init write detection and narrow read-only-to-write self-guard detection, including the current transparent `nop` / void-`block` body support;
+   - add broader same-as-init expression matching and broader `read-only-to-write` shapes so the pass can remove more fake state without violating ordering.
+4. **Broaden immutable-copy canonicalization only with type proof**
+   - keep the landed exact-type immutable ancestor rewrite;
    - leave subtype/refinalization extensions for later unless deliberately documented.
-5. **Runtime trace propagation**
-   - replace global reads only while the current linear execution story is still simple;
+5. **Broaden runtime trace propagation**
+   - keep the landed straight-line single-const write/read propagation;
+   - expand only while the current linear execution story is still simple;
    - clear current facts around calls, nonlinear control, and writes to tracked globals.
-6. **Optimizing wrapper**
-   - carry the exact touched-function set from replacement/removal phases;
-   - rerun Starshine's default function cleanup on those functions only;
-   - do **not** prepend `precompute-propagate`, unlike the nearby DAE/inlining optimizing siblings.
+6. **Optimizing wrapper hardening**
+   - keep the landed exact touched-function set from replacement/removal phases;
+   - continue rerunning Starshine's default function cleanup on those functions only;
+   - do **not** prepend `precompute-propagate`, unlike the nearby DAE/inlining optimizing siblings;
+   - remove or justify the current large-module / large-touched-set guard with artifact evidence.
 
-The first useful local implementation may intentionally skip some shapes, but it should name itself as a subset until the fact collection, rewrite, and nested-rerun pieces all exist.
+Every partial implementation should name the subset it supports until the fact collection, rewrite, nested-rerun, direct oracle, and artifact evidence all exist.
 
 ## Transformed-shape coverage to preserve
 
@@ -102,17 +109,18 @@ The shape tests should stay readable enough for beginners, then add advanced str
 
 ## Validation ladder
 
-Use this validation order when implementation starts.
+Use this validation order for follow-up implementation.
 
 ### 1. Registry and request behavior
 
-Before the pass is implemented, existing behavior should remain:
+The current public-surface baseline is:
 
-- `simplify-globals-optimizing` is boundary-only;
-- explicit active requests fail with the boundary-only error;
-- presets do not silently include it.
+- `simplify-globals-optimizing` is an active module pass;
+- direct active requests run the partial implementation;
+- plain `simplify-globals` remains boundary-only;
+- presets do not silently include the late-tail pass.
 
-When the implementation lands, update the registry classification and add the classification-change test in the same commit.
+Any future classification or preset change should update registry/preset tests in the same commit.
 
 ### 2. Shared-engine shape tests
 
@@ -147,7 +155,14 @@ Run isolated oracle comparison before late-tail replay:
 - reduced fixtures from Binaryen's `simplify-globals-*` lit family;
 - targeted debug-artifact runs once the module-boundary harness accepts the pass.
 
-If mismatches are caused by a known subset, record that subset explicitly on the Starshine strategy page.
+Current active-partial evidence:
+
+- `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-transparent-10k-final` compared `9975/10000` mixed-generator modules after the transparent self-guard slice, matched all `9975`, found `0` validation failures, and hit `25` Binaryen/tool command failures.
+- `bun fuzz compare-pass --count 10000 --seed 0x5eed --generator gen-valid --pass simplify-globals-optimizing --out-dir .tmp/pass-fuzz-sgo-rotw-gen-valid-10k` matched Binaryen on `10000/10000` normalized generated modules with no mismatches or validation failures.
+
+The earlier `.tmp/pass-fuzz-sgo-10k` baseline found seven mismatches from missing multi-instruction global-initializer folding and over-eager reference-constant replacement in element item expressions; those two families are now covered by focused regressions, and the same-init, exact-copy-chain, adjacent/transparent read-only-to-write, and straight-line runtime propagation slices preserved the green mixed-generator lane.
+
+If future mismatches are caused by a known subset, record that subset explicitly on the Starshine strategy page.
 
 ### 5. Late-tail neighborhood replay
 
@@ -194,4 +209,5 @@ Record the answer in this page and [`./starshine-strategy.md`](./starshine-strat
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

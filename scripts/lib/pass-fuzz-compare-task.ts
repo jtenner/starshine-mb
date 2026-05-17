@@ -150,6 +150,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--merge-locals",
   "--duplicate-function-elimination",
   "--duplicate-import-elimination",
+  "--simplify-globals-optimizing",
   "--dae-optimizing",
   "--inlining",
   "--inlining-optimizing",
