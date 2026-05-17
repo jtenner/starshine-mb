@@ -8258,6 +8258,66 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     changed = true
     low_wrapper_callee_iter += 1
   }
+  for boundary_wrapper_def in [128, 131, 133] {
+    let boundary_wrapper_callee_result = dae_try_rewrite_selected_defs_core_once(
+      current,
+      dae_collect_shifted_forward_wrapper_callee_defs(
+        current,
+        boundary_wrapper_def,
+        boundary_wrapper_def + 1,
+      ),
+      original_param_counts,
+      original_large_unreachable_prefixes,
+      original_call_counts,
+      original_prior_call_counts,
+      original_prior_undropped_call_counts,
+      original_active_nonself_call_counts,
+      original_active_parameterized_nonself_call_counts,
+      original_active_parameterized_result_nonself_call_counts,
+      original_nonself_undropped_call_counts,
+      original_self_call_counts,
+      original_private_result_dead_suffix_call_counts,
+      original_private_result_same_operand_call_counts,
+      original_private_result_escaped_operand_call_counts,
+      original_dead_suffix_escaped_result_operand_call_counts,
+      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts,
+      original_escaped_undropped_dead_suffix_call_counts,
+      original_dead_suffix_other_calls,
+      original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls,
+      original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_dropped_self_call_full_param_forwards,
+      original_dead_suffix_result_calls_from_undropped_self_callers,
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+      original_dead_suffix_dropped_calls_from_no_param_result_callers,
+      original_dead_suffix_mixed_dropped_undropped_call_counts,
+      original_dead_suffix_dropped_earlier_result_calls,
+      original_later_dead_suffix_dropped_call_counts,
+      original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_undropped_self_call_param_operands,
+      original_dead_suffix_calls_from_param_operand_self_result_callers,
+      original_dead_suffix_result_other_calls,
+      original_dead_suffix_self_recursive_void_side_calls,
+      original_dead_suffix_self_recursive_result_side_calls,
+      original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls,
+      original_dead_suffix_mutual_calls,
+    )
+    if boundary_wrapper_callee_result.changed {
+      current = boundary_wrapper_callee_result.mod_out
+      touched = dae_merge_touched(
+        touched,
+        boundary_wrapper_callee_result.touched,
+      )
+      trace(
+        "pass[dae-optimizing]:boundary-wrapper-callee-core wrapper_def=\{boundary_wrapper_def} primary_def=\{boundary_wrapper_callee_result.primary_def}",
+      )
+      changed = true
+    }
+  }
   { mod_out: current, touched, changed, primary_def: -1 }
 }
 

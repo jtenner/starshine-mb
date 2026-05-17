@@ -699,6 +699,56 @@ test "dae-optimizing can chase a later exact-literal forwarding-wrapper chain" {
 }
 
 ///|
+test "dae-optimizing revisits wrapper boundaries for unread callee params" {
+  for boundary_def in [128, 131, 133] {
+    let out = StringBuilder::new()
+    out.write_string("(module\n")
+    for i = 0; i < 8; i = i + 1 {
+      out.write_string(
+        "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+      )
+    }
+    for i = 8; i < boundary_def; i = i + 1 {
+      out.write_string("  (func $pad\{i})\n")
+    }
+    out.write_string(
+      (
+        #|  (func $wrap (export "wrap") (param i32 i32 i32 i32) (result i32)
+        #|    local.get 1
+        #|    local.get 2
+        #|    local.get 3
+        #|    call $target)
+        #|  (func $target (param i32 i32 i32) (result i32)
+        #|    local.get 0
+        #|    local.get 1
+        #|    i32.add)
+        #|  (func (export "run")
+      ),
+    )
+    for i = 0; i < 8; i = i + 1 {
+      out.write_string("    i32.const 1\n    i32.const 2\n    call $g\{i}\n")
+    }
+    out.write_string("  )\n)")
+    let source = out.to_string()
+    let optimized = dae_test_run(source)
+    @debug.assert_eq(
+      dae_test_func_params(optimized, boundary_def + 1).length(),
+      2,
+    )
+    let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
+      Ok(trace) => trace
+      Err(err) => fail("expected traced DAE success, got \{err}")
+    }
+    assert_true(
+      trace.contains(
+        "pass[dae-optimizing]:boundary-wrapper-callee-core wrapper_def=\{boundary_def} primary_def=\{boundary_def + 1}",
+      ),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
 test "dae-optimizing folds add-zero address drift after removing a const memory.copy offset param" {
   let source =
     #|(module
