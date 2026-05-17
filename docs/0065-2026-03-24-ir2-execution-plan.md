@@ -79,7 +79,7 @@ The original March Batch 1/2/3 labels are now partly historical. Use the live re
   - `bun validate readme-api-sync`
   - `moon test`
 - Review `pkg.generated.mbti` diffs whenever the public API changes.
-- Update `CHANGELOG.md` first for every commit.
+- Historical note: this plan originally required `CHANGELOG.md` updates, but the current repo policy uses docs/wiki pages, `docs/wiki/log.md`, release notes, and git history instead of per-commit changelog entries.
 - Keep `agent-todo.md` unreleased-only and remove finished slices before commit.
 
 ## Handoff Rules

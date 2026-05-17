@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-16] docs | move residual INL work to v0.2.0 and retire per-commit changelog
+
+- Moved `[INL]005` and residual `[INL]006` out of the v0.1.0 active slice list and into the v0.2.0 backlog in [`../../agent-todo.md`](../../agent-todo.md), with explicit reopen criteria so they are not treated as the next task after DAE.
+- Updated the living inlining and inlining-optimizing wiki pages to say `[INL]001`, `[INL]002`, `[INL]003`, `[INL]004`, and `[INL]007` are accepted for v0.1.0, while `[INL]005` and residual `[INL]006` are v0.2.0-only unless new correctness, validation, user-facing, performance, or code-size evidence appears.
+- Retired the committed changelog workflow from [`../../AGENTS.md`](../../AGENTS.md), [`../README.md`](../README.md), task prompts, and the pass-implementation skill; durable change records now live in docs/wiki pages, this log, release notes, and git history.
+
 ## [2026-05-15] wiki | fuzz-runner command contract and pass-oracle guidance now reflects `bun fuzz compare-pass`
 
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) to document the compare-pass runner contract from the actual parser: `--pass`/flag form, list commands (`--list-passes`, `--list-failure-classes`), replay filtering (`--replay-failures-from`, `--failure-class`, `--case-index`), and concurrency constraints (`--jobs`, `--starshine-bin` requirement when `>1`).
