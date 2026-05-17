@@ -4267,17 +4267,15 @@ fn dae_dead_suffix_has_dropped_escaped_result_call(
 }
 
 ///|
-fn dae_collect_original_dead_suffix_undropped_escaped_result_calls(
+fn dae_collect_original_dead_suffix_undropped_escaped_result_calls_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Bool] {
-  let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let type_indices = dae_collect_func_type_indices(mod_)
   let flags = Array::make(defined, false)
   let mut def_idx = 0
@@ -4292,17 +4290,15 @@ fn dae_collect_original_dead_suffix_undropped_escaped_result_calls(
 }
 
 ///|
-fn dae_collect_original_dead_suffix_dropped_escaped_result_calls(
+fn dae_collect_original_dead_suffix_dropped_escaped_result_calls_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Bool] {
-  let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let type_indices = dae_collect_func_type_indices(mod_)
   let flags = Array::make(defined, false)
   let mut def_idx = 0
@@ -4787,17 +4783,16 @@ fn dae_dead_suffix_call_to_has_same_result_operand(
 }
 
 ///|
-fn dae_collect_original_private_result_same_operand_call_counts(
+fn dae_collect_original_private_result_same_operand_call_counts_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let type_indices = dae_collect_func_type_indices(mod_)
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
@@ -4828,18 +4823,17 @@ fn dae_collect_original_private_result_same_operand_call_counts(
 }
 
 ///|
-fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers(
+fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_with_escaped(
   mod_ : @lib.Module,
   original_nonself_undropped_call_counts : Array[Int],
+  escaped : Array[Bool],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let type_indices = dae_collect_func_type_indices(mod_)
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
@@ -4903,13 +4897,12 @@ fn dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_ca
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_is_no_param_result &&
       dae_dead_suffix_has_undropped_direct_call_to(body, caller_abs) {
-      let mut callee_def = 0
-      while callee_def < defined {
-        if callee_def != caller_def {
-          counts[callee_def] = counts[callee_def] +
-            dae_count_dead_suffix_direct_call_to(body, imported + callee_def)
+      let targets : Array[Int] = []
+      dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+      for target in targets {
+        if target != caller_def {
+          counts[target] = counts[target] + 1
         }
-        callee_def += 1
       }
     }
     caller_def += 1
@@ -4941,16 +4934,16 @@ fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_s
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_params_and_result &&
       dae_dead_suffix_has_dropped_direct_call_to(body, caller_abs) {
-      let mut callee_def = 0
-      while callee_def < defined {
-        if callee_def != caller_def &&
-          dae_dead_suffix_has_undropped_direct_call_to(
-            body,
-            imported + callee_def,
-          ) {
-          counts[callee_def] = counts[callee_def] + 1
+      let counted = Array::make(defined, false)
+      let targets : Array[Int] = []
+      dae_collect_dead_suffix_undropped_direct_targets(
+        body, imported, defined, targets,
+      )
+      for target in targets {
+        if target != caller_def && !counted[target] {
+          counts[target] = counts[target] + 1
+          counted[target] = true
         }
-        callee_def += 1
       }
     }
     caller_def += 1
@@ -4959,17 +4952,16 @@ fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_s
 }
 
 ///|
-fn dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts(
+fn dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
   while caller_def < funcs.length() {
@@ -5097,16 +5089,16 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_caller
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_params_and_result &&
       dae_dead_suffix_has_undropped_direct_call_to(body, caller_abs) {
-      let mut callee_def = 0
-      while callee_def < defined {
-        if callee_def != caller_def &&
-          dae_dead_suffix_has_dropped_direct_call_to(
-            body,
-            imported + callee_def,
-          ) {
-          counts[callee_def] = counts[callee_def] + 1
+      let counted = Array::make(defined, false)
+      let targets : Array[Int] = []
+      dae_collect_dead_suffix_dropped_direct_targets(
+        body, imported, defined, targets,
+      )
+      for target in targets {
+        if target != caller_def && !counted[target] {
+          counts[target] = counts[target] + 1
+          counted[target] = true
         }
-        callee_def += 1
       }
     }
     caller_def += 1
@@ -5137,16 +5129,16 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_no_params_and_result {
-      let mut callee_def = 0
-      while callee_def < defined {
-        if callee_def != caller_def &&
-          dae_dead_suffix_has_dropped_direct_call_to(
-            body,
-            imported + callee_def,
-          ) {
-          counts[callee_def] = counts[callee_def] + 1
+      let counted = Array::make(defined, false)
+      let targets : Array[Int] = []
+      dae_collect_dead_suffix_dropped_direct_targets(
+        body, imported, defined, targets,
+      )
+      for target in targets {
+        if target != caller_def && !counted[target] {
+          counts[target] = counts[target] + 1
+          counted[target] = true
         }
-        callee_def += 1
       }
     }
     caller_def += 1
@@ -5155,17 +5147,16 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
 }
 
 ///|
-fn dae_collect_original_dead_suffix_escaped_result_operand_call_counts(
+fn dae_collect_original_dead_suffix_escaped_result_operand_call_counts_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let type_indices = dae_collect_func_type_indices(mod_)
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
@@ -5254,17 +5245,16 @@ fn dae_collect_original_dead_suffix_same_self_result_operand_calls(
 }
 
 ///|
-fn dae_collect_original_private_result_escaped_operand_call_counts(
+fn dae_collect_original_private_result_escaped_operand_call_counts_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let type_indices = dae_collect_func_type_indices(mod_)
   let dropped_escaped_result_flags = Array::make(defined, false)
   let mut callee_def = 0
@@ -5306,18 +5296,17 @@ fn dae_collect_original_private_result_escaped_operand_call_counts(
 }
 
 ///|
-fn dae_collect_original_private_result_dead_suffix_call_counts(
+fn dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
   mod_ : @lib.Module,
   original_call_counts : Array[Int],
+  escaped : Array[Bool],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let type_indices = dae_collect_func_type_indices(mod_)
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
@@ -5354,17 +5343,16 @@ fn dae_collect_original_private_result_dead_suffix_call_counts(
 }
 
 ///|
-fn dae_collect_original_escaped_dead_suffix_call_counts(
+fn dae_collect_original_escaped_dead_suffix_call_counts_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
   while caller_def < funcs.length() {
@@ -5383,32 +5371,32 @@ fn dae_collect_original_escaped_dead_suffix_call_counts(
 }
 
 ///|
-fn dae_collect_original_escaped_undropped_dead_suffix_call_counts(
+fn dae_collect_original_escaped_undropped_dead_suffix_call_counts_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let escaped = dae_collect_escapes(mod_, total)
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
     if escaped[caller_abs] {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let mut callee_def = 0
-      while callee_def < defined {
-        if dae_dead_suffix_has_undropped_direct_call_to(
-            body,
-            imported + callee_def,
-          ) {
-          counts[callee_def] = counts[callee_def] + 1
+      let counted = Array::make(defined, false)
+      let targets : Array[Int] = []
+      dae_collect_dead_suffix_undropped_direct_targets(
+        body, imported, defined, targets,
+      )
+      for target in targets {
+        if !counted[target] {
+          counts[target] = counts[target] + 1
+          counted[target] = true
         }
-        callee_def += 1
       }
     }
     caller_def += 1
@@ -5920,35 +5908,37 @@ fn dae_collect_original_dead_suffix_self_recursive_result_side_calls(
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let type_indices = dae_collect_func_type_indices(mod_)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
   }
-  let flags = Array::make(defined, false)
+  let undropped_result_self_suffix = Array::make(defined, false)
   let mut def_idx = 0
   while def_idx < funcs.length() {
     let callee_abs = imported + def_idx
-    let callees = Array::make(total, false)
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-    dae_collect_dead_suffix_other_callees(body, callee_abs, callees)
-    let mut other_abs = imported
-    while other_abs < total {
-      if callees[other_abs] && other_abs < callee_abs {
-        let other_def = other_abs - imported
-        if other_def >= 0 && other_def < funcs.length() {
-          let @lib.Func(_, @lib.Expr(other_body)) = funcs[other_def]
-          if dae_dead_suffix_has_undropped_direct_call_to(other_body, other_abs) {
-            match dae_resolve_func_type(mod_, type_indices, other_abs) {
-              Some(@lib.FuncType(_, results)) if results.length() > 0 =>
-                flags[def_idx] = true
-              _ => ()
-            }
-          }
-        }
+    let has_result = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(@lib.FuncType(_, results)) => results.length() > 0
+      None => false
+    }
+    undropped_result_self_suffix[def_idx] = has_result &&
+      dae_dead_suffix_has_undropped_direct_call_to(body, callee_abs)
+    def_idx += 1
+  }
+  let flags = Array::make(defined, false)
+  def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    let targets : Array[Int] = []
+    dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+    for target in targets {
+      if target != def_idx &&
+        target < def_idx &&
+        undropped_result_self_suffix[target] {
+        flags[def_idx] = true
       }
-      other_abs += 1
     }
     def_idx += 1
   }
@@ -5961,36 +5951,35 @@ fn dae_collect_original_dead_suffix_self_recursive_void_side_calls(
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let type_indices = dae_collect_func_type_indices(mod_)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
   }
   let original_self_calls = dae_collect_original_self_call_counts(mod_)
-  let flags = Array::make(defined, false)
+  let self_recursive_void = Array::make(defined, false)
   let mut def_idx = 0
   while def_idx < funcs.length() {
     let callee_abs = imported + def_idx
-    let callees = Array::make(total, false)
+    let is_void = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(@lib.FuncType(_, results)) => results.length() == 0
+      None => false
+    }
+    self_recursive_void[def_idx] = is_void &&
+      def_idx < original_self_calls.length() &&
+      original_self_calls[def_idx] > 0
+    def_idx += 1
+  }
+  let flags = Array::make(defined, false)
+  def_idx = 0
+  while def_idx < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-    dae_collect_dead_suffix_other_callees(body, callee_abs, callees)
-    let mut other_abs = imported
-    while other_abs < total {
-      if callees[other_abs] {
-        let other_def = other_abs - imported
-        if other_def >= 0 &&
-          other_def < funcs.length() &&
-          other_def < original_self_calls.length() &&
-          original_self_calls[other_def] > 0 {
-          match dae_resolve_func_type(mod_, type_indices, other_abs) {
-            Some(@lib.FuncType(_, results)) if results.length() == 0 =>
-              flags[def_idx] = true
-            _ => ()
-          }
-        }
+    let targets : Array[Int] = []
+    dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+    for target in targets {
+      if target != def_idx && self_recursive_void[target] {
+        flags[def_idx] = true
       }
-      other_abs += 1
     }
     def_idx += 1
   }
@@ -5998,14 +5987,12 @@ fn dae_collect_original_dead_suffix_self_recursive_void_side_calls(
 }
 
 ///|
-fn dae_collect_original_dead_suffix_result_other_calls(
+fn dae_collect_original_dead_suffix_result_other_calls_with_escaped(
   mod_ : @lib.Module,
+  escaped : Array[Bool],
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
-  let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let type_indices = dae_collect_func_type_indices(mod_)
-  let escaped = dae_collect_escapes(mod_, total)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
@@ -6029,63 +6016,11 @@ fn dae_collect_original_dead_suffix_result_other_calls(
 }
 
 ///|
-fn dae_collect_other_callees_instrs(
-  instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  callees : Array[Bool],
-) -> Unit {
-  for instr in instrs {
-    match instr {
-      @lib.Call(func_idx) => {
-        let slot = dae_func_idx_slot(func_idx)
-        if slot >= 0 && slot < callees.length() && slot != callee_abs {
-          callees[slot] = true
-        }
-      }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        dae_collect_other_callees_instrs(body, callee_abs, callees)
-      @lib.If(_, then_body, Some(else_body)) => {
-        dae_collect_other_callees_instrs(then_body, callee_abs, callees)
-        dae_collect_other_callees_instrs(else_body, callee_abs, callees)
-      }
-      @lib.If(_, then_body, None) =>
-        dae_collect_other_callees_instrs(then_body, callee_abs, callees)
-      _ => ()
-    }
-  }
-}
-
-///|
-fn dae_collect_dead_suffix_other_callees(
-  instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  callees : Array[Bool],
-) -> Unit {
-  let mut idx = 0
-  while idx < instrs.length() {
-    if dae_instr_is_unreachable_root(instrs[idx]) {
-      let suffix : Array[@lib.Instruction] = []
-      let mut suffix_idx = idx + 1
-      while suffix_idx < instrs.length() {
-        suffix.push(instrs[suffix_idx])
-        suffix_idx += 1
-      }
-      dae_collect_other_callees_instrs(suffix, callee_abs, callees)
-      return
-    }
-    idx += 1
-  }
-}
-
-///|
 fn dae_collect_original_dead_suffix_mutual_calls(
   mod_ : @lib.Module,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let total = imported + defined
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
@@ -6094,21 +6029,20 @@ fn dae_collect_original_dead_suffix_mutual_calls(
   let mut def_idx = 0
   while def_idx < funcs.length() {
     let callee_abs = imported + def_idx
-    let callees = Array::make(total, false)
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-    dae_collect_dead_suffix_other_callees(body, callee_abs, callees)
-    let mut other_abs = imported
-    while other_abs < total {
-      if callees[other_abs] {
-        let other_def = other_abs - imported
-        if other_def >= 0 && other_def < funcs.length() {
-          let @lib.Func(_, @lib.Expr(other_body)) = funcs[other_def]
+    let targets : Array[Int] = []
+    dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+    let counted = Array::make(defined, false)
+    for target in targets {
+      if target != def_idx && !counted[target] {
+        counted[target] = true
+        if target >= 0 && target < funcs.length() {
+          let @lib.Func(_, @lib.Expr(other_body)) = funcs[target]
           if dae_count_direct_call_anywhere_to(other_body, callee_abs) > 0 {
             flags[def_idx] = true
           }
         }
       }
-      other_abs += 1
     }
     def_idx += 1
   }
@@ -7993,6 +7927,12 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let mut touched : Array[Bool] = []
   let mut changed = false
   let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_imported = dae_imported_func_count(mod_)
+  let original_defined = dae_defined_func_count(mod_)
+  let original_escaped = dae_collect_escapes(
+    mod_,
+    original_imported + original_defined,
+  )
   let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
     mod_,
   )
@@ -8005,26 +7945,26 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let original_active_parameterized_result_nonself_call_counts = original_call_summary.active_parameterized_result_nonself_call_counts
   let original_nonself_undropped_call_counts = original_call_summary.nonself_undropped_call_counts
   let original_self_call_counts = original_call_summary.self_call_counts
-  let original_private_result_dead_suffix_call_counts = dae_collect_original_private_result_dead_suffix_call_counts(
-    mod_, original_call_counts,
+  let original_private_result_dead_suffix_call_counts = dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
+    mod_, original_call_counts, original_escaped,
   )
-  let original_private_result_same_operand_call_counts = dae_collect_original_private_result_same_operand_call_counts(
-    mod_,
+  let original_private_result_same_operand_call_counts = dae_collect_original_private_result_same_operand_call_counts_with_escaped(
+    mod_, original_escaped,
   )
-  let original_private_result_escaped_operand_call_counts = dae_collect_original_private_result_escaped_operand_call_counts(
-    mod_,
+  let original_private_result_escaped_operand_call_counts = dae_collect_original_private_result_escaped_operand_call_counts_with_escaped(
+    mod_, original_escaped,
   )
-  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts(
-    mod_,
+  let original_dead_suffix_escaped_result_operand_call_counts = dae_collect_original_dead_suffix_escaped_result_operand_call_counts_with_escaped(
+    mod_, original_escaped,
   )
   let original_private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
     mod_, original_dead_suffix_escaped_result_operand_call_counts,
   )
-  let original_escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts(
-    mod_,
+  let original_escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts_with_escaped(
+    mod_, original_escaped,
   )
-  let original_escaped_undropped_dead_suffix_call_counts = dae_collect_original_escaped_undropped_dead_suffix_call_counts(
-    mod_,
+  let original_escaped_undropped_dead_suffix_call_counts = dae_collect_original_escaped_undropped_dead_suffix_call_counts_with_escaped(
+    mod_, original_escaped,
   )
   let original_dead_suffix_other_calls = dae_collect_original_dead_suffix_other_calls(
     mod_,
@@ -8041,8 +7981,8 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let original_dead_suffix_dropped_self_call_full_param_forwards = dae_collect_original_dead_suffix_dropped_self_call_full_param_forwards(
     mod_,
   )
-  let original_dead_suffix_result_calls_from_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers(
-    mod_, original_nonself_undropped_call_counts,
+  let original_dead_suffix_result_calls_from_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_with_escaped(
+    mod_, original_nonself_undropped_call_counts, original_escaped,
   )
   let original_dead_suffix_result_calls_from_no_param_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_callers(
     mod_,
@@ -8056,8 +7996,8 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let original_dead_suffix_dropped_calls_from_no_param_result_callers = dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
     mod_,
   )
-  let original_dead_suffix_mixed_dropped_undropped_call_counts = dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts(
-    mod_,
+  let original_dead_suffix_mixed_dropped_undropped_call_counts = dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_escaped(
+    mod_, original_escaped,
   )
   let original_dead_suffix_dropped_earlier_result_calls = dae_collect_original_dead_suffix_dropped_earlier_result_calls(
     mod_,
@@ -8071,8 +8011,8 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let original_dead_suffix_undropped_self_call_param_operands = dae_collect_original_dead_suffix_undropped_self_call_param_operands(
     mod_,
   )
-  let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls(
-    mod_,
+  let original_dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls_with_escaped(
+    mod_, original_escaped,
   )
   let original_dead_suffix_self_recursive_void_side_calls = dae_collect_original_dead_suffix_self_recursive_void_side_calls(
     mod_,
@@ -8080,11 +8020,11 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let original_dead_suffix_self_recursive_result_side_calls = dae_collect_original_dead_suffix_self_recursive_result_side_calls(
     mod_,
   )
-  let original_dead_suffix_undropped_escaped_result_calls = dae_collect_original_dead_suffix_undropped_escaped_result_calls(
-    mod_,
+  let original_dead_suffix_undropped_escaped_result_calls = dae_collect_original_dead_suffix_undropped_escaped_result_calls_with_escaped(
+    mod_, original_escaped,
   )
-  let original_dead_suffix_dropped_escaped_result_calls = dae_collect_original_dead_suffix_dropped_escaped_result_calls(
-    mod_,
+  let original_dead_suffix_dropped_escaped_result_calls = dae_collect_original_dead_suffix_dropped_escaped_result_calls_with_escaped(
+    mod_, original_escaped,
   )
   let original_dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
     mod_,
