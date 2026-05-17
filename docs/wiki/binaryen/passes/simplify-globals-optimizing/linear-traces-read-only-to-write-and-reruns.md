@@ -312,6 +312,8 @@ Beginner takeaway:
 
 The function body must be exactly two elements long. Add a trailing `nop`, and Binaryen preserves the original shape.
 
+As of the 2026-05-17 follow-up slice, Starshine covers this exact `if return; set` family and keeps a focused trailing-`nop` negative so it does not widen into a broader CFG proof by accident.
+
 ## 10. The optimizing rerun is part of the real pass contract
 
 The biggest scheduler lesson is this:

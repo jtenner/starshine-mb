@@ -434,6 +434,12 @@ fn sgo_count_read_only_to_write_instrs(
   for pos = 0; pos < instrs.length(); pos = pos + 1 {
     let instr = instrs[pos]
     match instr {
+      @lib.GlobalGet(idx) if sgo_is_exact_if_return_set(instrs, pos, idx) => {
+        let slot = sgo_global_idx_slot(idx)
+        if slot >= 0 && slot < safe_reads.length() {
+          safe_reads[slot] = safe_reads[slot] + 1
+        }
+      }
       @lib.GlobalGet(idx) if pos + 1 < instrs.length() &&
         sgo_if_is_read_only_to_write_set(instrs[pos + 1], idx) => {
         let slot = sgo_global_idx_slot(idx)
@@ -465,6 +471,33 @@ fn sgo_if_is_read_only_to_write_set(
   match instr {
     @lib.If(_, then_body, None) =>
       sgo_instrs_are_single_const_global_set(then_body, idx)
+    _ => false
+  }
+}
+
+///|
+fn sgo_is_return_guard(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.If(_, [@lib.Return], None) => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_is_exact_if_return_set(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  if pos != 0 || instrs.length() != 4 {
+    return false
+  }
+  match instrs {
+    [@lib.GlobalGet(get_idx), if_instr, value, @lib.GlobalSet(set_idx)] =>
+      get_idx == idx &&
+      set_idx == idx &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None
     _ => false
   }
 }

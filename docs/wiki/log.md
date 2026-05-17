@@ -393,6 +393,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated the living inlining and inlining-optimizing wiki pages to say `[INL]001`, `[INL]002`, `[INL]003`, `[INL]004`, and `[INL]007` are accepted for v0.1.0, while `[INL]005` and residual `[INL]006` are v0.2.0-only unless new correctness, validation, user-facing, performance, or code-size evidence appears.
 - Retired the committed changelog workflow from [`../../AGENTS.md`](../../AGENTS.md), [`../README.md`](../README.md), task prompts, and the pass-implementation skill; durable change records now live in docs/wiki pages, this log, release notes, and git history.
 
+## [2026-05-17] passes | SGO exact if-return read-only-to-write guard
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) for the exact `global.get; if return; const; global.set` body family.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), including a trailing-`nop` negative so the matcher remains the narrow Binaryen-style family instead of a broader CFG proof.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1112/1112`), and `.tmp/pass-fuzz-sgo-if-return-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-17] passes | SGO transparent read-only-to-write self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so adjacent self-guard bodies may contain transparent `nop` instructions and void `block` wrappers around the single constant `global.set`.
