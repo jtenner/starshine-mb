@@ -700,7 +700,12 @@ test "dae-optimizing can chase a later exact-literal forwarding-wrapper chain" {
 
 ///|
 test "dae-optimizing revisits wrapper boundaries for unread callee params" {
-  for boundary_def in [128, 131, 133] {
+  for
+    boundary_def in [
+      128, 131, 133, 135, 142, 143, 144, 145, 146, 148, 149, 151, 152, 157, 158,
+      159, 161, 162, 167, 170, 175, 176, 177, 178, 180, 181, 182, 184, 186, 187,
+      188, 189, 191, 196,
+    ] {
     let out = StringBuilder::new()
     out.write_string("(module\n")
     for i = 0; i < 8; i = i + 1 {
@@ -746,6 +751,158 @@ test "dae-optimizing revisits wrapper boundaries for unread callee params" {
       msg=trace.to_string(),
     )
   }
+}
+
+///|
+test "dae-optimizing removes selected mid-prefix dropped callee results" {
+  let target_def = 299
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string(
+      "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+    )
+  }
+  for i = 8; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    call $side
+      #|    local.get 1
+      #|    call $side
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add)
+      #|  (func $side (param i32))
+      #|  (func (export "run")
+    ),
+  )
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string("    i32.const 1\n    i32.const 2\n    call $g\{i}\n")
+  }
+  out.write_string(
+    (
+      #|    i32.const 10
+      #|    i32.const 32
+      #|    call $target
+      #|    drop)
+      #|)
+    ),
+  )
+  let source = out.to_string()
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, target_def).length(), 0)
+  let caller = optimized.pretty_print_defined_func(
+    (target_def + 2).reinterpret_as_uint(),
+  )
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+  assert_false(caller.contains("drop"), msg=caller)
+}
+
+///|
+test "dae-optimizing materializes selected mid-prefix exact-literal callees" {
+  for target_def in [311, 1720, 1755, 1775, 1794, 2156] {
+    let out = StringBuilder::new()
+    out.write_string("(module\n")
+    for i = 0; i < 8; i = i + 1 {
+      out.write_string(
+        "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+      )
+    }
+    for i = 8; i < target_def; i = i + 1 {
+      out.write_string("  (func $pad\{i})\n")
+    }
+    out.write_string(
+      (
+        #|  (func $target (param i32) (result i32)
+        #|    local.get 0
+        #|    i32.const 1
+        #|    i32.add)
+        #|  (func (export "run") (result i32)
+      ),
+    )
+    for i = 0; i < 8; i = i + 1 {
+      out.write_string("    i32.const 1\n    i32.const 2\n    call $g\{i}\n")
+    }
+    out.write_string(
+      (
+        #|    i32.const 10032
+        #|    call $target)
+        #|)
+      ),
+    )
+    let optimized = dae_test_run(out.to_string())
+    @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
+  }
+}
+
+///|
+test "dae-optimizing materializes immutable global actuals for the mid-prefix exact literal slice" {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (global $g i32 (i32.const 42))\n")
+  for i = 0; i < 313; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add
+      #|    local.get 2
+      #|    i32.add)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 1
+      #|    global.get $g
+      #|    i32.const 2
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, 313).length(), 0)
+  let target = optimized.pretty_print_defined_func(313U)
+  assert_true(target.contains("global.get"), msg=target)
+}
+
+///|
+test "dae-optimizing materializes a high exact-literal callee after the mid-prefix slices" {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string(
+      "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+    )
+  }
+  for i = 8; i < 1720; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+      #|  (func (export "run") (result i32)
+    ),
+  )
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string("    i32.const 1\n    i32.const 2\n    call $g\{i}\n")
+  }
+  out.write_string(
+    (
+      #|    i32.const 10032
+      #|    call $target)
+      #|)
+    ),
+  )
+  let source = out.to_string()
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1720).length(), 0)
 }
 
 ///|

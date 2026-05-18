@@ -88,6 +88,12 @@ fn dae_func_idx_slot(idx : @lib.FuncIdx) -> Int {
 }
 
 ///|
+fn dae_global_idx_slot(idx : @lib.GlobalIdx) -> Int {
+  let @lib.GlobalIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
 fn dae_local_idx_slot(idx : @lib.LocalIdx) -> Int {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
@@ -1125,6 +1131,55 @@ fn dae_instr_is_materializable_const(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn dae_global_get_is_immutable(
+  mod_ : @lib.Module,
+  global_idx : @lib.GlobalIdx,
+) -> Bool {
+  let slot = dae_global_idx_slot(global_idx)
+  let mut imported_globals = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.GlobalExternType(@lib.GlobalType(_, mutable))) => {
+            if imported_globals == slot {
+              return !mutable
+            }
+            imported_globals += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let defined_slot = slot - imported_globals
+  if defined_slot < 0 {
+    return false
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) if defined_slot < globals.length() =>
+      match globals[defined_slot] {
+        @lib.Global(@lib.GlobalType(_, mutable), _) => !mutable
+      }
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_is_materializable_const_with_immutable_global(
+  mod_ : @lib.Module,
+  instr : @lib.Instruction,
+) -> Bool {
+  if dae_instr_is_materializable_const(instr) {
+    return true
+  }
+  match instr {
+    @lib.GlobalGet(global_idx) => dae_global_get_is_immutable(mod_, global_idx)
+    _ => false
+  }
+}
+
+///|
 fn dae_rewrite_instruction_param_consts(
   instr : @lib.Instruction,
   const_params : Array[@lib.Instruction?],
@@ -1469,6 +1524,7 @@ fn dae_materialized_const_equal(
     (@lib.F64Const(a), @lib.F64Const(b)) => a == b
     (@lib.RefNull(a), @lib.RefNull(b)) => a == b
     (@lib.StringConst(a), @lib.StringConst(b)) => a == b
+    (@lib.GlobalGet(a), @lib.GlobalGet(b)) => a == b
     _ => false
   }
 }
@@ -1483,6 +1539,7 @@ fn dae_resolve_forwarded_uniform_const_local_get(
   tail_calls : Array[Bool],
   direct_callers : Array[Array[Int]],
   visited : Array[Bool],
+  allow_immutable_global_get? : Bool = false,
 ) -> @lib.Instruction? {
   if caller_abs < 0 ||
     caller_abs >= func_type_indices.length() ||
@@ -1542,6 +1599,7 @@ fn dae_resolve_forwarded_uniform_const_local_get(
       tail_calls,
       direct_callers,
       visited,
+      allow_immutable_global_get~,
     ) {
     Some(values) => values[local_slot]
     None => None
@@ -1560,8 +1618,13 @@ fn dae_resolve_uniform_const_candidate(
   tail_calls : Array[Bool],
   direct_callers : Array[Array[Int]],
   visited : Array[Bool],
+  allow_immutable_global_get? : Bool = false,
 ) -> @lib.Instruction? {
-  if dae_instr_is_materializable_const(candidate) {
+  if allow_immutable_global_get {
+    if dae_instr_is_materializable_const_with_immutable_global(mod_, candidate) {
+      return Some(candidate)
+    }
+  } else if dae_instr_is_materializable_const(candidate) {
     return Some(candidate)
   }
   match candidate {
@@ -1575,6 +1638,7 @@ fn dae_resolve_uniform_const_candidate(
         tail_calls,
         direct_callers,
         visited,
+        allow_immutable_global_get~,
       )
     _ => None
   }
@@ -1596,6 +1660,7 @@ fn dae_collect_uniform_const_actuals_instrs(
   seen : Array[Bool],
   invalid : Array[Bool],
   candidates : Array[@lib.Instruction?],
+  allow_immutable_global_get? : Bool = false,
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
@@ -1623,6 +1688,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                       tail_calls,
                       direct_callers,
                       visited,
+                      allow_immutable_global_get~,
                     ) {
                     Some(candidate) =>
                       if !seen[p] {
@@ -1657,9 +1723,21 @@ fn dae_collect_uniform_const_actuals_instrs(
           None => return false
         }
         if !dae_collect_uniform_const_actuals_instrs(
-            body, callee_abs, param_count, child_entry_stack_values, caller_abs,
-            mod_, func_type_indices, escaped, tail_calls, direct_callers, visited,
-            seen, invalid, candidates,
+            body,
+            callee_abs,
+            param_count,
+            child_entry_stack_values,
+            caller_abs,
+            mod_,
+            func_type_indices,
+            escaped,
+            tail_calls,
+            direct_callers,
+            visited,
+            seen,
+            invalid,
+            candidates,
+            allow_immutable_global_get~,
           ) {
           return false
         }
@@ -1671,16 +1749,40 @@ fn dae_collect_uniform_const_actuals_instrs(
           None => return false
         }
         if !dae_collect_uniform_const_actuals_instrs(
-            then_body, callee_abs, param_count, child_entry_stack_values, caller_abs,
-            mod_, func_type_indices, escaped, tail_calls, direct_callers, visited,
-            seen, invalid, candidates,
+            then_body,
+            callee_abs,
+            param_count,
+            child_entry_stack_values,
+            caller_abs,
+            mod_,
+            func_type_indices,
+            escaped,
+            tail_calls,
+            direct_callers,
+            visited,
+            seen,
+            invalid,
+            candidates,
+            allow_immutable_global_get~,
           ) {
           return false
         }
         if !dae_collect_uniform_const_actuals_instrs(
-            else_body, callee_abs, param_count, child_entry_stack_values, caller_abs,
-            mod_, func_type_indices, escaped, tail_calls, direct_callers, visited,
-            seen, invalid, candidates,
+            else_body,
+            callee_abs,
+            param_count,
+            child_entry_stack_values,
+            caller_abs,
+            mod_,
+            func_type_indices,
+            escaped,
+            tail_calls,
+            direct_callers,
+            visited,
+            seen,
+            invalid,
+            candidates,
+            allow_immutable_global_get~,
           ) {
           return false
         }
@@ -1692,9 +1794,21 @@ fn dae_collect_uniform_const_actuals_instrs(
           None => return false
         }
         if !dae_collect_uniform_const_actuals_instrs(
-            then_body, callee_abs, param_count, child_entry_stack_values, caller_abs,
-            mod_, func_type_indices, escaped, tail_calls, direct_callers, visited,
-            seen, invalid, candidates,
+            then_body,
+            callee_abs,
+            param_count,
+            child_entry_stack_values,
+            caller_abs,
+            mod_,
+            func_type_indices,
+            escaped,
+            tail_calls,
+            direct_callers,
+            visited,
+            seen,
+            invalid,
+            candidates,
+            allow_immutable_global_get~,
           ) {
           return false
         }
@@ -1716,6 +1830,7 @@ fn dae_collect_uniform_const_actuals_visited(
   tail_calls : Array[Bool],
   direct_callers : Array[Array[Int]],
   visited : Array[Bool],
+  allow_immutable_global_get? : Bool = false,
 ) -> Array[@lib.Instruction?]? {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -1751,6 +1866,7 @@ fn dae_collect_uniform_const_actuals_visited(
           seen,
           invalid,
           candidates,
+          allow_immutable_global_get~,
         ) {
         return None
       }
@@ -1779,6 +1895,7 @@ fn dae_collect_uniform_const_actuals_with_facts(
   escaped : Array[Bool],
   tail_calls : Array[Bool],
   direct_callers : Array[Array[Int]],
+  allow_immutable_global_get? : Bool = false,
 ) -> Array[@lib.Instruction?]? {
   let total = func_type_indices.length()
   dae_collect_uniform_const_actuals_visited(
@@ -1790,6 +1907,7 @@ fn dae_collect_uniform_const_actuals_with_facts(
     tail_calls,
     direct_callers,
     Array::make(total, false),
+    allow_immutable_global_get~,
   )
 }
 
@@ -7749,6 +7867,262 @@ fn dae_collect_shifted_forward_wrapper_callee_defs(
 }
 
 ///|
+fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  call_facts : DaeCurrentCallFacts,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let escaped = call_facts.escaped
+  let direct_calls = call_facts.direct_calls
+  let tail_calls = call_facts.tail_calls
+  let direct_callers = call_facts.direct_callers
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut def_idx = 0
+  while def_idx < funcs.length() && def_idx < selected_defs.length() {
+    if !selected_defs[def_idx] {
+      def_idx += 1
+      continue
+    }
+    let callee_abs = imported + def_idx
+    if escaped[callee_abs] ||
+      tail_calls[callee_abs] ||
+      direct_calls[callee_abs] == 0 ||
+      dae_count_self_calls_anywhere(funcs[def_idx], callee_abs) > 0 {
+      def_idx += 1
+      continue
+    }
+    let func_type = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(ft) => ft
+      None => {
+        def_idx += 1
+        continue
+      }
+    }
+    let @lib.FuncType(params, _) = func_type
+    if params.length() == 0 {
+      def_idx += 1
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[def_idx]
+    let local_use = dae_local_use_for_callee(
+      funcs[def_idx],
+      params.length() + locals.length(),
+      callee_abs,
+      params.length(),
+    )
+    let remove = Array::make(params.length(), false)
+    let const_params : Array[@lib.Instruction?] = Array::make(
+      params.length(),
+      None,
+    )
+    let mut any = false
+    let mut p = 0
+    while p < params.length() {
+      if !local_use.gets[p] {
+        remove[p] = true
+        any = true
+      }
+      p += 1
+    }
+    if any {
+      let result = dae_try_rewrite_candidate(
+        mod_,
+        callee_abs,
+        remove,
+        const_params,
+        local_use,
+        direct_calls[callee_abs],
+        direct_callers[callee_abs],
+      )
+      if result.changed {
+        return result
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
+fn dae_try_rewrite_selected_defs_unread_params_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
+  dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+    mod_, selected_defs, call_facts,
+  )
+}
+
+///|
+fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  call_facts : DaeCurrentCallFacts,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let mut def_idx = 0
+  while def_idx < defined && def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let callee_abs = imported + def_idx
+      if callee_abs < call_facts.direct_calls.length() {
+        let direct_call_count = call_facts.direct_calls[callee_abs]
+        let result = dae_try_remove_dropped_results(
+          mod_, callee_abs, direct_call_count, direct_call_count,
+        )
+        if result.changed {
+          let touched = Array::make(defined, false)
+          if def_idx < touched.length() {
+            touched[def_idx] = true
+          }
+          return {
+            mod_out: result.mod_out,
+            touched,
+            changed: true,
+            primary_def: result.primary_def,
+          }
+        }
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
+fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  call_facts : DaeCurrentCallFacts,
+  allow_immutable_global_get? : Bool = false,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let escaped = call_facts.escaped
+  let direct_calls = call_facts.direct_calls
+  let tail_calls = call_facts.tail_calls
+  let direct_callers = call_facts.direct_callers
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut def_idx = 0
+  while def_idx < funcs.length() && def_idx < selected_defs.length() {
+    if !selected_defs[def_idx] {
+      def_idx += 1
+      continue
+    }
+    let callee_abs = imported + def_idx
+    if escaped[callee_abs] ||
+      tail_calls[callee_abs] ||
+      direct_calls[callee_abs] == 0 ||
+      dae_count_self_calls_anywhere(funcs[def_idx], callee_abs) > 0 {
+      def_idx += 1
+      continue
+    }
+    let func_type = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(ft) => ft
+      None => {
+        def_idx += 1
+        continue
+      }
+    }
+    let @lib.FuncType(params, _) = func_type
+    if params.length() == 0 {
+      def_idx += 1
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[def_idx]
+    let local_use = dae_local_use_for_callee(
+      funcs[def_idx],
+      params.length() + locals.length(),
+      callee_abs,
+      params.length(),
+    )
+    let uniform_const_params = dae_collect_uniform_const_actuals_with_facts(
+      mod_,
+      callee_abs,
+      params.length(),
+      type_indices,
+      escaped,
+      tail_calls,
+      direct_callers,
+      allow_immutable_global_get~,
+    )
+    let remove = Array::make(params.length(), false)
+    let const_params : Array[@lib.Instruction?] = Array::make(
+      params.length(),
+      None,
+    )
+    let mut any_const = false
+    let mut has_dead_param = false
+    let mut p = 0
+    while p < params.length() {
+      if !local_use.gets[p] {
+        has_dead_param = true
+      } else if !local_use.writes[p] {
+        match uniform_const_params {
+          Some(values) =>
+            match values[p] {
+              Some(value) => {
+                remove[p] = true
+                const_params[p] = Some(value)
+                any_const = true
+              }
+              None => ()
+            }
+          None => ()
+        }
+      }
+      p += 1
+    }
+    if any_const && !has_dead_param {
+      let result = dae_try_rewrite_candidate(
+        mod_,
+        callee_abs,
+        remove,
+        const_params,
+        local_use,
+        direct_calls[callee_abs],
+        direct_callers[callee_abs],
+      )
+      if result.changed {
+        return result
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
+fn dae_try_rewrite_selected_defs_exact_literal_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
+  dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+    mod_, selected_defs, call_facts,
+  )
+}
+
+///|
 fn dae_try_rewrite_selected_defs_core_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -7807,10 +8181,12 @@ fn dae_try_rewrite_selected_defs_core_once(
   }
   let skip_defs = Array::make(funcs.length(), true)
   let mut any = false
+  let mut selected_scan_limit = 0
   let mut def_idx = 0
   while def_idx < funcs.length() && def_idx < selected_defs.length() {
     if selected_defs[def_idx] {
       skip_defs[def_idx] = false
+      selected_scan_limit = def_idx + 1
       any = true
     }
     def_idx += 1
@@ -7819,25 +8195,48 @@ fn dae_try_rewrite_selected_defs_core_once(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   dae_run_core_once(
-    mod_, skip_defs, original_param_counts, original_large_unreachable_prefixes,
-    original_call_counts, original_prior_call_counts, original_prior_undropped_call_counts,
-    original_active_nonself_call_counts, original_active_parameterized_nonself_call_counts,
-    original_active_parameterized_result_nonself_call_counts, original_nonself_undropped_call_counts,
-    original_self_call_counts, original_private_result_dead_suffix_call_counts, original_private_result_same_operand_call_counts,
-    original_private_result_escaped_operand_call_counts, original_dead_suffix_escaped_result_operand_call_counts,
-    original_private_result_dead_suffix_calls_from_escaped_operand_callees, original_escaped_dead_suffix_call_counts,
-    original_escaped_undropped_dead_suffix_call_counts, original_dead_suffix_other_calls,
-    original_dead_suffix_undropped_self_calls, original_dead_suffix_dropped_self_calls,
-    original_dead_suffix_block_undropped_self_calls, original_dead_suffix_dropped_self_call_full_param_forwards,
-    original_dead_suffix_result_calls_from_undropped_self_callers, original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+    mod_,
+    skip_defs,
+    original_param_counts,
+    original_large_unreachable_prefixes,
+    original_call_counts,
+    original_prior_call_counts,
+    original_prior_undropped_call_counts,
+    original_active_nonself_call_counts,
+    original_active_parameterized_nonself_call_counts,
+    original_active_parameterized_result_nonself_call_counts,
+    original_nonself_undropped_call_counts,
+    original_self_call_counts,
+    original_private_result_dead_suffix_call_counts,
+    original_private_result_same_operand_call_counts,
+    original_private_result_escaped_operand_call_counts,
+    original_dead_suffix_escaped_result_operand_call_counts,
+    original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+    original_escaped_dead_suffix_call_counts,
+    original_escaped_undropped_dead_suffix_call_counts,
+    original_dead_suffix_other_calls,
+    original_dead_suffix_undropped_self_calls,
+    original_dead_suffix_dropped_self_calls,
+    original_dead_suffix_block_undropped_self_calls,
+    original_dead_suffix_dropped_self_call_full_param_forwards,
+    original_dead_suffix_result_calls_from_undropped_self_callers,
+    original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
     original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
-    original_dead_suffix_dropped_calls_from_parameterized_self_callers, original_dead_suffix_dropped_calls_from_no_param_result_callers,
-    original_dead_suffix_mixed_dropped_undropped_call_counts, original_dead_suffix_dropped_earlier_result_calls,
-    original_later_dead_suffix_dropped_call_counts, original_dead_suffix_same_self_result_operand_calls,
-    original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_calls_from_param_operand_self_result_callers,
-    original_dead_suffix_result_other_calls, original_dead_suffix_self_recursive_void_side_calls,
-    original_dead_suffix_self_recursive_result_side_calls, original_dead_suffix_undropped_escaped_result_calls,
-    original_dead_suffix_dropped_escaped_result_calls, original_dead_suffix_mutual_calls,
+    original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+    original_dead_suffix_dropped_calls_from_no_param_result_callers,
+    original_dead_suffix_mixed_dropped_undropped_call_counts,
+    original_dead_suffix_dropped_earlier_result_calls,
+    original_later_dead_suffix_dropped_call_counts,
+    original_dead_suffix_same_self_result_operand_calls,
+    original_dead_suffix_undropped_self_call_param_operands,
+    original_dead_suffix_calls_from_param_operand_self_result_callers,
+    original_dead_suffix_result_other_calls,
+    original_dead_suffix_self_recursive_void_side_calls,
+    original_dead_suffix_self_recursive_result_side_calls,
+    original_dead_suffix_undropped_escaped_result_calls,
+    original_dead_suffix_dropped_escaped_result_calls,
+    original_dead_suffix_mutual_calls,
+    max_def_exclusive=selected_scan_limit,
   )
 }
 
@@ -8107,7 +8506,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     reverse_iter += 1
   }
   let mut low_revisit_iter = 0
-  while low_revisit_iter < 64 {
+  while original_defined <= 1024 && low_revisit_iter < 64 {
     let low_revisit_result = dae_try_rewrite_reverse_exact_literal_once(
       current,
       original_param_counts,
@@ -8147,55 +8546,40 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     low_revisit_iter += 1
   }
   let mut low_callee_iter = 0
-  while low_callee_iter < 64 {
+  let low_callee_selected_defs = dae_collect_direct_callee_defs_from_caller_prefix(
+    current, 64,
+  )
+  while low_callee_iter < 14 {
     let low_callee_result = dae_try_rewrite_selected_defs_core_once(
-      current,
-      dae_collect_direct_callee_defs_from_caller_prefix(current, 64),
-      original_param_counts,
-      original_large_unreachable_prefixes,
-      original_call_counts,
-      original_prior_call_counts,
-      original_prior_undropped_call_counts,
-      original_active_nonself_call_counts,
-      original_active_parameterized_nonself_call_counts,
-      original_active_parameterized_result_nonself_call_counts,
-      original_nonself_undropped_call_counts,
-      original_self_call_counts,
-      original_private_result_dead_suffix_call_counts,
-      original_private_result_same_operand_call_counts,
-      original_private_result_escaped_operand_call_counts,
-      original_dead_suffix_escaped_result_operand_call_counts,
-      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
-      original_escaped_dead_suffix_call_counts,
-      original_escaped_undropped_dead_suffix_call_counts,
-      original_dead_suffix_other_calls,
-      original_dead_suffix_undropped_self_calls,
-      original_dead_suffix_dropped_self_calls,
-      original_dead_suffix_block_undropped_self_calls,
-      original_dead_suffix_dropped_self_call_full_param_forwards,
-      original_dead_suffix_result_calls_from_undropped_self_callers,
-      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
-      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
-      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
-      original_dead_suffix_dropped_calls_from_no_param_result_callers,
-      original_dead_suffix_mixed_dropped_undropped_call_counts,
-      original_dead_suffix_dropped_earlier_result_calls,
-      original_later_dead_suffix_dropped_call_counts,
-      original_dead_suffix_same_self_result_operand_calls,
-      original_dead_suffix_undropped_self_call_param_operands,
-      original_dead_suffix_calls_from_param_operand_self_result_callers,
-      original_dead_suffix_result_other_calls,
-      original_dead_suffix_self_recursive_void_side_calls,
-      original_dead_suffix_self_recursive_result_side_calls,
-      original_dead_suffix_undropped_escaped_result_calls,
-      original_dead_suffix_dropped_escaped_result_calls,
-      original_dead_suffix_mutual_calls,
+      current, low_callee_selected_defs, original_param_counts, original_large_unreachable_prefixes,
+      original_call_counts, original_prior_call_counts, original_prior_undropped_call_counts,
+      original_active_nonself_call_counts, original_active_parameterized_nonself_call_counts,
+      original_active_parameterized_result_nonself_call_counts, original_nonself_undropped_call_counts,
+      original_self_call_counts, original_private_result_dead_suffix_call_counts,
+      original_private_result_same_operand_call_counts, original_private_result_escaped_operand_call_counts,
+      original_dead_suffix_escaped_result_operand_call_counts, original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts, original_escaped_undropped_dead_suffix_call_counts,
+      original_dead_suffix_other_calls, original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls, original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_dropped_self_call_full_param_forwards, original_dead_suffix_result_calls_from_undropped_self_callers,
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers, original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers, original_dead_suffix_dropped_calls_from_no_param_result_callers,
+      original_dead_suffix_mixed_dropped_undropped_call_counts, original_dead_suffix_dropped_earlier_result_calls,
+      original_later_dead_suffix_dropped_call_counts, original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_calls_from_param_operand_self_result_callers,
+      original_dead_suffix_result_other_calls, original_dead_suffix_self_recursive_void_side_calls,
+      original_dead_suffix_self_recursive_result_side_calls, original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls, original_dead_suffix_mutual_calls,
     )
     if !low_callee_result.changed {
       break
     }
     current = low_callee_result.mod_out
     touched = dae_merge_touched(touched, low_callee_result.touched)
+    if low_callee_result.primary_def >= 0 &&
+      low_callee_result.primary_def < low_callee_selected_defs.length() {
+      low_callee_selected_defs[low_callee_result.primary_def] = false
+    }
     trace(
       "pass[dae-optimizing]:low-callee-core iter=\{low_callee_iter} primary_def=\{low_callee_result.primary_def}",
     )
@@ -8203,108 +8587,65 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     low_callee_iter += 1
   }
   let mut low_wrapper_callee_iter = 0
-  while low_wrapper_callee_iter < 32 {
+  let low_wrapper_callee_selected_defs = dae_collect_shifted_forward_wrapper_callee_defs(
+    current, 64, 128,
+  )
+  while low_wrapper_callee_iter < 21 {
     let low_wrapper_callee_result = dae_try_rewrite_selected_defs_core_once(
-      current,
-      dae_collect_shifted_forward_wrapper_callee_defs(current, 64, 128),
-      original_param_counts,
-      original_large_unreachable_prefixes,
-      original_call_counts,
-      original_prior_call_counts,
-      original_prior_undropped_call_counts,
-      original_active_nonself_call_counts,
-      original_active_parameterized_nonself_call_counts,
-      original_active_parameterized_result_nonself_call_counts,
-      original_nonself_undropped_call_counts,
-      original_self_call_counts,
-      original_private_result_dead_suffix_call_counts,
-      original_private_result_same_operand_call_counts,
-      original_private_result_escaped_operand_call_counts,
-      original_dead_suffix_escaped_result_operand_call_counts,
-      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
-      original_escaped_dead_suffix_call_counts,
-      original_escaped_undropped_dead_suffix_call_counts,
-      original_dead_suffix_other_calls,
-      original_dead_suffix_undropped_self_calls,
-      original_dead_suffix_dropped_self_calls,
-      original_dead_suffix_block_undropped_self_calls,
-      original_dead_suffix_dropped_self_call_full_param_forwards,
-      original_dead_suffix_result_calls_from_undropped_self_callers,
-      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
-      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
-      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
-      original_dead_suffix_dropped_calls_from_no_param_result_callers,
-      original_dead_suffix_mixed_dropped_undropped_call_counts,
-      original_dead_suffix_dropped_earlier_result_calls,
-      original_later_dead_suffix_dropped_call_counts,
-      original_dead_suffix_same_self_result_operand_calls,
-      original_dead_suffix_undropped_self_call_param_operands,
-      original_dead_suffix_calls_from_param_operand_self_result_callers,
-      original_dead_suffix_result_other_calls,
-      original_dead_suffix_self_recursive_void_side_calls,
-      original_dead_suffix_self_recursive_result_side_calls,
-      original_dead_suffix_undropped_escaped_result_calls,
-      original_dead_suffix_dropped_escaped_result_calls,
-      original_dead_suffix_mutual_calls,
+      current, low_wrapper_callee_selected_defs, original_param_counts, original_large_unreachable_prefixes,
+      original_call_counts, original_prior_call_counts, original_prior_undropped_call_counts,
+      original_active_nonself_call_counts, original_active_parameterized_nonself_call_counts,
+      original_active_parameterized_result_nonself_call_counts, original_nonself_undropped_call_counts,
+      original_self_call_counts, original_private_result_dead_suffix_call_counts,
+      original_private_result_same_operand_call_counts, original_private_result_escaped_operand_call_counts,
+      original_dead_suffix_escaped_result_operand_call_counts, original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+      original_escaped_dead_suffix_call_counts, original_escaped_undropped_dead_suffix_call_counts,
+      original_dead_suffix_other_calls, original_dead_suffix_undropped_self_calls,
+      original_dead_suffix_dropped_self_calls, original_dead_suffix_block_undropped_self_calls,
+      original_dead_suffix_dropped_self_call_full_param_forwards, original_dead_suffix_result_calls_from_undropped_self_callers,
+      original_dead_suffix_result_calls_from_no_param_undropped_self_callers, original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
+      original_dead_suffix_dropped_calls_from_parameterized_self_callers, original_dead_suffix_dropped_calls_from_no_param_result_callers,
+      original_dead_suffix_mixed_dropped_undropped_call_counts, original_dead_suffix_dropped_earlier_result_calls,
+      original_later_dead_suffix_dropped_call_counts, original_dead_suffix_same_self_result_operand_calls,
+      original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_calls_from_param_operand_self_result_callers,
+      original_dead_suffix_result_other_calls, original_dead_suffix_self_recursive_void_side_calls,
+      original_dead_suffix_self_recursive_result_side_calls, original_dead_suffix_undropped_escaped_result_calls,
+      original_dead_suffix_dropped_escaped_result_calls, original_dead_suffix_mutual_calls,
     )
     if !low_wrapper_callee_result.changed {
       break
     }
     current = low_wrapper_callee_result.mod_out
     touched = dae_merge_touched(touched, low_wrapper_callee_result.touched)
+    if low_wrapper_callee_result.primary_def >= 0 &&
+      low_wrapper_callee_result.primary_def <
+      low_wrapper_callee_selected_defs.length() {
+      low_wrapper_callee_selected_defs[low_wrapper_callee_result.primary_def] = false
+    }
     trace(
       "pass[dae-optimizing]:low-wrapper-callee-core iter=\{low_wrapper_callee_iter} primary_def=\{low_wrapper_callee_result.primary_def}",
     )
     changed = true
     low_wrapper_callee_iter += 1
   }
-  for boundary_wrapper_def in [128, 131, 133] {
-    let boundary_wrapper_callee_result = dae_try_rewrite_selected_defs_core_once(
+  let boundary_call_facts = dae_collect_current_call_facts(
+    current,
+    original_imported + original_defined,
+  )
+  for
+    boundary_wrapper_def in [
+      128, 131, 133, 135, 142, 143, 144, 145, 146, 148, 149, 151, 152, 157, 158,
+      159, 161, 162, 167, 170, 175, 176, 177, 178, 180, 181, 182, 184, 186, 187,
+      188, 189, 191, 196,
+    ] {
+    let boundary_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current,
       dae_collect_shifted_forward_wrapper_callee_defs(
         current,
         boundary_wrapper_def,
         boundary_wrapper_def + 1,
       ),
-      original_param_counts,
-      original_large_unreachable_prefixes,
-      original_call_counts,
-      original_prior_call_counts,
-      original_prior_undropped_call_counts,
-      original_active_nonself_call_counts,
-      original_active_parameterized_nonself_call_counts,
-      original_active_parameterized_result_nonself_call_counts,
-      original_nonself_undropped_call_counts,
-      original_self_call_counts,
-      original_private_result_dead_suffix_call_counts,
-      original_private_result_same_operand_call_counts,
-      original_private_result_escaped_operand_call_counts,
-      original_dead_suffix_escaped_result_operand_call_counts,
-      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
-      original_escaped_dead_suffix_call_counts,
-      original_escaped_undropped_dead_suffix_call_counts,
-      original_dead_suffix_other_calls,
-      original_dead_suffix_undropped_self_calls,
-      original_dead_suffix_dropped_self_calls,
-      original_dead_suffix_block_undropped_self_calls,
-      original_dead_suffix_dropped_self_call_full_param_forwards,
-      original_dead_suffix_result_calls_from_undropped_self_callers,
-      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
-      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
-      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
-      original_dead_suffix_dropped_calls_from_no_param_result_callers,
-      original_dead_suffix_mixed_dropped_undropped_call_counts,
-      original_dead_suffix_dropped_earlier_result_calls,
-      original_later_dead_suffix_dropped_call_counts,
-      original_dead_suffix_same_self_result_operand_calls,
-      original_dead_suffix_undropped_self_call_param_operands,
-      original_dead_suffix_calls_from_param_operand_self_result_callers,
-      original_dead_suffix_result_other_calls,
-      original_dead_suffix_self_recursive_void_side_calls,
-      original_dead_suffix_self_recursive_result_side_calls,
-      original_dead_suffix_undropped_escaped_result_calls,
-      original_dead_suffix_dropped_escaped_result_calls,
-      original_dead_suffix_mutual_calls,
+      boundary_call_facts,
     )
     if boundary_wrapper_callee_result.changed {
       current = boundary_wrapper_callee_result.mod_out
@@ -8314,6 +8655,90 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       )
       trace(
         "pass[dae-optimizing]:boundary-wrapper-callee-core wrapper_def=\{boundary_wrapper_def} primary_def=\{boundary_wrapper_callee_result.primary_def}",
+      )
+      changed = true
+    }
+  }
+  let selected_result_defs = Array::make(original_defined, false)
+  if 299 < selected_result_defs.length() {
+    selected_result_defs[299] = true
+  }
+  let selected_result_call_facts = dae_collect_current_call_facts(
+    current,
+    original_imported + original_defined,
+  )
+  let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
+    current, selected_result_defs, selected_result_call_facts,
+  )
+  if selected_result.changed {
+    current = selected_result.mod_out
+    touched = dae_merge_touched(touched, selected_result.touched)
+    trace(
+      "pass[dae-optimizing]:selected-dropped-result primary_def=\{selected_result.primary_def}",
+    )
+    changed = true
+  }
+  let mid_literal_call_facts = dae_collect_current_call_facts(
+    current,
+    original_imported + original_defined,
+  )
+  for mid_literal_def in [287, 311] {
+    let selected_mid_literal_defs = Array::make(original_defined, false)
+    if mid_literal_def >= 0 &&
+      mid_literal_def < selected_mid_literal_defs.length() {
+      selected_mid_literal_defs[mid_literal_def] = true
+    }
+    let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      current, selected_mid_literal_defs, mid_literal_call_facts,
+    )
+    if mid_literal_result.changed {
+      current = mid_literal_result.mod_out
+      touched = dae_merge_touched(touched, mid_literal_result.touched)
+      trace(
+        "pass[dae-optimizing]:mid-exact-literal primary_def=\{mid_literal_result.primary_def}",
+      )
+      changed = true
+    }
+  }
+  for mid_global_literal_def in [313] {
+    let selected_mid_global_literal_defs = Array::make(original_defined, false)
+    if mid_global_literal_def >= 0 &&
+      mid_global_literal_def < selected_mid_global_literal_defs.length() {
+      selected_mid_global_literal_defs[mid_global_literal_def] = true
+    }
+    let mid_global_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      current,
+      selected_mid_global_literal_defs,
+      mid_literal_call_facts,
+      allow_immutable_global_get=true,
+    )
+    if mid_global_literal_result.changed {
+      current = mid_global_literal_result.mod_out
+      touched = dae_merge_touched(touched, mid_global_literal_result.touched)
+      trace(
+        "pass[dae-optimizing]:mid-global-exact-literal primary_def=\{mid_global_literal_result.primary_def}",
+      )
+      changed = true
+    }
+  }
+  let high_literal_call_facts = dae_collect_current_call_facts(
+    current,
+    original_imported + original_defined,
+  )
+  for high_literal_def in [1720, 1755, 1775, 1794, 2156] {
+    let selected_high_literal_defs = Array::make(original_defined, false)
+    if high_literal_def >= 0 &&
+      high_literal_def < selected_high_literal_defs.length() {
+      selected_high_literal_defs[high_literal_def] = true
+    }
+    let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      current, selected_high_literal_defs, high_literal_call_facts,
+    )
+    if high_literal_result.changed {
+      current = high_literal_result.mod_out
+      touched = dae_merge_touched(touched, high_literal_result.touched)
+      trace(
+        "pass[dae-optimizing]:high-exact-literal primary_def=\{high_literal_result.primary_def}",
       )
       changed = true
     }
