@@ -566,6 +566,7 @@ fn sgo_read_only_to_write_read_at(
   idx : @lib.GlobalIdx,
 ) -> Bool {
   sgo_is_exact_if_return_set(instrs, pos, idx) ||
+  sgo_is_pure_condition_if_return_set(instrs, pos, idx) ||
   (
     pos + 1 < instrs.length() &&
     sgo_if_is_read_only_to_write_set(instrs[pos + 1], idx)
@@ -781,6 +782,42 @@ fn sgo_is_exact_if_return_set(
       sgo_if_return_set_tail_matches(value, set, idx)
     _ => false
   }
+}
+
+///|
+fn sgo_if_return_tail_matches(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  if start + 2 == instrs.length() {
+    return sgo_if_return_set_tail_matches(instrs[start], instrs[start + 1], idx)
+  }
+  if start + 1 == instrs.length() {
+    return sgo_if_return_block_tail_matches(instrs[start], idx)
+  }
+  false
+}
+
+///|
+fn sgo_is_pure_condition_if_return_set(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  if pos != 0 {
+    return false
+  }
+  for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
+    let instr = instrs[scan]
+    if sgo_is_return_guard(instr) {
+      return sgo_if_return_tail_matches(instrs, scan + 1, idx)
+    }
+    if !sgo_is_read_only_to_write_pure_condition_instr(instr) {
+      return false
+    }
+  }
+  false
 }
 
 ///|

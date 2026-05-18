@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO pure-condition if-return guards
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write `if return; set` subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so a concrete leading `global.get` can flow through the existing source-backed pure-condition whitelist before an exact return guard and same-global constant write tail.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the pure-condition `if return; set` fixture failed first with globals still mutable, then passed after the matcher extension landed. A local Binaryen probe at `.tmp/sgo-pure-condition-ifreturn-probe.wat` showed `wasm-opt --simplify-globals` promoting matching i32 and i64 pure-condition `if return; set` globals to immutable while replacing get/set uses. A trailing-`nop` negative keeps the family exact instead of turning it into a broader CFG proof.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1144/1144`), and `.tmp/pass-fuzz-sgo-pure-ifreturn-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO read-only-to-write guardrail negatives
 
 - Added focused guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for unsupported read-only-to-write self-guard shapes: wrong-target writes, non-constant set operands with calls, `if` expressions with `else` arms, `select` value-flow, and trapping memory-load conditions.
