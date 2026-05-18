@@ -602,6 +602,9 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
   instr : @lib.Instruction,
 ) -> Bool {
   sgo_const_instr(instr) != None ||
+  instr == @lib.Instruction::i32_clz() ||
+  instr == @lib.Instruction::i32_ctz() ||
+  instr == @lib.Instruction::i32_popcnt() ||
   instr == @lib.Instruction::i32_eqz() ||
   instr == @lib.Instruction::i32_eq() ||
   instr == @lib.Instruction::i32_ne() ||

@@ -560,6 +560,48 @@ test "simplify-globals-optimizing removes shift-rotate pure-condition read-only-
 }
 
 ///|
+test "simplify-globals-optimizing removes unary pure-condition read-only-to-write self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $clz (mut i32) (i32.const 1))
+      #|  (global $ctz (mut i32) (i32.const 1))
+      #|  (global $popcnt (mut i32) (i32.const 1))
+      #|  (func (export "run")
+      #|    global.get $clz
+      #|    i32.clz
+      #|    if
+      #|      i32.const 2
+      #|      global.set $clz
+      #|    end
+      #|    global.get $ctz
+      #|    i32.ctz
+      #|    if
+      #|      i32.const 2
+      #|      global.set $ctz
+      #|    end
+      #|    global.get $popcnt
+      #|    i32.popcnt
+      #|    if
+      #|      i32.const 2
+      #|      global.set $popcnt
+      #|    end))
+      #|,
+    ),
+  )
+
+  for global_idx = 0; global_idx < 3; global_idx = global_idx + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, global_idx),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps condition values flowing into side effects" {
   let optimized = sgo_test_run(
     (
