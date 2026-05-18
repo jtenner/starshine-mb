@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-18
 sources:
+  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
@@ -25,7 +26,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Use Binaryen `version_129` as the stable source oracle for this pass, with the 2026-05-18 current-`main` refresh as a no-drift check rather than a replacement contract.
 - The immutable source manifests for this dossier are [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md), which record the official release page, reviewed `version_129` and current-`main` source URLs, helper headers, lit-test roster, and focused port-readiness recheck.
 - The core implementation is `src/passes/SimplifyGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
@@ -40,6 +41,7 @@ related:
 
 Primary source URLs:
 
+- 2026-05-18 current-main refresh: [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md), which observed official Binaryen `main` at commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` (committer date 2026-05-15) and found no SGO semantic drift from `version_129`.
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyGlobals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
@@ -178,7 +180,7 @@ The simple positive story is:
 )
 ```
 
-But the real source contract is much stricter.
+But the real source contract is both broader and stricter. It is broader because the condition can be any safe expression that uses the concrete `global.get` only to compute the branch decision. It is stricter because the body/effect/value-flow gates below must still prove that no other observable behavior depends on that global read.
 
 ### The body must have exactly one global write and no other effects
 
@@ -213,7 +215,7 @@ So the source distinguishes between:
 - unrelated side effects that happen while the global’s value only flows safely to the final condition result
   - allow
 
-This is why the giant `simplify-globals-read_only_to_write.wast` test contains both “side effects in the condition” negatives and a few “side effects exist, but the global value does not reach them dangerously” positives.
+This is why the giant `simplify-globals-read_only_to_write.wast` test contains both “side effects in the condition” negatives and a few “side effects exist, but the global value does not reach them dangerously” positives. The 2026-05-18 refresh makes this an explicit Starshine gap: a safe next widening is not “more syntactic variants forever,” but a small, tested bridge from the current adjacent/compare/block-yielded subset toward Binaryen’s actual condition/value-flow contract.
 
 ### The matcher also recognizes one narrow whole-function pattern
 
@@ -468,11 +470,13 @@ Provides the optimizing variant’s nested rerun contract directly, without usin
 - `propagate-globals-globally.wast`
   - startup-only propagation versus full-pass runtime propagation
 
-## 2026-04-25 current-main and port-readiness note
+## 2026-05-18 current-main refresh
 
-The focused 2026-04-25 bridge rechecked official Binaryen current-`main` `SimplifyGlobals.cpp`, `pass.cpp`, and `pass.h` for teaching drift. It found no new contract change from the `version_129` strategy above. The main new durable conclusion is port-planning: a Starshine implementation must validate the shared global rewrite algorithm separately from the optimizing wrapper's exact changed-function default-rerun behavior.
+The focused 2026-05-18 refresh rechecked official Binaryen current-`main` `SimplifyGlobals.cpp`, `pass.cpp`, `pass.h`, helper headers, and the relevant lit tests. The observed head was commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` with committer date 2026-05-15. A focused diff against `version_129` found no SGO semantic drift: `SimplifyGlobals.cpp` only fixed comment typos, `pass.h` and the key SGO lit files were unchanged, and `pass.cpp` differences were unrelated registrations/doc strings outside SGO scheduling.
 
-Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the future local slice and validation ladder.
+The main new durable conclusion is implementation guidance: preserve the existing source contract, but stop treating every new read-only-to-write win as a new hard-coded syntactic family. Starshine should add negative guard tests around the recent helper complexity, then grow toward source-backed condition/value-flow legality in small slices.
+
+Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the local slice and validation ladder.
 
 ## Future Starshine port checklist
 
@@ -488,6 +492,7 @@ Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-
 
 ## Sources
 
+- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)

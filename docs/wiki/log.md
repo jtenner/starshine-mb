@@ -395,6 +395,18 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] wiki | SGO current-main source refresh and next-slice guidance
+
+- Rechecked official Binaryen `main` for `simplify-globals-optimizing` at observed commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` (committer date 2026-05-15) against the existing `version_129` contract; the focused diff found no SGO semantic drift, only comment typo fixes in `SimplifyGlobals.cpp` and unrelated `pass.cpp` registration/doc-string changes.
+- Added [`raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md) to answer the upstream focus questions: `readOnlyToWrite` counting, actual-node versus effect-summary gates, same-as-init removal, startup/runtime propagation split, type/refinalization rules, fixed-point behavior, and optimizing nested rerun shape.
+- Updated the `simplify-globals-optimizing` landing, Binaryen strategy, implementation/test map, linear-trace/read-only-to-write guide, WAT-shape catalog, Starshine strategy, Starshine port-readiness page, and wiki index with the no-drift result and safer next slices: negative guards first, then a generic pure-condition self-guard bridge, with side-effecting value-flow positives, same-as-init breadth, GC/refinalization, and nested-cleanup guard removal kept separate.
+
+## [2026-05-18] passes | SGO simple pure-condition self guards
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so a concrete `global.get` may flow through a narrow side-effect-free integer condition (`i32.add` then `i32.lt_s` in the focused fixture) before an adjacent no-else `if` whose body is a same-global constant set.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the pure-condition fixture failed first with the global still mutable, then passed after the pure-condition matcher landed. Added a guard test proving a condition value flowing into `local.tee` remains mutable and preserves the `global.get` / `global.set` shape.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1131/1131`), `.tmp/pass-fuzz-sgo-pure-condition-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures, and full `moon test` passed (`3195/3195`).
+
 ## [2026-05-18] passes | SGO block-yielded self-guard condition operators
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so adjacent self guards may use a transparent result block yielding the guarded `global.get` with `i32.eqz` or bidirectional compare-const operators outside the block.

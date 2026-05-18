@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-18
 sources:
+  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
@@ -40,7 +41,7 @@ The purpose here is to map the reviewed Binaryen contract to the exact current S
 
 `simplify-globals-optimizing` is now **partially implemented** in Starshine.
 The first local slice lives in [`src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt) and is wired as an active module pass through [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
-It is not full Binaryen parity yet.
+It is not full Binaryen parity yet. A 2026-05-18 current-main refresh rechecked official Binaryen `main` at commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` and found no SGO semantic drift from the `version_129` source contract, so the remaining gaps below should still be treated as real local gaps rather than upstream churn.
 
 The current local strategy is therefore a partial-implementation map:
 
@@ -98,7 +99,7 @@ The current implementation includes:
 - practical immutability promotion for private never-written globals,
 - single-use global-initializer folding into later global initializers,
 - exact-type immutable global-copy-chain canonicalization to the earliest compatible ancestor in global initializers and function bodies,
-- never-read, single-const same-as-init, adjacent/eqz/bidirectional compare-const/transparent/nested/block-wrapped-condition/block-yielded-condition/no-op-condition-prefix/const-drop-body read-only-to-write self-guard, and exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` read-only-to-write `global.set` rewriting to `drop(value)` with the writer marked as touched,
+- never-read, single-const same-as-init, adjacent/eqz/bidirectional compare-const/simple-pure-condition/transparent/nested/block-wrapped-condition/block-yielded-condition/no-op-condition-prefix/const-drop-body read-only-to-write self-guard, and exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` read-only-to-write `global.set` rewriting to `drop(value)` with the writer marked as touched,
 - supported single-instruction constant `global.get` replacement in function bodies,
 - startup constant propagation into table initializers, global initializers, element offsets, and data offsets,
 - single-const private global write propagation along straight-line runtime traces with call/control barriers,
@@ -148,7 +149,7 @@ Starshine still lacks:
 
 - a shared owner for the plain `simplify-globals` / optimizing / `propagate-globals-globally` family,
 - broader same-as-init expression matching beyond the landed single-const write shape,
-- broader `read-only-to-write` structural matching and its whole-pass iteration beyond the landed adjacent/eqz/bidirectional compare-const/transparent/nested/block-wrapped-condition/block-yielded-condition/no-op-condition-prefix/const-drop-body self-guard and exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` shapes,
+- broader `read-only-to-write` structural matching and its whole-pass iteration beyond the landed adjacent/eqz/bidirectional compare-const/simple-pure-condition/transparent/nested/block-wrapped-condition/block-yielded-condition/no-op-condition-prefix/const-drop-body self-guard and exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` shapes; the main next source-backed gap is side-effecting-but-safe condition value-flow matching rather than more isolated syntactic variants,
 - broader copy-chain/type-refinalization cases beyond the landed exact-type immutable ancestor rewrite,
 - broader runtime linear-trace propagation beyond the landed straight-line single-const write facts,
 - type/refinalization breadth for replacements that change reference precision,
@@ -201,19 +202,31 @@ The first active-partial slice has direct generated-module oracle evidence:
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-blockyield-blockset-ifreturn-10k` compared `9975/10000` mixed-generator cases after the block-yielded condition plus block-wrapped set `if return; set` slice, matched all `9975`, found `0` normalized mismatches, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-transparent-10k-final` compared `9975/10000` mixed-generator cases after the transparent self-guard slice, matched all `9975`, found `0` normalized mismatches, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-blockyield-selfguard-10k` compared `9975/10000` mixed-generator cases after the block-yielded external condition-operator self-guard slice, matched all `9975`, found `0` normalized mismatches, found `0` validation failures, and hit `25` Binaryen/tool command failures.
+- `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-pure-condition-10k` compared `9975/10000` mixed-generator cases after the simple pure-condition self-guard slice, matched all `9975`, found `0` normalized mismatches, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --generator gen-valid --pass simplify-globals-optimizing --out-dir .tmp/pass-fuzz-sgo-rotw-gen-valid-10k` matched Binaryen on `10000/10000` normalized cases with `0` validation failures and `0` mismatches.
 
 The earlier `.tmp/pass-fuzz-sgo-10k` mixed run found seven mismatches from missing multi-instruction global-initializer folding and over-eager reference-constant replacement in element item expressions; focused regressions now cover those families.
 
 This evidence validates the current generated-input subset, but it does not close the remaining Binaryen rewrite families, saved debug-artifact parity, or public-preset scheduling.
 
+## Focused next slices after the 2026-05-18 research refresh
+
+Prefer these local slices before more broadening:
+
+1. Add more negative guard tests around the recent helper complexity: wrong set global, non-constant set operand, `if` with `else`, and trailing code after the exact whole-function `if return; set` body.
+2. Extend the landed simple pure-condition self-guard slice only with source-backed side-effect-free operators and focused probes.
+3. Keep the official safe-side-effect condition positive separate because it needs Binaryen-style upward value-flow reasoning, not just a pure-expression whitelist; the landed `local.tee` negative should stay as a guardrail.
+4. Leave broader same-as-init constant-expression equivalence and GC/refinalization-sensitive replacements as separate design slices.
+5. Resolve or justify the current touched-count / large-module nested-cleanup guard with artifact and performance evidence before public preset scheduling.
+
 ## Bottom line
 
 Current Starshine `simplify-globals-optimizing` strategy is an active but partial module-pass implementation.
-It covers the first constant-global / single-use-init / exact-type copy-chain / dead-set / same-init / adjacent-eqz-bidirectional-compare-transparent-nested-block-wrapped-condition-block-yielded-condition-no-op-condition-prefix-const-drop-body read-only-to-write / exact-eqz-compare-blockcond-nestedblockcond-blockyield-blockyieldset-blockset-combined-if-return-set / straight-line runtime-propagation / touched-cleanup slice and proves the optimizing wrapper shape without the `precompute-propagate` prefix, but it must remain documented as incomplete until the remaining Binaryen global rewrite families, debug-artifact parity, and public preset scheduling land.
+It covers the first constant-global / single-use-init / exact-type copy-chain / dead-set / same-init / adjacent-eqz-bidirectional-compare-simple-pure-condition-transparent-nested-block-wrapped-condition-block-yielded-condition-no-op-condition-prefix-const-drop-body read-only-to-write / exact-eqz-compare-blockcond-nestedblockcond-blockyield-blockyieldset-blockset-combined-if-return-set / straight-line runtime-propagation / touched-cleanup slice and proves the optimizing wrapper shape without the `precompute-propagate` prefix, but it must remain documented as incomplete until the remaining Binaryen global rewrite families, debug-artifact parity, and public preset scheduling land.
 
 ## Sources
 
+- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)

@@ -593,7 +593,48 @@ fn sgo_read_only_to_write_read_at(
       instrs[pos + 1] == @lib.Instruction::i32_ne()
     ) &&
     sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
-  )
+  ) ||
+  sgo_read_only_to_write_pure_condition_read_at(instrs, pos, idx)
+}
+
+///|
+fn sgo_is_read_only_to_write_pure_condition_instr(
+  instr : @lib.Instruction,
+) -> Bool {
+  sgo_const_instr(instr) != None ||
+  instr == @lib.Instruction::i32_eqz() ||
+  instr == @lib.Instruction::i32_eq() ||
+  instr == @lib.Instruction::i32_ne() ||
+  instr == @lib.Instruction::i32_add() ||
+  instr == @lib.Instruction::i32_sub() ||
+  instr == @lib.Instruction::i32_mul() ||
+  instr == @lib.Instruction::i32_lt_s() ||
+  instr == @lib.Instruction::i32_lt_u() ||
+  instr == @lib.Instruction::i32_gt_s() ||
+  instr == @lib.Instruction::i32_gt_u() ||
+  instr == @lib.Instruction::i32_le_s() ||
+  instr == @lib.Instruction::i32_le_u() ||
+  instr == @lib.Instruction::i32_ge_s() ||
+  instr == @lib.Instruction::i32_ge_u()
+}
+
+///|
+fn sgo_read_only_to_write_pure_condition_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
+    let instr = instrs[scan]
+    match instr {
+      @lib.If(_, _, _) => return sgo_if_is_read_only_to_write_set(instr, idx)
+      _ =>
+        if !sgo_is_read_only_to_write_pure_condition_instr(instr) {
+          return false
+        }
+    }
+  }
+  false
 }
 
 ///|

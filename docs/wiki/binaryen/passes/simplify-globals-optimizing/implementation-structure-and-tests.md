@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-18
 sources:
+  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
@@ -90,11 +91,12 @@ In practice:
 ## Current-main drift note
 
 The 2026-04-24 spot check recorded in the raw source manifest reviewed both `version_129` and current `main` URLs for the owner file, registration file, helper headers, and lit roster.
-The 2026-04-25 focused bridge rechecked current-main `SimplifyGlobals.cpp`, `pass.cpp`, and `pass.h` for port-readiness. No teaching-relevant contract drift was recorded in either narrow check.
+The 2026-04-25 focused bridge rechecked current-main `SimplifyGlobals.cpp`, `pass.cpp`, and `pass.h` for port-readiness. The 2026-05-18 refresh rechecked official Binaryen `main` at commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` and diffed the SGO owner, nested-runner header, and key lit tests against `version_129`; no SGO semantic drift was found.
 Treat those as provenance and implementation-readiness refreshes, not full upstream audits.
 
 ## Sources
 
+- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-18
 sources:
+  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
@@ -138,6 +139,8 @@ A good beginner summary of the source rule is:
 
 - a global qualifies only when Binaryen can prove the program reads it solely to decide whether to write that same global, and nothing else important depends on that read.
 
+The 2026-05-18 current-main refresh found no drift from this contract at Binaryen `main` commit `d3029d2b975488acdf9253eb2994a3fc55bd3549`. The important implementation reminder is that Binaryen's condition matcher is broader than Starshine's current hard-coded surface: it accepts any safe condition expression where the actual `global.get` only contributes to the branch decision, subject to the effect and upward-flow checks below.
+
 This is positive:
 
 ```wat
@@ -185,7 +188,7 @@ That is why this can still optimize:
 )
 ```
 
-As of the 2026-05-18 Starshine slices, the local SGO matcher covers adjacent `i32.eqz`, bidirectional compare-const, nested block-condition, block-wrapped and block-yielded condition-read forms including `i32.eqz` / compare-const, no-op const/drop prefixes before block-wrapped condition reads, this transparent `nop` / void-`block` body family, and no-op const/drop prefixes before the single constant write for self guards, but still does not cover the broader whole-function or iterative `read-only-to-write` families below.
+As of the 2026-05-18 Starshine slices, the local SGO matcher covers adjacent `i32.eqz`, bidirectional compare-const, a first simple pure-condition self-guard family, nested block-condition, block-wrapped and block-yielded condition-read forms including `i32.eqz` / compare-const, no-op const/drop prefixes before block-wrapped condition reads, this transparent `nop` / void-`block` body family, and no-op const/drop prefixes before the single constant write for self guards. It still does not cover Binaryen's full generic safe-condition rule, side-effecting-but-safe condition value-flow positives, or the full iterative `read-only-to-write` family.
 
 ## 6. Actual AST `global.get` / `global.set` nodes matter more than effect summaries
 
@@ -256,7 +259,7 @@ Positive contrast:
 
 Now the side effect exists, but `$g` does not choose whether `foo()` runs. Its value only flows safely out through the final condition result.
 
-That is why the source needs an upward value-flow walk instead of just a flat “side effects yes/no” check.
+That is why the source needs an upward value-flow walk instead of just a flat “side effects yes/no” check. Starshine now has one pure-condition positive plus a flow-into-`local.tee` negative; the official safe-side-effect positive from `simplify-globals-read_only_to_write.wast`, where effects exist but the global's value cannot steer them, remains a separate future slice.
 
 ## 8. Nested appearances of the same pattern are allowed
 
@@ -388,6 +391,7 @@ That is what the implementation really preserves.
 
 ## Sources
 
+- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-18
 sources:
+  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
@@ -289,6 +290,30 @@ A block-wrapped condition can also contain side-effect-free constant/drop pairs 
 ```
 
 The current Starshine subset ignores only these constant/drop prefix pairs before the final block-yielded `global.get` or `global.get; i32.eqz` self-guard condition.
+
+### Simple pure-condition variation
+
+Binaryen's source accepts more than adjacent `global.get`, `i32.eqz`, or compare-const conditions. Any condition expression can qualify if the actual `global.get` only flows to the final branch decision and does not steer side effects. Starshine now covers a first source-backed pure integer condition fixture:
+
+```wat
+(global $once (mut i32) (i32.const 0))
+(func
+  (if
+    (i32.lt_s
+      (i32.add
+        (global.get $once)
+        (i32.const 17)
+      )
+      (i32.const 20)
+    )
+    (then
+      (global.set $once (i32.const 1))
+    )
+  )
+)
+```
+
+Keep this separate from the official safe-side-effect positive (`select` / `local.tee` / `i32.load` in `simplify-globals-read_only_to_write.wast`), because that broader family needs Binaryen-style upward value-flow reasoning. Starshine also keeps a negative where the global value flows into `local.tee`, which Binaryen preserves because the read can affect an observable side effect.
 
 ### No-op const/drop body variation
 
@@ -712,6 +737,7 @@ That checklist matches the actual `version_129` source much better than “const
 
 ## Sources
 
+- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)

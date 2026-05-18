@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-18
 sources:
+  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
   - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
@@ -47,13 +48,13 @@ The useful local status is:
 | Public pass name | active module pass; plain `simplify-globals` remains boundary-only | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) |
 | Active request behavior | direct requests run the partial SGO core plus touched nested cleanup | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) |
 | Implementation owner | first constant/dead-set/same-init/read-only-to-write/startup/single-use-init/exact-copy-chain/straight-line-runtime subset | [`src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt) |
-| Focused tests | registry, constants, single-use init folding, exact-type immutable copy chains, dead sets, single-const same-init writes, narrow read-only-to-write self guards including `i32.eqz`, bidirectional compare-const, nested block-condition, block-wrapped and block-yielded condition reads including `i32.eqz`, no-op const/drop prefixes before block-wrapped condition reads, `nop` / void-`block` transparent bodies, no-op const/drop prefixes before the write, exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` positives and trailing-code negatives, straight-line runtime propagation and call barrier, startup offsets, touched-only nested cleanup, typed element item bailout, exported bailout | [`src/passes/simplify_globals_optimizing_test.mbt`](../../../../../src/passes/simplify_globals_optimizing_test.mbt) |
+| Focused tests | registry, constants, single-use init folding, exact-type immutable copy chains, dead sets, single-const same-init writes, narrow read-only-to-write self guards including `i32.eqz`, bidirectional compare-const, simple pure-condition positives, nested block-condition, block-wrapped and block-yielded condition reads including `i32.eqz`, no-op const/drop prefixes before block-wrapped condition reads, `nop` / void-`block` transparent bodies, no-op const/drop prefixes before the write, exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` positives and trailing-code negatives, flow-into-`local.tee` negative, straight-line runtime propagation and call barrier, startup offsets, touched-only nested cleanup, typed element item bailout, exported bailout | [`src/passes/simplify_globals_optimizing_test.mbt`](../../../../../src/passes/simplify_globals_optimizing_test.mbt) |
 | Direct fuzz evidence | 10000/10000 gen-valid normalized matches; 9975/10000 mixed-generator compared matches with only Binaryen/tool command failures | [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) |
 | Active presets | local `optimize` / `shrink` still stop before the late Binaryen post-pass tail | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) |
 | Backlog | still split into broader global rewrite parity plus nested/artifact parity | [`agent-todo.md`](../../../../../agent-todo.md) |
 | Canonical placement | after `duplicate-import-elimination`, before `remove-unused-module-elements` | [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) |
 
-That means the wiki should now teach the pass as an active but incomplete module/global port, not as a HOT peephole and not as full Binaryen parity.
+That means the wiki should now teach the pass as an active but incomplete module/global port, not as a HOT peephole and not as full Binaryen parity. The 2026-05-18 current-main refresh found no semantic drift from Binaryen `version_129` at observed `main` commit `d3029d2b975488acdf9253eb2994a3fc55bd3549`, so the remaining port map remains current.
 
 ## Minimum viable Starshine slice
 
@@ -62,7 +63,7 @@ A source-faithful complete port must preserve Binaryen's two identities:
 1. shared global-simplification algorithm, and
 2. optimizing wrapper that reruns ordinary function cleanup on exactly the changed functions.
 
-The current first slice covers fact collection, single-use initializer folding into later globals, exact-type immutable copy-chain canonicalization, a small constant/dead-set/same-init/read-only-to-write subset including `i32.eqz`, bidirectional compare-const, nested block-condition, block-wrapped and block-yielded condition reads including `i32.eqz`, no-op const/drop prefixes before block-wrapped condition reads, `nop` / void-`block` transparent self-guard bodies, no-op const/drop prefixes before the write, and the exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` family, startup propagation for supported constants, straight-line runtime propagation for single-const private global writes, reference-typed element item bailouts, and the no-`precompute-propagate` touched cleanup wrapper. The remaining practical landing order is:
+The current first slice covers fact collection, single-use initializer folding into later globals, exact-type immutable copy-chain canonicalization, a small constant/dead-set/same-init/read-only-to-write subset including `i32.eqz`, bidirectional compare-const, a first simple pure-condition family, nested block-condition, block-wrapped and block-yielded condition reads including `i32.eqz`, no-op const/drop prefixes before block-wrapped condition reads, `nop` / void-`block` transparent self-guard bodies, no-op const/drop prefixes before the write, and the exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` family, startup propagation for supported constants, straight-line runtime propagation for single-const private global writes, reference-typed element item bailouts, and the no-`precompute-propagate` touched cleanup wrapper. The remaining practical landing order is:
 
 1. **Broaden the fact table**
    - add Binaryen's `nonInitWritten` and `readOnlyToWrite` facts to the landed imported/exported/read/written table;
@@ -74,7 +75,9 @@ The current first slice covers fact collection, single-use initializer folding i
 3. **Complete dead or redundant write repair**
    - keep rewriting removable `global.set $g value` as `drop(value)`;
    - keep the landed single-const same-as-init write detection, narrow read-only-to-write self-guard detection, and exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` family, including the current `i32.eqz`, bidirectional compare-const, nested block-condition, block-wrapped and block-yielded condition reads including `i32.eqz`, no-op const/drop prefixes before block-wrapped condition reads, transparent `nop` / void-`block` body support, and no-op const/drop prefixes before the write;
-   - add broader same-as-init expression matching and broader `read-only-to-write` shapes so the pass can remove more fake state without violating ordering.
+   - add broader same-as-init expression matching and broader `read-only-to-write` shapes so the pass can remove more fake state without violating ordering;
+   - extend the landed simple pure-condition bridge only with focused source-backed operators;
+   - keep side-effecting-but-safe condition positives as a later value-flow slice because Binaryen's actual matcher is effect/value-flow based rather than a list of adjacent syntax forms.
 4. **Broaden immutable-copy canonicalization only with type proof**
    - keep the landed exact-type immutable ancestor rewrite;
    - leave subtype/refinalization extensions for later unless deliberately documented.
@@ -173,6 +176,7 @@ Current active-partial evidence:
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-blockyield-blockset-ifreturn-10k` compared `9975/10000` mixed-generator modules after the block-yielded condition plus block-wrapped set `if return; set` slice, matched all `9975`, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-transparent-10k-final` compared `9975/10000` mixed-generator modules after the transparent self-guard slice, matched all `9975`, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-blockyield-selfguard-10k` compared `9975/10000` mixed-generator modules after the block-yielded external condition-operator self-guard slice, matched all `9975`, found `0` validation failures, and hit `25` Binaryen/tool command failures.
+- `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-pure-condition-10k` compared `9975/10000` mixed-generator modules after the simple pure-condition self-guard slice, matched all `9975`, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --generator gen-valid --pass simplify-globals-optimizing --out-dir .tmp/pass-fuzz-sgo-rotw-gen-valid-10k` matched Binaryen on `10000/10000` normalized generated modules with no mismatches or validation failures.
 
 The earlier `.tmp/pass-fuzz-sgo-10k` baseline found seven mismatches from missing multi-instruction global-initializer folding and over-eager reference-constant replacement in element item expressions; those two families are now covered by focused regressions, and the same-init, exact-copy-chain, adjacent/eqz/bidirectional compare-const/transparent/nested/block-wrapped-condition/block-yielded-condition/no-op-condition-prefix/const-drop-body read-only-to-write, exact/eqz/bidirectional compare/block-wrapped-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set`, and straight-line runtime propagation slices preserved the green mixed-generator lane.
@@ -210,6 +214,7 @@ If a future port implements only startup propagation or only dead-write cleanup,
 
 ## Open design questions
 
+- How much of Binaryen's `FlowScanner` should Starshine model before accepting side-effecting-but-safe condition positives? Starshine now has one pure-condition positive and one flow-into-`local.tee` negative; the remaining recommendation is to keep the official safe-side-effect positive as its own value-flow slice.
 - Should Starshine land a shared `simplify-globals` / `simplify-globals-optimizing` owner first, or a narrower startup-only `propagate-globals-globally` substrate first?
 - Should touched-function cleanup reuse the existing active preset list exactly, or define a smaller Binaryen-equivalent default-function subset for nested runs?
 - How should local type repair represent Binaryen's `ReFinalize()` obligations for reference-typed replacements?
@@ -219,6 +224,7 @@ Record the answer in this page and [`./starshine-strategy.md`](./starshine-strat
 
 ## Sources
 
+- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
 - [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
