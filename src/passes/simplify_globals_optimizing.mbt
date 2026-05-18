@@ -471,6 +471,16 @@ fn sgo_count_read_only_to_write_instrs(
             instrs[pos + 3],
             safe_reads,
           )
+          sgo_count_block_condition_eqz_if_return_block_set_read(
+            instr,
+            instrs[pos + 1],
+            instrs[pos + 2],
+            instrs[pos + 3],
+            safe_reads,
+          )
+          sgo_count_block_condition_reverse_compare_if_return_block_set_read(
+            instrs, pos, safe_reads,
+          )
         }
         if pos + 4 < instrs.length() {
           sgo_count_block_condition_eqz_if_return_set_read(
@@ -483,6 +493,14 @@ fn sgo_count_read_only_to_write_instrs(
           )
           sgo_count_block_condition_reverse_compare_if_return_set_read(
             instrs, pos, safe_reads,
+          )
+          sgo_count_block_condition_compare_if_return_block_set_read(
+            instr,
+            instrs[pos + 1],
+            instrs[pos + 2],
+            instrs[pos + 3],
+            instrs[pos + 4],
+            safe_reads,
           )
         }
         if pos + 5 < instrs.length() {
@@ -923,6 +941,37 @@ fn sgo_count_block_condition_eqz_if_return_set_read(
 }
 
 ///|
+fn sgo_block_set_tail_idx(instr : @lib.Instruction) -> @lib.GlobalIdx? {
+  match instr {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(tail)) =>
+      sgo_single_const_global_set_idx(tail)
+    _ => None
+  }
+}
+
+///|
+fn sgo_count_block_condition_eqz_if_return_block_set_read(
+  instr : @lib.Instruction,
+  eqz : @lib.Instruction,
+  if_instr : @lib.Instruction,
+  block_tail : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) if eqz == @lib.Instruction::i32_eqz() &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_direct_if_return_body_read(
+            body, idx, safe_reads,
+          )
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
 fn sgo_count_block_condition_compare_if_return_set_read(
   instr : @lib.Instruction,
   const_instr : @lib.Instruction,
@@ -943,6 +992,30 @@ fn sgo_count_block_condition_compare_if_return_set_read(
       sgo_count_block_condition_direct_if_return_body_read(
         body, idx, safe_reads,
       )
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_block_condition_compare_if_return_block_set_read(
+  instr : @lib.Instruction,
+  const_instr : @lib.Instruction,
+  cmp_instr : @lib.Instruction,
+  if_instr : @lib.Instruction,
+  block_tail : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) if sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_direct_if_return_body_read(
+            body, idx, safe_reads,
+          )
+        None => ()
+      }
     _ => ()
   }
 }
@@ -973,6 +1046,35 @@ fn sgo_count_block_condition_reverse_compare_if_return_set_read(
       sgo_count_block_condition_direct_if_return_body_read(
         body, idx, safe_reads,
       )
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_block_condition_reverse_compare_if_return_block_set_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  if pos <= 0 || pos + 3 >= instrs.length() {
+    return
+  }
+  let const_instr = instrs[pos - 1]
+  let instr = instrs[pos]
+  let cmp_instr = instrs[pos + 1]
+  let if_instr = instrs[pos + 2]
+  let block_tail = instrs[pos + 3]
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) if sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_direct_if_return_body_read(
+            body, idx, safe_reads,
+          )
+        None => ()
+      }
     _ => ()
   }
 }

@@ -982,6 +982,69 @@ test "simplify-globals-optimizing removes block-yielded if-return condition oper
 }
 
 ///|
+test "simplify-globals-optimizing removes block-yielded condition operators with block-wrapped if-return sets" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $eqz (mut i32) (i32.const 0))
+      #|  (global $forward (mut i32) (i32.const 0))
+      #|  (global $reverse (mut i32) (i32.const 0))
+      #|  (func $eqz_run
+      #|    block (result i32)
+      #|      global.get $eqz
+      #|    end
+      #|    i32.eqz
+      #|    if
+      #|      return
+      #|    end
+      #|    block
+      #|      i32.const 1
+      #|      global.set $eqz
+      #|    end)
+      #|  (func $forward_run
+      #|    block (result i32)
+      #|      global.get $forward
+      #|    end
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if
+      #|      return
+      #|    end
+      #|    block
+      #|      i32.const 1
+      #|      global.set $forward
+      #|    end)
+      #|  (func $reverse_run
+      #|    i32.const 0
+      #|    block (result i32)
+      #|      global.get $reverse
+      #|    end
+      #|    i32.ne
+      #|    if
+      #|      return
+      #|    end
+      #|    block
+      #|      i32.const 2
+      #|      drop
+      #|      i32.const 1
+      #|      global.set $reverse
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-globals-optimizing keeps if-return guards with trailing code" {
   let optimized = sgo_test_run(
     (
