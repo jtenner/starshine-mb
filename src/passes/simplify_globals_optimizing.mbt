@@ -492,6 +492,16 @@ fn sgo_read_only_to_write_read_at(
       instrs[pos + 2] == @lib.Instruction::i32_ne()
     ) &&
     sgo_if_is_read_only_to_write_set(instrs[pos + 3], idx)
+  ) ||
+  (
+    pos > 0 &&
+    pos + 2 < instrs.length() &&
+    sgo_const_instr(instrs[pos - 1]) != None &&
+    (
+      instrs[pos + 1] == @lib.Instruction::i32_eq() ||
+      instrs[pos + 1] == @lib.Instruction::i32_ne()
+    ) &&
+    sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
   )
 }
 
