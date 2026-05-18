@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO block-wrapped pure-condition if-return guards
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write `if return; set` subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so transparent result-block conditions can contain the existing source-backed pure-condition chain from the guarded `global.get` to the return guard before the same-global constant-write tail.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the block-wrapped pure-condition `if return; set` fixture failed first with globals still mutable, then passed after the matcher extension landed. A local Binaryen probe at `.tmp/sgo-block-pure-condition-ifreturn-probe.wat` showed `wasm-opt --simplify-globals` promoting matching i32 and i64 block-wrapped pure-condition `if return; set` globals to immutable while replacing get/set uses. A trailing-`nop` negative exposed and fixed an over-broad block-condition `if return; set` counter so trailing code now blocks the exact family.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1147/1147`), full `moon test` passed (`3211/3211`), and `.tmp/pass-fuzz-sgo-block-pure-ifreturn-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO block-wrapped pure-condition self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write self-guard subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so transparent result-block conditions can contain the existing source-backed pure-condition chain from the guarded `global.get` to the final branch value before a no-else same-global constant-set `if`.

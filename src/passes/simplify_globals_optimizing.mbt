@@ -456,12 +456,14 @@ fn sgo_count_read_only_to_write_instrs(
           )
         }
         if pos + 2 < instrs.length() {
-          sgo_count_block_condition_if_return_block_set_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            safe_reads,
-          )
+          if pos + 3 == instrs.length() {
+            sgo_count_block_condition_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              safe_reads,
+            )
+          }
           sgo_count_block_condition_eqz_read_only_to_write_read(
             instr,
             instrs[pos + 1],
@@ -473,23 +475,25 @@ fn sgo_count_read_only_to_write_instrs(
           )
         }
         if pos + 3 < instrs.length() {
-          sgo_count_block_condition_if_return_set_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            instrs[pos + 3],
-            safe_reads,
-          )
-          sgo_count_block_condition_eqz_if_return_block_set_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            instrs[pos + 3],
-            safe_reads,
-          )
-          sgo_count_block_condition_reverse_compare_if_return_block_set_read(
-            instrs, pos, safe_reads,
-          )
+          if pos + 4 == instrs.length() {
+            sgo_count_block_condition_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              safe_reads,
+            )
+            sgo_count_block_condition_eqz_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              safe_reads,
+            )
+            sgo_count_block_condition_reverse_compare_if_return_block_set_read(
+              instrs, pos, safe_reads,
+            )
+          }
           sgo_count_block_condition_compare_read_only_to_write_read(
             instr,
             instrs[pos + 1],
@@ -499,36 +503,40 @@ fn sgo_count_read_only_to_write_instrs(
           )
         }
         if pos + 4 < instrs.length() {
-          sgo_count_block_condition_eqz_if_return_set_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            instrs[pos + 3],
-            instrs[pos + 4],
-            safe_reads,
-          )
-          sgo_count_block_condition_reverse_compare_if_return_set_read(
-            instrs, pos, safe_reads,
-          )
-          sgo_count_block_condition_compare_if_return_block_set_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            instrs[pos + 3],
-            instrs[pos + 4],
-            safe_reads,
-          )
+          if pos + 5 == instrs.length() {
+            sgo_count_block_condition_eqz_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              safe_reads,
+            )
+            sgo_count_block_condition_reverse_compare_if_return_set_read(
+              instrs, pos, safe_reads,
+            )
+            sgo_count_block_condition_compare_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              safe_reads,
+            )
+          }
         }
         if pos + 5 < instrs.length() {
-          sgo_count_block_condition_compare_if_return_set_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            instrs[pos + 3],
-            instrs[pos + 4],
-            instrs[pos + 5],
-            safe_reads,
-          )
+          if pos + 6 == instrs.length() {
+            sgo_count_block_condition_compare_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              instrs[pos + 5],
+              safe_reads,
+            )
+          }
         }
         sgo_count_read_only_to_write_expr(body, safe_reads)
       }
@@ -1036,7 +1044,8 @@ fn sgo_count_block_condition_if_return_body_read(
   idx : @lib.GlobalIdx,
   safe_reads : Array[Int],
 ) -> Unit {
-  if sgo_block_condition_final_read_matches(body, idx) {
+  if sgo_block_condition_final_read_matches(body, idx) ||
+    sgo_block_condition_pure_read_matches(body, idx) {
     sgo_count_read_only_to_write_safe_read(idx, safe_reads)
   } else {
     match sgo_block_condition_single_read_idx(body) {

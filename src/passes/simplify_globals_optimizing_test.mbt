@@ -1704,6 +1704,87 @@ test "simplify-globals-optimizing removes block-wrapped if-return read-only-to-w
 }
 
 ///|
+test "simplify-globals-optimizing removes block-wrapped pure-condition if-return guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $i32 (mut i32) (i32.const 0))
+      #|  (global $i64 (mut i64) (i64.const 0))
+      #|  (func $i32_run
+      #|    block (result i32)
+      #|      global.get $i32
+      #|      i32.const 1
+      #|      i32.add
+      #|      i32.const 2
+      #|      i32.lt_s
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $i32)
+      #|  (func $i64_run
+      #|    block (result i32)
+      #|      global.get $i64
+      #|      i64.const 1
+      #|      i64.add
+      #|      i64.eqz
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i64.const 1
+      #|    global.set $i64))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 2; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      match i {
+        0 => @lib.GlobalType::new(@lib.ValType::i32(), false)
+        _ => @lib.GlobalType::new(@lib.ValType::i64(), false)
+      },
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
+test "simplify-globals-optimizing keeps block-wrapped pure-condition if-return guards with trailing code" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      global.get $once
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $once
+      #|    nop))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes nested block-wrapped if-return conditions" {
   let optimized = sgo_test_run(
     (
