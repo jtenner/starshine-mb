@@ -455,6 +455,14 @@ fn sgo_count_read_only_to_write_instrs(
             safe_reads,
           )
         }
+        if pos + 2 < instrs.length() {
+          sgo_count_block_condition_if_return_block_set_read(
+            instr,
+            instrs[pos + 1],
+            instrs[pos + 2],
+            safe_reads,
+          )
+        }
         if pos + 3 < instrs.length() {
           sgo_count_block_condition_if_return_set_read(
             instr,
@@ -760,6 +768,45 @@ fn sgo_count_block_condition_read_only_to_write_read(
 }
 
 ///|
+fn sgo_count_block_condition_if_return_body_read(
+  body : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+  safe_reads : Array[Int],
+) -> Unit {
+  if sgo_block_condition_final_read_matches(body, idx) {
+    sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+  } else {
+    match sgo_block_condition_single_read_idx(body) {
+      Some(read_idx) if read_idx == idx =>
+        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn sgo_count_block_condition_if_return_block_set_read(
+  instr : @lib.Instruction,
+  next : @lib.Instruction,
+  block_tail : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  match (instr, next, block_tail) {
+    (
+      @lib.Block(_, @lib.Expr(body)),
+      if_instr,
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(tail)),
+    ) if sgo_is_return_guard(if_instr) =>
+      match sgo_single_const_global_set_idx(tail) {
+        Some(idx) =>
+          sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
 fn sgo_count_block_condition_if_return_set_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
@@ -772,15 +819,7 @@ fn sgo_count_block_condition_if_return_set_read(
         if_instr,
       ) &&
       sgo_const_instr(value) != None =>
-      if sgo_block_condition_final_read_matches(body, idx) {
-        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-      } else {
-        match sgo_block_condition_single_read_idx(body) {
-          Some(read_idx) if read_idx == idx =>
-            sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-          _ => ()
-        }
-      }
+      sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
     _ => ()
   }
 }
