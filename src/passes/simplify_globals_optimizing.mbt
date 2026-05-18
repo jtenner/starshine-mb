@@ -427,6 +427,17 @@ fn sgo_count_read_only_to_write_expr(
 }
 
 ///|
+fn sgo_count_read_only_to_write_safe_read(
+  idx : @lib.GlobalIdx,
+  safe_reads : Array[Int],
+) -> Unit {
+  let slot = sgo_global_idx_slot(idx)
+  if slot >= 0 && slot < safe_reads.length() {
+    safe_reads[slot] = safe_reads[slot] + 1
+  }
+}
+
+///|
 fn sgo_count_read_only_to_write_instrs(
   instrs : Array[@lib.Instruction],
   safe_reads : Array[Int],
@@ -434,12 +445,8 @@ fn sgo_count_read_only_to_write_instrs(
   for pos = 0; pos < instrs.length(); pos = pos + 1 {
     let instr = instrs[pos]
     match instr {
-      @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(instrs, pos, idx) => {
-        let slot = sgo_global_idx_slot(idx)
-        if slot >= 0 && slot < safe_reads.length() {
-          safe_reads[slot] = safe_reads[slot] + 1
-        }
-      }
+      @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(instrs, pos, idx) =>
+        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       @lib.Block(_, body) => {
         if pos + 1 < instrs.length() {
           sgo_count_block_condition_read_only_to_write_read(
@@ -588,6 +595,20 @@ fn sgo_instrs_are_single_const_global_set(
 }
 
 ///|
+fn sgo_block_condition_single_read_idx(
+  instrs : Array[@lib.Instruction],
+) -> @lib.GlobalIdx? {
+  let flat : Array[@lib.Instruction] = []
+  if !sgo_collect_read_only_to_write_body(instrs, flat) {
+    return None
+  }
+  match flat {
+    [@lib.GlobalGet(idx)] => Some(idx)
+    _ => None
+  }
+}
+
+///|
 fn sgo_block_condition_final_read_matches(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
@@ -618,13 +639,15 @@ fn sgo_count_block_condition_read_only_to_write_read(
   match (instr, next) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
       match sgo_single_const_global_set_idx(then_body) {
-        Some(idx) if sgo_block_condition_final_read_matches(body, idx) => {
-          let slot = sgo_global_idx_slot(idx)
-          if slot >= 0 && slot < safe_reads.length() {
-            safe_reads[slot] = safe_reads[slot] + 1
+        Some(idx) if sgo_block_condition_final_read_matches(body, idx) =>
+          sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+        Some(idx) =>
+          match sgo_block_condition_single_read_idx(body) {
+            Some(read_idx) if read_idx == idx =>
+              sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+            _ => ()
           }
-        }
-        _ => ()
+        None => ()
       }
     _ => ()
   }

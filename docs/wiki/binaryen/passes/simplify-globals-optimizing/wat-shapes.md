@@ -249,6 +249,26 @@ Why it works:
 - the global read only decided whether to write that same global
 - nothing else observable depended on that read
 
+### Block-wrapped condition variation
+
+A transparent value-producing block can provide the same self-guard condition:
+
+```wat
+(global $once (mut i32) (i32.const 0))
+(func
+  (if
+    (block (result i32)
+      (global.get $once)
+    )
+    (then
+      (global.set $once (i32.const 1))
+    )
+  )
+)
+```
+
+The current Starshine SGO subset treats that single yielded `global.get` as the same read-only-to-write condition when the adjacent `if` writes one constant to the same global.
+
 ## 8. Whole-function `if return; set` family collapses the set to a drop
 
 Before:
