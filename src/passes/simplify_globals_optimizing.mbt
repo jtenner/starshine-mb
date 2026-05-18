@@ -969,6 +969,31 @@ fn sgo_block_condition_final_read_matches(
 }
 
 ///|
+fn sgo_block_condition_pure_read_matches(
+  instrs : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let flat : Array[@lib.Instruction] = []
+  if !sgo_collect_read_only_to_write_condition_body(instrs, flat) {
+    return false
+  }
+  let start = sgo_skip_noop_const_drops(flat)
+  if start >= flat.length() {
+    return false
+  }
+  match flat[start] {
+    @lib.GlobalGet(get_idx) if get_idx == idx => ()
+    _ => return false
+  }
+  for scan = start + 1; scan < flat.length(); scan = scan + 1 {
+    if !sgo_is_read_only_to_write_pure_condition_instr(flat[scan]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn sgo_count_block_condition_read_only_to_write_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
@@ -977,7 +1002,8 @@ fn sgo_count_block_condition_read_only_to_write_read(
   match (instr, next) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
       match sgo_single_const_global_set_idx(then_body) {
-        Some(idx) if sgo_block_condition_final_read_matches(body, idx) =>
+        Some(idx) if sgo_block_condition_final_read_matches(body, idx) ||
+          sgo_block_condition_pure_read_matches(body, idx) =>
           sgo_count_read_only_to_write_safe_read(idx, safe_reads)
         Some(idx) =>
           match sgo_block_condition_single_read_idx(body) {
