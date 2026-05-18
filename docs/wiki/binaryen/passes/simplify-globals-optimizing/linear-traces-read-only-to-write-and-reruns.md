@@ -188,7 +188,7 @@ That is why this can still optimize:
 )
 ```
 
-As of the 2026-05-18 Starshine slices, the local SGO matcher covers adjacent `i32.eqz`, bidirectional compare-const, a simple pure-condition self-guard family including `i32.and` / `i32.or` / `i32.xor`, nested block-condition, block-wrapped and block-yielded condition-read forms including `i32.eqz` / compare-const, no-op const/drop prefixes before block-wrapped condition reads, this transparent `nop` / void-`block` body family, and no-op const/drop prefixes before the single constant write for self guards. It still does not cover Binaryen's full generic safe-condition rule, side-effecting-but-safe condition value-flow positives, or the full iterative `read-only-to-write` family.
+As of the 2026-05-18 Starshine slices, the local SGO matcher covers adjacent `i32.eqz`, bidirectional compare-const, a simple pure-condition self-guard family including `i32.and` / `i32.or` / `i32.xor` and `i32.shl` / `i32.shr_s` / `i32.shr_u` / `i32.rotl` / `i32.rotr`, nested block-condition, block-wrapped and block-yielded condition-read forms including `i32.eqz` / compare-const, no-op const/drop prefixes before block-wrapped condition reads, this transparent `nop` / void-`block` body family, and no-op const/drop prefixes before the single constant write for self guards. It still does not cover Binaryen's full generic safe-condition rule, side-effecting-but-safe condition value-flow positives, or the full iterative `read-only-to-write` family.
 
 ## 6. Actual AST `global.get` / `global.set` nodes matter more than effect summaries
 

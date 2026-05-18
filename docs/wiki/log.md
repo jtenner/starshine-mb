@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO shift/rotate pure-condition self guards
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write pure-condition subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) to treat non-trapping `i32.shl`, `i32.shr_s`, `i32.shr_u`, `i32.rotl`, and `i32.rotr` as whitelisted side-effect-free condition operators between a concrete `global.get` and a no-else same-global constant-set `if`.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the shift/rotate fixture failed first with the globals still mutable, then passed after the whitelist extension landed. A local Binaryen probe at `.tmp/sgo-shift-rotate-condition-probe.wat` showed `wasm-opt --simplify-globals` promoting the matching shift/rotate globals to immutable while removing the concrete get/set uses.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1133/1133`), and `.tmp/pass-fuzz-sgo-shift-rotate-condition-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO bitwise pure-condition self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write pure-condition subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) to treat non-trapping `i32.and`, `i32.or`, and `i32.xor` as whitelisted side-effect-free condition operators between a concrete `global.get` and a no-else same-global constant-set `if`.

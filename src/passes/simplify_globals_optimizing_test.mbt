@@ -499,6 +499,67 @@ test "simplify-globals-optimizing removes bitwise pure-condition read-only-to-wr
 }
 
 ///|
+test "simplify-globals-optimizing removes shift-rotate pure-condition read-only-to-write self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $shl (mut i32) (i32.const 1))
+      #|  (global $shr_s (mut i32) (i32.const 1))
+      #|  (global $shr_u (mut i32) (i32.const 1))
+      #|  (global $rotl (mut i32) (i32.const 1))
+      #|  (global $rotr (mut i32) (i32.const 1))
+      #|  (func (export "run")
+      #|    global.get $shl
+      #|    i32.const 1
+      #|    i32.shl
+      #|    if
+      #|      i32.const 2
+      #|      global.set $shl
+      #|    end
+      #|    global.get $shr_s
+      #|    i32.const 1
+      #|    i32.shr_s
+      #|    if
+      #|      i32.const 2
+      #|      global.set $shr_s
+      #|    end
+      #|    global.get $shr_u
+      #|    i32.const 1
+      #|    i32.shr_u
+      #|    if
+      #|      i32.const 2
+      #|      global.set $shr_u
+      #|    end
+      #|    global.get $rotl
+      #|    i32.const 1
+      #|    i32.rotl
+      #|    if
+      #|      i32.const 2
+      #|      global.set $rotl
+      #|    end
+      #|    global.get $rotr
+      #|    i32.const 1
+      #|    i32.rotr
+      #|    if
+      #|      i32.const 2
+      #|      global.set $rotr
+      #|    end))
+      #|,
+    ),
+  )
+
+  for global_idx = 0; global_idx < 5; global_idx = global_idx + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, global_idx),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps condition values flowing into side effects" {
   let optimized = sgo_test_run(
     (
