@@ -569,6 +569,17 @@ fn sgo_collect_read_only_to_write_body(
 }
 
 ///|
+fn sgo_skip_noop_const_drops(instrs : Array[@lib.Instruction]) -> Int {
+  let mut start = 0
+  while start + 1 < instrs.length() &&
+        sgo_const_instr(instrs[start]) != None &&
+        instrs[start + 1] == @lib.Instruction::drop() {
+    start = start + 2
+  }
+  start
+}
+
+///|
 fn sgo_single_const_global_set_idx(
   instrs : Array[@lib.Instruction],
 ) -> @lib.GlobalIdx? {
@@ -576,12 +587,7 @@ fn sgo_single_const_global_set_idx(
   if !sgo_collect_read_only_to_write_body(instrs, flat) {
     return None
   }
-  let mut start = 0
-  while start + 1 < flat.length() &&
-        sgo_const_instr(flat[start]) != None &&
-        flat[start + 1] == @lib.Instruction::drop() {
-    start = start + 2
-  }
+  let start = sgo_skip_noop_const_drops(flat)
   if start + 2 != flat.length() {
     return None
   }
@@ -611,12 +617,21 @@ fn sgo_block_condition_single_read_idx(
   if !sgo_collect_read_only_to_write_body(instrs, flat) {
     return None
   }
-  match flat {
-    [@lib.GlobalGet(idx)] => Some(idx)
-    [@lib.GlobalGet(idx), instr] if instr == @lib.Instruction::i32_eqz() =>
-      Some(idx)
-    _ => None
+  let start = sgo_skip_noop_const_drops(flat)
+  if start + 1 == flat.length() {
+    match flat[start] {
+      @lib.GlobalGet(idx) => return Some(idx)
+      _ => ()
+    }
   }
+  if start + 2 == flat.length() &&
+    flat[start + 1] == @lib.Instruction::i32_eqz() {
+    match flat[start] {
+      @lib.GlobalGet(idx) => return Some(idx)
+      _ => ()
+    }
+  }
+  None
 }
 
 ///|

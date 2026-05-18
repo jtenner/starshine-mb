@@ -535,6 +535,35 @@ test "simplify-globals-optimizing removes block-wrapped eqz read-only-to-write s
 }
 
 ///|
+test "simplify-globals-optimizing removes block-wrapped self guards with no-op condition prefixes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      i32.const 2
+      #|      drop
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes nested read-only-to-write self guards" {
   let optimized = sgo_test_run(
     (
