@@ -602,6 +602,114 @@ test "simplify-globals-optimizing removes unary pure-condition read-only-to-writ
 }
 
 ///|
+test "simplify-globals-optimizing removes i64 compare pure-condition read-only-to-write self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $eqz (mut i64) (i64.const 1))
+      #|  (global $eq (mut i64) (i64.const 1))
+      #|  (global $ne (mut i64) (i64.const 1))
+      #|  (global $lt_s (mut i64) (i64.const 1))
+      #|  (global $lt_u (mut i64) (i64.const 1))
+      #|  (global $gt_s (mut i64) (i64.const 1))
+      #|  (global $gt_u (mut i64) (i64.const 1))
+      #|  (global $le_s (mut i64) (i64.const 1))
+      #|  (global $le_u (mut i64) (i64.const 1))
+      #|  (global $ge_s (mut i64) (i64.const 1))
+      #|  (global $ge_u (mut i64) (i64.const 1))
+      #|  (func (export "run")
+      #|    global.get $eqz
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $eqz
+      #|    end
+      #|    global.get $eq
+      #|    i64.const 2
+      #|    i64.eq
+      #|    if
+      #|      i64.const 2
+      #|      global.set $eq
+      #|    end
+      #|    global.get $ne
+      #|    i64.const 2
+      #|    i64.ne
+      #|    if
+      #|      i64.const 2
+      #|      global.set $ne
+      #|    end
+      #|    global.get $lt_s
+      #|    i64.const 2
+      #|    i64.lt_s
+      #|    if
+      #|      i64.const 2
+      #|      global.set $lt_s
+      #|    end
+      #|    global.get $lt_u
+      #|    i64.const 2
+      #|    i64.lt_u
+      #|    if
+      #|      i64.const 2
+      #|      global.set $lt_u
+      #|    end
+      #|    global.get $gt_s
+      #|    i64.const 2
+      #|    i64.gt_s
+      #|    if
+      #|      i64.const 2
+      #|      global.set $gt_s
+      #|    end
+      #|    global.get $gt_u
+      #|    i64.const 2
+      #|    i64.gt_u
+      #|    if
+      #|      i64.const 2
+      #|      global.set $gt_u
+      #|    end
+      #|    global.get $le_s
+      #|    i64.const 2
+      #|    i64.le_s
+      #|    if
+      #|      i64.const 2
+      #|      global.set $le_s
+      #|    end
+      #|    global.get $le_u
+      #|    i64.const 2
+      #|    i64.le_u
+      #|    if
+      #|      i64.const 2
+      #|      global.set $le_u
+      #|    end
+      #|    global.get $ge_s
+      #|    i64.const 2
+      #|    i64.ge_s
+      #|    if
+      #|      i64.const 2
+      #|      global.set $ge_s
+      #|    end
+      #|    global.get $ge_u
+      #|    i64.const 2
+      #|    i64.ge_u
+      #|    if
+      #|      i64.const 2
+      #|      global.set $ge_u
+      #|    end))
+      #|,
+    ),
+  )
+
+  for global_idx = 0; global_idx < 11; global_idx = global_idx + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, global_idx),
+      @lib.GlobalType::new(@lib.ValType::i64(), false),
+    )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps condition values flowing into side effects" {
   let optimized = sgo_test_run(
     (

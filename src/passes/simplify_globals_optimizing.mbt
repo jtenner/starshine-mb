@@ -626,7 +626,18 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
   instr == @lib.Instruction::i32_le_s() ||
   instr == @lib.Instruction::i32_le_u() ||
   instr == @lib.Instruction::i32_ge_s() ||
-  instr == @lib.Instruction::i32_ge_u()
+  instr == @lib.Instruction::i32_ge_u() ||
+  instr == @lib.Instruction::i64_eqz() ||
+  instr == @lib.Instruction::i64_eq() ||
+  instr == @lib.Instruction::i64_ne() ||
+  instr == @lib.Instruction::i64_lt_s() ||
+  instr == @lib.Instruction::i64_lt_u() ||
+  instr == @lib.Instruction::i64_gt_s() ||
+  instr == @lib.Instruction::i64_gt_u() ||
+  instr == @lib.Instruction::i64_le_s() ||
+  instr == @lib.Instruction::i64_le_u() ||
+  instr == @lib.Instruction::i64_ge_s() ||
+  instr == @lib.Instruction::i64_ge_u()
 }
 
 ///|
