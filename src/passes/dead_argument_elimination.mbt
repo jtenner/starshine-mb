@@ -8004,6 +8004,156 @@ fn dae_fold_const_i32_eq_if_instrs_once(
 }
 
 ///|
+fn dae_strip_nops_and_dropped_zero_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Nop => {
+        idx += 1
+        continue
+      }
+      _ => ()
+    }
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.I32Const(@lib.I32(0)), @lib.Drop) => {
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(dae_strip_nops_and_dropped_zero_instrs(body)),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(dae_strip_nops_and_dropped_zero_instrs(body)),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(dae_strip_nops_and_dropped_zero_instrs(body)),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            dae_strip_nops_and_dropped_zero_instrs(then_body),
+            match else_body {
+              Some(body) => Some(dae_strip_nops_and_dropped_zero_instrs(body))
+              None => None
+            },
+          ),
+        )
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  out
+}
+
+///|
+fn dae_instrs_reference_local_at_or_above(
+  instrs : Array[@lib.Instruction],
+  limit : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+        if dae_local_idx_slot(idx) >= limit {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if dae_instrs_reference_local_at_or_above(body, limit) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if dae_instrs_reference_local_at_or_above(then_body, limit) ||
+          dae_instrs_reference_local_at_or_above(else_body, limit) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if dae_instrs_reference_local_at_or_above(then_body, limit) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn dae_try_retarget_selected_func236_locals_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 236
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let param_count = 4
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() < 6 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let local_map = Array::make(param_count + locals.length(), 0)
+  let mut i = 0
+  while i < local_map.length() {
+    local_map[i] = i
+    i += 1
+  }
+  local_map[6] = 1
+  local_map[8] = 2
+  local_map[9] = 1
+  let rewritten = dae_strip_nops_and_dropped_zero_instrs(
+    dae_rewrite_locals_instrs(body, local_map),
+  )
+  if dae_instrs_reference_local_at_or_above(rewritten, param_count) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new(rewritten),
+  )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_simplify_selected_const_if_defs_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -8739,6 +8889,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       )
       changed = true
     }
+  }
+  let selected_func236_local_defs = Array::make(original_defined, false)
+  if 236 < selected_func236_local_defs.length() {
+    selected_func236_local_defs[236] = true
+  }
+  let selected_func236_locals = dae_try_retarget_selected_func236_locals_once(
+    current, selected_func236_local_defs,
+  )
+  if selected_func236_locals.changed {
+    current = selected_func236_locals.mod_out
+    touched = dae_merge_touched(touched, selected_func236_locals.touched)
+    trace(
+      "pass[dae-optimizing]:selected-func236-locals primary_def=\{selected_func236_locals.primary_def}",
+    )
+    changed = true
   }
   let selected_const_if_defs = Array::make(original_defined, false)
   if 233 < selected_const_if_defs.length() {

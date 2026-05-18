@@ -801,6 +801,62 @@ test "dae-optimizing folds selected mid-prefix constant result-if wrappers" {
 }
 
 ///|
+test "dae-optimizing retargets selected Func236 temporary locals to reusable params" {
+  let target_def = 236
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string(
+      "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+    )
+  }
+  for i = 8; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32 i32 i32) (result i32)
+      #|    (local i32 i32 i32 i32 i32 i32)
+      #|    nop
+      #|    local.get 1
+      #|    local.set 6
+      #|    local.get 2
+      #|    local.set 8
+      #|    i32.const 0
+      #|    drop
+      #|    local.get 6
+      #|    local.get 8
+      #|    i32.add
+      #|    local.set 9
+      #|    local.get 9)
+      #|  (func (export "run") (result i32)
+    ),
+  )
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string("    i32.const 1\n    i32.const 2\n    call $g\{i}\n")
+  }
+  out.write_string(
+    (
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    i32.const 3
+      #|    i32.const 4
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_false(target.contains("(local)"), msg=target)
+  assert_false(target.contains("nop"), msg=target)
+  assert_false(target.contains("Local6"), msg=target)
+  assert_false(target.contains("Local8"), msg=target)
+  assert_false(target.contains("Local9"), msg=target)
+}
+
+///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   let target_def = 299
   let out = StringBuilder::new()
