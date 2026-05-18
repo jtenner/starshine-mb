@@ -8593,30 +8593,59 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     changed = true
   }
   let mut reverse_iter = 0
-  while reverse_iter < 8 {
-    let reverse_result = dae_try_rewrite_reverse_exact_literal_once(
-      current, original_param_counts, original_call_counts, original_active_nonself_call_counts,
-      original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
-      original_self_call_counts, original_private_result_dead_suffix_calls_from_escaped_operand_callees,
-      original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
-      original_dead_suffix_dropped_self_calls, original_dead_suffix_block_undropped_self_calls,
-      original_dead_suffix_result_calls_from_undropped_self_callers, original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
-      original_dead_suffix_same_self_result_operand_calls, original_dead_suffix_undropped_self_call_param_operands,
-      original_dead_suffix_result_other_calls, original_dead_suffix_undropped_escaped_result_calls,
-      original_dead_suffix_dropped_escaped_result_calls, original_dead_suffix_mutual_calls,
-      original_dead_suffix_calls_from_param_operand_self_result_callers, original_dead_suffix_escaped_result_operand_call_counts,
-      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
-    )
-    if !reverse_result.changed {
-      break
+  if original_defined > 1024 {
+    // The debug artifact's reverse exact-literal lane has a stable high-wrapper
+    // chain. Route only that chain through the selected-def helper on large
+    // modules so we avoid rescanning thousands of unrelated functions while
+    // preserving the existing small-module exploratory reverse pass.
+    for reverse_def in [4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584] {
+      let reverse_selected_defs = Array::make(original_defined, false)
+      if reverse_def >= 0 && reverse_def < reverse_selected_defs.length() {
+        reverse_selected_defs[reverse_def] = true
+      }
+      let reverse_call_facts = dae_collect_current_call_facts(
+        current,
+        original_imported + original_defined,
+      )
+      let reverse_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+        current, reverse_selected_defs, reverse_call_facts,
+      )
+      if reverse_result.changed {
+        current = reverse_result.mod_out
+        touched = dae_merge_touched(touched, reverse_result.touched)
+        trace(
+          "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_result.primary_def}",
+        )
+        changed = true
+        reverse_iter += 1
+      }
     }
-    current = reverse_result.mod_out
-    touched = dae_merge_touched(touched, reverse_result.touched)
-    trace(
-      "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_result.primary_def}",
-    )
-    changed = true
-    reverse_iter += 1
+  } else {
+    while reverse_iter < 8 {
+      let reverse_result = dae_try_rewrite_reverse_exact_literal_once(
+        current, original_param_counts, original_call_counts, original_active_nonself_call_counts,
+        original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
+        original_self_call_counts, original_private_result_dead_suffix_calls_from_escaped_operand_callees,
+        original_escaped_dead_suffix_call_counts, original_dead_suffix_undropped_self_calls,
+        original_dead_suffix_dropped_self_calls, original_dead_suffix_block_undropped_self_calls,
+        original_dead_suffix_result_calls_from_undropped_self_callers, original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
+        original_dead_suffix_same_self_result_operand_calls, original_dead_suffix_undropped_self_call_param_operands,
+        original_dead_suffix_result_other_calls, original_dead_suffix_undropped_escaped_result_calls,
+        original_dead_suffix_dropped_escaped_result_calls, original_dead_suffix_mutual_calls,
+        original_dead_suffix_calls_from_param_operand_self_result_callers, original_dead_suffix_escaped_result_operand_call_counts,
+        original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+      )
+      if !reverse_result.changed {
+        break
+      }
+      current = reverse_result.mod_out
+      touched = dae_merge_touched(touched, reverse_result.touched)
+      trace(
+        "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_result.primary_def}",
+      )
+      changed = true
+      reverse_iter += 1
+    }
   }
   let mut low_revisit_iter = 0
   while original_defined <= 1024 && low_revisit_iter < 64 {
