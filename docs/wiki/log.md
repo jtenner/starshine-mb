@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-18] research | classify DAE002 Func237 as local/control carrier drift
+
+- Added [`raw/research/0570-2026-05-18-dae002-func237-frontier-classification.md`](raw/research/0570-2026-05-18-dae002-func237-frontier-classification.md) to preserve the current `.tmp/dae-parity-selected236-locals-fast-artifact` frontier: first diff `defined=237 abs=254`, Starshine pass `1633.775ms`, Binaryen pass `854.468ms`.
+- Updated the living `dae-optimizing` pages so the active frontier is described as an observed Func237 local/control carrier mismatch: Binaryen preserves the early effect/trap path in a void block and materializes the default-zero carrier later, while Starshine still carries the default through a value block and temp-local scaffolding.
+- Recorded that broad selected Func237 nested cleanup/coalescing/default-carrier probes did not advance the frontier and are not a safe runtime direction; future work should target only a narrow raw/HOT structural fold that matches the real lowered shape.
+
 ## [2026-05-16] docs | move residual INL work to v0.2.0 and retire per-commit changelog
 
 - Moved `[INL]005` and residual `[INL]006` out of the v0.1.0 active slice list and into the v0.2.0 backlog in [`../../agent-todo.md`](../../agent-todo.md), with explicit reopen criteria so they are not treated as the next task after DAE.
