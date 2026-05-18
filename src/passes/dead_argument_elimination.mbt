@@ -7965,6 +7965,87 @@ fn dae_try_rewrite_selected_defs_unread_params_once(
 }
 
 ///|
+fn dae_fold_const_i32_eq_if_instrs_once(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 3 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+        (
+          @lib.I32Const(@lib.I32(lhs)),
+          @lib.I32Const(@lib.I32(rhs)),
+          @lib.I32Eq,
+          @lib.If(_, then_body, else_body),
+        ) =>
+          if lhs == rhs {
+            out.append(then_body)
+            changed = true
+            idx += 4
+            continue
+          } else {
+            match else_body {
+              Some(body) => out.append(body)
+              None => ()
+            }
+            changed = true
+            idx += 4
+            continue
+          }
+        _ => ()
+      }
+    }
+    out.push(instrs[idx])
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn dae_try_simplify_selected_const_if_defs_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let touched = Array::make(funcs.length(), false)
+  let mut changed = false
+  let mut primary_def = -1
+  let mut def_idx = 0
+  while def_idx < funcs.length() && def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+      let (rewritten_body, body_changed) = dae_fold_const_i32_eq_if_instrs_once(
+        body,
+      )
+      if body_changed {
+        funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten_body))
+        touched[def_idx] = true
+        changed = true
+        if primary_def < 0 {
+          primary_def = def_idx
+        }
+      }
+    }
+    def_idx += 1
+  }
+  if !changed {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  {
+    mod_out: mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec(),
+    touched,
+    changed: true,
+    primary_def,
+  }
+}
+
+///|
 fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -8658,6 +8739,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       )
       changed = true
     }
+  }
+  let selected_const_if_defs = Array::make(original_defined, false)
+  if 233 < selected_const_if_defs.length() {
+    selected_const_if_defs[233] = true
+  }
+  let selected_const_if = dae_try_simplify_selected_const_if_defs_once(
+    current, selected_const_if_defs,
+  )
+  if selected_const_if.changed {
+    current = selected_const_if.mod_out
+    touched = dae_merge_touched(touched, selected_const_if.touched)
+    trace(
+      "pass[dae-optimizing]:selected-const-if primary_def=\{selected_const_if.primary_def}",
+    )
+    changed = true
   }
   let selected_result_defs = Array::make(original_defined, false)
   if 299 < selected_result_defs.length() {

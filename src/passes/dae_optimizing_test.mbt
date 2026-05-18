@@ -754,6 +754,53 @@ test "dae-optimizing revisits wrapper boundaries for unread callee params" {
 }
 
 ///|
+test "dae-optimizing folds selected mid-prefix constant result-if wrappers" {
+  let target_def = 233
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string(
+      "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+    )
+  }
+  for i = 8; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (result i32)
+      #|    i32.const 0
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      call $zero
+      #|    else
+      #|      call $one
+      #|    end)
+      #|  (func $one (result i32) i32.const 1)
+      #|  (func $zero (result i32) i32.const 0)
+      #|  (func (export "run") (result i32)
+    ),
+  )
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string("    i32.const 1\n    i32.const 2\n    call $g\{i}\n")
+  }
+  out.write_string(
+    (
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("(call (Func \{target_def + 2}))"), msg=target)
+  assert_false(target.contains("if"), msg=target)
+  assert_false(target.contains("i32.eq"), msg=target)
+}
+
+///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   let target_def = 299
   let out = StringBuilder::new()
