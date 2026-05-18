@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO float compare pure-condition self guards
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write pure-condition subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) to treat `f32` and `f64` equality/relational compares as whitelisted side-effect-free condition operators between a concrete `global.get` and a no-else same-global constant-set `if`.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the float compare fixture failed first with the globals still mutable, then passed after the whitelist extension landed. A local Binaryen probe at `.tmp/sgo-float-compare-condition-probe.wat` showed `wasm-opt --simplify-globals` promoting the matching float compare globals to immutable while removing the concrete get/set uses.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1137/1137`), and `.tmp/pass-fuzz-sgo-float-compare-condition-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO i64 value pure-condition self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write pure-condition subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) to treat non-trapping i64 unary, arithmetic, bitwise, and shift/rotate operators as whitelisted side-effect-free condition operators when they feed a final `i64.eqz` / i64 compare before a no-else same-global constant-set `if`.

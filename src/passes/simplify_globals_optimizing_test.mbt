@@ -854,6 +854,129 @@ test "simplify-globals-optimizing removes i64 value pure-condition read-only-to-
 }
 
 ///|
+test "simplify-globals-optimizing removes float compare pure-condition read-only-to-write self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $f32eq (mut f32) (f32.const 1))
+      #|  (global $f32ne (mut f32) (f32.const 1))
+      #|  (global $f32lt (mut f32) (f32.const 1))
+      #|  (global $f32gt (mut f32) (f32.const 1))
+      #|  (global $f32le (mut f32) (f32.const 1))
+      #|  (global $f32ge (mut f32) (f32.const 1))
+      #|  (global $f64eq (mut f64) (f64.const 1))
+      #|  (global $f64ne (mut f64) (f64.const 1))
+      #|  (global $f64lt (mut f64) (f64.const 1))
+      #|  (global $f64gt (mut f64) (f64.const 1))
+      #|  (global $f64le (mut f64) (f64.const 1))
+      #|  (global $f64ge (mut f64) (f64.const 1))
+      #|  (func (export "run")
+      #|    global.get $f32eq
+      #|    f32.const 2
+      #|    f32.eq
+      #|    if
+      #|      f32.const 2
+      #|      global.set $f32eq
+      #|    end
+      #|    global.get $f32ne
+      #|    f32.const 2
+      #|    f32.ne
+      #|    if
+      #|      f32.const 2
+      #|      global.set $f32ne
+      #|    end
+      #|    global.get $f32lt
+      #|    f32.const 2
+      #|    f32.lt
+      #|    if
+      #|      f32.const 2
+      #|      global.set $f32lt
+      #|    end
+      #|    global.get $f32gt
+      #|    f32.const 2
+      #|    f32.gt
+      #|    if
+      #|      f32.const 2
+      #|      global.set $f32gt
+      #|    end
+      #|    global.get $f32le
+      #|    f32.const 2
+      #|    f32.le
+      #|    if
+      #|      f32.const 2
+      #|      global.set $f32le
+      #|    end
+      #|    global.get $f32ge
+      #|    f32.const 2
+      #|    f32.ge
+      #|    if
+      #|      f32.const 2
+      #|      global.set $f32ge
+      #|    end
+      #|    global.get $f64eq
+      #|    f64.const 2
+      #|    f64.eq
+      #|    if
+      #|      f64.const 2
+      #|      global.set $f64eq
+      #|    end
+      #|    global.get $f64ne
+      #|    f64.const 2
+      #|    f64.ne
+      #|    if
+      #|      f64.const 2
+      #|      global.set $f64ne
+      #|    end
+      #|    global.get $f64lt
+      #|    f64.const 2
+      #|    f64.lt
+      #|    if
+      #|      f64.const 2
+      #|      global.set $f64lt
+      #|    end
+      #|    global.get $f64gt
+      #|    f64.const 2
+      #|    f64.gt
+      #|    if
+      #|      f64.const 2
+      #|      global.set $f64gt
+      #|    end
+      #|    global.get $f64le
+      #|    f64.const 2
+      #|    f64.le
+      #|    if
+      #|      f64.const 2
+      #|      global.set $f64le
+      #|    end
+      #|    global.get $f64ge
+      #|    f64.const 2
+      #|    f64.ge
+      #|    if
+      #|      f64.const 2
+      #|      global.set $f64ge
+      #|    end))
+      #|,
+    ),
+  )
+
+  for global_idx = 0; global_idx < 6; global_idx = global_idx + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, global_idx),
+      @lib.GlobalType::new(@lib.ValType::f32(), false),
+    )
+  }
+  for global_idx = 6; global_idx < 12; global_idx = global_idx + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, global_idx),
+      @lib.GlobalType::new(@lib.ValType::f64(), false),
+    )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps condition values flowing into side effects" {
   let optimized = sgo_test_run(
     (
