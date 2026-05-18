@@ -455,6 +455,15 @@ fn sgo_count_read_only_to_write_instrs(
             safe_reads,
           )
         }
+        if pos + 3 < instrs.length() {
+          sgo_count_block_condition_if_return_set_read(
+            instr,
+            instrs[pos + 1],
+            instrs[pos + 2],
+            instrs[pos + 3],
+            safe_reads,
+          )
+        }
         sgo_count_read_only_to_write_expr(body, safe_reads)
       }
       @lib.Loop(_, body) => sgo_count_read_only_to_write_expr(body, safe_reads)
@@ -721,6 +730,32 @@ fn sgo_count_block_condition_read_only_to_write_read(
             _ => ()
           }
         None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_block_condition_if_return_set_read(
+  instr : @lib.Instruction,
+  next : @lib.Instruction,
+  value : @lib.Instruction,
+  set : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  match (instr, next, set) {
+    (@lib.Block(_, @lib.Expr(body)), if_instr, @lib.GlobalSet(idx)) if sgo_is_return_guard(
+        if_instr,
+      ) &&
+      sgo_const_instr(value) != None =>
+      if sgo_block_condition_final_read_matches(body, idx) {
+        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+      } else {
+        match sgo_block_condition_single_read_idx(body) {
+          Some(read_idx) if read_idx == idx =>
+            sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+          _ => ()
+        }
       }
     _ => ()
   }

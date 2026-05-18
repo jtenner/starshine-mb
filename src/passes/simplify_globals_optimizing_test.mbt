@@ -701,6 +701,59 @@ test "simplify-globals-optimizing removes compare if-return read-only-to-write g
 }
 
 ///|
+test "simplify-globals-optimizing removes block-wrapped if-return read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $direct (mut i32) (i32.const 0))
+      #|  (global $eqz (mut i32) (i32.const 0))
+      #|  (global $compare (mut i32) (i32.const 0))
+      #|  (func $direct_run
+      #|    block (result i32)
+      #|      global.get $direct
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $direct)
+      #|  (func $eqz_run
+      #|    block (result i32)
+      #|      global.get $eqz
+      #|      i32.eqz
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $eqz)
+      #|  (func $compare_run
+      #|    block (result i32)
+      #|      global.get $compare
+      #|      i32.const 0
+      #|      i32.eq
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $compare))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-globals-optimizing keeps if-return guards with trailing code" {
   let optimized = sgo_test_run(
     (
