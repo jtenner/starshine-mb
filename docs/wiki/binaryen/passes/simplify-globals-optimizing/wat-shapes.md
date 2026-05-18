@@ -293,7 +293,7 @@ The current Starshine subset ignores only these constant/drop prefix pairs befor
 
 ### Simple pure-condition variation
 
-Binaryen's source accepts more than adjacent `global.get`, `i32.eqz`, or compare-const conditions. Any condition expression can qualify if the actual `global.get` only flows to the final branch decision and does not steer side effects. Starshine now covers a first source-backed pure integer condition fixture:
+Binaryen's source accepts more than adjacent `global.get`, `i32.eqz`, or compare-const conditions. Any condition expression can qualify if the actual `global.get` only flows to the final branch decision and does not steer side effects. Starshine covers a narrow source-backed pure integer condition subset, including arithmetic/compare operators and the non-trapping bitwise `i32.and` / `i32.or` / `i32.xor` operators:
 
 ```wat
 (global $once (mut i32) (i32.const 0))
@@ -313,7 +313,7 @@ Binaryen's source accepts more than adjacent `global.get`, `i32.eqz`, or compare
 )
 ```
 
-Keep this separate from the official safe-side-effect positive (`select` / `local.tee` / `i32.load` in `simplify-globals-read_only_to_write.wast`), because that broader family needs Binaryen-style upward value-flow reasoning. Starshine also keeps a negative where the global value flows into `local.tee`, which Binaryen preserves because the read can affect an observable side effect.
+The 2026-05-18 bitwise slice was backed by a local Binaryen probe showing `wasm-opt --simplify-globals` promotes matching `i32.and` / `i32.or` / `i32.xor` guards to immutable globals while replacing the get/set uses. Keep this separate from the official safe-side-effect positive (`select` / `local.tee` / `i32.load` in `simplify-globals-read_only_to_write.wast`), because that broader family needs Binaryen-style upward value-flow reasoning. Starshine also keeps a negative where the global value flows into `local.tee`, which Binaryen preserves because the read can affect an observable side effect.
 
 ### No-op const/drop body variation
 

@@ -454,6 +454,51 @@ test "simplify-globals-optimizing removes pure-condition read-only-to-write self
 }
 
 ///|
+test "simplify-globals-optimizing removes bitwise pure-condition read-only-to-write self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $and (mut i32) (i32.const 0))
+      #|  (global $or (mut i32) (i32.const 0))
+      #|  (global $xor (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $and
+      #|    i32.const 3
+      #|    i32.and
+      #|    if
+      #|      i32.const 1
+      #|      global.set $and
+      #|    end
+      #|    global.get $or
+      #|    i32.const 3
+      #|    i32.or
+      #|    if
+      #|      i32.const 1
+      #|      global.set $or
+      #|    end
+      #|    global.get $xor
+      #|    i32.const 3
+      #|    i32.xor
+      #|    if
+      #|      i32.const 1
+      #|      global.set $xor
+      #|    end))
+      #|,
+    ),
+  )
+
+  for global_idx = 0; global_idx < 3; global_idx = global_idx + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, global_idx),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps condition values flowing into side effects" {
   let optimized = sgo_test_run(
     (

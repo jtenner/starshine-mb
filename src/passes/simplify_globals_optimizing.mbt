@@ -608,6 +608,9 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
   instr == @lib.Instruction::i32_add() ||
   instr == @lib.Instruction::i32_sub() ||
   instr == @lib.Instruction::i32_mul() ||
+  instr == @lib.Instruction::i32_and() ||
+  instr == @lib.Instruction::i32_or() ||
+  instr == @lib.Instruction::i32_xor() ||
   instr == @lib.Instruction::i32_lt_s() ||
   instr == @lib.Instruction::i32_lt_u() ||
   instr == @lib.Instruction::i32_gt_s() ||

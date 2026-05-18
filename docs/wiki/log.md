@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO bitwise pure-condition self guards
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write pure-condition subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) to treat non-trapping `i32.and`, `i32.or`, and `i32.xor` as whitelisted side-effect-free condition operators between a concrete `global.get` and a no-else same-global constant-set `if`.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the bitwise fixture failed first with the globals still mutable, then passed after the whitelist extension landed. A local Binaryen probe at `.tmp/sgo-bitwise-condition-probe-all.wat` showed `wasm-opt --simplify-globals` promoting the matching `and` / `or` / `xor` globals to immutable while removing the concrete get/set uses.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1132/1132`), and `.tmp/pass-fuzz-sgo-bitwise-condition-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] wiki | SGO current-main source refresh and next-slice guidance
 
 - Rechecked official Binaryen `main` for `simplify-globals-optimizing` at observed commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` (committer date 2026-05-15) against the existing `version_129` contract; the focused diff found no SGO semantic drift, only comment typo fixes in `SimplifyGlobals.cpp` and unrelated `pass.cpp` registration/doc-string changes.
