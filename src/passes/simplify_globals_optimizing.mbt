@@ -627,6 +627,9 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
   instr == @lib.Instruction::i32_le_u() ||
   instr == @lib.Instruction::i32_ge_s() ||
   instr == @lib.Instruction::i32_ge_u() ||
+  instr == @lib.Instruction::i64_clz() ||
+  instr == @lib.Instruction::i64_ctz() ||
+  instr == @lib.Instruction::i64_popcnt() ||
   instr == @lib.Instruction::i64_eqz() ||
   instr == @lib.Instruction::i64_eq() ||
   instr == @lib.Instruction::i64_ne() ||
@@ -637,7 +640,18 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
   instr == @lib.Instruction::i64_le_s() ||
   instr == @lib.Instruction::i64_le_u() ||
   instr == @lib.Instruction::i64_ge_s() ||
-  instr == @lib.Instruction::i64_ge_u()
+  instr == @lib.Instruction::i64_ge_u() ||
+  instr == @lib.Instruction::i64_add() ||
+  instr == @lib.Instruction::i64_sub() ||
+  instr == @lib.Instruction::i64_mul() ||
+  instr == @lib.Instruction::i64_and() ||
+  instr == @lib.Instruction::i64_or() ||
+  instr == @lib.Instruction::i64_xor() ||
+  instr == @lib.Instruction::i64_shl() ||
+  instr == @lib.Instruction::i64_shr_s() ||
+  instr == @lib.Instruction::i64_shr_u() ||
+  instr == @lib.Instruction::i64_rotl() ||
+  instr == @lib.Instruction::i64_rotr()
 }
 
 ///|

@@ -710,6 +710,150 @@ test "simplify-globals-optimizing removes i64 compare pure-condition read-only-t
 }
 
 ///|
+test "simplify-globals-optimizing removes i64 value pure-condition read-only-to-write self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $clz (mut i64) (i64.const 1))
+      #|  (global $ctz (mut i64) (i64.const 1))
+      #|  (global $popcnt (mut i64) (i64.const 1))
+      #|  (global $add (mut i64) (i64.const 1))
+      #|  (global $sub (mut i64) (i64.const 1))
+      #|  (global $mul (mut i64) (i64.const 1))
+      #|  (global $and (mut i64) (i64.const 1))
+      #|  (global $or (mut i64) (i64.const 1))
+      #|  (global $xor (mut i64) (i64.const 1))
+      #|  (global $shl (mut i64) (i64.const 1))
+      #|  (global $shr_s (mut i64) (i64.const 1))
+      #|  (global $shr_u (mut i64) (i64.const 1))
+      #|  (global $rotl (mut i64) (i64.const 1))
+      #|  (global $rotr (mut i64) (i64.const 1))
+      #|  (func (export "run")
+      #|    global.get $clz
+      #|    i64.clz
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $clz
+      #|    end
+      #|    global.get $ctz
+      #|    i64.ctz
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $ctz
+      #|    end
+      #|    global.get $popcnt
+      #|    i64.popcnt
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $popcnt
+      #|    end
+      #|    global.get $add
+      #|    i64.const 1
+      #|    i64.add
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $add
+      #|    end
+      #|    global.get $sub
+      #|    i64.const 1
+      #|    i64.sub
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $sub
+      #|    end
+      #|    global.get $mul
+      #|    i64.const 1
+      #|    i64.mul
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $mul
+      #|    end
+      #|    global.get $and
+      #|    i64.const 1
+      #|    i64.and
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $and
+      #|    end
+      #|    global.get $or
+      #|    i64.const 1
+      #|    i64.or
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $or
+      #|    end
+      #|    global.get $xor
+      #|    i64.const 1
+      #|    i64.xor
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $xor
+      #|    end
+      #|    global.get $shl
+      #|    i64.const 1
+      #|    i64.shl
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $shl
+      #|    end
+      #|    global.get $shr_s
+      #|    i64.const 1
+      #|    i64.shr_s
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $shr_s
+      #|    end
+      #|    global.get $shr_u
+      #|    i64.const 1
+      #|    i64.shr_u
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $shr_u
+      #|    end
+      #|    global.get $rotl
+      #|    i64.const 1
+      #|    i64.rotl
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $rotl
+      #|    end
+      #|    global.get $rotr
+      #|    i64.const 1
+      #|    i64.rotr
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 2
+      #|      global.set $rotr
+      #|    end))
+      #|,
+    ),
+  )
+
+  for global_idx = 0; global_idx < 14; global_idx = global_idx + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, global_idx),
+      @lib.GlobalType::new(@lib.ValType::i64(), false),
+    )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps condition values flowing into side effects" {
   let optimized = sgo_test_run(
     (
