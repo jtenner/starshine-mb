@@ -267,7 +267,26 @@ A transparent value-producing block can provide the same self-guard condition:
 )
 ```
 
-The current Starshine SGO subset treats that single yielded `global.get` as the same read-only-to-write condition when the adjacent `if` writes one constant to the same global.
+The current Starshine SGO subset treats that single yielded `global.get` as the same read-only-to-write condition when the adjacent `if` writes one constant to the same global. The same narrow family also accepts `i32.eqz` inside the block.
+
+### No-op const/drop body variation
+
+The current subset also accepts no-op constant drops before the final constant write:
+
+```wat
+(global $once (mut i32) (i32.const 0))
+(func
+  (if
+    (global.get $once)
+    (then
+      (drop (i32.const 2))
+      (global.set $once (i32.const 1))
+    )
+  )
+)
+```
+
+This stays conservative: only constant/drop pairs are ignored before the final single constant `global.set`; arbitrary value producers or side effects remain outside the supported shape.
 
 ## 8. Whole-function `if return; set` family collapses the set to a drop
 

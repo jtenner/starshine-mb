@@ -576,8 +576,17 @@ fn sgo_single_const_global_set_idx(
   if !sgo_collect_read_only_to_write_body(instrs, flat) {
     return None
   }
-  match flat {
-    [value, @lib.GlobalSet(set_idx)] if sgo_const_instr(value) != None =>
+  let mut start = 0
+  while start + 1 < flat.length() &&
+        sgo_const_instr(flat[start]) != None &&
+        flat[start + 1] == @lib.Instruction::drop() {
+    start = start + 2
+  }
+  if start + 2 != flat.length() {
+    return None
+  }
+  match (flat[start], flat[start + 1]) {
+    (value, @lib.GlobalSet(set_idx)) if sgo_const_instr(value) != None =>
       Some(set_idx)
     _ => None
   }
@@ -604,6 +613,8 @@ fn sgo_block_condition_single_read_idx(
   }
   match flat {
     [@lib.GlobalGet(idx)] => Some(idx)
+    [@lib.GlobalGet(idx), instr] if instr == @lib.Instruction::i32_eqz() =>
+      Some(idx)
     _ => None
   }
 }

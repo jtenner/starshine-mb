@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO block-wrapped eqz and const-drop body self guards
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so transparent result-block condition reads may include `i32.eqz`, and self-guard bodies may ignore no-op constant/drop pairs before the final single constant write to the guarded global.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); both new fixtures failed first with the global still mutable, then passed after the matcher learned the two narrow Binaryen-observed families.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1119/1119`), and `.tmp/pass-fuzz-sgo-eqz-constdrop-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO block-wrapped condition read-only-to-write self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so a transparent result `block` that yields the self-guard `global.get` can feed an adjacent `if` whose body is a single constant write back to the same global.
