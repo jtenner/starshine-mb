@@ -440,8 +440,17 @@ fn sgo_count_read_only_to_write_instrs(
           safe_reads[slot] = safe_reads[slot] + 1
         }
       }
-      @lib.Block(_, body) | @lib.Loop(_, body) =>
+      @lib.Block(_, body) => {
+        if pos + 1 < instrs.length() {
+          sgo_count_block_condition_read_only_to_write_read(
+            instr,
+            instrs[pos + 1],
+            safe_reads,
+          )
+        }
         sgo_count_read_only_to_write_expr(body, safe_reads)
+      }
+      @lib.Loop(_, body) => sgo_count_read_only_to_write_expr(body, safe_reads)
       @lib.If(_, then_body, else_body) => {
         sgo_count_read_only_to_write_instrs(then_body, safe_reads)
         match else_body {
@@ -553,18 +562,71 @@ fn sgo_collect_read_only_to_write_body(
 }
 
 ///|
+fn sgo_single_const_global_set_idx(
+  instrs : Array[@lib.Instruction],
+) -> @lib.GlobalIdx? {
+  let flat : Array[@lib.Instruction] = []
+  if !sgo_collect_read_only_to_write_body(instrs, flat) {
+    return None
+  }
+  match flat {
+    [value, @lib.GlobalSet(set_idx)] if sgo_const_instr(value) != None =>
+      Some(set_idx)
+    _ => None
+  }
+}
+
+///|
 fn sgo_instrs_are_single_const_global_set(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
 ) -> Bool {
-  let flat : Array[@lib.Instruction] = []
-  if !sgo_collect_read_only_to_write_body(instrs, flat) {
+  match sgo_single_const_global_set_idx(instrs) {
+    Some(set_idx) => set_idx == idx
+    None => false
+  }
+}
+
+///|
+fn sgo_block_condition_final_read_matches(
+  instrs : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let len = instrs.length()
+  if len < 3 {
     return false
   }
-  match flat {
-    [value, @lib.GlobalSet(set_idx)] =>
-      set_idx == idx && sgo_const_instr(value) != None
+  let cmp = instrs[len - 1]
+  if cmp != @lib.Instruction::i32_eq() && cmp != @lib.Instruction::i32_ne() {
+    return false
+  }
+  match (instrs[len - 3], instrs[len - 2]) {
+    (@lib.GlobalGet(get_idx), const_instr) =>
+      get_idx == idx && sgo_const_instr(const_instr) != None
+    (const_instr, @lib.GlobalGet(get_idx)) =>
+      get_idx == idx && sgo_const_instr(const_instr) != None
     _ => false
+  }
+}
+
+///|
+fn sgo_count_block_condition_read_only_to_write_read(
+  instr : @lib.Instruction,
+  next : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  match (instr, next) {
+    (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
+      match sgo_single_const_global_set_idx(then_body) {
+        Some(idx) if sgo_block_condition_final_read_matches(body, idx) => {
+          let slot = sgo_global_idx_slot(idx)
+          if slot >= 0 && slot < safe_reads.length() {
+            safe_reads[slot] = safe_reads[slot] + 1
+          }
+        }
+        _ => ()
+      }
+    _ => ()
   }
 }
 

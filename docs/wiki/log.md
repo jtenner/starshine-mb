@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-17] passes | SGO nested read-only-to-write self guards
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) for the nested block-condition family where an inner self guard and a final same-global comparison feed an outer self-guard write.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the new fixture failed first with the global still mutable, then passed after block-condition final reads were counted as safe only beside an outer same-global self-guard write.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1116/1116`), and `.tmp/pass-fuzz-sgo-nested-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-17] passes | SGO bidirectional compare-const read-only-to-write self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so adjacent self guards may include both `global.get; const; i32.eq/i32.ne; if; const; global.set` and `const; global.get; i32.eq/i32.ne; if; const; global.set` compare-const condition shapes.
