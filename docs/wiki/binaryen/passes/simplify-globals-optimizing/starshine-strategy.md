@@ -66,7 +66,7 @@ The fast read-along path is:
     - the current core collects global traffic facts, promotes private never-written / dead-written globals, propagates supported constants, rewrites never-read sets to `drop`, and returns touched-function bits.
 - focused regression tests
   - [`src/passes/simplify_globals_optimizing_test.mbt`](../../../../../src/passes/simplify_globals_optimizing_test.mbt)
-    - tests cover active registration, private mutable constant promotion, touched-only cleanup, startup data-offset propagation, dead-set rewrite, side-effect preservation through dropped set operands, read-only-to-write self-guards including `nop` / void-`block` transparent bodies plus exact `if return; set`, and exported mutable-global bailout.
+    - tests cover active registration, private mutable constant promotion, touched-only cleanup, startup data-offset propagation, dead-set rewrite, side-effect preservation through dropped set operands, read-only-to-write self-guards including `i32.eqz`, `nop` / void-`block` transparent bodies, plus exact `if return; set`, and exported mutable-global bailout.
 - current preset gap
   - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
     - local `optimize` / `shrink` presets still stop before the late Binaryen post-pass tail; this pass is direct-requestable but not yet scheduled in public presets.
@@ -98,7 +98,7 @@ The current implementation includes:
 - practical immutability promotion for private never-written globals,
 - single-use global-initializer folding into later global initializers,
 - exact-type immutable global-copy-chain canonicalization to the earliest compatible ancestor in global initializers and function bodies,
-- never-read, single-const same-as-init, adjacent/transparent read-only-to-write self-guard, and exact `if return; set` read-only-to-write `global.set` rewriting to `drop(value)` with the writer marked as touched,
+- never-read, single-const same-as-init, adjacent/eqz/transparent read-only-to-write self-guard, and exact `if return; set` read-only-to-write `global.set` rewriting to `drop(value)` with the writer marked as touched,
 - supported single-instruction constant `global.get` replacement in function bodies,
 - startup constant propagation into table initializers, global initializers, element offsets, and data offsets,
 - single-const private global write propagation along straight-line runtime traces with call/control barriers,
@@ -148,7 +148,7 @@ Starshine still lacks:
 
 - a shared owner for the plain `simplify-globals` / optimizing / `propagate-globals-globally` family,
 - broader same-as-init expression matching beyond the landed single-const write shape,
-- broader `read-only-to-write` structural matching and its whole-pass iteration beyond the landed adjacent/transparent self-guard and exact `if return; set` shapes,
+- broader `read-only-to-write` structural matching and its whole-pass iteration beyond the landed adjacent/eqz/transparent self-guard and exact `if return; set` shapes,
 - broader copy-chain/type-refinalization cases beyond the landed exact-type immutable ancestor rewrite,
 - broader runtime linear-trace propagation beyond the landed straight-line single-const write facts,
 - type/refinalization breadth for replacements that change reference precision,
@@ -185,6 +185,7 @@ When implementation begins, validate in this order:
 The first active-partial slice has direct generated-module oracle evidence:
 
 - `moon test` passes for the focused registry, rewrite, and touched-cleanup tests.
+- `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-eqz-10k` compared `9975/10000` mixed-generator cases after the `i32.eqz` self-guard slice, matched all `9975`, found `0` normalized mismatches, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-if-return-10k` compared `9975/10000` mixed-generator cases after the exact `if return; set` slice, matched all `9975`, found `0` normalized mismatches, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-transparent-10k-final` compared `9975/10000` mixed-generator cases after the transparent self-guard slice, matched all `9975`, found `0` normalized mismatches, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --generator gen-valid --pass simplify-globals-optimizing --out-dir .tmp/pass-fuzz-sgo-rotw-gen-valid-10k` matched Binaryen on `10000/10000` normalized cases with `0` validation failures and `0` mismatches.
@@ -196,7 +197,7 @@ This evidence validates the current generated-input subset, but it does not clos
 ## Bottom line
 
 Current Starshine `simplify-globals-optimizing` strategy is an active but partial module-pass implementation.
-It covers the first constant-global / single-use-init / exact-type copy-chain / dead-set / same-init / adjacent-and-transparent read-only-to-write / exact-if-return-set / straight-line runtime-propagation / touched-cleanup slice and proves the optimizing wrapper shape without the `precompute-propagate` prefix, but it must remain documented as incomplete until the remaining Binaryen global rewrite families, debug-artifact parity, and public preset scheduling land.
+It covers the first constant-global / single-use-init / exact-type copy-chain / dead-set / same-init / adjacent-eqz-transparent read-only-to-write / exact-if-return-set / straight-line runtime-propagation / touched-cleanup slice and proves the optimizing wrapper shape without the `precompute-propagate` prefix, but it must remain documented as incomplete until the remaining Binaryen global rewrite families, debug-artifact parity, and public preset scheduling land.
 
 ## Sources
 

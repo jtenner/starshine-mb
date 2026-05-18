@@ -185,7 +185,7 @@ That is why this can still optimize:
 )
 ```
 
-As of the 2026-05-17 Starshine slice, the local SGO matcher covers this transparent `nop` / void-`block` body family for adjacent self guards, but still does not cover the broader whole-function or iterative `read-only-to-write` families below.
+As of the 2026-05-17 Starshine slices, the local SGO matcher covers the adjacent `i32.eqz` condition form plus this transparent `nop` / void-`block` body family for adjacent self guards, but still does not cover the broader whole-function or iterative `read-only-to-write` families below.
 
 ## 6. Actual AST `global.get` / `global.set` nodes matter more than effect summaries
 

@@ -434,14 +434,7 @@ fn sgo_count_read_only_to_write_instrs(
   for pos = 0; pos < instrs.length(); pos = pos + 1 {
     let instr = instrs[pos]
     match instr {
-      @lib.GlobalGet(idx) if sgo_is_exact_if_return_set(instrs, pos, idx) => {
-        let slot = sgo_global_idx_slot(idx)
-        if slot >= 0 && slot < safe_reads.length() {
-          safe_reads[slot] = safe_reads[slot] + 1
-        }
-      }
-      @lib.GlobalGet(idx) if pos + 1 < instrs.length() &&
-        sgo_if_is_read_only_to_write_set(instrs[pos + 1], idx) => {
+      @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(instrs, pos, idx) => {
         let slot = sgo_global_idx_slot(idx)
         if slot >= 0 && slot < safe_reads.length() {
           safe_reads[slot] = safe_reads[slot] + 1
@@ -473,6 +466,24 @@ fn sgo_if_is_read_only_to_write_set(
       sgo_instrs_are_single_const_global_set(then_body, idx)
     _ => false
   }
+}
+
+///|
+fn sgo_read_only_to_write_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  sgo_is_exact_if_return_set(instrs, pos, idx) ||
+  (
+    pos + 1 < instrs.length() &&
+    sgo_if_is_read_only_to_write_set(instrs[pos + 1], idx)
+  ) ||
+  (
+    pos + 2 < instrs.length() &&
+    instrs[pos + 1] == @lib.Instruction::i32_eqz() &&
+    sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
+  )
 }
 
 ///|
