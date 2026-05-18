@@ -698,11 +698,31 @@ fn sgo_instrs_are_single_const_global_set(
 }
 
 ///|
+fn sgo_collect_read_only_to_write_condition_body(
+  instrs : Array[@lib.Instruction],
+  out : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Nop => ()
+      @lib.Block(_, body) => {
+        let @lib.Expr(body_instrs) = body
+        if !sgo_collect_read_only_to_write_condition_body(body_instrs, out) {
+          return false
+        }
+      }
+      _ => out.push(instr)
+    }
+  }
+  true
+}
+
+///|
 fn sgo_block_condition_single_read_idx(
   instrs : Array[@lib.Instruction],
 ) -> @lib.GlobalIdx? {
   let flat : Array[@lib.Instruction] = []
-  if !sgo_collect_read_only_to_write_body(instrs, flat) {
+  if !sgo_collect_read_only_to_write_condition_body(instrs, flat) {
     return None
   }
   let start = sgo_skip_noop_const_drops(flat)
@@ -727,15 +747,19 @@ fn sgo_block_condition_final_read_matches(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
 ) -> Bool {
-  let len = instrs.length()
+  let flat : Array[@lib.Instruction] = []
+  if !sgo_collect_read_only_to_write_condition_body(instrs, flat) {
+    return false
+  }
+  let len = flat.length()
   if len < 3 {
     return false
   }
-  let cmp = instrs[len - 1]
+  let cmp = flat[len - 1]
   if cmp != @lib.Instruction::i32_eq() && cmp != @lib.Instruction::i32_ne() {
     return false
   }
-  match (instrs[len - 3], instrs[len - 2]) {
+  match (flat[len - 3], flat[len - 2]) {
     (@lib.GlobalGet(get_idx), const_instr) =>
       get_idx == idx && sgo_const_instr(const_instr) != None
     (const_instr, @lib.GlobalGet(get_idx)) =>

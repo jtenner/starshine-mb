@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO nested block-wrapped if-return conditions
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so transparent result-block `if return; set` conditions may contain nested transparent blocks yielding `global.get`, `global.get; i32.eqz`, or a same-global compare-const.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the nested direct, `i32.eqz`, and compare condition fixtures failed first with globals still mutable, then passed after block-condition matching learned to flatten transparent nested condition blocks.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1126/1126`), and `.tmp/pass-fuzz-sgo-nested-blockcond-ifreturn-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO combined block-wrapped if-return self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so transparent result-block conditions and transparent void-block set tails can both appear in the same exact `if return; set` family.
