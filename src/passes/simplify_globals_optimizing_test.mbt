@@ -599,6 +599,58 @@ test "simplify-globals-optimizing removes nested read-only-to-write self guards"
 }
 
 ///|
+test "simplify-globals-optimizing removes block-yielded self-guard condition operators" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $eqz (mut i32) (i32.const 0))
+      #|  (global $forward (mut i32) (i32.const 0))
+      #|  (global $reverse (mut i32) (i32.const 0))
+      #|  (func $eqz_run
+      #|    block (result i32)
+      #|      global.get $eqz
+      #|    end
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $eqz
+      #|    end)
+      #|  (func $forward_run
+      #|    block (result i32)
+      #|      global.get $forward
+      #|    end
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if
+      #|      i32.const 1
+      #|      global.set $forward
+      #|    end)
+      #|  (func $reverse_run
+      #|    i32.const 0
+      #|    block (result i32)
+      #|      global.get $reverse
+      #|    end
+      #|    i32.ne
+      #|    if
+      #|      i32.const 1
+      #|      global.set $reverse
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-globals-optimizing removes exact if-return read-only-to-write guards" {
   let optimized = sgo_test_run(
     (

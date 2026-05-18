@@ -185,7 +185,7 @@ That is why this can still optimize:
 )
 ```
 
-As of the 2026-05-18 Starshine slices, the local SGO matcher covers adjacent `i32.eqz`, bidirectional compare-const, nested block-condition, block-wrapped condition-read forms including `i32.eqz`, no-op const/drop prefixes before block-wrapped condition reads, this transparent `nop` / void-`block` body family, and no-op const/drop prefixes before the single constant write for self guards, but still does not cover the broader whole-function or iterative `read-only-to-write` families below.
+As of the 2026-05-18 Starshine slices, the local SGO matcher covers adjacent `i32.eqz`, bidirectional compare-const, nested block-condition, block-wrapped and block-yielded condition-read forms including `i32.eqz` / compare-const, no-op const/drop prefixes before block-wrapped condition reads, this transparent `nop` / void-`block` body family, and no-op const/drop prefixes before the single constant write for self guards, but still does not cover the broader whole-function or iterative `read-only-to-write` families below.
 
 ## 6. Actual AST `global.get` / `global.set` nodes matter more than effect summaries
 
