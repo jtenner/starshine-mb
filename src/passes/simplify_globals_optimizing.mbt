@@ -535,13 +535,60 @@ fn sgo_is_exact_if_return_set(
   pos : Int,
   idx : @lib.GlobalIdx,
 ) -> Bool {
-  if pos != 0 || instrs.length() != 4 {
-    return false
-  }
   match instrs {
     [@lib.GlobalGet(get_idx), if_instr, value, @lib.GlobalSet(set_idx)] =>
+      pos == 0 &&
       get_idx == idx &&
       set_idx == idx &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None
+    [
+      @lib.GlobalGet(get_idx),
+      eqz_instr,
+      if_instr,
+      value,
+      @lib.GlobalSet(set_idx),
+    ] =>
+      pos == 0 &&
+      get_idx == idx &&
+      set_idx == idx &&
+      eqz_instr == @lib.Instruction::i32_eqz() &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None
+    [
+      @lib.GlobalGet(get_idx),
+      const_instr,
+      cmp_instr,
+      if_instr,
+      value,
+      @lib.GlobalSet(set_idx),
+    ] =>
+      pos == 0 &&
+      get_idx == idx &&
+      set_idx == idx &&
+      sgo_const_instr(const_instr) != None &&
+      (
+        cmp_instr == @lib.Instruction::i32_eq() ||
+        cmp_instr == @lib.Instruction::i32_ne()
+      ) &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None
+    [
+      const_instr,
+      @lib.GlobalGet(get_idx),
+      cmp_instr,
+      if_instr,
+      value,
+      @lib.GlobalSet(set_idx),
+    ] =>
+      pos == 1 &&
+      get_idx == idx &&
+      set_idx == idx &&
+      sgo_const_instr(const_instr) != None &&
+      (
+        cmp_instr == @lib.Instruction::i32_eq() ||
+        cmp_instr == @lib.Instruction::i32_ne()
+      ) &&
       sgo_is_return_guard(if_instr) &&
       sgo_const_instr(value) != None
     _ => false

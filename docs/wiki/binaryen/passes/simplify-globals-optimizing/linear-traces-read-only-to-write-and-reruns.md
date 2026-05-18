@@ -291,7 +291,7 @@ The test suite has explicit near-miss negatives for:
 
 ## 9. The whole-function `if return; set` family is intentionally narrow
 
-Binaryen also recognizes this shape:
+Binaryen also recognizes this exact shape:
 
 ```wat
 (block
@@ -310,9 +310,9 @@ Beginner takeaway:
 - this is not a general CFG proof that “the set is guarded by an early return”
 - it is an exact narrow body pattern
 
-The function body must be exactly two elements long. Add a trailing `nop`, and Binaryen preserves the original shape.
+The function body must be exactly two elements long in the direct form. Binaryen also accepts the same guard when the condition is `global.get; i32.eqz`, `global.get; const; i32.eq/i32.ne`, or `const; global.get; i32.eq/i32.ne`. Add a trailing `nop`, and Binaryen preserves the original shape.
 
-As of the 2026-05-17 follow-up slice, Starshine covers this exact `if return; set` family and keeps a focused trailing-`nop` negative so it does not widen into a broader CFG proof by accident.
+As of the 2026-05-18 follow-up slices, Starshine covers the exact, `i32.eqz`, and bidirectional compare-const `if return; set` family and keeps a focused trailing-`nop` negative so it does not widen into a broader CFG proof by accident.
 
 ## 10. The optimizing rerun is part of the real pass contract
 

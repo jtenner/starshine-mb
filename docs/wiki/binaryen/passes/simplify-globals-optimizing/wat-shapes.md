@@ -344,6 +344,7 @@ After conceptually:
 Why it works:
 
 - Binaryen has a special narrow whole-function matcher for exactly this shape
+- the same narrow family also accepts `global.get; i32.eqz`, `global.get; const; i32.eq/i32.ne`, and `const; global.get; i32.eq/i32.ne` before the `if return`
 
 ## 9. Runtime code reads replaced after a known constant `global.set`
 
@@ -661,7 +662,7 @@ Before:
 
 Preserved because:
 
-- the body now has too many elements for the exact matcher
+- the body now has too many elements for the exact matcher, even though Starshine now accepts the exact, `i32.eqz`, and bidirectional compare-const condition variants when there is no trailing code
 
 ## Interaction shapes worth remembering
 

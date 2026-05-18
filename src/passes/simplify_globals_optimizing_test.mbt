@@ -627,6 +627,80 @@ test "simplify-globals-optimizing removes exact if-return read-only-to-write gua
 }
 
 ///|
+test "simplify-globals-optimizing removes eqz if-return read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block
+      #|      global.get $once
+      #|      i32.eqz
+      #|      if
+      #|        return
+      #|      end
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes compare if-return read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $forward (mut i32) (i32.const 0))
+      #|  (global $reverse (mut i32) (i32.const 0))
+      #|  (func $forward_run
+      #|    global.get $forward
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $forward)
+      #|  (func $reverse_run
+      #|    i32.const 0
+      #|    global.get $reverse
+      #|    i32.ne
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $reverse))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let forward = optimized.pretty_print_defined_func(0U)
+  assert_false(forward.contains("global.get"), msg=forward)
+  assert_false(forward.contains("global.set"), msg=forward)
+  let reverse = optimized.pretty_print_defined_func(1U)
+  assert_false(reverse.contains("global.get"), msg=reverse)
+  assert_false(reverse.contains("global.set"), msg=reverse)
+}
+
+///|
 test "simplify-globals-optimizing keeps if-return guards with trailing code" {
   let optimized = sgo_test_run(
     (

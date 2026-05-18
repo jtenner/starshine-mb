@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO conditional if-return self guards
+
+- Broadened the active `simplify-globals-optimizing` exact `if return; set` read-only-to-write matcher in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so the early-return guard may be fed by `global.get; i32.eqz`, `global.get; const; i32.eq/i32.ne`, or `const; global.get; i32.eq/i32.ne` before the final same-global constant write.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt); the `i32.eqz` and bidirectional compare fixtures failed first with their globals still mutable, then passed after the exact matcher learned those condition forms.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1122/1122`), and `.tmp/pass-fuzz-sgo-ifreturn-cond-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO no-op condition-prefix self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so a transparent result `block` may ignore no-op constant/drop prefixes before yielding the self-guard `global.get` condition for an adjacent same-global constant write.
