@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO read-only-to-write guardrail negatives
+
+- Added focused guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for unsupported read-only-to-write self-guard shapes: wrong-target writes, non-constant set operands with calls, `if` expressions with `else` arms, `select` value-flow, and trapping memory-load conditions.
+- Kept this as a no-behavior-change correctness slice: the current SGO matcher still requires concrete `global.get` condition flow to an adjacent no-else same-global constant-set shape unless a narrower source-backed family has already landed, and side-effecting-but-safe positives remain deferred until a value-flow plan exists.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1142/1142`), full `moon test` passed (`3206/3206`), and `.tmp/pass-fuzz-sgo-guard-negatives-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO float compare pure-condition self guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write pure-condition subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) to treat `f32` and `f64` equality/relational compares as whitelisted side-effect-free condition operators between a concrete `global.get` and a no-else same-global constant-set `if`.
