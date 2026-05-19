@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | GC aggregate generator backlink hygiene
+
+- During the post-update whole-wiki health pass, searched struct/array/i31 aggregate instruction references across WAST, binary, validation, fuzzing, string, and pass pages for places that could confuse core generator evidence with WAST text support.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so its broad `gen-valid` concrete struct/array and `array.new_*` / `array.init_*` coverage claims route fixture-format decisions through [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) instead of implying WAST parser support.
+
 ## [2026-05-19] wast | GC aggregate instruction authoring
 
 - Added [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) as the focused WAST/core split guide for GC aggregate instructions: supported struct constructors/gets, local descriptor constructors, i31 and `any`/`extern` conversions, core/binary-only official `struct.set` and `array.*` families, packed signedness, mutability, data/element-backed array caveats, and validation/rewrite guidance.
