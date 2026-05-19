@@ -8809,12 +8809,16 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   if 299 < selected_result_defs.length() {
     selected_result_defs[299] = true
   }
-  let selected_result_call_facts = dae_collect_current_call_facts(
+  // The remaining selected artifact lanes rewrite signatures/operands but do not
+  // add or remove direct call sites. Reuse one call-fact snapshot for the
+  // selected dropped-result and literal lanes instead of rescanning the large
+  // module before each small selected-def family.
+  let selected_call_facts = dae_collect_current_call_facts(
     current,
     original_imported + original_defined,
   )
   let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-    current, selected_result_defs, selected_result_call_facts,
+    current, selected_result_defs, selected_call_facts,
   )
   if selected_result.changed {
     current = selected_result.mod_out
@@ -8824,10 +8828,6 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     )
     changed = true
   }
-  let mid_literal_call_facts = dae_collect_current_call_facts(
-    current,
-    original_imported + original_defined,
-  )
   for mid_literal_def in [287, 311] {
     let selected_mid_literal_defs = Array::make(original_defined, false)
     if mid_literal_def >= 0 &&
@@ -8835,7 +8835,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       selected_mid_literal_defs[mid_literal_def] = true
     }
     let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_mid_literal_defs, mid_literal_call_facts,
+      current, selected_mid_literal_defs, selected_call_facts,
     )
     if mid_literal_result.changed {
       current = mid_literal_result.mod_out
@@ -8855,7 +8855,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     let mid_global_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
       current,
       selected_mid_global_literal_defs,
-      mid_literal_call_facts,
+      selected_call_facts,
       allow_immutable_global_get=true,
     )
     if mid_global_literal_result.changed {
@@ -8867,10 +8867,6 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
-  let high_literal_call_facts = dae_collect_current_call_facts(
-    current,
-    original_imported + original_defined,
-  )
   for high_literal_def in [1720, 1755, 1775, 1794, 2156] {
     let selected_high_literal_defs = Array::make(original_defined, false)
     if high_literal_def >= 0 &&
@@ -8878,7 +8874,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       selected_high_literal_defs[high_literal_def] = true
     }
     let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_high_literal_defs, high_literal_call_facts,
+      current, selected_high_literal_defs, selected_call_facts,
     )
     if high_literal_result.changed {
       current = high_literal_result.mod_out
