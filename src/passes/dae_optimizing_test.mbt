@@ -1652,7 +1652,7 @@ test "dae-optimizing removes dropped large dead-prefix result bodies like Binary
 }
 
 ///|
-test "dae-optimizing preserves results with undropped dead-suffix callers" {
+test "dae-optimizing ignores undropped calls in root-unreachable dead suffixes" {
   let source =
     #|(module
     #|  (func (export "main")
@@ -1672,12 +1672,15 @@ test "dae-optimizing preserves results with undropped dead-suffix callers" {
     #|    end
     #|    call $f))
   let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
   @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+  let h = optimized.pretty_print_defined_func(2U)
+  assert_true(h.contains("unreachable"), msg=h)
+  assert_false(h.contains("call"), msg=h)
 }
 
 ///|
-test "dae-optimizing repairs dropped dead-suffix calls when removing result" {
+test "dae-optimizing collapses dropped dead-suffix calls when removing result" {
   let source =
     #|(module
     #|  (func (export "main")
@@ -1694,7 +1697,8 @@ test "dae-optimizing repairs dropped dead-suffix calls when removing result" {
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
   let caller = optimized.pretty_print_defined_func(0U)
-  assert_true(caller.contains("(call (Func 1))"), msg=caller)
+  assert_true(caller.contains("unreachable"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
   assert_false(caller.contains("drop"), msg=caller)
 }
 
@@ -1741,7 +1745,7 @@ test "dae-optimizing keeps no-param results with prior undropped dead-suffix cal
 }
 
 ///|
-test "dae-optimizing keeps undropped no-param dead self suffix results" {
+test "dae-optimizing removes undropped no-param dead self suffix results" {
   let source =
     #|(module
     #|  (func $dead (result f64)
@@ -1751,7 +1755,45 @@ test "dae-optimizing keeps undropped no-param dead self suffix results" {
     #|    call $dead)
     #|  (func (export "run")))
   let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
+  let dead = optimized.pretty_print_defined_func(0U)
+  assert_true(dead.contains("unreachable"), msg=dead)
+  assert_false(dead.contains("call"), msg=dead)
+}
+
+///|
+test "dae-optimizing collapses unreachable self-suffix result bodies" {
+  let source =
+    #|(module
+    #|  (func $dead (result i32)
+    #|    i32.const 11
+    #|    i32.const 3
+    #|    i32.eq
+    #|    drop
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $side
+    #|    drop
+    #|    i32.const 7
+    #|    drop
+    #|    call $dead
+    #|    drop
+    #|    i32.const 1
+    #|    if
+    #|    else
+    #|      nop
+    #|    end
+    #|    call $dead)
+    #|  (func $side (result i32)
+    #|    unreachable)
+    #|  (func (export "run")))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
+  let dead = optimized.pretty_print_defined_func(0U)
+  assert_true(dead.contains("unreachable"), msg=dead)
+  assert_false(dead.contains("i32.const"), msg=dead)
+  assert_false(dead.contains("call"), msg=dead)
 }
 
 ///|
@@ -1801,7 +1843,7 @@ test "dae-optimizing keeps no-param results with later undropped callers" {
 }
 
 ///|
-test "dae-optimizing keeps no-param undropped self results with dropped callers" {
+test "dae-optimizing removes no-param undropped self results with dead side callers" {
   let source =
     #|(module
     #|  (func $main (export "main") (result i64)
@@ -1829,12 +1871,12 @@ test "dae-optimizing keeps no-param undropped self results with dropped callers"
     #|    drop
     #|    local.get 0))
   let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
   @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 0)
 }
 
 ///|
-test "dae-optimizing keeps results when dead self suffix has another call" {
+test "dae-optimizing removes results when dead self suffix has another call" {
   let source =
     #|(module
     #|  (func $side (result i64)
@@ -1850,7 +1892,10 @@ test "dae-optimizing keeps results when dead self suffix has another call" {
     #|  (func (export "run")))
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
-  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+  let dead = optimized.pretty_print_defined_func(1U)
+  assert_true(dead.contains("unreachable"), msg=dead)
+  assert_false(dead.contains("call"), msg=dead)
 }
 
 ///|
@@ -3101,7 +3146,7 @@ test "dae-optimizing prunes side-call result cycles reached by dropped callers" 
     #|    drop
     #|    local.get 2))
   let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 0)
   @debug.assert_eq(dae_test_func_results(optimized, 3).length(), 0)
 }
 

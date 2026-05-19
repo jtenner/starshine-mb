@@ -2935,6 +2935,9 @@ fn dae_try_remove_dropped_results(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   dae_remove_dropped_result_call_drops_in_funcs(rewritten_funcs, callee_abs)
+  dae_repair_dead_suffix_calls_in_no_param_funcs_except(
+    rewritten_funcs, type_indices, type_sec, imported, callee_abs, def_idx,
+  )
   let @lib.Func(callee_locals, @lib.Expr(callee_body)) = rewritten_funcs[def_idx]
   let next_callee_body = callee_body.copy()
   next_callee_body.push(@lib.Instruction::drop())
@@ -3138,6 +3141,58 @@ fn dae_repair_dead_suffix_calls_func(
 }
 
 ///|
+fn dae_repair_dead_suffix_calls_in_funcs_except(
+  funcs : Array[@lib.Func],
+  callee_abs : Int,
+  skip_def : Int,
+) -> Unit {
+  let mut func_idx = 0
+  while func_idx < funcs.length() {
+    if func_idx != skip_def {
+      let (repaired, _) = dae_repair_dead_suffix_calls_func(
+        funcs[func_idx],
+        callee_abs,
+      )
+      funcs[func_idx] = repaired
+    }
+    func_idx += 1
+  }
+}
+
+///|
+fn dae_repair_dead_suffix_calls_in_no_param_funcs_except(
+  funcs : Array[@lib.Func],
+  type_indices : Array[@lib.TypeIdx],
+  type_sec : @lib.TypeSec,
+  imported : Int,
+  callee_abs : Int,
+  skip_def : Int,
+) -> Unit {
+  let mut func_idx = 0
+  while func_idx < funcs.length() {
+    if func_idx != skip_def {
+      let abs_idx = imported + func_idx
+      let has_no_params = if abs_idx >= 0 && abs_idx < type_indices.length() {
+        match dae_type_sec_func_type(type_sec, type_indices[abs_idx]) {
+          Some(@lib.FuncType(params, _)) => params.length() == 0
+          None => false
+        }
+      } else {
+        false
+      }
+      if has_no_params {
+        let (repaired, _) = dae_repair_dead_suffix_calls_func(
+          funcs[func_idx],
+          callee_abs,
+        )
+        funcs[func_idx] = repaired
+      }
+    }
+    func_idx += 1
+  }
+}
+
+///|
 fn dae_count_self_calls(func : @lib.Func, callee_abs : Int) -> Int {
   let direct_calls = Array::make(callee_abs + 1, 0)
   let tail_calls = Array::make(callee_abs + 1, false)
@@ -3227,6 +3282,44 @@ fn dae_has_undropped_direct_call_to(
 }
 
 ///|
+fn dae_has_live_undropped_direct_call_to(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      return false
+    }
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        if idx + 1 >= instrs.length() ||
+          instrs[idx + 1] != @lib.Instruction::drop() {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if dae_has_live_undropped_direct_call_to(body, callee_abs) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if dae_has_live_undropped_direct_call_to(then_body, callee_abs) ||
+          dae_has_live_undropped_direct_call_to(else_body, callee_abs) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if dae_has_live_undropped_direct_call_to(then_body, callee_abs) {
+          return true
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn dae_module_has_undropped_direct_call_to_except(
   funcs : Array[@lib.Func],
   callee_abs : Int,
@@ -3236,7 +3329,7 @@ fn dae_module_has_undropped_direct_call_to_except(
   while def_idx < funcs.length() {
     if def_idx != skip_def {
       let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-      if dae_has_undropped_direct_call_to(body, callee_abs) {
+      if dae_has_live_undropped_direct_call_to(body, callee_abs) {
         return true
       }
     }
@@ -3780,15 +3873,6 @@ fn dae_try_remove_unobserved_unreachable_function(
   if module_calls_anywhere == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  if results.length() > 0 &&
-    dae_dead_suffix_has_other_call(callee_body, callee_abs) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if params.length() == 0 &&
-    results.length() > 0 &&
-    dae_dead_suffix_has_undropped_direct_call_to(callee_body, callee_abs) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
   if dae_should_skip_large_result_unreachable_cleanup(funcs[def_idx], results) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -3806,17 +3890,7 @@ fn dae_try_remove_unobserved_unreachable_function(
     ) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let mut func_idx = 0
-  while func_idx < funcs.length() {
-    if func_idx != def_idx {
-      let (repaired, _) = dae_repair_dead_suffix_calls_func(
-        funcs[func_idx],
-        callee_abs,
-      )
-      funcs[func_idx] = repaired
-    }
-    func_idx += 1
-  }
+  dae_repair_dead_suffix_calls_in_funcs_except(funcs, callee_abs, def_idx)
   dae_remove_dropped_result_call_drops_in_funcs(funcs, callee_abs)
   funcs[def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
@@ -3872,6 +3946,9 @@ fn dae_try_remove_dead_self_suffix_result(
   if dae_module_has_undropped_direct_call_to_except(funcs, callee_abs, def_idx) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  dae_repair_dead_suffix_calls_in_no_param_funcs_except(
+    funcs, type_indices, type_sec, imported, callee_abs, def_idx,
+  )
   dae_remove_dropped_result_call_drops_in_funcs(funcs, callee_abs)
   funcs[def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
@@ -3928,6 +4005,9 @@ fn dae_try_remove_uncalled_results(
   if !dae_func_is_unreachable_only(simplified) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  dae_repair_dead_suffix_calls_in_no_param_funcs_except(
+    funcs, type_indices, type_sec, imported, callee_abs, def_idx,
+  )
   dae_remove_dropped_result_call_drops_in_funcs(funcs, callee_abs)
   funcs[def_idx] = @lib.Func::new(
     @lib.Locals::empty(),
