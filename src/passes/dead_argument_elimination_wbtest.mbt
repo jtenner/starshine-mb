@@ -68,6 +68,24 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::drop(),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
     @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_eqz(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(11)),
+    @lib.Instruction::i32_const(@lib.I32(3)),
+    @lib.Instruction::i32_eq(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::f64_const(@lib.F64(16.75)),
+    @lib.Instruction::f64_sqrt(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::f32_const(@lib.F32(9.25)),
+    @lib.Instruction::f32_const(@lib.F32(2.5)),
+    @lib.Instruction::f32_max(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(84)),
+    @lib.Instruction::i32_const(@lib.I32(3)),
+    @lib.Instruction::i32_div_s(),
+    @lib.Instruction::drop(),
     @lib.Instruction::return_(),
   ]
   let mod_ = @lib.Module::new().with_code_sec(
@@ -90,8 +108,15 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     Some(@lib.CodeSec(funcs)) => {
       let @lib.Func(_, @lib.Expr(cleaned0)) = funcs[0]
       let @lib.Func(_, @lib.Expr(cleaned1)) = funcs[1]
-      assert_eq(cleaned0, [@lib.Instruction::return_()])
-      assert_eq(cleaned1, [@lib.Instruction::return_()])
+      let preserved_trapping = [
+        @lib.Instruction::i32_const(@lib.I32(84)),
+        @lib.Instruction::i32_const(@lib.I32(3)),
+        @lib.Instruction::i32_div_s(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::return_(),
+      ]
+      assert_eq(cleaned0, preserved_trapping)
+      assert_eq(cleaned1, preserved_trapping)
     }
     None => fail("expected rewritten code section")
   }

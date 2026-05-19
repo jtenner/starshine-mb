@@ -8164,6 +8164,153 @@ fn dae_fold_const_i32_eq_if_instrs_once(
 }
 
 ///|
+fn dae_instr_is_droppable_pure_leaf(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Eqz
+    | @lib.I64Eqz
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.I32TruncSatF32S
+    | @lib.I32TruncSatF32U
+    | @lib.I32TruncSatF64S
+    | @lib.I32TruncSatF64U
+    | @lib.I64TruncSatF32S
+    | @lib.I64TruncSatF32U
+    | @lib.I64TruncSatF64S
+    | @lib.I64TruncSatF64U => true
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_is_nontrapping_pure_binary(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign => true
+    _ => false
+  }
+}
+
+///|
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
@@ -8177,22 +8324,26 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       }
       _ => ()
     }
-    if idx + 1 < instrs.length() {
-      match (instrs[idx], instrs[idx + 1]) {
-        (
-          @lib.I32Const(_)
-          | @lib.I64Const(_)
-          | @lib.F32Const(_)
-          | @lib.F64Const(_)
-          | @lib.LocalGet(_)
-          | @lib.GlobalGet(_),
-          @lib.Drop,
-        ) => {
-          idx += 2
-          continue
-        }
-        _ => ()
-      }
+    if idx + 1 < instrs.length() &&
+      dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
+      instrs[idx + 1] == @lib.Instruction::drop() {
+      idx += 2
+      continue
+    }
+    if idx + 2 < instrs.length() &&
+      dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
+      dae_instr_is_nontrapping_pure_unary(instrs[idx + 1]) &&
+      instrs[idx + 2] == @lib.Instruction::drop() {
+      idx += 3
+      continue
+    }
+    if idx + 3 < instrs.length() &&
+      dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
+      dae_instr_is_droppable_pure_leaf(instrs[idx + 1]) &&
+      dae_instr_is_nontrapping_pure_binary(instrs[idx + 2]) &&
+      instrs[idx + 3] == @lib.Instruction::drop() {
+      idx += 4
+      continue
     }
     match instrs[idx] {
       @lib.Block(block_type, @lib.Expr(body)) =>
