@@ -7,6 +7,7 @@
     "fuzz": "bun scripts/fuzz.ts",
     "self-opt": "bun scripts/self-opt.ts",
     "make": "bun scripts/make.ts",
-    "examples": "bun scripts/examples.ts"
+    "examples": "bun scripts/examples.ts",
+    "cli-benchmarks": "bun scripts/cli-benchmarks.ts"
   }
 }

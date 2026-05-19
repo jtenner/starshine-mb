@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/cli-benchmarks"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn format_cli_benchmark_result(CliBenchmarkResult, Bool) -> String
+
+pub fn parse_cli_benchmark_command(Array[String]) -> CliBenchmarkCommand
+
+pub fn run_cli_benchmark(CliBenchmarkArgs) -> Result[CliBenchmarkResult, String]
+
+// Errors
+
+// Types and methods
+pub struct CliBenchmarkArgs {
+  iterations : Int
+  warmup : Int
+  jsonl : Bool
+  target_args : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn CliBenchmarkArgs::new(iterations? : Int, warmup? : Int, jsonl? : Bool, target_args? : Array[String]) -> Self
+
+pub enum CliBenchmarkCommand {
+  Run(CliBenchmarkArgs)
+  Help
+} derive(Eq, @debug.Debug)
+
+pub struct CliBenchmarkResult {
+  iterations : Int
+  warmup : Int
+  target_arg_count : Int
+  parse_total_us : UInt64
+  parse_avg_us : UInt64
+  setup_total_us : UInt64
+  setup_avg_us : UInt64
+  parse_sink : Int
+  setup_sink : Int
+  optimize_level : Int
+  shrink_level : Int
+  effective_pass_count : Int
+  resolved_passes : Array[String]
+} derive(Eq, @debug.Debug)
+
+type CliPipelineSetupSummary derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

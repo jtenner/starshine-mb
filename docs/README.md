@@ -82,7 +82,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 
 ### Layout Details
 
-- Active packages live under `src/`; the current active package set is `binary`, `cli`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
+- Active packages live under `src/`; the current active package set is `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
 - `examples/` contains runnable examples.
 - `tests/spec/` and `tests/node/` hold external and integration coverage.
 - `scripts/` contains Bun entrypoints only: `validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`, and `pass-fuzz-compare.ts`.
@@ -93,6 +93,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 
 - Common MoonBit commands: `moon info`, `moon fmt`, `moon check`, `moon test`, and `moon test --update`.
 - Common Bun workflows: `bun validate ...`, `bun fuzz ...`, `bun self-opt ...`, `bun make ...`, and `bun examples ...`.
+- Run one CLI startup microbenchmark via `moon run src/cli-benchmarks -- [--iterations <n>] [--warmup <n>] [-- <starshine-cli-args...>]`; everything after the second `--` is benchmarked as Starshine CLI input. Run broad benchmark sweeps via `bun run cli-benchmarks -- [--suite smoke|standard|full] [--iterations <n>] [--warmup <n>]`.
 - Run fuzzing via `moon run src/fuzz ...` or `bun fuzz run ...`; do not put heavy randomized loops inside `moon test`.
 - Use `bun fuzz compare-pass --list-passes` to discover supported canonical pass names (equivalently, `bun scripts/pass-fuzz-compare.ts --list-passes`).
 - The pass-comparison harness alternates `wasm-tools smith` and in-repo `gen_valid`, validates with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` output; use `--jobs auto` or `--jobs <n>` with `--starshine-bin` on long lanes to run independent cases concurrently without parallel `moon` lock contention.

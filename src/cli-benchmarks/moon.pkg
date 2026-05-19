@@ -1,0 +1,11 @@
+import {
+  "jtenner/starshine/cli" @cli,
+  "jtenner/starshine/lib" @lib,
+  "jtenner/starshine/passes" @passes,
+  "moonbitlang/core/debug",
+  "moonbitlang/core/env" @env,
+}
+
+options(
+  "is-main": true,
+)
