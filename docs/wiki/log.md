@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO adjacent runtime block propagation
+
+- Broadened the active `simplify-globals-optimizing` runtime constant-propagation subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so single-const private global facts flow into adjacent plain `block` bodies and, when the body has no runtime trace barrier, back out to following code.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt): the adjacent-block read and block-set-then-read fixtures failed first with remaining `global.get`s, while call-barrier and `br_if` early-exit negatives preserve the current conservative boundary. Local Binaryen probes in `.tmp/sgo-runtime-adjacent-block.wat`, `.tmp/sgo-runtime-block-set-exit.wat`, `.tmp/sgo-runtime-call-barrier-block.wat`, and `.tmp/sgo-runtime-block-brif-exit.wat` matched those positive/negative decisions under `wasm-opt --simplify-globals-optimizing`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1161/1161`), full `moon test` passed (`3225/3225`), and `.tmp/pass-fuzz-sgo-runtime-blocks-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO block-yielded external guardrail negatives
 
 - Added focused guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for unsupported block-yielded external pure-condition self guards and `if return; set` tails: wrong-target writes, non-constant set operands, `else` arms, trapping integer division, trailing code after an `if return; set` tail, and external stack-depth shapes where the guarded read is not the branch condition.

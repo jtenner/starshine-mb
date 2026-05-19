@@ -2101,6 +2101,27 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn sgo_runtime_trace_expr_has_barrier(expr : @lib.Expr) -> Bool {
+  let @lib.Expr(instrs) = expr
+  instrs.any(fn(instr) { sgo_runtime_trace_barrier(instr) })
+}
+
+///|
+fn sgo_runtime_trace_copy_facts(
+  dst : Array[@lib.Instruction?],
+  src : Array[@lib.Instruction?],
+) -> Unit {
+  let limit = if dst.length() < src.length() {
+    dst.length()
+  } else {
+    src.length()
+  }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    dst[idx] = src[idx]
+  }
+}
+
+///|
 fn sgo_runtime_trace_trackable(
   infos : Array[SgoGlobalInfo],
   slot : Int,
@@ -2116,8 +2137,17 @@ fn sgo_rewrite_runtime_trace_expr(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
 ) -> (@lib.Expr, Bool) {
-  let @lib.Expr(instrs) = expr
   let facts = sgo_empty_const_array(infos.length())
+  sgo_rewrite_runtime_trace_expr_with_facts(expr, infos, facts)
+}
+
+///|
+fn sgo_rewrite_runtime_trace_expr_with_facts(
+  expr : @lib.Expr,
+  infos : Array[SgoGlobalInfo],
+  facts : Array[@lib.Instruction?],
+) -> (@lib.Expr, Bool) {
+  let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   for pos = 0; pos < instrs.length(); pos = pos + 1 {
@@ -2146,6 +2176,26 @@ fn sgo_rewrite_runtime_trace_expr(
           } else {
             None
           }
+        }
+      }
+      @lib.Block(block_type, body) => {
+        let body_has_barrier = sgo_runtime_trace_expr_has_barrier(body)
+        let body_facts = facts.copy()
+        let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
+          body, infos, body_facts,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, next_body)
+          } else {
+            instr
+          },
+        )
+        changed = changed || body_changed
+        if body_has_barrier {
+          sgo_runtime_trace_clear(facts)
+        } else {
+          sgo_runtime_trace_copy_facts(facts, body_facts)
         }
       }
       _ => {

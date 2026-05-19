@@ -2762,6 +2762,92 @@ test "simplify-globals-optimizing stops runtime global propagation at calls" {
 }
 
 ///|
+test "simplify-globals-optimizing propagates private global values into adjacent runtime blocks" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 10
+      #|    global.set $g
+      #|    block (result i32)
+      #|      global.get $g
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps adjacent runtime block reads after calls" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 10
+      #|    global.set $g
+      #|    call $tick
+      #|    block (result i32)
+      #|      global.get $g
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing carries private global values out of adjacent runtime blocks" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (result i32)
+      #|    block
+      #|      i32.const 10
+      #|      global.set $g
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing does not carry runtime block values through early exits" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32) (result i32)
+      #|    block
+      #|      local.get $p
+      #|      br_if 0
+      #|      i32.const 10
+      #|      global.set $g
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing rewrites dead global.set to cleanup-visible drops" {
   let optimized = sgo_test_run(
     (
