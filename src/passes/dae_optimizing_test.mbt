@@ -4048,8 +4048,6 @@ test "dae-optimizing nested coalesce-locals only cleans touched functions" {
     #|  (func (export "untouched") (result i32) (local i32 i32)
     #|    i32.const 11
     #|    local.set 0
-    #|    local.get 0
-    #|    drop
     #|    i32.const 22
     #|    local.set 1
     #|    local.get 1))

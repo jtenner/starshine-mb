@@ -51,13 +51,24 @@ test "dae original call summary counts repeated undropped callees once per calle
 }
 
 ///|
-test "dae touched raw cleanup strips nops and dropped zero only from touched functions" {
+test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
   let noisy_body = [
     @lib.Instruction::nop(),
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::drop(),
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::drop(),
+    @lib.Instruction::i64_const(@lib.I64(9L)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::f32_const(@lib.F32(1.5)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::f64_const(@lib.F64(2.25)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::return_(),
   ]
   let mod_ = @lib.Module::new().with_code_sec(
     @lib.CodeSec::new([
@@ -65,18 +76,22 @@ test "dae touched raw cleanup strips nops and dropped zero only from touched fun
       @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(noisy_body)),
     ]),
   )
-  let result = dae_strip_touched_nops_and_dropped_zero_once(mod_, [true, false])
+  let no_touch_result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [
+    false, false,
+  ])
+  assert_false(no_touch_result.changed)
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [
+    true, false,
+  ])
   assert_true(result.changed)
   assert_eq(result.primary_def, 0)
+  assert_eq(result.touched, [true, false])
   match result.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
-      let @lib.Func(_, @lib.Expr(untouched)) = funcs[1]
-      assert_eq(cleaned, [
-        @lib.Instruction::i32_const(@lib.I32(7)),
-        @lib.Instruction::drop(),
-      ])
-      assert_eq(untouched, noisy_body)
+      let @lib.Func(_, @lib.Expr(cleaned0)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(cleaned1)) = funcs[1]
+      assert_eq(cleaned0, [@lib.Instruction::return_()])
+      assert_eq(cleaned1, [@lib.Instruction::return_()])
     }
     None => fail("expected rewritten code section")
   }

@@ -8084,7 +8084,7 @@ fn dae_fold_const_i32_eq_if_instrs_once(
 }
 
 ///|
-fn dae_strip_nops_and_dropped_zero_instrs(
+fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
@@ -8099,7 +8099,15 @@ fn dae_strip_nops_and_dropped_zero_instrs(
     }
     if idx + 1 < instrs.length() {
       match (instrs[idx], instrs[idx + 1]) {
-        (@lib.I32Const(@lib.I32(0)), @lib.Drop) => {
+        (
+          @lib.I32Const(_)
+          | @lib.I64Const(_)
+          | @lib.F32Const(_)
+          | @lib.F64Const(_)
+          | @lib.LocalGet(_)
+          | @lib.GlobalGet(_),
+          @lib.Drop,
+        ) => {
           idx += 2
           continue
         }
@@ -8111,14 +8119,14 @@ fn dae_strip_nops_and_dropped_zero_instrs(
         out.push(
           @lib.Instruction::block(
             block_type,
-            @lib.Expr::new(dae_strip_nops_and_dropped_zero_instrs(body)),
+            @lib.Expr::new(dae_strip_nops_and_dropped_pure_leaf_instrs(body)),
           ),
         )
       @lib.Loop(block_type, @lib.Expr(body)) =>
         out.push(
           @lib.Instruction::loop_(
             block_type,
-            @lib.Expr::new(dae_strip_nops_and_dropped_zero_instrs(body)),
+            @lib.Expr::new(dae_strip_nops_and_dropped_pure_leaf_instrs(body)),
           ),
         )
       @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
@@ -8126,16 +8134,17 @@ fn dae_strip_nops_and_dropped_zero_instrs(
           @lib.Instruction::try_table(
             block_type,
             catches,
-            @lib.Expr::new(dae_strip_nops_and_dropped_zero_instrs(body)),
+            @lib.Expr::new(dae_strip_nops_and_dropped_pure_leaf_instrs(body)),
           ),
         )
       @lib.If(block_type, then_body, else_body) =>
         out.push(
           @lib.Instruction::if_(
             block_type,
-            dae_strip_nops_and_dropped_zero_instrs(then_body),
+            dae_strip_nops_and_dropped_pure_leaf_instrs(then_body),
             match else_body {
-              Some(body) => Some(dae_strip_nops_and_dropped_zero_instrs(body))
+              Some(body) =>
+                Some(dae_strip_nops_and_dropped_pure_leaf_instrs(body))
               None => None
             },
           ),
@@ -8148,7 +8157,7 @@ fn dae_strip_nops_and_dropped_zero_instrs(
 }
 
 ///|
-fn dae_strip_touched_nops_and_dropped_zero_once(
+fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   mod_ : @lib.Module,
   touched_defs : Array[Bool],
 ) -> DaePassResult {
@@ -8157,21 +8166,33 @@ fn dae_strip_touched_nops_and_dropped_zero_once(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let mut has_touch = false
+  for touched in touched_defs {
+    if touched {
+      has_touch = true
+      break
+    }
+  }
+  if !has_touch {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   let touched = Array::make(funcs.length(), false)
+  let mut touched_idx = 0
+  while touched_idx < funcs.length() && touched_idx < touched_defs.length() {
+    touched[touched_idx] = touched_defs[touched_idx]
+    touched_idx += 1
+  }
   let mut changed = false
   let mut primary_def = -1
   let mut def_idx = 0
-  while def_idx < funcs.length() && def_idx < touched_defs.length() {
-    if touched_defs[def_idx] {
-      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-      let rewritten = dae_strip_nops_and_dropped_zero_instrs(body)
-      if rewritten != body {
-        funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-        touched[def_idx] = true
-        changed = true
-        if primary_def < 0 {
-          primary_def = def_idx
-        }
+  while def_idx < funcs.length() {
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(body)
+    if rewritten != body {
+      funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+      changed = true
+      if primary_def < 0 {
+        primary_def = def_idx
       }
     }
     def_idx += 1
@@ -8250,7 +8271,7 @@ fn dae_try_retarget_selected_func236_locals_once(
   local_map[6] = 1
   local_map[8] = 2
   local_map[9] = 1
-  let rewritten = dae_strip_nops_and_dropped_zero_instrs(
+  let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
     dae_rewrite_locals_instrs(body, local_map),
   )
   if dae_instrs_reference_local_at_or_above(rewritten, param_count) {
@@ -9015,14 +9036,14 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
-  let touched_raw_cleanup = dae_strip_touched_nops_and_dropped_zero_once(
+  let module_raw_cleanup = dae_strip_module_nops_and_dropped_pure_leaf_once(
     current, touched,
   )
-  if touched_raw_cleanup.changed {
-    current = touched_raw_cleanup.mod_out
-    touched = dae_merge_touched(touched, touched_raw_cleanup.touched)
+  if module_raw_cleanup.changed {
+    current = module_raw_cleanup.mod_out
+    touched = dae_merge_touched(touched, module_raw_cleanup.touched)
     trace(
-      "pass[dae-optimizing]:touched-raw-cleanup primary_def=\{touched_raw_cleanup.primary_def}",
+      "pass[dae-optimizing]:module-raw-cleanup primary_def=\{module_raw_cleanup.primary_def}",
     )
     changed = true
   }
