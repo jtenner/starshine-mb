@@ -15,6 +15,7 @@ related:
   - instruction-and-expression-encoding.md
   - type-table-memory-global-tag-sections.md
   - data-element-and-datacount-sections.md
+  - ../wast/resource-declaration-authoring.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../tooling/validation-gates.md
   - ../validate/module-validation-phases.md
@@ -24,7 +25,7 @@ related:
 
 ## Overview
 
-This is the high-level map for Starshine's whole-module binary contract. It ties together the section-specific pages for custom/name metadata, functions/imports/exports/code, instruction/expression encoding, non-function resource sections, and segments so pass authors can answer one common question: "If I change this module field, what else must move with it?"
+This is the high-level map for Starshine's whole-module binary contract. It ties together the section-specific pages for custom/name metadata, functions/imports/exports/code, instruction/expression encoding, non-function resource sections, and segments so pass authors can answer one common question: "If I change this module field, what else must move with it?" For fixture-facing WAST table, memory, and global declarations, use [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md); this page stays focused on binary section order and cross-section index repair.
 
 The official WebAssembly 3.0 binary format has two ordering rules that are easy to conflate:
 
@@ -103,9 +104,9 @@ Use this checklist before implementing or reviewing any pass that deletes, reord
 | --- | --- |
 | Type definitions | Function signatures, block types, table/global/tag types, imports/exports, GC instructions, casts, element types, type names, and any pass-local type caches. |
 | Function imports/definitions | `func_sec` / `code_sec` parallelism, direct calls, tail calls, `ref.func`, start, exports, element payloads, global/table initializer expressions, function names, local/label names keyed under retained functions, and `func_annotation_sec` when present from WAST lowering. |
-| Tables | `TableIdx` instructions, `call_indirect` / `return_call_indirect`, active element modes, imports/exports, table names, and optional table initializer expressions; WAST runtime instruction details live in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
-| Memories | `MemArg` memory operands, memory management instructions, active data modes, imports/exports, memory names, memory64/lowering assumptions, and the explicit-memidx encoding caveats in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). |
-| Globals | `global.get` / `global.set`, global initializer expressions, imports/exports, global names, global summaries, and constant-propagation caches. |
+| Tables | `TableIdx` instructions, `call_indirect` / `return_call_indirect`, active element modes, imports/exports, table names, and optional table initializer expressions; WAST declaration details live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), and WAST runtime instruction details live in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
+| Memories | `MemArg` memory operands, memory management instructions, active data modes, imports/exports, memory names, memory64/lowering assumptions, and the explicit-memidx encoding caveats in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md); WAST declaration caveats live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
+| Globals | `global.get` / `global.set`, global initializer expressions, imports/exports, global names, global summaries, and constant-propagation caches; WAST declaration and initializer-order examples live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | Tags | `throw`, catch clauses, imports/exports, tag names, and exception validation assumptions. |
 | Elements or data segments | Segment indices, active parent table/memory indices, `table.init` / `elem.drop` / `memory.init` / `data.drop`, name maps, data-count equality, and startup-trap policy; pair element runtime uses with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
 | Custom/name metadata | Clear `raw_name_sec_payload` after structured rewrites, update affected name maps, preserve unrelated non-`name` custom payloads unless the pass explicitly owns a stripping policy. |
@@ -130,3 +131,4 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Section-specific pages: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md)
+- Fixture-facing WAST resource declarations: [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md)

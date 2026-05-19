@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | resource declaration backlink hygiene
+
+- During the post-update whole-wiki health pass, searched table, memory, global, declaration, import/export, and resource-section references for pages that still routed WAST authors only through binary section or instruction pages.
+- Updated [`binary/module-section-map.md`](binary/module-section-map.md), [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md), and [`index.md`](index.md) so whole-module rewrite checklists and identifier examples point table/memory/global declaration syntax and caveats at [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md) without moving binary section order or name-section policy out of their canonical pages.
+
 ## [2026-05-19] wast | resource declaration authoring
 
 - Added [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md) as the focused WAST guide for table, memory, and global module fields: explicit imports, definitions, inline exports, explicit exports, table element abbreviations, global mutability, global initializer ordering, imported-prefix resource indices, and pass/generator rewrite guidance.

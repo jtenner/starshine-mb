@@ -18,6 +18,7 @@ related:
   - ../binaryen/passes/reorder-locals/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - element-segment-authoring.md
+  - resource-declaration-authoring.md
   - static-assertion-harness.md
   - variable-instruction-authoring.md
   - gc-type-authoring.md
@@ -88,7 +89,7 @@ That distinction matters for passes. A pass that rewrites locals must keep valid
   (data $data "payload"))
 ```
 
-Starshine tracks ids for type, table, memory, global, tag, element, and data definitions so later references can resolve. Today those source ids are lowering aids, not a general promise to populate type/table/memory/global/tag/element/data name-section maps. If a future feature needs that metadata to survive binary roundtrip or pass remapping, add explicit name-map lowering and tests for the affected index space.
+Starshine tracks ids for type, table, memory, global, tag, element, and data definitions so later references can resolve. Fixture-facing table, memory, and global declaration syntax plus the current inline-import and memory64/shared caveats live in [`resource-declaration-authoring.md`](resource-declaration-authoring.md); this page only covers how `$tab`, `$mem`, and `$g` behave as source ids and name metadata. Today those source ids are lowering aids, not a general promise to populate type/table/memory/global/tag/element/data name-section maps. If a future feature needs that metadata to survive binary roundtrip or pass remapping, add explicit name-map lowering and tests for the affected index space.
 
 ### Function annotations are function metadata, not general custom annotations
 
@@ -136,3 +137,4 @@ Do not infer official text `@custom` placement support from this. The official c
 - Binary name-section source snapshot: [`../raw/wasm/2026-05-13-custom-and-name-section-sources.md`](../raw/wasm/2026-05-13-custom-and-name-section-sources.md)
 - WAST parser/printer/lowerer: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
 - Core module metadata: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md)
+- Resource declaration syntax: [`resource-declaration-authoring.md`](resource-declaration-authoring.md)
