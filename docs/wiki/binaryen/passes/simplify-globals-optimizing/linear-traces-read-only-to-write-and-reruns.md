@@ -127,12 +127,13 @@ That lets Binaryen handle some common “dominated right after this” shapes ch
 )
 ```
 
-Starshine's current subset also carries facts through nested plain block bodies when no inner barrier appears:
+Starshine's current subset also carries facts through nested plain block bodies when no inner barrier appears, and harmless non-control noise such as `drop`ped constants or pure arithmetic does not clear facts:
 
 ```wat
 (block
   (block
     (global.set $g (i32.const 10))
+    (drop (i32.add (i32.const 1) (i32.const 2)))
   )
 )
 (drop (global.get $g))

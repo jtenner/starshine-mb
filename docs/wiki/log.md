@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO runtime block guardrails and pure noise
+
+- Added no-behavior-change focused coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) around the landed runtime block propagation subset: latest same-global constant writes win, independent private-global writes do not clear unrelated facts, imported globals remain untracked, and loop / `try_table` bodies inside plain blocks remain conservative.
+- Probed harmless block-body noise in `.tmp/sgo-runtime-block-noop-pure-probes.wat`; `wasm-opt --simplify-globals-optimizing` removes the trailing reads through `drop` noise and pure arithmetic/drop noise. Starshine already matched those shapes, so the added tests lock existing behavior rather than widening implementation.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1174/1174`), full `moon test` passed (`3238/3238`), and `.tmp/pass-fuzz-sgo-runtime-block-guardrails-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO nested runtime block propagation
 
 - Broadened the active `simplify-globals-optimizing` runtime constant-propagation subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so nested plain `block` bodies are inspected recursively for barriers; single-const private global facts can now flow back out through nested plain blocks when no call, branch, loop, `if`, `try_table`, return, or throw barrier appears inside.
