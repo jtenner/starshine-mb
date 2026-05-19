@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO then-body runtime propagation with else arms
+
+- Broadened the active `simplify-globals-optimizing` runtime propagation subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so existing single-const private-global facts also flow into `then` bodies when an `else` arm is present, including nested plain blocks inside the `then` body, while facts are still cleared after the `if` and `else` bodies remain conservative.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt): result-typed then-body reads and nested then-block reads failed first with remaining `global.get`s, and a call before a then-body read remains a barrier. Local Binaryen probe `.tmp/sgo-runtime-if-then-else-probes.wat` showed `wasm-opt --simplify-globals-optimizing` replacing those then-body reads while keeping a call-before-read case unchanged.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1181/1181`), full `moon test` passed (`3245/3245`), and `.tmp/pass-fuzz-sgo-then-else-runtime-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO no-else if-body runtime propagation
 
 - Broadened the active `simplify-globals-optimizing` runtime propagation subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so existing single-const private-global facts flow into no-else `if` bodies, including nested plain blocks inside the body, while facts are still cleared after the `if`.

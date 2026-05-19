@@ -2203,6 +2203,24 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           sgo_runtime_trace_copy_facts(facts, body_facts)
         }
       }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        let then_facts = facts.copy()
+        let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
+          @lib.Expr::new(then_body),
+          infos,
+          then_facts,
+        )
+        let @lib.Expr(next_then_body) = next_then
+        out.push(
+          if then_changed {
+            @lib.Instruction::if_(block_type, next_then_body, Some(else_body))
+          } else {
+            instr
+          },
+        )
+        changed = changed || then_changed
+        sgo_runtime_trace_clear(facts)
+      }
       @lib.If(block_type, then_body, None) => {
         let then_facts = facts.copy()
         let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(

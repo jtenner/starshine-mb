@@ -3237,6 +3237,83 @@ test "simplify-globals-optimizing keeps else-arm runtime reads conservative" {
 }
 
 ///|
+test "simplify-globals-optimizing propagates runtime facts into then bodies with else arms" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32) (result i32)
+      #|    i32.const 21
+      #|    global.set $g
+      #|    local.get $p
+      #|    if (result i32)
+      #|      global.get $g
+      #|    else
+      #|      i32.const 0
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(21)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing propagates runtime facts into nested then blocks with else arms" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32)
+      #|    i32.const 22
+      #|    global.set $g
+      #|    local.get $p
+      #|    if
+      #|      block
+      #|        global.get $g
+      #|        drop
+      #|      end
+      #|    else
+      #|      nop
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(22)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing stops then-body runtime propagation at calls with else arms" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32)
+      #|    i32.const 23
+      #|    global.set $g
+      #|    local.get $p
+      #|    if
+      #|      call $tick
+      #|      global.get $g
+      #|      drop
+      #|    else
+      #|      nop
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing rewrites dead global.set to cleanup-visible drops" {
   let optimized = sgo_test_run(
     (
