@@ -4098,6 +4098,145 @@ test "simplify-globals-optimizing keeps reference runtime facts behind barriers"
 }
 
 ///|
+test "simplify-globals-optimizing carries ref-func facts through nested plain blocks" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "g" (global $g (mut funcref)))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run") (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    block (result funcref)
+      #|      block (result funcref)
+      #|        global.get $g
+      #|      end
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps reference then-body reads after calls" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (global $g (export "g") (mut funcref) (ref.null func))
+      #|  (func (export "run") (param $p i32) (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    local.get $p
+      #|    if (result funcref)
+      #|      call $tick
+      #|      global.get $g
+      #|    else
+      #|      ref.null func
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps reference loop runtime facts conservative after calls and branches" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (import "env" "g" (global $g (mut funcref)))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "call_loop") (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    loop
+      #|      call $tick
+      #|    end
+      #|    global.get $g)
+      #|  (func (export "branch_loop") (param $p i32) (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    loop $again
+      #|      local.get $p
+      #|      br_if $again
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let call_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(call_pretty.contains("global.get"), msg=call_pretty)
+  let branch_pretty = optimized.pretty_print_defined_func(2U)
+  assert_true(branch_pretty.contains("global.get"), msg=branch_pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps reference try_table runtime facts conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "g" (global $g (mut funcref)))
+      #|  (tag $e)
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run") (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    block $exit
+      #|      try_table (catch $e $exit)
+      #|        ref.func $f
+      #|        global.set $g
+      #|      end
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps reference post-if runtime joins conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "g" (global $g (mut funcref)))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run") (param $p i32) (result funcref)
+      #|    local.get $p
+      #|    if
+      #|      ref.func $f
+      #|      global.set $g
+      #|    else
+      #|      ref.func $f
+      #|      global.set $g
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps loop-contained block runtime facts conservative" {
   let optimized = sgo_test_run(
     (

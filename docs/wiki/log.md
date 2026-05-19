@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO reference deep-control runtime guardrails
+
+- Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for deeper reference-typed runtime facts: `ref.func` facts flow through nested plain blocks, but calls inside then-bodies, loops with calls or branch backedges, `try_table`, and post-`if` joins remain conservative.
+- Local Binaryen probes `.tmp/sgo-reference-deep-barriers-probes.wat` and `.tmp/sgo-reference-loop-barrier-probe.wat` showed the same positive nested-block replacement and the same call/branch/`try_table`/post-if reference barrier boundaries under `wasm-opt --all-features --simplify-globals-optimizing`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1228/1228`), full `moon test` passed (`3292/3292`), and `.tmp/pass-fuzz-sgo-reference-deep-barriers-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO typed-element refinalization guardrails
 
 - Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for refinalization-sensitive reference replacements: typed `ref.null` function-body reads still rewrite and validate, while typed element item expressions keep `global.get` for direct `ref.func` globals and `ref.func` aliases until Starshine has an exact type/refinalization plan for element item rewrites.
