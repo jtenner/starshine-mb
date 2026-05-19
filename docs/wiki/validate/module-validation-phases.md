@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-19
 sources:
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
+  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/env.mbt
@@ -23,6 +24,7 @@ related:
   - ../binary/function-import-export-and-code-sections.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
+  - ../wast/control-flow-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../wast/table-instruction-authoring.md
   - ../tooling/validation-gates.md
@@ -102,7 +104,7 @@ Instruction typechecking starts with a [`TcState`](../../../src/validate/typeche
 - a `reachable` flag;
 - an escape marker (`NoTcEscape`, `BranchTcEscape`, or `TerminalTcEscape`).
 
-Every instruction consumes and produces typed stack values. Control instructions temporarily extend the label stack and validate branch payloads against label result types. Tail calls validate against the current function return type and then make local continuation unreachable; WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md). Function bodies additionally require an exact end stack: after the declared results are consumed, no extra concrete values may remain.
+Every instruction consumes and produces typed stack values. Control instructions temporarily extend the label stack and validate branch payloads against label types: block/if labels use results, loop labels use parameters, `br_if` validates payload availability while leaving payload values on the not-taken path, and `br_table` requires all target labels to agree. The WAST fixture-facing version of those rules lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md). Tail calls validate against the current function return type and then make local continuation unreachable; WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md). Function bodies additionally require an exact end stack: after the declared results are consumed, no extra concrete values may remain.
 
 The most important beginner trap is unreachable-code stack polymorphism. When code is unreachable, Starshine can synthesize `BotValType` for missing operands, matching the official validation model. But values pushed after an unreachable point are still real values. Tests such as `validate_module rejects concrete stack junk after return inside block`, `validate_module rejects wrong concrete loop result after infinite inner loop`, and the end-of-body stack-shape diagnostics lock this boundary.
 
@@ -183,4 +185,4 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Diagnostics/repro snapshot: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md)
 - Implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing and trace: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt)
-- Related pages: [`./ref-func-declarations.md`](./ref-func-declarations.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md), [`./fuzz-hardening.md`](./fuzz-hardening.md), [`./trace-benchmark-baseline.md`](./trace-benchmark-baseline.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md)
+- Related pages: [`./ref-func-declarations.md`](./ref-func-declarations.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md), [`./fuzz-hardening.md`](./fuzz-hardening.md), [`./trace-benchmark-baseline.md`](./trace-benchmark-baseline.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md)

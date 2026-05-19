@@ -11,6 +11,7 @@ sources:
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/wast/arbitrary.mbt
+  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
 related:
@@ -21,6 +22,7 @@ related:
   - ../validate/diagnostics-and-invalid-repro.md
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/custom-and-name-sections.md
+  - ../wast/control-flow-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../wast/table-instruction-authoring.md
@@ -38,7 +40,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 - `check_validate_valid_feature_floors(stats, floors)` still fails only for floors explicitly listed by a profile or caller. Missing future FZG families are reported as `MissingOptional` until a profile adds a nonzero floor.
 - Smoke/CI/stress no longer treat completed FZG rows as purely optional. `validate_valid_run_config("smoke"|"ci"|"stress")` now uses coverage-forced valid generation and applies profile floors of `1`/`10`/`100` to the completed valid-generator rows through `[FZG]023`; future rows still report as `MissingOptional` until they get explicit floors.
 - `[FZG]002` attaches the first widened-surface counter: `NumericFullOps` now counts modules whose instruction scan sees expanded scalar numeric opcodes.
-- `[FZG]003` attaches exact core-control counters for `br_table`, standalone `unreachable`, `local.tee`, and typed `select`; coverage-forced modules emit a deterministic valid prelude for those forms.
+- `[FZG]003` attaches exact core-control counters for `br_table`, standalone `unreachable`, `local.tee`, and typed `select`; coverage-forced modules emit a deterministic valid prelude for those forms. WAST mirrors should follow [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md) for label payloads, `br_if` fallthrough, `br_table` default-target ordering, typed `select`, and the current `br_on_*` text-surface gap.
 - `[FZG]004` attaches the tail-call counter: `TailCalls` reports nonzero coverage when direct, indirect, or ref tail-call forms appear. Coverage-forced modules now emit all three valid tail-call forms where callable results match the current function return type; WAST mirrors should follow [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md) for return-type, table, reference, and terminator caveats.
 - `[FZG]005` attaches scalar-memory counters: `ScalarMemoryWidths` reports nonzero coverage when narrow scalar load/store width or sign variants appear, and `NonzeroMemarg` reports nonzero coverage when memory instructions use nonzero alignment or offset immediates. Coverage-forced modules now emit every scalar load/store width/sign variant with varied valid memargs; when mirroring these cases in WAST, use [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md) for the text-byte `align=` / static `offset=` / current nonzero-memory-index caveats.
 - `[FZG]006` attaches the memory-limit/proposal counter: `MemoryLimitVariants` reports nonzero coverage when generated modules contain zero-min, unbounded, shared, or memory64 memories. Coverage-forced modules now emit all four shapes while keeping shared memories bounded and memory64 behind explicit toggles.
@@ -70,7 +72,7 @@ Use this page as the bridge between generator work, fuzz-runner commands, and va
 
 1. **When adding a valid-generator surface**, add a stable `ValidateValidFeatureKey`, record it in `validate_valid_feature_ledger_keys()`, update `GenValidFeatureStats` / feature scanning, add a coverage-forced generator shape, and land a focused validation-anchor test in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt). Do not raise smoke/CI/stress floors until the coverage-forced shape validates deterministically.
 2. **When adding an invalid lane**, keep the deterministic mutation/repro path in the invalid AST or binary helpers, make the expected validation family explicit, and link the replay contract back to [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) plus the focused family/stage/artifact rules in [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) rather than treating it as a valid-generator floor.
-3. **When adding WAST text generation**, update [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md) and keep `src/wast/arbitrary.mbt` independent from `gen_valid`; WAST mirrors the FZG vocabulary but is a parser/printer surface, not a typed module-validity oracle. For exception and SIMD shapes, also keep [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md) and [`../wast/simd-authoring.md`](../wast/simd-authoring.md) aligned.
+3. **When adding WAST text generation**, update [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md) and keep `src/wast/arbitrary.mbt` independent from `gen_valid`; WAST mirrors the FZG vocabulary but is a parser/printer surface, not a typed module-validity oracle. For ordinary control, exception, and SIMD shapes, also keep [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md), and [`../wast/simd-authoring.md`](../wast/simd-authoring.md) aligned.
 4. **When using `bun fuzz compare-pass`**, treat `[FZG]029` failure metadata as the durable replay bridge: persisted failures should carry `failure-metadata.json` plus the copied input artifacts, while the generated-input batch still comes from `src/fuzz --emit-gen-valid-batch` through the wrapper described in [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md).
 
 The official WebAssembly module-validation rules are still the external semantic anchor for segment, table, memory, ref, and code-body validity; the local ledger's job is narrower: prove Starshine's generator can deliberately produce and measure those families, and prove each required profile fails only for the rows it explicitly requires.
@@ -101,7 +103,7 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - `validate_valid_run_config retunes FZG feature floors by profile` proves smoke/ci/stress now require every completed gen-valid FZG family at the intended `1`/`10`/`100` levels.
 - `check_validate_valid_feature_floors fails future FZG surfaces only when required` proves missing future rows remain non-fatal unless a caller adds an explicit floor.
 - `gen_valid coverage-forced emits expanded scalar numeric surface` proves the `[FZG]002` prelude validates and satisfies an explicit `NumericFullOps` floor.
-- `gen_valid coverage-forced emits core control surface` proves the `[FZG]003` prelude validates and satisfies explicit `BrTable`, `StandaloneUnreachable`, `LocalTee`, and `TypedSelect` floors.
+- `gen_valid coverage-forced emits core control surface` proves the `[FZG]003` prelude validates and satisfies explicit `BrTable`, `StandaloneUnreachable`, `LocalTee`, and `TypedSelect` floors; interpret text fixtures for those forms through [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md).
 - `gen_valid coverage-forced emits tail-call surface` proves the `[FZG]004` prelude validates, emits `return_call`, `return_call_indirect`, and `return_call_ref`, and satisfies an explicit `TailCalls` floor; interpret WAST fixture versions through [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 - `gen_valid coverage-forced emits scalar memory widths and memarg variation` proves the `[FZG]005` prelude validates, emits every scalar load/store width/sign variant, uses nonzero memarg alignment or offset, and satisfies explicit `ScalarMemoryWidths` and `NonzeroMemarg` floors.
 - `gen_valid coverage-forced emits memory limit and proposal variants` proves the `[FZG]006` module validates, emits zero-min, unbounded, shared, and memory64 memories, and satisfies an explicit `MemoryLimitVariants` floor.

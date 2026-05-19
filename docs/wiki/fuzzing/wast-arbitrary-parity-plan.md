@@ -1,14 +1,16 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-19
 sources:
   - ../../README.md
   - ../../../agent-todo.md
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/wast/arbitrary.mbt
+  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
 related:
+  - ../wast/control-flow-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/simd-authoring.md
   - ../wast/tail-call-authoring.md
@@ -50,6 +52,7 @@ The opcode pickers in `src/wast/arbitrary.mbt` are intentionally duplicated text
 
 ## Current gaps
 
+- The WAST ordinary-control picker mirrors representative `[FZG]003` text syntax (`block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, typed `select`) but does not prove every typed branch-payload or loop-parameter invariant. Keep text fixtures aligned with [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), and use `gen_valid` / validator evidence for typed-valid claims.
 - The WAST numeric pickers cover representative scalar instructions, but not the full `[FZG]002` scalar opcode matrix.
 - The WAST prelude now mirrors the broad `[FZG]027` parser/printer surface, but it remains a text-roundtrip surface rather than a typed validity oracle for every `[FZG]003` through `[FZG]023` binary-generator invariant. Tail calls and SIMD are clear examples: the prelude can include `return_call*` and representative `v128.const` syntax, while validator/generator evidence owns tail-call return-type checks and the broader phase-1/2/3 SIMD matrix documented in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md) and [`../wast/simd-authoring.md`](../wast/simd-authoring.md).
 - Invalid-AST and invalid-binary strategy widening remain separate from this WAST plan; they should keep starting from valid bases or binary-malformed strategies as described in `agent-todo.md`.

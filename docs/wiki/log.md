@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | ordinary control-flow authoring
+
+- Added [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md) as the focused WAST guide for `block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, `unreachable`, and typed `select` across text syntax, lowering, binary/core representation, validation, CFG, and generator evidence.
+- Ingested [`raw/wasm/2026-05-19-wast-control-flow-sources.md`](raw/wasm/2026-05-19-wast-control-flow-sources.md) after checking current official WebAssembly text/syntax/binary/validation/algorithm sources plus Starshine parser, printer, lowerer, core instruction, binary codec, validator, valid-generator, and WAST arbitrary surfaces.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`ir2/cfg-contract.md`](ir2/cfg-contract.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so ordinary branch payloads, `br_if` fallthrough, `br_table` default-target order, loop-parameter labels, typed `select`, and the current WAST `br_on_*` text-surface gap route through one shared contract.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt).
+
 ## [2026-05-19] health | wiki log heading spacing
 
 - During the post-update whole-wiki health pass, searched [`log.md`](log.md) for headings accidentally joined to previous bullet text with `.##`.

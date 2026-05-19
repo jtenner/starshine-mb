@@ -5,6 +5,8 @@ last_reviewed: 2026-05-19
 sources:
   - ../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
+  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
+  - ../wast/control-flow-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/tail-call-authoring.md
   - ../../../src/ir/cfg_contract.mbt
@@ -18,6 +20,7 @@ related:
   - ./local-ssa-policy.md
   - ./test-matrix.md
   - ./pass-porting-checklist.md
+  - ../wast/control-flow-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/tail-call-authoring.md
   - ../../../src/ir/cfg_contract.mbt
@@ -71,7 +74,7 @@ The segmentation implementation in [`cfg_builder_region_segments(...)`](../../..
 | `ExceptionalEdge` | Exception transfer to a catch/catch-list/delegate target or the caller-visible exceptional exit. |
 | `UnreachableExitEdge` | Trap/unreachable transfer to the synthetic normal exit as an explicit nonfallthrough edge. |
 
-Structured-control successor policy is intentionally small and named:
+The WAST fixture-facing label, branch-payload, and `br_table` default-target rules live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md). Structured-control successor policy is intentionally small and named:
 
 - `block` and `loop` use `InlineBodyRegion`.
 - `if` uses `SplitThenElse` and creates an explicit fallthrough continuation when needed.
@@ -173,5 +176,6 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 - HOT flags and query helpers: [`../../../src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`../../../src/ir/hot_query.mbt`](../../../src/ir/hot_query.mbt)
 - CFG tests: [`../../../src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), [`../../../src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt), [`../../../src/ir/cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt)
 - Tail-call validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
+- Ordinary WAST control-flow guide: [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md)
 - Exception/tag catch payload guide: [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)
 - Tail-call WAST authoring guide: [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md)
