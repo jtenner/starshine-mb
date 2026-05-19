@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO reference runtime guardrails
+
+- Added no-behavior-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for reference-typed same-trace runtime facts: imported `funcref` block reads rewrite after `ref.func` writes, exported `funcref` then-body reads rewrite while preserving the visible set, imported `externref` then-body reads rewrite after `ref.null extern`, and calls / non-constant `funcref` writes remain barriers.
+- Local Binaryen probe `.tmp/sgo-reference-runtime-probes.wat` showed `wasm-opt --all-features --simplify-globals-optimizing` making the same reference fact replacements and keeping the call / non-constant-write barrier reads.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1212/1212`), full `moon test` passed (`3276/3276`), and `.tmp/pass-fuzz-sgo-reference-runtime-guardrails-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO ref.func same-as-init guardrails
 
 - Added no-behavior-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for `ref.func` same-as-init behavior: a private direct `ref.func` same-as-init write promotes/removes, a different `ref.func` write keeps the global mutable while runtime propagation replaces the trailing read, and an exported `ref.func` same-as-init target keeps the set/mutability while replacing the same-trace read.

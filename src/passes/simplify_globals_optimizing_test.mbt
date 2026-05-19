@@ -3567,6 +3567,111 @@ test "simplify-globals-optimizing keeps imported and exported post-if runtime jo
 }
 
 ///|
+test "simplify-globals-optimizing tracks imported ref-func runtime block facts" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "g" (global $g (mut funcref)))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run") (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    block (result funcref)
+      #|      global.get $g
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing propagates exported ref-func facts into then bodies" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (global $g (export "g") (mut funcref) (ref.null func))
+      #|  (func (export "run") (param $p i32) (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    local.get $p
+      #|    if (result funcref)
+      #|      global.get $g
+      #|    else
+      #|      ref.null func
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing propagates imported externref null facts into then bodies" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "g" (global $g (mut externref)))
+      #|  (func (export "run") (param $p i32) (result externref)
+      #|    ref.null extern
+      #|    global.set $g
+      #|    local.get $p
+      #|    if (result externref)
+      #|      global.get $g
+      #|    else
+      #|      ref.null extern
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps reference runtime facts behind barriers" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (import "env" "imp" (global $imp (mut funcref)))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (global $exp (export "exp") (mut funcref) (ref.null func))
+      #|  (func (export "call_barrier") (result funcref)
+      #|    ref.func $f
+      #|    global.set $imp
+      #|    call $tick
+      #|    global.get $imp)
+      #|  (func (export "nonconst_barrier") (param $x funcref) (result funcref)
+      #|    ref.func $f
+      #|    global.set $exp
+      #|    local.get $x
+      #|    global.set $exp
+      #|    global.get $exp))
+      #|,
+    ),
+  )
+
+  let call_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(call_pretty.contains("global.get"), msg=call_pretty)
+  let nonconst_pretty = optimized.pretty_print_defined_func(2U)
+  assert_true(nonconst_pretty.contains("global.get"), msg=nonconst_pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps loop-contained block runtime facts conservative" {
   let optimized = sgo_test_run(
     (
