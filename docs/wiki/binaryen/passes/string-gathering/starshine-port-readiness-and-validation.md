@@ -39,7 +39,7 @@ related:
 
 # Starshine port readiness and validation for `string-gathering`
 
-Use this page after reading the status/code-map page in [`./starshine-strategy.md`](./starshine-strategy.md). That page says what exists today; this page now records which first slices have landed, what public preset scheduling now covers, and which artifact replay remains input-blocked.
+Use this page after reading the status/code-map page in [`./starshine-strategy.md`](./starshine-strategy.md). That page says what exists today; this page now records which first slices have landed, what public preset scheduling covers, and the regenerated debug-artifact replay evidence.
 
 The 2026-05-04 primary-source recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md) found no teaching-relevant current-`main` drift from the tagged `version_129` contract. The port-readiness plan below therefore keeps [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) as the tagged oracle and uses the new bridge only for freshness and local code-map anchors.
 
@@ -58,7 +58,7 @@ Landed local state:
 
 Earlier direct debug-artifact compare evidence remains useful historical coverage, but AUD002 is closed by the refreshed harness lane above.
 
-Remaining readiness is decoder breadth and targeted artifact replay once `tests/node/dist/starshine-debug-wasi.wasm` exists locally again, not direct-pass existence or preset-order wiring.
+Remaining readiness is decoder breadth and optional combined-tail performance work, not direct-pass existence, preset-order wiring, or artifact parity.
 
 ## Slice 0: make the public pass spelling honest — landed
 
@@ -288,7 +288,7 @@ Use the backlog's `[SG]002` intent:
 
 - compare focused reduced modules against Binaryen `--string-gathering`;
 - keep the landed direct evidence current (`.tmp/pass-fuzz-string-gathering`, plus older `.tmp/pass-fuzz-string-gathering-genvalid-10000-native`, `.tmp/pass-fuzz-string-gathering-10000-native-keepgoing`, and `.tmp/self-opt-string-gathering-debug` lanes);
-- replay the saved no-DWARF/debug-artifact late-tail path once `tests/node/dist/starshine-debug-wasi.wasm` exists locally again; the 2026-05-18 attempt failed before comparison because that input file was absent.
+- replay evidence for the saved no-DWARF/debug-artifact late-tail path is now current: after `moon build --target wasm` regenerated `tests/node/dist/starshine-debug-wasi.wasm`, `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-string-reorder-directize-preset-20260518 --string-gathering --reorder-globals --directize` reported canonical wasm equal, normalized WAT equal, Starshine runtime `456.605ms`, Binaryen runtime `451.017ms`, Starshine pass runtime `62.619ms`, and Binaryen pass runtime `28.215ms`.
 
 ## Beginner-to-advanced takeaway
 

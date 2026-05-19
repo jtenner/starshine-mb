@@ -5837,3 +5837,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `src/passes/optimize.mbt` and `src/passes/registry_test.mbt` so preset registry metadata and runtime preset expansion agree on the new late tail; added a focused `src/passes/optimize_test.mbt` assertion for the tail order.
 - Updated `agent-todo.md` and the `string-gathering` living pages so SG/RG/DIR preset ordering is no longer listed as an active v0.1.0 blocker; remaining follow-up is decoder breadth plus rerunning targeted artifact replay when the debug wasm input exists locally.
 - Validation: `moon info`, `moon fmt`, and full `moon test` passed with 3169 / 3169 tests; focused `moon test src/passes` passed with 1105 / 1105 tests and `moon test src/cmd` passed with 132 / 132 tests. Targeted `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-string-reorder-directize-preset-20260518 --string-gathering --reorder-globals --directize` could not compare because `tests/node/dist/starshine-debug-wasi.wasm` was absent in this workspace.
+
+## [2026-05-18] validation | regenerate debug wasm and replay SG/RG/DIR tail
+
+- Built the missing debug artifact with the Moon compiler: `moon build --target wasm`, then copied `_build/wasm/debug/build/cmd/cmd.wasm` to `tests/node/dist/starshine-debug-wasi.wasm` and validated it with `wasm-tools validate`.
+- Reran the targeted tail replay: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-string-reorder-directize-preset-20260518 --string-gathering --reorder-globals --directize`.
+- Result: canonical wasm equal `yes`, normalized WAT text/equality `yes`, Starshine runtime `456.605ms`, Binaryen runtime `451.017ms`, Starshine pass runtime `62.619ms`, Binaryen pass runtime `28.215ms`. Treat the combined-tail pass-runtime gap as a performance follow-up candidate, not a semantic or preset-order blocker.
+- Refreshed the `string-gathering` living pages and `agent-todo.md` to remove the stale missing-debug-artifact caveat.

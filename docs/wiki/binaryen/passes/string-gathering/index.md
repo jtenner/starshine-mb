@@ -71,7 +71,7 @@ That follow-up closed those gaps without overturning the basic earlier picture. 
   - slot `54`
 - The saved Binaryen debug log shows it is small but real:
   - `0.00280223` seconds in the captured generated-artifact run
-- The backlog now records no active v0.1.0 SG/RG/DIR preset-order blocker; the only practical artifact replay caveat is that `tests/node/dist/starshine-debug-wasi.wasm` was absent during the 2026-05-18 follow-up.
+- The backlog now records no active v0.1.0 SG/RG/DIR preset-order blocker; after regenerating `tests/node/dist/starshine-debug-wasi.wasm` with `moon build --target wasm`, the targeted `string-gathering -> reorder-globals -> directize` replay reached canonical wasm and normalized WAT equality.
 - The repo’s own string-constant surface page already called this out as the next durable string follow-up after literal plumbing.
 
 ## Beginner summary
@@ -116,7 +116,7 @@ That is much closer to the real pass than either:
 - On 2026-05-18, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 - The direct pass now sorts fresh literal globals deterministically, reuses eligible existing immutable non-null direct `string.const` globals in module order, preserves the selected defining initializer, aliases later matching globals, and still creates fresh canonical globals when no reusable definition exists.
 - Binary wasm inputs with string proposal result types still expose decoder coverage gaps outside this pass (`DecodeAt(InvalidValType, ...)`), so focused behavior coverage currently uses the WAT/pipeline path while artifact and generator lanes cover ordinary decoded wasm.
-- Public `optimize` / `shrink` preset scheduling now appends `string-gathering -> reorder-globals -> directize`; targeted debug-artifact replay should be rerun once `tests/node/dist/starshine-debug-wasi.wasm` exists locally again.
+- Public `optimize` / `shrink` preset scheduling now appends `string-gathering -> reorder-globals -> directize`; the regenerated debug-artifact replay is semantically/canonically green, with a combined-tail performance follow-up candidate (`62.619ms` Starshine pass runtime vs `28.215ms` Binaryen).
 
 ## Page map
 
@@ -136,7 +136,7 @@ That is much closer to the real pass than either:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `string-gathering` research, maintenance, and remaining follow-up planning.
-- Keep it explicitly marked as **implemented as a direct module pass scheduled in public presets** while the remaining gaps stay visible: broader standalone string-proposal decoder coverage and targeted artifact replay once the local debug wasm exists.
+- Keep it explicitly marked as **implemented as a direct module pass scheduled in public presets** while the remaining gaps stay visible: broader standalone string-proposal decoder coverage and any future combined-tail performance work.
 - Keep the strategy page and the reuse/order page in sync whenever new evidence changes the answer to either:
   - “which globals can be reused?” or
   - “when must gathered globals move earlier?”

@@ -97,7 +97,7 @@ Completed direct-pass slices
 
 #### SG / RG / DIR late-tail scheduling
 
-- No active v0.1.0 SG/RG/DIR preset-order blocker. `optimize` and `shrink` now append the proven `string-gathering -> reorder-globals -> directize` tail, with registry and preset-order tests covering the public schedule. If `tests/node/dist/starshine-debug-wasi.wasm` is regenerated locally, rerun the targeted artifact replay for the tail because the file was absent during the 2026-05-18 follow-up.
+- No active v0.1.0 SG/RG/DIR preset-order blocker. `optimize` and `shrink` now append the proven `string-gathering -> reorder-globals -> directize` tail, with registry and preset-order tests covering the public schedule. After regenerating `tests/node/dist/starshine-debug-wasi.wasm` with `moon build --target wasm`, the targeted tail artifact replay reached canonical wasm equality and normalized WAT equality. The combined tail remains a performance follow-up candidate (`62.619ms` Starshine pass runtime vs `28.215ms` Binaryen), but not a semantic/preset-order blocker.
 
 #### Whole-command wall-time budget
 
