@@ -317,6 +317,23 @@ fn dae_make_direct_callers(total_funcs : Int) -> Array[Array[Int]] {
 }
 
 ///|
+fn dae_direct_callers_contain_def(
+  direct_callers : Array[Array[Int]],
+  callee_abs : Int,
+  caller_def : Int,
+) -> Bool {
+  if callee_abs < 0 || callee_abs >= direct_callers.length() {
+    return false
+  }
+  for direct_caller in direct_callers[callee_abs] {
+    if direct_caller == caller_def {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn dae_scan_current_call_facts_instrs(
   instrs : Array[@lib.Instruction],
   caller_def : Int,
@@ -7953,7 +7970,7 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     if escaped[callee_abs] ||
       tail_calls[callee_abs] ||
       direct_calls[callee_abs] == 0 ||
-      dae_count_self_calls_anywhere(funcs[def_idx], callee_abs) > 0 {
+      dae_direct_callers_contain_def(direct_callers, callee_abs, def_idx) {
       def_idx += 1
       continue
     }
@@ -8319,7 +8336,7 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
     if escaped[callee_abs] ||
       tail_calls[callee_abs] ||
       direct_calls[callee_abs] == 0 ||
-      dae_count_self_calls_anywhere(funcs[def_idx], callee_abs) > 0 {
+      dae_direct_callers_contain_def(direct_callers, callee_abs, def_idx) {
       def_idx += 1
       continue
     }
