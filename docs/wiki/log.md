@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO nested cleanup pass-order characterization
+
+- Added focused scheduler-order coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the current Starshine SGO nested cleanup lane: it starts at `dead-code-elimination`, runs through the default cleanup sequence to `vacuum`, includes the repeated `merge-blocks` slot, and deliberately has no `precompute-propagate` prefix.
+- Updated [`binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md) to include the order-characterization fuzz lane.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1254/1254`), full `moon test` passed (`3318/3318`), and `.tmp/pass-fuzz-sgo-nested-cleanup-order-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO large touched-function cleanup guard characterization
 
 - Added focused scheduler characterization in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the current SGO nested cleanup touched-function-size guard: cleanup still runs at the local and instruction thresholds (`128` locals or `1000` body instructions), but skips with `reason=large-touched-function` when a touched function exceeds either threshold.

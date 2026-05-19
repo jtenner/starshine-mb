@@ -227,6 +227,35 @@ test "simplify-globals-optimizing only reruns cleanup on touched functions" {
 }
 
 ///|
+test "simplify-globals-optimizing traces default nested cleanup pass order" {
+  let (_, trace) = sgo_test_run_with_trace(
+    sgo_test_make_touched_cleanup_fixture(1),
+  )
+  let nested_passes : Array[String] = []
+  for line in trace {
+    if line.contains("pass[simplify-globals-optimizing]:nested-pass") {
+      nested_passes.push(line)
+    }
+  }
+  @debug.assert_eq(nested_passes, [
+    "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination", "pass[simplify-globals-optimizing]:nested-pass name=optimize-instructions",
+    "pass[simplify-globals-optimizing]:nested-pass name=local-cse", "pass[simplify-globals-optimizing]:nested-pass name=pick-load-signs",
+    "pass[simplify-globals-optimizing]:nested-pass name=heap-store-optimization",
+    "pass[simplify-globals-optimizing]:nested-pass name=heap2local", "pass[simplify-globals-optimizing]:nested-pass name=optimize-casts",
+    "pass[simplify-globals-optimizing]:nested-pass name=code-pushing", "pass[simplify-globals-optimizing]:nested-pass name=simplify-locals",
+    "pass[simplify-globals-optimizing]:nested-pass name=code-folding", "pass[simplify-globals-optimizing]:nested-pass name=precompute",
+    "pass[simplify-globals-optimizing]:nested-pass name=merge-blocks", "pass[simplify-globals-optimizing]:nested-pass name=remove-unused-brs",
+    "pass[simplify-globals-optimizing]:nested-pass name=remove-unused-names", "pass[simplify-globals-optimizing]:nested-pass name=merge-blocks",
+    "pass[simplify-globals-optimizing]:nested-pass name=coalesce-locals", "pass[simplify-globals-optimizing]:nested-pass name=reorder-locals",
+    "pass[simplify-globals-optimizing]:nested-pass name=vacuum",
+  ])
+  assert_false(
+    trace.any(fn(line) { line.contains("precompute-propagate") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-globals-optimizing nested cleanup runs at eight touched functions" {
   let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_touched_cleanup_fixture(8),
