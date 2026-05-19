@@ -747,6 +747,150 @@ test "simplify-globals-optimizing keeps exported reference alias-chain same-as-i
 }
 
 ///|
+test "simplify-globals-optimizing canonicalizes defined externref alias-chain init before same-as-init removal" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $a externref (ref.null extern))
+      #|  (global $alias externref (global.get $a))
+      #|  (global $g (mut externref) (global.get $alias))
+      #|  (func (export "run") (result externref)
+      #|    global.get $alias
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+    ),
+  ])
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 2), [
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+    ),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_null_type(
+        @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+      ),
+      true,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing second run removes canonicalized externref alias-chain init write" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (global $a externref (ref.null extern))
+      #|  (global $alias externref (global.get $a))
+      #|  (global $g (mut externref) (global.get $alias))
+      #|  (func (export "run") (result externref)
+      #|    global.get $alias
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_null_type(
+        @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+      ),
+      false,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps imported externref alias-chain same-as-init writes" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (import "m" "a" (global $a externref))
+      #|  (global $alias externref (global.get $a))
+      #|  (global $g (mut externref) (global.get $alias))
+      #|  (func (export "run") (result externref)
+      #|    global.get $alias
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 0), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_null_type(
+        @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+      ),
+      true,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps exported externref alias-chain same-as-init writes" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (global $a externref (ref.null extern))
+      #|  (global $alias externref (global.get $a))
+      #|  (global $g (export "g") (mut externref) (global.get $alias))
+      #|  (func (export "run") (result externref)
+      #|    global.get $alias
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 2), [
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+    ),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_null_type(
+        @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+      ),
+      true,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps non-folded expression same-as-init writes" {
   let optimized = sgo_test_run(
     (
