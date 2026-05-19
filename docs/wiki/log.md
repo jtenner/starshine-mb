@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] binary | bare stringref value type decode
+
+- Added binary decoder coverage in [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt) for direct bare `0x64` stringref value-type decode and a type-section fixture with a bare stringref result.
+- Updated [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt) so `Decode for ValType` falls back to `ValType::stringref()` for bare `0x64` when the explicit non-null-reference form cannot be completed, avoiding `DecodeAt(InvalidValType, ...)` before SG can run on standalone stringref result-type modules.
+- Updated the string/section/SG wiki pages and [`../../agent-todo.md`](../../agent-todo.md) to classify this as the first decoder-breadth slice; broader string-proposal binary forms remain future evidence-driven work.
+- Validation: `moon fmt`, `moon test src/binary` (76/76), `moon test src/passes` (1110/1110, with pre-existing unused warnings in DAE/pass-manager whitebox helpers), full `moon test` (3176/3176), and `moon info` passed; `moon info` still reports the pre-existing `dead_argument_elimination.mbt` unused warnings.
+- Focused SG fuzz smoke `bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x1eed --pass string-gathering --out-dir .tmp/pass-fuzz-string-gathering-decode-bare-stringref-1000` reported 997/1000 compared, 997 normalized matches, 0 mismatches, 0 validation failures, and 3 `binaryen-rec-group-zero` command failures.
+
 ## [2026-05-19] tests | SG edge non-reuse and module-expression coverage
 
 - Added focused `string-gathering` coverage in [`../../src/passes/string_gathering_test.mbt`](../../src/passes/string_gathering_test.mbt) proving imported string globals are not reused as canonical definitions and nested global initializers containing `string.const` are collected/replaced but not themselves treated as reusable definitions.

@@ -1780,6 +1780,47 @@ test "Type Indexes" {
 }
 
 ///|
+test "decode accepts bare stringref valtype" {
+  match
+    (Decode::decode(b"\x64", 0) : Result[(ValType, Int), BinaryDecodeError]) {
+    Ok((vt, next)) => {
+      @debug.assert_eq(vt, ValType::stringref())
+      @debug.assert_eq(next, 1)
+    }
+    Err(err) =>
+      fail("expected bare stringref valtype decode success, got \{err}")
+  }
+}
+
+///|
+test "decode type section accepts bare stringref result" {
+  let wasm = Bytes::from_array([
+    0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00,
+    0x01, 0x64,
+  ])
+  let mod = match decode_module(wasm) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected bare stringref type-section decode success, got \{err}")
+  }
+  match mod.type_sec {
+    Some(
+      @lib.TypeSec(
+        [
+          @lib.SingleRecType(
+            @lib.CompTypeSubType(_, @lib.FuncCompType(_, results))
+          ),
+        ]
+      )
+    ) => @debug.assert_eq(results, [ValType::stringref()])
+    other =>
+      fail(
+        "expected decoded stringref result type, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "Ref Types" {
   roundtrip(RefType::new(true, HeapType::abs(AbsHeapType::func())))
   roundtrip(RefType::new(false, HeapType::abs(AbsHeapType::extern_())))

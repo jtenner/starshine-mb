@@ -62,7 +62,7 @@ A later optional broadened seed lane, `.tmp/pass-fuzz-string-gathering-seed-0x1e
 
 After the module-expression coverage commit, the regenerated debug artifact was rebuilt/validated and replayed again at `.tmp/self-opt-string-reorder-directize-after-module-expr-20260519`: canonical wasm equality and normalized WAT equality remained green. Whole-command runtime was comparable (`509.359ms` Starshine vs `542.738ms` Binaryen), while the combined tail pass-local gap remained (`70.416ms` Starshine vs `38.439ms` Binaryen).
 
-Remaining readiness is decoder breadth, optional compare-normalization breadth, and optional combined-tail performance work, not direct-pass existence, preset-order wiring, or artifact parity.
+Remaining readiness is optional broader decoder breadth, optional compare-normalization breadth, and optional combined-tail performance work, not direct-pass existence, preset-order wiring, or artifact parity. The first decoder-breadth slice accepts bare `0x64` stringref value types when the explicit non-null-reference form cannot be completed, with focused binary tests for direct value-type decode and type-section decode.
 
 ## Slice 0: make the public pass spelling honest — landed
 

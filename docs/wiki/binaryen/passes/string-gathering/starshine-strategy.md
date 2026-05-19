@@ -62,7 +62,7 @@ Remaining caveats:
 
 - existing-global reuse is now covered for the direct immutable non-null `string.const` shape, including first-match reuse, reusable-global module order, sorted fresh literals, imported-global non-reuse, nested-initializer non-reuse, table-initializer and typed-element expression rewrites, module-expression global-index remapping, and later-alias behavior;
 - nullable string global non-reuse is known from Binaryen but locally hard to test because Starshine's current `ValType::stringref()` representation is the nullable abstract string ref shape (`AbsHeapTypeRefType(String)`), so the exact nullable/non-null stringref distinction is not expressible cleanly in this pass fixture today;
-- binary decoding of some standalone string-proposal type encodings remains outside this pass and can fail before the pass runs;
+- binary decoder breadth is improving outside this pass: bare `0x64` stringref value types now decode when the explicit non-null-reference form cannot be completed, while any broader string-proposal binary forms should still be added with focused binary tests before attributing failures to SG itself;
 - public `optimize` / `shrink` presets now append `string-gathering -> reorder-globals -> directize`; after regenerating `tests/node/dist/starshine-debug-wasi.wasm` with `moon build --target wasm`, targeted replay reached canonical wasm equality and normalized WAT equality.
 
 ## Exact local code and doc map today

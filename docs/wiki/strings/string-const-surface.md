@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-19
 sources:
   - ../raw/research/0052-2026-03-22-string-const-surface.md
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
@@ -26,6 +26,7 @@ related:
 - Validation treats `string.const` as a `stringref`-producing instruction and allows it in constant-expression contexts such as immutable globals.
 - Binary encoding emits Starshine's local `StringRefsSec` literal pool before globals and code and roundtrips `string.const` through that section.
 - Decoding resolves string-literal indices back to literal bytes before later module consumers see the instruction.
+- The binary value-type decoder accepts the bare `0x64` stringref shorthand when the explicit non-null-reference form cannot be completed, which lets standalone stringref result types decode instead of failing before string passes run.
 - Source-refresh caveat: the 2026-05-13 official WebAssembly 3.0 / js-string-builtins source check did **not** find a stable core `stringrefs` section id. Treat Starshine's section id `14` as local/proposal-facing until upstream sources define it.
 - IR and SSA treat `string.const` as a pure nullary value producer with a typed payload.
 

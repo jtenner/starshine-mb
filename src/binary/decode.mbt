@@ -272,7 +272,13 @@ pub impl Decode for ValType with decode(bytes, i) {
         _ =>
           match Decode::decode(bytes, i) {
             Ok((rt, i)) => Ok((ValType::ref_type(rt), i))
-            _ => Err(BinaryDecodeError::InvalidValType)
+            Err(err) =>
+              match (bytes.get(i), err) {
+                (Some(0x64), BinaryDecodeError::UnexpectedEofInSignedLeb)
+                | (Some(0x64), BinaryDecodeError::IndexOutOfBounds) =>
+                  Ok((ValType::stringref(), i + 1))
+                _ => Err(BinaryDecodeError::InvalidValType)
+              }
           }
       }
   }
