@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO then-body runtime guardrails and top-level noise
+
+- Added no-behavior-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) around the landed if-then runtime subset: then-body writes do not carry facts out past the `if`, equal constants written by both arms still do not create a post-if fact, branchy then bodies remain conservative, imported/exported globals remain untracked inside then bodies, and a call in an else body does not block the already-local then-body rewrite.
+- Probed top-level runtime no-op/drop/pure noise in `.tmp/sgo-runtime-top-noise-probes.wat`; `wasm-opt --simplify-globals-optimizing` removes trailing reads through `nop`, dropped constants, and pure arithmetic/drop noise. Starshine already matched those shapes, so the added tests lock existing behavior rather than widening implementation.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1190/1190`), full `moon test` passed (`3254/3254`), and `.tmp/pass-fuzz-sgo-then-guardrails-top-noise-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO then-body runtime propagation with else arms
 
 - Broadened the active `simplify-globals-optimizing` runtime propagation subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so existing single-const private-global facts also flow into `then` bodies when an `else` arm is present, including nested plain blocks inside the `then` body, while facts are still cleared after the `if` and `else` bodies remain conservative.
