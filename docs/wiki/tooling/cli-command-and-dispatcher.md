@@ -18,6 +18,7 @@ related:
   - ./fuzz-runner.md
   - ./tracing-playbook.md
   - ./validation-gates.md
+  - ../wast/static-assertion-harness.md
   - ../ir2/registry-map.md
   - ../binaryen/passes/index.md
   - ../binaryen/no-dwarf-default-optimize-path.md
@@ -51,7 +52,7 @@ Common module-run flags:
 | Text lowering | Host adapter lowering is tried first; if unavailable, Starshine falls back to in-process WAT/WAST parse/lower/encode. | `src/cmd/cmd.mbt`, `src/cmd/cmd_wbtest.mbt` |
 | Outputs | No explicit output rewrites each input path in place, with `.wat` / `.wast` defaulting to `.wasm`; `--out` is single-file only; `--out-dir` preserves per-input basenames; `--stdout` writes bytes to stdout. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt` |
 | Globbing | `--glob` separates literal inputs from wildcard patterns, expands via the host candidate list, de-duplicates, and keeps deterministic ordering. | `src/cli/glob.mbt`, `src/cmd/cmd.mbt` |
-| Spec subcommand | `starshine spec` / `starshine spec-runner` runs WAST spec files through the spec harness and returns a `CmdRunSummary` with `resolved_passes=["spec"]` on success. | `src/cmd/cmd.mbt`, `src/spec_runner/` |
+| Spec subcommand | `starshine spec` / `starshine spec-runner` runs WAST spec files through the static WAST spec harness and returns a `CmdRunSummary` with `resolved_passes=["spec"]` on success; see [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) for the current static-assertion/runtime-skip boundary. | `src/cmd/cmd.mbt`, `src/spec_runner/` |
 
 ## Configuration And Precedence
 

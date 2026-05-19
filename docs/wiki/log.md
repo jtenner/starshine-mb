@@ -9,6 +9,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), and [`index.md`](index.md) so the shared static assertion stage model and current missing Node wrapper are discoverable from validator fuzzing, API-surface, and WAST-authoring entry points.
 - Grounded the local code map in [`../../src/wast/spec_harness.mbt`](../../src/wast/spec_harness.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/types.mbt`](../../src/wast/types.mbt), [`../../src/spec_runner/spec_runner.mbt`](../../src/spec_runner/spec_runner.mbt), [`../../src/fuzz/invalid_text.mbt`](../../src/fuzz/invalid_text.mbt), and [`../../src/fuzz/invalid_text_wbtest.mbt`](../../src/fuzz/invalid_text_wbtest.mbt).
 
+## [2026-05-19] health | WAST spec-harness backlinks
+
+- During the post-update wiki health pass, searched for remaining `spec harness` references that did not point at the new WAST static assertion guide.
+- Updated [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md) so the `starshine spec` / `spec-runner` row links to [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) for the current static-assertion/runtime-skip boundary.
+- Updated [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md) and [`index.md`](index.md) so custom-descriptor static fixtures and the command contract both route readers to the shared static harness model instead of leaving `spec harness` as an implicit term.
+
 ## [2026-05-19] wast | identifier/name/annotation authoring
 
 - Added [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md) as the focused guide for WAST `$` identifiers versus binary name-section metadata, including Starshine's current function/import identifier promotion to `NameSec.func_names`, the local/type/resource id caveats, and the narrow function-annotation lowering path.

@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
   - ../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md
   - ../raw/research/0032-2026-03-22-exact-custom-descriptor-static-harness.md
 related:
+  - ../wast/static-assertion-harness.md
   - ../wast/gc-type-authoring.md
   - ./exact-reference-equivalence.md
   - ./ref-get-desc-fixture-path.md
@@ -20,25 +22,26 @@ related:
 
 ## Durable Conclusions
 
-- `tests/spec/proposals/custom-descriptors/descriptors.wast` is a committed native static-harness fixture.
+- `tests/spec/proposals/custom-descriptors/descriptors.wast` is a committed native static-harness fixture; the shared command/stage model is documented in [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md).
 - `tests/spec/proposals/custom-descriptors/exact.wast` is also pinned on the native static path.
 - These static fixtures are separate from the mixed-runtime `ref_get_desc.wast` path.
 - Lifting `descriptors.wast` exposed real validator issues, not just text-surface gaps:
   - recursive-group absolute index resolution,
   - final-type supertype reachability,
   - struct trailing-field subtyping.
-- Higher-level lowering tests now cover descriptor subtype chains in ordinary `src/wast` coverage in addition to the spec harness.
+- Higher-level lowering tests now cover descriptor subtype chains in ordinary `src/wast` coverage in addition to the [static spec harness](../wast/static-assertion-harness.md).
 - The 2026-05-13 primary-source refresh records a live caveat: the custom-descriptors proposal currently restricts `describes` / `descriptor` clauses to struct type definitions, while Starshine's generic `TypeDefMetadata` plus WAST lowering tests also allow descriptor metadata on array type definitions. Treat that array surface as local compatibility/proposal-tracking evidence, not as upstream proposal acceptance.
 
 ## Practical Rule
 
-- Use the native static harness for descriptor fixtures whose meaningful assertions are static validation properties.
+- Use the native static harness for descriptor fixtures whose meaningful assertions are static validation properties; route readers to [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) when explaining why runtime commands can be skipped while static assertions still count.
 - Keep mixed-runtime fixtures separate until their command-by-command runtime behavior is explicitly modeled.
 - When a static fixture fails after the text layer is green, assume validator semantics are wrong before adding parser workarounds.
 - If a fixture relies on descriptor metadata outside struct definitions, cite [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) and keep the proposal-vs-local caveat explicit.
 
 ## Sources
 
+- Static assertion harness snapshot: [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - Current primary-source snapshot: [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md)
 - Archived research docs:
   [`../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md`](../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md),
