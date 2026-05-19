@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-18
+last_reviewed: 2026-05-19
 sources:
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
@@ -60,7 +60,8 @@ Direct revalidation evidence:
 
 Remaining caveats:
 
-- existing-global reuse is now covered for the direct immutable non-null `string.const` shape, including first-match reuse, reusable-global module order, sorted fresh literals, and later-alias behavior;
+- existing-global reuse is now covered for the direct immutable non-null `string.const` shape, including first-match reuse, reusable-global module order, sorted fresh literals, imported-global non-reuse, nested-initializer non-reuse, and later-alias behavior;
+- nullable string global non-reuse is known from Binaryen but locally hard to test because Starshine's current `ValType::stringref()` representation is the nullable abstract string ref shape (`AbsHeapTypeRefType(String)`), so the exact nullable/non-null stringref distinction is not expressible cleanly in this pass fixture today;
 - binary decoding of some standalone string-proposal type encodings remains outside this pass and can fail before the pass runs;
 - public `optimize` / `shrink` presets now append `string-gathering -> reorder-globals -> directize`; after regenerating `tests/node/dist/starshine-debug-wasi.wasm` with `moon build --target wasm`, targeted replay reached canonical wasm equality and normalized WAT equality.
 

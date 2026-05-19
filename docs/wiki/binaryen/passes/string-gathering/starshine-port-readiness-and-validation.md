@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-18
+last_reviewed: 2026-05-19
 sources:
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
@@ -53,12 +53,14 @@ Landed local state:
 - Starshine has useful `string.const` / `stringrefs` literal infrastructure;
 - `src/passes/string_gathering.mbt` owns the direct module rewrite;
 - the registry, dispatcher, CLI acceptance, and pass-fuzz harness surfaces are wired;
-- focused tests cover direct hoisting, byte-level deduplication, sorted fresh literals, eligible existing-global reuse, reusable-global module order, later matching global aliasing, mutable-global non-reuse, global remapping, no-op behavior, and nested structured bodies;
+- focused tests cover direct hoisting, byte-level deduplication, sorted fresh literals, eligible existing-global reuse, reusable-global module order, later matching global aliasing, mutable-global non-reuse, imported-global non-reuse, nested-initializer non-reuse, global remapping, no-op behavior, and nested structured bodies;
 - the 2026-05-18 refreshed direct lane is green after existing-global reuse and ordering fixes: `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 Earlier direct debug-artifact compare evidence remains useful historical coverage, but AUD002 is closed by the refreshed harness lane above.
 
-Remaining readiness is decoder breadth and optional combined-tail performance work, not direct-pass existence, preset-order wiring, or artifact parity.
+A later optional broadened seed lane, `.tmp/pass-fuzz-string-gathering-seed-0x1eed`, reported 7888 / 10000 compared cases, 7887 normalized matches, 0 validation failures, 0 generator failures, 19 Binaryen empty-recursion-group command failures, and one normalized mismatch. The mismatch (`case-007907-wasm-smith`) contains no `string.const`; Binaryen removes an unreachable block wrapper under a result loop while Starshine correctly leaves the no-string module unchanged. Classify it as generic unreachable/canonicalization drift in the compare lane, not an SG literal-rewrite blocker.
+
+Remaining readiness is decoder breadth, optional compare-normalization breadth, and optional combined-tail performance work, not direct-pass existence, preset-order wiring, or artifact parity.
 
 ## Slice 0: make the public pass spelling honest — landed
 
@@ -183,8 +185,11 @@ Reduced tests should cover:
 - fresh canonical global creation for repeated body literals;
 - reuse of an existing direct immutable non-null string global;
 - first-match reuse when multiple direct immutable globals have the same literal;
-- non-reuse for mutable and nullable globals;
+- non-reuse for imported globals;
+- non-reuse for mutable globals;
 - non-reuse for nested initializer expressions.
+
+Nullable-global non-reuse remains documented but not meaningfully testable in the current local type model: `ValType::stringref()` is represented as a nullable abstract string ref (`AbsHeapTypeRefType(String)`), so a focused nullable-vs-non-null stringref fixture would currently assert a representation accident rather than Binaryen's exact eligibility boundary.
 
 ## Slice 4: rewrite non-defining literal sites to `global.get`
 

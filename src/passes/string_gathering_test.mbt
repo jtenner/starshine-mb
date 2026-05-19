@@ -139,6 +139,30 @@ test "string-gathering inserts after imports and remaps existing defined globals
 }
 
 ///|
+test "string-gathering does not reuse imported string global" {
+  let optimized = sg_test_run(
+    (
+      #| (module
+      #|   (import "env" "s" (global stringref))
+      #|   (func (result stringref stringref)
+      #|     global.get 0
+      #|     (string.const "foo")))
+      #|
+    ),
+  )
+  @debug.assert_eq(sg_test_global_count(optimized), 1)
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 0),
+    @lib.Instruction::string_const(b"foo"),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+  ])
+}
+
+///|
 test "string-gathering reuses existing immutable non-null string global" {
   let optimized = sg_test_run(
     (
@@ -235,6 +259,38 @@ test "string-gathering does not reuse mutable string global" {
   @debug.assert_eq(
     sg_test_global_init_instr(optimized, 1),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  )
+}
+
+///|
+test "string-gathering does not use nested global initializers as canonical definitions" {
+  let input = @lib.Module::new(
+    global_sec=Some(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::stringref(), false),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::stringref()),
+              @lib.Expr::new([@lib.Instruction::string_const(b"foo")]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let optimized = string_gathering_run_module_pass(input)
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 0),
+    @lib.Instruction::string_const(b"foo"),
+  )
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 1),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::stringref()),
+      @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+    ),
   )
 }
 

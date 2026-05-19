@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-18
+last_reviewed: 2026-05-19
 sources:
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
@@ -115,6 +115,8 @@ That is much closer to the real pass than either:
 - The direct pass is active in `src/passes/string_gathering.mbt`, registered in `src/passes/optimize.mbt`, dispatched from `src/passes/pass_manager.mbt`, and accepted by the compare harness.
 - On 2026-05-18, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 - The direct pass now sorts fresh literal globals deterministically, reuses eligible existing immutable non-null direct `string.const` globals in module order, preserves the selected defining initializer, aliases later matching globals, and still creates fresh canonical globals when no reusable definition exists.
+- Focused edge tests now also lock that imported string globals are never reused as defining globals and that a nested global initializer containing `string.const` is collected/replaced but not treated as the canonical definition.
+- Nullable string global non-reuse remains a local representation caveat: `ValType::stringref()` is currently represented as `AbsHeapTypeRefType(String)`, whose `RefType::is_nullable()` reports nullable, so Starshine cannot yet write a meaningful focused test that distinguishes Binaryen's nullable-vs-exact-non-null string global eligibility.
 - Binary wasm inputs with string proposal result types still expose decoder coverage gaps outside this pass (`DecodeAt(InvalidValType, ...)`), so focused behavior coverage currently uses the WAT/pipeline path while artifact and generator lanes cover ordinary decoded wasm.
 - Public `optimize` / `shrink` preset scheduling now appends `string-gathering -> reorder-globals -> directize`; the regenerated debug-artifact replay is semantically/canonically green, with a combined-tail performance follow-up candidate (`62.619ms` Starshine pass runtime vs `28.215ms` Binaryen).
 
