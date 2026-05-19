@@ -10439,7 +10439,7 @@ fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
         }
         let @lib.Func(locals, @lib.Expr(body)) = funcs[code_idx]
         let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
-        if locals.length() > 128 || instr_count > 1000 {
+        if locals.length() > 192 || instr_count > 1000 {
           filtered[code_idx] = false
           filtered_large = true
         }

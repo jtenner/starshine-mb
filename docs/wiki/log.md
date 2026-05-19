@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO local-heavy nested cleanup threshold
+
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO nested cleanup filters touched functions only above `192` locals instead of `128`, while keeping the `1000` instruction guard and the all-large `reason=large-touched-function` skip.
+- Direct debug-artifact size attribution showed the remaining positive size gap was dominated by local-heavy touched functions `5243`, `5360`, and `5353`; `.tmp/sgo-direct-debug-artifact-threshold-192-1000` completed and validated with Starshine smaller (`2,860,295` bytes) than Binaryen (`2,861,435` bytes), though canonical compare still stayed red at `defined=48 abs=69` and pass-local runtime remained red (`368.521ms` vs `116.712ms`).
+- Validation/evidence for this slice: TDD failure was confirmed with the new `192`-local threshold expectation while the implementation still filtered above `160` locals; after the threshold change, `moon fmt`, `moon info`, and `moon test` passed (`3322/3322`), and `.tmp/pass-fuzz-sgo-local-threshold-192-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO artifact-informed nested cleanup guard relaxation
 
 - Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO nested cleanup no longer skips solely because more than eight functions are touched or the module has more than one hundred defined functions. Individually large touched functions are filtered out instead, and the all-large case still reports `reason=large-touched-function`.

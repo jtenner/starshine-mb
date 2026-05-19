@@ -442,7 +442,7 @@ test "simplify-globals-optimizing nested cleanup runs in modules with more than 
 ///|
 test "simplify-globals-optimizing reports large touched function in large modules" {
   let (_, trace) = sgo_test_run_with_trace(
-    sgo_test_make_large_touched_function_fixture(129, extra_untouched_count=100),
+    sgo_test_make_large_touched_function_fixture(193, extra_untouched_count=100),
   )
 
   assert_true(
@@ -466,7 +466,7 @@ test "simplify-globals-optimizing reports large touched function in large module
 ///|
 test "simplify-globals-optimizing nested cleanup runs at touched function local threshold" {
   let (optimized, trace) = sgo_test_run_with_trace(
-    sgo_test_make_large_touched_function_fixture(128),
+    sgo_test_make_large_touched_function_fixture(192),
   )
 
   assert_true(
@@ -495,7 +495,7 @@ test "simplify-globals-optimizing nested cleanup runs at touched function local 
 ///|
 test "simplify-globals-optimizing nested cleanup skips touched functions above local threshold" {
   let (optimized, trace) = sgo_test_run_with_trace(
-    sgo_test_make_large_touched_function_fixture(129),
+    sgo_test_make_large_touched_function_fixture(193),
   )
 
   assert_true(
@@ -525,7 +525,7 @@ test "simplify-globals-optimizing nested cleanup skips touched functions above l
 ///|
 test "simplify-globals-optimizing nested cleanup filters large touched functions" {
   let (optimized, trace) = sgo_test_run_with_trace(
-    sgo_test_make_mixed_large_and_small_touched_fixture(129),
+    sgo_test_make_mixed_large_and_small_touched_fixture(193),
   )
 
   assert_true(
