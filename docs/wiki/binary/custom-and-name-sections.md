@@ -20,6 +20,7 @@ related:
   - ../fuzzing/generator-coverage-ledger.md
   - ../validate/module-validation-phases.md
   - ../validate/fuzz-hardening.md
+  - ../wast/identifier-name-and-annotation-authoring.md
   - ../binaryen/passes/reorder-locals/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md
@@ -29,7 +30,7 @@ related:
 
 ## Overview
 
-For the whole-module placement and ordering map that ties custom metadata to the standard sections, start with [`module-section-map.md`](module-section-map.md). WebAssembly custom sections are section-id-`0` records that carry a UTF-8 name plus uninterpreted bytes. The core spec treats them as semantically ignored metadata that may appear at any custom-section gap in a binary module. The standardized name section is a special custom section named `name` with ordered subsections for module, function, local, label, type, table, memory, global, element, data, field, and tag names.
+For the whole-module placement and ordering map that ties custom metadata to the standard sections, start with [`module-section-map.md`](module-section-map.md). For the text-authoring side of `$` identifiers, function-name lowering, and function annotations, see [`../wast/identifier-name-and-annotation-authoring.md`](../wast/identifier-name-and-annotation-authoring.md). WebAssembly custom sections are section-id-`0` records that carry a UTF-8 name plus uninterpreted bytes. The core spec treats them as semantically ignored metadata that may appear at any custom-section gap in a binary module. The standardized name section is a special custom section named `name` with ordered subsections for module, function, local, label, type, table, memory, global, element, data, field, and tag names.
 
 Starshine deliberately does **not** keep arbitrary custom sections and the `name` section in one opaque bucket. The in-memory module shape in [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt) splits metadata into:
 
@@ -108,6 +109,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **Raw name payload reuse is conditional.** Preserve it only when no pass or API call has structurally rewritten names or referenced index spaces.
 - **The `0` through `11` subsection span is source-backed.** Do not add new subsection ids without refreshing the primary-source snapshot and extending decode/encode/validation tests together.
 - **Name maps are not uniqueness maps for strings.** Indices must be unique and ordered; name strings themselves may repeat.
+- **WAST identifiers are a separate authoring layer.** Starshine currently promotes WAST function/import identifiers into `NameSec.func_names`, but local/type/table/memory/global/tag/element/data identifiers remain source-resolution aids unless a dedicated lowering path creates the corresponding structured name map.
 - **Function names depend on absolute function-index stability.** See [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) for the imported-prefix `FuncIdx` model that function name maps describe.
 - **Type/table/memory/global/tag names depend on imported-prefix or definition-order stability.** See [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the shared type and module resource index-space contract.
 - **Element/data names depend on segment-index stability.** See [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) for the canonical segment model that those name maps describe.
