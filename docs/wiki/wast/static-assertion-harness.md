@@ -12,6 +12,7 @@ sources:
   - ../../../src/fuzz/invalid_text_wbtest.mbt
 related:
   - ../validate/fuzz-hardening.md
+  - ../validate/diagnostics-and-invalid-repro.md
   - ../tooling/fuzz-runner.md
   - ../tooling/node-package-surface.md
   - identifier-name-and-annotation-authoring.md
@@ -90,7 +91,7 @@ The text invalid and spec-seed lanes reuse this same static evaluator:
 
 - [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt) defines the local stage names `parse-or-lower-rejected`, `validate-rejected`, and `valid-before-link` by mapping from `WastStaticAssertionStage`.
 - `validate-invalid-text` uses inline `assert_malformed`, `assert_invalid`, and `assert_unlinkable` strategies to prove the parser/lowerer/validator stage split.
-- `validate-invalid-spec-seed` extracts selected assertions from `tests/spec/*.wast` and replays the raw assertion S-expression through `evaluate_wast_static_assertion(...)`; see [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md).
+- `validate-invalid-spec-seed` extracts selected assertions from `tests/spec/*.wast` and replays the raw assertion S-expression through `evaluate_wast_static_assertion(...)`; see [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) for suite breadth and [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) for expected stage/family metadata.
 
 The practical rule for maintainers is: **do not fork assertion semantics between the spec runner and fuzzing.** If a static assertion category changes, update `src/wast/spec_harness.mbt`, the fuzz stage mapping, and the wiki together.
 
@@ -108,7 +109,7 @@ When touching WAST script support or static assertions:
 
 1. Run focused `src/wast` tests around `wast spec harness ...` cases in [`spec_harness.mbt`](../../../src/wast/spec_harness.mbt).
 2. If parser command coverage changes, update [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) and the lexer keywords in [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt) together.
-3. If stage semantics change, update [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/fuzz/invalid_text_wbtest.mbt`](../../../src/fuzz/invalid_text_wbtest.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), and this page.
+3. If stage semantics change, update [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/fuzz/invalid_text_wbtest.mbt`](../../../src/fuzz/invalid_text_wbtest.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), and this page.
 4. For broad confidence, run the `spec_runner` on selected `tests/spec/*.wast` files and the `validate-invalid-text` / `validate-invalid-spec-seed` fuzz suites through the wrapper described in [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md).
 
 ## Sources
@@ -117,4 +118,4 @@ When touching WAST script support or static assertions:
 - Parser and AST: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt)
 - Static evaluator and tests: [`../../../src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt)
 - CLI wrapper: [`../../../src/spec_runner/spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt)
-- Fuzz reuse: [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`../../../src/fuzz/invalid_text_wbtest.mbt`](../../../src/fuzz/invalid_text_wbtest.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md)
+- Fuzz reuse: [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`../../../src/fuzz/invalid_text_wbtest.mbt`](../../../src/fuzz/invalid_text_wbtest.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)

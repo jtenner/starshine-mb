@@ -18,6 +18,7 @@ related:
   - ../tooling/fuzz-runner.md
   - ../tooling/validation-gates.md
   - ../validate/fuzz-hardening.md
+  - ../validate/diagnostics-and-invalid-repro.md
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/custom-and-name-sections.md
 ---
@@ -63,7 +64,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 Use this page as the bridge between generator work, fuzz-runner commands, and validation gates:
 
 1. **When adding a valid-generator surface**, add a stable `ValidateValidFeatureKey`, record it in `validate_valid_feature_ledger_keys()`, update `GenValidFeatureStats` / feature scanning, add a coverage-forced generator shape, and land a focused validation-anchor test in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt). Do not raise smoke/CI/stress floors until the coverage-forced shape validates deterministically.
-2. **When adding an invalid lane**, keep the deterministic mutation/repro path in the invalid AST or binary helpers, make the expected validation family explicit, and link the replay contract back to [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) rather than treating it as a valid-generator floor.
+2. **When adding an invalid lane**, keep the deterministic mutation/repro path in the invalid AST or binary helpers, make the expected validation family explicit, and link the replay contract back to [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) plus the focused family/stage/artifact rules in [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) rather than treating it as a valid-generator floor.
 3. **When adding WAST text generation**, update [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md) and keep `src/wast/arbitrary.mbt` independent from `gen_valid`; WAST mirrors the FZG vocabulary but is a parser/printer surface, not a typed module-validity oracle.
 4. **When using `bun fuzz compare-pass`**, treat `[FZG]029` failure metadata as the durable replay bridge: persisted failures should carry `failure-metadata.json` plus the copied input artifacts, while the generated-input batch still comes from `src/fuzz --emit-gen-valid-batch` through the wrapper described in [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md).
 
@@ -134,7 +135,7 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - Primary plan: [`../../README.md`](../../README.md), [`../../../agent-todo.md`](../../../agent-todo.md)
 - Ledger implementation and validation-anchor tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
 - Valid generator implementation: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)
-- Invalid AST/binary/repro surfaces: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt)
+- Invalid AST/binary/repro surfaces: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
 - WAST text-generation boundary: [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md)
 - Compare-pass failure metadata: [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts)
 - External semantic anchor checked during this review: current WebAssembly 3.0 module validation docs for [module validation](https://webassembly.github.io/spec/core/valid/modules.html), [validation index](https://webassembly.github.io/spec/core/valid/index.html), and [binary module section / segment encoding](https://webassembly.github.io/spec/core/binary/modules.html).

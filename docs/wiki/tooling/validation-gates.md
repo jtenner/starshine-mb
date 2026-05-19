@@ -20,6 +20,7 @@ related:
   - ./tracing-playbook.md
   - ../validation/moonbit-prove-strategy.md
   - ../validate/module-validation-phases.md
+  - ../validate/diagnostics-and-invalid-repro.md
   - ../validate/trace-benchmark-baseline.md
   - ../validate/fuzz-hardening.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -31,7 +32,7 @@ related:
 
 Starshine has three layers of validation:
 
-1. **Wasm module validation** inside [`src/validate`](../../../src/validate/), whose phase map and diagnostic contract are documented in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
+1. **Wasm module validation** inside [`src/validate`](../../../src/validate/), whose phase map is documented in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md) and whose diagnostic-family / invalid-repro contract is documented in [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md).
 2. **MoonBit-native checks** (`moon info`, `moon fmt`, `moon check`, `moon test`, `moon coverage analyze`, and separate `moon prove` lanes) supplied by the MoonBit toolchain.
 3. **Repository orchestration** (`bun validate ...`, `bun fuzz ...`, pass comparison scripts, and self-optimize comparison scripts) that chooses the target, ordering, profiles, seeds, and artifact/report conventions for Starshine.
 
@@ -133,7 +134,7 @@ Practical rules:
 | MoonBit implementation change | Focused package tests during TDD, then `moon info`, `moon fmt`, `moon test`. | `bun validate full --profile ci --target wasm-gc`. |
 | Public API or `.mbti` change | `moon info`, review `.mbti` diffs, focused tests. | `bun validate readme-api-sync` plus full gate if the API is user-visible. |
 | Optimizer pass behavior | Focused pass tests and active dispatcher/registry tests. | `moon info`, `moon fmt`, `moon test`, pass-fuzz compare at the repo-standard count, and artifact replay when the pass participates in presets. |
-| Fuzzer generator or invalid-strategy work | Focused validate/fuzz tests and suite smoke. | `bun validate full` or suite-specific fuzz profiles plus updates to [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) and [`fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md). |
+| Fuzzer generator or invalid-strategy work | Focused validate/fuzz tests and suite smoke. | `bun validate full` or suite-specific fuzz profiles plus updates to [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), and [`fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md). |
 | Validator proof helpers | Focused executable tests and `moon prove src/validate_proof`. | Ordinary test/full validation as needed for call-site behavior. |
 | Trace/performance work | `bun validate trace-benchmark --list-corpora` and focused corpus runs. | Update [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) when the durable baseline changes. |
 
@@ -152,4 +153,4 @@ Practical rules:
 - Local validation orchestration: [`../../../scripts/validate.ts`](../../../scripts/validate.ts), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts)
 - Command-shape tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)
 - Package and workspace metadata: [`../../../package.json`](../../../package.json), [`../../../moon.mod.json`](../../../moon.mod.json)
-- Related workflow pages: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)
+- Related workflow pages: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)

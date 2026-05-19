@@ -15,6 +15,7 @@ sources:
   - ../wast/element-segment-authoring.md
 related:
   - ./module-validation-phases.md
+  - ./diagnostics-and-invalid-repro.md
   - ./fuzz-hardening.md
   - ./trace-benchmark-baseline.md
   - ../binary/function-import-export-and-code-sections.md
@@ -128,7 +129,7 @@ The official module-validation source set includes start, but current Starshine 
 
 - Function-index rewrites must preserve **both** target identity and declaration coverage. A pass that keeps a `ref.func` use but deletes the only export/element/global/table declaration for that index can create an invalid module even when ordinary call indices still resolve.
 - Function deletion must treat declaration sources as roots when the corresponding `ref.func` can survive. This is why module-element removal, duplicate-function elimination, function reordering, and JS-interface legalization docs should link back to the shared function-index checklist in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
-- Declaration diagnostics belong to the use site. Starshine's body scan wraps undeclared body uses in `ValidationIssue::FunctionBody` and records the absolute function index computed through the imported-prefix helper path.
+- Declaration diagnostics belong to the use site. Starshine's body scan wraps undeclared body uses in `ValidationIssue::FunctionBody` and records the absolute function index computed through the imported-prefix helper path; the general family and stage contract lives in [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md).
 - Do not collapse this phase into ordinary instruction typechecking unless the replacement still has module-level visibility into exports, globals, table initializers, element payloads, and the start-policy decision.
 
 ## Fuzzing And Signoff
@@ -144,4 +145,4 @@ The official module-validation source set includes start, but current Starshine 
 - Broader function-section source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
 - Invalid-fuzz registration: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)
-- Related wiki pages: [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`./fuzz-hardening.md`](./fuzz-hardening.md)
+- Related wiki pages: [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md), [`./fuzz-hardening.md`](./fuzz-hardening.md)
