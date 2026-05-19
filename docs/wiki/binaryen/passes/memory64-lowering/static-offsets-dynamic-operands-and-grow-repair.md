@@ -20,13 +20,14 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ../../../wast/memory-argument-authoring.md
 ---
 
 # `memory64-lowering` static offsets, dynamic operands, and grow repair
 
 This page is the corrected guide to the easiest part of `memory64-lowering` / `table64-lowering` to overgeneralize: which “large constants” are known traps, which ones are just expression operands that get wrapped, and why grow repair is about the lowered grow result.
 
-Read this with the raw primary-source correction in [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md). Future Starshine implementation checkpoints for these shapes are now maintained in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+Read this with the raw primary-source correction in [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md). Future Starshine implementation checkpoints for these shapes are now maintained in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md). For WAST fixture authoring, pair this page with [`../../../wast/memory-argument-authoring.md`](../../../wast/memory-argument-authoring.md) so text-byte `align=`, static `offset=`, dynamic stack addresses, and the current WAST nonzero-memory-index gap stay explicit.
 
 ## The corrected distinction
 
@@ -85,7 +86,7 @@ If those are collapsed into one test, the port can pass the easy case while stil
 
 ## Active segment offsets are not memargs
 
-Active data and element offsets are also expressions, not `MemArg.offset` immediates.
+Active data and element offsets are also expressions, not `MemArg.offset` immediates. The same segment-versus-function-body distinction is summarized for WAST authors in [`../../../wast/memory-argument-authoring.md`](../../../wast/memory-argument-authoring.md).
 The pass must rewrite them because memory/table declarations have been lowered to 32-bit limits, but the reviewed source check did not find a high-active-offset special case comparable to static memarg offsets.
 
 Correct current teaching: an active offset such as `(i64.const 16)` must be rewritten to a 32-bit offset expression form after declaration lowering. The exact printed form can depend on Binaryen expression printing and later simplification; the important correction is negative: do not claim current Binaryen turns high active offsets into `unreachable` unless a newer source or oracle run proves that drift.

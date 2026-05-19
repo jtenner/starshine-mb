@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | memory argument backlink hygiene
+
+- During the post-update whole-wiki health pass, searched for remaining `MemArg` / `offset=` references that could still hide the new WAST authoring split.
+- Updated [`binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md`](binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md) so the Binaryen static-offset correction points WAST fixture authors at [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) for text alignment, static-offset, dynamic-address, and nonzero-memory-index caveats.
+- Refreshed [`index.md`](index.md) summaries for the binary instruction and data/element pages so their new WAST memory-argument backlinks are visible in the human catalog.
+
 ## [2026-05-19] wast | memory argument authoring
 
 - Added [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) as the focused WAST memory-argument guide for `offset=` as a static immediate, text-byte `align=` versus Starshine core alignment exponents, memory32/memory64 address-width validation, default memory `0`, current text-level nonzero-memory-index gaps, and the split between function-body `MemArg.offset`, bulk-memory indices, and active data-segment offset expressions.
