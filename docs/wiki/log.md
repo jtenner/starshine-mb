@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | resource declaration authoring
+
+- Added [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md) as the focused WAST guide for table, memory, and global module fields: explicit imports, definitions, inline exports, explicit exports, table element abbreviations, global mutability, global initializer ordering, imported-prefix resource indices, and pass/generator rewrite guidance.
+- Ingested [`raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](raw/wasm/2026-05-19-wast-resource-declaration-sources.md) after checking current official WebAssembly text module/type, abstract module, binary module, module-validation, and memory64 proposal sources plus Starshine parser, lowerer, printer, core type, binary codec, validator, valid-generator, and WAST arbitrary surfaces.
+- Updated [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), [`wast/variable-instruction-authoring.md`](wast/variable-instruction-authoring.md), [`wast/simd-authoring.md`](wast/simd-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so resource declarations route through one shared contract instead of being split between instruction and binary-section pages.
+- Recorded the current local text-surface caveats explicitly: table/memory/global inline import shorthand is not implemented in Starshine WAST, table and memory declaration limits lower through `@lib.Limits::i32(...)`, shared-memory and memory64/table64 declaration evidence needs direct core/binary fixtures, and WAST table element abbreviations lower to active element segments rather than the optional core table-initializer field.
+
 ## [2026-05-19] health | function-call backlink hygiene
 
 - During the post-update whole-wiki health pass, searched call, `call_indirect`, import/export topology, and `call_ref` references for pages still routing only through binary, table, or tail-call guides.

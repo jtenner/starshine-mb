@@ -12,6 +12,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
+  - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
@@ -36,6 +37,7 @@ related:
   - ../wast/numeric-instruction-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../wast/memory-instruction-authoring.md
+  - ../wast/resource-declaration-authoring.md
   - ../wast/table-instruction-authoring.md
   - ../tooling/validation-gates.md
   - ../validation/moonbit-prove-strategy.md
@@ -87,12 +89,12 @@ Two practical consequences follow:
 | Phase | What it checks/builds | Env or diagnostic effect | Main evidence |
 | --- | --- | --- | --- |
 | `typesec` | Validates recursive type groups, subtype references, descriptor metadata, exact-ref constraints, and appends normalized types. | Extends `Env.global_types` and `rec_stack`. | `validate_typesec`, `validate_rectype_and_extend`, descriptor tests in `validate.mbt`. |
-| `importsec` | Validates imported extern types and extends imported-prefix index spaces. | Extends `funcs`, `func_type_idxs`, `tables`, `mems`, `globals`, and `tags`. | `validate_importsec`; imported-prefix section guide in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), with WAST function import syntax in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md). |
+| `importsec` | Validates imported extern types and extends imported-prefix index spaces. | Extends `funcs`, `func_type_idxs`, `tables`, `mems`, `globals`, and `tags`. | `validate_importsec`; imported-prefix section guide in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), with WAST function import syntax in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md) and table/memory/global import syntax in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | `funcsec` | Validates defined-function type indices. | Appends defined function signatures after imported functions. | `validate_funcsec`; code/function length tests. |
-| `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`; instruction-side table use is summarized in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
-| `memsec` | Validates memory limits, memory64 address widths, and shared-memory maximum requirements. | Extends `mems` incrementally. | `validate_memsec`, `MemType` validation; memory argument address-width effects are summarized in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), while runtime memory stack shapes and the current `memory.fill` memory64 length caveat are in [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md). |
+| `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`; WAST table declarations and table element abbreviations are summarized in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), while instruction-side table use is in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
+| `memsec` | Validates memory limits, memory64 address widths, and shared-memory maximum requirements. | Extends `mems` incrementally. | `validate_memsec`, `MemType` validation; WAST memory declaration caveats live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), memory argument address-width effects in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), and runtime memory stack shapes plus the current `memory.fill` memory64 length caveat in [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md). |
 | `tagsec` | Validates exception tag type indices and empty tag result types. | Extends `tags` incrementally. | `validate_tagsec`, `TagType` validation; WAST catch/throw authoring details live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). |
-| `globalsec` | Validates global types and constant initializers. Later globals see earlier globals only. | Extends `globals` incrementally. | `validate_globalsec`, `validate_const_expr`. |
+| `globalsec` | Validates global types and constant initializers. Later globals see earlier globals only. | Extends `globals` incrementally. | `validate_globalsec`, `validate_const_expr`; WAST global declarations, imports, exports, mutability syntax, and initializer-order examples live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | `elemsec` | Validates passive/declarative/active element modes, element payload types, table targets, and constant offsets. | Extends `elems`. | `validate_elemsec`; segment guide in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). |
 | `datasec` | Validates passive/active data modes, memory targets, and constant offsets. | Extends `datas`. | `validate_datasec`. |
 | `datacnt` | Checks declared data-count equality with the data section. | Reports `DataCountSection` diagnostics. | `validate_datacnt`. |
@@ -128,7 +130,7 @@ The most important beginner trap is unreachable-code stack polymorphism. When co
 4. it must leave exactly one value;
 5. that value must match the expected type.
 
-Starshine allows current extended constant-expression families such as immutable `global.get`, arithmetic over constants, `ref.null`, `ref.func`, `string.const`, and selected GC constructors used by local fixtures. It rejects mutable-global reads, non-constant offsets, unreachable constant expressions, wrong result counts, and wrong result types. [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) documents scalar numeric constant-expression and trap/signedness caveats; [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md) gives the fixture-level immutable-global examples; segment pages such as [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) and resource-section pages such as [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) should point here when explaining why initializer order matters.
+Starshine allows current extended constant-expression families such as immutable `global.get`, arithmetic over constants, `ref.null`, `ref.func`, `string.const`, and selected GC constructors used by local fixtures. It rejects mutable-global reads, non-constant offsets, unreachable constant expressions, wrong result counts, and wrong result types. [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) documents scalar numeric constant-expression and trap/signedness caveats; [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md) gives the instruction-level immutable-global examples; [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md) gives the declaration-level global initializer ordering examples. Segment pages such as [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) and resource-section pages such as [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) should point here when explaining why initializer order matters.
 
 ## Diagnostics And Trace Contract
 

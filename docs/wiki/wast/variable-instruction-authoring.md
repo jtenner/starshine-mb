@@ -18,6 +18,7 @@ related:
   - identifier-name-and-annotation-authoring.md
   - control-flow-authoring.md
   - memory-argument-authoring.md
+  - resource-declaration-authoring.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/type-table-memory-global-tag-sections.md
   - ../validate/module-validation-phases.md
@@ -99,7 +100,7 @@ Starshine lowers local identifiers per defined function:
 3. explicit local ids are inserted after the parameter range;
 4. every `local.*` instruction resolves either a numeric index directly or a `$` id through that map.
 
-Global identifiers are module scoped. Imports and definitions share one global index space; imported globals occupy the prefix before locally-defined globals. A mutating pass that reorders or deletes globals must update every `GlobalIdx` carrier, including `global.get`, `global.set`, exports/imports, name metadata, initializers, and any cached global summaries. The broader resource-section rewrite checklist lives in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
+Global identifiers are module scoped. Imports and definitions share one global index space; imported globals occupy the prefix before locally-defined globals. WAST fixture-facing global declarations, explicit imports, inline exports, mutability syntax, and initializer-order rules live in [`resource-declaration-authoring.md`](resource-declaration-authoring.md). A mutating pass that reorders or deletes globals must update every `GlobalIdx` carrier, including `global.get`, `global.set`, exports/imports, name metadata, initializers, and any cached global summaries. The broader core/binary resource-section rewrite checklist lives in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
 
 ## Binary And Validation Contract
 

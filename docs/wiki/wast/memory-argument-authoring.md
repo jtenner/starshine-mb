@@ -15,6 +15,7 @@ sources:
   - ../../../src/validate/gen_valid.mbt
 related:
   - ./memory-instruction-authoring.md
+  - ./resource-declaration-authoring.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/type-table-memory-global-tag-sections.md
@@ -27,7 +28,7 @@ related:
 
 ## Overview
 
-Use this page when writing, reviewing, or widening WAST fixtures that need memory `offset=`, `align=`, selected-memory, memory32/memory64 address-width, or active data-segment offset guidance. For runtime stack shapes and side-effect/trap behavior of scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, use [`memory-instruction-authoring.md`](memory-instruction-authoring.md).
+Use this page when writing, reviewing, or widening WAST fixtures that need memory `offset=`, `align=`, selected-memory, memory32/memory64 address-width, or active data-segment offset guidance. For runtime stack shapes and side-effect/trap behavior of scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, use [`memory-instruction-authoring.md`](memory-instruction-authoring.md). For `(memory ...)` declarations, imports, exports, and the current WAST limit-syntax caveats, use [`resource-declaration-authoring.md`](resource-declaration-authoring.md).
 
 A WebAssembly memory instruction has two different address components:
 
@@ -93,20 +94,11 @@ For pass and validator work, do not treat `offset=12` as a stack value. It is an
 
 ### Memory64 changes the dynamic address width
 
-```wat
-(module
-  (memory i64 1)
-  (func (param i64) (result i32)
-    local.get 0
-    i32.load offset=8 align=4)
-  (func (param i64) (result i64)
-    local.get 0
-    memory.grow))
-```
-
 The selected memory's limits determine the address type. [`TcState::mem_at_of(...)`](../../../src/validate/typecheck.mbt) and [`memarg_check(...)`](../../../src/validate/typecheck.mbt) route memory64 memory accesses through `i64` address operands. `memory.size` and `memory.grow` also use the selected memory's address type for their result and grow-delta operand.
 
-The static offset still has an address-width rule: an i32 memory rejects offsets at or above `2^32`, while local i64 memory offsets can use the full `UInt64` immediate range. The focused Binaryen lowering caveat for large static offsets lives in [`../binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md`](../binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md); this page only covers Starshine's WAST/core validation model.
+However, current Starshine WAST memory declarations do not author memory64 resources directly: [`parse_limits(...)`](../../../src/wast/parser.mbt) parses natural min/max limits, and [`wt_limits(...)`](../../../src/wast/lower_to_lib.mbt) lowers them to `@lib.Limits::i32(...)`. Use a direct core or binary fixture when a test must prove memory64 address typing today, and use [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for the resource-declaration caveat.
+
+The static offset still has an address-width rule once the selected core/binary memory is memory64: an i32 memory rejects offsets at or above `2^32`, while local i64 memory offsets can use the full `UInt64` immediate range. The focused Binaryen lowering caveat for large static offsets lives in [`../binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md`](../binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md); this page covers Starshine's WAST/core validation model without implying that current WAST declarations can spell every core memory type.
 
 ### Multi-memory instruction indices are a current WAST gap
 
@@ -163,7 +155,7 @@ When changing memory-argument text, binary, or validation behavior:
 
 1. **Start with the layer that owns the behavior.** WAST alignment syntax belongs in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt); binary immediate preservation belongs in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt); address-width stack typing belongs in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt).
 2. **Test defaults and explicit forms separately.** `None` and `Some(MemIdx(0))` may compare equal, but nonzero memory indices must roundtrip and validate distinctly.
-3. **Include memory32 and memory64 fixtures.** Memory64 changes the stack address type and `memory.size` / `memory.grow` widths; i32 memories still need offset-range rejection tests.
+3. **Include memory32 and memory64 fixtures at the right layer.** Memory64 changes the stack address type and `memory.size` / `memory.grow` widths; current WAST declarations only cover the memory32 limit path, so memory64 declaration evidence needs direct core/binary fixtures or new text-surface work first. i32 memories still need offset-range rejection tests.
 4. **Do not conflate `MemArg.offset` with active-segment offsets.** If a pass changes data segment layout, update [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) and any memory-packing or memory64-lowering pages rather than only this WAST page.
 5. **Use direct core/binary fixtures for nonzero memory indices until WAST is widened.** If WAST grows explicit memory-index syntax, add parser/lowerer/printer tests first, then route the change through this page, [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), and [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 

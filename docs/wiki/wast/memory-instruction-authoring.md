@@ -17,6 +17,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
 related:
   - ./memory-argument-authoring.md
+  - ./resource-declaration-authoring.md
   - ./simd-authoring.md
   - ./table-instruction-authoring.md
   - ../binary/instruction-and-expression-encoding.md
@@ -37,7 +38,7 @@ Use this page when writing or reviewing WAST fixtures, validator tests, or optim
 - `memory.size` and `memory.grow`;
 - bulk-memory instructions `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`.
 
-The companion page [`memory-argument-authoring.md`](memory-argument-authoring.md) owns `offset=`, `align=`, default memory `0`, memory32/memory64 address widths, and the current WAST gap around explicit nonzero memory indices. This page owns the **instruction stack shapes**, **resource-index relationships**, **data-count requirement**, **side-effect/trap behavior**, and **Starshine layer map**.
+The companion page [`memory-argument-authoring.md`](memory-argument-authoring.md) owns `offset=`, `align=`, default memory `0`, memory32/memory64 address widths, and the current WAST gap around explicit nonzero memory indices. [`resource-declaration-authoring.md`](resource-declaration-authoring.md) owns `(memory ...)` declarations, imports, exports, and the current text-surface caveat that WAST memory declarations lower through the `i32` limits path. This page owns the **instruction stack shapes**, **resource-index relationships**, **data-count requirement**, **side-effect/trap behavior**, and **Starshine layer map**.
 
 The current source manifest is [`../raw/wasm/2026-05-19-wast-memory-instruction-sources.md`](../raw/wasm/2026-05-19-wast-memory-instruction-sources.md). It checks current official WebAssembly text/syntax/binary/validation/module sources plus Starshine WAST parser/lowerer/printer, core instruction, binary codec, validator, generator, arbitrary WAST, and HOT-IR effect surfaces.
 

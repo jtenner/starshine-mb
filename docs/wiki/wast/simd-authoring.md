@@ -20,6 +20,8 @@ related:
   - ../fuzzing/generator-coverage-ledger.md
   - ../fuzzing/wast-arbitrary-parity-plan.md
   - ../tooling/validation-gates.md
+  - resource-declaration-authoring.md
+  - memory-argument-authoring.md
 ---
 
 # WAST SIMD Authoring
@@ -121,7 +123,7 @@ Vector load/store instructions are still memory instructions. They carry the sam
     v128.load offset=16 align=16))
 ```
 
-The parser routes SIMD memory arguments through the shared memory-argument parser. The typechecker then uses `memarg_check` to choose the selected memory, address type, alignment legality, and offset-width rule. This matters for memory64 and multi-memory fixtures: a syntactically valid SIMD memory op can still be semantically invalid after memory declarations are rewritten. The ordinary WAST memarg contract and the current text-level nonzero-memory-index gap live in [`memory-argument-authoring.md`](memory-argument-authoring.md).
+The parser routes SIMD memory arguments through the shared memory-argument parser. The typechecker then uses `memarg_check` to choose the selected memory, address type, alignment legality, and offset-width rule. This matters for memory64 and multi-memory fixtures: a syntactically valid SIMD memory op can still be semantically invalid after memory declarations are rewritten. The ordinary WAST memarg contract and the current text-level nonzero-memory-index gap live in [`memory-argument-authoring.md`](memory-argument-authoring.md); `(memory ...)` declaration syntax and the current WAST memory64/shared limitation live in [`resource-declaration-authoring.md`](resource-declaration-authoring.md).
 
 ### Relaxed SIMD is ordinary instruction syntax locally
 

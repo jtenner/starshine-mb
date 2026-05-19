@@ -17,6 +17,7 @@ sources:
 related:
   - element-segment-authoring.md
   - memory-argument-authoring.md
+  - resource-declaration-authoring.md
   - function-call-and-module-authoring.md
   - tail-call-authoring.md
   - ../binary/instruction-and-expression-encoding.md
@@ -38,7 +39,7 @@ Use this page when writing, debugging, or widening WAST fixtures that touch WebA
 - bulk table operations: `table.copy`, `table.init`, and `elem.drop`;
 - the Starshine-specific index-order and table64 caveats that are easy to miss when moving between text, core IR, binary bytes, and validation.
 
-Table declarations, limits, imports, exports, and optional table initializer expressions live in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md). Function definitions/imports/exports/starts, direct `call`, and the function/type side of `call_indirect` live in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md). Element segment modes and typed payload authoring live in [`element-segment-authoring.md`](element-segment-authoring.md). Tail-call return-type and terminator semantics for `return_call_indirect` live in [`tail-call-authoring.md`](tail-call-authoring.md). This page focuses on instructions that read, write, copy, grow, initialize, or indirectly call through tables.
+Fixture-facing table declarations, limits, imports, exports, and table element abbreviations live in [`resource-declaration-authoring.md`](resource-declaration-authoring.md). Core/binary section ids, optional core table initializers, and whole-module remap checklists live in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md). Function definitions/imports/exports/starts, direct `call`, and the function/type side of `call_indirect` live in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md). Element segment modes and typed payload authoring live in [`element-segment-authoring.md`](element-segment-authoring.md). Tail-call return-type and terminator semantics for `return_call_indirect` live in [`tail-call-authoring.md`](tail-call-authoring.md). This page focuses on instructions that read, write, copy, grow, initialize, or indirectly call through tables.
 
 ## Layer Model
 

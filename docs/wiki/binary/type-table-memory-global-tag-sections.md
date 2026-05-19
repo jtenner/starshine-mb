@@ -20,6 +20,7 @@ related:
   - custom-and-name-sections.md
   - ../validate/module-validation-phases.md
   - ../wast/gc-type-authoring.md
+  - ../wast/resource-declaration-authoring.md
   - ../wast/variable-instruction-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../binaryen/passes/remove-unused-types/index.md
@@ -41,7 +42,7 @@ This page is the shared Starshine guide for the core module-definition sections 
 - **tag section**: exception tag declarations; and
 - **stringrefs section**: Starshine's local/proposal-facing literal pool for `string.const` binary round trips.
 
-For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair this binary resource guide with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
+For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 
 The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) is the primary external source for section ids and the core type/table/memory/global/tag validation model. The same snapshot records an important caveat: the reviewed core and js-string-builtins module sources do **not** define a stable core `stringrefs` section id, so Starshine's section-id-`14` `StringRefsSec` should be treated as a local/proposal-facing implementation surface until upstream standardization says otherwise.
 
@@ -182,4 +183,4 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation environment and rules: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
 - WAST lowering: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
-- Related docs: [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`custom-and-name-sections.md`](custom-and-name-sections.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md), [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)
+- Related docs: [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`custom-and-name-sections.md`](custom-and-name-sections.md), [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md), [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)
