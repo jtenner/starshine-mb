@@ -53,7 +53,7 @@ Landed local state:
 - Starshine has useful `string.const` / `stringrefs` literal infrastructure;
 - `src/passes/string_gathering.mbt` owns the direct module rewrite;
 - the registry, dispatcher, CLI acceptance, and pass-fuzz harness surfaces are wired;
-- focused tests cover direct hoisting, byte-level deduplication, sorted fresh literals, eligible existing-global reuse, reusable-global module order, later matching global aliasing, mutable-global non-reuse, imported-global non-reuse, nested-initializer non-reuse, table-initializer rewriting, typed-element expression rewriting, global remapping, no-op behavior, and nested structured bodies;
+- focused tests cover direct hoisting, byte-level deduplication, sorted fresh literals, eligible existing-global reuse, reusable-global module order, later matching global aliasing, mutable-global non-reuse, imported-global non-reuse, nested-initializer non-reuse, table-initializer rewriting, typed-element expression rewriting, global remapping in functions and module expressions, no-op behavior, and nested structured bodies;
 - the 2026-05-18 refreshed direct lane is green after existing-global reuse and ordering fixes: `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 Earlier direct debug-artifact compare evidence remains useful historical coverage, but AUD002 is closed by the refreshed harness lane above.
@@ -150,7 +150,7 @@ Match Binaryen's exact-slot mental model closely enough that later rewrites cann
 - deduplicate by literal bytes, not by textual spelling or generated section index;
 - preserve the original literal payloads exactly.
 
-These direct-site criteria are covered by `src/passes/string_gathering_test.mbt` for functions, globals, table initializers, and typed element expressions. Data-offset collection remains source-covered but not a meaningful focused fixture because valid data offsets are numeric. Existing-global reuse for immutable non-null direct string globals is now part of the direct pass contract rather than a deferred follow-up.
+These direct-site criteria are covered by `src/passes/string_gathering_test.mbt` for functions, globals, table initializers, and typed element expressions. Data-offset string collection remains source-covered but not a meaningful focused fixture because valid data offsets are numeric; data-offset global-index remapping after inserted strings is covered separately. Existing-global reuse for immutable non-null direct string globals is now part of the direct pass contract rather than a deferred follow-up.
 
 ### Caveat
 

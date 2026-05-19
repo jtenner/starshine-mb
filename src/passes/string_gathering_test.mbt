@@ -409,6 +409,55 @@ test "string-gathering rewrites typed element expression constants" {
 }
 
 ///|
+test "string-gathering remaps module expression global refs after inserted strings" {
+  let input = @lib.Module::new(
+    mem_sec=Some(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    ),
+    global_sec=Some(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    ),
+    data_sec=Some(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+          b"x",
+        ),
+      ]),
+    ),
+    code_sec=Some(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::string_const(b"shift")]),
+        ),
+      ]),
+    ),
+  )
+  let optimized = string_gathering_run_module_pass(input)
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
+  match optimized.data_sec {
+    Some(
+      @lib.DataSec(
+        [@lib.Data(@lib.Active(_, @lib.Expr([@lib.GlobalGet(idx)])), _)]
+      )
+    ) => @debug.assert_eq(idx, @lib.GlobalIdx::new(1U))
+    other =>
+      fail("expected rewritten data offset, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
 test "string-gathering rewrites nested structured function bodies" {
   let optimized = sg_test_run(
     (
