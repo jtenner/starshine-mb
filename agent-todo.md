@@ -97,8 +97,7 @@ Completed direct-pass slices
 
 #### SG / RG / DIR late-tail scheduling
 
-- [SG]002 - Late-Tail Preset Scheduling
-  - Deliverables: keep `string-gathering` out of public presets until `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` can be replayed as an ordered neighborhood; keep the newly covered existing-global reuse behavior in the direct pass signoff lane.
+- No active v0.1.0 SG/RG/DIR preset-order blocker. `optimize` and `shrink` now append the proven `string-gathering -> reorder-globals -> directize` tail, with registry and preset-order tests covering the public schedule. If `tests/node/dist/starshine-debug-wasi.wasm` is regenerated locally, rerun the targeted artifact replay for the tail because the file was absent during the 2026-05-18 follow-up.
 
 #### Whole-command wall-time budget
 

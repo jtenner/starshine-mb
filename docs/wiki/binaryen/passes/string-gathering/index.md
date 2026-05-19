@@ -44,7 +44,7 @@ related:
 ## Role
 
 - `string-gathering` is an upstream Binaryen late module / boundary-shaped cleanup pass.
-- It is now implemented in Starshine as an active direct module pass; ordered late-tail preset scheduling remains deferred.
+- It is now implemented in Starshine as an active direct module pass and is scheduled in the public `optimize` / `shrink` late tail before `reorder-globals` and `directize`.
 - In Binaryen `version_129`, it runs only when strings are enabled and the optimize level is high enough.
 - Its job is very specific: hoist or reuse canonical immutable globals for `string.const` values, then replace ordinary `string.const` uses with `global.get` of those globals.
 
@@ -71,7 +71,7 @@ That follow-up closed those gaps without overturning the basic earlier picture. 
   - slot `54`
 - The saved Binaryen debug log shows it is small but real:
   - `0.00280223` seconds in the captured generated-artifact run
-- The backlog tracks the direct implementation evidence and remaining late-tail follow-up as slice `SG` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The backlog now records no active v0.1.0 SG/RG/DIR preset-order blocker; the only practical artifact replay caveat is that `tests/node/dist/starshine-debug-wasi.wasm` was absent during the 2026-05-18 follow-up.
 - The repo’s own string-constant surface page already called this out as the next durable string follow-up after literal plumbing.
 
 ## Beginner summary
@@ -116,7 +116,7 @@ That is much closer to the real pass than either:
 - On 2026-05-18, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 - The direct pass now sorts fresh literal globals deterministically, reuses eligible existing immutable non-null direct `string.const` globals in module order, preserves the selected defining initializer, aliases later matching globals, and still creates fresh canonical globals when no reusable definition exists.
 - Binary wasm inputs with string proposal result types still expose decoder coverage gaps outside this pass (`DecodeAt(InvalidValType, ...)`), so focused behavior coverage currently uses the WAT/pipeline path while artifact and generator lanes cover ordinary decoded wasm.
-- Public `optimize` / `shrink` preset scheduling is still deferred until the neighboring late-tail passes can be replayed together.
+- Public `optimize` / `shrink` preset scheduling now appends `string-gathering -> reorder-globals -> directize`; targeted debug-artifact replay should be rerun once `tests/node/dist/starshine-debug-wasi.wasm` exists locally again.
 
 ## Page map
 
@@ -129,14 +129,14 @@ That is much closer to the real pass than either:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT and module-shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status and code-map page: the active direct module pass, the remaining `SG` follow-up slices, the existing `string.const` / `stringrefs` encode-decode plumbing, and the still-separate late-tail boundary with `reorder-globals`.
+  Exact current Starshine status and code-map page: the active direct module pass, public preset-tail scheduling, the existing `string.const` / `stringrefs` encode-decode plumbing, and the still-separate late-tail boundary with `reorder-globals`.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Current validation ledger: landed registry/module-pass/direct-site collection work, focused reduced tests, direct Binaryen oracle/artifact evidence, and the remaining preset-neighborhood / decoder / optional reuse follow-up.
+  Current validation ledger: landed registry/module-pass/direct-site collection work, focused reduced tests, direct Binaryen oracle evidence, public preset-order coverage, and the remaining decoder / artifact-replay caveat.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `string-gathering` research, maintenance, and remaining follow-up planning.
-- Keep it explicitly marked as **implemented as a direct module pass** while the remaining gaps stay visible: broader standalone string-proposal decoder coverage and honest late-tail preset replay.
+- Keep it explicitly marked as **implemented as a direct module pass scheduled in public presets** while the remaining gaps stay visible: broader standalone string-proposal decoder coverage and targeted artifact replay once the local debug wasm exists.
 - Keep the strategy page and the reuse/order page in sync whenever new evidence changes the answer to either:
   - “which globals can be reused?” or
   - “when must gathered globals move earlier?”

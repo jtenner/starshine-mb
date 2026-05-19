@@ -39,7 +39,7 @@ related:
 
 # Starshine port readiness and validation for `string-gathering`
 
-Use this page after reading the status/code-map page in [`./starshine-strategy.md`](./starshine-strategy.md). That page says what exists today; this page now records which first slices have landed and what remains to validate before preset scheduling.
+Use this page after reading the status/code-map page in [`./starshine-strategy.md`](./starshine-strategy.md). That page says what exists today; this page now records which first slices have landed, what public preset scheduling now covers, and which artifact replay remains input-blocked.
 
 The 2026-05-04 primary-source recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md) found no teaching-relevant current-`main` drift from the tagged `version_129` contract. The port-readiness plan below therefore keeps [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) as the tagged oracle and uses the new bridge only for freshness and local code-map anchors.
 
@@ -58,7 +58,7 @@ Landed local state:
 
 Earlier direct debug-artifact compare evidence remains useful historical coverage, but AUD002 is closed by the refreshed harness lane above.
 
-Remaining readiness is late-tail scheduling proof, not direct-pass existence.
+Remaining readiness is decoder breadth and targeted artifact replay once `tests/node/dist/starshine-debug-wasi.wasm` exists locally again, not direct-pass existence or preset-order wiring.
 
 ## Slice 0: make the public pass spelling honest — landed
 
@@ -240,7 +240,7 @@ Match Binaryen's late-tail placement and strings-feature gating.
 ### Acceptance criteria
 
 - explicit `--pass string-gathering` runs only after the pass is implemented;
-- preset integration keeps the `remove-unused-module-elements -> string-gathering -> reorder-globals` order;
+- preset integration appends `string-gathering -> reorder-globals -> directize` to public `optimize` / `shrink`;
 - strings-disabled modules skip or reject consistently with the chosen local policy and Binaryen parity target;
 - tests prove the pass does not accidentally perform full [`../string-lowering/index.md`](../string-lowering/index.md) or reverse [`../string-lifting/index.md`](../string-lifting/index.md) work.
 
@@ -270,7 +270,7 @@ Keep the old transition retired in [`./starshine-strategy.md`](./starshine-strat
 
 ### 3. Late-tail integration tests
 
-Run the pass in the real neighborhood:
+Public `optimize` / `shrink` now append the direct tail:
 
 ```text
 remove-unused-module-elements -> string-gathering -> reorder-globals -> directize
@@ -288,7 +288,7 @@ Use the backlog's `[SG]002` intent:
 
 - compare focused reduced modules against Binaryen `--string-gathering`;
 - keep the landed direct evidence current (`.tmp/pass-fuzz-string-gathering`, plus older `.tmp/pass-fuzz-string-gathering-genvalid-10000-native`, `.tmp/pass-fuzz-string-gathering-10000-native-keepgoing`, and `.tmp/self-opt-string-gathering-debug` lanes);
-- then replay the saved no-DWARF/debug-artifact late-tail path once preset scheduling wiring exists.
+- replay the saved no-DWARF/debug-artifact late-tail path once `tests/node/dist/starshine-debug-wasi.wasm` exists locally again; the 2026-05-18 attempt failed before comparison because that input file was absent.
 
 ## Beginner-to-advanced takeaway
 

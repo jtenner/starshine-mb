@@ -764,6 +764,18 @@ test "optimize preset schedules the proven optimize-casts GC/local cleanup neigh
 }
 
 ///|
+test "optimize and shrink presets schedule string global late tail" {
+  let optimize = optimize_preset_passes(HotPipelineOptions::new())
+  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  for preset in [optimize, shrink] {
+    let tail_start = preset.length() - 3
+    @debug.assert_eq(preset[tail_start], "string-gathering")
+    @debug.assert_eq(preset[tail_start + 1], "reorder-globals")
+    @debug.assert_eq(preset[tail_start + 2], "directize")
+  }
+}
+
+///|
 test "optimize preset hands simplify-locals output to the late merge-blocks cleanup cluster" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(

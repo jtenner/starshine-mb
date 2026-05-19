@@ -62,7 +62,7 @@ Remaining caveats:
 
 - existing-global reuse is now covered for the direct immutable non-null `string.const` shape, including first-match reuse, reusable-global module order, sorted fresh literals, and later-alias behavior;
 - binary decoding of some standalone string-proposal type encodings remains outside this pass and can fail before the pass runs;
-- public preset scheduling is deferred until the neighboring late-tail passes can be replayed together.
+- public `optimize` / `shrink` presets now append `string-gathering -> reorder-globals -> directize`; targeted debug-artifact replay was attempted on 2026-05-18 but the local `tests/node/dist/starshine-debug-wasi.wasm` input was absent.
 
 ## Exact local code and doc map today
 
@@ -165,11 +165,11 @@ The pass is not just a vague someday idea.
 The repo already has:
 
 - a recorded late-tail slot in the no-DWARF pipeline doc
-- explicit backlog slices `[SG]001` and `[SG]002`
+- no active v0.1.0 SG/RG/DIR preset-order blocker in `agent-todo.md`
 - a neighboring `reorder-globals` dossier that already assumes `string-gathering` should run first
 
 So current Starshine strategy is not “plan the first pass.”
-It is “maintain the landed direct module pass, keep the late-tail boundary with `reorder-globals` honest, and only add the remaining reuse/decoder/preset work when the evidence justifies it.”
+It is “maintain the landed direct module pass, keep the public preset tail honest, and only add remaining decoder or artifact-replay work when the evidence justifies it.”
 
 ## What Starshine does **not** have yet
 
@@ -177,7 +177,7 @@ A future contributor should be careful not to overread the landed direct pass.
 Starshine does **not** currently have:
 
 - binary-decoder coverage for every standalone string-proposal type encoding accepted by Binaryen
-- public preset scheduling for the full `string-gathering -> reorder-globals -> directize` late tail
+- refreshed targeted debug-artifact replay for the public preset tail in this workspace, because `tests/node/dist/starshine-debug-wasi.wasm` was absent on 2026-05-18
 - integration tests that prove the whole late-tail neighborhood after `simplify-globals-optimizing`
 
 So the current repo status is best summarized as:
@@ -185,7 +185,7 @@ So the current repo status is best summarized as:
 - literal plumbing exists
 - direct module pass exists
 - behavior and direct oracle evidence exist
-- late-tail preset/neighborhood proof remains follow-up
+- preset-order proof exists for the appended late tail, while artifact replay remains follow-up until the debug wasm input is available
 
 ## The right next Starshine follow-up shape
 
@@ -197,7 +197,7 @@ A good local follow-up ladder is:
 2. keep existing-global reuse covered in focused tests and direct oracle lanes
 3. broaden standalone string-proposal binary decoder coverage so more binary inputs can reach the pass
 4. preserve the current narrow validity-first reorder rather than fusing layout work into this pass
-5. land honest preset scheduling only after the real `remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` neighborhood is replayed and compared
+5. rerun the targeted artifact replay for `string-gathering -> reorder-globals -> directize` once the debug wasm input exists locally again
 
 That split still matters.
 The neighboring dossier documents that Binaryen keeps `string-gathering` and `reorder-globals` as separate responsibilities, and the local direct port should stay teachably comparable instead of absorbing downstream layout work.
@@ -260,5 +260,5 @@ Current Starshine `string-gathering` strategy is direct-pass-landed with late-ta
 - the encoder, decoder, and tests preserve the literal identity the pass depends on
 - the active module pass hoists and rewrites direct string constants
 - refreshed direct pass-fuzz evidence is green under the 2026-05-18 harness
-- preset scheduling remains deferred until the surrounding late tail can be replayed honestly
+- public preset scheduling appends `string-gathering -> reorder-globals -> directize`; targeted artifact replay is blocked only by the missing local debug wasm input
 - the boundary with `reorder-globals` remains clear: `string-gathering` creates canonical string globals; `reorder-globals` owns final global layout
