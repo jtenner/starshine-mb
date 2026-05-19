@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | runtime memory instruction authoring
+
+- Added [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md) as the focused WAST guide for scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, split deliberately from [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md).
+- Ingested [`raw/wasm/2026-05-19-wast-memory-instruction-sources.md`](raw/wasm/2026-05-19-wast-memory-instruction-sources.md) after checking current official WebAssembly text/syntax/binary/validation/module sources plus Starshine WAST parser/lowerer/printer, core instruction, binary codec, validator, generator, arbitrary WAST, and HOT-IR effect surfaces.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), and [`index.md`](index.md) so runtime memory stack effects, `0xFC` immediates, data-count requirements, generator/arbitrary coverage, and `align=` / `offset=` caveats route through the right page.
+- Recorded the current local/spec divergence explicitly: official validation types `memory.fill` length with the selected memory address type, while current Starshine [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) still requires an `i32` length even for memory64.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt).
+
 ## [2026-05-19] health | scalar numeric catalog summaries
 
 - During the post-update whole-wiki health pass, checked catalog summaries for pages whose new scalar numeric backlinks could be hidden by older variable/reference/control wording.

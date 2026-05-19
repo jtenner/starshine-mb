@@ -9,6 +9,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
+  - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
@@ -31,6 +32,7 @@ related:
   - ../wast/numeric-instruction-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/memory-argument-authoring.md
+  - ../wast/memory-instruction-authoring.md
   - ../wast/table-instruction-authoring.md
   - ../wast/simd-authoring.md
 ---
@@ -90,7 +92,7 @@ Starshine rejects recursive-index blocktypes during binary encode (`CannotEncode
 
 Official core memory arguments are alignment plus offset. Starshine represents the multi-memory extension as `MemArg(U32(align_pow), Some(memidx), U64(offset))`; binary encode writes `align_pow + 64`, then the memory index, then the offset. With no explicit memory index, encode writes `align_pow` followed by the offset. The WAST text authoring caveats, including text-byte `align=` versus core exponent form and the current lack of explicit nonzero memory indices in WAST memargs, are documented in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).
 
-The binary layer can reject malformed immediate ranges (`InvalidMemArgEncoding` / `InvalidMemArg`), but semantic legality is in [`memarg_check`](../../../src/validate/typecheck.mbt): selected memory must exist, alignment must fit the access width, and i32 memories reject offsets outside the 32-bit address range. This is why pass authors should not treat a well-formed `MemArg` as automatically valid after memory rewrites.
+The binary layer can reject malformed immediate ranges (`InvalidMemArgEncoding` / `InvalidMemArg`), but semantic legality is in [`memarg_check`](../../../src/validate/typecheck.mbt): selected memory must exist, alignment must fit the access width, and i32 memories reject offsets outside the 32-bit address range. This is why pass authors should not treat a well-formed `MemArg` as automatically valid after memory rewrites. Stack shapes, data-count requirements, and trap/effect guidance for scalar and bulk memory instructions live in [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md).
 
 ### Variable instructions
 
@@ -128,7 +130,7 @@ Key typechecker responsibilities:
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure; ordinary branch payload/fallthrough guidance lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), and WAST fixture guidance for `return_call`, `return_call_indirect`, and `return_call_ref` lives in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 - `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` validate local/global index existence, stack operand types, and global mutability above the byte layer; fixture and rewrite rules live in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 - Scalar numeric constants, comparisons, arithmetic, conversions, reinterprets, sign-extension, and saturating truncations validate stack arity and exact operand/result value types above the byte layer; text fixture rules and rewrite hazards live in [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md).
-- `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range. For text-level table-index defaults, `table.init` ordering, and table64 caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
+- `memory.init`, `data.drop`, `memory.copy`, and `memory.fill` validate memory/data resource indices, stack operands, and data-count preconditions above the binary `0xFC` immediates; use [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md) for the runtime memory stack/effect contract and [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md) for `align=` / `offset=`. `table.init`, `elem.drop`, and `table.copy` validate segment/resource indices and stack operands separately; for text-level table-index defaults, `table.init` ordering, and table64 caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 - Reference instructions have layered semantics: `ref.func` is syntactically just an immediate but also needs whole-module declaration checking; `ref.test` / `ref.cast` and `br_on_*` need hierarchy, nullability, and label-payload checks above the byte layer. See [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 - Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly.
 
@@ -199,4 +201,4 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
-- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)
+- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)

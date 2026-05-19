@@ -14,6 +14,7 @@ sources:
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/gen_valid.mbt
 related:
+  - ./memory-instruction-authoring.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/type-table-memory-global-tag-sections.md
@@ -26,7 +27,7 @@ related:
 
 ## Overview
 
-Use this page when writing, reviewing, or widening WAST fixtures that use scalar loads/stores, SIMD vector memory instructions, atomics, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, or active data segments.
+Use this page when writing, reviewing, or widening WAST fixtures that need memory `offset=`, `align=`, selected-memory, memory32/memory64 address-width, or active data-segment offset guidance. For runtime stack shapes and side-effect/trap behavior of scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, use [`memory-instruction-authoring.md`](memory-instruction-authoring.md).
 
 A WebAssembly memory instruction has two different address components:
 
@@ -169,10 +170,11 @@ When changing memory-argument text, binary, or validation behavior:
 ## Current Gaps And Caveats
 
 - WAST memory arguments currently preserve `align` and `offset`, not explicit nonzero memory indices.
-- WAST `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, and `memory.init` currently lower to memory `0` for the memory operand(s), even though core/binary instructions can carry `MemIdx` values.
+- WAST `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, and `memory.init` currently lower to memory `0` for the memory operand(s), even though core/binary instructions can carry `MemIdx` values; see [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for the stack-shape and data-count side of that caveat.
 - WAST printing emits `align=` in byte-alignment form and does not show explicit memory indices for ordinary memory arguments.
 - Generator and binary coverage are broader than WAST text coverage for multi-memory. Keep those layers distinct when writing signoff claims.
 - `memory.copy` length typing uses the minimum address type of the two memories locally. Mixed memory32/memory64 fixtures are therefore better validator tests than simple one-memory examples.
+- Current Starshine validation still types `memory.fill` length as `i32` for memory64; [`memory-instruction-authoring.md`](memory-instruction-authoring.md) records this as a local/spec divergence rather than an intended long-term contract.
 
 ## Sources
 
