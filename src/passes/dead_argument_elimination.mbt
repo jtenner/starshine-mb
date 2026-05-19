@@ -7867,6 +7867,65 @@ fn dae_collect_shifted_forward_wrapper_callee_defs(
 }
 
 ///|
+fn dae_find_shifted_forward_wrapper_callee_def(
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  wrapper_def : Int,
+) -> Int {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return -1
+  }
+  let defined = funcs.length()
+  if wrapper_def < 0 || wrapper_def >= defined {
+    return -1
+  }
+  let caller_limit = wrapper_def + 1
+  let wrapper_abs = imported + wrapper_def
+  let wrapper_type = match
+    dae_resolve_func_type(mod_, type_indices, wrapper_abs) {
+    Some(ft) => ft
+    None => return -1
+  }
+  let @lib.FuncType(wrapper_params, wrapper_results) = wrapper_type
+  let wrapper_param_count = wrapper_params.length()
+  if wrapper_param_count <= 1 {
+    return -1
+  }
+  let @lib.Func(_, @lib.Expr(body)) = funcs[wrapper_def]
+  if body.length() != wrapper_param_count {
+    return -1
+  }
+  let mut param_idx = 0
+  while param_idx + 1 < wrapper_param_count {
+    match body[param_idx] {
+      @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == param_idx + 1 =>
+        ()
+      _ => return -1
+    }
+    param_idx += 1
+  }
+  match body[wrapper_param_count - 1] {
+    @lib.Call(func_idx) => {
+      let callee_abs = dae_func_idx_slot(func_idx)
+      let callee_def = callee_abs - imported
+      if callee_def < caller_limit || callee_def >= defined {
+        return -1
+      }
+      match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+        Some(@lib.FuncType(callee_params, callee_results)) if callee_params.length() +
+          1 ==
+          wrapper_param_count &&
+          callee_results == wrapper_results => callee_def
+        _ => -1
+      }
+    }
+    _ => -1
+  }
+}
+
+///|
 fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -8743,23 +8802,29 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   // Unread-param rewrites shrink signatures and rewrite operands, but the
   // selected artifact lanes do not add/remove direct call sites. Reuse the same
   // low-lane call facts for the low-wrapper and boundary unread-param families.
+  let boundary_wrapper_callee_defs = Array::make(original_defined, false)
+  let mut boundary_type_indices = dae_collect_func_type_indices(current)
   for
     boundary_wrapper_def in [
       128, 131, 133, 135, 142, 143, 144, 145, 146, 148, 149, 151, 152, 157, 158,
       159, 161, 162, 167, 170, 175, 176, 177, 178, 180, 181, 182, 184, 186, 187,
       188, 189, 191, 196,
     ] {
-    let boundary_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current,
-      dae_collect_shifted_forward_wrapper_callee_defs(
-        current,
-        boundary_wrapper_def,
-        boundary_wrapper_def + 1,
-      ),
-      low_callee_call_facts,
+    let boundary_callee_def = dae_find_shifted_forward_wrapper_callee_def(
+      current, boundary_type_indices, boundary_wrapper_def,
     )
+    if boundary_callee_def < 0 ||
+      boundary_callee_def >= boundary_wrapper_callee_defs.length() {
+      continue
+    }
+    boundary_wrapper_callee_defs[boundary_callee_def] = true
+    let boundary_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+      current, boundary_wrapper_callee_defs, low_callee_call_facts,
+    )
+    boundary_wrapper_callee_defs[boundary_callee_def] = false
     if boundary_wrapper_callee_result.changed {
       current = boundary_wrapper_callee_result.mod_out
+      boundary_type_indices = dae_collect_func_type_indices(current)
       touched = dae_merge_touched(
         touched,
         boundary_wrapper_callee_result.touched,
