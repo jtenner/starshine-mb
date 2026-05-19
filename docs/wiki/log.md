@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | GC aggregate instruction authoring
+
+- Added [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) as the focused WAST/core split guide for GC aggregate instructions: supported struct constructors/gets, local descriptor constructors, i31 and `any`/`extern` conversions, core/binary-only official `struct.set` and `array.*` families, packed signedness, mutability, data/element-backed array caveats, and validation/rewrite guidance.
+- Ingested [`raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md`](raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md) after checking current official WebAssembly instruction syntax, text, binary, validation, and type sources plus Starshine WAST keyword/parser/lowerer/printer, core instruction, binary codec, validator, generator, and core pretty-printer surfaces.
+- Updated [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so aggregate instruction claims route through one shared contract instead of being split between GC type, reference, validation, table/data, and generator pages.
+- Recorded the current local caveat explicitly: Starshine core/binary/validator/generator supports `struct.set` and array constructor/accessor/init/copy instructions, while the higher-level WAST text path currently supports only struct constructors, struct gets, descriptor constructors/helpers, i31 operations, and `any`/`extern` conversions.
+
 ## [2026-05-19] health | resource declaration backlink hygiene
 
 - During the post-update whole-wiki health pass, searched table, memory, global, declaration, import/export, and resource-section references for pages that still routed WAST authors only through binary section or instruction pages.

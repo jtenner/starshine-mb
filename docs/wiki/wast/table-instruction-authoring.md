@@ -20,6 +20,7 @@ related:
   - resource-declaration-authoring.md
   - function-call-and-module-authoring.md
   - tail-call-authoring.md
+  - gc-aggregate-instruction-authoring.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/type-table-memory-global-tag-sections.md
@@ -156,7 +157,7 @@ Until that gap is fixed and tested, table64 table-instruction work belongs in a 
 When a pass or generator change touches table instructions, use this checklist:
 
 1. **Table remaps:** update `TableIdx` carriers in `call_indirect`, `return_call_indirect`, `table.get`, `table.set`, `table.size`, `table.grow`, `table.fill`, `table.copy`, `table.init`, active element modes, table exports/imports, table names, and table initializer expressions.
-2. **Element remaps:** update `ElemIdx` carriers in `table.init`, `elem.drop`, `array.new_elem`, `array.init_elem`, element names, and any element-section payload references documented in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md).
+2. **Element remaps:** update `ElemIdx` carriers in `table.init`, `elem.drop`, `array.new_elem`, `array.init_elem`, element names, and any element-section payload references documented in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). The `array.*` element-backed forms are core/binary/validator-visible but not current WAST text; route fixture-format decisions through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 3. **Function remaps:** indirect-call tables often start from element payloads; function reordering/deletion must also update element payloads, `ref.func` declaration sources, exports, starts, calls, names, and annotations as described in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
 4. **Segment mode:** only passive element segments are runtime payloads for `table.init` / `elem.drop`; declarative element segments are for declaration effects. Do not paper over the current WAST declarative-mode lowering gap.
 5. **Type validation:** after table or element rewrites, re-run module validation so reference-type matching, address-width stack types, table index existence, element index existence, and indirect-call funcref compatibility are checked.
@@ -170,4 +171,4 @@ When a pass or generator change touches table instructions, use this checklist:
 - Core instruction model: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and generation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt)
-- Related guides: [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md), [`element-segment-authoring.md`](element-segment-authoring.md), [`tail-call-authoring.md`](tail-call-authoring.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)
+- Related guides: [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md), [`element-segment-authoring.md`](element-segment-authoring.md), [`tail-call-authoring.md`](tail-call-authoring.md), [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)

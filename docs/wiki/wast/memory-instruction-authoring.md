@@ -20,6 +20,7 @@ related:
   - ./resource-declaration-authoring.md
   - ./simd-authoring.md
   - ./table-instruction-authoring.md
+  - ./gc-aggregate-instruction-authoring.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/type-table-memory-global-tag-sections.md
@@ -143,7 +144,7 @@ Validation in [`typecheck_memory_copy(...)`](../../../src/validate/typecheck.mbt
 
 `memory.init` copies from a passive data segment into a memory. It carries a data index plus a memory index. Validation checks the data segment exists, the memory exists, the destination uses the selected memory address type, and the source offset plus length are `i32`. `data.drop` carries only a data index and consumes no stack values.
 
-The data-count rule is easy to miss: function bodies that use `memory.init` or `data.drop` require a data-count section. Starshine makes that user-visible with a separate [`datacnt_requirement`](../../../src/validate/validate.mbt) phase before code body typechecking. Segment headers, active/passive data modes, and data-count binary layout are covered in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md).
+The data-count rule is easy to miss: function bodies that use `memory.init` or `data.drop` require a data-count section. Starshine makes that user-visible with a separate [`datacnt_requirement`](../../../src/validate/validate.mbt) phase before code body typechecking. Segment headers, active/passive data modes, and data-count binary layout are covered in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). Data-backed GC array forms (`array.new_data`, `array.init_data`) share the data-segment index space but are not current WAST text; fixture-format guidance for those core/binary instructions lives in [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 
 ## Layer Map
 
