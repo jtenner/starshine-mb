@@ -4029,6 +4029,7 @@ fn dae_collect_original_call_summary(
   let nonself_undropped_call_counts = Array::make(defined, 0)
   let prior_undropped_call_counts = Array::make(defined, 0)
   let self_call_counts = Array::make(defined, 0)
+  let seen_undropped_stamp = Array::make(defined, -1)
   let mut caller_def = 0
   while caller_def < funcs.length() && caller_def < defined {
     let targets : Array[Int] = []
@@ -4047,10 +4048,9 @@ fn dae_collect_original_call_summary(
         prior_call_counts[target] = prior_call_counts[target] + 1
       }
     }
-    let seen_undropped = Array::make(defined, false)
     for target in undropped_targets {
-      if !seen_undropped[target] {
-        seen_undropped[target] = true
+      if seen_undropped_stamp[target] != caller_def {
+        seen_undropped_stamp[target] = caller_def
         if target != caller_def {
           nonself_undropped_call_counts[target] = nonself_undropped_call_counts[target] +
             1
@@ -5057,6 +5057,7 @@ fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_s
   }
   let type_indices = dae_collect_func_type_indices(mod_)
   let counts = Array::make(defined, 0)
+  let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
@@ -5069,15 +5070,14 @@ fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_s
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_params_and_result &&
       dae_dead_suffix_has_dropped_direct_call_to(body, caller_abs) {
-      let counted = Array::make(defined, false)
       let targets : Array[Int] = []
       dae_collect_dead_suffix_undropped_direct_targets(
         body, imported, defined, targets,
       )
       for target in targets {
-        if target != caller_def && !counted[target] {
+        if target != caller_def && counted_stamp[target] != caller_def {
           counts[target] = counts[target] + 1
-          counted[target] = true
+          counted_stamp[target] = caller_def
         }
       }
     }
@@ -5098,6 +5098,8 @@ fn dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_esc
     None => return Array::make(defined, 0)
   }
   let counts = Array::make(defined, 0)
+  let dropped_stamp = Array::make(defined, -1)
+  let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
@@ -5106,23 +5108,23 @@ fn dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_esc
       continue
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-    let dropped_flags = Array::make(defined, false)
     let dropped_targets : Array[Int] = []
     dae_collect_dead_suffix_dropped_direct_targets(
       body, imported, defined, dropped_targets,
     )
     for target in dropped_targets {
-      dropped_flags[target] = true
+      dropped_stamp[target] = caller_def
     }
-    let counted = Array::make(defined, false)
     let undropped_targets : Array[Int] = []
     dae_collect_dead_suffix_undropped_direct_targets(
       body, imported, defined, undropped_targets,
     )
     for target in undropped_targets {
-      if target != caller_def && dropped_flags[target] && !counted[target] {
+      if target != caller_def &&
+        dropped_stamp[target] == caller_def &&
+        counted_stamp[target] != caller_def {
         counts[target] = counts[target] + 1
-        counted[target] = true
+        counted_stamp[target] = caller_def
       }
     }
     caller_def += 1
@@ -5181,18 +5183,18 @@ fn dae_collect_original_later_dead_suffix_dropped_call_counts(
     None => return Array::make(defined, 0)
   }
   let counts = Array::make(defined, 0)
+  let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-    let counted = Array::make(defined, false)
     let dropped_targets : Array[Int] = []
     dae_collect_dead_suffix_dropped_direct_targets(
       body, imported, defined, dropped_targets,
     )
     for target in dropped_targets {
-      if target < caller_def && !counted[target] {
+      if target < caller_def && counted_stamp[target] != caller_def {
         counts[target] = counts[target] + 1
-        counted[target] = true
+        counted_stamp[target] = caller_def
       }
     }
     caller_def += 1
@@ -5212,6 +5214,7 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_caller
   }
   let type_indices = dae_collect_func_type_indices(mod_)
   let counts = Array::make(defined, 0)
+  let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
@@ -5224,15 +5227,14 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_caller
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_params_and_result &&
       dae_dead_suffix_has_undropped_direct_call_to(body, caller_abs) {
-      let counted = Array::make(defined, false)
       let targets : Array[Int] = []
       dae_collect_dead_suffix_dropped_direct_targets(
         body, imported, defined, targets,
       )
       for target in targets {
-        if target != caller_def && !counted[target] {
+        if target != caller_def && counted_stamp[target] != caller_def {
           counts[target] = counts[target] + 1
-          counted[target] = true
+          counted_stamp[target] = caller_def
         }
       }
     }
@@ -5253,6 +5255,7 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
   }
   let type_indices = dae_collect_func_type_indices(mod_)
   let counts = Array::make(defined, 0)
+  let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
@@ -5264,15 +5267,14 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_no_params_and_result {
-      let counted = Array::make(defined, false)
       let targets : Array[Int] = []
       dae_collect_dead_suffix_dropped_direct_targets(
         body, imported, defined, targets,
       )
       for target in targets {
-        if target != caller_def && !counted[target] {
+        if target != caller_def && counted_stamp[target] != caller_def {
           counts[target] = counts[target] + 1
-          counted[target] = true
+          counted_stamp[target] = caller_def
         }
       }
     }
@@ -5517,20 +5519,20 @@ fn dae_collect_original_escaped_undropped_dead_suffix_call_counts_with_escaped(
     None => return Array::make(defined, 0)
   }
   let counts = Array::make(defined, 0)
+  let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
     if escaped[caller_abs] {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let counted = Array::make(defined, false)
       let targets : Array[Int] = []
       dae_collect_dead_suffix_undropped_direct_targets(
         body, imported, defined, targets,
       )
       for target in targets {
-        if !counted[target] {
+        if counted_stamp[target] != caller_def {
           counts[target] = counts[target] + 1
-          counted[target] = true
+          counted_stamp[target] = caller_def
         }
       }
     }
@@ -6161,16 +6163,16 @@ fn dae_collect_original_dead_suffix_mutual_calls(
     None => return Array::make(defined, false)
   }
   let flags = Array::make(defined, false)
+  let counted_stamp = Array::make(defined, -1)
   let mut def_idx = 0
   while def_idx < funcs.length() {
     let callee_abs = imported + def_idx
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     let targets : Array[Int] = []
     dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
-    let counted = Array::make(defined, false)
     for target in targets {
-      if target != def_idx && !counted[target] {
-        counted[target] = true
+      if target != def_idx && counted_stamp[target] != def_idx {
+        counted_stamp[target] = def_idx
         if target >= 0 && target < funcs.length() {
           let @lib.Func(_, @lib.Expr(other_body)) = funcs[target]
           if dae_count_direct_call_anywhere_to(other_body, callee_abs) > 0 {
