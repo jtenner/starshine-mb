@@ -420,6 +420,127 @@ test "simplify-globals-optimizing keeps imported global-get init same-as-init wr
 }
 
 ///|
+test "simplify-globals-optimizing canonicalizes defined alias-chain init before same-as-init removal" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $a i32 (i32.const 7))
+      #|  (global $alias i32 (global.get $a))
+      #|  (global $g (mut i32) (global.get $alias))
+      #|  (func (export "run") (result i32)
+      #|    global.get $alias
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+  ])
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 2), [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing second run removes canonicalized alias-chain init write" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (global $a i32 (i32.const 7))
+      #|  (global $alias i32 (global.get $a))
+      #|  (global $g (mut i32) (global.get $alias))
+      #|  (func (export "run") (result i32)
+      #|    global.get $alias
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 2), [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps imported alias-chain same-as-init writes" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (import "m" "a" (global $a i32))
+      #|  (global $alias i32 (global.get $a))
+      #|  (global $g (mut i32) (global.get $alias))
+      #|  (func (export "run") (result i32)
+      #|    global.get $alias
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 0), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps exported alias-chain same-as-init writes" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (global $a i32 (i32.const 7))
+      #|  (global $alias i32 (global.get $a))
+      #|  (global $g (export "g") (mut i32) (global.get $alias))
+      #|  (func (export "run") (result i32)
+      #|    global.get $alias
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 2), [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps non-folded expression same-as-init writes" {
   let optimized = sgo_test_run(
     (
@@ -3116,7 +3237,7 @@ test "simplify-globals-optimizing keeps nested branch block runtime facts conser
 }
 
 ///|
-test "simplify-globals-optimizing does not track exported global runtime block facts" {
+test "simplify-globals-optimizing tracks exported global runtime block facts" {
   let optimized = sgo_test_run(
     (
       #|(module
@@ -3132,7 +3253,8 @@ test "simplify-globals-optimizing does not track exported global runtime block f
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
 }
 
 ///|
@@ -3229,7 +3351,7 @@ test "simplify-globals-optimizing keeps independent runtime block facts" {
 }
 
 ///|
-test "simplify-globals-optimizing does not track imported global runtime block facts" {
+test "simplify-globals-optimizing tracks imported global runtime block facts" {
   let optimized = sgo_test_run(
     (
       #|(module
@@ -3245,7 +3367,8 @@ test "simplify-globals-optimizing does not track imported global runtime block f
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
 }
 
 ///|
@@ -3585,7 +3708,7 @@ test "simplify-globals-optimizing keeps branchy then-body runtime reads conserva
 }
 
 ///|
-test "simplify-globals-optimizing does not track exported globals in then bodies" {
+test "simplify-globals-optimizing tracks exported globals in then bodies" {
   let optimized = sgo_test_run(
     (
       #|(module
@@ -3603,11 +3726,12 @@ test "simplify-globals-optimizing does not track exported globals in then bodies
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(43)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
 }
 
 ///|
-test "simplify-globals-optimizing does not track imported globals in then bodies" {
+test "simplify-globals-optimizing tracks imported globals in then bodies" {
   let optimized = sgo_test_run(
     (
       #|(module
@@ -3625,7 +3749,8 @@ test "simplify-globals-optimizing does not track imported globals in then bodies
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(44)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
 }
 
 ///|

@@ -395,6 +395,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO alias same-init and imported/exported runtime propagation
+
+- Broadened the active `simplify-globals-optimizing` runtime trace subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so same-trace single-const write facts can apply to imported and exported globals too; destructive cleanup still stays gated elsewhere, and calls/control/non-constant writes remain barriers.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt): exported alias-chain same-as-init writes exposed the initial runtime propagation gap, defined alias-chain initializers preserve the observed one-run/two-run same-as-init boundary, imported alias-chain initializers remain conservative for destructive cleanup, and imported/exported block and then-body runtime reads now rewrite like Binaryen.
+- Local Binaryen probes in `.tmp/sgo-same-init-alias-*.wat`, `.tmp/sgo-exported-runtime-block-probe.wat`, `.tmp/sgo-exported-runtime-if-probe.wat`, `.tmp/sgo-imported-runtime-block-probe.wat`, and `.tmp/sgo-imported-runtime-if-probe.wat` showed the same alias-chain one-pass/two-pass boundary and imported/exported same-trace runtime replacements under `wasm-opt --all-features --simplify-globals-optimizing`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1201/1201`), full `moon test` passed (`3265/3265`), and `.tmp/pass-fuzz-sgo-alias-import-export-runtime-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO global-get-init same-as-init guardrails
 
 - Added no-behavior-change focused coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the probed `global.get` initializer boundary: a first `simplify-globals-optimizing` run canonicalizes a defined immutable `global.get` initializer and rewrites function reads but does not promote the mutable target in the same run; a second explicit run then removes the now-canonicalized write; imported-global initializer aliases remain mutable and keep their get/set uses even across two runs.

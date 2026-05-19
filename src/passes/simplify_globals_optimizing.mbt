@@ -2131,10 +2131,7 @@ fn sgo_runtime_trace_trackable(
   infos : Array[SgoGlobalInfo],
   slot : Int,
 ) -> Bool {
-  slot >= 0 &&
-  slot < infos.length() &&
-  !infos[slot].imported &&
-  !infos[slot].exported
+  slot >= 0 && slot < infos.length()
 }
 
 ///|
