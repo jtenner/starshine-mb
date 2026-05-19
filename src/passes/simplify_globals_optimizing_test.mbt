@@ -54,7 +54,10 @@ fn sgo_test_make_touched_cleanup_fixture(
 }
 
 ///|
-fn sgo_test_make_large_touched_function_fixture(local_count : Int) -> String {
+fn sgo_test_make_large_touched_function_fixture(
+  local_count : Int,
+  extra_untouched_count? : Int = 0,
+) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
@@ -63,6 +66,9 @@ fn sgo_test_make_large_touched_function_fixture(local_count : Int) -> String {
     out.write_string(" (local i32)")
   }
   out.write_string("\n    global.get $g\n    drop)\n")
+  for idx = 0; idx < extra_untouched_count; idx = idx + 1 {
+    out.write_string("  (func $u\{idx}\n    i32.const 99\n    drop)\n")
+  }
   out.write_string(")")
   out.to_string()
 }
@@ -405,6 +411,30 @@ test "simplify-globals-optimizing nested cleanup skips modules with more than on
   let untouched = optimized.pretty_print_defined_func(1U)
   assert_true(untouched.contains("I32(99)"), msg=untouched)
   assert_true(untouched.contains("drop"), msg=untouched)
+}
+
+///|
+test "simplify-globals-optimizing reports large module before large touched function" {
+  let (_, trace) = sgo_test_run_with_trace(
+    sgo_test_make_large_touched_function_fixture(129, extra_untouched_count=100),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-module touched=1",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("reason=large-touched-function") }),
+    msg=trace.to_string(),
+  )
 }
 
 ///|
