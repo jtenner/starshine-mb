@@ -4123,6 +4123,125 @@ test "simplify-globals-optimizing carries ref-func facts through nested plain bl
 }
 
 ///|
+test "simplify-globals-optimizing carries externref null facts through nested plain blocks" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "g" (global $g (mut externref)))
+      #|  (func (export "run") (result externref)
+      #|    ref.null extern
+      #|    global.set $g
+      #|    block (result externref)
+      #|      block (result externref)
+      #|        global.get $g
+      #|      end
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps externref then-body reads after calls" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (import "env" "g" (global $g (mut externref)))
+      #|  (func (export "run") (param $p i32) (result externref)
+      #|    ref.null extern
+      #|    global.set $g
+      #|    local.get $p
+      #|    if (result externref)
+      #|      call $tick
+      #|      global.get $g
+      #|    else
+      #|      ref.null extern
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps externref loop runtime facts conservative after calls" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (import "env" "g" (global $g (mut externref)))
+      #|  (func (export "run") (result externref)
+      #|    ref.null extern
+      #|    global.set $g
+      #|    loop
+      #|      call $tick
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps externref try_table runtime facts conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "g" (global $g (mut externref)))
+      #|  (tag $e)
+      #|  (func (export "run") (result externref)
+      #|    ref.null extern
+      #|    global.set $g
+      #|    block $exit
+      #|      try_table (catch $e $exit)
+      #|        ref.null extern
+      #|        global.set $g
+      #|      end
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps externref post-if runtime joins conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "g" (global $g (mut externref)))
+      #|  (func (export "run") (param $p i32) (result externref)
+      #|    local.get $p
+      #|    if
+      #|      ref.null extern
+      #|      global.set $g
+      #|    else
+      #|      ref.null extern
+      #|      global.set $g
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps reference then-body reads after calls" {
   let optimized = sgo_test_run(
     (

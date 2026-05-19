@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO externref deep-control runtime guardrails
+
+- Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for `externref` / `ref.null extern` runtime facts: imported externref facts flow through nested plain blocks, but calls inside then-bodies, loops with calls, `try_table`, and post-`if` joins remain conservative.
+- Local Binaryen probe `.tmp/sgo-externref-deep-control-probes.wat` showed the same positive nested-block replacement and the same call/loop/`try_table`/post-if externref barrier boundaries under `wasm-opt --all-features --simplify-globals-optimizing`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1233/1233`), full `moon test` passed (`3297/3297`), and `.tmp/pass-fuzz-sgo-externref-deep-control-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO reference deep-control runtime guardrails
 
 - Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for deeper reference-typed runtime facts: `ref.func` facts flow through nested plain blocks, but calls inside then-bodies, loops with calls or branch backedges, `try_table`, and post-`if` joins remain conservative.
