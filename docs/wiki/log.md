@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | reference instruction backlink hygiene
+
+- During the post-update whole-wiki health pass, searched generator, validation, WAST, binary, and CFG pages for `br_on_*`, ordinary `ref.test`, ordinary `ref.cast`, and focused WAST guide links that still routed through the broader control-flow page or omitted the new reference-instruction contract.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), and [`index.md`](index.md) so core-control rows, WAST text-generation guidance, validator stack-typechecking, and the catalog distinguish ordinary label mechanics from reference-specific nullability/cast/branch semantics.
+
 ## [2026-05-19] wast | reference instruction authoring
 
 - Added [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md) as the focused WAST guide for `ref.null`, `ref.func`, `ref.is_null`, `ref.eq`, `ref.as_non_null`, core/binary-only ordinary `ref.test` / `ref.cast`, `br_on_null`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, and Starshine's descriptor-family local forms.
