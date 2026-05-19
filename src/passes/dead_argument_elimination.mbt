@@ -8236,6 +8236,70 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn dae_f64_const_can_trunc_to_i32_s(value : Double) -> Bool {
+  if @ir.compat_is_f64_non_finite(value) {
+    return false
+  }
+  let truncated = value.trunc()
+  truncated >= -2147483648.0 && truncated < 2147483648.0
+}
+
+///|
+fn dae_f64_const_can_trunc_to_i32_u(value : Double) -> Bool {
+  if @ir.compat_is_f64_non_finite(value) {
+    return false
+  }
+  let truncated = value.trunc()
+  truncated >= 0.0 && truncated < 4294967296.0
+}
+
+///|
+fn dae_const_can_trunc_to_i64_s(value : Double) -> Bool {
+  match @ir.compat_trunc_f64_to_i64_s(value) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn dae_const_can_trunc_to_i64_u(value : Double) -> Bool {
+  match @ir.compat_trunc_f64_to_i64_u(value) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn dae_instr_is_const_safe_float_to_int_unary(
+  input : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> Bool {
+  match (input, instr) {
+    (@lib.F32Const(@lib.F32(value)), @lib.I32TruncF32S) =>
+      !@ir.compat_is_f32_nan(value) &&
+      dae_f64_const_can_trunc_to_i32_s(value.to_double())
+    (@lib.F32Const(@lib.F32(value)), @lib.I32TruncF32U) =>
+      !@ir.compat_is_f32_nan(value) &&
+      dae_f64_const_can_trunc_to_i32_u(value.to_double())
+    (@lib.F32Const(@lib.F32(value)), @lib.I64TruncF32S) =>
+      !@ir.compat_is_f32_nan(value) &&
+      dae_const_can_trunc_to_i64_s(value.to_double())
+    (@lib.F32Const(@lib.F32(value)), @lib.I64TruncF32U) =>
+      !@ir.compat_is_f32_nan(value) &&
+      dae_const_can_trunc_to_i64_u(value.to_double())
+    (@lib.F64Const(@lib.F64(value)), @lib.I32TruncF64S) =>
+      dae_f64_const_can_trunc_to_i32_s(value)
+    (@lib.F64Const(@lib.F64(value)), @lib.I32TruncF64U) =>
+      dae_f64_const_can_trunc_to_i32_u(value)
+    (@lib.F64Const(@lib.F64(value)), @lib.I64TruncF64S) =>
+      dae_const_can_trunc_to_i64_s(value)
+    (@lib.F64Const(@lib.F64(value)), @lib.I64TruncF64U) =>
+      dae_const_can_trunc_to_i64_u(value)
+    _ => false
+  }
+}
+
+///|
 fn dae_instr_is_nontrapping_pure_binary(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.I32Eq
@@ -8407,7 +8471,10 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
     }
     if idx + 2 < instrs.length() &&
       dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
-      dae_instr_is_nontrapping_pure_unary(instrs[idx + 1]) &&
+      (
+        dae_instr_is_nontrapping_pure_unary(instrs[idx + 1]) ||
+        dae_instr_is_const_safe_float_to_int_unary(instrs[idx], instrs[idx + 1])
+      ) &&
       instrs[idx + 2] == @lib.Instruction::drop() {
       idx += 3
       continue
