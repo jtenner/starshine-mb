@@ -1050,20 +1050,7 @@ fn sgo_count_block_condition_read_only_to_write_read(
 }
 
 ///|
-fn sgo_count_block_condition_direct_body_read(
-  body : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-  safe_reads : Array[Int],
-) -> Unit {
-  match sgo_block_condition_direct_read_idx(body) {
-    Some(read_idx) if read_idx == idx =>
-      sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_block_condition_if_return_body_read(
+fn sgo_count_block_condition_safe_body_read(
   body : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
   safe_reads : Array[Int],
@@ -1081,6 +1068,15 @@ fn sgo_count_block_condition_if_return_body_read(
 }
 
 ///|
+fn sgo_count_block_condition_if_return_body_read(
+  body : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+  safe_reads : Array[Int],
+) -> Unit {
+  sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+}
+
+///|
 fn sgo_count_block_condition_eqz_read_only_to_write_read(
   instr : @lib.Instruction,
   eqz : @lib.Instruction,
@@ -1092,7 +1088,7 @@ fn sgo_count_block_condition_eqz_read_only_to_write_read(
       @lib.Instruction::i32_eqz() =>
       match sgo_single_const_global_set_idx(then_body) {
         Some(idx) =>
-          sgo_count_block_condition_direct_body_read(body, idx, safe_reads)
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
         None => ()
       }
     _ => ()
@@ -1115,7 +1111,7 @@ fn sgo_count_block_condition_compare_read_only_to_write_read(
       sgo_is_compare_instr(cmp_instr) =>
       match sgo_single_const_global_set_idx(then_body) {
         Some(idx) =>
-          sgo_count_block_condition_direct_body_read(body, idx, safe_reads)
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
         None => ()
       }
     _ => ()
@@ -1143,7 +1139,7 @@ fn sgo_count_block_condition_reverse_compare_read_only_to_write_read(
       sgo_is_compare_instr(cmp_instr) =>
       match sgo_single_const_global_set_idx(then_body) {
         Some(idx) =>
-          sgo_count_block_condition_direct_body_read(body, idx, safe_reads)
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
         None => ()
       }
     _ => ()
@@ -1191,19 +1187,6 @@ fn sgo_count_block_condition_if_return_set_read(
 }
 
 ///|
-fn sgo_count_block_condition_direct_if_return_body_read(
-  body : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-  safe_reads : Array[Int],
-) -> Unit {
-  match sgo_block_condition_direct_read_idx(body) {
-    Some(read_idx) if read_idx == idx =>
-      sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-    _ => ()
-  }
-}
-
-///|
 fn sgo_count_block_condition_eqz_if_return_set_read(
   instr : @lib.Instruction,
   eqz : @lib.Instruction,
@@ -1217,9 +1200,7 @@ fn sgo_count_block_condition_eqz_if_return_set_read(
       @lib.Instruction::i32_eqz() &&
       sgo_is_return_guard(if_instr) &&
       sgo_const_instr(value) != None =>
-      sgo_count_block_condition_direct_if_return_body_read(
-        body, idx, safe_reads,
-      )
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
     _ => ()
   }
 }
@@ -1246,9 +1227,7 @@ fn sgo_count_block_condition_eqz_if_return_block_set_read(
       sgo_is_return_guard(if_instr) =>
       match sgo_block_set_tail_idx(block_tail) {
         Some(idx) =>
-          sgo_count_block_condition_direct_if_return_body_read(
-            body, idx, safe_reads,
-          )
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
         None => ()
       }
     _ => ()
@@ -1273,9 +1252,7 @@ fn sgo_count_block_condition_compare_if_return_set_read(
       sgo_is_compare_instr(cmp_instr) &&
       sgo_is_return_guard(if_instr) &&
       sgo_const_instr(value) != None =>
-      sgo_count_block_condition_direct_if_return_body_read(
-        body, idx, safe_reads,
-      )
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
     _ => ()
   }
 }
@@ -1295,9 +1272,7 @@ fn sgo_count_block_condition_compare_if_return_block_set_read(
       sgo_is_return_guard(if_instr) =>
       match sgo_block_set_tail_idx(block_tail) {
         Some(idx) =>
-          sgo_count_block_condition_direct_if_return_body_read(
-            body, idx, safe_reads,
-          )
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
         None => ()
       }
     _ => ()
@@ -1327,9 +1302,7 @@ fn sgo_count_block_condition_reverse_compare_if_return_set_read(
       sgo_is_compare_instr(cmp_instr) &&
       sgo_is_return_guard(if_instr) &&
       sgo_const_instr(value) != None =>
-      sgo_count_block_condition_direct_if_return_body_read(
-        body, idx, safe_reads,
-      )
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
     _ => ()
   }
 }
@@ -1354,9 +1327,7 @@ fn sgo_count_block_condition_reverse_compare_if_return_block_set_read(
       sgo_is_return_guard(if_instr) =>
       match sgo_block_set_tail_idx(block_tail) {
         Some(idx) =>
-          sgo_count_block_condition_direct_if_return_body_read(
-            body, idx, safe_reads,
-          )
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
         None => ()
       }
     _ => ()

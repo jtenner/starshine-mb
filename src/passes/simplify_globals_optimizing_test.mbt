@@ -1419,6 +1419,64 @@ test "simplify-globals-optimizing removes block-yielded self-guard condition ope
 }
 
 ///|
+test "simplify-globals-optimizing removes block-yielded self-guard operators after pure block conditions" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $eqz (mut i32) (i32.const 0))
+      #|  (global $forward (mut i32) (i32.const 0))
+      #|  (global $reverse (mut i32) (i32.const 0))
+      #|  (func $eqz_run
+      #|    block (result i32)
+      #|      global.get $eqz
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $eqz
+      #|    end)
+      #|  (func $forward_run
+      #|    block (result i32)
+      #|      global.get $forward
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.const 2
+      #|    i32.eq
+      #|    if
+      #|      i32.const 1
+      #|      global.set $forward
+      #|    end)
+      #|  (func $reverse_run
+      #|    i32.const 2
+      #|    block (result i32)
+      #|      global.get $reverse
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.ne
+      #|    if
+      #|      i32.const 1
+      #|      global.set $reverse
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-globals-optimizing removes exact if-return read-only-to-write guards" {
   let optimized = sgo_test_run(
     (
@@ -1947,6 +2005,82 @@ test "simplify-globals-optimizing removes block-yielded if-return condition oper
   )
 
   for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
+test "simplify-globals-optimizing removes block-yielded if-return operators after pure block conditions" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $eqz (mut i32) (i32.const 0))
+      #|  (global $forward (mut i32) (i32.const 0))
+      #|  (global $reverse (mut i32) (i32.const 0))
+      #|  (global $block_set (mut i32) (i32.const 0))
+      #|  (func $eqz_run
+      #|    block (result i32)
+      #|      global.get $eqz
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.eqz
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $eqz)
+      #|  (func $forward_run
+      #|    block (result i32)
+      #|      global.get $forward
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.const 2
+      #|    i32.eq
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $forward)
+      #|  (func $reverse_run
+      #|    i32.const 2
+      #|    block (result i32)
+      #|      global.get $reverse
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.ne
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $reverse)
+      #|  (func $block_set_run
+      #|    block (result i32)
+      #|      global.get $block_set
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.eqz
+      #|    if
+      #|      return
+      #|    end
+      #|    block
+      #|      i32.const 1
+      #|      global.set $block_set
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 4; i = i + 1 {
     @debug.assert_eq(
       try! sgo_test_defined_global_type(optimized, i),
       @lib.GlobalType::new(@lib.ValType::i32(), false),

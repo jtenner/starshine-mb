@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO block-yielded operators after pure block conditions
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so block-yielded external `i32.eqz` / bidirectional compare-const operators can follow a transparent result block whose body already carries the guarded `global.get` through a source-backed pure-condition chain.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for both adjacent self guards and `if return; set` tails, including a block-wrapped write tail; the new fixtures failed first with globals still mutable, then passed after the block-condition body helper counted the existing pure block-body matcher for those external-operator forms. Local Binaryen probes in `.tmp/sgo-blockpure-external-eqz.wat` and `.tmp/sgo-blockpure-external-eq-ifreturn.wat` showed `wasm-opt --simplify-globals-optimizing` promoting matching globals to immutable while removing the get/set uses.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1149/1149`), full `moon test` passed (`3213/3213`), and `.tmp/pass-fuzz-sgo-blockyield-pure-ops-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO block-wrapped pure-condition if-return guards
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write `if return; set` subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so transparent result-block conditions can contain the existing source-backed pure-condition chain from the guarded `global.get` to the return guard before the same-global constant-write tail.
