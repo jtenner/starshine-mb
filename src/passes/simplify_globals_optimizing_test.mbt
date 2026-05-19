@@ -337,6 +337,88 @@ test "simplify-globals-optimizing removes ref-null same-as-init writes before re
 }
 
 ///|
+test "simplify-globals-optimizing removes ref-func same-as-init writes before reads" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (global $g (mut funcref) (ref.func $f))
+      #|  (func (export "run") (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 0), [
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps non-init ref-func writes before reads" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (func $f)
+      #|  (func $h)
+      #|  (elem declare func $f $h)
+      #|  (global $g (mut funcref) (ref.func $f))
+      #|  (func (export "run") (result funcref)
+      #|    ref.func $h
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(2U)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps exported ref-func same-as-init writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (global $g (export "g") (mut funcref) (ref.func $f))
+      #|  (func (export "run") (result funcref)
+      #|    ref.func $f
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing canonicalizes defined global-get init before same-as-init removal" {
   let optimized = sgo_test_run(
     (
