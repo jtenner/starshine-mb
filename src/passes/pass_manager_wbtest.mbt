@@ -1180,7 +1180,10 @@ fn pass_manager_test_dae_core_apply_iters(
   mod_ : @lib.Module,
   limit : Int,
 ) -> @lib.Module {
-  let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_type_indices = dae_collect_func_type_indices(mod_)
+  let original_param_counts = dae_collect_original_param_counts_with_type_indices(
+    mod_, original_type_indices,
+  )
   let original_escaped = dae_collect_escapes(
     mod_,
     dae_imported_func_count(mod_) + dae_defined_func_count(mod_),
@@ -1188,7 +1191,9 @@ fn pass_manager_test_dae_core_apply_iters(
   let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
     mod_,
   )
-  let original_call_summary = dae_collect_original_call_summary(mod_)
+  let original_call_summary = dae_collect_original_call_summary_with_type_indices(
+    mod_, original_type_indices,
+  )
   let original_call_counts = original_call_summary.call_counts
   let original_prior_call_counts = original_call_summary.prior_call_counts
   let original_prior_undropped_call_counts = original_call_summary.prior_undropped_call_counts
@@ -1348,12 +1353,17 @@ fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
   mod_ : @lib.Module,
   limit : Int,
 ) -> Array[Int] {
-  let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_type_indices = dae_collect_func_type_indices(mod_)
+  let original_param_counts = dae_collect_original_param_counts_with_type_indices(
+    mod_, original_type_indices,
+  )
   let original_escaped = dae_collect_escapes(
     mod_,
     dae_imported_func_count(mod_) + dae_defined_func_count(mod_),
   )
-  let original_call_summary = dae_collect_original_call_summary(mod_)
+  let original_call_summary = dae_collect_original_call_summary_with_type_indices(
+    mod_, original_type_indices,
+  )
   let original_call_counts = original_call_summary.call_counts
   let original_active_nonself_call_counts = original_call_summary.active_nonself_call_counts
   let original_active_parameterized_nonself_call_counts = original_call_summary.active_parameterized_nonself_call_counts
@@ -1454,7 +1464,10 @@ fn pass_manager_test_dae_core_primary_defs(
   mod_ : @lib.Module,
   limit : Int,
 ) -> Array[Int] {
-  let original_param_counts = dae_collect_original_param_counts(mod_)
+  let original_type_indices = dae_collect_func_type_indices(mod_)
+  let original_param_counts = dae_collect_original_param_counts_with_type_indices(
+    mod_, original_type_indices,
+  )
   let original_escaped = dae_collect_escapes(
     mod_,
     dae_imported_func_count(mod_) + dae_defined_func_count(mod_),
@@ -1462,7 +1475,9 @@ fn pass_manager_test_dae_core_primary_defs(
   let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
     mod_,
   )
-  let original_call_summary = dae_collect_original_call_summary(mod_)
+  let original_call_summary = dae_collect_original_call_summary_with_type_indices(
+    mod_, original_type_indices,
+  )
   let original_call_counts = original_call_summary.call_counts
   let original_prior_call_counts = original_call_summary.prior_call_counts
   let original_prior_undropped_call_counts = original_call_summary.prior_undropped_call_counts

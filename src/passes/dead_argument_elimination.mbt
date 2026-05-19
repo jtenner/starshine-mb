@@ -4000,8 +4000,9 @@ fn dae_scan_original_call_summary_instrs(
 }
 
 ///|
-fn dae_collect_original_call_summary(
+fn dae_collect_original_call_summary_with_type_indices(
   mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
 ) -> DaeOriginalCallSummary {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -4021,7 +4022,6 @@ fn dae_collect_original_call_summary(
       }
     }
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
   let escaped = dae_collect_escapes(mod_, imported + defined)
   let call_targets_by_caller : Array[Array[Int]] = []
   let call_counts = Array::make(defined, 0)
@@ -4113,10 +4113,12 @@ fn dae_collect_original_call_summary(
 }
 
 ///|
-fn dae_collect_original_param_counts(mod_ : @lib.Module) -> Array[Int] {
+fn dae_collect_original_param_counts_with_type_indices(
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+) -> Array[Int] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
   let counts : Array[Int] = []
   let mut def_idx = 0
   while def_idx < defined {
@@ -8516,9 +8518,12 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
   let mut changed = false
-  let original_param_counts = dae_collect_original_param_counts(mod_)
   let original_imported = dae_imported_func_count(mod_)
   let original_defined = dae_defined_func_count(mod_)
+  let original_type_indices = dae_collect_func_type_indices(mod_)
+  let original_param_counts = dae_collect_original_param_counts_with_type_indices(
+    mod_, original_type_indices,
+  )
   let original_escaped = dae_collect_escapes(
     mod_,
     original_imported + original_defined,
@@ -8526,7 +8531,9 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
     mod_,
   )
-  let original_call_summary = dae_collect_original_call_summary(mod_)
+  let original_call_summary = dae_collect_original_call_summary_with_type_indices(
+    mod_, original_type_indices,
+  )
   let original_call_counts = original_call_summary.call_counts
   let original_prior_call_counts = original_call_summary.prior_call_counts
   let original_prior_undropped_call_counts = original_call_summary.prior_undropped_call_counts

@@ -37,8 +37,10 @@ fn dae_wbtest_call_summary_fixture() -> @lib.Module {
 
 ///|
 test "dae original call summary counts repeated undropped callees once per caller" {
-  let summary = dae_collect_original_call_summary(
-    dae_wbtest_call_summary_fixture(),
+  let mod_ = dae_wbtest_call_summary_fixture()
+  let summary = dae_collect_original_call_summary_with_type_indices(
+    mod_,
+    dae_collect_func_type_indices(mod_),
   )
   assert_eq(summary.call_counts, [0, 2, 2])
   assert_eq(summary.prior_call_counts, [0, 1, 2])
