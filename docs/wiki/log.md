@@ -395,6 +395,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO core timing and no-global fast path
+
+- Updated [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO core emits perf timers for `detail:sgo:collect-global-infos`, `detail:sgo:plan-flags`, `detail:sgo:rewrite-globals`, `detail:sgo:rewrite-startup`, and `detail:sgo:rewrite-code`, and skips allocation-heavy rewrite passes for functions whose body contains no global get/set.
+- Direct traced artifact evidence: `.tmp/sgo-core-skip-noglobal2-trace.txt` reported SGO pass time `293.656ms`, with `detail:sgo:rewrite-code` down to `15.466ms` from the earlier instrumented `59.254ms`; `detail:sgo:plan-flags` was still about `29.526ms`, `detail:sgo:collect-global-infos` about `13.464ms`, and nested hot lift/lower plus pass timers still dominated the visible non-core detail timers. The raw output matched the prior traced raw artifact byte-for-byte.
+- Direct artifact compare `.tmp/sgo-direct-debug-artifact-core-skip-noglobal2` stayed valid and byte-identical to the prior Starshine canonical output, still red at the already-classified `defined=48 abs=69` local/default-init representation frontier, with Starshine size `2,860,295` bytes versus Binaryen `2,861,435`; pass-local timing remained red and noisy (`343.981ms` vs Binaryen `119.278ms`).
+- Validation/evidence for this slice: TDD failure was confirmed by expecting the new SGO core perf timer names before implementation; after implementation, `moon test src/passes` passed (`1259/1259`), `.tmp/pass-fuzz-sgo-skip-noglobal-1k` reported `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, and `2` Binaryen/tool command failures. A longer `.tmp/pass-fuzz-sgo-skip-noglobal-10k` lane timed out after `4002` case records (`3995` matches and `7` command failures) without any mismatch record.
+
 ## [2026-05-19] passes | SGO nested cleanup trace accounting
 
 - Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO nested cleanup traces include `nested-cleanup-stats touched=... cleaned=... filtered-large=...`, while preserving the existing `nested-cleanup touched=... prefix=default` line for older scheduler assertions.

@@ -10657,7 +10657,7 @@ fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
-  let result = sgo_run_core(mod_, options.trace)
+  let result = sgo_run_core(mod_, options.trace, perf=options.perf)
   run_hot_pipeline_apply_sgo_nested_cleanup(
     result.mod_out,
     result.touched,

@@ -36,6 +36,29 @@ fn sgo_test_run_with_trace(text : String) -> (@lib.Module, Array[String]) {
 }
 
 ///|
+fn sgo_test_run_with_perf_trace(text : String) -> (@lib.Module, Array[String]) {
+  let trace : Array[String] = []
+  let trace_fn = fn(line) { trace.push(line) }
+  let perf = HotPerfSession::new(
+    trace=trace_fn,
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  let mod_ = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(text),
+      HotPipelineOptions::new(trace=Some(trace_fn), perf=Some(perf)),
+      ["simplify-globals-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort(
+        "expected perf-traced simplify-globals-optimizing success, got \{err}",
+      )
+  }
+  (mod_, trace)
+}
+
+///|
 fn sgo_test_make_touched_cleanup_fixture(
   touched_count : Int,
   extra_untouched_count? : Int = 0,
@@ -189,6 +212,30 @@ test "simplify-globals-optimizing registers as an active module pass" {
     }
     None => fail("expected simplify-globals-optimizing registry entry")
   }
+}
+
+///|
+test "simplify-globals-optimizing perf trace breaks down core phases" {
+  let (_, trace) = sgo_test_run_with_perf_trace(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 41))
+      #|  (func (result i32)
+      #|    global.get $g
+      #|    i32.const 1
+      #|    i32.add))
+      #|
+    ),
+  )
+  let text = trace.to_string()
+  assert_true(
+    text.contains("perf:timer name=detail:sgo:collect-global-infos"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:sgo:rewrite-code"),
+    msg=text,
+  )
 }
 
 ///|

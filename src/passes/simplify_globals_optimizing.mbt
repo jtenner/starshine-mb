@@ -140,6 +140,34 @@ fn sgo_scan_expr(expr : @lib.Expr, infos : Array[SgoGlobalInfo]) -> Unit {
 }
 
 ///|
+fn sgo_instr_may_reference_global(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.GlobalGet(_) | @lib.GlobalSet(_) => true
+    @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+      sgo_expr_may_reference_global(body)
+    @lib.If(_, then_body, else_body) => {
+      let else_refs = match else_body {
+        Some(body) => sgo_instrs_may_reference_global(body)
+        None => false
+      }
+      sgo_instrs_may_reference_global(then_body) || else_refs
+    }
+    _ => false
+  }
+}
+
+///|
+fn sgo_instrs_may_reference_global(instrs : Array[@lib.Instruction]) -> Bool {
+  instrs.any(sgo_instr_may_reference_global)
+}
+
+///|
+fn sgo_expr_may_reference_global(expr : @lib.Expr) -> Bool {
+  let @lib.Expr(instrs) = expr
+  sgo_instrs_may_reference_global(instrs)
+}
+
+///|
 fn sgo_collect_global_infos(mod_ : @lib.Module) -> (Array[SgoGlobalInfo], Int) {
   let infos : Array[SgoGlobalInfo] = []
   let mut imported_globals = 0
@@ -325,7 +353,9 @@ fn sgo_same_init_write_flags(
     Some(@lib.CodeSec(funcs)) =>
       for func_ in funcs {
         let @lib.Func(_, body) = func_
-        sgo_mark_same_init_writes_expr(body, init_consts, flags)
+        if sgo_expr_may_reference_global(body) {
+          sgo_mark_same_init_writes_expr(body, init_consts, flags)
+        }
       }
     None => ()
   }
@@ -405,7 +435,9 @@ fn sgo_read_only_to_write_flags(
     Some(@lib.CodeSec(funcs)) =>
       for func_ in funcs {
         let @lib.Func(_, body) = func_
-        sgo_count_read_only_to_write_expr(body, safe_reads)
+        if sgo_expr_may_reference_global(body) {
+          sgo_count_read_only_to_write_expr(body, safe_reads)
+        }
       }
     None => ()
   }
@@ -2262,6 +2294,10 @@ fn sgo_rewrite_code_sec(
       let mut changed = false
       for idx = 0; idx < funcs.length(); idx = idx + 1 {
         let @lib.Func(locals, body) = funcs[idx]
+        if !sgo_expr_may_reference_global(body) {
+          out.push(funcs[idx])
+          continue
+        }
         let (rewritten, func_changed) = sgo_rewrite_expr(
           body, consts, aliases, remove_sets, true,
         )
@@ -2314,14 +2350,25 @@ fn sgo_build_module(
 }
 
 ///|
-fn sgo_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> SgoPassResult {
+fn sgo_run_core(
+  mod_ : @lib.Module,
+  trace : (String) -> Unit,
+  perf? : HotPerfSession? = None,
+) -> SgoPassResult {
+  let collect_start_us = perf_start_timer_opt(
+    perf, "detail:sgo:collect-global-infos",
+  )
   let (infos, imported_globals) = sgo_collect_global_infos(mod_)
+  perf_stop_timer_opt(perf, "detail:sgo:collect-global-infos", collect_start_us)
+  let flags_start_us = perf_start_timer_opt(perf, "detail:sgo:plan-flags")
   let same_init_writes = sgo_same_init_write_flags(mod_.code_sec, infos)
   let read_only_to_write = sgo_read_only_to_write_flags(mod_.code_sec, infos)
   let remove_sets = sgo_plan_remove_sets(
     infos, same_init_writes, read_only_to_write,
   )
   let mut changed = sgo_apply_practical_immutability(infos, remove_sets)
+  perf_stop_timer_opt(perf, "detail:sgo:plan-flags", flags_start_us)
+  let global_start_us = perf_start_timer_opt(perf, "detail:sgo:rewrite-globals")
   let (next_global_sec, startup_consts, aliases, global_changed) = sgo_rewrite_global_sec(
     mod_.global_sec,
     infos,
@@ -2329,6 +2376,10 @@ fn sgo_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> SgoPassResult {
   )
   changed = changed || global_changed
   let code_consts = sgo_build_code_consts(infos)
+  perf_stop_timer_opt(perf, "detail:sgo:rewrite-globals", global_start_us)
+  let startup_start_us = perf_start_timer_opt(
+    perf, "detail:sgo:rewrite-startup",
+  )
   let (next_table_sec, table_changed) = sgo_rewrite_table_sec(
     mod_.table_sec,
     startup_consts,
@@ -2344,6 +2395,8 @@ fn sgo_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> SgoPassResult {
     startup_consts,
     remove_sets,
   )
+  perf_stop_timer_opt(perf, "detail:sgo:rewrite-startup", startup_start_us)
+  let code_start_us = perf_start_timer_opt(perf, "detail:sgo:rewrite-code")
   let (next_code_sec, touched, code_changed) = sgo_rewrite_code_sec(
     mod_.code_sec,
     infos,
@@ -2351,6 +2404,7 @@ fn sgo_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> SgoPassResult {
     aliases,
     remove_sets,
   )
+  perf_stop_timer_opt(perf, "detail:sgo:rewrite-code", code_start_us)
   changed = changed ||
     table_changed ||
     elem_changed ||
