@@ -8423,16 +8423,35 @@ fn dae_find_droppable_pure_stack_expr_start(
   if out.length() == 0 {
     return None
   }
-  let mut needed = 1
+  let needs : Array[Int] = [0]
   for start = out.length() - 1; start >= 0; start = start - 1 {
-    match dae_instr_dropped_pure_value_arity(out[start]) {
-      Some(arity) => {
-        needed = needed - 1 + arity
-        if needed == 0 {
-          return Some(start)
-        }
-      }
+    let need = match needs.pop() {
+      Some(v) => v
       None => return None
+    }
+    if need == 1 {
+      match out[start] {
+        @lib.RefI31 => needs.push(0)
+        _ => return None
+      }
+    } else {
+      match out[start] {
+        @lib.I31GetS | @lib.I31GetU => needs.push(1)
+        _ =>
+          match dae_instr_dropped_pure_value_arity(out[start]) {
+            Some(arity) => {
+              let mut input = 0
+              while input < arity {
+                needs.push(0)
+                input += 1
+              }
+            }
+            None => return None
+          }
+      }
+    }
+    if needs.length() == 0 {
+      return Some(start)
     }
   }
   None
