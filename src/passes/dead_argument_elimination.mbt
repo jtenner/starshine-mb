@@ -8371,7 +8371,8 @@ fn dae_instr_is_nontrapping_pure_binary(instr : @lib.Instruction) -> Bool {
     | @lib.F64Div
     | @lib.F64Min
     | @lib.F64Max
-    | @lib.F64Copysign => true
+    | @lib.F64Copysign
+    | @lib.RefEq => true
     _ => false
   }
 }

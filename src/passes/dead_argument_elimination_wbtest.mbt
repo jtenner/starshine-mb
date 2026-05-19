@@ -107,6 +107,15 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::ref_is_null(),
     @lib.Instruction::drop(),
     @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+    @lib.Instruction::ref_eq(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+    @lib.Instruction::ref_eq(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
     @lib.Instruction::ref_as_non_null(),
     @lib.Instruction::drop(),
     @lib.Instruction::i32_const(@lib.I32(84)),
@@ -150,6 +159,15 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
       let @lib.Func(_, @lib.Expr(cleaned0)) = funcs[0]
       let @lib.Func(_, @lib.Expr(cleaned1)) = funcs[1]
       let preserved_trapping = [
+        @lib.Instruction::ref_null(
+          @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+        ),
+        @lib.Instruction::ref_as_non_null(),
+        @lib.Instruction::ref_null(
+          @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+        ),
+        @lib.Instruction::ref_eq(),
+        @lib.Instruction::drop(),
         @lib.Instruction::ref_null(
           @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
         ),
