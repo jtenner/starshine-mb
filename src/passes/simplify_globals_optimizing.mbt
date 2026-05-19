@@ -607,72 +607,96 @@ fn sgo_read_only_to_write_read_at(
 }
 
 ///|
+fn sgo_is_i32_pure_condition_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I32Eqz
+    | @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_is_i64_pure_condition_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.I64Eqz
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_is_float_compare_condition_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge => true
+    _ => false
+  }
+}
+
+///|
 fn sgo_is_read_only_to_write_pure_condition_instr(
   instr : @lib.Instruction,
 ) -> Bool {
   sgo_const_instr(instr) != None ||
-  instr == @lib.Instruction::i32_clz() ||
-  instr == @lib.Instruction::i32_ctz() ||
-  instr == @lib.Instruction::i32_popcnt() ||
-  instr == @lib.Instruction::i32_eqz() ||
-  instr == @lib.Instruction::i32_eq() ||
-  instr == @lib.Instruction::i32_ne() ||
-  instr == @lib.Instruction::i32_add() ||
-  instr == @lib.Instruction::i32_sub() ||
-  instr == @lib.Instruction::i32_mul() ||
-  instr == @lib.Instruction::i32_and() ||
-  instr == @lib.Instruction::i32_or() ||
-  instr == @lib.Instruction::i32_xor() ||
-  instr == @lib.Instruction::i32_shl() ||
-  instr == @lib.Instruction::i32_shr_s() ||
-  instr == @lib.Instruction::i32_shr_u() ||
-  instr == @lib.Instruction::i32_rotl() ||
-  instr == @lib.Instruction::i32_rotr() ||
-  instr == @lib.Instruction::i32_lt_s() ||
-  instr == @lib.Instruction::i32_lt_u() ||
-  instr == @lib.Instruction::i32_gt_s() ||
-  instr == @lib.Instruction::i32_gt_u() ||
-  instr == @lib.Instruction::i32_le_s() ||
-  instr == @lib.Instruction::i32_le_u() ||
-  instr == @lib.Instruction::i32_ge_s() ||
-  instr == @lib.Instruction::i32_ge_u() ||
-  instr == @lib.Instruction::i64_clz() ||
-  instr == @lib.Instruction::i64_ctz() ||
-  instr == @lib.Instruction::i64_popcnt() ||
-  instr == @lib.Instruction::i64_eqz() ||
-  instr == @lib.Instruction::i64_eq() ||
-  instr == @lib.Instruction::i64_ne() ||
-  instr == @lib.Instruction::i64_lt_s() ||
-  instr == @lib.Instruction::i64_lt_u() ||
-  instr == @lib.Instruction::i64_gt_s() ||
-  instr == @lib.Instruction::i64_gt_u() ||
-  instr == @lib.Instruction::i64_le_s() ||
-  instr == @lib.Instruction::i64_le_u() ||
-  instr == @lib.Instruction::i64_ge_s() ||
-  instr == @lib.Instruction::i64_ge_u() ||
-  instr == @lib.Instruction::i64_add() ||
-  instr == @lib.Instruction::i64_sub() ||
-  instr == @lib.Instruction::i64_mul() ||
-  instr == @lib.Instruction::i64_and() ||
-  instr == @lib.Instruction::i64_or() ||
-  instr == @lib.Instruction::i64_xor() ||
-  instr == @lib.Instruction::i64_shl() ||
-  instr == @lib.Instruction::i64_shr_s() ||
-  instr == @lib.Instruction::i64_shr_u() ||
-  instr == @lib.Instruction::i64_rotl() ||
-  instr == @lib.Instruction::i64_rotr() ||
-  instr == @lib.Instruction::f32_eq() ||
-  instr == @lib.Instruction::f32_ne() ||
-  instr == @lib.Instruction::f32_lt() ||
-  instr == @lib.Instruction::f32_gt() ||
-  instr == @lib.Instruction::f32_le() ||
-  instr == @lib.Instruction::f32_ge() ||
-  instr == @lib.Instruction::f64_eq() ||
-  instr == @lib.Instruction::f64_ne() ||
-  instr == @lib.Instruction::f64_lt() ||
-  instr == @lib.Instruction::f64_gt() ||
-  instr == @lib.Instruction::f64_le() ||
-  instr == @lib.Instruction::f64_ge()
+  sgo_is_i32_pure_condition_instr(instr) ||
+  sgo_is_i64_pure_condition_instr(instr) ||
+  sgo_is_float_compare_condition_instr(instr)
 }
 
 ///|
