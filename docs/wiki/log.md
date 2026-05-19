@@ -2,11 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
-## [2026-05-19] tests | SG edge non-reuse coverage
+## [2026-05-19] tests | SG edge non-reuse and module-expression coverage
 
 - Added focused `string-gathering` coverage in [`../../src/passes/string_gathering_test.mbt`](../../src/passes/string_gathering_test.mbt) proving imported string globals are not reused as canonical definitions and nested global initializers containing `string.const` are collected/replaced but not themselves treated as reusable definitions.
+- Added module-expression coverage proving table initializer and typed element expression `string.const` sites are rewritten to the canonical string global.
 - Updated the live SG pages and [`../../agent-todo.md`](../../agent-todo.md) to record that nullable string global non-reuse is still a local representation caveat: Starshine currently represents `ValType::stringref()` as nullable abstract string, so a clean nullable-vs-non-null fixture is not available yet.
-- Validation: `moon fmt`, `moon test src/passes` (1107/1107), full `moon test` (3171/3171), and `moon info` passed; `moon info` still reports the pre-existing `dead_argument_elimination.mbt` unused warnings.
+- Validation: `moon fmt`, `moon test src/passes` (1109/1109), full `moon test` (3173/3173), and `moon info` passed; `moon info` still reports the pre-existing `dead_argument_elimination.mbt` unused warnings.
 - Optional broadened fuzz `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x1eed --pass string-gathering --out-dir .tmp/pass-fuzz-string-gathering-seed-0x1eed` reported 7888/10000 compared, 7887 normalized matches, 0 validation failures, 19 `binaryen-rec-group-zero` command failures, and one no-string `wasm-smith` unreachable-wrapper normalized mismatch (`case-007907`), classified as generic compare/canonicalization drift rather than SG literal-rewrite behavior.
 
 ## [2026-05-18] research | classify DAE002 Func237 as local/control carrier drift

@@ -347,6 +347,68 @@ test "string-gathering reuses global initializer while collecting function const
 }
 
 ///|
+test "string-gathering rewrites table initializer expressions" {
+  let input = @lib.Module::new(
+    table_sec=Some(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::abs(@lib.AbsHeapType::string_()),
+            @lib.Limits::i32(1U, None),
+          ),
+          Some(@lib.Expr::new([@lib.Instruction::string_const(b"tab")])),
+        ),
+      ]),
+    ),
+  )
+  let optimized = string_gathering_run_module_pass(input)
+  @debug.assert_eq(sg_test_global_count(optimized), 1)
+  match optimized.table_sec {
+    Some(@lib.TableSec([@lib.Table(_, Some(@lib.Expr(instrs)))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      ])
+    other =>
+      fail(
+        "expected rewritten table initializer, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "string-gathering rewrites typed element expression constants" {
+  let input = @lib.Module::new(
+    elem_sec=Some(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::typed_exprs(
+            @lib.RefType::abs(@lib.AbsHeapType::string_()),
+            [@lib.Expr::new([@lib.Instruction::string_const(b"elem")])],
+          ),
+        ),
+      ]),
+    ),
+  )
+  let optimized = string_gathering_run_module_pass(input)
+  @debug.assert_eq(sg_test_global_count(optimized), 1)
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [@lib.Elem(_, @lib.TypedExprsElemKind(_, [@lib.Expr(instrs)]))]
+      )
+    ) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      ])
+    other =>
+      fail(
+        "expected rewritten element expression, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "string-gathering rewrites nested structured function bodies" {
   let optimized = sg_test_run(
     (
