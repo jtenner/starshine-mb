@@ -423,6 +423,72 @@ test "simplify-globals-optimizing keeps ref-func typed element aliases conservat
 }
 
 ///|
+test "simplify-globals-optimizing rewrites typed ref-func function body reads" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $t (func (result i32)))
+      #|  (func $f (type $t) (i32.const 0))
+      #|  (elem declare func $f)
+      #|  (global $g (ref null $t) (ref.func $f))
+      #|  (func (export "run") (result (ref null $t))
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing rewrites typed ref-func aliases in function bodies" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $t (func (result i32)))
+      #|  (func $f (type $t) (i32.const 0))
+      #|  (elem declare func $f)
+      #|  (global $direct (ref null $t) (ref.func $f))
+      #|  (global $alias (ref null $t) (global.get $direct))
+      #|  (func (export "run") (result (ref null $t))
+      #|    global.get $alias))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+  ])
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing rewrites typed ref-func reads inside block results" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $t (func (result i32)))
+      #|  (func $f (type $t) (i32.const 0))
+      #|  (elem declare func $f)
+      #|  (global $g (ref null $t) (ref.func $f))
+      #|  (func (export "run") (result (ref null $t))
+      #|    block (result (ref null $t))
+      #|      global.get $g
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing rewrites typed ref-null function body reads through nullable supertypes" {
   let optimized = sgo_test_run(
     (
