@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | WAST arbitrary variable-instruction backlink
+
+- During the post-update whole-wiki health pass, checked the WAST arbitrary parity plan for coverage claims that could hide the new variable-instruction authoring contract.
+- Updated [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md) and [`index.md`](index.md) so `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` WAST arbitrary claims route through [`wast/variable-instruction-authoring.md`](wast/variable-instruction-authoring.md), and so the current `local.tee` / `global.set` arbitrary-generation gap is explicit.
+
 ## [2026-05-19] wast | variable instruction authoring
 
 - Added [`wast/variable-instruction-authoring.md`](wast/variable-instruction-authoring.md) as the focused WAST guide for `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` across text identifiers, local/global index spaces, binary opcodes `0x20` through `0x24`, validation stack effects, `global.set` mutability, immutable-`global.get` constant expressions, and pass rewrite/signoff rules.
