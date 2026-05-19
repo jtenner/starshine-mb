@@ -8232,7 +8232,10 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64TruncSatF32U
     | @lib.I64TruncSatF64S
     | @lib.I64TruncSatF64U
-    | @lib.RefIsNull => true
+    | @lib.RefIsNull
+    | @lib.RefI31
+    | @lib.AnyConvertExtern
+    | @lib.ExternConvertAny => true
     _ => false
   }
 }
