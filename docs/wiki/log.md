@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO mixed independent runtime guardrails
+
+- Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for mixed scalar/reference same-trace runtime facts: scalar facts survive independent reference writes in plain blocks and non-constant reference writes, while reference facts survive independent scalar writes in plain blocks and non-constant scalar writes.
+- Local Binaryen probe `.tmp/sgo-mixed-independent-runtime-probes.wat` showed the same independent-fact preservation under `wasm-opt --all-features --simplify-globals-optimizing`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1237/1237`), full `moon test` passed (`3301/3301`), and `.tmp/pass-fuzz-sgo-mixed-independent-runtime-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO externref deep-control runtime guardrails
 
 - Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for `externref` / `ref.null extern` runtime facts: imported externref facts flow through nested plain blocks, but calls inside then-bodies, loops with calls, `try_table`, and post-`if` joins remain conservative.

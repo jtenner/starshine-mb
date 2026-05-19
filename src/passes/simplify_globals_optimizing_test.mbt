@@ -3859,6 +3859,102 @@ test "simplify-globals-optimizing keeps independent runtime block facts" {
 }
 
 ///|
+test "simplify-globals-optimizing preserves scalar facts across independent reference block writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "r" (global $r (mut externref)))
+      #|  (global $i (mut i32) (i32.const 0))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    global.set $i
+      #|    block
+      #|      ref.null extern
+      #|      global.set $r
+      #|    end
+      #|    global.get $i))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing preserves reference facts across independent scalar block writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "r" (global $r (mut funcref)))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (global $i (mut i32) (i32.const 0))
+      #|  (func (export "run") (result funcref)
+      #|    ref.func $f
+      #|    global.set $r
+      #|    block
+      #|      i32.const 9
+      #|      global.set $i
+      #|    end
+      #|    global.get $r))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing preserves reference facts across independent scalar non-constant writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "r" (global $r (mut funcref)))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (global $i (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $x i32) (result funcref)
+      #|    ref.func $f
+      #|    global.set $r
+      #|    local.get $x
+      #|    global.set $i
+      #|    global.get $r))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing preserves scalar facts across independent reference non-constant writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "r" (global $r (mut externref)))
+      #|  (global $i (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $x externref) (result i32)
+      #|    i32.const 11
+      #|    global.set $i
+      #|    local.get $x
+      #|    global.set $r
+      #|    global.get $i))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing tracks imported global runtime block facts" {
   let optimized = sgo_test_run(
     (

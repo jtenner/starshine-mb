@@ -143,7 +143,7 @@ But the pass still does **not** become a full dominator-tree analysis.
 
 The shipped dominance test includes an explicit TODO for a dominated `else` case that Binaryen does not optimize yet.
 
-So a future port should preserve the current narrow adjacency-based win rather than silently widening it into a different analysis contract. Starshine currently models this only for straight-line/top-level-noise, plain-block, and if-then-body runtime facts, now including imported/exported globals and reference-typed `ref.func` / `ref.null` facts when a same-trace constant write is visible, including `externref` / `ref.null extern` nested-block positives; calls, branches, loops, `try_table`, returns, throws, non-constant writes, post-if joins, and else-arm propagation remain conservative barriers or untracked boundaries.
+So a future port should preserve the current narrow adjacency-based win rather than silently widening it into a different analysis contract. Starshine currently models this only for straight-line/top-level-noise, plain-block, and if-then-body runtime facts, now including imported/exported globals and reference-typed `ref.func` / `ref.null` facts when a same-trace constant write is visible, including `externref` / `ref.null extern` nested-block positives and mixed scalar/reference independent-write preservation; calls, branches, loops, `try_table`, returns, throws, non-constant writes to the same tracked global, post-if joins, and else-arm propagation remain conservative barriers or untracked boundaries.
 
 ## 4. `read-only-to-write` is about fake state, not just matching names
 
