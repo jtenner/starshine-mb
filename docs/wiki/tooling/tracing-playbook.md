@@ -5,6 +5,7 @@ last_reviewed: 2026-05-13
 sources:
   - ../raw/research/0001-2026-03-10-tracing.md
 related:
+  - ./cli-command-and-dispatcher.md
   - ./validation-gates.md
   - ../validate/module-validation-phases.md
   - ../../../src/lib/util.mbt
@@ -21,7 +22,7 @@ related:
 - Tracing must stay cheap when disabled; timing work and per-function setup are guarded locally.
 - Logs use compact `key=value` tokens with stable pass, function, and phase markers.
 - Shared timing helpers live in [`../../../src/lib/util.mbt`](../../../src/lib/util.mbt).
-- Passes and validator entrypoints should emit per-function deltas, run totals, and a final hotspot summary; benchmark entrypoints are routed through the shared [`validation-gates.md`](./validation-gates.md) command map, and validator phase names are cataloged in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
+- Passes and validator entrypoints should emit per-function deltas, run totals, and a final hotspot summary; runtime CLI tracing flags and debug limits are cataloged in [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md), benchmark entrypoints are routed through the shared [`validation-gates.md`](./validation-gates.md) command map, and validator phase names are cataloged in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
 - Repeated failures should be suppressed after a bounded prefix instead of flooding output.
 - Do not add trace-only tests; trace behavior is validated through existing functional or contract coverage.
 
@@ -42,5 +43,6 @@ related:
 ## Sources
 
 - Archived research doc: [`../raw/research/0001-2026-03-10-tracing.md`](../raw/research/0001-2026-03-10-tracing.md)
+- Runtime command tracing flags: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
 - Shared validation-gate map: [`./validation-gates.md`](./validation-gates.md)
 - Timing helpers: [`../../../src/lib/util.mbt`](../../../src/lib/util.mbt)

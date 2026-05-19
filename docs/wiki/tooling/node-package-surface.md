@@ -17,6 +17,7 @@ sources:
   - ../../../src/wast/pkg.generated.mbti
 related:
   - ./fuzz-runner.md
+  - ./cli-command-and-dispatcher.md
   - ./cli-startup-path.md
   - ../validate/fuzz-hardening.md
   - ../../README.md
@@ -75,7 +76,7 @@ The new teaching rule is therefore: **`cmd` is no longer the top correctness cle
 [`src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti) exposes `resolve_closed_world(...)`, two additional parse-error constructors (`invalid_dump_path(...)` and `invalid_function_index_list(...)`), and a `CliParseResult::new(...)` shape with `closed_world?` before `tracing?`.
 [`node/cli.d.ts`](../../../node/cli.d.ts) still lacks `resolveClosedWorld(...)`, those two parse-error constructors, and the `closedWorld` constructor slot.
 
-The packaged [`node/cmd.js`](../../../node/cmd.js) bridge compensates inside the command wrapper by parsing config/env/CLI closed-world state itself and returning a truthful `CmdRunSummary.closedWorld`.
+The packaged [`node/cmd.js`](../../../node/cmd.js) bridge compensates inside the command wrapper by parsing config/env/CLI closed-world state itself and returning a truthful `CmdRunSummary.closedWorld`; the local runtime command precedence is summarized in [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md).
 That is useful for `cmd`, but it does not make `node/cli` a full parser-parity surface.
 
 ### `validate`: high-value public helpers remain absent
@@ -138,4 +139,5 @@ That test should distinguish three cases instead of requiring blanket parity:
 - Package metadata and README: [`../../../node/package.json`](../../../node/package.json), [`../../../node/README.md`](../../../node/README.md)
 - Current Node parity and smoke tests: [`../../../node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/test/examples.test.mjs`](../../../node/test/examples.test.mjs)
 - Build/generation boundary: [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs)
+- Runtime command contract: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
 - MoonBit source signatures: [`../../../src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti), [`../../../src/cmd/pkg.generated.mbti`](../../../src/cmd/pkg.generated.mbti), [`../../../src/validate/pkg.generated.mbti`](../../../src/validate/pkg.generated.mbti), [`../../../src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti)

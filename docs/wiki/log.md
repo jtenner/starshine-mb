@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | CLI cross-link hygiene
+
+- During the post-update wiki health pass, checked tooling, validation, fuzzing, and IR2 pages for stale command/dispatcher references and obvious broken normative-doc links.
+- Updated [`tooling/node-package-surface.md`](tooling/node-package-surface.md) so its `cmd` / `cli` parity discussion points at the canonical runtime command precedence page instead of leaving the relationship implicit.
+- Updated [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md) so runtime `--tracing`, debug limits, validation gates, and validator trace phases form a navigable chain.
+
 ## [2026-05-19] tooling | CLI command and dispatcher contract
 
 - Added [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md) as the canonical runtime `starshine` command contract, separating local command/config/env/dispatcher behavior from the narrower startup-performance note in [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md).
