@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] binary | stringref valtype decode breadth replay
+
+- Re-ran the broadened SG seed after the bare-stringref decoder fix: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x1eed --pass string-gathering --out-dir .tmp/pass-fuzz-string-gathering-decode-breadth-0x1eed-10k` reported 7888/10000 compared, 7887 normalized matches, 0 validation failures, 0 generator failures, 19 `binaryen-rec-group-zero` command failures, and one recurring no-string `case-007907-wasm-smith` normalized mismatch.
+- No new Starshine decode failures surfaced in that lane; the recurring mismatch remains classified as generic unreachable-wrapper/canonicalization drift rather than SG literal behavior or string-proposal decoder breadth.
+- Added binary coverage in [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt) proving bare `0x64` decodes as the local `ValType::stringref()` representation and re-encodes canonically as `0x63 0x64`, while explicit nullable `0x63 0x64` and explicit non-null `0x64 0x64` stringref value-type forms remain accepted and re-encode distinctly.
+- Validation: `moon fmt`, `moon test src/binary` (79/79), `moon test src/passes` (1110/1110), full `moon test` (3179/3179), and `moon info` passed; `moon info` still reports the pre-existing `dead_argument_elimination.mbt` unused warnings.
+
 ## [2026-05-19] binary | bare stringref value type decode
 
 - Added binary decoder coverage in [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt) for direct bare `0x64` stringref value-type decode and a type-section fixture with a bare stringref result.

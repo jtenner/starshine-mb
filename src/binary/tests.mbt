@@ -1793,6 +1793,69 @@ test "decode accepts bare stringref valtype" {
 }
 
 ///|
+test "decode bare stringref valtype re-encodes canonical nullable form" {
+  let (vt, next) = match
+    (Decode::decode(b"\x64", 0) : Result[(ValType, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(err) =>
+      fail("expected bare stringref valtype decode success, got \{err}")
+  }
+  @debug.assert_eq(next, 1)
+  @debug.assert_eq(vt, ValType::stringref())
+  let buf = @buffer.new()
+  match Encode::encode(vt, buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected stringref valtype re-encode success, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes(), b"\x63\x64")
+}
+
+///|
+test "decode accepts explicit nullable stringref valtype" {
+  let (vt, next) = match
+    (Decode::decode(b"\x63\x64", 0) : Result[(ValType, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(err) =>
+      fail(
+        "expected explicit nullable stringref valtype decode success, got \{err}",
+      )
+  }
+  @debug.assert_eq(next, 2)
+  @debug.assert_eq(vt, ValType::stringref())
+  let buf = @buffer.new()
+  match Encode::encode(vt, buf) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nullable stringref valtype re-encode success, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes(), b"\x63\x64")
+}
+
+///|
+test "decode accepts explicit non-null stringref valtype" {
+  let expected = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::string_())),
+  )
+  let (vt, next) = match
+    (Decode::decode(b"\x64\x64", 0) : Result[(ValType, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(err) =>
+      fail(
+        "expected explicit non-null stringref valtype decode success, got \{err}",
+      )
+  }
+  @debug.assert_eq(next, 2)
+  @debug.assert_eq(vt, expected)
+  let buf = @buffer.new()
+  match Encode::encode(vt, buf) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected non-null stringref valtype re-encode success, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes(), b"\x64\x64")
+}
+
+///|
 test "decode type section accepts bare stringref result" {
   let wasm = Bytes::from_array([
     0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00,
