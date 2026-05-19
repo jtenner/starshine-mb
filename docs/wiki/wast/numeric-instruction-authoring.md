@@ -17,6 +17,7 @@ sources:
   - ../../../src/validate/gen_valid.mbt
 related:
   - variable-instruction-authoring.md
+  - memory-instruction-authoring.md
   - memory-argument-authoring.md
   - simd-authoring.md
   - ../binary/instruction-and-expression-encoding.md
@@ -37,7 +38,7 @@ Use this page when writing or reviewing scalar numeric WAST fixtures for `i32`, 
 - float unary, binary, and comparison operations;
 - conversions, reinterprets, sign-extension operations, and saturating truncations.
 
-This page is scalar-only. Memory loads/stores use [`memory-argument-authoring.md`](memory-argument-authoring.md), local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). The checked primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md).
+This page is scalar-only. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). The checked primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md).
 
 ## Beginner Mental Model
 

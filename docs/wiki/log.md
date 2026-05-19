@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | memory instruction backlink hygiene
+
+- During the post-update whole-wiki health pass, searched WAST, binary, validation, fuzzing, and segment pages for memory-instruction references still routed only through the older memory-argument guide.
+- Updated [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), and [`index.md`](index.md) so scalar numeric exclusions and `memory.init` / `data.drop` data-count guidance point at [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md) while `align=` / `offset=` guidance remains on [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md).
+
 ## [2026-05-19] wast | runtime memory instruction authoring
 
 - Added [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md) as the focused WAST guide for scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, split deliberately from [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md).
