@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] runtime | direct ssa-nomerge artifact timeout
+
+- Probed the `[WALL]001` follow-up from the SG decoder-breadth handoff with direct `ssa-nomerge` artifact evidence instead of another SG fuzz lane.
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-ssa-nomerge-wall001-20260519 --starshine-bin _build/native/release/build/cmd/cmd.exe --ssa-nomerge` timed out after 300s before producing compare artifacts.
+- Direct Starshine replay `timeout 120s env STARSHINE_TRACING=pass _build/native/release/build/cmd/cmd.exe --ssa-nomerge --out .tmp/starshine-ssa-nomerge-wall001-20260519.raw.wasm tests/node/dist/starshine-debug-wasi.wasm` also timed out, with the trace stopped inside `Func 2977` (`_M0MP37jtenner9starshine4wast10WastParser26parse__opcode__instruction`) after `analysis:ssa`; no pass completion timer for that function was emitted.
+- Binaryen direct `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge --debug -o .tmp/binaryen-ssa-nomerge-wall001-20260519.raw.wasm` completed successfully in about 851ms wall time / 385.935ms pass time.
+- `--print-func 2977` shows a large opcode parser body with 394 locals and a 71,463-character raw body line, including 279 `if` nodes, 264 `local.set`, 128 `local.tee`, 399 calls, and 190 stores. This narrows the full-preset timeout to direct `ssa-nomerge` behavior on a large branchy parser function, still under `[WALL]001` rather than SG decoder correctness.
+
 ## [2026-05-19] binary | stringref valtype decode breadth replay
 
 - Re-ran the broadened SG seed after the bare-stringref decoder fix: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x1eed --pass string-gathering --out-dir .tmp/pass-fuzz-string-gathering-decode-breadth-0x1eed-10k` reported 7888/10000 compared, 7887 normalized matches, 0 validation failures, 0 generator failures, 19 `binaryen-rec-group-zero` command failures, and one recurring no-string `case-007907-wasm-smith` normalized mismatch.
