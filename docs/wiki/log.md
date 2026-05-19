@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | br_on generator coverage wording
+
+- During the post-update whole-wiki health pass, searched ordinary-control and reference-branch mentions for places that could hide the new WAST `br_on_*` text-surface caveat.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so `[FZG]009` explicitly names `br_on_null` and `br_on_non_null` alongside `br_on_cast` / `br_on_cast_fail`, and points WAST text mirrors at [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md).
+
 ## [2026-05-19] wast | ordinary control-flow authoring
 
 - Added [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md) as the focused WAST guide for `block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, `unreachable`, and typed `select` across text syntax, lowering, binary/core representation, validation, CFG, and generator evidence.
