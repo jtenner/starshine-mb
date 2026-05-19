@@ -8148,6 +8148,46 @@ fn dae_strip_nops_and_dropped_zero_instrs(
 }
 
 ///|
+fn dae_strip_touched_nops_and_dropped_zero_once(
+  mod_ : @lib.Module,
+  touched_defs : Array[Bool],
+) -> DaePassResult {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let touched = Array::make(funcs.length(), false)
+  let mut changed = false
+  let mut primary_def = -1
+  let mut def_idx = 0
+  while def_idx < funcs.length() && def_idx < touched_defs.length() {
+    if touched_defs[def_idx] {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+      let rewritten = dae_strip_nops_and_dropped_zero_instrs(body)
+      if rewritten != body {
+        funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+        touched[def_idx] = true
+        changed = true
+        if primary_def < 0 {
+          primary_def = def_idx
+        }
+      }
+    }
+    def_idx += 1
+  }
+  if !changed {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  {
+    mod_out: mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec(),
+    touched,
+    changed: true,
+    primary_def,
+  }
+}
+
+///|
 fn dae_instrs_reference_local_at_or_above(
   instrs : Array[@lib.Instruction],
   limit : Int,
@@ -8974,6 +9014,17 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       )
       changed = true
     }
+  }
+  let touched_raw_cleanup = dae_strip_touched_nops_and_dropped_zero_once(
+    current, touched,
+  )
+  if touched_raw_cleanup.changed {
+    current = touched_raw_cleanup.mod_out
+    touched = dae_merge_touched(touched, touched_raw_cleanup.touched)
+    trace(
+      "pass[dae-optimizing]:touched-raw-cleanup primary_def=\{touched_raw_cleanup.primary_def}",
+    )
+    changed = true
   }
   { mod_out: current, touched, changed, primary_def: -1 }
 }

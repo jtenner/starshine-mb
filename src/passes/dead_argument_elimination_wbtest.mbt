@@ -49,3 +49,35 @@ test "dae original call summary counts repeated undropped callees once per calle
   assert_eq(summary.prior_undropped_call_counts, [0, 1, 1])
   assert_eq(summary.active_nonself_call_counts, [0, 1, 2])
 }
+
+///|
+test "dae touched raw cleanup strips nops and dropped zero only from touched functions" {
+  let noisy_body = [
+    @lib.Instruction::nop(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::drop(),
+  ]
+  let mod_ = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(noisy_body)),
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(noisy_body)),
+    ]),
+  )
+  let result = dae_strip_touched_nops_and_dropped_zero_once(mod_, [true, false])
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 0)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(untouched)) = funcs[1]
+      assert_eq(cleaned, [
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::drop(),
+      ])
+      assert_eq(untouched, noisy_body)
+    }
+    None => fail("expected rewritten code section")
+  }
+}
