@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | wiki log heading spacing
+
+- During the post-update whole-wiki health pass, searched [`log.md`](log.md) for headings accidentally joined to previous bullet text with `.##`.
+- Fixed the 2026-05-16 INL006 / INL002 log block so affected headings render as headings again instead of inline bullet text.
+
 ## [2026-05-19] wast | tail-call authoring
 
 - Added [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md) as the focused WAST guide for `return_call`, `return_call_indirect`, and `return_call_ref` across text syntax, lowering, binary opcodes, validation, CFG, pass rewrites, and fuzz/generator evidence.
@@ -239,14 +244,18 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`binaryen/passes/inlining-optimizing/deferred-inl005-inl006-work.md`](./binaryen/passes/inlining-optimizing/deferred-inl005-inl006-work.md) as the durable handoff for work not completed in the INL follow-up.
 - Recorded that `[INL]005` Pattern A / Pattern B partial splitting, helper creation/cleanup, and real no-partial splitter policy behavior remain unimplemented and should not be chased for cosmetic Binaryen WAT/byte parity alone.
 - Recorded that `[INL]006` tail-call and multi-result surfaces are now narrowed by focused tests, while Binaryen-like function-scoped local/label name reconstruction and broader annotation collision repair remain intentionally unsupported unless a future semantic, validation, user-facing, or performance/code-size reason appears.
+
 ## [2026-05-16] tests | INL006 name repair around type synthesis
 
 - Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving function names still compact and non-function names for types, tables, memories, and globals survive when multi-result inlining appends a synthetic zero-param result block type.
 - No implementation change was needed. Validation/evidence: focused test passed; `moon fmt`, `moon info`, `moon test src/passes` (`1080/1080`), full `moon test` (`3143/3143`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-name-type-wasm-smith-1000` (`996/1000` compared, `996` matches, `0` mismatches, `0` validation failures, `4` Binaryen/tool command failures). Starshine still intentionally drops function-scoped local/label names after body rewrites instead of reconstructing Binaryen-like collision-repaired local/label maps.
+
 ## [2026-05-16] tests | INL006 remaining tail-form coverage
 
 - Added focused `[INL]006` coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving helpers containing `return_call_indirect` and `return_call_ref` can be inlined at outer direct `return_call` callsites while preserving the nested tail call, and proving direct `return_call` inlining remains valid inside a `try_table` callsite.
-- No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused tests passed; `moon fmt`, `moon info`, `moon test src/passes` (`1079/1079`), full `moon test` (`3142/3142`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-forms-wasm-smith-1000` (`991/1000` compared, `991` matches, `0` mismatches, `0` validation failures, `9` Binaryen/tool command failures). Remaining `[INL]006` work is full name/annotation repair.## [2026-05-16] passes | INL006 synthesized multi-result block types
+- No implementation change was needed after the earlier guarded tail-call subset. Validation/evidence: focused tests passed; `moon fmt`, `moon info`, `moon test src/passes` (`1079/1079`), full `moon test` (`3142/3142`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-forms-wasm-smith-1000` (`991/1000` compared, `991` matches, `0` mismatches, `0` validation failures, `9` Binaryen/tool command failures). Remaining `[INL]006` work is full name/annotation repair.
+
+## [2026-05-16] passes | INL006 synthesized multi-result block types
 
 - Advanced `[INL]006` by appending a missing zero-param function type for a parameterized multi-result callee's result tuple when the helper is referenced and otherwise passes the narrow inline gates. The copied-body wrapper block can then use that synthesized type instead of rejecting the helper.
 - Added focused coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a `(param i32) (result i32 i32)` helper inlines even when the input module has no pre-existing zero-param result type.
@@ -255,11 +264,14 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Advanced `[INL]006` by allowing no-param multi-result callees to inline when their existing function type can serve as the copied-body wrapper block type, and parameterized multi-result callees to inline when the module already has a reusable zero-param function type for the same results. This keeps broader type-section synthesis gated.
 - Added focused coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt) proving a no-param `(result i32 i32)` helper is removed and its constants are visible in the caller, and that a parameterized `(param i32) (result i32 i32)` helper can inline through an imported zero-param result-type carrier.
-- Validation/evidence: both focused tests first failed with helpers still present, then passed after implementation; `moon fmt`, `moon info`, `moon test src/passes` (`1075/1075`), full `moon test` (`3138/3138`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-reuse-type-wasm-smith-1000` (`999/1000` compared, `999` matches, `0` mismatches, `0` validation failures, `1` Binaryen/tool command failure). Remaining `[INL]006` work includes general multi-result block-type synthesis, `return_call` inside `try`, indirect/ref tail-call forms, and full name/annotation repair.## [2026-05-16] passes | INL006 nested direct tail-call subset
+- Validation/evidence: both focused tests first failed with helpers still present, then passed after implementation; `moon fmt`, `moon info`, `moon test src/passes` (`1075/1075`), full `moon test` (`3138/3138`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-reuse-type-wasm-smith-1000` (`999/1000` compared, `999` matches, `0` mismatches, `0` validation failures, `1` Binaryen/tool command failure). Remaining `[INL]006` work includes general multi-result block-type synthesis, `return_call` inside `try`, indirect/ref tail-call forms, and full name/annotation repair.
+
+## [2026-05-16] passes | INL006 nested direct tail-call subset
 
 - Advanced `[INL]006` by recording whether an inline candidate contains `return_call*` and permitting that candidate only when the outer callsite is a direct `return_call`. This covers the safe tail-call-preserving nested direct case without broadening non-tail callsites that still need Binaryen-style repair.
 - Added focused coverage in [`../../src/passes/inlining_test.mbt`](../../src/passes/inlining_test.mbt): an imported target keeps the inner `return_call` from being simplified away, the tail callsite inlines and removes the helper, and the non-tail callsite remains gated.
 - Validation/evidence: `moon fmt`, `moon info`, `moon test src/passes` (`1073/1073`), full `moon test` (`3136/3136`), and wasm-smith-only smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-wasm-smith-1000` (`997/1000` compared, `997` matches, `0` mismatches, `0` validation failures, `3` Binaryen/tool command failures). Mixed-generator keep-going smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-tail-1000-keep` has `0` validation failures but preserves the known gen-valid local-declaration/frontier mismatch shape. Remaining `[INL]006` work includes `return_call` inside `try`, indirect/ref tail-call forms, multi-result wrapper typing, and full name/annotation repair.
+
 ## [2026-05-16] passes | INL002 representation drift accepted
 
 - Closed `[INL]002` for v0.1.0 as accepted representation/factoring drift rather than exact Binaryen byte/WAT parity. The latest debug-artifact replay `.tmp/inl002-puresuffix-only-20260516-002821` validates, and direct fuzz closeout `.tmp/pass-fuzz-inlining-optimizing-inl002-closeout-10000-keep` already reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool command failures.
