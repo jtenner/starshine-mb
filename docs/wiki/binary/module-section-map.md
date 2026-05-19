@@ -103,11 +103,11 @@ Use this checklist before implementing or reviewing any pass that deletes, reord
 | --- | --- |
 | Type definitions | Function signatures, block types, table/global/tag types, imports/exports, GC instructions, casts, element types, type names, and any pass-local type caches. |
 | Function imports/definitions | `func_sec` / `code_sec` parallelism, direct calls, tail calls, `ref.func`, start, exports, element payloads, global/table initializer expressions, function names, local/label names keyed under retained functions, and `func_annotation_sec` when present from WAST lowering. |
-| Tables | `TableIdx` instructions, `call_indirect` / `return_call_indirect`, active element modes, imports/exports, table names, and optional table initializer expressions. |
+| Tables | `TableIdx` instructions, `call_indirect` / `return_call_indirect`, active element modes, imports/exports, table names, and optional table initializer expressions; WAST runtime instruction details live in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
 | Memories | `MemArg` memory operands, memory management instructions, active data modes, imports/exports, memory names, memory64/lowering assumptions, and the explicit-memidx encoding caveats in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). |
 | Globals | `global.get` / `global.set`, global initializer expressions, imports/exports, global names, global summaries, and constant-propagation caches. |
 | Tags | `throw`, catch clauses, imports/exports, tag names, and exception validation assumptions. |
-| Elements or data segments | Segment indices, active parent table/memory indices, `table.init` / `elem.drop` / `memory.init` / `data.drop`, name maps, data-count equality, and startup-trap policy. |
+| Elements or data segments | Segment indices, active parent table/memory indices, `table.init` / `elem.drop` / `memory.init` / `data.drop`, name maps, data-count equality, and startup-trap policy; pair element runtime uses with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
 | Custom/name metadata | Clear `raw_name_sec_payload` after structured rewrites, update affected name maps, preserve unrelated non-`name` custom payloads unless the pass explicitly owns a stripping policy. |
 | Local `stringrefs` pool | Keep `StringRefsSec`, `Instruction::StringConst`, and string pass assumptions consistent; do not describe id `14` as stable core Wasm without refreshing upstream sources. |
 

@@ -23,6 +23,7 @@ related:
   - ../wast/gc-type-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/memory-argument-authoring.md
+  - ../wast/table-instruction-authoring.md
   - ../wast/simd-authoring.md
 ---
 
@@ -105,7 +106,7 @@ Key typechecker responsibilities:
 - [`Typecheck for Expr`](../../../src/validate/typecheck.mbt) runs instructions in order and threads a `TcState` containing environment, operand stack, reachability, and escape state.
 - `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks; `try_table` catch payload/label rules are summarized in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure.
-- `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range.
+- `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range. For text-level table-index defaults, `table.init` ordering, and table64 caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 - `ref.func` is syntactically just an instruction immediate, but Starshine runs a separate declaration check; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 - Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly.
 
@@ -165,7 +166,7 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - **Blocktype type indices must name function types.** Struct/array type indices are not legal blocktype expansions.
 - **Recursive-index blocktypes are not binary-output-safe.** Normalize to absolute type indices before encode.
 - **Explicit memory indices are encoded through Starshine's extended memarg form.** Passes touching memories must update `MemArg` carriers, not only `memory.size` / `memory.grow` instructions.
-- **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses bulk memory, SIMD, atomics, and GC/custom-descriptor operations. For SIMD specifically, pair this binary guide with [`../wast/simd-authoring.md`](../wast/simd-authoring.md) so lane-shaped text fixtures stay aligned with the canonical 16-byte core representation.
+- **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses bulk memory, table bulk operations, SIMD, atomics, and GC/custom-descriptor operations. For table text fixtures specifically, pair this binary guide with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md) so default table indices and `table.init` element/table ordering stay aligned across text, core, and binary layers. For SIMD, pair it with [`../wast/simd-authoring.md`](../wast/simd-authoring.md) so lane-shaped text fixtures stay aligned with the canonical 16-byte core representation.
 - **SIMD lane immediates need shape-specific evidence.** Starshine's WAST lowerer enforces exact lane bounds, but binary decode currently uses a coarse generic `<16` lane guard except for shuffle's `<32` decoder; see [`../wast/simd-authoring.md`](../wast/simd-authoring.md) before treating binary-origin lane acceptance as validation parity.
 - **Deep nesting is a fuzz-hardening boundary.** Raising or removing the decoder limit should be treated as a security/performance-sensitive codec change.
 
@@ -176,4 +177,4 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
-- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)
+- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)

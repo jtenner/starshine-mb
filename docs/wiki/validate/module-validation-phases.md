@@ -24,6 +24,7 @@ related:
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
   - ../wast/memory-argument-authoring.md
+  - ../wast/table-instruction-authoring.md
   - ../tooling/validation-gates.md
   - ../validation/moonbit-prove-strategy.md
 ---
@@ -76,7 +77,7 @@ Two practical consequences follow:
 | `typesec` | Validates recursive type groups, subtype references, descriptor metadata, exact-ref constraints, and appends normalized types. | Extends `Env.global_types` and `rec_stack`. | `validate_typesec`, `validate_rectype_and_extend`, descriptor tests in `validate.mbt`. |
 | `importsec` | Validates imported extern types and extends imported-prefix index spaces. | Extends `funcs`, `func_type_idxs`, `tables`, `mems`, `globals`, and `tags`. | `validate_importsec`; imported-prefix section guide in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md). |
 | `funcsec` | Validates defined-function type indices. | Appends defined function signatures after imported functions. | `validate_funcsec`; code/function length tests. |
-| `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`. |
+| `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`; instruction-side table use is summarized in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
 | `memsec` | Validates memory limits, memory64 address widths, and shared-memory maximum requirements. | Extends `mems` incrementally. | `validate_memsec`, `MemType` validation; memory instruction address-width effects are summarized in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md). |
 | `tagsec` | Validates exception tag type indices and empty tag result types. | Extends `tags` incrementally. | `validate_tagsec`, `TagType` validation; WAST catch/throw authoring details live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). |
 | `globalsec` | Validates global types and constant initializers. Later globals see earlier globals only. | Extends `globals` incrementally. | `validate_globalsec`, `validate_const_expr`. |
@@ -160,7 +161,7 @@ After a pass changes module structure, ask these validator questions before rely
 2. Do `FuncSec` and `CodeSec` still agree on defined-function count after imports are accounted for?
 3. If a pass deletes or rewrites functions, do surviving `ref.func` instructions still have declaration sources?
 4. If a pass deletes data segments or bulk-memory instructions, is `DataCntSec` still correct and still present only when required?
-5. If a pass rewrites globals, tables, elements, or data, are initializer expressions still constant under the current environment order?
+5. If a pass rewrites globals, tables, elements, or data, are initializer expressions still constant under the current environment order, and did table-instruction carriers follow the table rewrite checklist in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md)?
 6. If a pass rewrites bodies, do end-of-body result checks still pass with no extra stack values?
 7. If a pass changes public or debug metadata, are structured name maps and raw name payloads cleared or repaired?
 8. Does the invalid-fuzzer family expectation still match the user-visible diagnostic after the change?

@@ -18,6 +18,7 @@ related:
   - ../validate/ref-func-declarations.md
   - ../validate/module-validation-phases.md
   - ../fuzzing/generator-coverage-ledger.md
+  - table-instruction-authoring.md
   - static-assertion-harness.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
@@ -42,7 +43,7 @@ That last point is the important local caveat. The parser recognizes `(elem decl
 | Mode | Official meaning | Starshine core/binary status | Current WAST status |
 | --- | --- | --- | --- |
 | Active | Copies element values into a table at instantiation time. | Supported by `ElemMode::active(...)`, binary headers `0`, `2`, `4`, and `6`, and text lowering when an offset expression is present. | Use `(elem (i32.const 0) ...)` or table abbreviations. |
-| Passive | Provides a segment that later code can consume with `table.init` / `elem.drop`. | Supported by `ElemMode::passive()` and binary headers `1` and `5`. | Use `(elem func $f)` or `(elem (ref null $t) ...)` with no offset. |
+| Passive | Provides a segment that later code can consume with `table.init` / `elem.drop`; instruction authoring details live in [`table-instruction-authoring.md`](table-instruction-authoring.md). | Supported by `ElemMode::passive()` and binary headers `1` and `5`. | Use `(elem func $f)` or `(elem (ref null $t) ...)` with no offset. |
 | Declarative | Declares element references without initializing a table or being available for later `table.init`. It still contributes `ref.func` declaration information. | Supported by `ElemMode::declarative()` and binary headers `3` and `7`; arbitrary generation exercises both declarative function-list and typed-expression cases in [`src/lib/arbitrary.mbt`](../../../src/lib/arbitrary.mbt#L140-L168). | Parser accepts `(elem declare func ...)`, but lowering/printer currently lose the mode and treat it as passive. |
 
 Do not interpret the WAST caveat as a core-library limitation. Direct lib modules, binary decode, binary encode, and generator paths can carry declarative elements. The gap is only the higher-level text AST/lowering/printer path.
@@ -94,7 +95,7 @@ The existing typed-ref parser/lowerer smoke tests use `(elem declare func $dummy
 
 Keep these invariants visible:
 
-- **Mode is semantic, not just syntax.** Passive and declarative segments can both have no offset, but they are not interchangeable once `table.init` / `elem.drop` and `ref.func` declarations are considered.
+- **Mode is semantic, not just syntax.** Passive and declarative segments can both have no offset, but they are not interchangeable once `table.init` / `elem.drop` and `ref.func` declarations are considered. Use [`table-instruction-authoring.md`](table-instruction-authoring.md) when the fixture consumes the segment at runtime.
 - **Typed intent should survive.** Explicit element type or explicit `(item ...)` syntax must keep the segment in a typed-expression representation instead of collapsing blindly to a function-index list.
 - **Function indices are absolute after lowering.** Element payloads use the same imported-prefix `FuncIdx` model as calls, exports, starts, and `ref.func` declarations; see [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
 - **Do not hide the declarative gap.** If a fixture needs real declarative-mode proof today, prefer a direct core/binary fixture or first fix the WAST AST mode field.

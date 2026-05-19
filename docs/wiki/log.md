@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | table instruction authoring
+
+- Added [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md) as the focused WAST table-instruction guide for `call_indirect`, `return_call_indirect`, `table.get`, `table.set`, `table.size`, `table.grow`, `table.fill`, `table.copy`, `table.init`, and `elem.drop`.
+- Ingested [`raw/wasm/2026-05-19-wast-table-instruction-sources.md`](raw/wasm/2026-05-19-wast-table-instruction-sources.md) after checking current official WebAssembly 3.0 text, syntax, binary, and validation instruction pages plus Starshine parser, printer, lowerer, core instruction, binary codec, typechecker, generator, WAST arbitrary, and invalid-fuzzer surfaces.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md), and [`index.md`](index.md) so table runtime instructions, element segments, validator stack rules, and generator coverage point at one shared WAST table contract.
+- Recorded the current local table64 caveat explicitly: table-copy/init/fill validation consults table address widths, while table-get/set/size/grow and indirect-call validation still use `i32` assumptions in [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt).
+
 ## [2026-05-19] health | memory argument backlink hygiene
 
 - During the post-update whole-wiki health pass, searched for remaining `MemArg` / `offset=` references that could still hide the new WAST authoring split.

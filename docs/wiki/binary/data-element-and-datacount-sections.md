@@ -79,7 +79,7 @@ Starshine enforces two separate rules in [`src/validate/validate.mbt`](../../../
 1. [`validate_datacnt(...)`](../../../src/validate/validate.mbt) accepts absent data count, but when present it must equal the length of `DataSec`; `DataCntSec(0)` without a data section is accepted, while a nonzero count without `DataSec` is rejected.
 2. `validate_bulk_memory_data_count_requirement(...)` rejects a module with no data-count section when any defined function body contains `memory.init` or `data.drop`.
 
-This split is useful for diagnostics: a mismatched count is a section-level `datacnt` problem, while missing data count for a bulk-memory instruction is reported against the function body that required it. The instruction/immediate side of `memory.init`, `data.drop`, `table.init`, and `elem.drop` lives in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md).
+This split is useful for diagnostics: a mismatched count is a section-level `datacnt` problem, while missing data count for a bulk-memory instruction is reported against the function body that required it. The instruction/immediate side of `memory.init`, `data.drop`, `table.init`, and `elem.drop` lives in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md); WAST text defaults and `table.init` table/element ordering live in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 
 ## WAST Authoring Examples
 
@@ -135,7 +135,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 2. **WAST parse** resolves text surface shape only: ids, table/memory uses, offsets, string payloads, function-index items, and typed item expressions.
 3. **WAST lower** resolves ids to numeric indices, chooses `FuncsElemKind` when every item is a simple function reference and no explicit typed intent is present, chooses typed expression kinds for richer payloads, and inserts `DataCntSec` when data segments exist.
 4. **Validation** checks parent memories/tables, offset const-ness and address type, element expression type, function/data/element index bounds, data-count equality, and the special code-section data-count requirement; see the full phase map in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
-5. **Passes** that delete or reorder memories, tables, functions, data segments, or element segments must repair every affected surface: segment modes, payload references, bulk-memory/table-init instructions, exports, names, and any pass-local metadata.
+5. **Passes** that delete or reorder memories, tables, functions, data segments, or element segments must repair every affected surface: segment modes, payload references, bulk-memory/table-init instructions, exports, names, and any pass-local metadata. Table runtime instruction carriers should follow the checklist in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 
 ## Edge Cases And Invariants
 
