@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | scalar numeric instruction authoring
+
+- Added [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md) as the focused WAST scalar numeric guide for `i32` / `i64` / `f32` / `f64` constants, tests, comparisons, unary/binary ops, conversions, reinterprets, sign-extension, and saturating truncations.
+- Ingested [`raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](raw/wasm/2026-05-19-wast-numeric-instruction-sources.md) after checking current official WebAssembly text/syntax/binary/validation/value sources plus Starshine keyword, parser, lowerer, printer, core instruction, binary codec, typechecker, constant-expression, valid-generator, and WAST arbitrary surfaces.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so scalar numeric byte families, stack typing, constant-expression behavior, `[FZG]002` evidence, and WAST arbitrary gaps route through one shared contract.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
+
 ## [2026-05-19] health | reference instruction backlink hygiene
 
 - During the post-update whole-wiki health pass, searched generator, validation, WAST, binary, and CFG pages for `br_on_*`, ordinary `ref.test`, ordinary `ref.cast`, and focused WAST guide links that still routed through the broader control-flow page or omitted the new reference-instruction contract.

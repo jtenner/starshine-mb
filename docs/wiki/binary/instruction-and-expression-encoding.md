@@ -8,6 +8,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
+  - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
@@ -27,6 +28,7 @@ related:
   - ../wast/control-flow-authoring.md
   - ../wast/reference-instruction-authoring.md
   - ../wast/variable-instruction-authoring.md
+  - ../wast/numeric-instruction-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../wast/table-instruction-authoring.md
@@ -94,6 +96,10 @@ The binary layer can reject malformed immediate ranges (`InvalidMemArgEncoding` 
 
 The local/global variable instruction family is byte-simple but semantically coupled to validation and text lowering: `local.get` / `local.set` / `local.tee` use opcodes `0x20` / `0x21` / `0x22` plus a `localidx`, while `global.get` / `global.set` use `0x23` / `0x24` plus a `globalidx`. The byte codec only proves that an index immediate was present; [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md) covers the WAST `$` identifier lowering, parameter-before-local numbering, `local.tee` stack-preservation rule, `global.set` mutability check, and immutable-`global.get` constant-expression policy.
 
+### Scalar numeric instructions
+
+Scalar numeric constants and operators are mostly byte-simple but validation-sensitive. `i32.const`, `i64.const`, `f32.const`, and `f64.const` use opcodes `0x41` through `0x44` plus literal immediates; most tests, comparisons, arithmetic, and conversions use one-byte opcodes; sign-extension uses `0xC0` through `0xC4`; and saturating truncations use `0xFC` subcodes `0` through `7`. The byte codec does not prove stack validity, trap preservation, signedness, or NaN behavior. Use [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) for text literal caveats, scalar stack effects, constant-expression behavior, and pass rewrite hazards.
+
 ### Reference instructions
 
 Reference instructions are split across one-byte opcodes and GC-prefixed forms. Starshine encodes/decodes the basic `0xD0`-family forms (`ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, `br_on_null`, and `br_on_non_null`) and `0xFB` subcodes for ordinary/descriptor test-cast plus cast-branch forms. The text authoring surface is narrower: current WAST supports the basic `ref.*` subset and descriptor forms, but not ordinary `ref.test` / `ref.cast` / `br_on_*` text keywords. Use [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) before drawing parser, binary, or validation conclusions from one layer alone.
@@ -121,6 +127,7 @@ Key typechecker responsibilities:
 - `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks; ordinary WAST control-flow fixture rules live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), while `try_table` catch payload/label rules are summarized in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure; ordinary branch payload/fallthrough guidance lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), and WAST fixture guidance for `return_call`, `return_call_indirect`, and `return_call_ref` lives in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 - `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` validate local/global index existence, stack operand types, and global mutability above the byte layer; fixture and rewrite rules live in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
+- Scalar numeric constants, comparisons, arithmetic, conversions, reinterprets, sign-extension, and saturating truncations validate stack arity and exact operand/result value types above the byte layer; text fixture rules and rewrite hazards live in [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md).
 - `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range. For text-level table-index defaults, `table.init` ordering, and table64 caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 - Reference instructions have layered semantics: `ref.func` is syntactically just an immediate but also needs whole-module declaration checking; `ref.test` / `ref.cast` and `br_on_*` need hierarchy, nullability, and label-payload checks above the byte layer. See [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 - Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly.
@@ -181,7 +188,7 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - **Blocktype type indices must name function types.** Struct/array type indices are not legal blocktype expansions.
 - **Recursive-index blocktypes are not binary-output-safe.** Normalize to absolute type indices before encode.
 - **Explicit memory indices are encoded through Starshine's extended memarg form.** Passes touching memories must update `MemArg` carriers, not only `memory.size` / `memory.grow` instructions.
-- **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses bulk memory, table bulk operations, SIMD, atomics, and GC/custom-descriptor operations. For table text fixtures specifically, pair this binary guide with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md) so default table indices and `table.init` element/table ordering stay aligned across text, core, and binary layers. For SIMD, pair it with [`../wast/simd-authoring.md`](../wast/simd-authoring.md) so lane-shaped text fixtures stay aligned with the canonical 16-byte core representation.
+- **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses scalar `0xFC` saturating truncations, bulk memory, table bulk operations, SIMD, atomics, and GC/custom-descriptor operations. For scalar numeric text fixtures, pair this binary guide with [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) so constants, signedness, trap behavior, and `[FZG]002` coverage stay aligned. For table text fixtures specifically, pair this binary guide with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md) so default table indices and `table.init` element/table ordering stay aligned across text, core, and binary layers. For SIMD, pair it with [`../wast/simd-authoring.md`](../wast/simd-authoring.md) so lane-shaped text fixtures stay aligned with the canonical 16-byte core representation.
 - **SIMD lane immediates need shape-specific evidence.** Starshine's WAST lowerer enforces exact lane bounds, but binary decode currently uses a coarse generic `<16` lane guard except for shuffle's `<32` decoder; see [`../wast/simd-authoring.md`](../wast/simd-authoring.md) before treating binary-origin lane acceptance as validation parity.
 - **Deep nesting is a fuzz-hardening boundary.** Raising or removing the decoder limit should be treated as a security/performance-sensitive codec change.
 
@@ -192,4 +199,4 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
-- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)
+- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)
