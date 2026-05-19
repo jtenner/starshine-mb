@@ -448,6 +448,10 @@ fn sgo_count_read_only_to_write_instrs(
       @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(instrs, pos, idx) =>
         sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       @lib.Block(_, body) => {
+        sgo_count_block_condition_external_pure_read(instrs, pos, safe_reads)
+        sgo_count_block_condition_external_pure_if_return_read(
+          instrs, pos, safe_reads,
+        )
         if pos + 1 < instrs.length() {
           sgo_count_block_condition_read_only_to_write_read(
             instr,
@@ -1023,6 +1027,118 @@ fn sgo_block_condition_pure_read_matches(
     }
   }
   true
+}
+
+///|
+fn sgo_external_condition_stack_after(
+  instr : @lib.Instruction,
+  depth : Int,
+) -> Int? {
+  match sgo_const_instr(instr) {
+    Some(_) => return Some(depth + 1)
+    None => ()
+  }
+  match instr {
+    @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I32Eqz
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.I64Eqz => if depth >= 1 { Some(depth) } else { None }
+    _ =>
+      if sgo_is_read_only_to_write_pure_condition_instr(instr) && depth >= 2 {
+        Some(depth - 1)
+      } else {
+        None
+      }
+  }
+}
+
+///|
+fn sgo_block_condition_external_pure_if_index(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+) -> Int? {
+  let mut depth = 1
+  let mut pure_count = 0
+  for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
+    match instrs[scan] {
+      @lib.If(_, _, _) =>
+        if pure_count >= 3 && depth == 1 {
+          return Some(scan)
+        } else {
+          return None
+        }
+      instr =>
+        match sgo_external_condition_stack_after(instr, depth) {
+          Some(next_depth) => {
+            depth = next_depth
+            pure_count = pure_count + 1
+          }
+          None => return None
+        }
+    }
+  }
+  None
+}
+
+///|
+fn sgo_count_block_condition_external_pure_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  match instrs[pos] {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_external_pure_if_index(instrs, pos) {
+        Some(if_index) =>
+          match instrs[if_index] {
+            @lib.If(_, then_body, None) =>
+              match sgo_single_const_global_set_idx(then_body) {
+                Some(idx) =>
+                  sgo_count_block_condition_safe_body_read(
+                    body, idx, safe_reads,
+                  )
+                None => ()
+              }
+            _ => ()
+          }
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_block_condition_external_pure_if_return_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  match instrs[pos] {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_external_pure_if_index(instrs, pos) {
+        Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
+          if if_index + 3 == instrs.length() {
+            match instrs[if_index + 2] {
+              @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) !=
+                None =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              _ => ()
+            }
+          } else if if_index + 2 == instrs.length() {
+            match sgo_block_set_tail_idx(instrs[if_index + 1]) {
+              Some(idx) =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
 }
 
 ///|
