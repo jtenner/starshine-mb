@@ -22,6 +22,7 @@ related:
   - ../validation/moonbit-prove-strategy.md
   - ../validate/module-validation-phases.md
   - ../validate/ref-func-declarations.md
+  - ../wast/function-call-and-module-authoring.md
   - ../binaryen/passes/reorder-functions/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../binaryen/passes/duplicate-function-elimination/index.md
@@ -31,7 +32,7 @@ related:
 
 ## Overview
 
-This is the canonical Starshine wiki page for the function-index-bearing core module surface: imports, defined-function declarations, exports, start functions, and code bodies. It intentionally sits in `docs/wiki/binary/` rather than under a pass folder because many optimizers and validators need the same section contract. For the whole-module standard-section order, custom-section placement, and cross-section rewrite checklist, see [`module-section-map.md`](module-section-map.md).
+This is the canonical Starshine wiki page for the function-index-bearing core module surface: imports, defined-function declarations, exports, start functions, and code bodies. It intentionally sits in `docs/wiki/binary/` rather than under a pass folder because many optimizers and validators need the same section contract. For the WAST authoring side of `(func ...)`, inline import/export forms, `(start ...)`, direct `call`, and the function/type side of `call_indirect`, see [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md). For the whole-module standard-section order, custom-section placement, and cross-section rewrite checklist, see [`module-section-map.md`](module-section-map.md).
 
 The WebAssembly Core Specification models imports and definitions as shared index spaces. A function import is not a separate kind of function reference: it occupies the first entries of the function index space, and defined functions come after those imports. The same imported-prefix rule applies to tables, memories, globals, and tags; see [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for those non-function resource spaces. The binary format then splits defined functions across two parallel sections:
 
@@ -159,5 +160,5 @@ Existing pass dossiers that depend on this checklist include:
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation and proof helpers: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate_proof/func_index.mbt`](../../../src/validate_proof/func_index.mbt)
-- WAST lowering: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
+- WAST lowering and authoring: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md)
 - Related docs: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../binaryen/passes/reorder-functions/index.md`](../binaryen/passes/reorder-functions/index.md), [`../binaryen/passes/remove-unused-module-elements/index.md`](../binaryen/passes/remove-unused-module-elements/index.md)

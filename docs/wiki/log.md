@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | function call and module authoring
+
+- Added [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md) as the focused WAST guide for `(func ...)`, inline and explicit function imports/exports, `(start ...)`, direct `call`, and the function/type side of `call_indirect`, deliberately routing table-resource details to [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), tail calls to [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), and `ref.func` declaration rules to [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md).
+- Ingested [`raw/wasm/2026-05-19-wast-call-and-function-sources.md`](raw/wasm/2026-05-19-wast-call-and-function-sources.md) after checking current official WebAssembly text-module, instruction-validation, and module-validation sources plus Starshine parser, lowerer, printer, core instruction, validator, valid-generator, and WAST arbitrary surfaces.
+- Updated [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so call/function/module authoring, imported-prefix lowering, indirect-call ownership, start/export/import topology, and WAST arbitrary call text route through one shared contract.
+- Recorded current local caveats explicitly: inline exports on inline function-import shorthand are rejected by Starshine WAST, WAST lowering keeps the last parsed start field, and ordinary non-tail `call_ref` remains core/binary/generator-visible but not WAST-text-visible.
+
 ## [2026-05-19] health | memory instruction backlink hygiene
 
 - During the post-update whole-wiki health pass, searched WAST, binary, validation, fuzzing, and segment pages for memory-instruction references still routed only through the older memory-argument guide.

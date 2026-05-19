@@ -16,6 +16,7 @@ sources:
   - ../../../src/ir/hot_flags.mbt
   - ../../../src/ir/cfg.mbt
 related:
+  - function-call-and-module-authoring.md
   - table-instruction-authoring.md
   - exception-tag-authoring.md
   - reference-instruction-authoring.md
@@ -36,7 +37,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 - `return_call_indirect` for a table-mediated tail call;
 - `return_call_ref` for a reference-call tail call.
 
-The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow.
+The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).
 
 The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md). The narrower CFG-only source snapshot remains in [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
