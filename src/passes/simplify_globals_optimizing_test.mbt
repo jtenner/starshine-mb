@@ -3982,6 +3982,83 @@ test "simplify-globals-optimizing keeps nested branch block runtime facts conser
 }
 
 ///|
+test "simplify-globals-optimizing clears pre-block runtime facts across nested calls" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 10
+      #|    global.set $g
+      #|    block
+      #|      block
+      #|        call $tick
+      #|      end
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing clears pre-block runtime facts across nested branches" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32) (result i32)
+      #|    i32.const 10
+      #|    global.set $g
+      #|    block
+      #|      block
+      #|        local.get $p
+      #|        br_if 0
+      #|      end
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing clears only same-global non-constant block writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (global $h (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32) (result i32)
+      #|    i32.const 10
+      #|    global.set $g
+      #|    i32.const 20
+      #|    global.set $h
+      #|    block
+      #|      local.get $p
+      #|      global.set $g
+      #|    end
+      #|    global.get $g
+      #|    global.get $h
+      #|    i32.add))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get (Global 0)"), msg=pretty)
+  assert_false(pretty.contains("global.get (Global 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(20)"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing tracks exported global runtime block facts" {
   let optimized = sgo_test_run(
     (

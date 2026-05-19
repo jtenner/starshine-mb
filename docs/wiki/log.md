@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO same-trace runtime barrier characterization
+
+- Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for same-trace runtime barriers: facts established before nested plain blocks are cleared when those blocks contain calls or branches, and non-constant writes clear only the same global while preserving independent scalar facts.
+- Local Binaryen probe `.tmp/sgo-runtime-barrier-characterization-probes.wat` showed the same behavior under `wasm-opt --all-features --simplify-globals-optimizing`: pre-block call/branch facts stayed as `global.get`s, while an independent `global $h` read became `i32.const 20` after a non-constant write to `global $g`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1249/1249`), full `moon test` passed (`3313/3313`), and `.tmp/pass-fuzz-sgo-runtime-barrier-characterization-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO nested cleanup guard characterization
 
 - Added focused scheduler characterization in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the current Starshine-only SGO nested cleanup guard: `touched_count <= 8` runs the nested default cleanup, `touched_count > 8` skips with `reason=large-touched-set`, and modules with more than `100` defined functions skip with `reason=large-module`.
