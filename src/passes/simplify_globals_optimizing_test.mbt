@@ -284,6 +284,164 @@ test "simplify-globals-optimizing keeps reference global gets in typed element i
 }
 
 ///|
+test "simplify-globals-optimizing keeps ref-func typed element item expressions conservative" {
+  let fn_type = @lib.TypeIdx::new(0U)
+  let run_type = @lib.TypeIdx::new(1U)
+  let fn_rt = @lib.RefType::new(true, @lib.HeapType::new(fn_type))
+  let optimized = sgo_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(fn_rt)]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([fn_type, run_type]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::ref_type(fn_rt), false),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::typed_exprs(fn_rt, [
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+      ]),
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_first_typed_elem_expr_instr(optimized),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps ref-func typed element aliases conservative" {
+  let fn_type = @lib.TypeIdx::new(0U)
+  let run_type = @lib.TypeIdx::new(1U)
+  let fn_rt = @lib.RefType::new(true, @lib.HeapType::new(fn_type))
+  let optimized = sgo_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(fn_rt)]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([fn_type, run_type]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::ref_type(fn_rt), false),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::ref_type(fn_rt), false),
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::typed_exprs(fn_rt, [
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(1U))]),
+        ),
+      ]),
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_first_typed_elem_expr_instr(optimized),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+  )
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+  ])
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing rewrites typed ref-null function body reads through nullable supertypes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $base (sub (struct)))
+      #|  (type $child (sub $base (struct)))
+      #|  (global $g (ref null $base) (ref.null $child))
+      #|  (func (export "run") (result (ref null $base))
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes same-as-init writes before reads" {
   let optimized = sgo_test_run(
     (

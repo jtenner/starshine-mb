@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO typed-element refinalization guardrails
+
+- Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for refinalization-sensitive reference replacements: typed `ref.null` function-body reads still rewrite and validate, while typed element item expressions keep `global.get` for direct `ref.func` globals and `ref.func` aliases until Starshine has an exact type/refinalization plan for element item rewrites.
+- Local Binaryen probe `.tmp/sgo-refinalization-probes.wat` showed `wasm-opt --all-features --simplify-globals-optimizing` rewriting typed `ref.null` / `ref.func` function-body reads and also rewriting typed element items; Starshine deliberately keeps the element-item side conservative for now while matching the validated function-body surface.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1223/1223`), full `moon test` passed (`3287/3287`), and `.tmp/pass-fuzz-sgo-typed-element-refinalization-guardrails-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO externref alias same-init guardrails
 
 - Added no-behavior-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for `externref` / `ref.null extern` alias-chain same-as-init behavior: defined aliases canonicalize in one run but promote/remove only after an explicit second run, imported aliases remain destructive-cleanup conservative, and exported alias targets keep mutability/set while same-trace reads are replaced.
