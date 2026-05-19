@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/research/0110-2026-04-18-node-package-api-audit.md
   - ../../../node/package.json
   - ../../../node/README.md
@@ -20,6 +21,7 @@ related:
   - ./cli-command-and-dispatcher.md
   - ./cli-startup-path.md
   - ../validate/fuzz-hardening.md
+  - ../wast/static-assertion-harness.md
   - ../../README.md
 ---
 
@@ -98,9 +100,9 @@ Do not document it as ready for JS consumers until the adapter story changes.
 
 ### `wast`: the static assertion evaluator is missing
 
-[`src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti) exposes `evaluate_wast_static_assertion(...)`.
+[`src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti) exposes `evaluate_wast_static_assertion(...)`, whose stage model is documented in [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md).
 [`node/wast.d.ts`](../../../node/wast.d.ts) does not currently expose an `evaluateWastStaticAssertion(...)` wrapper.
-That is a small but useful gap for JS-side spec-harness tooling because it would let Node consumers reuse Starshine's static-assertion semantics instead of reimplementing or shelling out.
+That is a small but useful gap for JS-side spec-harness tooling because it would let Node consumers reuse Starshine's static-assertion semantics for `assert_malformed`, `assert_invalid`, and `assert_unlinkable` instead of reimplementing or shelling out.
 
 ## Maintenance And Validation Guidance
 
@@ -140,4 +142,5 @@ That test should distinguish three cases instead of requiring blanket parity:
 - Current Node parity and smoke tests: [`../../../node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/test/examples.test.mjs`](../../../node/test/examples.test.mjs)
 - Build/generation boundary: [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs)
 - Runtime command contract: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
+- WAST static assertion stage model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - MoonBit source signatures: [`../../../src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti), [`../../../src/cmd/pkg.generated.mbti`](../../../src/cmd/pkg.generated.mbti), [`../../../src/validate/pkg.generated.mbti`](../../../src/validate/pkg.generated.mbti), [`../../../src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti)

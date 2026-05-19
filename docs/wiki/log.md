@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | static assertion harness
+
+- Added [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) as the focused WAST script/static-assertion guide for `module`, `module binary`, `module quote`, `assert_malformed`, `assert_invalid`, `assert_unlinkable`, runtime-command skipping, `spec_runner`, and fuzz/spec-seed stage reuse.
+- Ingested [`raw/wasm/2026-05-19-wast-static-assertion-sources.md`](raw/wasm/2026-05-19-wast-static-assertion-sources.md) after checking the official WebAssembly/spec repository and reference-interpreter script grammar plus current Starshine parser, harness, runner, and invalid-text fuzz code.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), and [`index.md`](index.md) so the shared static assertion stage model and current missing Node wrapper are discoverable from validator fuzzing, API-surface, and WAST-authoring entry points.
+- Grounded the local code map in [`../../src/wast/spec_harness.mbt`](../../src/wast/spec_harness.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/types.mbt`](../../src/wast/types.mbt), [`../../src/spec_runner/spec_runner.mbt`](../../src/spec_runner/spec_runner.mbt), [`../../src/fuzz/invalid_text.mbt`](../../src/fuzz/invalid_text.mbt), and [`../../src/fuzz/invalid_text_wbtest.mbt`](../../src/fuzz/invalid_text_wbtest.mbt).
+
 ## [2026-05-19] wast | identifier/name/annotation authoring
 
 - Added [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md) as the focused guide for WAST `$` identifiers versus binary name-section metadata, including Starshine's current function/import identifier promotion to `NameSec.func_names`, the local/type/resource id caveats, and the narrow function-annotation lowering path.

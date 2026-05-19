@@ -11,6 +11,7 @@ sources:
 related:
   - ../binary/data-element-and-datacount-sections.md
   - element-segment-authoring.md
+  - static-assertion-harness.md
   - ../custom-descriptors/static-fixtures.md
   - ../custom-descriptors/exact-reference-equivalence.md
   - ../../../src/wast/parser.mbt

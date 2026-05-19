@@ -18,6 +18,7 @@ related:
   - ../binaryen/passes/reorder-locals/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - element-segment-authoring.md
+  - static-assertion-harness.md
   - gc-type-authoring.md
 ---
 

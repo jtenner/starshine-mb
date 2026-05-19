@@ -18,6 +18,7 @@ related:
   - ../validate/ref-func-declarations.md
   - ../validate/module-validation-phases.md
   - ../fuzzing/generator-coverage-ledger.md
+  - static-assertion-harness.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/lower_to_lib.mbt

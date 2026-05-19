@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md
   - ../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md
   - ../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md
@@ -21,6 +22,7 @@ related:
   - ./trace-benchmark-baseline.md
   - ./ref-func-declarations.md
   - ../tooling/fuzz-runner.md
+  - ../wast/static-assertion-harness.md
   - ../binary/custom-and-name-sections.md
   - ../../../src/fuzz/main.mbt
   - ../../../src/validate/validate.mbt
@@ -55,7 +57,7 @@ related:
 - The currently landed binary-invalid strategy set covers trailing garbage, truncated modules, duplicate type sections, wrong section order, bad magic headers, bad version headers, malformed section-size ULEBs, section-payload length overflows, reserved section ids, malformed custom-section name UTF-8, out-of-range function-section type indices, and a second class of validator-rejected encoded modules built from deterministic AST invalid mutations: invalid start signatures plus imported-start parameter-only, result-only, parameter-plus-result, multi-parameter, `f32`-parameter, `externref`-parameter, and `funcref`-parameter failures, duplicate export names, out-of-range export func/table/global/memory/tag indices, invalid imported tag type indices, function sections without code sections, code sections without function sections, datacount sections without data sections, datacount mismatches in both too-small and too-large directions, and out-of-range function, local, label, table, global, type, field, elem, data, and tag name indices. Keep future name/custom-section widening aligned with [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md).
 - The text invalid lane now keeps one checked-in inline text registry and distinguishes three stage outcomes per strategy: parse/lower rejected, validator rejected after lowering, and valid-before-link for unlinkable cases.
 - The currently landed text-invalid strategy set now covers a malformed quoted module with a missing closing paren, a malformed quoted module with trailing garbage, malformed quoted modules with invalid float-const tokens in `f32`, `f64`, plus invalid `i64`, hex-`i32`, hex-`i64`, bad-opcode `i32`, bad-opcode `f32`, and bad-opcode `f64` token shapes, an invalid result-stack module, an invalid mutable-`global.get` const-initializer module, invalid parameterized, result-returning, out-of-range, imported-parameterized, imported-result-bearing, imported-parameter-plus-result, imported-multi-parameter, imported-`f32`-parameter, imported-`externref`-parameter, and imported-`funcref`-parameter start-function modules, an invalid duplicate-export-name module, and thirteen valid-but-unlinkable inline modules that depend on unknown function, memory, global, or table imports or on typed incompatible function/global/tag/table/memory import surfaces, including mutability, alternate value-type mismatches, tighter minimums, and tighter maximums.
-- The spec-seed lane now samples selected `tests/spec` assertions from the `assert_malformed`, `assert_invalid`, and `assert_unlinkable` categories, extracts the raw target assertion S-expression, and then reuses the shared WAST static-assertion evaluator so corpus replay follows the same semantics as the spec harness.
+- The spec-seed lane now samples selected `tests/spec` assertions from the `assert_malformed`, `assert_invalid`, and `assert_unlinkable` categories, extracts the raw target assertion S-expression, and then reuses the shared WAST static-assertion evaluator so corpus replay follows the same semantics as the spec harness. The WAST-side command/stage model is documented in [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md): `assert_invalid` must compile/lower before validation rejection, `assert_unlinkable` must reach the local `valid-before-link` stage, and runtime assertions stay outside the current static evidence path.
 - The curated spec-seed registry now includes multiple committed assertions per stage family instead of only one example of each: thirteen malformed quote cases from `tests/spec/const.wast`, thirteen invalid cases split across the eleven committed `f32` type-mismatch assertions in `tests/spec/f32.wast` plus two `store` type-mismatch assertions from `tests/spec/store.wast`, and thirteen unlinkable cases from `tests/spec/imports.wast`, including both unknown-import and incompatible-import-type failures.
 - The current tree now also has one shared invalid repro surface in `src/fuzz/invalid_repro.mbt`: persisted reports record suite/profile/seed/attempt/strategy/source kind plus expected-vs-actual stage and diagnostic-family facts, public report builders now exist for AST, binary, text, and spec-seed stable ids, and one generic dispatcher `build_invalid_fuzz_failure_report_by_suite_and_stable_id(...)` now routes across those four source kinds from either full suite names or short aliases like `ast`, `binary`, `text`, and `spec-seed`. Saved AST/binary reports are built from the shared `gen_invalid` helpers instead of ad hoc mutation code, the default AST/binary report-builder path now uses the named compact `repro_seed(...)` helpers to keep persisted seed artifacts smaller while preserving the same rejection-family outcome, AST/binary report metadata now also records `seed_profile`, `seed_mode`, and `seed_require_strategy_prereqs`, AST/binary report artifacts keep both the invalid specimen and the valid seed that produced it, and saved artifacts can be reduced and replayed without rerunning the original random loop.
 - The Moon-owned fuzz CLI now exposes that shared repro machinery directly through `--emit-invalid-repro`, which accepts a suite/source-kind selector, stable-id strategy, seed, attempt number, output directory, and optional profile name, then persists the full repro bundle using the same metadata and artifact layout already exercised by the library-level report builders.
@@ -90,4 +92,5 @@ related:
 ## Sources
 
 - Archived research doc: [`../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md`](../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md)
+- WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md)
 - Active backlog slices: [`../../../agent-todo.md`](../../../agent-todo.md)
