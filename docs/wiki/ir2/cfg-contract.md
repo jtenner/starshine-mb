@@ -1,54 +1,171 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-05-19
 sources:
   - ../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
+  - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
+  - ../../../src/ir/cfg_contract.mbt
+  - ../../../src/ir/cfg.mbt
+  - ../../../src/ir/hot_flags.mbt
+  - ../../../src/ir/cfg_contract_test.mbt
+  - ../../../src/ir/cfg_test.mbt
+  - ../../../src/ir/cfg_order_test.mbt
+  - ../../../src/validate/typecheck.mbt
 related:
   - ./local-ssa-policy.md
+  - ./test-matrix.md
+  - ./pass-porting-checklist.md
   - ../../../src/ir/cfg_contract.mbt
   - ../../../src/ir/cfg_contract_test.mbt
   - ../../../src/ir/cfg.mbt
   - ../../../src/ir/cfg_test.mbt
+  - ../../../src/ir/hot_flags.mbt
 ---
 
 # IR2 CFG Contract
 
-## Decision
+## Overview
 
-- `BlockId` is an analysis-layer id for one built CFG overlay, not an owned body id.
-- Every top-level root starts a block boundary at function entry.
-- Structured control nodes are block headers and also terminate the incoming block.
-- `Loop` adds an explicit loop-header boundary in addition to the ordinary control-header boundary.
-- Control-region slots are explicit block-entry boundaries for body, then, else, catch, and catch-list regions.
-- Value-only nodes stay in the current block unless they are themselves structured control headers.
+IR2 builds control-flow graphs as **derived overlays** over one owned optimizer body, [`HotFunc`](../../../src/ir/hot_core.mbt). The CFG does not own or rewrite instructions. It gives later analyses a stable block graph with explicit normal exits, branch exits, exceptional exits, unreachable exits, region-entry blocks, and synthetic entry/exit nodes.
 
-## Edge Policy
+The beginner mental model is:
 
-- Terminators include structured control headers, branch families, `return`, exceptional terminators, and `unreachable`.
-- Conditional branch families produce explicit branch and fallthrough edges.
-- `Return` produces an explicit return edge to the synthetic function exit.
-- Exceptional control flow is explicit:
-  - `try` routes to its catch region
-  - `try_table` routes to its catch-list region
-  - `throw`, `throw_ref`, and `rethrow` propagate to the caller-visible exceptional exit when no handler intercepts them
-  - `delegate` is explicit exceptional transfer to its delegated target
-- `Unreachable` produces an explicit unreachable-exit edge rather than an implicit missing successor.
+```text
+HotFunc roots/regions/nodes
+  -> block segmentation at roots, structured controls, and terminators
+  -> synthetic entry/exit blocks
+  -> explicit edge kinds for fallthrough, branch, return, exception, and unreachable
+  -> downstream dominance, post-dominance, liveness, loop, use-def, effects, and SSA overlays
+```
 
-## Current In-Tree Status
+The advanced invariant is that every analysis must treat `BlockId` as an id inside one CFG overlay build. A `BlockId` is not a persistent `HotFunc` body id and must not survive mutation across `HotFunc.revision` changes.
 
-- The policy surface lives in [`../../../src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt).
-- Boundary, successor, and exception-policy coverage lives in [`../../../src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt).
-- Concrete CFG build coverage lives in [`../../../src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt).
+## Boundary Policy
 
-## Practical Rule
+[`cfg_block_boundary_reasons(...)`](../../../src/ir/cfg_contract.mbt) is the current policy helper for explaining why a node starts or terminates a block segment.
 
-- Derive successor structure from control-slot metadata, not child-slot guessing.
+| Boundary reason | Meaning | Typical source |
+| --- | --- | --- |
+| `RootEntry` | The node is a top-level root in the function body. | First root or any later root after a terminating previous root. |
+| `ControlHeader` | Structured control is a block header and terminates the incoming block. | `block`, `loop`, `if`, `try`, `try_table`. |
+| `LoopHeader` | A `loop` header is also its own explicit loop-target boundary. | `loop`. |
+| `BodyRegionEntry` / `ThenRegionEntry` / `ElseRegionEntry` / `CatchRegionEntry` / `CatchListRegionEntry` | Structured-control child regions have explicit entry boundaries. | Control-region slot metadata from hot labels/regions. |
+| `Terminator` | The node has no ordinary value-only continuation inside the same block segment. | Branches, returns, throws/delegates, `unreachable`, and structured-control headers. |
+
+The segmentation implementation in [`cfg_builder_region_segments(...)`](../../../src/ir/cfg.mbt) follows the same broad rule: it starts a new segment after a terminator and before a structured-control node. That makes region-local block order deterministic and gives later passes stable predecessors/successors instead of making them infer control slots from child arrays.
+
+## Successor And Edge-Kind Policy
+
+[`CfgEdgeKind`](../../../src/ir/cfg_contract.mbt) has five explicit kinds:
+
+| Edge kind | Meaning |
+| --- | --- |
+| `FallthroughEdge` | Ordinary control continuation or structured-control entry/exit flow. |
+| `BranchEdge` | Explicit Wasm branch to a label target. |
+| `ReturnEdge` | Function return to the synthetic normal exit. |
+| `ExceptionalEdge` | Exception transfer to a catch/catch-list/delegate target or the caller-visible exceptional exit. |
+| `UnreachableExitEdge` | Trap/unreachable transfer to the synthetic normal exit as an explicit nonfallthrough edge. |
+
+Structured-control successor policy is intentionally small and named:
+
+- `block` and `loop` use `InlineBodyRegion`.
+- `if` uses `SplitThenElse` and creates an explicit fallthrough continuation when needed.
+- `try` uses `SplitBodyCatch`.
+- `try_table` uses `SplitBodyCatchList`.
+
+Terminator edge policy in the concrete builder is:
+
+- `br` and `br_table` produce `BranchEdge` targets only.
+- `br_if`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` produce `BranchEdge` targets plus a `FallthroughEdge` when a next block exists.
+- `return`, `return_call`, `return_call_indirect`, and `return_call_ref` produce a `ReturnEdge` to the synthetic normal exit.
+- `throw`, `throw_ref`, and `rethrow` produce an `ExceptionalEdge` to the nearest handler target or the synthetic exceptional exit.
+- `delegate` produces an `ExceptionalEdge` to the delegated label target.
+- `unreachable` produces an `UnreachableExitEdge` to the synthetic normal exit.
+
+The current WebAssembly core instruction list includes `return_call`, `return_call_indirect`, and `return_call_ref`, and the tail-call proposal records the intended return-position semantics. The local source manifest is [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md). Starshine's HOT flags agree with that semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators.
+
+## Exceptional-Flow Policy
+
+[`cfg_exception_target_policy(...)`](../../../src/ir/cfg_contract.mbt) records the high-level policy:
+
+- Ordinary nodes use `NoExceptionEdge`.
+- `try` routes exceptional flow to its catch region.
+- `try_table` routes exceptional flow to its catch-list region.
+- `throw`, `throw_ref`, and `rethrow` propagate to the nearest handler or caller-visible exceptional exit.
+- `delegate` transfers exceptionally to its delegated target.
+
+The concrete builder materializes the exceptional exit lazily: [`cfg_builder_exceptional_exit_block(...)`](../../../src/ir/cfg.mbt) creates the synthetic exceptional exit only when a function actually needs one.
+
+## Current Local Gap: Tail-Call Helper Coverage
+
+There is one important 2026-05-19 consistency gap to keep visible:
+
+- [`src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt) correctly marks `ReturnCall`, `ReturnCallIndirect`, and `ReturnCallRef` as terminators.
+- [`src/ir/cfg.mbt`](../../../src/ir/cfg.mbt) correctly maps all three tail-call forms to `ReturnEdge` when they are the last node in a block segment.
+- [`src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt), however, currently omits the tail-call forms from `cfg_op_is_terminator(...)` and `cfg_terminator_edge_kinds(...)`.
+- [`src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt) has focused policy-helper tests for ordinary `Return`, `ThrowRef`, `Delegate`, and structured control, but no focused tail-call case yet.
+
+Until the helper and tests are fixed, treat the concrete builder plus HOT flags as the stronger evidence for actual CFG behavior, and treat the policy helper omission as a testable follow-up rather than as a deliberate semantic distinction. A code fix should add a failing `return_call*` CFG-contract test first, then update both helper functions and any affected order/CFG expectations.
+
+## Concrete Flow Examples
+
+### Straight-line roots with an ordinary branch
+
+```wat
+(block $exit
+  local.get 0
+  br_if $exit
+  i32.const 1
+  drop)
+```
+
+`br_if` belongs at a block tail. The CFG should have one `BranchEdge` to the `$exit` continuation and one `FallthroughEdge` to the block containing `i32.const; drop`.
+
+### Tail call is a return edge, not a fallthrough call
+
+```wat
+(func $caller (result i32)
+  return_call $callee)
+```
+
+The tail call is still a call for side-effect, trap, and signature purposes, but the CFG control edge is a `ReturnEdge` to the synthetic normal exit. There is no ordinary fallthrough successor after the tail call.
+
+### Try/catch materializes exceptional flow
+
+```wat
+(try
+  (do
+    call $may_throw)
+  (catch $tag
+    i32.const 0
+    drop))
+```
+
+The `try` header has ordinary fallthrough into the body region and an exceptional edge to the catch region. Calls are represented as call/effect nodes; thrown exceptional control reaches the handler target through the handler policy rather than by child-slot guessing.
+
+## Analysis Consumers And Validation Guidance
+
+- Dominance and loop analyses should use normal `FallthroughEdge`, `BranchEdge`, and `ReturnEdge` policy rather than silently traversing exceptional exits.
+- Post-dominance has separate normal and exceptional exit roots; keep that split visible when changing exception policy.
+- Liveness and local SSA v1 intentionally follow the current non-exceptional policy, as documented in [`local-ssa-policy.md`](local-ssa-policy.md).
+- New CFG semantics should update [`cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt), focused tests in [`cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), concrete CFG builder coverage in [`cfg_test.mbt`](../../../src/ir/cfg_test.mbt), and deterministic order expectations in [`cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt) when traversal order changes.
+- Use the placement guidance in [`test-matrix.md`](test-matrix.md): helper-policy tests belong in `cfg_contract_test.mbt`; built graph shape belongs in `cfg_test.mbt`; traversal determinism belongs in `cfg_order_test.mbt`.
+
+## Practical Rules
+
+- Derive successor structure from control-slot metadata, not from child-slot guessing.
 - Materialize exceptional flow as real CFG edges.
-- Keep synthetic entry and exit policy separate from owned body nodes.
+- Keep synthetic entry, normal exit, and exceptional exit policy separate from owned body nodes.
+- Do not carry `BlockId` across `HotFunc.revision` changes.
+- Treat tail calls as call-family operations for effect/signature analysis and as return-family operations for CFG continuation.
 
 ## Sources
 
 - Numbered research doc: [`../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
+- Tail-call source manifest: [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md)
 - Policy layer: [`../../../src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt)
-- CFG build coverage: [`../../../src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt)
+- Concrete builder: [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)
+- HOT flags and query helpers: [`../../../src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`../../../src/ir/hot_query.mbt`](../../../src/ir/hot_query.mbt)
+- CFG tests: [`../../../src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), [`../../../src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt), [`../../../src/ir/cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt)
+- Tail-call validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)

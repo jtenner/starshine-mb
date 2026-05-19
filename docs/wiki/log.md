@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] ir2 | CFG tail-call control-flow contract
+
+- Refreshed [`ir2/cfg-contract.md`](ir2/cfg-contract.md) into a beginner-to-advanced CFG policy guide covering block-boundary reasons, edge kinds, structured-control successors, exceptional-flow policy, analysis-consumer guidance, and concrete WAT-shaped examples.
+- Ingested [`raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](raw/wasm/2026-05-19-tail-call-control-flow-sources.md) as the primary-source and local-code manifest for treating `return_call`, `return_call_indirect`, and `return_call_ref` as tail-call control transfers.
+- Recorded the current local consistency gap explicitly: [`../../src/ir/hot_flags.mbt`](../../src/ir/hot_flags.mbt) and [`../../src/ir/cfg.mbt`](../../src/ir/cfg.mbt) treat `ReturnCall*` as terminator/return-edge operations, while [`../../src/ir/cfg_contract.mbt`](../../src/ir/cfg_contract.mbt) and [`../../src/ir/cfg_contract_test.mbt`](../../src/ir/cfg_contract_test.mbt) still lack focused tail-call helper coverage.
+- Updated [`ir2/test-matrix.md`](ir2/test-matrix.md) and [`index.md`](index.md) so the documented follow-up test location and CFG page summary stay navigable.
+
 ## [2026-05-19] health | CLI cross-link hygiene
 
 - During the post-update wiki health pass, checked tooling, validation, fuzzing, and IR2 pages for stale command/dispatcher references and obvious broken normative-doc links.

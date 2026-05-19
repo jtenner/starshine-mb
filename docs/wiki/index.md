@@ -588,7 +588,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 ## Decisions
 
 - [`binaryen/passes/reorder-locals/multivalue-call-scope.md`](binaryen/passes/reorder-locals/multivalue-call-scope.md) - Current project decision: non-converging Binaryen multivalue-call writeback stays out of scope for `reorder-locals` parity.
-- [`ir2/cfg-contract.md`](ir2/cfg-contract.md) - Normative IR2 CFG boundary, successor, and exceptional-edge policy for `HotFunc`.
+- [`ir2/cfg-contract.md`](ir2/cfg-contract.md) - Normative IR2 CFG boundary, successor, exceptional-edge, and tail-call control-flow policy for `HotFunc`, now explicitly mapping `return_call*` to return edges and recording the current `cfg_contract.mbt` helper/test coverage gap against `hot_flags.mbt` and the concrete CFG builder.
 - [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md) - Normative locals-only SSA overlay policy, phi ownership rule, and predecessor-copy destruction rule.
 
 ## Comparisons
