@@ -319,6 +319,30 @@ test "simplify-globals-optimizing nested cleanup skips above eight touched funct
 }
 
 ///|
+test "simplify-globals-optimizing reports large touched set before large module" {
+  let (_, trace) = sgo_test_run_with_trace(
+    sgo_test_make_touched_cleanup_fixture(9, extra_untouched_count=100),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=9 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-set touched=9",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("reason=large-module") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-globals-optimizing nested cleanup runs at module function-count threshold" {
   let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_touched_cleanup_fixture(1, extra_untouched_count=99),

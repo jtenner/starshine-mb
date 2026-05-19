@@ -395,6 +395,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO cleanup skip precedence guardrail
+
+- Added focused scheduler characterization in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for overlapping SGO nested cleanup guard reasons: when a module is both over the touched-function-count limit and over the module-size limit, the current Starshine trace reports `reason=large-touched-set`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1256/1256`), full `moon test` passed (`3320/3320`), and `.tmp/pass-fuzz-sgo-cleanup-skip-precedence-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO global-initializer cleanup guardrail
 
 - Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) showing that single-use multi-instruction global-initializer folding rewrites the later initializer without populating the touched-function set or triggering nested cleanup.
