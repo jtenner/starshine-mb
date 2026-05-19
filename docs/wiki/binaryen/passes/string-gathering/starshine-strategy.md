@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-18
 sources:
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
@@ -51,16 +51,16 @@ The current implementation:
 - dispatches through [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - is accepted by the CLI and compare harness through [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) and [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 
-It collects direct `string.const` payloads from defined function bodies first, then module-level expression sites; deduplicates by literal bytes; inserts immutable string globals after imported globals and before existing defined globals; rewrites gathered sites to `global.get`; and remaps existing defined-global traffic around the inserted globals.
+It collects direct `string.const` payloads from defined function bodies first, then module-level expression sites; deduplicates by literal bytes; sorts the deduplicated literal list for deterministic fresh-global creation; reuses eligible existing immutable non-null direct string globals as canonical definitions while preserving reusable-global module order; creates immutable string globals for literals without a reusable definition; rewrites gathered non-defining sites to `global.get`; aliases later matching globals; and remaps existing defined-global traffic around the validity-first global order.
 
 Direct revalidation evidence:
 
-- `moon info`, `moon fmt`, and `moon test` passed on 2026-05-06.
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass string-gathering --out-dir .tmp/pass-fuzz-string-gathering` reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+- `moon info`, `moon fmt`, `moon test src/passes`, and full `moon test` passed on 2026-05-18 after existing-global reuse and ordering fixes landed.
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass string-gathering --out-dir .tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 Remaining caveats:
 
-- it intentionally does not yet reuse pre-existing eligible string globals as canonical definitions;
+- existing-global reuse is now covered for the direct immutable non-null `string.const` shape, including first-match reuse, reusable-global module order, sorted fresh literals, and later-alias behavior;
 - binary decoding of some standalone string-proposal type encodings remains outside this pass and can fail before the pass runs;
 - public preset scheduling is deferred until the neighboring late-tail passes can be replayed together.
 
@@ -176,7 +176,6 @@ It is “maintain the landed direct module pass, keep the late-tail boundary wit
 A future contributor should be careful not to overread the landed direct pass.
 Starshine does **not** currently have:
 
-- reuse of pre-existing eligible immutable string globals as canonical definitions
 - binary-decoder coverage for every standalone string-proposal type encoding accepted by Binaryen
 - public preset scheduling for the full `string-gathering -> reorder-globals -> directize` late tail
 - integration tests that prove the whole late-tail neighborhood after `simplify-globals-optimizing`
@@ -195,7 +194,7 @@ The current docs and code now suggest a narrower follow-up story: keep `string-g
 A good local follow-up ladder is:
 
 1. keep the active registry/dispatcher/CLI/harness surface stable
-2. add existing-global reuse only if reduced or fuzzed Binaryen inputs prove the current fresh-global-first subset is insufficient
+2. keep existing-global reuse covered in focused tests and direct oracle lanes
 3. broaden standalone string-proposal binary decoder coverage so more binary inputs can reach the pass
 4. preserve the current narrow validity-first reorder rather than fusing layout work into this pass
 5. land honest preset scheduling only after the real `remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` neighborhood is replayed and compared
@@ -260,6 +259,6 @@ Current Starshine `string-gathering` strategy is direct-pass-landed with late-ta
 
 - the encoder, decoder, and tests preserve the literal identity the pass depends on
 - the active module pass hoists and rewrites direct string constants
-- refreshed direct pass-fuzz evidence is green under the 2026-05-06 harness
+- refreshed direct pass-fuzz evidence is green under the 2026-05-18 harness
 - preset scheduling remains deferred until the surrounding late tail can be replayed honestly
 - the boundary with `reorder-globals` remains clear: `string-gathering` creates canonical string globals; `reorder-globals` owns final global layout

@@ -79,14 +79,14 @@ test "string-gathering hoists a function string.const to a non-null string globa
 }
 
 ///|
-test "string-gathering deduplicates by bytes and preserves first function-use order" {
+test "string-gathering deduplicates by bytes and sorts fresh literals" {
   let optimized = sg_test_run(
     (
       #| (module
       #|   (func (result stringref stringref stringref)
-      #|     (string.const "a")
       #|     (string.const "b")
-      #|     (string.const "a")))
+      #|     (string.const "a")
+      #|     (string.const "b")))
       #|
     ),
   )
@@ -101,9 +101,9 @@ test "string-gathering deduplicates by bytes and preserves first function-use or
   )
   let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
   @debug.assert_eq(instrs, [
-    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
   ])
 }
 
@@ -139,6 +139,106 @@ test "string-gathering inserts after imports and remaps existing defined globals
 }
 
 ///|
+test "string-gathering reuses existing immutable non-null string global" {
+  let optimized = sg_test_run(
+    (
+      #| (module
+      #|   (global stringref (string.const "foo"))
+      #|   (func (result stringref)
+      #|     (string.const "foo")))
+      #|
+    ),
+  )
+  @debug.assert_eq(sg_test_global_count(optimized), 1)
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 0),
+    @lib.Instruction::string_const(b"foo"),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+}
+
+///|
+test "string-gathering preserves reusable global module order" {
+  let optimized = sg_test_run(
+    (
+      #| (module
+      #|   (global stringref (string.const "z"))
+      #|   (global stringref (string.const "a"))
+      #|   (func (result stringref stringref)
+      #|     (string.const "a")
+      #|     (string.const "z")))
+      #|
+    ),
+  )
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 0),
+    @lib.Instruction::string_const(b"z"),
+  )
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 1),
+    @lib.Instruction::string_const(b"a"),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+}
+
+///|
+test "string-gathering keeps first reusable global and aliases later matches" {
+  let optimized = sg_test_run(
+    (
+      #| (module
+      #|   (global stringref (string.const "foo"))
+      #|   (global stringref (string.const "foo"))
+      #|   (func (result stringref)
+      #|     (string.const "foo")))
+      #|
+    ),
+  )
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 0),
+    @lib.Instruction::string_const(b"foo"),
+  )
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 1),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  )
+  let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+}
+
+///|
+test "string-gathering does not reuse mutable string global" {
+  let optimized = sg_test_run(
+    (
+      #| (module
+      #|   (global (mut stringref) (string.const "foo"))
+      #|   (func (result stringref)
+      #|     (string.const "foo")))
+      #|
+    ),
+  )
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 0),
+    @lib.Instruction::string_const(b"foo"),
+  )
+  @debug.assert_eq(
+    sg_test_global_init_instr(optimized, 1),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  )
+}
+
+///|
 test "string-gathering remaps exports of existing defined globals" {
   let optimized = sg_test_run(
     (
@@ -163,7 +263,7 @@ test "string-gathering remaps exports of existing defined globals" {
 }
 
 ///|
-test "string-gathering scans function constants before global initializers" {
+test "string-gathering reuses global initializer while collecting function constants" {
   let optimized = sg_test_run(
     (
       #| (module
@@ -174,23 +274,19 @@ test "string-gathering scans function constants before global initializers" {
       #|
     ),
   )
-  @debug.assert_eq(sg_test_global_count(optimized), 3)
+  @debug.assert_eq(sg_test_global_count(optimized), 2)
   @debug.assert_eq(
     sg_test_global_init_instr(optimized, 0),
-    @lib.Instruction::string_const(b"func"),
-  )
-  @debug.assert_eq(
-    sg_test_global_init_instr(optimized, 1),
     @lib.Instruction::string_const(b"global"),
   )
   @debug.assert_eq(
-    sg_test_global_init_instr(optimized, 2),
-    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+    sg_test_global_init_instr(optimized, 1),
+    @lib.Instruction::string_const(b"func"),
   )
   let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
   @debug.assert_eq(instrs, [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
-    @lib.Instruction::global_get(@lib.GlobalIdx::new(2U)),
   ])
 }
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-18
 sources:
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
@@ -113,8 +113,8 @@ That is much closer to the real pass than either:
 ## Current repo caveat
 
 - The direct pass is active in `src/passes/string_gathering.mbt`, registered in `src/passes/optimize.mbt`, dispatched from `src/passes/pass_manager.mbt`, and accepted by the compare harness.
-- On 2026-05-06, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
-- The first Starshine implementation intentionally creates fresh canonical string globals instead of reusing existing eligible string globals; add reuse only if string-heavy oracle inputs require it.
+- On 2026-05-18, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+- The direct pass now sorts fresh literal globals deterministically, reuses eligible existing immutable non-null direct `string.const` globals in module order, preserves the selected defining initializer, aliases later matching globals, and still creates fresh canonical globals when no reusable definition exists.
 - Binary wasm inputs with string proposal result types still expose decoder coverage gaps outside this pass (`DecodeAt(InvalidValType, ...)`), so focused behavior coverage currently uses the WAT/pipeline path while artifact and generator lanes cover ordinary decoded wasm.
 - Public `optimize` / `shrink` preset scheduling is still deferred until the neighboring late-tail passes can be replayed together.
 
@@ -136,7 +136,7 @@ That is much closer to the real pass than either:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `string-gathering` research, maintenance, and remaining follow-up planning.
-- Keep it explicitly marked as **implemented as a direct module pass** while the remaining gaps stay visible: existing-global reuse only if oracle inputs demand it, broader standalone string-proposal decoder coverage, and honest late-tail preset replay.
+- Keep it explicitly marked as **implemented as a direct module pass** while the remaining gaps stay visible: broader standalone string-proposal decoder coverage and honest late-tail preset replay.
 - Keep the strategy page and the reuse/order page in sync whenever new evidence changes the answer to either:
   - “which globals can be reused?” or
   - “when must gathered globals move earlier?”

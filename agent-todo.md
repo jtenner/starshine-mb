@@ -98,7 +98,7 @@ Completed direct-pass slices
 #### SG / RG / DIR late-tail scheduling
 
 - [SG]002 - Late-Tail Preset Scheduling
-  - Deliverables: keep `string-gathering` out of public presets until `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` can be replayed as an ordered neighborhood; decide whether Binaryen reuse of existing canonical string globals is needed for string-heavy binaries.
+  - Deliverables: keep `string-gathering` out of public presets until `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` can be replayed as an ordered neighborhood; keep the newly covered existing-global reuse behavior in the direct pass signoff lane.
 
 #### Whole-command wall-time budget
 
