@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
   - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
+  - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
@@ -23,6 +24,7 @@ related:
   - ../tooling/validation-gates.md
   - ../wast/gc-type-authoring.md
   - ../wast/control-flow-authoring.md
+  - ../wast/variable-instruction-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../wast/table-instruction-authoring.md
@@ -86,6 +88,10 @@ Official core memory arguments are alignment plus offset. Starshine represents t
 
 The binary layer can reject malformed immediate ranges (`InvalidMemArgEncoding` / `InvalidMemArg`), but semantic legality is in [`memarg_check`](../../../src/validate/typecheck.mbt): selected memory must exist, alignment must fit the access width, and i32 memories reject offsets outside the 32-bit address range. This is why pass authors should not treat a well-formed `MemArg` as automatically valid after memory rewrites.
 
+### Variable instructions
+
+The local/global variable instruction family is byte-simple but semantically coupled to validation and text lowering: `local.get` / `local.set` / `local.tee` use opcodes `0x20` / `0x21` / `0x22` plus a `localidx`, while `global.get` / `global.set` use `0x23` / `0x24` plus a `globalidx`. The byte codec only proves that an index immediate was present; [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md) covers the WAST `$` identifier lowering, parameter-before-local numbering, `local.tee` stack-preservation rule, `global.set` mutability check, and immutable-`global.get` constant-expression policy.
+
 ### Prefixed opcode families
 
 Do not audit instruction coverage by one-byte opcodes only. Starshine's current codec includes several prefixed spaces:
@@ -108,6 +114,7 @@ Key typechecker responsibilities:
 - [`Typecheck for Expr`](../../../src/validate/typecheck.mbt) runs instructions in order and threads a `TcState` containing environment, operand stack, reachability, and escape state.
 - `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks; ordinary WAST control-flow fixture rules live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), while `try_table` catch payload/label rules are summarized in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure; ordinary branch payload/fallthrough guidance lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), and WAST fixture guidance for `return_call`, `return_call_indirect`, and `return_call_ref` lives in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
+- `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` validate local/global index existence, stack operand types, and global mutability above the byte layer; fixture and rewrite rules live in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 - `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range. For text-level table-index defaults, `table.init` ordering, and table64 caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 - `ref.func` is syntactically just an instruction immediate, but Starshine runs a separate declaration check; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 - Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly.

@@ -20,6 +20,7 @@ related:
   - custom-and-name-sections.md
   - ../validate/module-validation-phases.md
   - ../wast/gc-type-authoring.md
+  - ../wast/variable-instruction-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../binaryen/passes/remove-unused-types/index.md
   - ../binaryen/passes/reorder-types/index.md
@@ -139,7 +140,7 @@ This mirrors the function imported-prefix model documented in [`function-import-
   (global $b i32 (global.get $a)))
 ```
 
-The second initializer validates because `$a` is already in the global environment. A reverse reference from `$a` to `$b` would fail because globals are checked and appended one at a time.
+The second initializer validates because `$a` is already in the global environment. A reverse reference from `$a` to `$b` would fail because globals are checked and appended one at a time. For the WAST-side `global.get` / `global.set` stack rules, mutability checks, and immutable-`global.get` constant-expression examples, see [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 
 ### Local stringrefs round trip
 
@@ -158,7 +159,7 @@ A module pass that changes any of these sections must audit more than the sectio
 - **Type rewrites** must update function signatures, block types, table element types, global types, tag types, casts, GC construction/access instructions, element segment types, export/import types, names, and any pass-local type caches.
 - **Table rewrites** must update `TableIdx` carriers: table instructions, `call_indirect` / `return_call_indirect`, active element modes, table exports/imports, names, and table initializers. For WAST text defaults and instruction-stack caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 - **Memory rewrites** must update `MemIdx` carriers: load/store `MemArg` memory operands, `memory.size`, `memory.grow`, `memory.copy`, `memory.fill`, `memory.init`, active data modes, exports/imports, and names. The explicit-memory-index `MemArg` encoding is summarized in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md).
-- **Global rewrites** must update `GlobalIdx` carriers: `global.get`, `global.set`, exports/imports, name maps, global initializer expressions, and any pass summaries that cache global mutability or constant values.
+- **Global rewrites** must update `GlobalIdx` carriers: `global.get`, `global.set`, exports/imports, name maps, global initializer expressions, and any pass summaries that cache global mutability or constant values. The fixture-facing `global.set` mutability and const-expression `global.get` rules are in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 - **Tag rewrites** must update `TagIdx` carriers: `throw`, `try_table` `catch` / `catch_ref` clauses, imports/exports, names, and exception-handling validation assumptions; the focused WAST-side checklist is in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - **String literal-pool rewrites** must keep `StringRefsSec`, `string.const` instructions, string-gathering/lowering/lifting passes, and binary round trips consistent.
 
@@ -181,4 +182,4 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation environment and rules: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
 - WAST lowering: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
-- Related docs: [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`custom-and-name-sections.md`](custom-and-name-sections.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)
+- Related docs: [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`custom-and-name-sections.md`](custom-and-name-sections.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md), [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)

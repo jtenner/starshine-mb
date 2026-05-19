@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | variable instruction authoring
+
+- Added [`wast/variable-instruction-authoring.md`](wast/variable-instruction-authoring.md) as the focused WAST guide for `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` across text identifiers, local/global index spaces, binary opcodes `0x20` through `0x24`, validation stack effects, `global.set` mutability, immutable-`global.get` constant expressions, and pass rewrite/signoff rules.
+- Ingested [`raw/wasm/2026-05-19-wast-variable-instruction-sources.md`](raw/wasm/2026-05-19-wast-variable-instruction-sources.md) after checking current official WebAssembly text/syntax/binary/validation/module sources plus Starshine parser, printer, lowerer, core instruction, binary codec, validator, valid-generator, and invalid-fuzzer surfaces.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md) so `local.tee` stack preservation, immutable-versus-mutable `global.get` constant expressions, `global.set` mutability, and variable-instruction byte/semantic split route through one shared contract.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt).
+
 ## [2026-05-19] health | br_on generator coverage wording
 
 - During the post-update whole-wiki health pass, searched ordinary-control and reference-branch mentions for places that could hide the new WAST `br_on_*` text-surface caveat.

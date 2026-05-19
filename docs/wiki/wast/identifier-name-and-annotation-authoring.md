@@ -19,6 +19,7 @@ related:
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - element-segment-authoring.md
   - static-assertion-harness.md
+  - variable-instruction-authoring.md
   - gc-type-authoring.md
 ---
 
@@ -70,9 +71,9 @@ This is why command-level inlining policy can match ordinary WAT function identi
     (local.get $tmp)))
 ```
 
-The lowerer builds a per-function local-id map from `type_use.param_ids` and local declarations, then resolves `local.get`, `local.set`, and `local.tee` operands to numeric local indices before constructing the core function body. Current WAST lowering does **not** create a name-section local-name subsection from `$x` or `$tmp`.
+The lowerer builds a per-function local-id map from `type_use.param_ids` and local declarations, then resolves `local.get`, `local.set`, and `local.tee` operands to numeric local indices before constructing the core function body. Current WAST lowering does **not** create a name-section local-name subsection from `$x` or `$tmp`. The exact stack and rewrite rules for these operands live in [`variable-instruction-authoring.md`](variable-instruction-authoring.md).
 
-That distinction matters for passes. A pass that rewrites locals must keep validation correct even if no local-name metadata exists; if it does preserve or create local names, it must update the function-scoped map when indices change. The local-name repair topic is why [`../binaryen/passes/reorder-locals/index.md`](../binaryen/passes/reorder-locals/index.md) and the custom/name guide both call out stale local-name metadata.
+That distinction matters for passes. A pass that rewrites locals must keep validation correct even if no local-name metadata exists; if it does preserve or create local names, it must update the function-scoped map when indices change. The local-name repair topic is why [`../binaryen/passes/reorder-locals/index.md`](../binaryen/passes/reorder-locals/index.md), [`variable-instruction-authoring.md`](variable-instruction-authoring.md), and the custom/name guide all call out stale local-name metadata.
 
 ### Type and resource identifiers resolve indices but are not yet promoted to all name maps
 

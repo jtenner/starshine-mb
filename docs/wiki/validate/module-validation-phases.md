@@ -8,6 +8,7 @@ sources:
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
+  - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/env.mbt
@@ -25,6 +26,7 @@ related:
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
   - ../wast/control-flow-authoring.md
+  - ../wast/variable-instruction-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../wast/table-instruction-authoring.md
   - ../tooling/validation-gates.md
@@ -104,7 +106,7 @@ Instruction typechecking starts with a [`TcState`](../../../src/validate/typeche
 - a `reachable` flag;
 - an escape marker (`NoTcEscape`, `BranchTcEscape`, or `TerminalTcEscape`).
 
-Every instruction consumes and produces typed stack values. Control instructions temporarily extend the label stack and validate branch payloads against label types: block/if labels use results, loop labels use parameters, `br_if` validates payload availability while leaving payload values on the not-taken path, and `br_table` requires all target labels to agree. The WAST fixture-facing version of those rules lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md). Tail calls validate against the current function return type and then make local continuation unreachable; WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md). Function bodies additionally require an exact end stack: after the declared results are consumed, no extra concrete values may remain.
+Every instruction consumes and produces typed stack values. Variable instructions check the current function's local space or the module global space: `local.get` / `global.get` push declared types, `local.set` / mutable `global.set` consume them, and `local.tee` consumes then re-pushes the local value. The WAST fixture-facing version of those local/global rules lives in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md). Control instructions temporarily extend the label stack and validate branch payloads against label types: block/if labels use results, loop labels use parameters, `br_if` validates payload availability while leaving payload values on the not-taken path, and `br_table` requires all target labels to agree. The WAST fixture-facing version of those rules lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md). Tail calls validate against the current function return type and then make local continuation unreachable; WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md). Function bodies additionally require an exact end stack: after the declared results are consumed, no extra concrete values may remain.
 
 The most important beginner trap is unreachable-code stack polymorphism. When code is unreachable, Starshine can synthesize `BotValType` for missing operands, matching the official validation model. But values pushed after an unreachable point are still real values. Tests such as `validate_module rejects concrete stack junk after return inside block`, `validate_module rejects wrong concrete loop result after infinite inner loop`, and the end-of-body stack-shape diagnostics lock this boundary.
 
@@ -118,7 +120,7 @@ The most important beginner trap is unreachable-code stack polymorphism. When co
 4. it must leave exactly one value;
 5. that value must match the expected type.
 
-Starshine allows current extended constant-expression families such as immutable `global.get`, arithmetic over constants, `ref.null`, `ref.func`, `string.const`, and selected GC constructors used by local fixtures. It rejects mutable-global reads, non-constant offsets, unreachable constant expressions, wrong result counts, and wrong result types. Segment pages such as [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) and resource-section pages such as [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) should point here when explaining why initializer order matters.
+Starshine allows current extended constant-expression families such as immutable `global.get`, arithmetic over constants, `ref.null`, `ref.func`, `string.const`, and selected GC constructors used by local fixtures. It rejects mutable-global reads, non-constant offsets, unreachable constant expressions, wrong result counts, and wrong result types. [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md) gives the fixture-level immutable-global examples; segment pages such as [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) and resource-section pages such as [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) should point here when explaining why initializer order matters.
 
 ## Diagnostics And Trace Contract
 
