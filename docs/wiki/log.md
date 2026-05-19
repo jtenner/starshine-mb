@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO block-yielded short external pure operators
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so transparent result-block conditions can use short non-legacy pure operators outside the block: unary `i32.clz`, `i64.eqz`, and relational compare chains such as `i32.const; i32.lt_s`, including when the block body itself already contains a pure-condition chain.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for adjacent self guards and exact `if return; set` tails, including a block-wrapped write tail; the new fixtures failed first with globals still mutable, then passed after the external-condition helper stopped requiring at least three scanned instructions while still deferring the older one-/two-instruction legacy `i32.eqz` / `i32.eq` / `i32.ne` forms to their existing counters to avoid double-counting safe reads.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1153/1153`), and `.tmp/pass-fuzz-sgo-blockyield-short-external-pure-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures. Local Binaryen probes in `.tmp/sgo-blockyield-external-short-pure-probe.wat` and `.tmp/sgo-blockyield-external-short-pure-ifreturn-probe.wat` showed `wasm-opt --simplify-globals-optimizing` promoting matching globals to immutable while removing get/set uses.
+
 ## [2026-05-18] passes | SGO block-yielded external pure-condition chains
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so a transparent result block yielding the guarded `global.get` can feed a source-backed pure-condition chain outside the block before an adjacent self-guard write or exact `if return; set` tail.

@@ -1525,6 +1525,73 @@ test "simplify-globals-optimizing removes block-yielded external pure-condition 
 }
 
 ///|
+test "simplify-globals-optimizing removes block-yielded external short pure-condition self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $unary (mut i32) (i32.const 0))
+      #|  (global $rel (mut i32) (i32.const 0))
+      #|  (global $body_rel (mut i32) (i32.const 0))
+      #|  (global $i64eqz (mut i64) (i64.const 0))
+      #|  (func $unary_run
+      #|    block (result i32)
+      #|      global.get $unary
+      #|    end
+      #|    i32.clz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $unary
+      #|    end)
+      #|  (func $rel_run
+      #|    block (result i32)
+      #|      global.get $rel
+      #|    end
+      #|    i32.const 2
+      #|    i32.lt_s
+      #|    if
+      #|      i32.const 1
+      #|      global.set $rel
+      #|    end)
+      #|  (func $body_rel_run
+      #|    block (result i32)
+      #|      global.get $body_rel
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.const 2
+      #|    i32.lt_s
+      #|    if
+      #|      i32.const 1
+      #|      global.set $body_rel
+      #|    end)
+      #|  (func $i64eqz_run
+      #|    block (result i64)
+      #|      global.get $i64eqz
+      #|    end
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 1
+      #|      global.set $i64eqz
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 4; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      match i {
+        3 => @lib.GlobalType::new(@lib.ValType::i64(), false)
+        _ => @lib.GlobalType::new(@lib.ValType::i32(), false)
+      },
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-globals-optimizing removes exact if-return read-only-to-write guards" {
   let optimized = sgo_test_run(
     (
@@ -2196,6 +2263,79 @@ test "simplify-globals-optimizing removes block-yielded external pure-condition 
       try! sgo_test_defined_global_type(optimized, i),
       match i {
         1 => @lib.GlobalType::new(@lib.ValType::i64(), false)
+        _ => @lib.GlobalType::new(@lib.ValType::i32(), false)
+      },
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
+test "simplify-globals-optimizing removes block-yielded external short pure-condition if-return guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $unary (mut i32) (i32.const 0))
+      #|  (global $rel (mut i32) (i32.const 0))
+      #|  (global $body_rel (mut i32) (i32.const 0))
+      #|  (global $i64eqz (mut i64) (i64.const 0))
+      #|  (func $unary_run
+      #|    block (result i32)
+      #|      global.get $unary
+      #|    end
+      #|    i32.clz
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $unary)
+      #|  (func $rel_run
+      #|    block (result i32)
+      #|      global.get $rel
+      #|    end
+      #|    i32.const 2
+      #|    i32.lt_s
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $rel)
+      #|  (func $body_rel_run
+      #|    block (result i32)
+      #|      global.get $body_rel
+      #|      i32.const 1
+      #|      i32.add
+      #|    end
+      #|    i32.const 2
+      #|    i32.lt_s
+      #|    if
+      #|      return
+      #|    end
+      #|    block
+      #|      i32.const 1
+      #|      global.set $body_rel
+      #|    end)
+      #|  (func $i64eqz_run
+      #|    block (result i64)
+      #|      global.get $i64eqz
+      #|    end
+      #|    i64.eqz
+      #|    if
+      #|      return
+      #|    end
+      #|    i64.const 1
+      #|    global.set $i64eqz))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 4; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      match i {
+        3 => @lib.GlobalType::new(@lib.ValType::i64(), false)
         _ => @lib.GlobalType::new(@lib.ValType::i32(), false)
       },
     )

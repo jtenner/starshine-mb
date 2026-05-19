@@ -1057,6 +1057,24 @@ fn sgo_external_condition_stack_after(
 }
 
 ///|
+fn sgo_is_short_block_condition_external_legacy(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  if_index : Int,
+) -> Bool {
+  let start = pos + 1
+  let len = if_index - start
+  if len == 1 {
+    return instrs[start] == @lib.Instruction::i32_eqz()
+  }
+  if len == 2 {
+    return sgo_const_instr(instrs[start]) != None &&
+      sgo_is_compare_instr(instrs[start + 1])
+  }
+  false
+}
+
+///|
 fn sgo_block_condition_external_pure_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
@@ -1066,7 +1084,9 @@ fn sgo_block_condition_external_pure_if_index(
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
     match instrs[scan] {
       @lib.If(_, _, _) =>
-        if pure_count >= 3 && depth == 1 {
+        if pure_count > 0 &&
+          depth == 1 &&
+          !sgo_is_short_block_condition_external_legacy(instrs, pos, scan) {
           return Some(scan)
         } else {
           return None
