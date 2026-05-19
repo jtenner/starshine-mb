@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO imported/exported runtime barrier guardrails
+
+- Added no-behavior-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the imported/exported runtime fact subset: calls clear same-trace facts, non-constant writes clear same-global facts, independent imported/exported writes do not clear unrelated facts, and post-if joins remain conservative even when both arms write the same constant.
+- Local Binaryen probe `.tmp/sgo-import-export-runtime-barrier-probes.wat` showed `wasm-opt --all-features --simplify-globals-optimizing` keeping reads after calls, non-constant writes, and post-if joins, while replacing an independent imported-global read after an intervening exported-global write.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1205/1205`), full `moon test` passed (`3269/3269`), and `.tmp/pass-fuzz-sgo-import-export-barriers-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO alias same-init and imported/exported runtime propagation
 
 - Broadened the active `simplify-globals-optimizing` runtime trace subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so same-trace single-const write facts can apply to imported and exported globals too; destructive cleanup still stays gated elsewhere, and calls/control/non-constant writes remain barriers.

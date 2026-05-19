@@ -3372,6 +3372,119 @@ test "simplify-globals-optimizing tracks imported global runtime block facts" {
 }
 
 ///|
+test "simplify-globals-optimizing clears imported and exported runtime facts across calls" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "imp" (global $imp (mut i32)))
+      #|  (global $exp (export "exp") (mut i32) (i32.const 0))
+      #|  (func $unknown)
+      #|  (func $read_import (export "read_import") (result i32)
+      #|    i32.const 7
+      #|    global.set $imp
+      #|    call $unknown
+      #|    global.get $imp)
+      #|  (func $read_export (export "read_export") (result i32)
+      #|    i32.const 8
+      #|    global.set $exp
+      #|    call $unknown
+      #|    global.get $exp))
+      #|,
+    ),
+  )
+
+  let import_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(import_pretty.contains("global.get"), msg=import_pretty)
+  let export_pretty = optimized.pretty_print_defined_func(2U)
+  assert_true(export_pretty.contains("global.get"), msg=export_pretty)
+}
+
+///|
+test "simplify-globals-optimizing clears imported and exported runtime facts after non-constant writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "imp" (global $imp (mut i32)))
+      #|  (global $exp (export "exp") (mut i32) (i32.const 0))
+      #|  (func $read_import (export "read_import") (param $x i32) (result i32)
+      #|    i32.const 7
+      #|    global.set $imp
+      #|    local.get $x
+      #|    global.set $imp
+      #|    global.get $imp)
+      #|  (func $read_export (export "read_export") (param $x i32) (result i32)
+      #|    i32.const 8
+      #|    global.set $exp
+      #|    local.get $x
+      #|    global.set $exp
+      #|    global.get $exp))
+      #|,
+    ),
+  )
+
+  let import_pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(import_pretty.contains("global.get"), msg=import_pretty)
+  let export_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(export_pretty.contains("global.get"), msg=export_pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps independent imported and exported runtime facts" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "imp" (global $imp (mut i32)))
+      #|  (global $exp (export "exp") (mut i32) (i32.const 0))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 11
+      #|    global.set $imp
+      #|    i32.const 12
+      #|    global.set $exp
+      #|    global.get $imp))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps imported and exported post-if runtime joins conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "imp" (global $imp (mut i32)))
+      #|  (global $exp (export "exp") (mut i32) (i32.const 0))
+      #|  (func $read_import (export "read_import") (param $p i32) (result i32)
+      #|    local.get $p
+      #|    if
+      #|      i32.const 13
+      #|      global.set $imp
+      #|    end
+      #|    global.get $imp)
+      #|  (func $read_export (export "read_export") (param $p i32) (result i32)
+      #|    local.get $p
+      #|    if
+      #|      i32.const 14
+      #|      global.set $exp
+      #|    else
+      #|      i32.const 14
+      #|      global.set $exp
+      #|    end
+      #|    global.get $exp))
+      #|,
+    ),
+  )
+
+  let import_pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(import_pretty.contains("global.get"), msg=import_pretty)
+  let export_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(export_pretty.contains("global.get"), msg=export_pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps loop-contained block runtime facts conservative" {
   let optimized = sgo_test_run(
     (
