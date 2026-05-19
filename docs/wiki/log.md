@@ -9,6 +9,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md`](binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md), and [`index.md`](index.md) so binary metadata, WAST source identifiers, and inlining policy name matching point at one cross-layer explanation.
 - Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast_tests.mbt`](../../src/wast/module_wast_tests.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), and [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt).
 
+## [2026-05-19] health | inlining WAST-name backlinks
+
+- During the post-update wiki health pass, searched the wiki for remaining inlining pages that still mentioned WAT function identifiers without linking to the new WAST identifier/name guide.
+- Updated [`binaryen/passes/inlining/implementation-structure-and-tests.md`](binaryen/passes/inlining/implementation-structure-and-tests.md), [`binaryen/passes/inlining/heuristics-splitting-and-plain-vs-optimizing.md`](binaryen/passes/inlining/heuristics-splitting-and-plain-vs-optimizing.md), and [`binaryen/passes/inlining/starshine-strategy.md`](binaryen/passes/inlining/starshine-strategy.md) so all current inlining-policy explanations route readers to [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md).
+
 ## [2026-05-19] wast | element segment declarative-mode authoring
 
 - Added [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md) as the focused WAST element-segment guide for active/passive/declarative modes, typed empty element fixtures, core/binary support, and the exact local text-path caveat where `(elem declare func ...)` parses but loses declarative mode before lowering/printing.

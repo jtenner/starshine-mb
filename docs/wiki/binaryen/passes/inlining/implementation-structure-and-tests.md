@@ -152,7 +152,7 @@ Current dispatch:
 - `"inlining" => inlining_run_module_pass(mod_, optimize=false, pass_name="inlining")`;
 - `"inlining-optimizing" => inlining_run_module_pass(mod_, optimize=true, trace=Some(options.trace), pass_name="inlining-optimizing")`;
 - dynamic `no-inline=<pattern>` / `no-full-inline=<pattern>` / `no-partial-inline=<pattern>` names are normalized through the registry and dispatched to `no_inline_run_module_pass(...)`.
-- WAT lowering now maps function identifiers into structured function names, so the policy passes can match text inputs without a separate hand-authored name section.
+- [WAT/WAST lowering now maps function identifiers into structured function names](../../../wast/identifier-name-and-annotation-authoring.md), so the policy passes can match text inputs without a separate hand-authored name section.
 
 ### `src/passes/inlining_test.mbt`
 

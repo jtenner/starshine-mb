@@ -145,7 +145,7 @@ Binaryen preserves `@metadata.code.inline` bytes, but the practical `Inlining.cp
 
 See [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) for the detailed source map.
 
-Current Starshine status: the first `no-inline*` policy surface is modeled through name-section wildcard marking and internal function annotations, WAT function identifiers now populate that name lookup for defined and imported functions, full-inline suppression is honored by the direct inliner, annotation/function-name remapping preserves policy and later matching across helper compaction, stale local names are dropped after inlining rewrites, and `no_inline_copy_policy_annotations(...)` is available for future clone/copy transforms. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
+Current Starshine status: the first `no-inline*` policy surface is modeled through name-section wildcard marking and internal function annotations, [WAT/WAST function identifiers now populate that name lookup for defined and imported functions](../../../wast/identifier-name-and-annotation-authoring.md), full-inline suppression is honored by the direct inliner, annotation/function-name remapping preserves policy and later matching across helper compaction, stale local names are dropped after inlining rewrites, and `no_inline_copy_policy_annotations(...)` is available for future clone/copy transforms. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
 
 ## 11. Iteration has race guards
 

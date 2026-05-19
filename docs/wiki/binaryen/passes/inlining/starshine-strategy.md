@@ -52,8 +52,8 @@ Current status is **direct-surface signed off for v0.1.0 but not universal Binar
 - [`src/passes/no_inline.mbt`](../../../../../src/passes/no_inline.mbt)
   - implements the first local no-inline policy surface for `no-inline=<pattern>`, `no-full-inline=<pattern>`, and `no-partial-inline=<pattern>`.
   - stores matched policy in internal function annotations and exposes policy flags to the inliner.
-- [`src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt)
-  - lowers WAT function identifiers into structured function names so no-inline wildcard policy can match text inputs.
+- [`src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt) and [`wast/identifier-name-and-annotation-authoring.md`](../../../wast/identifier-name-and-annotation-authoring.md)
+  - lower WAT/WAST function identifiers into structured function names so no-inline wildcard policy can match text inputs.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
   - registers `inlining`, `inlining-optimizing`, and the three `no-inline*` policy passes as module passes.
   - public `optimize` / `shrink` presets still omit the Binaryen late `INL` slot.
