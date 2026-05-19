@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | scalar numeric catalog summaries
+
+- During the post-update whole-wiki health pass, checked catalog summaries for pages whose new scalar numeric backlinks could be hidden by older variable/reference/control wording.
+- Updated [`index.md`](index.md) so the binary instruction guide, generator coverage ledger, and validation phase map summaries explicitly advertise the scalar numeric authoring guide and `[FZG]002` route.
+
 ## [2026-05-19] wast | scalar numeric instruction authoring
 
 - Added [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md) as the focused WAST scalar numeric guide for `i32` / `i64` / `f32` / `f64` constants, tests, comparisons, unary/binary ops, conversions, reinterprets, sign-extension, and saturating truncations.
