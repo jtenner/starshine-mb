@@ -9,6 +9,7 @@ sources:
   - ../../../src/cmd/cmd.mbt
   - ../../../src/passes/optimize.mbt
 related:
+  - ./cli-command-and-dispatcher.md
   - ./fuzz-runner.md
   - ../../README.md
 ---
@@ -24,6 +25,7 @@ related:
 ## Current Follow-up Surface
 
 - Use the raw audit note for the older line-by-line hotspot list; this page only keeps the compact current summary.
+- Use [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for the current command/config/env/dispatcher contract; this page should stay focused on startup cost.
 - If startup traces regress, check `normalize_cli_path` and the candidate bucket selection in `src/cli/glob.mbt` before widening the search.
 
 ## Sources
@@ -33,3 +35,4 @@ related:
 - [`../../../src/cli/glob.mbt`](../../../src/cli/glob.mbt)
 - [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt)
 - [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
+- Current command contract: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)

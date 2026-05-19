@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] tooling | CLI command and dispatcher contract
+
+- Added [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md) as the canonical runtime `starshine` command contract, separating local command/config/env/dispatcher behavior from the narrower startup-performance note in [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md).
+- Ingested [`raw/binaryen/2026-05-19-wasm-opt-cli-contract.md`](raw/binaryen/2026-05-19-wasm-opt-cli-contract.md) as a small primary-source manifest for the upstream Binaryen `wasm-opt` CLI shape, while explicitly keeping exact Starshine behavior grounded in [`../../src/cli/cli.mbt`](../../src/cli/cli.mbt), [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt).
+- Updated [`tooling/validation-gates.md`](tooling/validation-gates.md), [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md), and [`index.md`](index.md) so command dispatch, validation gates, tracing, startup work, and pass-registry maps are easier to navigate without duplicating command semantics.
+
 ## [2026-05-19] runtime | direct ssa-nomerge artifact timeout
 
 - Probed the `[WALL]001` follow-up from the SG decoder-breadth handoff with direct `ssa-nomerge` artifact evidence instead of another SG fuzz lane.
