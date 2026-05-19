@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | memory argument authoring
+
+- Added [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) as the focused WAST memory-argument guide for `offset=` as a static immediate, text-byte `align=` versus Starshine core alignment exponents, memory32/memory64 address-width validation, default memory `0`, current text-level nonzero-memory-index gaps, and the split between function-body `MemArg.offset`, bulk-memory indices, and active data-segment offset expressions.
+- Ingested [`raw/wasm/2026-05-19-wast-memory-argument-sources.md`](raw/wasm/2026-05-19-wast-memory-argument-sources.md) after checking current official WebAssembly 3.0 text, binary, validation, and PDF sources plus the multi-memory and memory64 proposal surfaces and Starshine parser, lowerer, printer, binary codec, equality, typechecker, validator, and generator code.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/simd-authoring.md`](wast/simd-authoring.md), and [`index.md`](index.md) so binary memargs, data offsets, validator memory phases, generator memory/SIMD rows, and SIMD vector memory fixtures route through one shared WAST memarg contract.
+- Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/lib/eq.mbt`](../../src/lib/eq.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
+
 ## [2026-05-19] wast | SIMD authoring
 
 - Added [`wast/simd-authoring.md`](wast/simd-authoring.md) as the focused WAST SIMD guide for `v128.const` lane-shaped constants, canonical 16-byte lowering, `i8x16.shuffle` lane `0..31` semantics, shape-specific lane bounds, the current binary-origin lane-validation caveat, vector memory-argument validation, relaxed-SIMD authoring caveats, and generator-versus-WAST coverage boundaries.

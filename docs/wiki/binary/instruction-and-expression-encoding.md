@@ -22,6 +22,7 @@ related:
   - ../tooling/validation-gates.md
   - ../wast/gc-type-authoring.md
   - ../wast/exception-tag-authoring.md
+  - ../wast/memory-argument-authoring.md
   - ../wast/simd-authoring.md
 ---
 
@@ -78,7 +79,7 @@ Starshine rejects recursive-index blocktypes during binary encode (`CannotEncode
 
 ### Memory arguments
 
-Official memory arguments are alignment plus offset. Starshine represents the multi-memory extension as `MemArg(U32(align_pow), Some(memidx), U64(offset))`; binary encode writes `align_pow + 64`, then the memory index, then the offset. With no explicit memory index, encode writes `align_pow` followed by the offset.
+Official core memory arguments are alignment plus offset. Starshine represents the multi-memory extension as `MemArg(U32(align_pow), Some(memidx), U64(offset))`; binary encode writes `align_pow + 64`, then the memory index, then the offset. With no explicit memory index, encode writes `align_pow` followed by the offset. The WAST text authoring caveats, including text-byte `align=` versus core exponent form and the current lack of explicit nonzero memory indices in WAST memargs, are documented in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).
 
 The binary layer can reject malformed immediate ranges (`InvalidMemArgEncoding` / `InvalidMemArg`), but semantic legality is in [`memarg_check`](../../../src/validate/typecheck.mbt): selected memory must exist, alignment must fit the access width, and i32 memories reject offsets outside the 32-bit address range. This is why pass authors should not treat a well-formed `MemArg` as automatically valid after memory rewrites.
 
@@ -144,7 +145,7 @@ A valid instruction before a pass:
 I32Load(MemArg(align_pow=2, mem=None, offset=0))
 ```
 
-can become invalid if a pass deletes the default memory, changes an i64 memory to i32 with an oversized offset, or copies the memarg to a narrower access where the alignment is now too large. Re-run module validation after memory-index or memory-type rewrites.
+can become invalid if a pass deletes the default memory, changes an i64 memory to i32 with an oversized offset, or copies the memarg to a narrower access where the alignment is now too large. Re-run module validation after memory-index or memory-type rewrites, and use [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md) when the same case must be explained as WAST text.
 
 ## Pass And Tooling Checklist
 
@@ -175,4 +176,4 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
-- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)
+- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)

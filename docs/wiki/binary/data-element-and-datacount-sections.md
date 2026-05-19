@@ -21,6 +21,7 @@ related:
   - custom-and-name-sections.md
   - ../wast/gc-type-authoring.md
   - ../wast/element-segment-authoring.md
+  - ../wast/memory-argument-authoring.md
   - ../validate/module-validation-phases.md
   - ../validate/fuzz-hardening.md
   - ../validate/ref-func-declarations.md
@@ -138,7 +139,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 
 ## Edge Cases And Invariants
 
-- **Active offsets are const expressions.** Non-constant active data or element offsets are validator failures and are intentionally covered by invalid-generation lanes.
+- **Active offsets are const expressions.** Non-constant active data or element offsets are validator failures and are intentionally covered by invalid-generation lanes. Keep active data offsets distinct from function-body `MemArg.offset`; the WAST memory-argument guide spells out that split in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).
 - **Table/memory index defaults are syntax sugar.** Text forms can omit parent indices; lowering resolves them to numeric `TableIdx(0)` or `MemIdx(0)` only when the segment is active.
 - **Typed element segments are not function-index lists.** Once an explicit element type or explicit `(item ...)` expression is present, preserve expression typing instead of collapsing blindly to `FuncsElemKind`; any nested `ref.func` values are still scanned by the declaration validator.
 - **Declarative-mode caveat in WAST lowering.** The core library and binary surfaces support `ElemMode::declarative()`, and generator/validation code exercises it. The WAST parser recognizes `(elem declare func ...)`, but the current WAST `ElemSegment` AST has no explicit mode field, so text-to-lib lowering infers mode from offset emptiness and does not yet preserve declarative mode as a distinct lowered mode. Treat this as a known WAST fidelity gap, not as evidence that Starshine's core representation lacks declarative elements; the focused text-authoring guide is [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
@@ -155,7 +156,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 
 ## Sources
 
-- Primary-source snapshot: [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md)
+- Primary-source snapshot: [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - WAST parse/lower/print evidence and declarative-mode caveat: [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)

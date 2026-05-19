@@ -121,7 +121,7 @@ Vector load/store instructions are still memory instructions. They carry the sam
     v128.load offset=16 align=16))
 ```
 
-The parser routes SIMD memory arguments through the shared memory-argument parser. The typechecker then uses `memarg_check` to choose the selected memory, address type, alignment legality, and offset-width rule. This matters for memory64 and multi-memory fixtures: a syntactically valid SIMD memory op can still be semantically invalid after memory declarations are rewritten.
+The parser routes SIMD memory arguments through the shared memory-argument parser. The typechecker then uses `memarg_check` to choose the selected memory, address type, alignment legality, and offset-width rule. This matters for memory64 and multi-memory fixtures: a syntactically valid SIMD memory op can still be semantically invalid after memory declarations are rewritten. The ordinary WAST memarg contract and the current text-level nonzero-memory-index gap live in [`memory-argument-authoring.md`](memory-argument-authoring.md).
 
 ### Relaxed SIMD is ordinary instruction syntax locally
 
@@ -157,7 +157,7 @@ When changing SIMD WAST support:
 - WAST arbitrary currently emits a representative `v128.const` in the widened prelude, not the full SIMD text surface. The valid generator has broader `[FZG]014` through `[FZG]016` SIMD coverage.
 - Starshine's core `V128Const` stores bytes, so exact original text shape is not preserved through WAST-to-core lowering.
 - WAST lowering checks lane-index shape rules before typechecking. Binary decode currently has only a coarse single-lane `<16` guard plus the shuffle-specific `<32` guard, so binary-origin hardening should add explicit per-instruction lane-bound tests instead of relying on WAST lowering tests.
-- Vector memory instructions inherit all memory-index, memory64, and alignment hazards from the ordinary memory-argument contract.
+- **Vector memory instructions inherit all memory-index, memory64, and alignment hazards from the ordinary memory-argument contract.** Use [`memory-argument-authoring.md`](memory-argument-authoring.md) for the shared `offset=` / `align=` / memory-index model rather than duplicating it in SIMD-only docs.
 
 ## Sources
 

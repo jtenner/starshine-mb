@@ -23,6 +23,7 @@ related:
   - ../binary/function-import-export-and-code-sections.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
+  - ../wast/memory-argument-authoring.md
   - ../tooling/validation-gates.md
   - ../validation/moonbit-prove-strategy.md
 ---
@@ -76,7 +77,7 @@ Two practical consequences follow:
 | `importsec` | Validates imported extern types and extends imported-prefix index spaces. | Extends `funcs`, `func_type_idxs`, `tables`, `mems`, `globals`, and `tags`. | `validate_importsec`; imported-prefix section guide in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md). |
 | `funcsec` | Validates defined-function type indices. | Appends defined function signatures after imported functions. | `validate_funcsec`; code/function length tests. |
 | `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`. |
-| `memsec` | Validates memory limits, memory64 address widths, and shared-memory maximum requirements. | Extends `mems` incrementally. | `validate_memsec`, `MemType` validation. |
+| `memsec` | Validates memory limits, memory64 address widths, and shared-memory maximum requirements. | Extends `mems` incrementally. | `validate_memsec`, `MemType` validation; memory instruction address-width effects are summarized in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md). |
 | `tagsec` | Validates exception tag type indices and empty tag result types. | Extends `tags` incrementally. | `validate_tagsec`, `TagType` validation; WAST catch/throw authoring details live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). |
 | `globalsec` | Validates global types and constant initializers. Later globals see earlier globals only. | Extends `globals` incrementally. | `validate_globalsec`, `validate_const_expr`. |
 | `elemsec` | Validates passive/declarative/active element modes, element payload types, table targets, and constant offsets. | Extends `elems`. | `validate_elemsec`; segment guide in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). |
