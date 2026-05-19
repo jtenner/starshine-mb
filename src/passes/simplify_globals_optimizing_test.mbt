@@ -552,8 +552,8 @@ test "simplify-globals-optimizing canonicalizes immutable global copy chains" {
 }
 
 ///|
-test "simplify-globals-optimizing folds single-use multi-instruction global initializers into later globals" {
-  let optimized = sgo_test_run(
+test "simplify-globals-optimizing folds single-use multi-instruction global initializers without nested cleanup" {
+  let (optimized, trace) = sgo_test_run_with_trace(
     (
       #|(module
       #|  (global $source i32
@@ -571,6 +571,10 @@ test "simplify-globals-optimizing folds single-use multi-instruction global init
     @lib.Instruction::i32_const(@lib.I32(5)),
     @lib.Instruction::i32_add(),
   ])
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup") }),
+    msg=trace.to_string(),
+  )
 }
 
 ///|
