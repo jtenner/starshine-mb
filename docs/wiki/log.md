@@ -395,6 +395,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO nested cleanup aggregate timers
+
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO nested cleanup emits `detail:sgo:nested-total` plus per-slot timers such as `detail:sgo:nested:simplify-locals` and `detail:sgo:nested:vacuum`.
+- Direct traced artifact evidence: `.tmp/sgo-nested-timers-trace.txt` reported SGO pass time `270.796ms`, with `detail:sgo:nested-total=213.664ms`. The largest wrapper slots were `simplify-locals=60.031ms`, `vacuum=47.410ms`, `remove-unused-brs=20.042ms`, `optimize-instructions=13.494ms`, `redundant-set-elimination=13.041ms`, `dead-code-elimination=12.553ms`, and `precompute=11.759ms`, while the underlying hot-pass timers were much smaller for several of those slots. This attributes the remaining direct-pass runtime gap mostly to nested cleanup wrapper/raw-skip/candidate-scan costs, not SGO core rewriting.
+- Direct artifact compare `.tmp/sgo-direct-debug-artifact-nested-timers` stayed valid and byte-identical to the prior Starshine canonical output, still red at `defined=48 abs=69`, with Starshine size `2,860,295` bytes versus Binaryen `2,861,435`; pass-local timing remained red but improved in this noisy run (`304.350ms` vs Binaryen `118.378ms`).
+- Validation/evidence for this slice: TDD failure was confirmed by expecting `detail:sgo:nested-total` and `detail:sgo:nested:dead-code-elimination` before implementation; after implementation, `moon test src/passes` passed (`1259/1259`).
+
 ## [2026-05-19] passes | SGO core timing and no-global fast path
 
 - Updated [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO core emits perf timers for `detail:sgo:collect-global-infos`, `detail:sgo:plan-flags`, `detail:sgo:rewrite-globals`, `detail:sgo:rewrite-startup`, and `detail:sgo:rewrite-code`, and skips allocation-heavy rewrite passes for functions whose body contains no global get/set.

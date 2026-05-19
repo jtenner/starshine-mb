@@ -10598,6 +10598,10 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     )
     return Ok(mod_)
   }
+  let nested_total_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:sgo:nested-total",
+  )
   let mut current = mod_
   for pass_name in run_hot_pipeline_sgo_nested_cleanup_passes() {
     pipeline_trace_hook(
@@ -10606,14 +10610,35 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
       "nested-pass",
       payload="name=\{pass_name}",
     )
+    let nested_pass_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:sgo:nested:\{pass_name}",
+    )
     if pass_name == "local-cse" {
       current = match
         run_hot_pipeline_apply_local_cse_to_touched(
           current, cleanup_touched, options,
         ) {
         Ok(next) => next
-        Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:sgo:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:sgo:nested-total",
+            nested_total_start_us,
+          )
+          return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+        }
       }
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:sgo:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
       continue
     }
     if pass_name == "coalesce-locals" {
@@ -10622,8 +10647,25 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
           current, cleanup_touched,
         ) {
         Ok(next) => next
-        Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:sgo:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:sgo:nested-total",
+            nested_total_start_us,
+          )
+          return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+        }
       }
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:sgo:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
       continue
     }
     if pass_name == "reorder-locals" {
@@ -10632,23 +10674,74 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
           current, cleanup_touched,
         ) {
         Ok(next) => next
-        Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:sgo:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:sgo:nested-total",
+            nested_total_start_us,
+          )
+          return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+        }
       }
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:sgo:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
       continue
     }
     let descriptor = match
       run_hot_pipeline_sgo_nested_cleanup_descriptor(pass_name) {
       Ok(descriptor) => descriptor
-      Err(err) => return Err(err)
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:sgo:nested:\{pass_name}",
+          nested_pass_start_us,
+        )
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:sgo:nested-total",
+          nested_total_start_us,
+        )
+        return Err(err)
+      }
     }
     current = match
       run_hot_pipeline_apply_hot_pass_to_touched(
         current, descriptor, cleanup_touched, options,
       ) {
       Ok(next) => next
-      Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:sgo:nested:\{pass_name}",
+          nested_pass_start_us,
+        )
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:sgo:nested-total",
+          nested_total_start_us,
+        )
+        return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+      }
     }
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:sgo:nested:\{pass_name}",
+      nested_pass_start_us,
+    )
   }
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:sgo:nested-total",
+    nested_total_start_us,
+  )
   Ok(current)
 }
 

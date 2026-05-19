@@ -236,6 +236,14 @@ test "simplify-globals-optimizing perf trace breaks down core phases" {
     text.contains("perf:timer name=detail:sgo:rewrite-code"),
     msg=text,
   )
+  assert_true(
+    text.contains("perf:timer name=detail:sgo:nested-total"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:sgo:nested:dead-code-elimination"),
+    msg=text,
+  )
 }
 
 ///|
