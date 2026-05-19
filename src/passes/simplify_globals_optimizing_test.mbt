@@ -1637,6 +1637,98 @@ test "simplify-globals-optimizing removes block-yielded reverse external pure-co
 }
 
 ///|
+test "simplify-globals-optimizing keeps unsupported block-yielded external pure-condition self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "next" (func $next (result i32)))
+      #|  (import "env" "tick" (func $tick))
+      #|  (global $wrong (mut i32) (i32.const 0))
+      #|  (global $other (export "other") (mut i32) (i32.const 0))
+      #|  (global $nonconst (mut i32) (i32.const 0))
+      #|  (global $else (mut i32) (i32.const 0))
+      #|  (global $trap (mut i32) (i32.const 0))
+      #|  (global $stack (mut i32) (i32.const 0))
+      #|  (func $wrong_target_run
+      #|    call $next
+      #|    global.set $wrong
+      #|    block (result i32)
+      #|      global.get $wrong
+      #|    end
+      #|    i32.const 1
+      #|    i32.add
+      #|    if
+      #|      i32.const 1
+      #|      global.set $other
+      #|    end)
+      #|  (func $nonconst_run
+      #|    call $next
+      #|    global.set $nonconst
+      #|    block (result i32)
+      #|      global.get $nonconst
+      #|    end
+      #|    i32.const 1
+      #|    i32.add
+      #|    if
+      #|      call $next
+      #|      global.set $nonconst
+      #|    end)
+      #|  (func $else_run
+      #|    call $next
+      #|    global.set $else
+      #|    block (result i32)
+      #|      global.get $else
+      #|    end
+      #|    i32.const 1
+      #|    i32.add
+      #|    if
+      #|      i32.const 1
+      #|      global.set $else
+      #|    else
+      #|      call $tick
+      #|    end)
+      #|  (func $trapping_run
+      #|    call $next
+      #|    global.set $trap
+      #|    block (result i32)
+      #|      global.get $trap
+      #|    end
+      #|    i32.const 1
+      #|    i32.div_s
+      #|    if
+      #|      i32.const 1
+      #|      global.set $trap
+      #|    end)
+      #|  (func $stack_depth_run
+      #|    call $next
+      #|    global.set $stack
+      #|    block (result i32)
+      #|      global.get $stack
+      #|    end
+      #|    i32.const 1
+      #|    if
+      #|      i32.const 1
+      #|      global.set $stack
+      #|    end
+      #|    drop))
+      #|,
+    ),
+  )
+
+  for i in [0, 2, 3, 4, 5] {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), true),
+    )
+  }
+  for i = 0; i < 5; i = i + 1 {
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_true(pretty.contains("global.get"), msg=pretty)
+    assert_true(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-globals-optimizing removes exact if-return read-only-to-write guards" {
   let optimized = sgo_test_run(
     (
@@ -2450,6 +2542,64 @@ test "simplify-globals-optimizing removes block-yielded reverse external pure-co
     let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
     assert_false(pretty.contains("global.get"), msg=pretty)
     assert_false(pretty.contains("global.set"), msg=pretty)
+  }
+}
+
+///|
+test "simplify-globals-optimizing keeps unsupported block-yielded external pure-condition if-return guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "next" (func $next (result i32)))
+      #|  (global $tail (mut i32) (i32.const 0))
+      #|  (global $nonconst (mut i32) (i32.const 0))
+      #|  (global $stack (mut i32) (i32.const 0))
+      #|  (func $tail_run
+      #|    block (result i32)
+      #|      global.get $tail
+      #|    end
+      #|    i32.const 1
+      #|    i32.add
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $tail
+      #|    nop)
+      #|  (func $nonconst_run
+      #|    block (result i32)
+      #|      global.get $nonconst
+      #|    end
+      #|    i32.const 1
+      #|    i32.add
+      #|    if
+      #|      return
+      #|    end
+      #|    call $next
+      #|    global.set $nonconst)
+      #|  (func $stack_depth_run
+      #|    block (result i32)
+      #|      global.get $stack
+      #|    end
+      #|    i32.const 1
+      #|    if
+      #|      return
+      #|    end
+      #|    drop
+      #|    i32.const 1
+      #|    global.set $stack))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), true),
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_true(pretty.contains("global.get"), msg=pretty)
+    assert_true(pretty.contains("global.set"), msg=pretty)
   }
 }
 

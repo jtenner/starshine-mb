@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO block-yielded external guardrail negatives
+
+- Added focused guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for unsupported block-yielded external pure-condition self guards and `if return; set` tails: wrong-target writes, non-constant set operands, `else` arms, trapping integer division, trailing code after an `if return; set` tail, and external stack-depth shapes where the guarded read is not the branch condition.
+- Kept this as a no-behavior-change correctness slice: the external block-yielded helper still only counts source-backed pure-condition chains that leave exactly one branch condition value, still requires same-global constant writes for self guards or exact return-guard tails, and still defers side-effecting or general value-flow positives until there is an explicit FlowScanner-like value-flow plan.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1157/1157`), full `moon test` passed (`3221/3221`), and `.tmp/pass-fuzz-sgo-external-guardrails-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO block-yielded reverse external pure operators
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so a constant before a transparent result block can combine with the block-yielded guarded read through a non-legacy pure external operator, such as `i32.lt_s` or `i64.eq`, before an adjacent self guard or exact `if return; set` tail.
