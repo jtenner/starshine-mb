@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO global-get-init same-as-init guardrails
+
+- Added no-behavior-change focused coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the probed `global.get` initializer boundary: a first `simplify-globals-optimizing` run canonicalizes a defined immutable `global.get` initializer and rewrites function reads but does not promote the mutable target in the same run; a second explicit run then removes the now-canonicalized write; imported-global initializer aliases remain mutable and keep their get/set uses even across two runs.
+- Local Binaryen probes in `.tmp/sgo-global-get-init-probes.wat` and `.tmp/sgo-global-get-import-init-probes.wat` showed the same one-pass/two-pass split under `wasm-opt --all-features --simplify-globals-optimizing`: defined `global.get` init becomes a literal in one run and promotes only after two runs, while imported `global.get` init is unchanged in both runs.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1197/1197`), full `moon test` passed (`3261/3261`), and `.tmp/pass-fuzz-sgo-global-get-init-guardrails-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO same-as-init guardrails
 
 - Added focused same-as-init coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt): direct `ref.null extern` same-as-init writes are removed like direct i32 literals, non-folded `i32.add` operands stay mutable, result-block operands stay mutable, and void-block bodies whose actual `global.set` operand is still a direct literal remove/promote.

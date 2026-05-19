@@ -8,6 +8,18 @@ fn sgo_test_run(text : String) -> @lib.Module {
 }
 
 ///|
+fn sgo_test_run_twice(text : String) -> @lib.Module {
+  match
+    pass_test_run_pipeline(text, [
+      "simplify-globals-optimizing", "simplify-globals-optimizing",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort("expected two simplify-globals-optimizing runs success, got \{err}")
+  }
+}
+
+///|
 fn sgo_test_run_with_trace(text : String) -> (@lib.Module, Array[String]) {
   let trace : Array[String] = []
   let mod_ = match
@@ -322,6 +334,89 @@ test "simplify-globals-optimizing removes ref-null same-as-init writes before re
   assert_false(pretty.contains("global.set"), msg=pretty)
   assert_false(pretty.contains("global.get"), msg=pretty)
   assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing canonicalizes defined global-get init before same-as-init removal" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $a i32 (i32.const 7))
+      #|  (global $g (mut i32) (global.get $a))
+      #|  (func (export "run") (result i32)
+      #|    global.get $a
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing second run removes canonicalized global-get init write" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (global $a i32 (i32.const 7))
+      #|  (global $g (mut i32) (global.get $a))
+      #|  (func (export "run") (result i32)
+      #|    global.get $a
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps imported global-get init same-as-init writes" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (import "m" "a" (global $a i32))
+      #|  (global $g (mut i32) (global.get $a))
+      #|  (func (export "run") (result i32)
+      #|    global.get $a
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 0), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
 }
 
 ///|
