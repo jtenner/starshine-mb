@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | function-call backlink hygiene
+
+- During the post-update whole-wiki health pass, searched call, `call_indirect`, import/export topology, and `call_ref` references for pages still routing only through binary, table, or tail-call guides.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), and [`index.md`](index.md) so direct-call stack typing, ordinary call WAST fixture guidance, import-section phase notes, and related-guide footers point at [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md) instead of leaving the new contract discoverable only from the WAST catalog.
+
 ## [2026-05-19] wast | function call and module authoring
 
 - Added [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md) as the focused WAST guide for `(func ...)`, inline and explicit function imports/exports, `(start ...)`, direct `call`, and the function/type side of `call_indirect`, deliberately routing table-resource details to [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), tail calls to [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), and `ref.func` declaration rules to [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md).

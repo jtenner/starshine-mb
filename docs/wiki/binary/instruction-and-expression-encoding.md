@@ -10,6 +10,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
+  - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
@@ -27,6 +28,7 @@ related:
   - ../tooling/validation-gates.md
   - ../wast/gc-type-authoring.md
   - ../wast/control-flow-authoring.md
+  - ../wast/function-call-and-module-authoring.md
   - ../wast/reference-instruction-authoring.md
   - ../wast/variable-instruction-authoring.md
   - ../wast/numeric-instruction-authoring.md
@@ -127,6 +129,7 @@ Key typechecker responsibilities:
 
 - [`Typecheck for Expr`](../../../src/validate/typecheck.mbt) runs instructions in order and threads a `TcState` containing environment, operand stack, reachability, and escape state.
 - `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks; ordinary WAST control-flow fixture rules live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), while `try_table` catch payload/label rules are summarized in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
+- `call` and `call_indirect` validate function/type/table indices plus callee parameter/result stack effects above the byte layer; WAST fixture guidance for direct calls, function imports/exports/starts, the function/type side of `call_indirect`, and the current ordinary-`call_ref` text caveat lives in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md).
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure; ordinary branch payload/fallthrough guidance lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), and WAST fixture guidance for `return_call`, `return_call_indirect`, and `return_call_ref` lives in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 - `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` validate local/global index existence, stack operand types, and global mutability above the byte layer; fixture and rewrite rules live in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 - Scalar numeric constants, comparisons, arithmetic, conversions, reinterprets, sign-extension, and saturating truncations validate stack arity and exact operand/result value types above the byte layer; text fixture rules and rewrite hazards live in [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md).
@@ -148,7 +151,7 @@ absolute FuncIdx(1) = CodeSec body 0 ($a)
 absolute FuncIdx(2) = CodeSec body 1 ($b)
 ```
 
-Instruction immediates such as `call`, `return_call`, `ref.func`, exports, starts, and element payloads use absolute `FuncIdx` values. Code-section body ordinals do not. That distinction is why function-remapping passes must update both section vectors and every instruction/metadata carrier. The `return_call*` family is also covered from the WAST and CFG side in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
+Instruction immediates such as `call`, `return_call`, `ref.func`, exports, starts, and element payloads use absolute `FuncIdx` values. Code-section body ordinals do not. That distinction is why function-remapping passes must update both section vectors and every instruction/metadata carrier. Direct call and function-module WAST authoring lives in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md); the `return_call*` family is also covered from the WAST and CFG side in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 
 ### Structured expression nesting
 
@@ -201,4 +204,4 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
-- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)
+- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md), [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)
