@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | SIMD authoring
+
+- Added [`wast/simd-authoring.md`](wast/simd-authoring.md) as the focused WAST SIMD guide for `v128.const` lane-shaped constants, canonical 16-byte lowering, `i8x16.shuffle` lane `0..31` semantics, shape-specific lane bounds, the current binary-origin lane-validation caveat, vector memory-argument validation, relaxed-SIMD authoring caveats, and generator-versus-WAST coverage boundaries.
+- Ingested [`raw/wasm/2026-05-19-wast-simd-sources.md`](raw/wasm/2026-05-19-wast-simd-sources.md) after checking current official WebAssembly 3.0 text, binary, and validation instruction pages plus Starshine parser, lowerer, printer, binary codec, typechecker, valid-generator, and WAST arbitrary code.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so SIMD fixture, `0xFD` opcode, FZG phase-1/2/3, and representative WAST arbitrary claims route through one shared authoring contract.
+- Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt).
+
+## [2026-05-19] health | CFG exception backlink hygiene
+
+- During the post-update whole-wiki health pass, checked the IR2 CFG contract's exceptional-edge text after adding the focused WAST exception/tag guide.
+- Updated [`ir2/cfg-contract.md`](ir2/cfg-contract.md) and [`index.md`](index.md) so `try_table` catch-list exceptional flow points at [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) for payload, catch-label, and validation details instead of leaving catch-list routing implicit.
+
 ## [2026-05-19] wast | exception tag authoring
 
 - Added [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) as the focused WAST exception/tag guide for `tag`, `throw`, `throw_ref`, modern `try_table`, `catch`, `catch_ref`, `catch_all`, `catch_all_ref`, imported-prefix `TagIdx` examples, catch-label scope rules, legacy `try` compatibility lowering, and tag rewrite/signoff guidance.

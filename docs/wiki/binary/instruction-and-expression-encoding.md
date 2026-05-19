@@ -21,6 +21,8 @@ related:
   - ../validate/ref-func-declarations.md
   - ../tooling/validation-gates.md
   - ../wast/gc-type-authoring.md
+  - ../wast/exception-tag-authoring.md
+  - ../wast/simd-authoring.md
 ---
 
 # Binary Instruction And Expression Encoding
@@ -48,7 +50,7 @@ binary bytes -> syntactic Instruction / Expr decode -> module validation/typeche
 | Instruction | [`Instruction`](../../../src/lib/types.mbt) enum | Decoded opcode plus typed immediates; includes one-byte core opcodes and prefixed families. |
 | Block type | [`BlockType`](../../../src/lib/types.mbt) | Void (`0x40`), single value type, or absolute function-type index. Validator expands it to params/results. |
 | Memory argument | [`MemArg(U32, MemIdx?, U64)`](../../../src/lib/types.mbt) | Alignment exponent, optional explicit memory index, and offset. Validator checks selected memory, alignment width, and address-width offset. |
-| Catch clause | [`Catch`](../../../src/lib/types.mbt) | `try_table` catch encoding plus label target validation against tag payloads or `exnref`. |
+| Catch clause | [`Catch`](../../../src/lib/types.mbt) | `try_table` catch encoding plus label target validation against tag payloads or `exnref`; see [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md) for text-level authoring and catch scope rules. |
 
 Starshine's core representation is deliberately semantic enough for validators and passes, not a raw opcode token stream. For example, `Instruction::I32Load(MemArg(...))` remembers the access family and immediate fields; validation later proves that the memory exists and the operand/result stack is legal.
 
@@ -87,7 +89,7 @@ Do not audit instruction coverage by one-byte opcodes only. Starshine's current 
 | Prefix | Family in Starshine | Examples |
 | ---: | --- | --- |
 | `0xFC` | Saturating conversion, bulk memory, and table operations | `i32.trunc_sat_f32_s`, `memory.init`, `data.drop`, `memory.copy`, `table.init`, `elem.drop` |
-| `0xFD` | SIMD | `v128.load`, `i8x16.shuffle`, lane extract/replace, relaxed SIMD forms |
+| `0xFD` | SIMD | `v128.load`, `i8x16.shuffle`, lane extract/replace, relaxed SIMD forms; WAST fixture rules live in [`../wast/simd-authoring.md`](../wast/simd-authoring.md). |
 | `0xFE` | Atomics | atomic load/store/rmw/cmpxchg, wait/notify, fence |
 | `0xFB` | GC/aggregate/reference-family local surface | `struct.new`, `struct.get`, `array.new`, descriptor-aware operations |
 
@@ -100,7 +102,7 @@ After decode, module validation supplies the environment needed for instruction 
 Key typechecker responsibilities:
 
 - [`Typecheck for Expr`](../../../src/validate/typecheck.mbt) runs instructions in order and threads a `TcState` containing environment, operand stack, reachability, and escape state.
-- `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks.
+- `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks; `try_table` catch payload/label rules are summarized in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure.
 - `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range.
 - `ref.func` is syntactically just an instruction immediate, but Starshine runs a separate declaration check; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
@@ -162,7 +164,8 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - **Blocktype type indices must name function types.** Struct/array type indices are not legal blocktype expansions.
 - **Recursive-index blocktypes are not binary-output-safe.** Normalize to absolute type indices before encode.
 - **Explicit memory indices are encoded through Starshine's extended memarg form.** Passes touching memories must update `MemArg` carriers, not only `memory.size` / `memory.grow` instructions.
-- **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses bulk memory, SIMD, atomics, and GC/custom-descriptor operations.
+- **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses bulk memory, SIMD, atomics, and GC/custom-descriptor operations. For SIMD specifically, pair this binary guide with [`../wast/simd-authoring.md`](../wast/simd-authoring.md) so lane-shaped text fixtures stay aligned with the canonical 16-byte core representation.
+- **SIMD lane immediates need shape-specific evidence.** Starshine's WAST lowerer enforces exact lane bounds, but binary decode currently uses a coarse generic `<16` lane guard except for shuffle's `<32` decoder; see [`../wast/simd-authoring.md`](../wast/simd-authoring.md) before treating binary-origin lane acceptance as validation parity.
 - **Deep nesting is a fuzz-hardening boundary.** Raising or removing the decoder limit should be treated as a security/performance-sensitive codec change.
 
 ## Sources
@@ -172,4 +175,4 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
-- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md)
+- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)

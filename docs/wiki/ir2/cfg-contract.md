@@ -5,6 +5,7 @@ last_reviewed: 2026-05-19
 sources:
   - ../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
+  - ../wast/exception-tag-authoring.md
   - ../../../src/ir/cfg_contract.mbt
   - ../../../src/ir/cfg.mbt
   - ../../../src/ir/hot_flags.mbt
@@ -16,6 +17,7 @@ related:
   - ./local-ssa-policy.md
   - ./test-matrix.md
   - ./pass-porting-checklist.md
+  - ../wast/exception-tag-authoring.md
   - ../../../src/ir/cfg_contract.mbt
   - ../../../src/ir/cfg_contract_test.mbt
   - ../../../src/ir/cfg.mbt
@@ -91,7 +93,7 @@ The current WebAssembly core instruction list includes `return_call`, `return_ca
 
 - Ordinary nodes use `NoExceptionEdge`.
 - `try` routes exceptional flow to its catch region.
-- `try_table` routes exceptional flow to its catch-list region.
+- `try_table` routes exceptional flow to its catch-list region; the WAST lowering and validation rules for catch labels and payloads live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - `throw`, `throw_ref`, and `rethrow` propagate to the nearest handler or caller-visible exceptional exit.
 - `delegate` transfers exceptionally to its delegated target.
 
@@ -169,3 +171,4 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 - HOT flags and query helpers: [`../../../src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`../../../src/ir/hot_query.mbt`](../../../src/ir/hot_query.mbt)
 - CFG tests: [`../../../src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), [`../../../src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt), [`../../../src/ir/cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt)
 - Tail-call validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
+- Exception/tag catch payload guide: [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)

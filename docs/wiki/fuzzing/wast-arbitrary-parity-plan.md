@@ -10,6 +10,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
 related:
   - ../wast/exception-tag-authoring.md
+  - ../wast/simd-authoring.md
   - generator-coverage-ledger.md
 ---
 
@@ -44,10 +45,10 @@ The opcode pickers in `src/wast/arbitrary.mbt` are intentionally duplicated text
 
 ## Current coverage
 
-`[FZG]027` adds a deterministic wide-surface prelude to arbitrary modules in `src/wast/arbitrary.mbt`. Every generated arbitrary module now carries text syntax for a GC struct type, exported tag, tail-call/call-ref forms, `throw`, `try_table`, memory/table bulk operations, descriptor ref test/cast forms, richer inline exports, and a representative `v128.const` shape. The focused package test `wast arbitrary module includes widened surface prelude` asserts these tokens and reparses the printed module. For the exception-tag portion of that prelude, keep future widening aligned with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md) so text coverage does not overclaim full typed `try_table` / catch-label validation.
+`[FZG]027` adds a deterministic wide-surface prelude to arbitrary modules in `src/wast/arbitrary.mbt`. Every generated arbitrary module now carries text syntax for a GC struct type, exported tag, tail-call/call-ref forms, `throw`, `try_table`, memory/table bulk operations, descriptor ref test/cast forms, richer inline exports, and a representative `v128.const` shape. The focused package test `wast arbitrary module includes widened surface prelude` asserts these tokens and reparses the printed module. For the exception-tag portion of that prelude, keep future widening aligned with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md) so text coverage does not overclaim full typed `try_table` / catch-label validation. For the SIMD portion, use [`../wast/simd-authoring.md`](../wast/simd-authoring.md) so future WAST widening distinguishes representative `v128.const` coverage from the broader valid-generator `[FZG]014` through `[FZG]016` matrix.
 
 ## Current gaps
 
 - The WAST numeric pickers cover representative scalar instructions, but not the full `[FZG]002` scalar opcode matrix.
-- The WAST prelude now mirrors the broad `[FZG]027` parser/printer surface, but it remains a text-roundtrip surface rather than a typed validity oracle for every `[FZG]003` through `[FZG]023` binary-generator invariant.
+- The WAST prelude now mirrors the broad `[FZG]027` parser/printer surface, but it remains a text-roundtrip surface rather than a typed validity oracle for every `[FZG]003` through `[FZG]023` binary-generator invariant. SIMD is a clear example: the prelude has representative `v128.const` syntax, while the valid generator owns the broader phase-1/2/3 SIMD coverage rows documented in [`../wast/simd-authoring.md`](../wast/simd-authoring.md).
 - Invalid-AST and invalid-binary strategy widening remain separate from this WAST plan; they should keep starting from valid bases or binary-malformed strategies as described in `agent-todo.md`.
