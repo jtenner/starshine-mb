@@ -8340,7 +8340,10 @@ fn dae_instr_dropped_pure_value_arity(instr : @lib.Instruction) -> Int? {
   if dae_instr_is_nontrapping_pure_binary(instr) {
     return Some(2)
   }
-  None
+  match instr {
+    @lib.Select(_) => Some(3)
+    _ => None
+  }
 }
 
 ///|
