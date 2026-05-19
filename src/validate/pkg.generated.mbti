@@ -462,6 +462,7 @@ pub struct TcState {
   stack : Array[@lib.ValType]
   reachable : Bool
   escape : TcEscape
+  reachable_escape_depths : Array[Int]
 }
 pub impl Show for TcState
 

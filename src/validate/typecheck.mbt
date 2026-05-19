@@ -22,6 +22,7 @@ pub struct TcState {
   stack : Array[ValType]
   reachable : Bool
   escape : TcEscape
+  reachable_escape_depths : Array[Int]
 }
 
 ///|
@@ -34,6 +35,8 @@ pub impl Show for TcState with output(self, logger) {
   self.reachable.output(logger)
   logger.write_string(", escape: ")
   self.escape.output(logger)
+  logger.write_string(", reachable_escape_depths: ")
+  self.reachable_escape_depths.output(logger)
   logger.write_char('}')
 }
 
@@ -61,6 +64,76 @@ fn TcState::set_branch_escape(st : TcState, depth : Int) -> TcState {
   }
   st.stack.clear()
   TcState::{ ..st, reachable: false, escape: BranchTcEscape(depth) }
+}
+
+///|
+fn tc_escape_depths_has(depths : Array[Int], depth : Int) -> Bool {
+  depths.any(fn(d) { d == depth })
+}
+
+///|
+fn tc_escape_depths_shift_to_parent(depths : Array[Int]) -> Array[Int] {
+  let out : Array[Int] = []
+  for depth in depths {
+    if depth > 0 {
+      out.push(depth - 1)
+    }
+  }
+  out
+}
+
+///|
+fn tc_escape_depths_merge(left : Array[Int], right : Array[Int]) -> Array[Int] {
+  if left.length() == 0 {
+    return right
+  }
+  if right.length() == 0 {
+    return left
+  }
+  let out = left.copy()
+  for depth in right {
+    out.push(depth)
+  }
+  out
+}
+
+///|
+fn TcState::record_reachable_escape_depth(
+  st : TcState,
+  was_reachable : Bool,
+  depth : Int,
+) -> TcState {
+  if !was_reachable {
+    return st
+  }
+  let depths = st.reachable_escape_depths.copy()
+  depths.push(depth)
+  TcState::{ ..st, reachable_escape_depths: depths }
+}
+
+///|
+fn TcState::record_reachable_escape_label(
+  st : TcState,
+  was_reachable : Bool,
+  label : LabelIdx,
+) -> TcState {
+  let LabelIdx(raw) = label
+  st.record_reachable_escape_depth(was_reachable, raw.reinterpret_as_int())
+}
+
+///|
+fn TcState::merge_child_reachable_escape_depths(
+  st : TcState,
+  child : TcState,
+) -> TcState {
+  let shifted = tc_escape_depths_shift_to_parent(child.reachable_escape_depths)
+  TcState::{
+    ..st,
+    reachable_escape_depths: tc_escape_depths_merge(
+      st.reachable_escape_depths,
+      shifted,
+    ),
+  }
 }
 
 ///|
@@ -260,111 +333,6 @@ fn merge_nonfallthrough_if_exits(left : TcEscape, right : TcEscape) -> TcEscape 
     return left
   }
   TerminalTcEscape
-}
-
-///|
-fn typecheck_instr_may_fallthrough(instr : Instruction) -> Bool {
-  match instr {
-    Br(_)
-    | BrTable(_, _)
-    | Return
-    | ReturnCall(_)
-    | ReturnCallIndirect(_, _)
-    | ReturnCallRef(_)
-    | Throw(_)
-    | ThrowRef
-    | Unreachable => false
-    _ => true
-  }
-}
-
-///|
-fn typecheck_instr_has_reachable_escape_to_label(
-  instr : Instruction,
-  target_depth : Int,
-) -> Bool {
-  match instr {
-    BrIf(li) => {
-      let LabelIdx(raw) = li
-      return raw.reinterpret_as_int() == target_depth
-    }
-    BrTable(labels, fallback) => {
-      let LabelIdx(fallback_raw) = fallback
-      if fallback_raw.reinterpret_as_int() == target_depth {
-        return true
-      }
-      return labels.any(fn(li) {
-        let LabelIdx(raw) = li
-        raw.reinterpret_as_int() == target_depth
-      })
-    }
-    BrOnNull(li) => {
-      let LabelIdx(raw) = li
-      return raw.reinterpret_as_int() == target_depth
-    }
-    BrOnNonNull(li) => {
-      let LabelIdx(raw) = li
-      return raw.reinterpret_as_int() == target_depth
-    }
-    BrOnCast(li, _, _, _) => {
-      let LabelIdx(raw) = li
-      return raw.reinterpret_as_int() == target_depth
-    }
-    BrOnCastFail(li, _, _, _) => {
-      let LabelIdx(raw) = li
-      return raw.reinterpret_as_int() == target_depth
-    }
-    Block(_, Expr(body)) =>
-      return typecheck_body_has_reachable_escape_to_label(
-        body,
-        target_depth + 1,
-      )
-    Loop(_, Expr(body)) =>
-      return typecheck_body_has_reachable_escape_to_label(
-        body,
-        target_depth + 1,
-      )
-    TryTable(_, _, Expr(body)) =>
-      return typecheck_body_has_reachable_escape_to_label(
-        body,
-        target_depth + 1,
-      )
-    If(_, then_instrs, else_instrs_opt) => {
-      if typecheck_body_has_reachable_escape_to_label(
-          then_instrs,
-          target_depth + 1,
-        ) {
-        return true
-      }
-      match else_instrs_opt {
-        Some(else_instrs) =>
-          return typecheck_body_has_reachable_escape_to_label(
-            else_instrs,
-            target_depth + 1,
-          )
-        None => return false
-      }
-    }
-    _ => return false
-  }
-}
-
-///|
-fn typecheck_body_has_reachable_escape_to_label(
-  instrs : Array[Instruction],
-  target_depth : Int,
-) -> Bool {
-  let mut reachable = true
-  for instr in instrs {
-    if !reachable {
-      break
-    }
-    if typecheck_instr_has_reachable_escape_to_label(instr, target_depth) {
-      return true
-    }
-    reachable = typecheck_instr_may_fallthrough(instr)
-  }
-  false
 }
 
 ///|
@@ -688,6 +656,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     stack: body_stack,
     reachable: st1.reachable,
     escape: st1.escape,
+    reachable_escape_depths: [],
   }
   let st_body = match Typecheck::typecheck(Expr::new(body_instrs), st_body0) {
     Err(e) => return Err(e)
@@ -699,17 +668,26 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Ok(x) => x
   }
   let reaches_merge = base_reaches_merge ||
-    typecheck_body_has_reachable_escape_to_label(body_instrs, 0)
+    tc_escape_depths_has(st_body.reachable_escape_depths, 0)
   if reaches_merge {
     let out = TcState::{
       env: st.env,
       stack: st1.stack,
       reachable: st.reachable,
       escape: st.escape,
-    }
+      reachable_escape_depths: st.reachable_escape_depths,
+    }.merge_child_reachable_escape_depths(st_body)
     return Ok(out.push_types(results))
   }
-  Ok(TcState::{ env: st.env, stack: [], reachable: false, escape: block_escape })
+  Ok(
+    TcState::{
+      env: st.env,
+      stack: [],
+      reachable: false,
+      escape: block_escape,
+      reachable_escape_depths: st.reachable_escape_depths,
+    }.merge_child_reachable_escape_depths(st_body),
+  )
 }
 
 ///|
@@ -748,6 +726,7 @@ fn typecheck_if(
     stack: branch_stack,
     reachable: st1.reachable,
     escape: st1.escape,
+    reachable_escape_depths: [],
   }
   let st_then = match Typecheck::typecheck(Expr::new(then_instrs), st_then0) {
     Err(e) => return Err(e)
@@ -760,6 +739,7 @@ fn typecheck_if(
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
     escape: st1.escape,
+    reachable_escape_depths: [],
   }
   let st_else = match Typecheck::typecheck(Expr::new(else_instrs), st_else0) {
     Err(e) => return Err(e)
@@ -777,9 +757,13 @@ fn typecheck_if(
     Ok(x) => x
   }
   let then_reach = base_then_reach ||
-    typecheck_body_has_reachable_escape_to_label(then_instrs, 0)
+    tc_escape_depths_has(st_then.reachable_escape_depths, 0)
   let else_reach = base_else_reach ||
-    typecheck_body_has_reachable_escape_to_label(else_instrs, 0)
+    tc_escape_depths_has(st_else.reachable_escape_depths, 0)
+  let merged_child_depths = tc_escape_depths_merge(
+    tc_escape_depths_shift_to_parent(st_then.reachable_escape_depths),
+    tc_escape_depths_shift_to_parent(st_else.reachable_escape_depths),
+  )
 
   if then_reach || else_reach {
     let out = TcState::{
@@ -787,6 +771,10 @@ fn typecheck_if(
       stack: st1.stack,
       reachable: true,
       escape: NoTcEscape,
+      reachable_escape_depths: tc_escape_depths_merge(
+        st.reachable_escape_depths,
+        merged_child_depths,
+      ),
     }
     return Ok(out.push_types(results))
   }
@@ -795,6 +783,10 @@ fn typecheck_if(
     stack: [],
     reachable: false,
     escape: merge_nonfallthrough_if_exits(then_escape, else_escape),
+    reachable_escape_depths: tc_escape_depths_merge(
+      st.reachable_escape_depths,
+      merged_child_depths,
+    ),
   })
 }
 
@@ -1400,6 +1392,7 @@ fn typecheck_try_table(
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
     escape: st1.escape,
+    reachable_escape_depths: [],
   }
 
   // body must typecheck under extended env
@@ -1429,7 +1422,8 @@ fn typecheck_try_table(
     stack: st1.stack,
     reachable: st_body.reachable,
     escape: st_body.escape,
-  }
+    reachable_escape_depths: st.reachable_escape_depths,
+  }.merge_child_reachable_escape_depths(st_body)
   Ok(out.push_types(results))
 }
 
@@ -1742,6 +1736,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
     escape: st1.escape,
+    reachable_escape_depths: [],
   }
   let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
@@ -1759,10 +1754,19 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       stack: st1.stack,
       reachable: st.reachable,
       escape: st.escape,
-    }
+      reachable_escape_depths: st.reachable_escape_depths,
+    }.merge_child_reachable_escape_depths(st_body)
     return Ok(out.push_types(results))
   }
-  Ok(TcState::{ env: st.env, stack: [], reachable: false, escape: loop_escape })
+  Ok(
+    TcState::{
+      env: st.env,
+      stack: [],
+      reachable: false,
+      escape: loop_escape,
+      reachable_escape_depths: st.reachable_escape_depths,
+    }.merge_child_reachable_escape_depths(st_body),
+  )
 }
 
 ///|
@@ -3204,13 +3208,54 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     Br(l) => typecheck_br(st, l)
     Block(bt, e) => typecheck_block(st, bt, e)
     If(bt, th, el) => typecheck_if(st, bt, th, el)
-    BrIf(l) => typecheck_br_if(st, l)
-    BrTable(ls, ldef) => typecheck_br_table(st, ls, ldef)
-    BrOnNull(l) => typecheck_br_on_null(st, l)
-    BrOnNonNull(l) => typecheck_br_on_non_null(st, l)
-    BrOnCast(l, op, ht1, ht2) => typecheck_br_on_cast(st, l, op, ht1, ht2)
-    BrOnCastFail(l, op, ht1, ht2) =>
-      typecheck_br_on_cast_fail(st, l, op, ht1, ht2)
+    BrIf(l) => {
+      let was_reachable = st.reachable
+      match typecheck_br_if(st, l) {
+        Ok(out) => Ok(out.record_reachable_escape_label(was_reachable, l))
+        Err(err) => Err(err)
+      }
+    }
+    BrTable(ls, ldef) => {
+      let was_reachable = st.reachable
+      match typecheck_br_table(st, ls, ldef) {
+        Ok(out) => {
+          let mut out = out.record_reachable_escape_label(was_reachable, ldef)
+          for l in ls {
+            out = out.record_reachable_escape_label(was_reachable, l)
+          }
+          Ok(out)
+        }
+        Err(err) => Err(err)
+      }
+    }
+    BrOnNull(l) => {
+      let was_reachable = st.reachable
+      match typecheck_br_on_null(st, l) {
+        Ok(out) => Ok(out.record_reachable_escape_label(was_reachable, l))
+        Err(err) => Err(err)
+      }
+    }
+    BrOnNonNull(l) => {
+      let was_reachable = st.reachable
+      match typecheck_br_on_non_null(st, l) {
+        Ok(out) => Ok(out.record_reachable_escape_label(was_reachable, l))
+        Err(err) => Err(err)
+      }
+    }
+    BrOnCast(l, op, ht1, ht2) => {
+      let was_reachable = st.reachable
+      match typecheck_br_on_cast(st, l, op, ht1, ht2) {
+        Ok(out) => Ok(out.record_reachable_escape_label(was_reachable, l))
+        Err(err) => Err(err)
+      }
+    }
+    BrOnCastFail(l, op, ht1, ht2) => {
+      let was_reachable = st.reachable
+      match typecheck_br_on_cast_fail(st, l, op, ht1, ht2) {
+        Ok(out) => Ok(out.record_reachable_escape_label(was_reachable, l))
+        Err(err) => Err(err)
+      }
+    }
     Return => typecheck_return(st)
     Call(f) => typecheck_call(st, f)
     CallIndirect(tidx, t) => typecheck_call_indirect(st, tidx, t)
@@ -3822,12 +3867,24 @@ fn non_nullable_externref() -> ValType {
 
 ///|
 pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
-  { env, stack: stack.copy(), reachable: true, escape: NoTcEscape }
+  {
+    env,
+    stack: stack.copy(),
+    reachable: true,
+    escape: NoTcEscape,
+    reachable_escape_depths: [],
+  }
 }
 
 ///|
 pub fn make_state_owned(env : Env, stack : Array[ValType]) -> TcState {
-  { env, stack, reachable: true, escape: NoTcEscape }
+  {
+    env,
+    stack,
+    reachable: true,
+    escape: NoTcEscape,
+    reachable_escape_depths: [],
+  }
 }
 
 ///|
@@ -3837,6 +3894,7 @@ pub fn tc_state_with_stack(state : TcState, stack : Array[ValType]) -> TcState {
     stack: stack.copy(),
     reachable: state.reachable,
     escape: state.escape,
+    reachable_escape_depths: state.reachable_escape_depths,
   }
 }
 
@@ -3845,7 +3903,13 @@ pub fn tc_state_with_owned_stack(
   state : TcState,
   stack : Array[ValType],
 ) -> TcState {
-  { env: state.env, stack, reachable: state.reachable, escape: state.escape }
+  {
+    env: state.env,
+    stack,
+    reachable: state.reachable,
+    escape: state.escape,
+    reachable_escape_depths: state.reachable_escape_depths,
+  }
 }
 
 ///|
@@ -3855,7 +3919,7 @@ pub fn tc_state_new(
   reachable : Bool,
   escape : TcEscape,
 ) -> TcState {
-  { env, stack, reachable, escape }
+  { env, stack, reachable, escape, reachable_escape_depths: [] }
 }
 
 ///|
@@ -3898,6 +3962,17 @@ pub fn tc_state_validate_end_stack(
 }
 
 ///|
+fn typecheck_expr_with_escape_summary_for_test(
+  expr : Expr,
+  state : TcState,
+) -> Result[(TcState, Array[Int]), String] {
+  match Typecheck::typecheck(expr, state) {
+    Ok(out) => Ok((out, out.reachable_escape_depths))
+    Err(err) => Err(err)
+  }
+}
+
+///|
 pub fn tc_state_normalize_untyped_block_exit(
   state : TcState,
   results : Array[ValType],
@@ -3927,9 +4002,48 @@ test "tc_state_validate_end_stack accepts unreachable virtual-bottom suffixes" {
     stack: [],
     reachable: false,
     escape: NoTcEscape,
+    reachable_escape_depths: [],
   }
   let result = tc_state_validate_end_stack(state, [ValType::i32()])
   @debug.assert_eq(result, Ok(()))
+}
+
+///|
+test "typecheck expression summary records only reachable branch escapes" {
+  let env = empty_env().with_label([ValType::i32()])
+  let state = make_state(env, [])
+  let expr = Expr::new([
+    Instruction::i32_const(@lib.I32::new(1)),
+    Instruction::i32_const(@lib.I32::new(0)),
+    Instruction::br_if(LabelIdx::new(0)),
+    Instruction::unreachable_(),
+    Instruction::i32_const(@lib.I32::new(2)),
+    Instruction::i32_const(@lib.I32::new(0)),
+    Instruction::br_if(LabelIdx::new(0)),
+  ])
+  match typecheck_expr_with_escape_summary_for_test(expr, state) {
+    Ok((_, depths)) => @debug.assert_eq(depths, [0])
+    Err(err) =>
+      fail("expected expression summary typecheck success, got \{err}")
+  }
+
+  let nested_state = make_state(empty_env().with_label([ValType::i32()]), [])
+  let nested = Expr::new([
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(@lib.I32::new(1)),
+        Instruction::i32_const(@lib.I32::new(0)),
+        Instruction::br_if(LabelIdx::new(1)),
+        Instruction::drop(),
+      ]),
+    ),
+  ])
+  match typecheck_expr_with_escape_summary_for_test(nested, nested_state) {
+    Ok((_, depths)) => @debug.assert_eq(depths, [0])
+    Err(err) =>
+      fail("expected nested expression summary typecheck success, got \{err}")
+  }
 }
 
 ///|
@@ -5786,7 +5900,7 @@ test "Typecheck ExternConvertAny" {
 ///|
 test "Typecheck I32Const pushes i32" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
+  let state = make_state_owned(env, [])
   let result = Typecheck::typecheck(Instruction::i32_const(I32(42)), state)
   match result {
     Ok(new_state) => @debug.assert_eq(new_state.stack, [ValType::i32()])
@@ -5797,12 +5911,7 @@ test "Typecheck I32Const pushes i32" {
 ///|
 test "Typecheck I32Add consumes two i32s and produces one" {
   let env = empty_env()
-  let state : TcState = {
-    env,
-    stack: [ValType::i32(), ValType::i32()],
-    reachable: true,
-    escape: NoTcEscape,
-  }
+  let state = make_state_owned(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(Instruction::i32_add(), state)
   match result {
     Ok(new_state) => @debug.assert_eq(new_state.stack, [ValType::i32()])
@@ -5813,7 +5922,7 @@ test "Typecheck I32Add consumes two i32s and produces one" {
 ///|
 test "Typecheck I32Add fails with insufficient stack" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
+  let state = make_state_owned(env, [])
   let result = Typecheck::typecheck(Instruction::i32_add(), state)
   match result {
     Ok(_) => fail("I32Add should fail with empty stack")
@@ -5824,12 +5933,7 @@ test "Typecheck I32Add fails with insufficient stack" {
 ///|
 test "Typecheck Drop removes top of stack" {
   let env = empty_env()
-  let state : TcState = {
-    env,
-    stack: [ValType::i32()],
-    reachable: true,
-    escape: NoTcEscape,
-  }
+  let state = make_state_owned(env, [ValType::i32()])
   let result = Typecheck::typecheck(Instruction::drop(), state)
   match result {
     Ok(new_state) => @debug.assert_eq(new_state.stack, [])
@@ -5840,7 +5944,7 @@ test "Typecheck Drop removes top of stack" {
 ///|
 test "Typecheck Unreachable makes state unreachable" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
+  let state = make_state_owned(env, [])
   let result = Typecheck::typecheck(Instruction::unreachable_(), state)
   match result {
     Ok(new_state) => @debug.assert_eq(new_state.reachable, false)
@@ -5851,7 +5955,7 @@ test "Typecheck Unreachable makes state unreachable" {
 ///|
 test "Typecheck empty Expr" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
+  let state = make_state_owned(env, [])
   let expr = Expr::new([])
   let result = Typecheck::typecheck(expr, state)
   match result {
@@ -5863,7 +5967,7 @@ test "Typecheck empty Expr" {
 ///|
 test "Typecheck Expr sequence" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
+  let state = make_state_owned(env, [])
   let expr = Expr::new([
     Instruction::i32_const(I32(1)),
     Instruction::i32_const(I32(2)),
@@ -5879,7 +5983,7 @@ test "Typecheck Expr sequence" {
 ///|
 test "Typecheck I64Const pushes i64" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
+  let state = make_state_owned(env, [])
   let result = Typecheck::typecheck(Instruction::i64_const(I64(100L)), state)
   match result {
     Ok(new_state) => @debug.assert_eq(new_state.stack, [ValType::i64()])
@@ -5890,12 +5994,7 @@ test "Typecheck I64Const pushes i64" {
 ///|
 test "Typecheck type mismatch fails" {
   let env = empty_env()
-  let state : TcState = {
-    env,
-    stack: [ValType::i64(), ValType::i32()],
-    reachable: true,
-    escape: NoTcEscape,
-  }
+  let state = make_state_owned(env, [ValType::i64(), ValType::i32()])
   let result = Typecheck::typecheck(Instruction::i32_add(), state)
   match result {
     Ok(_) => fail("I32Add should fail with mismatched types")
