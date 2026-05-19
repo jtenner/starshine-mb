@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO module-boundary nested cleanup guardrails
+
+- Added focused scheduler guardrails in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt): nested cleanup still runs at the module function-count threshold (`100` defined functions), skips only above it, and startup-only data-offset rewrites do not trigger function cleanup.
+- Updated [`binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md) to keep module-boundary cleanup behavior visible.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1255/1255`), full `moon test` passed (`3319/3319`), and `.tmp/pass-fuzz-sgo-module-boundary-cleanup-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO nested cleanup pass-order characterization
 
 - Added focused scheduler-order coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the current Starshine SGO nested cleanup lane: it starts at `dead-code-elimination`, runs through the default cleanup sequence to `vacuum`, includes the repeated `merge-blocks` slot, and deliberately has no `precompute-propagate` prefix.

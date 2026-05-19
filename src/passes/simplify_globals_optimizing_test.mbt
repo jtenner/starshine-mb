@@ -319,6 +319,38 @@ test "simplify-globals-optimizing nested cleanup skips above eight touched funct
 }
 
 ///|
+test "simplify-globals-optimizing nested cleanup runs at module function-count threshold" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_touched_cleanup_fixture(1, extra_untouched_count=99),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
+    msg=trace.to_string(),
+  )
+  let touched = optimized.pretty_print_defined_func(0U)
+  assert_false(touched.contains("global.get"), msg=touched)
+  assert_false(touched.contains("drop"), msg=touched)
+  let untouched = optimized.pretty_print_defined_func(1U)
+  assert_true(untouched.contains("I32(99)"), msg=untouched)
+  assert_true(untouched.contains("drop"), msg=untouched)
+}
+
+///|
 test "simplify-globals-optimizing nested cleanup skips modules with more than one hundred functions" {
   let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_touched_cleanup_fixture(1, extra_untouched_count=100),
@@ -471,7 +503,7 @@ test "simplify-globals-optimizing nested cleanup skips touched functions above i
 
 ///|
 test "simplify-globals-optimizing propagates startup globals into data offsets without cleaning untouched functions" {
-  let optimized = sgo_test_run(
+  let (optimized, trace) = sgo_test_run_with_trace(
     (
       #|(module
       #|  (global $offset i32 (i32.const 4))
@@ -487,6 +519,10 @@ test "simplify-globals-optimizing propagates startup globals into data offsets w
   @debug.assert_eq(
     try! sgo_test_first_data_offset_instr(optimized),
     @lib.Instruction::i32_const(@lib.I32(4)),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup") }),
+    msg=trace.to_string(),
   )
   let untouched = optimized.pretty_print_defined_func(0U)
   assert_true(untouched.contains("drop"), msg=untouched)
