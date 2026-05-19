@@ -8,6 +8,9 @@ sources:
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/wast/arbitrary.mbt
+related:
+  - ../wast/exception-tag-authoring.md
+  - generator-coverage-ledger.md
 ---
 
 # WAST Arbitrary Parity Plan
@@ -41,7 +44,7 @@ The opcode pickers in `src/wast/arbitrary.mbt` are intentionally duplicated text
 
 ## Current coverage
 
-`[FZG]027` adds a deterministic wide-surface prelude to arbitrary modules in `src/wast/arbitrary.mbt`. Every generated arbitrary module now carries text syntax for a GC struct type, exported tag, tail-call/call-ref forms, `throw`, `try_table`, memory/table bulk operations, descriptor ref test/cast forms, richer inline exports, and a representative `v128.const` shape. The focused package test `wast arbitrary module includes widened surface prelude` asserts these tokens and reparses the printed module.
+`[FZG]027` adds a deterministic wide-surface prelude to arbitrary modules in `src/wast/arbitrary.mbt`. Every generated arbitrary module now carries text syntax for a GC struct type, exported tag, tail-call/call-ref forms, `throw`, `try_table`, memory/table bulk operations, descriptor ref test/cast forms, richer inline exports, and a representative `v128.const` shape. The focused package test `wast arbitrary module includes widened surface prelude` asserts these tokens and reparses the printed module. For the exception-tag portion of that prelude, keep future widening aligned with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md) so text coverage does not overclaim full typed `try_table` / catch-label validation.
 
 ## Current gaps
 

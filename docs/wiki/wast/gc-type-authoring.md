@@ -11,6 +11,7 @@ sources:
 related:
   - ../binary/data-element-and-datacount-sections.md
   - element-segment-authoring.md
+  - exception-tag-authoring.md
   - static-assertion-harness.md
   - ../custom-descriptors/static-fixtures.md
   - ../custom-descriptors/exact-reference-equivalence.md
@@ -25,7 +26,7 @@ related:
 
 ## Overview
 
-Starshine's higher-level `src/wast` path can author, print, lower, and validate useful GC type fixtures directly from text. Use it for new GC/custom-descriptor tests before falling back to binary-only fixtures: the text AST carries the source structure developers need to debug, while `src/wast/lower_to_lib.mbt` translates that structure into the flat type-index space used by the binary module model. For GC-typed element segment authoring, typed empty element fixtures, and the current declarative-element lowering caveat, pair this page with [`element-segment-authoring.md`](element-segment-authoring.md) and the broader binary segment map in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md).
+Starshine's higher-level `src/wast` path can author, print, lower, and validate useful GC type fixtures directly from text. Use it for new GC/custom-descriptor tests before falling back to binary-only fixtures: the text AST carries the source structure developers need to debug, while `src/wast/lower_to_lib.mbt` translates that structure into the flat type-index space used by the binary module model. For GC-typed element segment authoring, typed empty element fixtures, and the current declarative-element lowering caveat, pair this page with [`element-segment-authoring.md`](element-segment-authoring.md) and the broader binary segment map in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). For exception tags with reference-typed payloads, `try_table`, and `exnref` catch-reference flows, use the focused [`exception-tag-authoring.md`](exception-tag-authoring.md) guide.
 
 The current primary-source baseline is WebAssembly 3.0's GC type model plus the custom-descriptors proposal snapshot captured in [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md). WebAssembly's core type forms are `func`, `struct`, and `array`; recursive groups give each member its own flat type index; custom descriptors add `describes` / `descriptor` metadata and exact descriptor-aware struct construction. Starshine follows the core `func` / `struct` / `array` and rec-group model, and intentionally documents the local places where the proposal surface is broader or still provisional.
 

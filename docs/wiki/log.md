@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | exception tag authoring
+
+- Added [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) as the focused WAST exception/tag guide for `tag`, `throw`, `throw_ref`, modern `try_table`, `catch`, `catch_ref`, `catch_all`, `catch_all_ref`, imported-prefix `TagIdx` examples, catch-label scope rules, legacy `try` compatibility lowering, and tag rewrite/signoff guidance.
+- Ingested [`raw/wasm/2026-05-19-wast-exception-tag-sources.md`](raw/wasm/2026-05-19-wast-exception-tag-sources.md) after checking current official WebAssembly 3.0 tag, text, binary, and instruction-validation pages plus Starshine parser, lowering, printer, core type, module validation, and typechecker code.
+- Updated [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), and [`index.md`](index.md) so tag-section, GC payload, WAST arbitrary, validator phase, and catalog entries route readers to the shared exception/tag contract instead of leaving `try_table` and catch semantics implicit.
+- Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), and [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt).
+
 ## [2026-05-19] validate | diagnostics and invalid-repro contract
 
 - Added [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) as the focused guide for Starshine's local `ValidationIssue` / `ValidationIssueFamily` taxonomy, stage-vs-family model, `code` versus `function-body` boundary, absolute `FuncIdx` diagnostics, AST-invalid stable ids, `gen_invalid` seed profiles, and shared invalid-repro metadata/artifact/shrinking shape.

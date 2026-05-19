@@ -20,6 +20,7 @@ related:
   - custom-and-name-sections.md
   - ../validate/module-validation-phases.md
   - ../wast/gc-type-authoring.md
+  - ../wast/exception-tag-authoring.md
   - ../binaryen/passes/remove-unused-types/index.md
   - ../binaryen/passes/reorder-types/index.md
   - ../binaryen/passes/reorder-globals/index.md
@@ -38,6 +39,8 @@ This page is the shared Starshine guide for the core module-definition sections 
 - **global section**: module-defined globals and their constant initializers;
 - **tag section**: exception tag declarations; and
 - **stringrefs section**: Starshine's local/proposal-facing literal pool for `string.const` binary round trips.
+
+For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair this binary resource guide with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 
 The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) is the primary external source for section ids and the core type/table/memory/global/tag validation model. The same snapshot records an important caveat: the reviewed core and js-string-builtins module sources do **not** define a stable core `stringrefs` section id, so Starshine's section-id-`14` `StringRefsSec` should be treated as a local/proposal-facing implementation surface until upstream standardization says otherwise.
 
@@ -156,7 +159,7 @@ A module pass that changes any of these sections must audit more than the sectio
 - **Table rewrites** must update `TableIdx` carriers: table instructions, `call_indirect` / `return_call_indirect`, active element modes, table exports/imports, names, and table initializers.
 - **Memory rewrites** must update `MemIdx` carriers: load/store `MemArg` memory operands, `memory.size`, `memory.grow`, `memory.copy`, `memory.fill`, `memory.init`, active data modes, exports/imports, and names. The explicit-memory-index `MemArg` encoding is summarized in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md).
 - **Global rewrites** must update `GlobalIdx` carriers: `global.get`, `global.set`, exports/imports, name maps, global initializer expressions, and any pass summaries that cache global mutability or constant values.
-- **Tag rewrites** must update `TagIdx` carriers: `throw`, catch clauses, imports/exports, names, and exception-handling validation assumptions.
+- **Tag rewrites** must update `TagIdx` carriers: `throw`, `try_table` `catch` / `catch_ref` clauses, imports/exports, names, and exception-handling validation assumptions; the focused WAST-side checklist is in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - **String literal-pool rewrites** must keep `StringRefsSec`, `string.const` instructions, string-gathering/lowering/lifting passes, and binary round trips consistent.
 
 Related pass dossiers that depend on this checklist include [`remove-unused-types`](../binaryen/passes/remove-unused-types/index.md), [`reorder-types`](../binaryen/passes/reorder-types/index.md), [`reorder-globals`](../binaryen/passes/reorder-globals/index.md), [`global-refining`](../binaryen/passes/global-refining/index.md), [`multi-memory-lowering`](../binaryen/passes/multi-memory-lowering/index.md), [`memory64-lowering`](../binaryen/passes/memory64-lowering/index.md), [`string-gathering`](../binaryen/passes/string-gathering/index.md), and [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md).
@@ -178,4 +181,4 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation environment and rules: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
 - WAST lowering: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
-- Related docs: [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`custom-and-name-sections.md`](custom-and-name-sections.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md)
+- Related docs: [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`custom-and-name-sections.md`](custom-and-name-sections.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)
