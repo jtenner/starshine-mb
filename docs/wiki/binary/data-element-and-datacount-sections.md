@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../raw/wasm/2026-05-13-data-element-and-datacount-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
@@ -19,6 +20,7 @@ related:
   - type-table-memory-global-tag-sections.md
   - custom-and-name-sections.md
   - ../wast/gc-type-authoring.md
+  - ../wast/element-segment-authoring.md
   - ../validate/module-validation-phases.md
   - ../validate/fuzz-hardening.md
   - ../validate/ref-func-declarations.md
@@ -139,7 +141,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 - **Active offsets are const expressions.** Non-constant active data or element offsets are validator failures and are intentionally covered by invalid-generation lanes.
 - **Table/memory index defaults are syntax sugar.** Text forms can omit parent indices; lowering resolves them to numeric `TableIdx(0)` or `MemIdx(0)` only when the segment is active.
 - **Typed element segments are not function-index lists.** Once an explicit element type or explicit `(item ...)` expression is present, preserve expression typing instead of collapsing blindly to `FuncsElemKind`; any nested `ref.func` values are still scanned by the declaration validator.
-- **Declarative-mode caveat in WAST lowering.** The core library and binary surfaces support `ElemMode::declarative()`, and generator/validation code exercises it. The WAST parser recognizes `(elem declare func ...)`, but the current WAST `ElemSegment` AST has no explicit mode field, so text-to-lib lowering infers mode from offset emptiness and does not yet preserve declarative mode as a distinct lowered mode. Treat this as a known WAST fidelity gap, not as evidence that Starshine's core representation lacks declarative elements.
+- **Declarative-mode caveat in WAST lowering.** The core library and binary surfaces support `ElemMode::declarative()`, and generator/validation code exercises it. The WAST parser recognizes `(elem declare func ...)`, but the current WAST `ElemSegment` AST has no explicit mode field, so text-to-lib lowering infers mode from offset emptiness and does not yet preserve declarative mode as a distinct lowered mode. Treat this as a known WAST fidelity gap, not as evidence that Starshine's core representation lacks declarative elements; the focused text-authoring guide is [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
 - **Data-count presence and count equality are different checks.** Keep them distinct when adding diagnostics or invalid repros.
 - **Name-section maps are coupled.** Element/data name maps in [`custom-and-name-sections.md`](custom-and-name-sections.md) must be rewritten or cleared whenever segment indices change.
 - **Parent table and memory spaces are separate from segment spaces.** Deleting or reordering a memory/table requires repairing active segment modes in this page plus the parent resource indices documented in [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md).
@@ -156,5 +158,5 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
-- WAST parse/lower/print evidence: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
+- WAST parse/lower/print evidence and declarative-mode caveat: [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
 - Validation and fuzzing: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)

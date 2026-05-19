@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | element segment declarative-mode authoring
+
+- Added [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md) as the focused WAST element-segment guide for active/passive/declarative modes, typed empty element fixtures, core/binary support, and the exact local text-path caveat where `(elem declare func ...)` parses but loses declarative mode before lowering/printing.
+- Ingested [`raw/wasm/2026-05-19-wast-element-segment-sources.md`](raw/wasm/2026-05-19-wast-element-segment-sources.md) after rechecking current WebAssembly spec pages for text element syntax, abstract element modes, binary element headers, validation context, and `ref.func` declaration semantics.
+- Updated [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), and [`index.md`](index.md) so the declarative-element caveat points at the focused WAST guide instead of living only as a one-line binary-page warning.
+- Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/passive_typed_elem_surface_test.mbt`](../../src/wast/passive_typed_elem_surface_test.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), and [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt).
+
 ## [2026-05-19] ir2 | CFG tail-call control-flow contract
 
 - Refreshed [`ir2/cfg-contract.md`](ir2/cfg-contract.md) into a beginner-to-advanced CFG policy guide covering block-boundary reasons, edge kinds, structured-control successors, exceptional-flow policy, analysis-consumer guidance, and concrete WAT-shaped examples.
