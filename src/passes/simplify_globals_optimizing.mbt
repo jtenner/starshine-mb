@@ -452,6 +452,12 @@ fn sgo_count_read_only_to_write_instrs(
         sgo_count_block_condition_external_pure_if_return_read(
           instrs, pos, safe_reads,
         )
+        sgo_count_block_condition_reverse_external_pure_read(
+          instrs, pos, safe_reads,
+        )
+        sgo_count_block_condition_reverse_external_pure_if_return_read(
+          instrs, pos, safe_reads,
+        )
         if pos + 1 < instrs.length() {
           sgo_count_block_condition_read_only_to_write_read(
             instr,
@@ -1075,22 +1081,44 @@ fn sgo_is_short_block_condition_external_legacy(
 }
 
 ///|
-fn sgo_block_condition_external_pure_if_index(
+fn sgo_is_short_block_condition_external_reverse_legacy(
   instrs : Array[@lib.Instruction],
   pos : Int,
+  if_index : Int,
+) -> Bool {
+  pos > 0 &&
+  if_index == pos + 2 &&
+  sgo_const_instr(instrs[pos - 1]) != None &&
+  sgo_is_compare_instr(instrs[pos + 1])
+}
+
+///|
+fn sgo_block_condition_external_pure_if_index_with_depth(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  initial_depth : Int,
+  reverse_legacy : Bool,
 ) -> Int? {
-  let mut depth = 1
+  let mut depth = initial_depth
   let mut pure_count = 0
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
     match instrs[scan] {
-      @lib.If(_, _, _) =>
-        if pure_count > 0 &&
-          depth == 1 &&
-          !sgo_is_short_block_condition_external_legacy(instrs, pos, scan) {
+      @lib.If(_, _, _) => {
+        let legacy = sgo_is_short_block_condition_external_legacy(
+            instrs, pos, scan,
+          ) ||
+          (
+            reverse_legacy &&
+            sgo_is_short_block_condition_external_reverse_legacy(
+              instrs, pos, scan,
+            )
+          )
+        if pure_count > 0 && depth == 1 && !legacy {
           return Some(scan)
         } else {
           return None
         }
+      }
       instr =>
         match sgo_external_condition_stack_after(instr, depth) {
           Some(next_depth) => {
@@ -1102,6 +1130,25 @@ fn sgo_block_condition_external_pure_if_index(
     }
   }
   None
+}
+
+///|
+fn sgo_block_condition_external_pure_if_index(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+) -> Int? {
+  sgo_block_condition_external_pure_if_index_with_depth(instrs, pos, 1, false)
+}
+
+///|
+fn sgo_block_condition_reverse_external_pure_if_index(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+) -> Int? {
+  if pos <= 0 || sgo_const_instr(instrs[pos - 1]) == None {
+    return None
+  }
+  sgo_block_condition_external_pure_if_index_with_depth(instrs, pos, 2, true)
 }
 
 ///|
@@ -1140,6 +1187,63 @@ fn sgo_count_block_condition_external_pure_if_return_read(
   match instrs[pos] {
     @lib.Block(_, @lib.Expr(body)) =>
       match sgo_block_condition_external_pure_if_index(instrs, pos) {
+        Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
+          if if_index + 3 == instrs.length() {
+            match instrs[if_index + 2] {
+              @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) !=
+                None =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              _ => ()
+            }
+          } else if if_index + 2 == instrs.length() {
+            match sgo_block_set_tail_idx(instrs[if_index + 1]) {
+              Some(idx) =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_block_condition_reverse_external_pure_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  match instrs[pos] {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_reverse_external_pure_if_index(instrs, pos) {
+        Some(if_index) =>
+          match instrs[if_index] {
+            @lib.If(_, then_body, None) =>
+              match sgo_single_const_global_set_idx(then_body) {
+                Some(idx) =>
+                  sgo_count_block_condition_safe_body_read(
+                    body, idx, safe_reads,
+                  )
+                None => ()
+              }
+            _ => ()
+          }
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_block_condition_reverse_external_pure_if_return_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  match instrs[pos] {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_reverse_external_pure_if_index(instrs, pos) {
         Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
           if if_index + 3 == instrs.length() {
             match instrs[if_index + 2] {

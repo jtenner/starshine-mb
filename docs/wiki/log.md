@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO block-yielded reverse external pure operators
+
+- Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so a constant before a transparent result block can combine with the block-yielded guarded read through a non-legacy pure external operator, such as `i32.lt_s` or `i64.eq`, before an adjacent self guard or exact `if return; set` tail.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for i32/i64 reverse external pure self guards and `if return; set` tails, including a block-wrapped write tail and a block body that already contains a pure-condition chain; the new fixtures failed first with globals still mutable. Local Binaryen probe `.tmp/sgo-blockyield-reverse-external-pure-probe.wat` showed `wasm-opt --simplify-globals-optimizing` promoting matching globals to immutable while removing get/set uses.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1155/1155`), and `.tmp/pass-fuzz-sgo-blockyield-reverse-external-pure-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO block-yielded short external pure operators
 
 - Broadened the active `simplify-globals-optimizing` read-only-to-write subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so transparent result-block conditions can use short non-legacy pure operators outside the block: unary `i32.clz`, `i64.eqz`, and relational compare chains such as `i32.const; i32.lt_s`, including when the block body itself already contains a pure-condition chain.
