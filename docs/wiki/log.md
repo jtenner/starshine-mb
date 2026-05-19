@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO nested runtime block propagation
+
+- Broadened the active `simplify-globals-optimizing` runtime constant-propagation subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so nested plain `block` bodies are inspected recursively for barriers; single-const private global facts can now flow back out through nested plain blocks when no call, branch, loop, `if`, `try_table`, return, or throw barrier appears inside.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt): non-constant block writes, calls after block-local writes, nested branch blocks, exported globals, and `if`-contained writes remain conservative, while a nested-plain-block write then read fixture failed first with a remaining `global.get`. Local Binaryen probe `.tmp/sgo-runtime-nested-block-set-exit.wat` showed `wasm-opt --simplify-globals-optimizing` replacing the trailing read with the nested block's constant.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1167/1167`), full `moon test` passed (`3231/3231`), and `.tmp/pass-fuzz-sgo-nested-runtime-blocks-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO adjacent runtime block propagation
 
 - Broadened the active `simplify-globals-optimizing` runtime constant-propagation subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so single-const private global facts flow into adjacent plain `block` bodies and, when the body has no runtime trace barrier, back out to following code.

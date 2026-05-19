@@ -2103,7 +2103,12 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_runtime_trace_expr_has_barrier(expr : @lib.Expr) -> Bool {
   let @lib.Expr(instrs) = expr
-  instrs.any(fn(instr) { sgo_runtime_trace_barrier(instr) })
+  instrs.any(fn(instr) {
+    match instr {
+      @lib.Block(_, body) => sgo_runtime_trace_expr_has_barrier(body)
+      _ => sgo_runtime_trace_barrier(instr)
+    }
+  })
 }
 
 ///|
