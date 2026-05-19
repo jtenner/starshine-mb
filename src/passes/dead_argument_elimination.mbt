@@ -8170,6 +8170,7 @@ fn dae_instr_is_droppable_pure_leaf(instr : @lib.Instruction) -> Bool {
     | @lib.I64Const(_)
     | @lib.F32Const(_)
     | @lib.F64Const(_)
+    | @lib.RefNull(_)
     | @lib.LocalGet(_)
     | @lib.GlobalGet(_) => true
     _ => false
@@ -8230,7 +8231,8 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64TruncSatF32S
     | @lib.I64TruncSatF32U
     | @lib.I64TruncSatF64S
-    | @lib.I64TruncSatF64U => true
+    | @lib.I64TruncSatF64U
+    | @lib.RefIsNull => true
     _ => false
   }
 }
