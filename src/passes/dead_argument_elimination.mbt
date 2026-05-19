@@ -8720,13 +8720,9 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   let low_wrapper_callee_selected_defs = dae_collect_shifted_forward_wrapper_callee_defs(
     current, 64, 128,
   )
-  let low_wrapper_call_facts = dae_collect_current_call_facts(
-    current,
-    original_imported + original_defined,
-  )
   while low_wrapper_callee_iter < 21 {
     let low_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current, low_wrapper_callee_selected_defs, low_wrapper_call_facts,
+      current, low_wrapper_callee_selected_defs, low_callee_call_facts,
     )
     if !low_wrapper_callee_result.changed {
       break
@@ -8744,10 +8740,9 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     changed = true
     low_wrapper_callee_iter += 1
   }
-  let boundary_call_facts = dae_collect_current_call_facts(
-    current,
-    original_imported + original_defined,
-  )
+  // Unread-param rewrites shrink signatures and rewrite operands, but the
+  // selected artifact lanes do not add/remove direct call sites. Reuse the same
+  // low-lane call facts for the low-wrapper and boundary unread-param families.
   for
     boundary_wrapper_def in [
       128, 131, 133, 135, 142, 143, 144, 145, 146, 148, 149, 151, 152, 157, 158,
@@ -8761,7 +8756,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         boundary_wrapper_def,
         boundary_wrapper_def + 1,
       ),
-      boundary_call_facts,
+      low_callee_call_facts,
     )
     if boundary_wrapper_callee_result.changed {
       current = boundary_wrapper_callee_result.mod_out
@@ -8809,16 +8804,8 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   if 299 < selected_result_defs.length() {
     selected_result_defs[299] = true
   }
-  // The remaining selected artifact lanes rewrite signatures/operands but do not
-  // add or remove direct call sites. Reuse one call-fact snapshot for the
-  // selected dropped-result and literal lanes instead of rescanning the large
-  // module before each small selected-def family.
-  let selected_call_facts = dae_collect_current_call_facts(
-    current,
-    original_imported + original_defined,
-  )
   let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-    current, selected_result_defs, selected_call_facts,
+    current, selected_result_defs, low_callee_call_facts,
   )
   if selected_result.changed {
     current = selected_result.mod_out
@@ -8835,7 +8822,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       selected_mid_literal_defs[mid_literal_def] = true
     }
     let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_mid_literal_defs, selected_call_facts,
+      current, selected_mid_literal_defs, low_callee_call_facts,
     )
     if mid_literal_result.changed {
       current = mid_literal_result.mod_out
@@ -8855,7 +8842,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     let mid_global_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
       current,
       selected_mid_global_literal_defs,
-      selected_call_facts,
+      low_callee_call_facts,
       allow_immutable_global_get=true,
     )
     if mid_global_literal_result.changed {
@@ -8874,7 +8861,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       selected_high_literal_defs[high_literal_def] = true
     }
     let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_high_literal_defs, selected_call_facts,
+      current, selected_high_literal_defs, low_callee_call_facts,
     )
     if high_literal_result.changed {
       current = high_literal_result.mod_out
