@@ -1277,6 +1277,32 @@ test "type section decode reports payload EOF and trailing bytes" {
 }
 
 ///|
+test "section payload decoders consume exact spans from nonzero offsets" {
+  match
+    (
+      Decode::decode(b"\xFF\xFF\x01\x01\x00", 2) :
+      Result[(TypeSec, Int), BinaryDecodeError]) {
+    Ok((sec, next)) => {
+      @debug.assert_eq(sec, TypeSec::new([]))
+      @debug.assert_eq(next, 5)
+    }
+    Err(err) => fail("expected nonzero-offset type section decode, got \{err}")
+  }
+
+  match
+    (
+      Decode::decode(b"\xFF\x0E\x06\x00\x01\x03abc", 1) :
+      Result[(StringRefsSec, Int), BinaryDecodeError]) {
+    Ok((sec, next)) => {
+      @debug.assert_eq(sec, StringRefsSec::new([b"abc"]))
+      @debug.assert_eq(next, 9)
+    }
+    Err(err) =>
+      fail("expected nonzero-offset string refs section decode, got \{err}")
+  }
+}
+
+///|
 test "module decode bubbles section errors instead of generic invalid module" {
   assert_decode_err_contains(
     (

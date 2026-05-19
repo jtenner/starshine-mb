@@ -1069,12 +1069,11 @@ fn[T : Decode] decode_section_vector_payload(
   if payload_end > bytes.length() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
-  let payload = bytes[payload_start:payload_end].to_owned()
-  let (content, consumed) = match Decode::decode(payload, 0) {
+  let (content, consumed) = match Decode::decode(bytes, payload_start) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  if consumed == len {
+  if consumed == payload_end {
     Ok((content, payload_end))
   } else {
     Err(BinaryDecodeError::InvalidSectionPayloadTrailingBytes)
@@ -1099,12 +1098,11 @@ fn[T : Decode] decode_section_payload(
   if payload_end > bytes.length() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
-  let payload = bytes[payload_start:payload_end].to_owned()
-  let (content, consumed) = match Decode::decode(payload, 0) {
+  let (content, consumed) = match Decode::decode(bytes, payload_start) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  if consumed == len {
+  if consumed == payload_end {
     Ok((content, payload_end))
   } else {
     Err(BinaryDecodeError::InvalidSectionPayloadTrailingBytes)
@@ -1868,14 +1866,15 @@ pub impl Decode for StringRefsSec with decode(bytes, i) {
   if payload_end > bytes.length() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
-  let payload = bytes[payload_start:payload_end].to_owned()
-  if payload.length() == 0 || payload[0] != 0x00 {
+  if payload_start == payload_end || bytes[payload_start] != 0x00 {
     return Err(BinaryDecodeError::InvalidStringRefSection)
   }
   match
-    (Decode::decode(payload, 1) : Result[(Array[Bytes], Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, payload_start + 1) :
+      Result[(Array[Bytes], Int), BinaryDecodeError]) {
     Ok((strings, consumed)) =>
-      if consumed == payload.length() {
+      if consumed == payload_end {
         Ok((StringRefsSec::new(strings), payload_end))
       } else {
         Err(BinaryDecodeError::InvalidStringRefSection)

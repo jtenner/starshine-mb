@@ -3325,6 +3325,86 @@ fn output_path_for_normalized_default_target(
 }
 
 ///|
+fn should_copy_wasm_noop_without_module_pipeline(
+  format : CliInputFormat,
+  resolved_passes : Array[String],
+  pass_flags_truncated : Bool,
+  debug_serial_passes : Bool,
+) -> Bool {
+  match format {
+    Wasm =>
+      resolved_passes.length() == 0 &&
+      !pass_flags_truncated &&
+      !debug_serial_passes
+    Wat | Wast => false
+  }
+}
+
+///|
+fn write_output_bytes_for_input(
+  io : CmdIO,
+  input_path : String,
+  format : CliInputFormat,
+  output_targets : Array[CliOutputTarget],
+  out_bytes : Bytes,
+  output_files : Array[String],
+  trace_optimize : Bool,
+) -> Result[Unit, CmdError] {
+  if output_targets.length() == 0 {
+    let out_path = output_path_for_normalized_default_target(input_path, format)
+    match (io.write_file)(out_path, out_bytes) {
+      Ok(_) => output_files.push(out_path)
+      Err(e) => return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
+    }
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:write default \{out_path}",
+    )
+    return Ok(())
+  }
+
+  for target in output_targets {
+    match target {
+      StdoutOutput =>
+        match (io.write_stdout)(out_bytes) {
+          Ok(_) => ()
+          Err(e) =>
+            return Err(
+              CmdError::OutputWriteFailed("stdout for \{input_path}: \{e}"),
+            )
+        }
+      FileOutput(path) => {
+        let out_path = path
+        match (io.write_file)(out_path, out_bytes) {
+          Ok(_) => output_files.push(out_path)
+          Err(e) => return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
+        }
+        cmd_trace_emit(
+          io,
+          trace_optimize,
+          "input \{input_path}:write file \{out_path}",
+        )
+      }
+      DirOutput(dir) => {
+        let basename = output_basename_for_normalized_input(input_path, format)
+        let out_path = join_normalized_cli_path(dir, basename)
+        match (io.write_file)(out_path, out_bytes) {
+          Ok(_) => output_files.push(out_path)
+          Err(e) => return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
+        }
+        cmd_trace_emit(
+          io,
+          trace_optimize,
+          "input \{input_path}:write dir \{out_path}",
+        )
+      }
+    }
+  }
+  Ok(())
+}
+
+///|
 fn cmd_try_trivial_startup_exit(
   args : Array[String],
   io : CmdIO,
@@ -3592,6 +3672,30 @@ pub fn run_cmd_with_adapter(
       "input \{input_path}:lowered bytes=\{wasm_bytes.length()}",
     )
 
+    if should_copy_wasm_noop_without_module_pipeline(
+        format,
+        resolved_passes,
+        pass_flags_truncated,
+        merged.debug_serial_passes,
+      ) {
+      cmd_trace_emit(io, trace_optimize, "input \{input_path}:copy-noop:start")
+      match
+        write_output_bytes_for_input(
+          io,
+          input_path,
+          format,
+          merged.output_targets,
+          wasm_bytes,
+          output_files,
+          trace_optimize,
+        ) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+      cmd_trace_emit(io, trace_optimize, "input \{input_path}:copy-noop:done")
+      continue
+    }
+
     let mod = match decode_module_for_pipeline(input_path, wasm_bytes) {
       Ok(mod) => mod
       Err(e) => return Err(e)
@@ -3811,62 +3915,18 @@ pub fn run_cmd_with_adapter(
       )
     }
 
-    if merged.output_targets.length() == 0 {
-      let out_path = output_path_for_normalized_default_target(
-        input_path, format,
-      )
-      match (io.write_file)(out_path, out_bytes) {
-        Ok(_) => output_files.push(out_path)
-        Err(e) => return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
-      }
-      cmd_trace_emit(
+    match
+      write_output_bytes_for_input(
         io,
+        input_path,
+        format,
+        merged.output_targets,
+        out_bytes,
+        output_files,
         trace_optimize,
-        "input \{input_path}:write default \{out_path}",
-      )
-      continue
-    }
-
-    for target in merged.output_targets {
-      match target {
-        StdoutOutput =>
-          match (io.write_stdout)(out_bytes) {
-            Ok(_) => ()
-            Err(e) =>
-              return Err(
-                CmdError::OutputWriteFailed("stdout for \{input_path}: \{e}"),
-              )
-          }
-        FileOutput(path) => {
-          let out_path = path
-          match (io.write_file)(out_path, out_bytes) {
-            Ok(_) => output_files.push(out_path)
-            Err(e) =>
-              return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
-          }
-          cmd_trace_emit(
-            io,
-            trace_optimize,
-            "input \{input_path}:write file \{out_path}",
-          )
-        }
-        DirOutput(dir) => {
-          let basename = output_basename_for_normalized_input(
-            input_path, format,
-          )
-          let out_path = join_normalized_cli_path(dir, basename)
-          match (io.write_file)(out_path, out_bytes) {
-            Ok(_) => output_files.push(out_path)
-            Err(e) =>
-              return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
-          }
-          cmd_trace_emit(
-            io,
-            trace_optimize,
-            "input \{input_path}:write dir \{out_path}",
-          )
-        }
-      }
+      ) {
+      Ok(_) => ()
+      Err(err) => return Err(err)
     }
   }
 

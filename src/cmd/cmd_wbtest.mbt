@@ -5004,7 +5004,41 @@ test "run_cmd_with_adapter reports config read failures with ConfigReadFailed" {
 }
 
 ///|
-test "run_cmd_with_adapter reports decode failures with DecodeFailed" {
+test "run_cmd_with_adapter copies wasm no-op bytes without decoding or encoding" {
+  let invalid_wasm = bytes_from_string("not-wasm")
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "bad.wasm" },
+    list_candidates=fn() { ["bad.wasm"] },
+    read_file=fn(path) {
+      if path == "bad.wasm" {
+        Ok(invalid_wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) {
+      abort("encode_module should not run for wasm no-op copy")
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["-o", "out.wasm", "bad.wasm"], io) {
+    Ok(summary) => {
+      @debug.assert_eq(summary.resolved_passes, [])
+      @debug.assert_eq(summary.output_files, ["out.wasm"])
+      @debug.assert_eq(writes.length(), 1)
+      @debug.assert_eq(writes[0].0, "out.wasm")
+      @debug.assert_eq(writes[0].1, invalid_wasm)
+    }
+    Err(err) => fail("expected wasm no-op raw copy success, got \{err}")
+  }
+}
+
+///|
+test "run_cmd_with_adapter reports decode failures when a pipeline step needs the module" {
   let io = CmdIO::new(
     file_exists=fn(path) { path == "bad.wasm" },
     list_candidates=fn() { ["bad.wasm"] },
@@ -5016,7 +5050,7 @@ test "run_cmd_with_adapter reports decode failures with DecodeFailed" {
       }
     },
   )
-  match run_cmd_with_adapter(["bad.wasm"], io) {
+  match run_cmd_with_adapter(["--validate", "bad.wasm"], io) {
     Ok(summary) => fail("expected decode failure, got summary \{summary}")
     Err(CmdError::DecodeFailed(path, err)) => {
       @debug.assert_eq(path, "bad.wasm")
@@ -5071,7 +5105,7 @@ test "run_cmd_with_adapter reports encode failures with EncodeFailed" {
       Err(CmdEncodeError::adapter("forced encode failure"))
     },
   )
-  match run_cmd_with_adapter(["a.wasm"], io) {
+  match run_cmd_with_adapter(["--validate", "a.wasm"], io) {
     Ok(summary) => fail("expected encode failure, got summary \{summary}")
     Err(CmdError::EncodeFailed(path, err)) => {
       @debug.assert_eq(path, "a.wasm")
@@ -5102,7 +5136,7 @@ test "run_cmd_with_adapter skips post-encode validation outside debug mode" {
       Ok(())
     },
   )
-  match run_cmd_with_adapter(["-o", "out.wasm", "a.wasm"], io) {
+  match run_cmd_with_adapter(["--validate", "-o", "out.wasm", "a.wasm"], io) {
     Ok(summary) => {
       @debug.assert_eq(summary.output_files, ["out.wasm"])
       @debug.assert_eq(writes.length(), 1)
