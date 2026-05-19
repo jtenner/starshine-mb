@@ -3142,6 +3142,101 @@ test "simplify-globals-optimizing propagates runtime block facts past pure instr
 }
 
 ///|
+test "simplify-globals-optimizing propagates runtime facts into no-else if bodies" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32)
+      #|    i32.const 10
+      #|    global.set $g
+      #|    local.get $p
+      #|    if
+      #|      global.get $g
+      #|      drop
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing propagates runtime facts into nested blocks inside no-else if bodies" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32)
+      #|    i32.const 11
+      #|    global.set $g
+      #|    local.get $p
+      #|    if
+      #|      block
+      #|        global.get $g
+      #|        drop
+      #|      end
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing stops no-else if body runtime propagation at calls" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "tick" (func $tick))
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32)
+      #|    i32.const 12
+      #|    global.set $g
+      #|    local.get $p
+      #|    if
+      #|      call $tick
+      #|      global.get $g
+      #|      drop
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps else-arm runtime reads conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32) (result i32)
+      #|    i32.const 13
+      #|    global.set $g
+      #|    local.get $p
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      global.get $g
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing rewrites dead global.set to cleanup-visible drops" {
   let optimized = sgo_test_run(
     (

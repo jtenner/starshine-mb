@@ -127,7 +127,7 @@ That lets Binaryen handle some common “dominated right after this” shapes ch
 )
 ```
 
-Starshine's current subset also carries facts through nested plain block bodies when no inner barrier appears, and harmless non-control noise such as `drop`ped constants or pure arithmetic does not clear facts:
+Starshine's current subset also carries facts through nested plain block bodies and no-else `if` bodies when no inner barrier appears, and harmless non-control noise such as `drop`ped constants or pure arithmetic does not clear facts:
 
 ```wat
 (block
@@ -143,7 +143,7 @@ But the pass still does **not** become a full dominator-tree analysis.
 
 The shipped dominance test includes an explicit TODO for a dominated `else` case that Binaryen does not optimize yet.
 
-So a future port should preserve the current narrow adjacency-based win rather than silently widening it into a different analysis contract. Starshine currently models this only for straight-line and plain-block runtime facts; calls, branches, loops, `if`, `try_table`, returns, throws, exported globals, and non-constant writes remain conservative barriers or untracked boundaries.
+So a future port should preserve the current narrow adjacency-based win rather than silently widening it into a different analysis contract. Starshine currently models this only for straight-line, plain-block, and no-else if-body runtime facts; calls, branches, loops, `try_table`, returns, throws, exported globals, non-constant writes, and else-arm propagation remain conservative barriers or untracked boundaries.
 
 ## 4. `read-only-to-write` is about fake state, not just matching names
 

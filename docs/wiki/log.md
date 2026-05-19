@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO no-else if-body runtime propagation
+
+- Broadened the active `simplify-globals-optimizing` runtime propagation subset in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt) so existing single-const private-global facts flow into no-else `if` bodies, including nested plain blocks inside the body, while facts are still cleared after the `if`.
+- Added focused TDD coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt): no-else if-body reads and nested-block reads failed first with remaining `global.get`s, a call before the body read remains a barrier, and else-arm reads remain conservative. Local Binaryen probes in `.tmp/sgo-runtime-if-then-read-probes.wat` showed `wasm-opt --simplify-globals-optimizing` replacing no-else then-body reads and nested-block reads, while `.tmp/sgo-runtime-if-body-probes.wat` showed the probed else-arm read stayed unchanged.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1178/1178`), full `moon test` passed (`3242/3242`), and `.tmp/pass-fuzz-sgo-noelse-if-runtime-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO runtime block guardrails and pure noise
 
 - Added no-behavior-change focused coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) around the landed runtime block propagation subset: latest same-global constant writes win, independent private-global writes do not clear unrelated facts, imported globals remain untracked, and loop / `try_table` bodies inside plain blocks remain conservative.
