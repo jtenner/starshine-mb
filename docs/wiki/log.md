@@ -395,6 +395,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO nested cleanup trace accounting
+
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO nested cleanup traces include `nested-cleanup-stats touched=... cleaned=... filtered-large=...`, while preserving the existing `nested-cleanup touched=... prefix=default` line for older scheduler assertions.
+- Direct traced artifact run `.tmp/sgo-next-trace.txt` reported `touched=79 cleaned=78 filtered-large=1`; measured nested hot-pass timers were much smaller than total SGO time (`lift` about `31.179ms`, `lower` about `13.042ms`, `simplify-locals` about `12.830ms`, versus traced SGO pass time `316.940ms`), so the remaining pass-local runtime gap is mostly SGO core / uninstrumented module work rather than the measured nested pass bodies alone.
+- Direct artifact compare `.tmp/sgo-direct-debug-artifact-trace-stats` stayed valid but red at `defined=48 abs=69`, with Starshine still smaller (`2,860,295` bytes) than Binaryen (`2,861,435` bytes) and pass-local runtime red (`361.967ms` vs `112.157ms`). The first diff is now classified as local/default-init representation drift: removing Binaryen's one explicit `local.set $0 (i32.const 0)` from `func-defined48-abs69.binaryen.wat` makes the function text identical to Starshine's first-diff function.
+- Validation/evidence for this slice: TDD failure was confirmed by requiring `cleaned=1 filtered-large=1` in the mixed large/small touched-function test before trace accounting existed; after implementation, `moon test src/passes` passed (`1258/1258`).
+
 ## [2026-05-19] passes | SGO local-heavy nested cleanup threshold
 
 - Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO nested cleanup filters touched functions only above `192` locals instead of `128`, while keeping the `1000` instruction guard and the all-large `reason=large-touched-function` skip.

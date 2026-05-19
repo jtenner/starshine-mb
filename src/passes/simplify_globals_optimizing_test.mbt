@@ -536,6 +536,14 @@ test "simplify-globals-optimizing nested cleanup filters large touched functions
   )
   assert_true(
     trace.any(fn(line) {
+      line.contains("nested-cleanup") &&
+      line.contains("cleaned=1") &&
+      line.contains("filtered-large=1")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
       line.contains(
         "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
       )

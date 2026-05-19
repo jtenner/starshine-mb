@@ -10428,11 +10428,11 @@ fn run_hot_pipeline_touched_function_size_skip_reason(
 fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
-) -> (Array[Bool], Bool) {
+) -> (Array[Bool], Int) {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let filtered = touched.copy()
-      let mut filtered_large = false
+      let mut filtered_large = 0
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         if code_idx >= filtered.length() || !filtered[code_idx] {
           continue
@@ -10441,12 +10441,12 @@ fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
         let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
         if locals.length() > 192 || instr_count > 1000 {
           filtered[code_idx] = false
-          filtered_large = true
+          filtered_large = filtered_large + 1
         }
       }
       (filtered, filtered_large)
     }
-    None => (touched, false)
+    None => (touched, 0)
   }
 }
 
@@ -10579,14 +10579,17 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
   if touched_count == 0 {
     return Ok(mod_)
   }
-  (options.trace)(
-    "pass[simplify-globals-optimizing]:nested-cleanup touched=\{touched_count} prefix=default",
-  )
-  let (cleanup_touched, filtered_large) = run_hot_pipeline_sgo_nested_cleanup_filter_touched(
+  let (cleanup_touched, filtered_large_count) = run_hot_pipeline_sgo_nested_cleanup_filter_touched(
     mod_, touched,
   )
   let cleanup_touched_count = sgo_count_touched(cleanup_touched)
-  if cleanup_touched_count == 0 && filtered_large {
+  (options.trace)(
+    "pass[simplify-globals-optimizing]:nested-cleanup touched=\{touched_count} prefix=default",
+  )
+  (options.trace)(
+    "pass[simplify-globals-optimizing]:nested-cleanup-stats touched=\{touched_count} cleaned=\{cleanup_touched_count} filtered-large=\{filtered_large_count}",
+  )
+  if cleanup_touched_count == 0 && filtered_large_count > 0 {
     pipeline_trace_hook(
       options.trace,
       "simplify-globals-optimizing",
