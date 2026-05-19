@@ -8597,16 +8597,18 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     // The debug artifact's reverse exact-literal lane has a stable high-wrapper
     // chain. Route only that chain through the selected-def helper on large
     // modules so we avoid rescanning thousands of unrelated functions while
-    // preserving the existing small-module exploratory reverse pass.
+    // preserving the existing small-module exploratory reverse pass. The lane
+    // rewrites call operands but does not add/remove direct call sites, so one
+    // shared call-fact snapshot is enough for the selected chain.
+    let reverse_call_facts = dae_collect_current_call_facts(
+      current,
+      original_imported + original_defined,
+    )
     for reverse_def in [4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584] {
       let reverse_selected_defs = Array::make(original_defined, false)
       if reverse_def >= 0 && reverse_def < reverse_selected_defs.length() {
         reverse_selected_defs[reverse_def] = true
       }
-      let reverse_call_facts = dae_collect_current_call_facts(
-        current,
-        original_imported + original_defined,
-      )
       let reverse_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
         current, reverse_selected_defs, reverse_call_facts,
       )
