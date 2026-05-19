@@ -38,6 +38,7 @@
 - Every transform must be safe and produce a valid wasm module.
 - Target `< 1s` or `>= 50%` of Binaryen pass-local wall time where possible.
 - Verify parity with `bun fuzz compare-pass ...` or `bun scripts/pass-fuzz-compare.ts ...` at `10000` comparisons.
+- When reporting compare-pass mismatches, classify them as an agent judgment, not as a harness-provided fact: semantic-safe/size-winning, representation-only, size-losing, unknown/risky, validation failure, tool/Binaryen failure, or true semantic mismatch. Do not call a mismatch semantically safe just because both outputs validate or Starshine is smaller; cite the transform contract, inspected diff family, replay evidence, or other semantic reason.
 - Prefer `--pass <name>` with canonical pass names and treat the harness as pass-targeted before expanding to combined-pass runs.
 - Use `.pi/skills/starshine-pass-implementation/SKILL.md` as the detailed pass creation, porting, parity-fix, registry-wiring, and signoff workflow.
 

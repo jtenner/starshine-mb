@@ -81,10 +81,12 @@ Read the relevant sources before substantial pass work:
    - Docs/backlog: update relevant docs and `agent-todo.md` before commit when behavior or status changes; do not add per-commit changelog entries.
 
 6. Handle mismatches deliberately.
+   - Classify mismatch families as an agent judgment in the report, not as a script-determined truth. Use categories such as semantic-safe/size-winning, representation-only, size-losing, unknown/risky, validation failure, tool/Binaryen failure, and true semantic mismatch.
+   - Do not call a mismatch semantically safe merely because both outputs validate or because Starshine's canonical output is smaller. Validity and size are supporting evidence only. A semantic-safe classification needs an inspected transform contract, diff-family analysis, replay evidence, or another explicit semantic argument.
    - Classify semantic mismatches separately from decode, validation, tool, or Binaryen parser failures.
    - Replay saved failure dirs after fixes.
    - Promote durable repros into tests.
-   - Document unresolved differences with exact command, seed, out dir, failure class, and reason they are deferred.
+   - Document unresolved differences with exact command, seed, out dir, failure class, agent classification, and reason they are deferred.
 
 ## Signoff Ladder
 
@@ -168,7 +170,8 @@ When reporting pass signoff, include:
 - tests added or updated
 - focused Moon command results
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
-- `10000` compare-pass command, seed, out dir, compared count, normalized match count, mismatch count, and command-failure classification
+- `10000` compare-pass command, seed, out dir, compared count, normalized match count, raw mismatch count, and command-failure classification
+- agent-classified mismatch breakdown, with explicit rationale for any semantic-safe/size-winning mismatch family; never imply the harness proved semantic safety
 - replayed failure dirs and their outcomes, if any
 - pass-local performance numbers, artifact comparisons, any `[WALL]001` attribution, or why they were not applicable
 - docs and backlog updates
