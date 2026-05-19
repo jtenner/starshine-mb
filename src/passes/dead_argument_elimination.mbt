@@ -8311,6 +8311,25 @@ fn dae_instr_is_nontrapping_pure_binary(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn dae_instr_is_const_safe_numeric_binary(
+  lhs : @lib.Instruction,
+  rhs : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> Bool {
+  match (lhs, rhs, instr) {
+    (@lib.I32Const(@lib.I32(a)), @lib.I32Const(@lib.I32(b)), @lib.I32DivS) =>
+      b != 0 && !(a == -2147483648 && b == -1)
+    (@lib.I32Const(_), @lib.I32Const(@lib.I32(b)), @lib.I32DivU) => b != 0
+    (@lib.I32Const(_), @lib.I32Const(@lib.I32(b)), @lib.I32RemS) => b != 0
+    (@lib.I32Const(_), @lib.I32Const(@lib.I32(b)), @lib.I32RemU) => b != 0
+    (@lib.I64Const(_), @lib.I64Const(@lib.I64(b)), @lib.I64DivU) => b != 0L
+    (@lib.I64Const(_), @lib.I64Const(@lib.I64(b)), @lib.I64RemS) => b != 0L
+    (@lib.I64Const(_), @lib.I64Const(@lib.I64(b)), @lib.I64RemU) => b != 0L
+    _ => false
+  }
+}
+
+///|
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
@@ -8340,7 +8359,14 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
     if idx + 3 < instrs.length() &&
       dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
       dae_instr_is_droppable_pure_leaf(instrs[idx + 1]) &&
-      dae_instr_is_nontrapping_pure_binary(instrs[idx + 2]) &&
+      (
+        dae_instr_is_nontrapping_pure_binary(instrs[idx + 2]) ||
+        dae_instr_is_const_safe_numeric_binary(
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+        )
+      ) &&
       instrs[idx + 3] == @lib.Instruction::drop() {
       idx += 4
       continue

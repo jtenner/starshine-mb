@@ -86,6 +86,10 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::i32_const(@lib.I32(3)),
     @lib.Instruction::i32_div_s(),
     @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(84)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_div_s(),
+    @lib.Instruction::drop(),
     @lib.Instruction::return_(),
   ]
   let mod_ = @lib.Module::new().with_code_sec(
@@ -110,7 +114,7 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
       let @lib.Func(_, @lib.Expr(cleaned1)) = funcs[1]
       let preserved_trapping = [
         @lib.Instruction::i32_const(@lib.I32(84)),
-        @lib.Instruction::i32_const(@lib.I32(3)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
         @lib.Instruction::i32_div_s(),
         @lib.Instruction::drop(),
         @lib.Instruction::return_(),
