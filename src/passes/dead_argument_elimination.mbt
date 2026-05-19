@@ -8392,6 +8392,8 @@ fn dae_instr_is_const_safe_numeric_binary(
     (@lib.I32Const(_), @lib.I32Const(@lib.I32(b)), @lib.I32DivU) => b != 0
     (@lib.I32Const(_), @lib.I32Const(@lib.I32(b)), @lib.I32RemS) => b != 0
     (@lib.I32Const(_), @lib.I32Const(@lib.I32(b)), @lib.I32RemU) => b != 0
+    (@lib.I64Const(@lib.I64(a)), @lib.I64Const(@lib.I64(b)), @lib.I64DivS) =>
+      b != 0L && !(a == -9223372036854775808L && b == -1L)
     (@lib.I64Const(_), @lib.I64Const(@lib.I64(b)), @lib.I64DivU) => b != 0L
     (@lib.I64Const(_), @lib.I64Const(@lib.I64(b)), @lib.I64RemS) => b != 0L
     (@lib.I64Const(_), @lib.I64Const(@lib.I64(b)), @lib.I64RemU) => b != 0L
