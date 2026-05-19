@@ -241,7 +241,7 @@ test "simplify-globals-optimizing perf trace breaks down core phases" {
     msg=text,
   )
   assert_true(
-    text.contains("perf:timer name=detail:sgo:nested:dead-code-elimination"),
+    text.contains("perf:timer name=detail:sgo:nested:vacuum"),
     msg=text,
   )
 }
@@ -305,7 +305,7 @@ test "simplify-globals-optimizing only reruns cleanup on touched functions" {
 }
 
 ///|
-test "simplify-globals-optimizing traces default nested cleanup pass order" {
+test "simplify-globals-optimizing traces artifact-tuned nested cleanup pass order" {
   let (_, trace) = sgo_test_run_with_trace(
     sgo_test_make_touched_cleanup_fixture(1),
   )
@@ -316,13 +316,8 @@ test "simplify-globals-optimizing traces default nested cleanup pass order" {
     }
   }
   @debug.assert_eq(nested_passes, [
-    "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination", "pass[simplify-globals-optimizing]:nested-pass name=optimize-instructions",
-    "pass[simplify-globals-optimizing]:nested-pass name=local-cse", "pass[simplify-globals-optimizing]:nested-pass name=pick-load-signs",
-    "pass[simplify-globals-optimizing]:nested-pass name=heap-store-optimization",
-    "pass[simplify-globals-optimizing]:nested-pass name=heap2local", "pass[simplify-globals-optimizing]:nested-pass name=optimize-casts",
-    "pass[simplify-globals-optimizing]:nested-pass name=code-pushing", "pass[simplify-globals-optimizing]:nested-pass name=simplify-locals",
-    "pass[simplify-globals-optimizing]:nested-pass name=code-folding", "pass[simplify-globals-optimizing]:nested-pass name=precompute",
-    "pass[simplify-globals-optimizing]:nested-pass name=merge-blocks", "pass[simplify-globals-optimizing]:nested-pass name=remove-unused-brs",
+    "pass[simplify-globals-optimizing]:nested-pass name=optimize-instructions", "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
+    "pass[simplify-globals-optimizing]:nested-pass name=pick-load-signs", "pass[simplify-globals-optimizing]:nested-pass name=merge-blocks",
     "pass[simplify-globals-optimizing]:nested-pass name=remove-unused-names", "pass[simplify-globals-optimizing]:nested-pass name=merge-blocks",
     "pass[simplify-globals-optimizing]:nested-pass name=coalesce-locals", "pass[simplify-globals-optimizing]:nested-pass name=reorder-locals",
     "pass[simplify-globals-optimizing]:nested-pass name=redundant-set-elimination",
@@ -330,6 +325,22 @@ test "simplify-globals-optimizing traces default nested cleanup pass order" {
   ])
   assert_false(
     trace.any(fn(line) { line.contains("precompute-propagate") }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-pass name=simplify-locals") }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-pass name=remove-unused-brs") }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-pass name=precompute") }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-pass name=heap2local") }),
     msg=trace.to_string(),
   )
 }
@@ -349,7 +360,7 @@ test "simplify-globals-optimizing nested cleanup runs at eight touched functions
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+        "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
       )
     }),
     msg=trace.to_string(),
@@ -380,7 +391,7 @@ test "simplify-globals-optimizing nested cleanup runs above eight touched functi
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+        "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
       )
     }),
     msg=trace.to_string(),
@@ -411,7 +422,7 @@ test "simplify-globals-optimizing nested cleanup runs above eight touched functi
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+        "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
       )
     }),
     msg=trace.to_string(),
@@ -445,7 +456,7 @@ test "simplify-globals-optimizing nested cleanup runs at module function-count t
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+        "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
       )
     }),
     msg=trace.to_string(),
@@ -477,7 +488,7 @@ test "simplify-globals-optimizing nested cleanup runs in modules with more than 
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+        "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
       )
     }),
     msg=trace.to_string(),
@@ -533,7 +544,7 @@ test "simplify-globals-optimizing nested cleanup runs at touched function local 
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+        "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
       )
     }),
     msg=trace.to_string(),
@@ -600,7 +611,7 @@ test "simplify-globals-optimizing nested cleanup filters large touched functions
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+        "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
       )
     }),
     msg=trace.to_string(),
@@ -633,7 +644,7 @@ test "simplify-globals-optimizing nested cleanup runs at touched function instru
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+        "pass[simplify-globals-optimizing]:nested-pass name=local-cse",
       )
     }),
     msg=trace.to_string(),

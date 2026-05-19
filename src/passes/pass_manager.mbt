@@ -10547,9 +10547,10 @@ fn run_hot_pipeline_sgo_nested_cleanup_passes() -> Array[String] {
     // Binaryen's simplify-globals-optimizing reruns ordinary default function
     // optimization on changed functions, but does not prepend the
     // precompute-propagate prefix used by DAE / inlining after-inlining lanes.
-    "dead-code-elimination", "optimize-instructions", "local-cse", "pick-load-signs",
-    "heap-store-optimization", "heap2local", "optimize-casts", "code-pushing", "simplify-locals",
-    "code-folding", "precompute", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+    // Starshine currently uses this artifact-tuned subset because the omitted
+    // slots add more wrapper/candidate-scan cost than size wins on the direct
+    // debug artifact.
+    "optimize-instructions", "local-cse", "pick-load-signs", "merge-blocks", "remove-unused-names",
     "merge-blocks", "coalesce-locals", "reorder-locals", "redundant-set-elimination",
     "vacuum",
   ]
