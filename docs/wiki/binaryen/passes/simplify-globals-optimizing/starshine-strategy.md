@@ -236,7 +236,7 @@ Prefer these local slices before more broadening:
 2. Add further simple pure-condition operators only when they are non-trapping, source/probe-backed, and covered by focused tests; the 2026-05-18 unary, bitwise, shift/rotate, i64-compare, i64-value, and float-compare slices added `i32.clz` / `i32.ctz` / `i32.popcnt`, `i32.and` / `i32.or` / `i32.xor`, `i32.shl` / `i32.shr_s` / `i32.shr_u` / `i32.rotl` / `i32.rotr`, `i64.eqz` and `i64` equality/relational compares, non-trapping i64 unary/arithmetic/bitwise/shift-rotate operators feeding those conditions, plus f32/f64 equality/relational compares.
 3. Keep the official safe-side-effect condition positive separate because it needs Binaryen-style upward value-flow reasoning, not just a pure-expression whitelist; the landed `local.tee` negative should stay as a guardrail.
 4. Leave broader same-as-init constant-expression equivalence, fixed-point widening beyond the observed defined-`global.get`/alias-init repeated-run boundary, and GC/refinalization-sensitive replacements as separate design slices.
-5. Resolve or justify the current touched-count / large-module nested-cleanup guard with artifact and performance evidence before public preset scheduling.
+5. Resolve the remaining nested-cleanup artifact/performance frontier before public preset scheduling: the touched-count and large-module skips are removed, but individually large touched functions are still filtered, the direct debug-artifact replay remains red at `defined=48 abs=69`, and Starshine pass-local time is still slower than Binaryen on that replay.
 
 ## Bottom line
 

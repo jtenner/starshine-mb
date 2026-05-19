@@ -395,6 +395,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO artifact-informed nested cleanup guard relaxation
+
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO nested cleanup no longer skips solely because more than eight functions are touched or the module has more than one hundred defined functions. Individually large touched functions are filtered out instead, and the all-large case still reports `reason=large-touched-function`.
+- Added `redundant-set-elimination` before the final nested `vacuum` slot to better match the artifact's late redundant-store cleanup needs while still leaving exact Binaryen default-function-list reconciliation open.
+- Direct debug-artifact evidence: `.tmp/sgo-direct-debug-artifact-filtered-rse` completed and validated for `tests/node/dist/starshine-debug-wasi.wasm --simplify-globals-optimizing`, but remained red at `defined=48 abs=69`; Starshine size was `2,863,031` bytes vs Binaryen `2,861,435`, and Starshine pass runtime was `316.928ms` vs Binaryen `112.331ms`, so `[SGO]002` remains active for artifact frontier and pass-local runtime work.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1258/1258`) and `.tmp/pass-fuzz-sgo-nested-cleanup-artifact-guard-relax-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO size-skip precedence guardrail
 
 - Added focused scheduler characterization in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for overlapping SGO size-skip reasons: when a module exceeds the module-size limit and its single touched function also exceeds the touched-function-size limit, the current Starshine trace reports `reason=large-module` before considering `large-touched-function`.

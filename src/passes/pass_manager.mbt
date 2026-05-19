@@ -10400,19 +10400,53 @@ fn run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
       if funcs.length() > 100 {
         return Some("large-module")
       }
+      run_hot_pipeline_touched_function_size_skip_reason(funcs, touched)
+    }
+    None => None
+  }
+}
+
+///|
+fn run_hot_pipeline_touched_function_size_skip_reason(
+  funcs : Array[@lib.Func],
+  touched : Array[Bool],
+) -> String? {
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    if code_idx >= touched.length() || !touched[code_idx] {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[code_idx]
+    let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
+    if locals.length() > 128 || instr_count > 1000 {
+      return Some("large-touched-function")
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> (Array[Bool], Bool) {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let filtered = touched.copy()
+      let mut filtered_large = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
-        if code_idx >= touched.length() || !touched[code_idx] {
+        if code_idx >= filtered.length() || !filtered[code_idx] {
           continue
         }
         let @lib.Func(locals, @lib.Expr(body)) = funcs[code_idx]
         let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
         if locals.length() > 128 || instr_count > 1000 {
-          return Some("large-touched-function")
+          filtered[code_idx] = false
+          filtered_large = true
         }
       }
-      None
+      (filtered, filtered_large)
     }
-    None => None
+    None => (touched, false)
   }
 }
 
@@ -10516,7 +10550,8 @@ fn run_hot_pipeline_sgo_nested_cleanup_passes() -> Array[String] {
     "dead-code-elimination", "optimize-instructions", "local-cse", "pick-load-signs",
     "heap-store-optimization", "heap2local", "optimize-casts", "code-pushing", "simplify-locals",
     "code-folding", "precompute", "merge-blocks", "remove-unused-brs", "remove-unused-names",
-    "merge-blocks", "coalesce-locals", "reorder-locals", "vacuum",
+    "merge-blocks", "coalesce-locals", "reorder-locals", "redundant-set-elimination",
+    "vacuum",
   ]
 }
 
@@ -10547,20 +10582,16 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
   (options.trace)(
     "pass[simplify-globals-optimizing]:nested-cleanup touched=\{touched_count} prefix=default",
   )
-  let size_skip_reason = run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
+  let (cleanup_touched, filtered_large) = run_hot_pipeline_sgo_nested_cleanup_filter_touched(
     mod_, touched,
   )
-  if touched_count > 8 || size_skip_reason != None {
-    let reason = if touched_count > 8 {
-      "large-touched-set"
-    } else {
-      size_skip_reason.unwrap()
-    }
+  let cleanup_touched_count = sgo_count_touched(cleanup_touched)
+  if cleanup_touched_count == 0 && filtered_large {
     pipeline_trace_hook(
       options.trace,
       "simplify-globals-optimizing",
       "nested-cleanup-skip",
-      payload="reason=\{reason} touched=\{touched_count}",
+      payload="reason=large-touched-function touched=\{touched_count}",
     )
     return Ok(mod_)
   }
@@ -10574,7 +10605,9 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     )
     if pass_name == "local-cse" {
       current = match
-        run_hot_pipeline_apply_local_cse_to_touched(current, touched, options) {
+        run_hot_pipeline_apply_local_cse_to_touched(
+          current, cleanup_touched, options,
+        ) {
         Ok(next) => next
         Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
       }
@@ -10582,7 +10615,9 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     }
     if pass_name == "coalesce-locals" {
       current = match
-        run_hot_pipeline_apply_coalesce_locals_to_touched(current, touched) {
+        run_hot_pipeline_apply_coalesce_locals_to_touched(
+          current, cleanup_touched,
+        ) {
         Ok(next) => next
         Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
       }
@@ -10590,7 +10625,9 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     }
     if pass_name == "reorder-locals" {
       current = match
-        run_hot_pipeline_apply_reorder_locals_to_touched(current, touched) {
+        run_hot_pipeline_apply_reorder_locals_to_touched(
+          current, cleanup_touched,
+        ) {
         Ok(next) => next
         Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")
       }
@@ -10603,7 +10640,7 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     }
     current = match
       run_hot_pipeline_apply_hot_pass_to_touched(
-        current, descriptor, touched, options,
+        current, descriptor, cleanup_touched, options,
       ) {
       Ok(next) => next
       Err(err) => return Err("SGO nested cleanup pass \{pass_name}: \{err}")

@@ -74,6 +74,23 @@ fn sgo_test_make_large_touched_function_fixture(
 }
 
 ///|
+fn sgo_test_make_mixed_large_and_small_touched_fixture(
+  local_count : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (global $g (mut i32) (i32.const 7))\n")
+  out.write_string("  (func $large")
+  for _idx = 0; _idx < local_count; _idx = _idx + 1 {
+    out.write_string(" (local i32)")
+  }
+  out.write_string("\n    global.get $g\n    drop)\n")
+  out.write_string("  (func $small\n    global.get $g\n    drop)\n")
+  out.write_string(")")
+  out.to_string()
+}
+
+///|
 fn sgo_test_make_large_touched_body_fixture(nop_count : Int) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -253,6 +270,7 @@ test "simplify-globals-optimizing traces default nested cleanup pass order" {
     "pass[simplify-globals-optimizing]:nested-pass name=merge-blocks", "pass[simplify-globals-optimizing]:nested-pass name=remove-unused-brs",
     "pass[simplify-globals-optimizing]:nested-pass name=remove-unused-names", "pass[simplify-globals-optimizing]:nested-pass name=merge-blocks",
     "pass[simplify-globals-optimizing]:nested-pass name=coalesce-locals", "pass[simplify-globals-optimizing]:nested-pass name=reorder-locals",
+    "pass[simplify-globals-optimizing]:nested-pass name=redundant-set-elimination",
     "pass[simplify-globals-optimizing]:nested-pass name=vacuum",
   ])
   assert_false(
@@ -293,7 +311,7 @@ test "simplify-globals-optimizing nested cleanup runs at eight touched functions
 }
 
 ///|
-test "simplify-globals-optimizing nested cleanup skips above eight touched functions" {
+test "simplify-globals-optimizing nested cleanup runs above eight touched functions" {
   let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_touched_cleanup_fixture(9),
   )
@@ -305,28 +323,27 @@ test "simplify-globals-optimizing nested cleanup skips above eight touched funct
     msg=trace.to_string(),
   )
   assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-set touched=9",
-    ),
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+      )
+    }),
     msg=trace.to_string(),
   )
   assert_false(
-    trace.any(fn(line) {
-      line.contains("pass[simplify-globals-optimizing]:nested-pass")
-    }),
+    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
     msg=trace.to_string(),
   )
   for idx = 0; idx < 9; idx = idx + 1 {
     let pretty = optimized.pretty_print_defined_func(idx.reinterpret_as_uint())
     assert_false(pretty.contains("global.get"), msg=pretty)
-    assert_true(pretty.contains("I32(7)"), msg=pretty)
-    assert_true(pretty.contains("drop"), msg=pretty)
+    assert_false(pretty.contains("drop"), msg=pretty)
   }
 }
 
 ///|
-test "simplify-globals-optimizing reports large touched set before large module" {
-  let (_, trace) = sgo_test_run_with_trace(
+test "simplify-globals-optimizing nested cleanup runs above eight touched functions in large modules" {
+  let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_touched_cleanup_fixture(9, extra_untouched_count=100),
   )
 
@@ -337,15 +354,25 @@ test "simplify-globals-optimizing reports large touched set before large module"
     msg=trace.to_string(),
   )
   assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-set touched=9",
-    ),
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+      )
+    }),
     msg=trace.to_string(),
   )
   assert_false(
-    trace.any(fn(line) { line.contains("reason=large-module") }),
+    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
     msg=trace.to_string(),
   )
+  for idx = 0; idx < 9; idx = idx + 1 {
+    let pretty = optimized.pretty_print_defined_func(idx.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("drop"), msg=pretty)
+  }
+  let untouched = optimized.pretty_print_defined_func(9U)
+  assert_true(untouched.contains("I32(99)"), msg=untouched)
+  assert_true(untouched.contains("drop"), msg=untouched)
 }
 
 ///|
@@ -381,7 +408,7 @@ test "simplify-globals-optimizing nested cleanup runs at module function-count t
 }
 
 ///|
-test "simplify-globals-optimizing nested cleanup skips modules with more than one hundred functions" {
+test "simplify-globals-optimizing nested cleanup runs in modules with more than one hundred functions" {
   let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_touched_cleanup_fixture(1, extra_untouched_count=100),
   )
@@ -393,28 +420,27 @@ test "simplify-globals-optimizing nested cleanup skips modules with more than on
     msg=trace.to_string(),
   )
   assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-module touched=1",
-    ),
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+      )
+    }),
     msg=trace.to_string(),
   )
   assert_false(
-    trace.any(fn(line) {
-      line.contains("pass[simplify-globals-optimizing]:nested-pass")
-    }),
+    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
     msg=trace.to_string(),
   )
   let touched = optimized.pretty_print_defined_func(0U)
   assert_false(touched.contains("global.get"), msg=touched)
-  assert_true(touched.contains("I32(7)"), msg=touched)
-  assert_true(touched.contains("drop"), msg=touched)
+  assert_false(touched.contains("drop"), msg=touched)
   let untouched = optimized.pretty_print_defined_func(1U)
   assert_true(untouched.contains("I32(99)"), msg=untouched)
   assert_true(untouched.contains("drop"), msg=untouched)
 }
 
 ///|
-test "simplify-globals-optimizing reports large module before large touched function" {
+test "simplify-globals-optimizing reports large touched function in large modules" {
   let (_, trace) = sgo_test_run_with_trace(
     sgo_test_make_large_touched_function_fixture(129, extra_untouched_count=100),
   )
@@ -427,12 +453,12 @@ test "simplify-globals-optimizing reports large module before large touched func
   )
   assert_true(
     trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-module touched=1",
+      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-function touched=1",
     ),
     msg=trace.to_string(),
   )
   assert_false(
-    trace.any(fn(line) { line.contains("reason=large-touched-function") }),
+    trace.any(fn(line) { line.contains("reason=large-module") }),
     msg=trace.to_string(),
   )
 }
@@ -494,6 +520,39 @@ test "simplify-globals-optimizing nested cleanup skips touched functions above l
   assert_false(pretty.contains("global.get"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup filters large touched functions" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_mixed_large_and_small_touched_fixture(129),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=2 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
+    msg=trace.to_string(),
+  )
+  let large = optimized.pretty_print_defined_func(0U)
+  assert_false(large.contains("global.get"), msg=large)
+  assert_true(large.contains("I32(7)"), msg=large)
+  assert_true(large.contains("drop"), msg=large)
+  let small = optimized.pretty_print_defined_func(1U)
+  assert_false(small.contains("global.get"), msg=small)
+  assert_false(small.contains("drop"), msg=small)
 }
 
 ///|
