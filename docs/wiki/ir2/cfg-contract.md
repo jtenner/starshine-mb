@@ -6,6 +6,7 @@ sources:
   - ../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
   - ../wast/exception-tag-authoring.md
+  - ../wast/tail-call-authoring.md
   - ../../../src/ir/cfg_contract.mbt
   - ../../../src/ir/cfg.mbt
   - ../../../src/ir/hot_flags.mbt
@@ -18,6 +19,7 @@ related:
   - ./test-matrix.md
   - ./pass-porting-checklist.md
   - ../wast/exception-tag-authoring.md
+  - ../wast/tail-call-authoring.md
   - ../../../src/ir/cfg_contract.mbt
   - ../../../src/ir/cfg_contract_test.mbt
   - ../../../src/ir/cfg.mbt
@@ -85,7 +87,7 @@ Terminator edge policy in the concrete builder is:
 - `delegate` produces an `ExceptionalEdge` to the delegated label target.
 - `unreachable` produces an `UnreachableExitEdge` to the synthetic normal exit.
 
-The current WebAssembly core instruction list includes `return_call`, `return_call_indirect`, and `return_call_ref`, and the tail-call proposal records the intended return-position semantics. The local source manifest is [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md). Starshine's HOT flags agree with that semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators.
+The current WebAssembly core instruction list includes `return_call`, `return_call_indirect`, and `return_call_ref`, and the tail-call proposal records the intended return-position semantics. The local CFG source manifest is [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md), while WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md). Starshine's HOT flags agree with that semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators.
 
 ## Exceptional-Flow Policy
 
@@ -131,7 +133,7 @@ Until the helper and tests are fixed, treat the concrete builder plus HOT flags 
   return_call $callee)
 ```
 
-The tail call is still a call for side-effect, trap, and signature purposes, but the CFG control edge is a `ReturnEdge` to the synthetic normal exit. There is no ordinary fallthrough successor after the tail call.
+The tail call is still a call for side-effect, trap, and signature purposes, but the CFG control edge is a `ReturnEdge` to the synthetic normal exit. There is no ordinary fallthrough successor after the tail call. WAST fixture authors should also keep the current function return-type constraint visible; see [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 
 ### Try/catch materializes exceptional flow
 
@@ -172,3 +174,4 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 - CFG tests: [`../../../src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), [`../../../src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt), [`../../../src/ir/cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt)
 - Tail-call validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
 - Exception/tag catch payload guide: [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)
+- Tail-call WAST authoring guide: [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md)

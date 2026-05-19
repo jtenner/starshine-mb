@@ -105,7 +105,7 @@ Key typechecker responsibilities:
 
 - [`Typecheck for Expr`](../../../src/validate/typecheck.mbt) runs instructions in order and threads a `TcState` containing environment, operand stack, reachability, and escape state.
 - `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks; `try_table` catch payload/label rules are summarized in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
-- `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure.
+- `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure; WAST fixture guidance for `return_call`, `return_call_indirect`, and `return_call_ref` lives in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 - `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range. For text-level table-index defaults, `table.init` ordering, and table64 caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 - `ref.func` is syntactically just an instruction immediate, but Starshine runs a separate declaration check; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 - Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly.
@@ -124,7 +124,7 @@ absolute FuncIdx(1) = CodeSec body 0 ($a)
 absolute FuncIdx(2) = CodeSec body 1 ($b)
 ```
 
-Instruction immediates such as `call`, `return_call`, `ref.func`, exports, starts, and element payloads use absolute `FuncIdx` values. Code-section body ordinals do not. That distinction is why function-remapping passes must update both section vectors and every instruction/metadata carrier.
+Instruction immediates such as `call`, `return_call`, `ref.func`, exports, starts, and element payloads use absolute `FuncIdx` values. Code-section body ordinals do not. That distinction is why function-remapping passes must update both section vectors and every instruction/metadata carrier. The `return_call*` family is also covered from the WAST and CFG side in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 
 ### Structured expression nesting
 

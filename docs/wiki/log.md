@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | tail-call authoring
+
+- Added [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md) as the focused WAST guide for `return_call`, `return_call_indirect`, and `return_call_ref` across text syntax, lowering, binary opcodes, validation, CFG, pass rewrites, and fuzz/generator evidence.
+- Ingested [`raw/wasm/2026-05-19-wast-tail-call-sources.md`](raw/wasm/2026-05-19-wast-tail-call-sources.md) after checking current official WebAssembly 3.0/W3C tail-call syntax and validation sources, the historical tail-call proposal, MDN's secondary call reference, and Starshine parser, printer, lowerer, core instruction, binary codec, typechecker, CFG, and WAST arbitrary surfaces.
+- Updated [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`ir2/cfg-contract.md`](ir2/cfg-contract.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so table-mediated tail calls, instruction validation, CFG return-edge policy, FZG tail-call coverage, and WAST arbitrary prelude claims route through one shared tail-call contract.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/ir/hot_flags.mbt`](../../src/ir/hot_flags.mbt), [`../../src/ir/cfg.mbt`](../../src/ir/cfg.mbt), and [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt).
+
 ## [2026-05-19] wast | table instruction authoring
 
 - Added [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md) as the focused WAST table-instruction guide for `call_indirect`, `return_call_indirect`, `table.get`, `table.set`, `table.size`, `table.grow`, `table.fill`, `table.copy`, `table.init`, and `elem.drop`.

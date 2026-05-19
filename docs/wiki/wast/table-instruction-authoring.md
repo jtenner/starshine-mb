@@ -17,6 +17,7 @@ sources:
 related:
   - element-segment-authoring.md
   - memory-argument-authoring.md
+  - tail-call-authoring.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/type-table-memory-global-tag-sections.md
@@ -31,12 +32,12 @@ related:
 
 Use this page when writing, debugging, or widening WAST fixtures that touch WebAssembly tables as runtime storage, not just table declarations. It covers:
 
-- indirect calls: `call_indirect` and `return_call_indirect`;
+- indirect calls: `call_indirect` and the table-index half of `return_call_indirect`;
 - ordinary table access: `table.get`, `table.set`, `table.size`, `table.grow`, and `table.fill`;
 - bulk table operations: `table.copy`, `table.init`, and `elem.drop`;
 - the Starshine-specific index-order and table64 caveats that are easy to miss when moving between text, core IR, binary bytes, and validation.
 
-Table declarations, limits, imports, exports, and optional table initializer expressions live in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md). Element segment modes and typed payload authoring live in [`element-segment-authoring.md`](element-segment-authoring.md). This page focuses on instructions that read, write, copy, grow, initialize, or indirectly call through tables.
+Table declarations, limits, imports, exports, and optional table initializer expressions live in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md). Element segment modes and typed payload authoring live in [`element-segment-authoring.md`](element-segment-authoring.md). Tail-call return-type and terminator semantics for `return_call_indirect` live in [`tail-call-authoring.md`](tail-call-authoring.md). This page focuses on instructions that read, write, copy, grow, initialize, or indirectly call through tables.
 
 ## Layer Model
 
@@ -59,7 +60,7 @@ The official validation model uses a selected table's reference type `rt` and ad
 | WAST instruction | Text immediates | Stack before | Stack after | Starshine notes |
 | --- | --- | --- | --- | --- |
 | `call_indirect` | optional `tableidx`, then `typeuse` | call params..., table element index | call results... | Parser defaults omitted table to `0`; lowerer resolves type use to `TypeIdx` and table to `TableIdx`. Typechecker requires a function type and a funcref-compatible table. |
-| `return_call_indirect` | optional `tableidx`, then `typeuse` | call params..., table element index | unreachable | Same table/type checks as `call_indirect`, plus results must match the current function return type. |
+| `return_call_indirect` | optional `tableidx`, then `typeuse` | call params..., table element index | unreachable | Same table/type checks as `call_indirect`, plus results must match the current function return type; see [`tail-call-authoring.md`](tail-call-authoring.md) for the return/CFG side. |
 | `table.get` | optional `tableidx` | `at` | `rt` | Parser defaults omitted table to `0`; current local typechecker expects `i32` for the index. |
 | `table.set` | optional `tableidx` | `at`, `rt` | none | Current local typechecker expects `i32` for the index. |
 | `table.size` | optional `tableidx` | none | `at` | Current local typechecker returns `i32`. |
@@ -167,4 +168,4 @@ When a pass or generator change touches table instructions, use this checklist:
 - Core instruction model: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and generation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt)
-- Related guides: [`element-segment-authoring.md`](element-segment-authoring.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)
+- Related guides: [`element-segment-authoring.md`](element-segment-authoring.md), [`tail-call-authoring.md`](tail-call-authoring.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)

@@ -102,7 +102,7 @@ Instruction typechecking starts with a [`TcState`](../../../src/validate/typeche
 - a `reachable` flag;
 - an escape marker (`NoTcEscape`, `BranchTcEscape`, or `TerminalTcEscape`).
 
-Every instruction consumes and produces typed stack values. Control instructions temporarily extend the label stack and validate branch payloads against label result types. Function bodies additionally require an exact end stack: after the declared results are consumed, no extra concrete values may remain.
+Every instruction consumes and produces typed stack values. Control instructions temporarily extend the label stack and validate branch payloads against label result types. Tail calls validate against the current function return type and then make local continuation unreachable; WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md). Function bodies additionally require an exact end stack: after the declared results are consumed, no extra concrete values may remain.
 
 The most important beginner trap is unreachable-code stack polymorphism. When code is unreachable, Starshine can synthesize `BotValType` for missing operands, matching the official validation model. But values pushed after an unreachable point are still real values. Tests such as `validate_module rejects concrete stack junk after return inside block`, `validate_module rejects wrong concrete loop result after infinite inner loop`, and the end-of-body stack-shape diagnostics lock this boundary.
 
