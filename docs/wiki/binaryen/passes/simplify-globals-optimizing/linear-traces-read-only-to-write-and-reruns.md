@@ -359,6 +359,8 @@ After simplify-globals changes a function, the touched function may contain fres
 
 The nested replay is how Binaryen turns those local wins into the final intended function body.
 
+Starshine currently has a guarded approximation of this nested replay in [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt). Focused characterization in [`src/passes/simplify_globals_optimizing_test.mbt`](../../../../../src/passes/simplify_globals_optimizing_test.mbt) proves the current guard behavior: cleanup runs for changed-function sets at or below `8`, skips with `large-touched-set` above `8`, and skips with `large-module` when the module has more than `100` defined functions. Upstream Binaryen has no equivalent guard in SGO; treat these limits as a Starshine performance/artifact blocker to remove or justify with evidence, not as source parity.
+
 ## 11. This rerun is smaller than the after-inlining helper
 
 This is the crucial difference from the newly documented late boundary passes nearby.

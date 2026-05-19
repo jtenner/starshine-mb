@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO nested cleanup guard characterization
+
+- Added focused scheduler characterization in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the current Starshine-only SGO nested cleanup guard: `touched_count <= 8` runs the nested default cleanup, `touched_count > 8` skips with `reason=large-touched-set`, and modules with more than `100` defined functions skip with `reason=large-module`.
+- Updated [`binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md), [`binaryen/passes/simplify-globals-optimizing/linear-traces-read-only-to-write-and-reruns.md`](binaryen/passes/simplify-globals-optimizing/linear-traces-read-only-to-write-and-reruns.md), and [`../../agent-todo.md`](../../agent-todo.md) to record the exact guard behavior and keep removal/justification as an `[SGO]002` artifact/perf blocker.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1246/1246`), full `moon test` passed (`3310/3310`), and `.tmp/pass-fuzz-sgo-nested-cleanup-guard-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO typed externref function-body guardrails
 
 - Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for typed `externref` / `ref.null extern` function-body replacements: direct typed null globals, typed aliases canonicalized through `global.get` initializers, and typed block-result reads all rewrite and validate.

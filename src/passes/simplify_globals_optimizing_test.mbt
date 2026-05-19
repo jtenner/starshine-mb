@@ -36,6 +36,24 @@ fn sgo_test_run_with_trace(text : String) -> (@lib.Module, Array[String]) {
 }
 
 ///|
+fn sgo_test_make_touched_cleanup_fixture(
+  touched_count : Int,
+  extra_untouched_count? : Int = 0,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (global $g (mut i32) (i32.const 7))\n")
+  for idx = 0; idx < touched_count; idx = idx + 1 {
+    out.write_string("  (func $t\{idx}\n    global.get $g\n    drop)\n")
+  }
+  for idx = 0; idx < extra_untouched_count; idx = idx + 1 {
+    out.write_string("  (func $u\{idx}\n    i32.const 99\n    drop)\n")
+  }
+  out.write_string(")")
+  out.to_string()
+}
+
+///|
 fn sgo_test_run_module(mod_ : @lib.Module) -> @lib.Module {
   match
     run_hot_pipeline(mod_, HotPipelineOptions::new(), [
@@ -178,6 +196,102 @@ test "simplify-globals-optimizing only reruns cleanup on touched functions" {
   assert_false(touched.contains("drop"), msg=touched)
   assert_true(untouched.contains("drop"), msg=untouched)
   assert_true(untouched.contains("I32(99)"), msg=untouched)
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup runs at eight touched functions" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_touched_cleanup_fixture(8),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=8 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
+    msg=trace.to_string(),
+  )
+  for idx = 0; idx < 8; idx = idx + 1 {
+    let pretty = optimized.pretty_print_defined_func(idx.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_false(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup skips above eight touched functions" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_touched_cleanup_fixture(9),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=9 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-set touched=9",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[simplify-globals-optimizing]:nested-pass")
+    }),
+    msg=trace.to_string(),
+  )
+  for idx = 0; idx < 9; idx = idx + 1 {
+    let pretty = optimized.pretty_print_defined_func(idx.reinterpret_as_uint())
+    assert_false(pretty.contains("global.get"), msg=pretty)
+    assert_true(pretty.contains("I32(7)"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+  }
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup skips modules with more than one hundred functions" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_touched_cleanup_fixture(1, extra_untouched_count=100),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-module touched=1",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[simplify-globals-optimizing]:nested-pass")
+    }),
+    msg=trace.to_string(),
+  )
+  let touched = optimized.pretty_print_defined_func(0U)
+  assert_false(touched.contains("global.get"), msg=touched)
+  assert_true(touched.contains("I32(7)"), msg=touched)
+  assert_true(touched.contains("drop"), msg=touched)
+  let untouched = optimized.pretty_print_defined_func(1U)
+  assert_true(untouched.contains("I32(99)"), msg=untouched)
+  assert_true(untouched.contains("drop"), msg=untouched)
 }
 
 ///|
