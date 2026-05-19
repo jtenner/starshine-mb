@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
   - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
+  - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
@@ -24,6 +25,7 @@ related:
   - ../tooling/validation-gates.md
   - ../wast/gc-type-authoring.md
   - ../wast/control-flow-authoring.md
+  - ../wast/reference-instruction-authoring.md
   - ../wast/variable-instruction-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/memory-argument-authoring.md
@@ -92,6 +94,10 @@ The binary layer can reject malformed immediate ranges (`InvalidMemArgEncoding` 
 
 The local/global variable instruction family is byte-simple but semantically coupled to validation and text lowering: `local.get` / `local.set` / `local.tee` use opcodes `0x20` / `0x21` / `0x22` plus a `localidx`, while `global.get` / `global.set` use `0x23` / `0x24` plus a `globalidx`. The byte codec only proves that an index immediate was present; [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md) covers the WAST `$` identifier lowering, parameter-before-local numbering, `local.tee` stack-preservation rule, `global.set` mutability check, and immutable-`global.get` constant-expression policy.
 
+### Reference instructions
+
+Reference instructions are split across one-byte opcodes and GC-prefixed forms. Starshine encodes/decodes the basic `0xD0`-family forms (`ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, `br_on_null`, and `br_on_non_null`) and `0xFB` subcodes for ordinary/descriptor test-cast plus cast-branch forms. The text authoring surface is narrower: current WAST supports the basic `ref.*` subset and descriptor forms, but not ordinary `ref.test` / `ref.cast` / `br_on_*` text keywords. Use [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) before drawing parser, binary, or validation conclusions from one layer alone.
+
 ### Prefixed opcode families
 
 Do not audit instruction coverage by one-byte opcodes only. Starshine's current codec includes several prefixed spaces:
@@ -116,7 +122,7 @@ Key typechecker responsibilities:
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure; ordinary branch payload/fallthrough guidance lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), and WAST fixture guidance for `return_call`, `return_call_indirect`, and `return_call_ref` lives in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 - `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` validate local/global index existence, stack operand types, and global mutability above the byte layer; fixture and rewrite rules live in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 - `memory.init`, `data.drop`, `table.init`, `elem.drop`, `memory.copy`, and `table.copy` validate segment/resource indices and stack operands; binary immediates alone do not prove those indices are in range. For text-level table-index defaults, `table.init` ordering, and table64 caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
-- `ref.func` is syntactically just an instruction immediate, but Starshine runs a separate declaration check; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+- Reference instructions have layered semantics: `ref.func` is syntactically just an immediate but also needs whole-module declaration checking; `ref.test` / `ref.cast` and `br_on_*` need hierarchy, nullability, and label-payload checks above the byte layer. See [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 - Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly.
 
 ## Concrete Before/After Mental Models
@@ -186,4 +192,4 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
-- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)
+- Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | reference instruction authoring
+
+- Added [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md) as the focused WAST guide for `ref.null`, `ref.func`, `ref.is_null`, `ref.eq`, `ref.as_non_null`, core/binary-only ordinary `ref.test` / `ref.cast`, `br_on_null`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, and Starshine's descriptor-family local forms.
+- Ingested [`raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](raw/wasm/2026-05-19-wast-reference-instruction-sources.md) after checking current official WebAssembly syntax/text/binary/validation sources, the W3C 3.0 PDF for branch-on-reference names, proposal-era lineage pages, and Starshine WAST, core, binary, validator, valid-generator, and WAST-arbitrary surfaces.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md), [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so reference instruction stack/refinement rules, the ordinary `ref.test` / `ref.cast` / `br_on_*` WAST parser gap, descriptor text coverage, and `ref.func` declaration split route through one shared contract.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt).
+
 ## [2026-05-19] health | WAST arbitrary variable-instruction backlink
 
 - During the post-update whole-wiki health pass, checked the WAST arbitrary parity plan for coverage claims that could hide the new variable-instruction authoring contract.

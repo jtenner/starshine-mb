@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-19
 sources:
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
+  - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
   - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../../../src/validate/validate.mbt
@@ -21,6 +22,7 @@ related:
   - ../binary/function-import-export-and-code-sections.md
   - ../binary/data-element-and-datacount-sections.md
   - ../wast/element-segment-authoring.md
+  - ../wast/reference-instruction-authoring.md
   - ../binary/module-section-map.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../validation/moonbit-prove-strategy.md
@@ -37,7 +39,7 @@ related:
 
 The official WebAssembly 3.0 validation sources call that second set `refs`. The focused raw-source snapshot in [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md) records the current primary-source rule: `ref.func x` requires `x` in the validation context's `funcs` and `refs`, and module validation builds `refs` from function-index occurrences in module-level declaration sources such as globals, tables, element segments, start, and exports.
 
-Starshine implements the same idea as a separate `ref_func_declarations` validation phase in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), within the broader phase order documented in [`./module-validation-phases.md`](./module-validation-phases.md). It has one visible local/spec divergence: current Starshine does **not** treat `start_sec` alone as a `ref.func` declaration source. That stricter local policy is deliberate enough to have a regression test, so keep it visible until a validator change intentionally aligns it with the official rule.
+Starshine implements the same idea as a separate `ref_func_declarations` validation phase in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), within the broader phase order documented in [`./module-validation-phases.md`](./module-validation-phases.md). The text/core/binary stack shape for the `ref.func` instruction itself is summarized with the rest of the reference family in [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md). This page owns the additional whole-module declaration rule. It has one visible local/spec divergence: current Starshine does **not** treat `start_sec` alone as a `ref.func` declaration source. That stricter local policy is deliberate enough to have a regression test, so keep it visible until a validator change intentionally aligns it with the official rule.
 
 ## Beginner Model
 
@@ -145,4 +147,4 @@ The official module-validation source set includes start, but current Starshine 
 - Broader function-section source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
 - Invalid-fuzz registration: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)
-- Related wiki pages: [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md), [`./fuzz-hardening.md`](./fuzz-hardening.md)
+- Related wiki pages: [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md), [`./fuzz-hardening.md`](./fuzz-hardening.md)

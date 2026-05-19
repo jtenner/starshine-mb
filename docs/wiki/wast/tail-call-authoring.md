@@ -18,6 +18,7 @@ sources:
 related:
   - table-instruction-authoring.md
   - exception-tag-authoring.md
+  - reference-instruction-authoring.md
   - ../ir2/cfg-contract.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/function-import-export-and-code-sections.md
@@ -135,7 +136,7 @@ The omitted table index means table `0`. Starshine's WAST parser accepts that sh
     (return_call_ref (type $sig))))
 ```
 
-`return_call_ref` is not a `ref.func` declaration source by itself. If a fixture materializes the function reference with `ref.func`, the declaration-source rules still live in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+`return_call_ref` is not a `ref.func` declaration source by itself. If a fixture materializes the function reference with `ref.func`, the instruction's text/core stack shape lives in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), and the declaration-source rules still live in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
 ### Tail call inside `try_table`
 
@@ -176,4 +177,4 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and CFG: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)
-- Related WAST guides: [`table-instruction-authoring.md`](table-instruction-authoring.md), [`exception-tag-authoring.md`](exception-tag-authoring.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md)
+- Related WAST guides: [`table-instruction-authoring.md`](table-instruction-authoring.md), [`exception-tag-authoring.md`](exception-tag-authoring.md), [`reference-instruction-authoring.md`](reference-instruction-authoring.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md)

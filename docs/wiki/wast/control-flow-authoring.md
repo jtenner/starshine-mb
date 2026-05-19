@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-19
 sources:
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
+  - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -17,6 +18,7 @@ sources:
 related:
   - tail-call-authoring.md
   - exception-tag-authoring.md
+  - reference-instruction-authoring.md
   - table-instruction-authoring.md
   - ../validate/module-validation-phases.md
   - ../binary/instruction-and-expression-encoding.md
@@ -171,7 +173,7 @@ However, values pushed after an unreachable point are still concrete values. End
 
 Starshine's core instruction model, binary codec, validator, and valid generator know about reference-branch instructions such as `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`. The WAST keyword table and parser do not currently expose text keywords for those forms.
 
-Implication: if a test must prove reference-branch semantics today, use a core/binary fixture or first add WAST parser/lowerer/printer coverage. Do not treat WAST's inability to author `br_on_*` as evidence that Starshine lacks the core instruction or validation rule. The valid-generator side of this surface is tracked under `[FZG]009` in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
+Implication: if a test must prove reference-branch semantics today, use a core/binary fixture or first add WAST parser/lowerer/printer coverage. Do not treat WAST's inability to author `br_on_*` as evidence that Starshine lacks the core instruction or validation rule. The reference-specific stack refinements, cast hierarchy rules, and WAST text-surface matrix now live in [`reference-instruction-authoring.md`](reference-instruction-authoring.md); this page remains canonical for ordinary label-depth and branch-payload mechanics. The valid-generator side of this surface is tracked under `[FZG]009` in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 
 ## Rewrite And Validation Checklist
 
@@ -193,4 +195,4 @@ When a pass, generator, or fixture change touches ordinary control flow:
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and CFG: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)
 - Generator and WAST arbitrary: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md), [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md)
-- Related WAST guides: [`tail-call-authoring.md`](tail-call-authoring.md), [`exception-tag-authoring.md`](exception-tag-authoring.md), [`table-instruction-authoring.md`](table-instruction-authoring.md)
+- Related WAST guides: [`tail-call-authoring.md`](tail-call-authoring.md), [`exception-tag-authoring.md`](exception-tag-authoring.md), [`table-instruction-authoring.md`](table-instruction-authoring.md), [`reference-instruction-authoring.md`](reference-instruction-authoring.md)
