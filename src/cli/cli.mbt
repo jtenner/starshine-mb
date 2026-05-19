@@ -1238,11 +1238,7 @@ pub fn parse_cli_args(
 
 ///|
 pub fn resolve_pass_flags(parsed : CliParseResult) -> Array[String] {
-  let resolved = Array::new()
-  for flag in parsed.pass_flags {
-    resolved.push(flag)
-  }
-  resolved
+  parsed.pass_flags
 }
 
 ///|

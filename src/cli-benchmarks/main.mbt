@@ -284,13 +284,10 @@ fn cli_benchmark_effective_pass_flags(
   optimize_level : Int,
   shrink_level : Int,
 ) -> Array[String] {
+  if pass_flags.length() > 0 {
+    return pass_flags
+  }
   let out : Array[String] = []
-  for pass in pass_flags {
-    out.push(pass)
-  }
-  if out.length() > 0 {
-    return out
-  }
   if shrink_level > 0 {
     out.push("shrink")
   } else if optimize_level > 0 {

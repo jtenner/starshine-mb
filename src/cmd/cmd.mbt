@@ -1643,13 +1643,10 @@ fn resolve_effective_pass_flags(
   optimize_level : Int,
   shrink_level : Int,
 ) -> Array[String] {
+  if resolved_passes.length() > 0 {
+    return resolved_passes
+  }
   let out : Array[String] = []
-  for pass in resolved_passes {
-    out.push(pass)
-  }
-  if out.length() > 0 {
-    return out
-  }
   if shrink_level > 0 {
     out.push("shrink")
   } else if optimize_level > 0 {
