@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-18] passes | SGO same-as-init guardrails
+
+- Added focused same-as-init coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt): direct `ref.null extern` same-as-init writes are removed like direct i32 literals, non-folded `i32.add` operands stay mutable, result-block operands stay mutable, and void-block bodies whose actual `global.set` operand is still a direct literal remove/promote.
+- Kept this as a no-behavior-change guardrail slice. Local Binaryen probe `.tmp/sgo-same-init-guardrails.wat` showed the same decisions under `wasm-opt --simplify-globals-optimizing`: direct i32 and `ref.null` writes remove, non-folded expression and result-block operands stay, and void-block direct literal writes remove.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1194/1194`), full `moon test` passed (`3258/3258`), and `.tmp/pass-fuzz-sgo-same-init-guardrails-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-18] passes | SGO then-body runtime guardrails and top-level noise
 
 - Added no-behavior-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) around the landed if-then runtime subset: then-body writes do not carry facts out past the `if`, equal constants written by both arms still do not create a post-if fact, branchy then bodies remain conservative, imported/exported globals remain untracked inside then bodies, and a call in an else body does not block the already-local then-body rewrite.

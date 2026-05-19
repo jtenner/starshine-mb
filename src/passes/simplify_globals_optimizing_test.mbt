@@ -296,6 +296,111 @@ test "simplify-globals-optimizing removes same-as-init writes before reads" {
 }
 
 ///|
+test "simplify-globals-optimizing removes ref-null same-as-init writes before reads" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut externref) (ref.null extern))
+      #|  (func (export "run") (result externref)
+      #|    ref.null extern
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_null_type(
+        @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+      ),
+      false,
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps non-folded expression same-as-init writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 3))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    i32.add
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps result-block same-as-init writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 7))
+      #|  (func (export "run") (result i32)
+      #|    block (result i32)
+      #|      i32.const 7
+      #|    end
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes void-block direct-literal same-as-init writes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 7))
+      #|  (func (export "run") (result i32)
+      #|    block
+      #|      i32.const 7
+      #|      global.set $g
+      #|    end
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing does not remove non-init writes before reads" {
   let optimized = sgo_test_run(
     (
