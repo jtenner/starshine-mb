@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO reference alias same-init guardrails
+
+- Added no-behavior-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for reference alias-chain same-as-init behavior: defined `funcref` aliases canonicalize in one run but promote/remove only after an explicit second run, imported `funcref` aliases stay destructive-cleanup conservative, and exported alias targets keep mutability/set while same-trace reads are replaced.
+- Local Binaryen probes `.tmp/sgo-reference-alias-probes.wat`, `.tmp/sgo-reference-alias-imported-probes.wat`, and `.tmp/sgo-reference-alias-exported-probes.wat` showed the same one-run/two-run and import/export boundaries under `wasm-opt --all-features --simplify-globals-optimizing`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1216/1216`), full `moon test` passed (`3280/3280`), and `.tmp/pass-fuzz-sgo-reference-alias-guardrails-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO reference runtime guardrails
 
 - Added no-behavior-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for reference-typed same-trace runtime facts: imported `funcref` block reads rewrite after `ref.func` writes, exported `funcref` then-body reads rewrite while preserving the visible set, imported `externref` then-body reads rewrite after `ref.null extern`, and calls / non-constant `funcref` writes remain barriers.
