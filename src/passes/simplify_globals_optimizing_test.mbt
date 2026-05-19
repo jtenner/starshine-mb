@@ -489,6 +489,63 @@ test "simplify-globals-optimizing rewrites typed ref-func reads inside block res
 }
 
 ///|
+test "simplify-globals-optimizing rewrites typed externref null function body reads" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (ref null extern) (ref.null extern))
+      #|  (func (export "run") (result (ref null extern))
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing rewrites typed externref null aliases in function bodies" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $direct (ref null extern) (ref.null extern))
+      #|  (global $alias (ref null extern) (global.get $direct))
+      #|  (func (export "run") (result (ref null extern))
+      #|    global.get $alias))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  ])
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing rewrites typed externref null reads inside block results" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (ref null extern) (ref.null extern))
+      #|  (func (export "run") (result (ref null extern))
+      #|    block (result (ref null extern))
+      #|      global.get $g
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing rewrites typed ref-null function body reads through nullable supertypes" {
   let optimized = sgo_test_run(
     (

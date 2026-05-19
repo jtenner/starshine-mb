@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO typed externref function-body guardrails
+
+- Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for typed `externref` / `ref.null extern` function-body replacements: direct typed null globals, typed aliases canonicalized through `global.get` initializers, and typed block-result reads all rewrite and validate.
+- Local Binaryen probe `.tmp/sgo-typed-externref-body-probes.wat` showed the same direct, alias, and block-result replacements under `wasm-opt --all-features --simplify-globals-optimizing`.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1243/1243`), full `moon test` passed (`3307/3307`), and `.tmp/pass-fuzz-sgo-typed-externref-body-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO typed ref-func function-body guardrails
 
 - Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for typed `ref.func` function-body replacements: direct typed `ref.func` globals, typed aliases canonicalized through `global.get` initializers, and typed block-result reads all rewrite and validate.
