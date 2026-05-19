@@ -8170,6 +8170,7 @@ fn dae_instr_is_droppable_pure_leaf(instr : @lib.Instruction) -> Bool {
     | @lib.I64Const(_)
     | @lib.F32Const(_)
     | @lib.F64Const(_)
+    | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | @lib.RefNull(_)
     | @lib.LocalGet(_)
     | @lib.GlobalGet(_) => true
@@ -8232,6 +8233,8 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64TruncSatF32U
     | @lib.I64TruncSatF64S
     | @lib.I64TruncSatF64U
+    | @lib.V128Not
+    | @lib.V128AnyTrue
     | @lib.RefIsNull
     | @lib.RefI31
     | @lib.AnyConvertExtern
@@ -8375,6 +8378,10 @@ fn dae_instr_is_nontrapping_pure_binary(instr : @lib.Instruction) -> Bool {
     | @lib.F64Min
     | @lib.F64Max
     | @lib.F64Copysign
+    | @lib.V128And
+    | @lib.V128Andnot
+    | @lib.V128Or
+    | @lib.V128Xor
     | @lib.RefEq => true
     _ => false
   }
@@ -8413,7 +8420,7 @@ fn dae_instr_dropped_pure_value_arity(instr : @lib.Instruction) -> Int? {
     return Some(2)
   }
   match instr {
-    @lib.Select(_) => Some(3)
+    @lib.Select(_) | @lib.V128Bitselect => Some(3)
     _ => None
   }
 }

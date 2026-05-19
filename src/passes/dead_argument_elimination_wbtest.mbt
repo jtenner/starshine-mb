@@ -52,6 +52,15 @@ test "dae original call summary counts repeated undropped callees once per calle
 
 ///|
 test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
+  let v128_zero = @lib.Instruction::v128_const(
+    b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+  )
+  let v128_ones = @lib.Instruction::v128_const(
+    b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+    b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+  )
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
   let noisy_body = [
     @lib.Instruction::nop(),
     @lib.Instruction::i32_const(@lib.I32(0)),
@@ -102,6 +111,23 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::i32_const(@lib.I32(2)),
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::select(),
+    @lib.Instruction::drop(),
+    v128_zero,
+    @lib.Instruction::drop(),
+    v128_zero,
+    @lib.Instruction::v128_not(),
+    @lib.Instruction::drop(),
+    v128_zero,
+    @lib.Instruction::v128_any_true(),
+    @lib.Instruction::drop(),
+    v128_zero,
+    v128_ones,
+    @lib.Instruction::v128_and(),
+    @lib.Instruction::drop(),
+    v128_zero,
+    v128_ones,
+    v128_zero,
+    @lib.Instruction::v128_bitselect(),
     @lib.Instruction::drop(),
     @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
     @lib.Instruction::ref_is_null(),
@@ -164,6 +190,12 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::i32_div_s(),
     @lib.Instruction::select(),
     @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::v128_load(memarg),
+    v128_zero,
+    v128_ones,
+    @lib.Instruction::v128_bitselect(),
+    @lib.Instruction::drop(),
     @lib.Instruction::return_(),
   ]
   let mod_ = @lib.Module::new().with_code_sec(
@@ -225,6 +257,12 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
         @lib.Instruction::i32_const(@lib.I32(0)),
         @lib.Instruction::i32_div_s(),
         @lib.Instruction::select(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::v128_load(memarg),
+        v128_zero,
+        v128_ones,
+        @lib.Instruction::v128_bitselect(),
         @lib.Instruction::drop(),
         @lib.Instruction::return_(),
       ]
