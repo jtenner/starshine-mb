@@ -395,6 +395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO large touched-function cleanup guard characterization
+
+- Added focused scheduler characterization in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for the current SGO nested cleanup touched-function-size guard: cleanup still runs at the local and instruction thresholds (`128` locals or `1000` body instructions), but skips with `reason=large-touched-function` when a touched function exceeds either threshold.
+- Updated [`binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md), [`binaryen/passes/simplify-globals-optimizing/linear-traces-read-only-to-write-and-reruns.md`](binaryen/passes/simplify-globals-optimizing/linear-traces-read-only-to-write-and-reruns.md), and [`../../agent-todo.md`](../../agent-todo.md) to keep the exact Starshine-only guard behavior visible as an `[SGO]002` artifact/perf blocker.
+- Validation/evidence for this slice: `moon test src/passes` passed (`1253/1253`), full `moon test` passed (`3317/3317`), and `.tmp/pass-fuzz-sgo-large-touched-function-guard-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-19] passes | SGO same-trace runtime barrier characterization
 
 - Added no-implementation-change guardrail coverage in [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) for same-trace runtime barriers: facts established before nested plain blocks are cleared when those blocks contain calls or branches, and non-constant writes clear only the same global while preserving independent scalar facts.

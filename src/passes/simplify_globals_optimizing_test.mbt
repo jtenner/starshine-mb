@@ -54,6 +54,34 @@ fn sgo_test_make_touched_cleanup_fixture(
 }
 
 ///|
+fn sgo_test_make_large_touched_function_fixture(local_count : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (global $g (mut i32) (i32.const 7))\n")
+  out.write_string("  (func $large")
+  for _idx = 0; _idx < local_count; _idx = _idx + 1 {
+    out.write_string(" (local i32)")
+  }
+  out.write_string("\n    global.get $g\n    drop)\n")
+  out.write_string(")")
+  out.to_string()
+}
+
+///|
+fn sgo_test_make_large_touched_body_fixture(nop_count : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (global $g (mut i32) (i32.const 7))\n")
+  out.write_string("  (func $large\n")
+  for _idx = 0; _idx < nop_count; _idx = _idx + 1 {
+    out.write_string("    nop\n")
+  }
+  out.write_string("    global.get $g\n    drop)\n")
+  out.write_string(")")
+  out.to_string()
+}
+
+///|
 fn sgo_test_run_module(mod_ : @lib.Module) -> @lib.Module {
   match
     run_hot_pipeline(mod_, HotPipelineOptions::new(), [
@@ -292,6 +320,124 @@ test "simplify-globals-optimizing nested cleanup skips modules with more than on
   let untouched = optimized.pretty_print_defined_func(1U)
   assert_true(untouched.contains("I32(99)"), msg=untouched)
   assert_true(untouched.contains("drop"), msg=untouched)
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup runs at touched function local threshold" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_large_touched_function_fixture(128),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup skips touched functions above local threshold" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_large_touched_function_fixture(129),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-function touched=1",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[simplify-globals-optimizing]:nested-pass")
+    }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup runs at touched function instruction threshold" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_large_touched_body_fixture(998),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass name=dead-code-elimination",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup skips touched functions above instruction threshold" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    sgo_test_make_large_touched_body_fixture(999),
+  )
+
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains(
+      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-function touched=1",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[simplify-globals-optimizing]:nested-pass")
+    }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
 }
 
 ///|
