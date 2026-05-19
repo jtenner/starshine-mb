@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
   - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../../../src/validate/validate.mbt
@@ -11,12 +12,14 @@ sources:
   - ../../../src/validate/gen_invalid.mbt
   - ../binary/function-import-export-and-code-sections.md
   - ../binary/data-element-and-datacount-sections.md
+  - ../wast/element-segment-authoring.md
 related:
   - ./module-validation-phases.md
   - ./fuzz-hardening.md
   - ./trace-benchmark-baseline.md
   - ../binary/function-import-export-and-code-sections.md
   - ../binary/data-element-and-datacount-sections.md
+  - ../wast/element-segment-authoring.md
   - ../binary/module-section-map.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../validation/moonbit-prove-strategy.md
@@ -66,7 +69,7 @@ That split matters because [`typecheck_ref_func`](../../../src/validate/typechec
 | Function export | Yes | `collect_declared_funcs_bitmap` marks `Export(_, FuncExternIdx(f))`; test `validate_module accepts ref.func body when function is exported`. | This matches the official module `refs` source set. |
 | Global initializer `ref.func` | Yes | `collect_declared_funcs_bitmap` scans `GlobalSec`; test `validate_module treats global initializer ref.func as declaration source`. | The initializer must also be a valid constant expression and typecheck. |
 | Table initializer `ref.func` | Yes | `collect_declared_funcs_bitmap` scans table initializer expressions; test `validate_module treats table initializer ref.func as declaration source`. | This is separate from active element payloads that later initialize tables. |
-| Element segment function-index payload | Yes | `FuncsElemKind(funcs)` entries are marked directly. | Declarative elements are the canonical text-level way to forward-declare function references. |
+| Element segment function-index payload | Yes | `FuncsElemKind(funcs)` entries are marked directly. | Declarative elements are the canonical text-level way to forward-declare function references. Current Starshine WAST parsing accepts `(elem declare func ...)`, but text lowering loses declarative mode; see [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md). |
 | Element expression `ref.func` | Yes | `FuncExprsElemKind` and `TypedExprsElemKind` expressions are scanned; tests cover typed expression sources and mixed element declarations. | See [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) for element-mode shapes. |
 | Function body `ref.func` | Use site, not declaration source | `validate_ref_func_declarations_in_module` scans bodies after computing the bitmap. | A body `ref.func` fails unless some module-level source declared the same index. |
 | Start section | **No, current local divergence** | Test `validate_module does not treat start as a ref.func declaration source`. | The official module-validation rule includes optional start in `refs`; Starshine currently does not. |
@@ -107,7 +110,7 @@ The export marks `$f` in the declaration bitmap before the body scan, so the bod
   (elem declare func $f))
 ```
 
-The element function-index payload declares `$f` even though the segment is not an active table initializer. This is the beginner-friendly purpose of declarative elements: they can make function references valid without exporting the function.
+The element function-index payload declares `$f` even though the segment is not an active table initializer. This is the beginner-friendly purpose of declarative elements: they can make function references valid without exporting the function. In current Starshine, direct core/binary declarative segments preserve that distinction, while WAST text lowering parses this syntax but currently lowers it through the passive empty-offset path; use [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) before treating text roundtrips as declarative-mode evidence.
 
 ### Start-only declaration is currently rejected locally
 
@@ -141,4 +144,4 @@ The official module-validation source set includes start, but current Starshine 
 - Broader function-section source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
 - Invalid-fuzz registration: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)
-- Related wiki pages: [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`./fuzz-hardening.md`](./fuzz-hardening.md)
+- Related wiki pages: [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`./fuzz-hardening.md`](./fuzz-hardening.md)

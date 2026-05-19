@@ -9,6 +9,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), and [`index.md`](index.md) so the declarative-element caveat points at the focused WAST guide instead of living only as a one-line binary-page warning.
 - Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/passive_typed_elem_surface_test.mbt`](../../src/wast/passive_typed_elem_surface_test.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), and [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt).
 
+## [2026-05-19] health | ref.func declarative-element backlink
+
+- During the post-update wiki health pass, checked WAST, binary segment, and `ref.func` declaration pages for declarative-element claims that could now hide the text-lowering caveat.
+- Updated [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md) so its declarative element examples and declaration-source table distinguish direct core/binary declarative support from current WAST text lowering, and link to [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md).
+- Updated [`index.md`](index.md) so the validator page summary advertises the WAST declarative-element caveat.
+
 ## [2026-05-19] ir2 | CFG tail-call control-flow contract
 
 - Refreshed [`ir2/cfg-contract.md`](ir2/cfg-contract.md) into a beginner-to-advanced CFG policy guide covering block-boundary reasons, edge kinds, structured-control successors, exceptional-flow policy, analysis-consumer guidance, and concrete WAT-shaped examples.
