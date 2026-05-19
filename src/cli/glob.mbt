@@ -216,7 +216,53 @@ fn compiled_glob_pattern_matches_candidate(
 }
 
 ///|
+fn is_dot_or_dotdot_segment(path : String, start : Int, end : Int) -> Bool {
+  let length = end - start
+  (length == 1 && path[start] == '.') ||
+  (length == 2 && path[start] == '.' && path[start + 1] == '.')
+}
+
+///|
+fn cli_path_needs_normalization(path : String) -> Bool {
+  if path.length() == 0 {
+    return true
+  }
+  let mut index = 0
+  if path.length() >= 2 && is_ascii_letter(path[0]) && path[1] == ':' {
+    index = 2
+  }
+  let mut segment_start = index
+  let mut previous_was_separator = false
+  while index < path.length() {
+    let c = path[index]
+    if c == '\\' {
+      return true
+    }
+    if c == '/' {
+      if previous_was_separator {
+        return true
+      }
+      if is_dot_or_dotdot_segment(path, segment_start, index) {
+        return true
+      }
+      previous_was_separator = true
+      segment_start = index + 1
+    } else {
+      previous_was_separator = false
+    }
+    index += 1
+  }
+  if previous_was_separator && segment_start > 1 {
+    return true
+  }
+  is_dot_or_dotdot_segment(path, segment_start, path.length())
+}
+
+///|
 pub fn normalize_cli_path(path : String) -> String {
+  if !cli_path_needs_normalization(path) {
+    return path
+  }
   let separators = StringBuilder::new()
   for c in path {
     if c == '\\' {

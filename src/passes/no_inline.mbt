@@ -25,18 +25,38 @@ pub fn no_partial_inline_summary() -> String {
 
 ///|
 pub fn no_inline_pass_pattern(flag : String) -> (String, String)? {
-  let names = ["no-inline", "no-full-inline", "no-partial-inline"]
-  for name in names {
-    if flag.length() > name.length() &&
-      flag.has_prefix(name) &&
-      flag[name.length()] == '=' {
+  match no_inline_pass_pattern_base(flag) {
+    Some(name) => {
       let pattern = flag.sub(start=name.length() + 1).to_owned()
       if pattern.length() > 0 {
-        return Some((name, pattern))
+        Some((name, pattern))
+      } else {
+        None
       }
     }
+    None => None
+  }
+}
+
+///|
+fn no_inline_pass_pattern_base(flag : String) -> String? {
+  if no_inline_pass_pattern_has_base(flag, "no-inline") {
+    return Some("no-inline")
+  }
+  if no_inline_pass_pattern_has_base(flag, "no-full-inline") {
+    return Some("no-full-inline")
+  }
+  if no_inline_pass_pattern_has_base(flag, "no-partial-inline") {
+    return Some("no-partial-inline")
   }
   None
+}
+
+///|
+fn no_inline_pass_pattern_has_base(flag : String, name : String) -> Bool {
+  flag.length() > name.length() &&
+  flag[name.length()] == '=' &&
+  flag.has_prefix(name)
 }
 
 ///|

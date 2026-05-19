@@ -348,7 +348,11 @@ fn trimmed_ascii_eq_ignore_case(input : String, expected : String) -> Bool {
 ///|
 fn trimmed_string(input : String) -> String {
   let (start, end) = trimmed_bounds(input)
-  input.sub(start~, end~).to_owned()
+  if start == 0 && end == input.length() {
+    input
+  } else {
+    input.sub(start~, end~).to_owned()
+  }
 }
 
 ///|
@@ -483,39 +487,37 @@ fn push_unique_output_target(
 }
 
 ///|
-fn is_kebab_case_flag_name(name : String) -> Bool {
-  if name.length() == 0 {
-    return false
-  }
-  if name[0] == '-' || name[name.length() - 1] == '-' {
-    return false
-  }
-  let mut prev_dash = false
-  for c in name {
-    let is_ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-'
-    if !is_ok {
-      return false
-    }
-    if c == '-' && prev_dash {
-      return false
-    }
-    prev_dash = c == '-'
-  }
-  true
+fn long_flag_name_char_is_valid(c : UInt16) -> Bool {
+  (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-'
 }
 
 ///|
-fn split_long_flag_token(token : String) -> (String, String?) {
+fn split_long_flag_token(token : String) -> (String, String?, Bool) {
   let mut i = 2
+  let mut valid_kebab_name = true
+  let mut prev_dash = false
   while i < token.length() {
-    if token[i] == '=' {
+    let c = token[i]
+    if c == '=' {
+      if i == 2 || prev_dash {
+        valid_kebab_name = false
+      }
       let name = token.sub(start=2, end=i).to_owned()
       let value = token.sub(start=i + 1).to_owned()
-      return (name, Some(value))
+      return (name, Some(value), valid_kebab_name)
     }
+    if !long_flag_name_char_is_valid(c) ||
+      (i == 2 && c == '-') ||
+      (prev_dash && c == '-') {
+      valid_kebab_name = false
+    }
+    prev_dash = c == '-'
     i += 1
   }
-  (token.sub(start=2).to_owned(), None)
+  if i == 2 || prev_dash {
+    valid_kebab_name = false
+  }
+  (token.sub(start=2).to_owned(), None, valid_kebab_name)
 }
 
 ///|
@@ -765,7 +767,7 @@ pub fn parse_cli_args(
         continue
       }
       if arg.length() > 2 && arg[1] == '-' {
-        let (name, inline_value) = split_long_flag_token(arg)
+        let (name, inline_value, valid_kebab_name) = split_long_flag_token(arg)
         match name {
           "help" => {
             if inline_value is Some(_) {
@@ -1151,7 +1153,7 @@ pub fn parse_cli_args(
             index += 1
           }
           _ => {
-            if !is_kebab_case_flag_name(name) {
+            if !valid_kebab_name {
               return Err(CliParseError::invalid_long_flag(name))
             }
             if name == "no-inline" ||
