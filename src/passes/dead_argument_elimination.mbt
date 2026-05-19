@@ -8330,6 +8330,49 @@ fn dae_instr_is_const_safe_numeric_binary(
 }
 
 ///|
+fn dae_instr_dropped_pure_value_arity(instr : @lib.Instruction) -> Int? {
+  if dae_instr_is_droppable_pure_leaf(instr) {
+    return Some(0)
+  }
+  if dae_instr_is_nontrapping_pure_unary(instr) {
+    return Some(1)
+  }
+  if dae_instr_is_nontrapping_pure_binary(instr) {
+    return Some(2)
+  }
+  None
+}
+
+///|
+fn dae_find_droppable_pure_stack_expr_start(
+  out : Array[@lib.Instruction],
+) -> Int? {
+  if out.length() == 0 {
+    return None
+  }
+  let mut needed = 1
+  for start = out.length() - 1; start >= 0; start = start - 1 {
+    match dae_instr_dropped_pure_value_arity(out[start]) {
+      Some(arity) => {
+        needed = needed - 1 + arity
+        if needed == 0 {
+          return Some(start)
+        }
+      }
+      None => return None
+    }
+  }
+  None
+}
+
+///|
+fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit {
+  while out.length() > new_length {
+    ignore(out.pop())
+  }
+}
+
+///|
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
@@ -8342,6 +8385,16 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         continue
       }
       _ => ()
+    }
+    if instrs[idx] == @lib.Instruction::drop() {
+      match dae_find_droppable_pure_stack_expr_start(out) {
+        Some(start) => {
+          dae_truncate_instrs(out, start)
+          idx += 1
+          continue
+        }
+        None => ()
+      }
     }
     if idx + 1 < instrs.length() &&
       dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
