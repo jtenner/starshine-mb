@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] validate | diagnostics and invalid-repro contract
+
+- Added [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) as the focused guide for Starshine's local `ValidationIssue` / `ValidationIssueFamily` taxonomy, stage-vs-family model, `code` versus `function-body` boundary, absolute `FuncIdx` diagnostics, AST-invalid stable ids, `gen_invalid` seed profiles, and shared invalid-repro metadata/artifact/shrinking shape.
+- Ingested [`raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md) after checking current official WebAssembly validation sources plus local validator, invalid-fuzzer, `gen_invalid`, invalid-binary/text, invalid-repro, and fuzz CLI code.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), and [`index.md`](index.md) so phase order, invalid-fuzz summaries, runner commands, Node API gaps, and catalog entries point at the shared diagnostics/repro contract instead of duplicating or implying the family rules.
+- Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_invalid.mbt`](../../src/validate/gen_invalid.mbt), [`../../src/validate/gen_invalid_tests.mbt`](../../src/validate/gen_invalid_tests.mbt), [`../../src/fuzz/invalid_binary.mbt`](../../src/fuzz/invalid_binary.mbt), [`../../src/fuzz/invalid_text.mbt`](../../src/fuzz/invalid_text.mbt), [`../../src/fuzz/invalid_repro.mbt`](../../src/fuzz/invalid_repro.mbt), [`../../src/fuzz/invalid_repro_wbtest.mbt`](../../src/fuzz/invalid_repro_wbtest.mbt), and [`../../src/fuzz/main.mbt`](../../src/fuzz/main.mbt).
+
 ## [2026-05-19] wast | static assertion harness
 
 - Added [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) as the focused WAST script/static-assertion guide for `module`, `module binary`, `module quote`, `assert_malformed`, `assert_invalid`, `assert_unlinkable`, runtime-command skipping, `spec_runner`, and fuzz/spec-seed stage reuse.

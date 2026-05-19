@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-19
 sources:
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
+  - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md
   - ../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md
   - ../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md
@@ -19,6 +20,7 @@ sources:
   - ../../../src/wast/spec_harness.mbt
 related:
   - ./module-validation-phases.md
+  - ./diagnostics-and-invalid-repro.md
   - ./trace-benchmark-baseline.md
   - ./ref-func-declarations.md
   - ../tooling/fuzz-runner.md
@@ -42,7 +44,7 @@ related:
 - The widened `coverage-forced` `gen-valid` batch already exposed and now closed two concrete downstream `RUME` parity holes:
   - `remove-unused-module-elements` no longer preserves an unused imported function or its dead simple function type in the saved repro `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/`; see [`../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md`](../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md).
   - `remove-unused-module-elements` now also matches Binaryen's no-op `start` pruning family for defined single-`nop` start targets, including the saved repros `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/`; see [`../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md`](../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md).
-- The restored AST invalid lane now keeps one checked-in strategy registry and fails smoke runs when a required strategy never becomes applicable, never mutates, or never reaches the expected diagnostic family.
+- The restored AST invalid lane now keeps one checked-in strategy registry and fails smoke runs when a required strategy never becomes applicable, never mutates, or never reaches the expected diagnostic family. The focused family/stable-id/repro metadata rules now live in [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md).
 - The AST lane now also has one shared `gen_invalid` helper in `src/validate/gen_invalid.mbt` that starts from either a random `gen_valid` seed or a minimal valid seed, optionally widens seed prerequisites per strategy, and then applies the parameterized invalid mutation before the runner records rejection-family stats.
 - That helper is now a real public integration surface rather than only an internal runner detail: `pkg.generated.mbti` exports `GenInvalidAstParams`, `GenInvalidAstGenerated`, `gen_invalid_ast_seed_config`, `gen_invalid_ast_seed_module`, and `gen_invalid_ast_generate`, and checked-in wbtests prove downstream packages can consume the API with a stable-id lookup plus named `natural_seed(...)`, `coverage_forced_seed(...)`, `small_natural_seed(...)`, `small_coverage_forced_seed(...)`, `repro_seed(...)`, and `minimal_seed(...)` entrypoints.
 - AST seed params now preserve semantic seed-profile identity in addition to raw config knobs: the validate package exports `GenInvalidNamedSeedProfile`, `gen_invalid_seed_mode_name(...)`, `gen_invalid_named_seed_profile_name(...)`, and `gen_invalid_ast_params_profile_name(...)` so callers and downstream repro/report surfaces can distinguish `repro` from the lower-level `small_coverage_forced_seed(...)` alias even though both intentionally shrink to the same compact generator config.
@@ -66,7 +68,7 @@ related:
   - Binary strategies reduce to checked-in minimal corrupted wasm bytes.
   - Inline text strategies reduce to their exact canonical single-assertion source.
   - Spec-seed cases reduce the larger fixture down to the one extracted raw assertion S-expression.
-- A rejected module only counts as meaningful coverage if the intended mutation ran and the diagnostic family matches the expected failure class; use [`./module-validation-phases.md`](./module-validation-phases.md) as the phase/family map when adding or reclassifying validator diagnostics.
+- A rejected module only counts as meaningful coverage if the intended mutation ran and the diagnostic family matches the expected failure class; use [`./module-validation-phases.md`](./module-validation-phases.md) for phase order and [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md) for issue-family, stable-id, stage, and repro-artifact rules when adding or reclassifying validator diagnostics.
 - Heavy fuzz work stays in `src/fuzz`, not `moon test`.
 
 ## Main Gaps
@@ -93,4 +95,5 @@ related:
 
 - Archived research doc: [`../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md`](../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md)
 - WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md)
+- Diagnostic-family and invalid-repro source manifest: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md)
 - Active backlog slices: [`../../../agent-todo.md`](../../../agent-todo.md)

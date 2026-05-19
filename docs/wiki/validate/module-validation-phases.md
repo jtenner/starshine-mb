@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
+  - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/env.mbt
@@ -14,6 +15,7 @@ sources:
   - ../../../src/validate_trace/main.mbt
 related:
   - ./ref-func-declarations.md
+  - ./diagnostics-and-invalid-repro.md
   - ./fuzz-hardening.md
   - ./trace-benchmark-baseline.md
   - ../binary/module-section-map.md
@@ -118,8 +120,10 @@ Starshine allows current extended constant-expression families such as immutable
 
 Public validation returns a typed [`ValidationError`](../../../src/validate/validate.mbt) containing a [`ValidationDiagnostic`](../../../src/validate/validate.mbt), which carries:
 
-- a `ValidationIssue` family such as `TypeSection`, `ExportSection`, `CodeSection`, `NameSection`, or `FunctionBody`;
+- a `ValidationIssue` variant such as `TypeSection`, `ExportSection`, `CodeSection`, `NameSection`, or `FunctionBody`;
 - an optional absolute `FuncIdx` for diagnostics tied to a function body or start target.
+
+The focused diagnostic-family and invalid-repro contract lives in [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md): use it when deciding whether a rejection should be `code` versus `function-body`, how stable invalid-AST ids map to `ValidationIssueFamily`, and how `--emit-invalid-repro` preserves expected/actual stage and family metadata.
 
 `validate_module_with_trace(...)` uses the same implementation with tracing enabled. Trace output is intentionally stable enough for docs and benchmarks:
 
@@ -164,7 +168,7 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 
 ## Fuzzing, Proof, And Signoff
 
-- Invalid AST fuzzing in [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) has deterministic strategies for every current `ValidationIssue` family. Add or update a strategy when a new public validator family or major cross-section rule lands.
+- Invalid AST fuzzing in [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) has deterministic strategies for every current `ValidationIssue` family. Add or update a strategy when a new public validator family or major cross-section rule lands, following the stable-id and family guidance in [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md).
 - Public invalid-generation helpers in [`src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt) are downstream API surfaces; preserve stable ids when possible.
 - Validator proof helpers live under [`src/validate_proof/`](../../../src/validate_proof/). Run `moon prove src/validate_proof` when those contracts change, and keep solver/tooling limitations explicit as described in [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md).
 - For ordinary validator behavior changes, use focused `moon test src/validate` style loops when available, then the shared validation gate appropriate to the change. For trace/performance work, use [`./trace-benchmark-baseline.md`](./trace-benchmark-baseline.md) instead of committing local wall-time anecdotes.
@@ -174,6 +178,7 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Source snapshot: [`../raw/wasm/2026-05-13-module-validation-phase-sources.md`](../raw/wasm/2026-05-13-module-validation-phase-sources.md)
 - Section-order snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
 - `ref.func` snapshot: [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md)
+- Diagnostics/repro snapshot: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md)
 - Implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing and trace: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt)
-- Related pages: [`./ref-func-declarations.md`](./ref-func-declarations.md), [`./fuzz-hardening.md`](./fuzz-hardening.md), [`./trace-benchmark-baseline.md`](./trace-benchmark-baseline.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md)
+- Related pages: [`./ref-func-declarations.md`](./ref-func-declarations.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md), [`./fuzz-hardening.md`](./fuzz-hardening.md), [`./trace-benchmark-baseline.md`](./trace-benchmark-baseline.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md)

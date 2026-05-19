@@ -21,6 +21,7 @@ related:
   - ./cli-command-and-dispatcher.md
   - ./cli-startup-path.md
   - ../validate/fuzz-hardening.md
+  - ../validate/diagnostics-and-invalid-repro.md
   - ../wast/static-assertion-harness.md
   - ../../README.md
 ---
@@ -95,6 +96,8 @@ The highest-value missing Node additions are still:
 6. `validate_invalid_ast_strategy_by_stable_id(...)` / `validateInvalidAstStrategyByStableId(...)`
 7. `build_validate_invalid_ast_minimal_repro_by_stable_id(...)` / `buildValidateInvalidAstMinimalReproByStableId(...)`
 
+The focused diagnostics/repro contract in [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) explains why the first, fifth, sixth, and seventh items are a coherent JS-facing slice: consumers need the family mapper, stable-id registry lookup, and minimal repro generation together to build reliable invalid-case reports instead of parsing human-readable validator messages.
+
 `validate_module_with_trace(...)` is also valuable conceptually, but [`node/validate.js`](../../../node/validate.js) currently exposes `validateModuleWithTrace` as an unsupported higher-order export because the wasm-gc adapter cannot pass callback parameters through that path.
 Do not document it as ready for JS consumers until the adapter story changes.
 
@@ -142,5 +145,6 @@ That test should distinguish three cases instead of requiring blanket parity:
 - Current Node parity and smoke tests: [`../../../node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/test/examples.test.mjs`](../../../node/test/examples.test.mjs)
 - Build/generation boundary: [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs)
 - Runtime command contract: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
+- Validator diagnostics/repro contract: [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
 - WAST static assertion stage model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - MoonBit source signatures: [`../../../src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti), [`../../../src/cmd/pkg.generated.mbti`](../../../src/cmd/pkg.generated.mbti), [`../../../src/validate/pkg.generated.mbti`](../../../src/validate/pkg.generated.mbti), [`../../../src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti)

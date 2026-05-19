@@ -13,6 +13,7 @@ sources:
 related:
   - ./validation-gates.md
   - ../validate/fuzz-hardening.md
+  - ../validate/diagnostics-and-invalid-repro.md
   - ../fuzzing/generator-coverage-ledger.md
   - ./tracing-playbook.md
   - ../../../AGENTS.md
@@ -98,7 +99,7 @@ moon run src/fuzz -- --emit-invalid-repro \
   [--profile <name>]
 ```
 
-It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...)`](../../../src/fuzz/invalid_repro.mbt), so full suite names and short source-kind aliases share the same metadata and artifact layout described on [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md). As of this review, [`bun fuzz run`](../../../scripts/lib/fuzz-task.ts) forwards `--emit-gen-valid-batch` but does **not** expose `--emit-invalid-repro`; call the MoonBit runner directly for persisted invalid repro bundles.
+It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...)`](../../../src/fuzz/invalid_repro.mbt), so full suite names and short source-kind aliases share the same metadata and artifact layout summarized on [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) and specified in [`validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md). As of this review, [`bun fuzz run`](../../../scripts/lib/fuzz-task.ts) forwards `--emit-gen-valid-batch` but does **not** expose `--emit-invalid-repro`; call the MoonBit runner directly for persisted invalid repro bundles.
 
 ## Bun Wrapper And Compare-Pass Split
 
@@ -148,7 +149,7 @@ Use compare-pass for optimizer parity signoff or failure-replay workflows, not b
 - Keep [`scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts) aligned with wrapper forwarding behavior for `bun fuzz run` and `bun fuzz compare-pass`.
 - If a suite emits persisted failures, include enough metadata to replay from `suite`, `profile`, `seed`, and attempt/strategy identity.
 - Serialize Moon commands in automation because `_build/.moon-lock` is shared.
-- When widening validator invalid lanes, update [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) for strategy/repro semantics and this page only for runner command shape.
+- When widening validator invalid lanes, update [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) for strategy/repro summary, [`validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) for stage/family/artifact semantics, and this page only for runner command shape.
 
 ## Sources
 
