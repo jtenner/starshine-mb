@@ -60,6 +60,8 @@ Earlier direct debug-artifact compare evidence remains useful historical coverag
 
 A later optional broadened seed lane, `.tmp/pass-fuzz-string-gathering-seed-0x1eed`, reported 7888 / 10000 compared cases, 7887 normalized matches, 0 validation failures, 0 generator failures, 19 Binaryen empty-recursion-group command failures, and one normalized mismatch. The mismatch (`case-007907-wasm-smith`) contains no `string.const`; Binaryen removes an unreachable block wrapper under a result loop while Starshine correctly leaves the no-string module unchanged. Classify it as generic unreachable/canonicalization drift in the compare lane, not an SG literal-rewrite blocker.
 
+After the module-expression coverage commit, the regenerated debug artifact was rebuilt/validated and replayed again at `.tmp/self-opt-string-reorder-directize-after-module-expr-20260519`: canonical wasm equality and normalized WAT equality remained green. Whole-command runtime was comparable (`509.359ms` Starshine vs `542.738ms` Binaryen), while the combined tail pass-local gap remained (`70.416ms` Starshine vs `38.439ms` Binaryen).
+
 Remaining readiness is decoder breadth, optional compare-normalization breadth, and optional combined-tail performance work, not direct-pass existence, preset-order wiring, or artifact parity.
 
 ## Slice 0: make the public pass spelling honest — landed
