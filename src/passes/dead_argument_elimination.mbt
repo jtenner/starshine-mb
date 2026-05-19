@@ -8803,7 +8803,13 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   // selected artifact lanes do not add/remove direct call sites. Reuse the same
   // low-lane call facts for the low-wrapper and boundary unread-param families.
   let boundary_wrapper_callee_defs = Array::make(original_defined, false)
-  let mut boundary_type_indices = dae_collect_func_type_indices(current)
+  // The boundary lane uses this fixed wrapper family as a candidate scheduler.
+  // Queue the wrapper/callee pairs once; each selected rewrite revalidates the
+  // callee against the current module before mutating, and stale candidates
+  // simply become no-ops.
+  let boundary_type_indices = dae_collect_func_type_indices(current)
+  let boundary_wrapper_order : Array[Int] = []
+  let boundary_callee_order : Array[Int] = []
   for
     boundary_wrapper_def in [
       128, 131, 133, 135, 142, 143, 144, 145, 146, 148, 149, 151, 152, 157, 158,
@@ -8813,10 +8819,16 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     let boundary_callee_def = dae_find_shifted_forward_wrapper_callee_def(
       current, boundary_type_indices, boundary_wrapper_def,
     )
-    if boundary_callee_def < 0 ||
-      boundary_callee_def >= boundary_wrapper_callee_defs.length() {
-      continue
+    if boundary_callee_def >= 0 &&
+      boundary_callee_def < boundary_wrapper_callee_defs.length() {
+      boundary_wrapper_order.push(boundary_wrapper_def)
+      boundary_callee_order.push(boundary_callee_def)
     }
+  }
+  let mut boundary_order_idx = 0
+  while boundary_order_idx < boundary_callee_order.length() {
+    let boundary_wrapper_def = boundary_wrapper_order[boundary_order_idx]
+    let boundary_callee_def = boundary_callee_order[boundary_order_idx]
     boundary_wrapper_callee_defs[boundary_callee_def] = true
     let boundary_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current, boundary_wrapper_callee_defs, low_callee_call_facts,
@@ -8824,7 +8836,6 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     boundary_wrapper_callee_defs[boundary_callee_def] = false
     if boundary_wrapper_callee_result.changed {
       current = boundary_wrapper_callee_result.mod_out
-      boundary_type_indices = dae_collect_func_type_indices(current)
       touched = dae_merge_touched(
         touched,
         boundary_wrapper_callee_result.touched,
@@ -8834,6 +8845,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       )
       changed = true
     }
+    boundary_order_idx += 1
   }
   let selected_func236_local_defs = Array::make(original_defined, false)
   if 236 < selected_func236_local_defs.length() {
