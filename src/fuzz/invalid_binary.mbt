@@ -102,6 +102,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedGlobalIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
+  MalformedCallFuncIndexUleb
+  MalformedBrLabelIndexUleb
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
 } derive(Eq, Debug)
@@ -471,6 +473,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedGlobalIndexUleb => "malformed-global-index-uleb"
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
     MalformedI64ConstSleb => "malformed-i64-const-sleb"
+    MalformedCallFuncIndexUleb => "malformed-call-func-index-uleb"
+    MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
     SimdShuffleLaneOverflow => "simd-shuffle-lane-overflow"
     SimdLoadLaneIndexOverflow => "simd-load-lane-index-overflow"
   }
@@ -982,6 +986,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedCallFuncIndexUleb,
+      "malformed-call-func-index-uleb",
+      "call instruction with a malformed function-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedBrLabelIndexUleb,
+      "malformed-br-label-index-uleb",
+      "br instruction with a malformed label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       SimdShuffleLaneOverflow,
       "simd-shuffle-lane-overflow",
       "i8x16.shuffle instruction with an out-of-range lane immediate",
@@ -1086,8 +1104,10 @@ fn validate_invalid_binary_strategy_index(
     MalformedGlobalIndexUleb => 68
     MalformedI32ConstSleb => 69
     MalformedI64ConstSleb => 70
-    SimdShuffleLaneOverflow => 71
-    SimdLoadLaneIndexOverflow => 72
+    MalformedCallFuncIndexUleb => 71
+    MalformedBrLabelIndexUleb => 72
+    SimdShuffleLaneOverflow => 73
+    SimdLoadLaneIndexOverflow => 74
   }
 }
 
@@ -1915,6 +1935,48 @@ fn validate_invalid_binary_mutate_malformed_i64_const_sleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x42).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_call_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedCallFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x10).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_br_label_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedBrLabelIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x0c).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -2953,6 +3015,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_i32_const_sleb(base)
     MalformedI64ConstSleb =>
       validate_invalid_binary_mutate_malformed_i64_const_sleb(base)
+    MalformedCallFuncIndexUleb =>
+      validate_invalid_binary_mutate_malformed_call_func_index_uleb(base)
+    MalformedBrLabelIndexUleb =>
+      validate_invalid_binary_mutate_malformed_br_label_index_uleb(base)
     SimdShuffleLaneOverflow =>
       validate_invalid_binary_mutate_simd_shuffle_lane_overflow(base)
     SimdLoadLaneIndexOverflow =>

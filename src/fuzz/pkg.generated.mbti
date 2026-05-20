@@ -380,6 +380,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedGlobalIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
+  MalformedCallFuncIndexUleb
+  MalformedBrLabelIndexUleb
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
 } derive(Eq, @debug.Debug)
