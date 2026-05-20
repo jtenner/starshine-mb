@@ -1,25 +1,21 @@
----
-kind: concept
-status: supported
-last_reviewed: 2026-05-20
-sources:
-  - ../raw/research/0065-2026-03-24-ir2-execution-plan.md
-  - ../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
-  - ../../../src/ir/README.md
-  - ../../../src/passes/optimize.mbt
-  - ../../../src/passes/registry_test.mbt
-  - ../../../src/passes/optimize_test.mbt
-related:
-  - ./architecture-rules.md
-  - ./registry-map.md
-  - ./pass-porting-checklist.md
-  - ./test-matrix.md
-  - ../../../src/passes/pass_manager.mbt
----
+# 0065 - IR2 Execution Plan
 
-# IR2 Execution Plan
+## Scope
 
-## Durable Conclusions
+- Keep one canonical handoff document for the rebuilt IR2 optimizer leg.
+- Point future agents at the architecture, CFG, SSA, pass-porting, registry, and test-matrix docs that govern continued work.
+- Record the current live pass surface, preset expansion, and minimum validation expected for future IR2 changes.
+
+## Canonical References
+
+- Architecture rules: [`wiki/ir2/architecture-rules.md`](../../ir2/architecture-rules.md), with original March note archived at [`wiki/raw/research/0059-2026-03-24-ir2-architecture-rules.md`](./0059-2026-03-24-ir2-architecture-rules.md)
+- CFG contract ADR: [`wiki/ir2/cfg-contract.md`](../../ir2/cfg-contract.md), with original March note archived at [`wiki/raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](./0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
+- SSA policy ADR: [`wiki/ir2/local-ssa-policy.md`](../../ir2/local-ssa-policy.md), with original March note archived at [`wiki/raw/research/0061-2026-03-24-local-ssa-policy.md`](./0061-2026-03-24-local-ssa-policy.md)
+- Pass-porting checklist: [`wiki/ir2/pass-porting-checklist.md`](../../ir2/pass-porting-checklist.md), with original March note archived at [`wiki/raw/research/0062-2026-03-24-pass-porting-checklist.md`](./0062-2026-03-24-pass-porting-checklist.md)
+- Registry and batch map: [`0063-2026-03-24-pass-port-batches-and-registry-map.md`](./0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- Shared IR2 test matrix: [`0064-2026-03-24-ir2-test-matrix.md`](./0064-2026-03-24-ir2-test-matrix.md)
+
+## Current State
 
 - `HotFunc` is the only owned optimizer body representation.
 - CFG, traversal orders, dominance, post-dominance, loop info, use-def, liveness, effects, and local SSA exist as revision-keyed overlays instead of replacing `HotFunc`.
@@ -37,7 +33,7 @@ related:
 
 ### Module passes
 
-`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `simplify-globals-optimizing`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
+`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `string-gathering`, `reorder-globals`, and `directize`.
 
 ### Presets
 
@@ -99,8 +95,8 @@ Boundary-only families, such as closed-world type/signature passes, ABI/lowering
 
 ## Sources
 
-- Numbered handoff doc: [`../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../raw/research/0065-2026-03-24-ir2-execution-plan.md)
-- Registry map: [`../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)
-- Live registry: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
-- Registry and preset coverage: [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt), [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt)
+- Numbered handoff doc: [`../../../0065-2026-03-24-ir2-execution-plan.md`](../../../0065-2026-03-24-ir2-execution-plan.md)
+- Registry map: [`../../../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- Package-local ownership summary: [`src/ir/README.md`](../../../../src/ir/README.md)
+- Live registry: [`src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt)
+- Registry and preset coverage: [`src/passes/registry_test.mbt`](../../../../src/passes/registry_test.mbt), [`src/passes/optimize_test.mbt`](../../../../src/passes/optimize_test.mbt)

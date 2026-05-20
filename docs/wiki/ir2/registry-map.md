@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-20
 sources:
-  - ../../0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/registry_test.mbt
   - ../../../src/passes/optimize_test.mbt
@@ -65,7 +65,7 @@ The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../sr
 
 - Boundary-only names are recognized but rejected as not implemented in the hot pipeline. Examples include the closed-world type/signature families (`type-refining`, `signature-pruning`, `unsubtyping`, `reorder-types`) and broader ABI/layout families (`alignment-lowering`, `i64-to-i32-lowering`, `reorder-functions`).
 - Removed names are recognized but rejected as absent from the active hot pipeline registry. Current removed examples include `flatten`, `re-reloop`, `loop-invariant-code-motion`, `const-hoisting`, `dataflow-optimization`, `precompute-propagate`, `de-nan`, and legacy `simplify-locals-no-tee*` variants.
-- The original March batch map is now partially stale because many former Batch 2/3 names have since landed as hot or module passes. Treat [`../../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../0063-2026-03-24-pass-port-batches-and-registry-map.md) as a refreshed planning map, not a reason to ignore live code.
+- The original March batch map is now partially stale because many former Batch 2/3 names have since landed as hot or module passes. Treat [`../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) as the archived planning map, not a reason to ignore live code.
 
 ## Practical Rule
 
@@ -76,7 +76,7 @@ The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../sr
 
 ## Sources
 
-- Refreshed registry map: [`../../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- Refreshed registry map: [`../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - Live registry and preset expansion: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
 - Registry coverage: [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt)
 - Preset slot coverage: [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt)

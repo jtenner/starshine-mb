@@ -5,7 +5,7 @@ last_reviewed: 2026-05-20
 sources:
   - ../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md
   - ../raw/ir2/2026-05-20-local-ssa-source-bridge.md
-  - ../../0064-2026-03-24-ir2-test-matrix.md
+  - ../raw/research/0064-2026-03-24-ir2-test-matrix.md
   - ../../../src/ir/test_helpers.mbt
   - ../../../src/ir/test_helpers_test.mbt
   - ../../../src/ir/architecture_test.mbt
@@ -176,7 +176,7 @@ For behavior or public API changes, use the repo validation floor from [`../../R
 ## Sources
 
 - Current repository-evidence bridge: [`../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md)
-- Numbered handoff doc: [`../../0064-2026-03-24-ir2-test-matrix.md`](../../0064-2026-03-24-ir2-test-matrix.md)
+- Numbered handoff doc: [`../raw/research/0064-2026-03-24-ir2-test-matrix.md`](../raw/research/0064-2026-03-24-ir2-test-matrix.md)
 - Shared IR helpers: [`../../../src/ir/test_helpers.mbt`](../../../src/ir/test_helpers.mbt), [`../../../src/ir/test_helpers_test.mbt`](../../../src/ir/test_helpers_test.mbt)
 - HOT mechanics: [`../../../src/ir/architecture_test.mbt`](../../../src/ir/architecture_test.mbt), [`../../../src/ir/hot_builders_test.mbt`](../../../src/ir/hot_builders_test.mbt), [`../../../src/ir/hot_module_context_test.mbt`](../../../src/ir/hot_module_context_test.mbt), [`../../../src/ir/hot_mutate_test.mbt`](../../../src/ir/hot_mutate_test.mbt), [`../../../src/ir/hot_region_edit_test.mbt`](../../../src/ir/hot_region_edit_test.mbt), [`../../../src/ir/hot_walk_test.mbt`](../../../src/ir/hot_walk_test.mbt), [`../../../src/ir/hot_query_test.mbt`](../../../src/ir/hot_query_test.mbt)
 - Lift/lower/verify: [`../../../src/ir/hot_lift_test.mbt`](../../../src/ir/hot_lift_test.mbt), [`../../../src/ir/hot_lower_test.mbt`](../../../src/ir/hot_lower_test.mbt), [`../../../src/ir/hot_lower_live_repro_test.mbt`](../../../src/ir/hot_lower_live_repro_test.mbt), [`../../../src/ir/hot_verify_test.mbt`](../../../src/ir/hot_verify_test.mbt)

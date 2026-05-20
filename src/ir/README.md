@@ -21,9 +21,9 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - Architecture rules: [`docs/0059-2026-03-24-ir2-architecture-rules.md`](../../docs/0059-2026-03-24-ir2-architecture-rules.md)
 - CFG contract ADR: [`docs/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](../../docs/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
 - SSA policy ADR: [`docs/0061-2026-03-24-local-ssa-policy.md`](../../docs/0061-2026-03-24-local-ssa-policy.md)
-- Canonical IR2 handoff plan: [`docs/0065-2026-03-24-ir2-execution-plan.md`](../../docs/0065-2026-03-24-ir2-execution-plan.md)
-- Pass-port checklist and registry map: [`docs/0062-2026-03-24-pass-porting-checklist.md`](../../docs/0062-2026-03-24-pass-porting-checklist.md), [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- Shared IR2 test matrix: [`docs/0064-2026-03-24-ir2-test-matrix.md`](../../docs/0064-2026-03-24-ir2-test-matrix.md)
+- Canonical IR2 handoff plan: [`docs/wiki/raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../docs/wiki/raw/research/0065-2026-03-24-ir2-execution-plan.md)
+- Pass-port checklist and registry map: [`docs/0062-2026-03-24-pass-porting-checklist.md`](../../docs/0062-2026-03-24-pass-porting-checklist.md), [`docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- Shared IR2 test matrix: [`docs/wiki/raw/research/0064-2026-03-24-ir2-test-matrix.md`](../../docs/wiki/raw/research/0064-2026-03-24-ir2-test-matrix.md)
 
 ## Module Map
 

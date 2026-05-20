@@ -1,6 +1,6 @@
 # IR2 Test Matrix Repository Refresh
 
-_Status:_ immutable repository-evidence bridge for [`docs/wiki/ir2/test-matrix.md`](../../ir2/test-matrix.md) and [`docs/0064-2026-03-24-ir2-test-matrix.md`](../../../0064-2026-03-24-ir2-test-matrix.md)
+_Status:_ immutable repository-evidence bridge for [`docs/wiki/ir2/test-matrix.md`](../../ir2/test-matrix.md) and [`docs/wiki/raw/research/0064-2026-03-24-ir2-test-matrix.md`](../../raw/research/0064-2026-03-24-ir2-test-matrix.md)
 _Captured:_ 2026-05-20
 
 ## Why this refresh exists

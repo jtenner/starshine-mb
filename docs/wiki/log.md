@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | archive absorbed IR2 handoff trio
+
+- Archived the now-absorbed IR2 registry, test-matrix, and execution-plan handoff notes by moving the historical ledgers from [`../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../0063-2026-03-24-pass-port-batches-and-registry-map.md), [`../0064-2026-03-24-ir2-test-matrix.md`](../0064-2026-03-24-ir2-test-matrix.md), and [`../0065-2026-03-24-ir2-execution-plan.md`](../0065-2026-03-24-ir2-execution-plan.md) into [`raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md), [`raw/research/0064-2026-03-24-ir2-test-matrix.md`](raw/research/0064-2026-03-24-ir2-test-matrix.md), and [`raw/research/0065-2026-03-24-ir2-execution-plan.md`](raw/research/0065-2026-03-24-ir2-execution-plan.md), then repointed the living IR2 wiki pages and `src/ir/README.md` at the archived paths.
+- Left forwarding stubs at the old docs paths for link stability during the transition, while keeping the living IR2 pages as the canonical answers for registry, execution, and test-matrix guidance.
+
 ## [2026-05-20] wiki | archive fuzz-stack hardening plan
 
 - Archived the completed validator-fuzz hardening execution plan by moving the historical ledger from [`../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) into [`raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md), then repointed [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and the catalog summary so the live contract now cites the archive path instead of the old docs location.
