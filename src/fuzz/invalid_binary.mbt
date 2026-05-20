@@ -76,6 +76,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedCustomSectionPayload
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte
+  MalformedMemargImmediate
+  MalformedBlocktypeImmediate
 } derive(Eq, Debug)
 
 ///|
@@ -417,6 +419,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
     InvalidOpcodeByte => "invalid-opcode-byte"
     InvalidPrefixSubopcodeByte => "invalid-prefix-subopcode-byte"
+    MalformedMemargImmediate => "malformed-memarg-immediate"
+    MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
   }
 }
 
@@ -743,6 +747,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      MalformedMemargImmediate,
+      "malformed-memarg-immediate",
+      "memory instruction with a malformed memarg alignment encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedBlocktypeImmediate,
+      "malformed-blocktype-immediate",
+      "block instruction with a malformed blocktype encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -808,6 +826,8 @@ fn validate_invalid_binary_strategy_index(
     MalformedCustomSectionPayload => 42
     InvalidOpcodeByte => 43
     InvalidPrefixSubopcodeByte => 44
+    MalformedMemargImmediate => 45
+    MalformedBlocktypeImmediate => 46
   }
 }
 
@@ -1518,6 +1538,50 @@ fn validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_memarg_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedMemargImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x41).to_byte(),
+        (0x00).to_byte(),
+        (0x28).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_blocktype_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedBlocktypeImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x02).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1685,6 +1749,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_opcode_byte(base)
     InvalidPrefixSubopcodeByte =>
       validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(base)
+    MalformedMemargImmediate =>
+      validate_invalid_binary_mutate_malformed_memarg_immediate(base)
+    MalformedBlocktypeImmediate =>
+      validate_invalid_binary_mutate_malformed_blocktype_immediate(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
