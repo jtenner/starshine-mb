@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] ir2 | test matrix repository refresh
+
+- Added [`raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md) as the current repository-evidence bridge for IR2 test placement, after checking the expanded `src/ir` HOT builder/core/label/type/flag/side-table/module-context/mutation/region-edit/walk/query/lift/lower/verify, CFG/analysis, SSA, cache, and shared pass-helper test surface.
+- Refreshed [`ir2/test-matrix.md`](ir2/test-matrix.md) and the synchronized handoff doc [`../0064-2026-03-24-ir2-test-matrix.md`](../0064-2026-03-24-ir2-test-matrix.md) so the matrix routes new regressions to the right HOT-body, analysis-overlay, shared-golden, or public pass path instead of relying on the older 2026-05-13 summary.
+- Updated [`index.md`](index.md) so catalog readers see the wider current IR2 proof surface and the white-box-versus-public-path placement rule. No new external source was needed because this target documents Starshine-local test ownership; the in-tree tests and helpers are the primary evidence.
+
 ## [2026-05-20] validate | stack polymorphism and bottom contract
 
 - Added [`raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md) after rechecking the current WebAssembly 3.0 validation-instruction, validation-algorithm, module-validation, and syntax sources plus Starshine `ValType::bottom`, `TcState`, typechecker, validator, and regression-test evidence.
