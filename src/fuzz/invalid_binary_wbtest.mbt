@@ -91,6 +91,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
     "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
     "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
+    "type-section-size-overflow", "import-section-size-overflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -115,7 +116,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1022,10 +1024,11 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
       "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
       "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
+      "type-section-size-overflow", "import-section-size-overflow",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()
-      Err(msg) => fail(msg)
+      Err(msg) => fail("\{strategy}: \{msg}")
     }
   }
 }
