@@ -8234,7 +8234,38 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64TruncSatF64S
     | @lib.I64TruncSatF64U
     | @lib.V128Not
+    | @lib.I8x16Abs
+    | @lib.I8x16Neg
+    | @lib.I8x16Popcnt
+    | @lib.I16x8Abs
+    | @lib.I16x8Neg
+    | @lib.I32x4Abs
+    | @lib.I32x4Neg
+    | @lib.I64x2Abs
+    | @lib.I64x2Neg
+    | @lib.F32x4Abs
+    | @lib.F32x4Neg
+    | @lib.F32x4Sqrt
+    | @lib.F32x4Ceil
+    | @lib.F32x4Floor
+    | @lib.F32x4Trunc
+    | @lib.F32x4Nearest
+    | @lib.F64x2Abs
+    | @lib.F64x2Neg
+    | @lib.F64x2Sqrt
+    | @lib.F64x2Ceil
+    | @lib.F64x2Floor
+    | @lib.F64x2Trunc
+    | @lib.F64x2Nearest
     | @lib.V128AnyTrue
+    | @lib.I8x16AllTrue
+    | @lib.I8x16Bitmask
+    | @lib.I16x8AllTrue
+    | @lib.I16x8Bitmask
+    | @lib.I32x4AllTrue
+    | @lib.I32x4Bitmask
+    | @lib.I64x2AllTrue
+    | @lib.I64x2Bitmask
     | @lib.RefIsNull
     | @lib.RefI31
     | @lib.AnyConvertExtern
