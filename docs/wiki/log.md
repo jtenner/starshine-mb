@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | exception generator backlink hygiene
+
+- During the post-update whole-wiki health pass, searched exception, `throw_ref`, `catch_ref`, `catch_all_ref`, nullable `exnref`, generator, and WAST arbitrary references for stale wording that could conflate nullable `throw_ref` operands with non-null catch-ref branch payloads.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md) so `[FZG]013` and `[FZG]027` route exception text/generator claims through the refreshed [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) nullability split instead of overclaiming from generated try-table evidence.
+
 ## [2026-05-20] wast | exception throw_ref nullability refresh
 
 - Added [`raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md) after rechecking the current official WebAssembly control-instruction syntax, validation, and execution pages plus Starshine's `ValType::ref_null_exn()`, `ThrowRef`, `CatchRef`, `CatchAllRef`, lowering tests, and generator type pool.
