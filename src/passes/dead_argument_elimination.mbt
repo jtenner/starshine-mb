@@ -8704,6 +8704,16 @@ fn dae_instr_droppable_pure_control_value(
       } else {
         false
       }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      if catches.length() == 0 &&
+        dae_block_type_is_zero_param_single_result(block_type, type_sec) {
+        match dae_find_droppable_pure_stack_expr_start(body, type_sec) {
+          Some(0) => true
+          _ => false
+        }
+      } else {
+        false
+      }
     _ => false
   }
 }
