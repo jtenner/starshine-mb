@@ -8435,6 +8435,18 @@ fn dae_instr_is_nontrapping_pure_binary(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2ReplaceLane(_)
     | @lib.F32x4ReplaceLane(_)
     | @lib.F64x2ReplaceLane(_)
+    | @lib.I8x16Shl
+    | @lib.I8x16ShrS
+    | @lib.I8x16ShrU
+    | @lib.I16x8Shl
+    | @lib.I16x8ShrS
+    | @lib.I16x8ShrU
+    | @lib.I32x4Shl
+    | @lib.I32x4ShrS
+    | @lib.I32x4ShrU
+    | @lib.I64x2Shl
+    | @lib.I64x2ShrS
+    | @lib.I64x2ShrU
     | @lib.I8x16Eq
     | @lib.I8x16Ne
     | @lib.I8x16LtS
