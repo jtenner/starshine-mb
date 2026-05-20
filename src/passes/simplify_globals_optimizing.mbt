@@ -868,6 +868,70 @@ fn sgo_flow_scan_prefix_until(
 }
 
 ///|
+fn sgo_flow_scan_clean_prefix_until(
+  instrs : Array[@lib.Instruction],
+  end_ : Int,
+) -> (Bool, Array[Bool]) {
+  let stack : Array[Bool] = []
+  for scan = 0; scan < end_; scan = scan + 1 {
+    let instr = instrs[scan]
+    if sgo_const_instr(instr) != None {
+      sgo_flow_push_clean(stack)
+      continue
+    }
+    match instr {
+      @lib.GlobalGet(_) | @lib.LocalGet(_) => {
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.LocalTee(_) | @lib.I32Load(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return (false, stack)
+        }
+      @lib.Drop =>
+        match sgo_flow_pop(stack) {
+          Some(false) => continue
+          _ => return (false, stack)
+        }
+      @lib.Call(_) => {
+        if sgo_flow_stack_has_taint(stack) {
+          return (false, stack)
+        }
+        sgo_flow_clear_stack(stack)
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.Select(_) => {
+        if !sgo_flow_apply_select(stack) {
+          return (false, stack)
+        }
+        continue
+      }
+      _ => {
+        if sgo_is_flowscanner_unary_pure_instr(instr) {
+          if !sgo_flow_apply_unary(stack) {
+            return (false, stack)
+          }
+          continue
+        }
+        if sgo_is_flowscanner_binary_pure_instr(instr) {
+          if !sgo_flow_apply_binary(stack) {
+            return (false, stack)
+          }
+          continue
+        }
+        return (false, stack)
+      }
+    }
+  }
+  (true, stack)
+}
+
+///|
 fn sgo_flow_arm_result_taint_and_reads(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
@@ -977,19 +1041,78 @@ fn sgo_flow_arm_result_taint_and_reads(
 fn sgo_nested_if_arm_flow_outer_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
+  prefix_stack : Array[Bool],
 ) -> Int? {
-  if pos + 1 >= instrs.length() {
+  if pos + 1 >= instrs.length() || prefix_stack.length() == 0 {
     return None
   }
-  let mut depth = 1
+  let stack : Array[Bool] = []
+  for i = 0; i + 1 < prefix_stack.length(); i = i + 1 {
+    stack.push(prefix_stack[i])
+  }
+  sgo_flow_push_tainted(stack)
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
-    match instrs[scan] {
-      @lib.If(_, _, _) => return if depth == 1 { Some(scan) } else { None }
-      instr =>
-        match sgo_external_condition_stack_after(instr, depth) {
-          Some(next_depth) => depth = next_depth
-          None => return None
+    let instr = instrs[scan]
+    if sgo_const_instr(instr) != None {
+      sgo_flow_push_clean(stack)
+      continue
+    }
+    match instr {
+      @lib.If(_, _, _) => return if stack == [true] { Some(scan) } else { None }
+      @lib.LocalGet(_) => {
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.LocalTee(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return None
         }
+      @lib.I32Load(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return None
+        }
+      @lib.Drop =>
+        match sgo_flow_pop(stack) {
+          Some(false) => continue
+          _ => return None
+        }
+      @lib.Call(_) => {
+        if sgo_flow_stack_has_taint(stack) {
+          return None
+        }
+        sgo_flow_clear_stack(stack)
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.Select(_) => {
+        if !sgo_flow_apply_select(stack) {
+          return None
+        }
+        continue
+      }
+      _ => {
+        if sgo_is_flowscanner_unary_pure_instr(instr) {
+          if !sgo_flow_apply_unary(stack) {
+            return None
+          }
+          continue
+        }
+        if sgo_is_flowscanner_binary_pure_instr(instr) {
+          if !sgo_flow_apply_binary(stack) {
+            return None
+          }
+          continue
+        }
+        return None
+      }
     }
   }
   None
@@ -1006,7 +1129,14 @@ fn sgo_count_nested_if_arm_flow_read(
   }
   match instrs[pos] {
     @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-      let if_index = match sgo_nested_if_arm_flow_outer_if_index(instrs, pos) {
+      let (clean_prefix_ok, clean_prefix_stack) = sgo_flow_scan_clean_prefix_until(
+        instrs, pos,
+      )
+      if !clean_prefix_ok || clean_prefix_stack.length() == 0 {
+        return
+      }
+      let if_index = match
+        sgo_nested_if_arm_flow_outer_if_index(instrs, pos, clean_prefix_stack) {
         Some(index) => index
         None => return
       }
@@ -1021,7 +1151,10 @@ fn sgo_count_nested_if_arm_flow_read(
       let (prefix_ok, prefix_reads, prefix_stack) = sgo_flow_scan_prefix_until(
         instrs, pos, idx,
       )
-      if !prefix_ok || prefix_reads != 0 || prefix_stack != [false] {
+      if !prefix_ok ||
+        prefix_reads != 0 ||
+        prefix_stack.length() == 0 ||
+        sgo_flow_stack_has_taint(prefix_stack) {
         return
       }
       let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(

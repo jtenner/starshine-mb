@@ -3343,6 +3343,78 @@ test "simplify-globals-optimizing keeps nested-if arm block with tainted load" {
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow through post-if select value" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    i32.const 1
+      #|    i32.const 0
+      #|    select
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps nested-if arm flow through post-if tainted load" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    i32.const 1
+      #|    i32.const 0
+      #|    call $cond
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    select
+      #|    i32.load
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps nested-if call operands derived from the global" {
   let optimized = sgo_test_run(
     (
