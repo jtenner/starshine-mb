@@ -79,6 +79,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte
   MalformedMemargImmediate
+  MalformedLoadMemargAlignUleb
+  MalformedStoreMemargAlignUleb
   MalformedLoadMemargOffsetUleb
   MalformedStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
@@ -505,6 +507,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidOpcodeByte => "invalid-opcode-byte"
     InvalidPrefixSubopcodeByte => "invalid-prefix-subopcode-byte"
     MalformedMemargImmediate => "malformed-memarg-immediate"
+    MalformedLoadMemargAlignUleb => "malformed-load-memarg-align-uleb"
+    MalformedStoreMemargAlignUleb => "malformed-store-memarg-align-uleb"
     MalformedLoadMemargOffsetUleb => "malformed-load-memarg-offset-uleb"
     MalformedStoreMemargOffsetUleb => "malformed-store-memarg-offset-uleb"
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
@@ -931,6 +935,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedMemargImmediate,
       "malformed-memarg-immediate",
       "memory instruction with a malformed memarg alignment encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedLoadMemargAlignUleb,
+      "malformed-load-memarg-align-uleb",
+      "memory load instruction with a malformed memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedStoreMemargAlignUleb,
+      "malformed-store-memarg-align-uleb",
+      "memory store instruction with a malformed memarg alignment ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2325,6 +2343,54 @@ fn validate_invalid_binary_mutate_malformed_memarg_immediate(
         (0x41).to_byte(),
         (0x00).to_byte(),
         (0x28).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_load_memarg_align_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedLoadMemargAlignUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x41).to_byte(),
+        (0x00).to_byte(),
+        (0x28).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_store_memarg_align_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedStoreMemargAlignUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x41).to_byte(),
+        (0x00).to_byte(),
+        (0x41).to_byte(),
+        (0x00).to_byte(),
+        (0x36).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -5192,6 +5258,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(base)
     MalformedMemargImmediate =>
       validate_invalid_binary_mutate_malformed_memarg_immediate(base)
+    MalformedLoadMemargAlignUleb =>
+      validate_invalid_binary_mutate_malformed_load_memarg_align_uleb(base)
+    MalformedStoreMemargAlignUleb =>
+      validate_invalid_binary_mutate_malformed_store_memarg_align_uleb(base)
     MalformedLoadMemargOffsetUleb =>
       validate_invalid_binary_mutate_malformed_load_memarg_offset_uleb(base)
     MalformedStoreMemargOffsetUleb =>

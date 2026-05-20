@@ -357,6 +357,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte
   MalformedMemargImmediate
+  MalformedLoadMemargAlignUleb
+  MalformedStoreMemargAlignUleb
   MalformedLoadMemargOffsetUleb
   MalformedStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
