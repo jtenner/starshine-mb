@@ -116,9 +116,11 @@ pub enum ValidateInvalidAstStrategyId {
 pub struct ValidateInvalidAstStrategySpec {
   id : ValidateInvalidAstStrategyId
   stable_id : String
+  variant_id : String
   display_name : String
   layer : String
   expected_family : ValidationIssueFamily
+  expected_issue_kind : ValidationIssueFamily
   required_in_smoke : Bool
 } derive(Eq, Debug)
 
@@ -142,12 +144,19 @@ pub struct ValidateInvalidAstMutation {
 pub struct ValidateInvalidAstStrategyStats {
   strategy : ValidateInvalidAstStrategyId
   stable_id : String
+  variant_id : String
   expected_family : ValidationIssueFamily
+  expected_issue_kind : ValidationIssueFamily
   attempted : Int
   applicable : Int
   mutated : Int
   rejected : Int
   rejected_expected : Int
+  variant_attempted : Int
+  variant_applicable : Int
+  variant_mutated : Int
+  variant_rejected : Int
+  rejected_exact_issue : Int
 } derive(Eq, Debug)
 
 ///|
@@ -171,9 +180,11 @@ fn validate_invalid_ast_strategy_spec(
   {
     id,
     stable_id,
+    variant_id: "default",
     display_name,
     layer: "ast",
     expected_family,
+    expected_issue_kind: expected_family,
     required_in_smoke,
   }
 }
@@ -2411,12 +2422,19 @@ fn validate_invalid_ast_empty_strategy_stats() -> Array[
     stats.push({
       strategy: spec.id,
       stable_id: spec.stable_id,
+      variant_id: spec.variant_id,
       expected_family: spec.expected_family,
+      expected_issue_kind: spec.expected_issue_kind,
       attempted: 0,
       applicable: 0,
       mutated: 0,
       rejected: 0,
       rejected_expected: 0,
+      variant_attempted: 0,
+      variant_applicable: 0,
+      variant_mutated: 0,
+      variant_rejected: 0,
+      rejected_exact_issue: 0,
     })
   }
   stats
@@ -2431,17 +2449,29 @@ fn validate_invalid_ast_update_strategy_stats(
   mutated? : Int = stats[idx].mutated,
   rejected? : Int = stats[idx].rejected,
   rejected_expected? : Int = stats[idx].rejected_expected,
+  variant_attempted? : Int = stats[idx].variant_attempted,
+  variant_applicable? : Int = stats[idx].variant_applicable,
+  variant_mutated? : Int = stats[idx].variant_mutated,
+  variant_rejected? : Int = stats[idx].variant_rejected,
+  rejected_exact_issue? : Int = stats[idx].rejected_exact_issue,
 ) -> Unit {
   let current = stats[idx]
   stats[idx] = {
     strategy: current.strategy,
     stable_id: current.stable_id,
+    variant_id: current.variant_id,
     expected_family: current.expected_family,
+    expected_issue_kind: current.expected_issue_kind,
     attempted,
     applicable,
     mutated,
     rejected,
     rejected_expected,
+    variant_attempted,
+    variant_applicable,
+    variant_mutated,
+    variant_rejected,
+    rejected_exact_issue,
   }
 }
 
@@ -2512,6 +2542,7 @@ pub fn run_validate_invalid_ast_fuzz(
       stats,
       stat_idx,
       attempted=current.attempted + 1,
+      variant_attempted=current.variant_attempted + 1,
     )
     let generated = match
       gen_invalid_ast_generate(
@@ -2532,6 +2563,8 @@ pub fn run_validate_invalid_ast_fuzz(
         stat_idx,
         applicable=applicable_now,
         mutated=stats[stat_idx].mutated + 1,
+        variant_applicable=stats[stat_idx].variant_applicable + 1,
+        variant_mutated=stats[stat_idx].variant_mutated + 1,
       )
       match validate_module(mutation.mutated_module) {
         Ok(_) =>
@@ -2548,11 +2581,18 @@ pub fn run_validate_invalid_ast_fuzz(
           } else {
             stats[stat_idx].rejected_expected
           }
+          let rejected_exact_issue_now = if family == spec.expected_issue_kind {
+            stats[stat_idx].rejected_exact_issue + 1
+          } else {
+            stats[stat_idx].rejected_exact_issue
+          }
           validate_invalid_ast_update_strategy_stats(
             stats,
             stat_idx,
             rejected=rejected_now,
             rejected_expected=rejected_expected_now,
+            variant_rejected=stats[stat_idx].variant_rejected + 1,
+            rejected_exact_issue=rejected_exact_issue_now,
           )
         }
       }
@@ -3290,6 +3330,31 @@ test "datacount mismatch too-large strategy rejects with DataCountSection family
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "validate_invalid_ast_registry records default variants and exact issue kinds" {
+  let registry = validate_invalid_ast_registry()
+  for spec in registry {
+    @debug.assert_eq(spec.variant_id, "default")
+    @debug.assert_eq(spec.expected_issue_kind, spec.expected_family)
+  }
+}
+
+///|
+test "validate_invalid_ast_fuzz stats record variant attempts and exact issue matches" {
+  let stats = match run_validate_invalid_ast_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  for stat in stats.strategy_stats {
+    @debug.assert_eq(stat.variant_id, "default")
+    assert_true(stat.variant_attempted > 0)
+    assert_true(stat.variant_applicable > 0)
+    assert_true(stat.variant_mutated > 0)
+    assert_true(stat.variant_rejected > 0)
+    assert_true(stat.rejected_exact_issue > 0)
   }
 }
 

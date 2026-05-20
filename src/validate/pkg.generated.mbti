@@ -640,21 +640,30 @@ pub enum ValidateInvalidAstStrategyId {
 pub struct ValidateInvalidAstStrategySpec {
   id : ValidateInvalidAstStrategyId
   stable_id : String
+  variant_id : String
   display_name : String
   layer : String
   expected_family : ValidationIssueFamily
+  expected_issue_kind : ValidationIssueFamily
   required_in_smoke : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidAstStrategyStats {
   strategy : ValidateInvalidAstStrategyId
   stable_id : String
+  variant_id : String
   expected_family : ValidationIssueFamily
+  expected_issue_kind : ValidationIssueFamily
   attempted : Int
   applicable : Int
   mutated : Int
   rejected : Int
   rejected_expected : Int
+  variant_attempted : Int
+  variant_applicable : Int
+  variant_mutated : Int
+  variant_rejected : Int
+  rejected_exact_issue : Int
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateValidFeatureFloor {

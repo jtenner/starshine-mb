@@ -758,16 +758,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: profile parser tests, fake pass minimization tests, idempotence fixture tests, native differential-availability tests where supported.
   - Exit Criteria: `cmd-harness` can battle-test no-pass, single-pass, pass-cluster, and full-pipeline behavior over chosen generator profiles.
 
-- [FUZ]1018 - Invalid Strategy Variants And Exact Diagnostic Expectations
-  - Goal: let each invalid stable id own multiple variants and optionally exact issue-kind expectations.
-  - Why: the current invalid lanes usually have one deterministic mutation per stable id and validate only broad diagnostic family/stage. That keeps smoke stable but limits breadth and can hide wrong first-error diagnostics inside the same family.
-  - Deliverables: add variant ids under AST/binary/text strategies; extend stats with variant attempted/applicable/mutated/rejected/expected counts; add optional exact `ValidationIssue` kind expectations for stable strategies; keep family-only mode for smoke if exact diagnostics are too brittle.
-  - Required APIs: `ValidateInvalidAstStrategySpec`, `ValidateInvalidBinaryStrategySpec`, text/spec seed specs, invalid stats structs, repro metadata.
-  - Invariants: stable strategy ids must remain compatible; variants may be added without renaming existing ids; exact issue checks must not require parsing human-readable messages.
-  - Dependencies: none, but [FUZ]1025 should record variants in artifacts.
-  - Suggested Tests: variant registry tests, one exact issue-kind assertion per stable family where practical, fuzz stats floor tests.
-  - Exit Criteria: invalid fuzz output can say exactly which variant ran and whether it reached the intended family and issue kind.
-
 - [FUZ]1019 - Declarative Invalid Seed Prerequisites And Mixed Seed Profiles
   - Goal: make invalid strategy seed shaping data-driven and run invalid strategies over multiple base profiles.
   - Why: prerequisite widening is currently hardcoded in seed-config functions. As strategies grow, agents need a declarative way to request defined funcs, memories, passive data, names, refs, tags, tables, etc.

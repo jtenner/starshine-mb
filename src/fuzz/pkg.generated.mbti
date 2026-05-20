@@ -349,16 +349,20 @@ pub enum ValidateInvalidBinaryStrategyId {
 pub struct ValidateInvalidBinaryStrategySpec {
   id : ValidateInvalidBinaryStrategyId
   stable_id : String
+  variant_id : String
   display_name : String
   layer : String
   expected_result : ValidateInvalidBinaryExpectedResult
+  expected_issue_kind : String?
   required_in_smoke : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategyStats {
   strategy : ValidateInvalidBinaryStrategyId
   stable_id : String
+  variant_id : String
   expected_result : ValidateInvalidBinaryExpectedResult
+  expected_issue_kind : String?
   attempted : Int
   applicable : Int
   mutated : Int
@@ -366,6 +370,11 @@ pub struct ValidateInvalidBinaryStrategyStats {
   validate_rejected : Int
   rejected_expected : Int
   accepted : Int
+  variant_attempted : Int
+  variant_applicable : Int
+  variant_mutated : Int
+  variant_rejected : Int
+  rejected_exact_issue : Int
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidSpecSeedFuzzStats {
@@ -427,6 +436,7 @@ pub struct ValidateInvalidSpecSeedRunConfig {
 pub struct ValidateInvalidSpecSeedSpec {
   id : ValidateInvalidSpecSeedId
   stable_id : String
+  variant_id : String
   display_name : String
   layer : String
   path : String
@@ -439,6 +449,7 @@ pub struct ValidateInvalidSpecSeedSpec {
 pub struct ValidateInvalidSpecSeedStats {
   seed_case : ValidateInvalidSpecSeedId
   stable_id : String
+  variant_id : String
   path : String
   expected_stage : ValidateInvalidTextStage
   attempted : Int
@@ -447,6 +458,9 @@ pub struct ValidateInvalidSpecSeedStats {
   validate_rejected : Int
   valid_before_link : Int
   matched_expected : Int
+  variant_attempted : Int
+  variant_applicable : Int
+  variant_matched_expected : Int
 } derive(Eq, @debug.Debug)
 
 pub enum ValidateInvalidTextAssertionKind {
@@ -518,6 +532,7 @@ pub enum ValidateInvalidTextStrategyId {
 pub struct ValidateInvalidTextStrategySpec {
   id : ValidateInvalidTextStrategyId
   stable_id : String
+  variant_id : String
   display_name : String
   layer : String
   expected_stage : ValidateInvalidTextStage
@@ -527,6 +542,7 @@ pub struct ValidateInvalidTextStrategySpec {
 pub struct ValidateInvalidTextStrategyStats {
   strategy : ValidateInvalidTextStrategyId
   stable_id : String
+  variant_id : String
   expected_stage : ValidateInvalidTextStage
   attempted : Int
   applicable : Int
@@ -534,6 +550,9 @@ pub struct ValidateInvalidTextStrategyStats {
   validate_rejected : Int
   valid_before_link : Int
   matched_expected : Int
+  variant_attempted : Int
+  variant_applicable : Int
+  variant_matched_expected : Int
 } derive(Eq, @debug.Debug)
 
 // Type aliases

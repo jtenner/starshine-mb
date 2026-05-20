@@ -107,12 +107,12 @@ The AST-invalid lane is the strictest diagnostic-family oracle because it starts
 
 Key surfaces:
 
-- [`ValidateInvalidAstStrategySpec`](../../../src/validate/invalid_fuzzer.mbt#L116-L123) stores `stable_id`, display name, source `layer`, `expected_family`, and `required_in_smoke`.
-- [`validate_invalid_ast_registry()`](../../../src/validate/invalid_fuzzer.mbt#L182-L493) is the checked-in registry of stable ids such as `duplicate-export-name`, `missing-datacount`, `undeclared-ref-func`, `invalid-func-type-index`, `datacount-mismatch-too-small`, and `datacount-without-data-sec`.
-- [`ValidateInvalidAstMutation`](../../../src/validate/invalid_fuzzer.mbt#L134-L139) records whether the strategy was applicable, the expected family, and the mutated module.
-- [`ValidateInvalidAstStrategyStats`](../../../src/validate/invalid_fuzzer.mbt#L142-L151) separately counts attempted, applicable, mutated, rejected, and rejected-for-expected-family cases.
+- [`ValidateInvalidAstStrategySpec`](../../../src/validate/invalid_fuzzer.mbt#L116-L125) stores `stable_id`, default `variant_id`, display name, source `layer`, `expected_family`, exact `expected_issue_kind`, and `required_in_smoke`.
+- [`validate_invalid_ast_registry()`](../../../src/validate/invalid_fuzzer.mbt#L190-L501) is the checked-in registry of stable ids such as `duplicate-export-name`, `missing-datacount`, `undeclared-ref-func`, `invalid-func-type-index`, `datacount-mismatch-too-small`, and `datacount-without-data-sec`.
+- [`ValidateInvalidAstMutation`](../../../src/validate/invalid_fuzzer.mbt#L136-L141) records whether the strategy was applicable, the expected family, and the mutated module.
+- [`ValidateInvalidAstStrategyStats`](../../../src/validate/invalid_fuzzer.mbt#L144-L160) separately counts attempted, applicable, mutated, rejected, rejected-for-expected-family, default variant attempts/applicability/mutations/rejections, and exact issue-kind matches.
 
-A new validator family is not done when the validator rejects. It is done when at least one stable invalid-AST strategy can exercise the family, the expected family is correct, and smoke/CI/stress accounting can tell whether the mutation actually ran.
+A new validator family is not done when the validator rejects. It is done when at least one stable invalid-AST strategy can exercise the family, the expected family/exact issue kind are correct, and smoke/CI/stress accounting can tell whether the mutation and its variant actually ran. Binary-invalid, inline-text-invalid, and spec-seed stats now carry the same default `variant_id` counters so future non-default variants can be added without renaming existing stable ids.
 
 ## `gen_invalid` Seed And Mutation Flow
 

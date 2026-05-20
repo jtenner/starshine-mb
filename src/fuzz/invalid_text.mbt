@@ -282,6 +282,7 @@ pub enum ValidateInvalidTextStrategyId {
 pub struct ValidateInvalidTextStrategySpec {
   id : ValidateInvalidTextStrategyId
   stable_id : String
+  variant_id : String
   display_name : String
   layer : String
   expected_stage : ValidateInvalidTextStage
@@ -299,6 +300,7 @@ pub struct ValidateInvalidTextRunConfig {
 pub struct ValidateInvalidTextStrategyStats {
   strategy : ValidateInvalidTextStrategyId
   stable_id : String
+  variant_id : String
   expected_stage : ValidateInvalidTextStage
   attempted : Int
   applicable : Int
@@ -306,6 +308,9 @@ pub struct ValidateInvalidTextStrategyStats {
   validate_rejected : Int
   valid_before_link : Int
   matched_expected : Int
+  variant_attempted : Int
+  variant_applicable : Int
+  variant_matched_expected : Int
 } derive(Eq, Debug)
 
 ///|
@@ -328,6 +333,7 @@ fn validate_invalid_text_strategy_spec(
   {
     id,
     stable_id,
+    variant_id: "default",
     display_name,
     layer: "text",
     expected_stage,
@@ -948,6 +954,7 @@ fn validate_invalid_text_empty_strategy_stats() -> Array[
     stats.push({
       strategy: spec.id,
       stable_id: spec.stable_id,
+      variant_id: spec.variant_id,
       expected_stage: spec.expected_stage,
       attempted: 0,
       applicable: 0,
@@ -955,6 +962,9 @@ fn validate_invalid_text_empty_strategy_stats() -> Array[
       validate_rejected: 0,
       valid_before_link: 0,
       matched_expected: 0,
+      variant_attempted: 0,
+      variant_applicable: 0,
+      variant_matched_expected: 0,
     })
   }
   stats
@@ -970,11 +980,15 @@ fn validate_invalid_text_update_strategy_stats(
   validate_rejected? : Int = stats[idx].validate_rejected,
   valid_before_link? : Int = stats[idx].valid_before_link,
   matched_expected? : Int = stats[idx].matched_expected,
+  variant_attempted? : Int = stats[idx].variant_attempted,
+  variant_applicable? : Int = stats[idx].variant_applicable,
+  variant_matched_expected? : Int = stats[idx].variant_matched_expected,
 ) -> Unit {
   let current = stats[idx]
   stats[idx] = {
     strategy: current.strategy,
     stable_id: current.stable_id,
+    variant_id: current.variant_id,
     expected_stage: current.expected_stage,
     attempted,
     applicable,
@@ -982,6 +996,9 @@ fn validate_invalid_text_update_strategy_stats(
     validate_rejected,
     valid_before_link,
     matched_expected,
+    variant_attempted,
+    variant_applicable,
+    variant_matched_expected,
   }
 }
 
@@ -1047,6 +1064,8 @@ pub fn run_validate_invalid_text_fuzz(
       stat_idx,
       attempted=stats[stat_idx].attempted + 1,
       applicable=stats[stat_idx].applicable + 1,
+      variant_attempted=stats[stat_idx].variant_attempted + 1,
+      variant_applicable=stats[stat_idx].variant_applicable + 1,
     )
     let stage = match run_validate_invalid_text_case(spec.id) {
       Ok(v) => v
@@ -1063,6 +1082,8 @@ pub fn run_validate_invalid_text_fuzz(
       (if stage == ValidBeforeLinkStage { 1 } else { 0 })
     let matched_expected = stats[stat_idx].matched_expected +
       (if stage == spec.expected_stage { 1 } else { 0 })
+    let variant_matched_expected = stats[stat_idx].variant_matched_expected +
+      (if stage == spec.expected_stage { 1 } else { 0 })
     validate_invalid_text_update_strategy_stats(
       stats,
       stat_idx,
@@ -1070,6 +1091,7 @@ pub fn run_validate_invalid_text_fuzz(
       validate_rejected~,
       valid_before_link~,
       matched_expected~,
+      variant_matched_expected~,
     )
     attempt += 1
   }
@@ -1138,6 +1160,7 @@ pub enum ValidateInvalidSpecSeedId {
 pub struct ValidateInvalidSpecSeedSpec {
   id : ValidateInvalidSpecSeedId
   stable_id : String
+  variant_id : String
   display_name : String
   layer : String
   path : String
@@ -1158,6 +1181,7 @@ pub struct ValidateInvalidSpecSeedRunConfig {
 pub struct ValidateInvalidSpecSeedStats {
   seed_case : ValidateInvalidSpecSeedId
   stable_id : String
+  variant_id : String
   path : String
   expected_stage : ValidateInvalidTextStage
   attempted : Int
@@ -1166,6 +1190,9 @@ pub struct ValidateInvalidSpecSeedStats {
   validate_rejected : Int
   valid_before_link : Int
   matched_expected : Int
+  variant_attempted : Int
+  variant_applicable : Int
+  variant_matched_expected : Int
 } derive(Eq, Debug)
 
 ///|
@@ -1191,6 +1218,7 @@ fn validate_invalid_spec_seed_spec(
   {
     id,
     stable_id,
+    variant_id: "default",
     display_name,
     layer: "spec-seed",
     path,
@@ -1719,6 +1747,7 @@ fn validate_invalid_spec_seed_empty_stats() -> Array[
     stats.push({
       seed_case: spec.id,
       stable_id: spec.stable_id,
+      variant_id: spec.variant_id,
       path: spec.path,
       expected_stage: spec.expected_stage,
       attempted: 0,
@@ -1727,6 +1756,9 @@ fn validate_invalid_spec_seed_empty_stats() -> Array[
       validate_rejected: 0,
       valid_before_link: 0,
       matched_expected: 0,
+      variant_attempted: 0,
+      variant_applicable: 0,
+      variant_matched_expected: 0,
     })
   }
   stats
@@ -1742,11 +1774,15 @@ fn validate_invalid_spec_seed_update_stats(
   validate_rejected? : Int = stats[idx].validate_rejected,
   valid_before_link? : Int = stats[idx].valid_before_link,
   matched_expected? : Int = stats[idx].matched_expected,
+  variant_attempted? : Int = stats[idx].variant_attempted,
+  variant_applicable? : Int = stats[idx].variant_applicable,
+  variant_matched_expected? : Int = stats[idx].variant_matched_expected,
 ) -> Unit {
   let current = stats[idx]
   stats[idx] = {
     seed_case: current.seed_case,
     stable_id: current.stable_id,
+    variant_id: current.variant_id,
     path: current.path,
     expected_stage: current.expected_stage,
     attempted,
@@ -1755,6 +1791,9 @@ fn validate_invalid_spec_seed_update_stats(
     validate_rejected,
     valid_before_link,
     matched_expected,
+    variant_attempted,
+    variant_applicable,
+    variant_matched_expected,
   }
 }
 
@@ -1806,6 +1845,8 @@ pub fn run_validate_invalid_spec_seed_fuzz(
       stat_idx,
       attempted=stats[stat_idx].attempted + 1,
       applicable=stats[stat_idx].applicable + 1,
+      variant_attempted=stats[stat_idx].variant_attempted + 1,
+      variant_applicable=stats[stat_idx].variant_applicable + 1,
     )
     let stage = match run_validate_invalid_spec_seed_case(spec.id) {
       Ok(v) => v
@@ -1822,6 +1863,8 @@ pub fn run_validate_invalid_spec_seed_fuzz(
       (if stage == ValidBeforeLinkStage { 1 } else { 0 })
     let matched_expected = stats[stat_idx].matched_expected +
       (if stage == spec.expected_stage { 1 } else { 0 })
+    let variant_matched_expected = stats[stat_idx].variant_matched_expected +
+      (if stage == spec.expected_stage { 1 } else { 0 })
     validate_invalid_spec_seed_update_stats(
       stats,
       stat_idx,
@@ -1829,6 +1872,7 @@ pub fn run_validate_invalid_spec_seed_fuzz(
       validate_rejected~,
       valid_before_link~,
       matched_expected~,
+      variant_matched_expected~,
     )
     attempt += 1
   }

@@ -80,9 +80,11 @@ pub enum ValidateInvalidBinaryStrategyId {
 pub struct ValidateInvalidBinaryStrategySpec {
   id : ValidateInvalidBinaryStrategyId
   stable_id : String
+  variant_id : String
   display_name : String
   layer : String
   expected_result : ValidateInvalidBinaryExpectedResult
+  expected_issue_kind : String?
   required_in_smoke : Bool
 } derive(Eq, Debug)
 
@@ -258,7 +260,9 @@ pub struct ValidateInvalidBinaryMutation {
 pub struct ValidateInvalidBinaryStrategyStats {
   strategy : ValidateInvalidBinaryStrategyId
   stable_id : String
+  variant_id : String
   expected_result : ValidateInvalidBinaryExpectedResult
+  expected_issue_kind : String?
   attempted : Int
   applicable : Int
   mutated : Int
@@ -266,6 +270,11 @@ pub struct ValidateInvalidBinaryStrategyStats {
   validate_rejected : Int
   rejected_expected : Int
   accepted : Int
+  variant_attempted : Int
+  variant_applicable : Int
+  variant_mutated : Int
+  variant_rejected : Int
+  rejected_exact_issue : Int
 } derive(Eq, Debug)
 
 ///|
@@ -434,12 +443,18 @@ fn validate_invalid_binary_strategy_spec(
   expected_result : ValidateInvalidBinaryExpectedResult,
   required_in_smoke? : Bool = true,
 ) -> ValidateInvalidBinaryStrategySpec {
+  let expected_issue_kind = match expected_result {
+    DecodeRejected => None
+    ValidateRejected(label) => Some(label)
+  }
   {
     id,
     stable_id,
+    variant_id: "default",
     display_name,
     layer: "binary",
     expected_result,
+    expected_issue_kind,
     required_in_smoke,
   }
 }
@@ -2126,7 +2141,9 @@ fn validate_invalid_binary_empty_strategy_stats() -> Array[
     stats.push({
       strategy: spec.id,
       stable_id: spec.stable_id,
+      variant_id: spec.variant_id,
       expected_result: spec.expected_result,
+      expected_issue_kind: spec.expected_issue_kind,
       attempted: 0,
       applicable: 0,
       mutated: 0,
@@ -2134,6 +2151,11 @@ fn validate_invalid_binary_empty_strategy_stats() -> Array[
       validate_rejected: 0,
       rejected_expected: 0,
       accepted: 0,
+      variant_attempted: 0,
+      variant_applicable: 0,
+      variant_mutated: 0,
+      variant_rejected: 0,
+      rejected_exact_issue: 0,
     })
   }
   stats
@@ -2150,12 +2172,19 @@ fn validate_invalid_binary_update_strategy_stats(
   validate_rejected? : Int = stats[idx].validate_rejected,
   rejected_expected? : Int = stats[idx].rejected_expected,
   accepted? : Int = stats[idx].accepted,
+  variant_attempted? : Int = stats[idx].variant_attempted,
+  variant_applicable? : Int = stats[idx].variant_applicable,
+  variant_mutated? : Int = stats[idx].variant_mutated,
+  variant_rejected? : Int = stats[idx].variant_rejected,
+  rejected_exact_issue? : Int = stats[idx].rejected_exact_issue,
 ) -> Unit {
   let current = stats[idx]
   stats[idx] = {
     strategy: current.strategy,
     stable_id: current.stable_id,
+    variant_id: current.variant_id,
     expected_result: current.expected_result,
+    expected_issue_kind: current.expected_issue_kind,
     attempted,
     applicable,
     mutated,
@@ -2163,6 +2192,11 @@ fn validate_invalid_binary_update_strategy_stats(
     validate_rejected,
     rejected_expected,
     accepted,
+    variant_attempted,
+    variant_applicable,
+    variant_mutated,
+    variant_rejected,
+    rejected_exact_issue,
   }
 }
 
@@ -2232,6 +2266,7 @@ pub fn run_validate_invalid_binary_fuzz(
       stats,
       stat_idx,
       attempted=stats[stat_idx].attempted + 1,
+      variant_attempted=stats[stat_idx].variant_attempted + 1,
     )
     let generated = match
       gen_invalid_binary_generate(
@@ -2251,6 +2286,8 @@ pub fn run_validate_invalid_binary_fuzz(
         stat_idx,
         applicable=stats[stat_idx].applicable + 1,
         mutated=stats[stat_idx].mutated + 1,
+        variant_applicable=stats[stat_idx].variant_applicable + 1,
+        variant_mutated=stats[stat_idx].variant_mutated + 1,
       )
       match decode_module(mutation.mutated_bytes) {
         Err(_) => {
@@ -2258,11 +2295,22 @@ pub fn run_validate_invalid_binary_fuzz(
             DecodeRejected => stats[stat_idx].rejected_expected + 1
             ValidateRejected(_) => stats[stat_idx].rejected_expected
           }
+          let rejected_exact_issue_now = match spec.expected_issue_kind {
+            None =>
+              if mutation.expected_result == DecodeRejected {
+                stats[stat_idx].rejected_exact_issue + 1
+              } else {
+                stats[stat_idx].rejected_exact_issue
+              }
+            Some(_) => stats[stat_idx].rejected_exact_issue
+          }
           validate_invalid_binary_update_strategy_stats(
             stats,
             stat_idx,
             decode_rejected=stats[stat_idx].decode_rejected + 1,
             rejected_expected=rejected_expected_now,
+            variant_rejected=stats[stat_idx].variant_rejected + 1,
+            rejected_exact_issue=rejected_exact_issue_now,
           )
         }
         Ok(decoded) =>
@@ -2293,11 +2341,22 @@ pub fn run_validate_invalid_binary_fuzz(
                     stats[stat_idx].rejected_expected
                   }
               }
+              let rejected_exact_issue_now = match spec.expected_issue_kind {
+                Some(expected_family_label) =>
+                  if family_label == expected_family_label {
+                    stats[stat_idx].rejected_exact_issue + 1
+                  } else {
+                    stats[stat_idx].rejected_exact_issue
+                  }
+                None => stats[stat_idx].rejected_exact_issue
+              }
               validate_invalid_binary_update_strategy_stats(
                 stats,
                 stat_idx,
                 validate_rejected=stats[stat_idx].validate_rejected + 1,
                 rejected_expected=rejected_expected_now,
+                variant_rejected=stats[stat_idx].variant_rejected + 1,
+                rejected_exact_issue=rejected_exact_issue_now,
               )
             }
           }
