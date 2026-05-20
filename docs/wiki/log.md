@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] ir2 | local SSA overlay contract refresh
+
+- Added [`raw/ir2/2026-05-20-local-ssa-source-bridge.md`](raw/ir2/2026-05-20-local-ssa-source-bridge.md) to anchor the local SSA vocabulary in the classic Cytron/Ferrante/Rosen/Wegman/Zadeck SSA paper while keeping Starshine-specific exclusions and writeback semantics grounded in repository code.
+- Refreshed [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md) from a short March policy summary into a beginner-to-advanced guide covering `HotLocalSsa` data shape, entry parameter/default definitions, liveness-pruned dominance-frontier placement, dominator-tree rename flow, normal-edge-only phi inputs, predecessor-copy destruction, dead-def cleanup, copy-cycle temporaries, and validation/signoff guidance.
+- Updated [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/ir2/` source-family directory and the expanded local SSA contract are discoverable.
+- Grounded the local code map in [`../../src/ir/ssa_policy.mbt`](../../src/ir/ssa_policy.mbt), [`../../src/ir/ssa_local.mbt`](../../src/ir/ssa_local.mbt), [`../../src/ir/ssa_destroy.mbt`](../../src/ir/ssa_destroy.mbt), [`../../src/ir/ssa_policy_test.mbt`](../../src/ir/ssa_policy_test.mbt), [`../../src/ir/ssa_local_test.mbt`](../../src/ir/ssa_local_test.mbt), and [`../../src/ir/ssa_destroy_test.mbt`](../../src/ir/ssa_destroy_test.mbt).
+
 ## [2026-05-20] wast | static harness skip policy
 
 - Added [`raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) after rechecking the current official WebAssembly reference-interpreter script contract and Starshine's `spec_harness` skip/mismatch logic.

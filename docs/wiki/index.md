@@ -6,7 +6,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [`../../AGENTS.md`](../../AGENTS.md) - Compact repo essentials, always-follow workflow rules, and task-specific guidance for repo work and wiki maintenance.
 - [`../README.md`](../README.md) - Canonical docs and wiki schema, now split into high-signal repo rules plus lower-frequency reference details.
-- [`raw/README.md`](raw/README.md) - Rules for committed raw sources, including immutable source captures, numbered research notes, and topic raw-source directories such as `raw/binaryen/`, `raw/moonbit/`, and `raw/wasm/`.
+- [`raw/README.md`](raw/README.md) - Rules for committed raw sources, including immutable source captures, numbered research notes, and topic raw-source directories such as `raw/binaryen/`, `raw/ir2/`, `raw/moonbit/`, and `raw/wasm/`.
 - [`raw/research/README.md`](raw/research/README.md) - Rules for the archived numbered research notes moved out of `docs/`.
 
 ## Concepts
@@ -609,7 +609,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [`binaryen/passes/reorder-locals/multivalue-call-scope.md`](binaryen/passes/reorder-locals/multivalue-call-scope.md) - Current project decision: non-converging Binaryen multivalue-call writeback stays out of scope for `reorder-locals` parity.
 - [`ir2/cfg-contract.md`](ir2/cfg-contract.md) - Normative IR2 CFG boundary, successor, exceptional-edge, and tail-call control-flow policy for `HotFunc`, now explicitly mapping `return_call*` to return edges, linking ordinary branch/label fixture rules to the WAST control-flow guide, linking `try_table` catch-list exceptional flow to the WAST exception/tag guide, linking tail-call fixture rules to the WAST tail-call guide, and recording the current `cfg_contract.mbt` helper/test coverage gap against `hot_flags.mbt` and the concrete CFG builder.
-- [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md) - Normative locals-only SSA overlay policy, phi ownership rule, and predecessor-copy destruction rule.
+- [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md) - Refreshed locals-only SSA overlay contract: Cytron-style source lineage, `HotLocalSsa` data shape, entry default/parameter definitions, pruned dominance-frontier placement with liveness filtering, dominator-tree rename flow, normal-edge-only phi inputs, predecessor-copy destruction, dead-def cleanup, and exact `ssa_policy` / `ssa_local` / `ssa_destroy` test-source map.
 
 ## Comparisons
 
