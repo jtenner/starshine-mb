@@ -8308,6 +8308,7 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2Bitmask
     | @lib.RefIsNull
     | @lib.RefTest(_, _)
+    | @lib.RefTestDesc(_, _)
     | @lib.RefI31
     | @lib.AnyConvertExtern
     | @lib.ExternConvertAny => true

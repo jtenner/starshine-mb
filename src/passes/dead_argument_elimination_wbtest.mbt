@@ -278,6 +278,12 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
       @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
     ),
     @lib.Instruction::drop(),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+    @lib.Instruction::ref_test_desc(
+      true,
+      @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+    ),
+    @lib.Instruction::drop(),
     @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
     @lib.Instruction::extern_convert_any(),
     @lib.Instruction::drop(),
@@ -293,6 +299,13 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::ref_test(
       true,
       @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::ref_test_desc(
+      true,
+      @lib.HeapType::abs(@lib.AbsHeapType::eq()),
     ),
     @lib.Instruction::drop(),
     @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
@@ -454,6 +467,13 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
         @lib.Instruction::ref_test(
           true,
           @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+        @lib.Instruction::ref_as_non_null(),
+        @lib.Instruction::ref_test_desc(
+          true,
+          @lib.HeapType::abs(@lib.AbsHeapType::eq()),
         ),
         @lib.Instruction::drop(),
         @lib.Instruction::ref_null(
