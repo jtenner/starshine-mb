@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | ordinary call_ref source refresh
+
+- Added [`raw/wasm/2026-05-20-call-ref-source-refresh.md`](raw/wasm/2026-05-20-call-ref-source-refresh.md) after rechecking current WebAssembly syntax, binary, validation, and execution instruction pages plus Starshine core instruction, binary codec, validator, WAST, and valid-generator evidence.
+- Refreshed [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md) so ordinary `call_ref` is documented as core/binary/validator/generator-visible via `Instruction::CallRef` and opcode `0x14`, while high-level Starshine WAST text remains unavailable.
+- Updated [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`wast/index.md`](wast/index.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so `ref.func` declaration sources, `return_call_ref`, `[FZG]009`, and WAST-arbitrary text-gap claims route through the focused ordinary-reference-call split.
+- Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), and [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt).
+
 ## [2026-05-20] health | IR2 registry and preset drift check
 
 - During the post-reference-branch whole-wiki health pass, compared [`ir2/registry-map.md`](ir2/registry-map.md) and [`ir2/execution-plan.md`](ir2/execution-plan.md) against the live registry in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) plus registry and slot tests in [`../../src/passes/registry_test.mbt`](../../src/passes/registry_test.mbt) and [`../../src/passes/optimize_test.mbt`](../../src/passes/optimize_test.mbt).

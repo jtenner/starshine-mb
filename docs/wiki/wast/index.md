@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
+  - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
@@ -50,7 +51,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 ### Module structure and declarations
 
-- [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md) — `(func ...)`, inline and explicit function imports/exports, `(start ...)`, direct `call`, and the function/type side of `call_indirect`.
+- [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md) — `(func ...)`, inline and explicit function imports/exports, `(start ...)`, direct `call`, the function/type side of `call_indirect`, and the current ordinary `call_ref` core/binary/generator-only text caveat.
 - [`resource-declaration-authoring.md`](resource-declaration-authoring.md) — table, memory, and global declarations/imports/exports, global initializers, imported-prefix resource indices, and current memory64/shared text caveats.
 - [`exception-tag-authoring.md`](exception-tag-authoring.md) — tag declarations and exception instructions, including `throw_ref` nullable operands and catch payloads.
 - [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md) — `$` source identifiers, name-section metadata, function annotations, and pass rewrite obligations.
@@ -59,7 +60,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 ### Types, references, and GC proposal surfaces
 
 - [`gc-type-authoring.md`](gc-type-authoring.md) — function/struct/array/rec types, `sub` / `final`, type-use syntax, flat type indices, and descriptor metadata caveats.
-- [`reference-instruction-authoring.md`](reference-instruction-authoring.md) — `ref.null`, `ref.func`, null tests, equality, casts, reference branches, the branch-path versus fallthrough-path type split, `CastOp` nullability, and current text gaps for ordinary `ref.test` / `ref.cast` / `br_on_*` forms.
+- [`reference-instruction-authoring.md`](reference-instruction-authoring.md) — `ref.null`, `ref.func`, null tests, equality, casts, reference branches, the branch-path versus fallthrough-path type split, `CastOp` nullability, `call_ref` declaration-source boundaries, and current text gaps for ordinary `ref.test` / `ref.cast` / `br_on_*` forms.
 - [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) — struct constructors/gets, local descriptor constructors, i31 operations, and the current core/binary-only status of many `array.*` and `struct.set` forms.
 - [`string-instruction-authoring.md`](string-instruction-authoring.md) — `string.const` plus Starshine's currently supported array-backed string helper operations.
 
@@ -67,7 +68,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 - [`control-flow-authoring.md`](control-flow-authoring.md) — `block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, `unreachable`, label-depth lowering, and stack-polymorphic unreachable code.
 - [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md) — `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select portability caveats.
-- [`tail-call-authoring.md`](tail-call-authoring.md) — `return_call`, `return_call_indirect`, and `return_call_ref` across text, core, binary, validation, CFG, and generator layers.
+- [`tail-call-authoring.md`](tail-call-authoring.md) — `return_call`, `return_call_indirect`, and `return_call_ref` across text, core, binary, validation, CFG, and generator layers, including the `return_call_ref` split from ordinary non-tail `call_ref`.
 
 ### Memory, tables, data, and elements
 
@@ -88,7 +89,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 The WAST pages deliberately keep text-surface gaps visible instead of smoothing them into generic support claims:
 
-- **Reference branch and cast text:** ordinary `ref.test`, `ref.cast`, and `br_on_*` forms are core/binary/validator/generator-visible but not all human-authored WAST text forms are available; route through [`reference-instruction-authoring.md`](reference-instruction-authoring.md), which also owns the branch-label versus fallthrough type split for reference branches.
+- **Reference branch, cast, and ordinary `call_ref` text:** ordinary `ref.test`, `ref.cast`, `br_on_*`, and non-tail `call_ref` forms are core/binary/validator/generator-visible but not all human-authored WAST text forms are available; route reference/cast/branch forms through [`reference-instruction-authoring.md`](reference-instruction-authoring.md), which also owns the branch-label versus fallthrough type split, and route ordinary reference calls through [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).
 - **Aggregate instruction text:** many official `array.*` and `struct.set` families currently need core/binary/generator fixtures; route through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 - **Atomic text:** `0xFE` atomic instructions are core/binary/validator/generator-visible, while WAST keywords/parser cases are still absent; route through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md).
 - **Memory and table widths:** memory64/table64 behavior is often best proved at the core/binary layer until declaration and validation widening lands; route `offset=` / selected-memory-index questions through [`memory-argument-authoring.md`](memory-argument-authoring.md), runtime bulk-memory stack widths through [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and table address-width caveats through [`table-instruction-authoring.md`](table-instruction-authoring.md).
@@ -105,4 +106,4 @@ The WAST pages deliberately keep text-surface gaps visible instead of smoothing 
 
 ## Sources
 
-This catalog consolidates reviewed focused WAST pages and their committed manifests, including the 2026-05-20 reference-branch refresh. The broad current source families are the official WebAssembly text/syntax/validation pages captured through the focused manifests under [`../raw/wasm/`](../raw/wasm/), Starshine's WAST implementation under [`../../../src/wast/`](../../../src/wast/), core/binary definitions under [`../../../src/lib/`](../../../src/lib/) and [`../../../src/binary/`](../../../src/binary/), validator surfaces under [`../../../src/validate/`](../../../src/validate/), and fuzzing/generator surfaces under [`../../../src/fuzz/`](../../../src/fuzz/).
+This catalog consolidates reviewed focused WAST pages and their committed manifests, including the 2026-05-20 reference-branch and `call_ref` refreshes. The broad current source families are the official WebAssembly text/syntax/validation pages captured through the focused manifests under [`../raw/wasm/`](../raw/wasm/), Starshine's WAST implementation under [`../../../src/wast/`](../../../src/wast/), core/binary definitions under [`../../../src/lib/`](../../../src/lib/) and [`../../../src/binary/`](../../../src/binary/), validator surfaces under [`../../../src/validate/`](../../../src/validate/), and fuzzing/generator surfaces under [`../../../src/fuzz/`](../../../src/fuzz/).

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
+  - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-19-wast-tail-call-sources.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
   - ../../../src/wast/keywords.mbt
@@ -40,7 +41,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 
 The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md); shared WAST type-use and rec-group flat-index rules live in [`gc-type-authoring.md`](gc-type-authoring.md).
 
-The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md). The narrower CFG-only source snapshot remains in [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
+The focused `call_ref` / `return_call_ref` split is refreshed in [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader tail-call primary-source and local-code manifest remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the narrower CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
 ## Layer Model
 
@@ -61,7 +62,7 @@ The official validation model is easiest to remember as “ordinary call inputs,
 | --- | --- | --- | --- | --- |
 | `return_call` | `funcidx` | callee params | unreachable | Resolves to `FuncIdx`; callee results must equal current function returns. |
 | `return_call_indirect` | optional `tableidx`, then `typeuse` | callee params..., table element index | unreachable | Resolves `typeuse` to `TypeIdx` and table to `TableIdx`; table must be function-reference-compatible; current table64 caveat is shared with [`table-instruction-authoring.md`](table-instruction-authoring.md). |
-| `return_call_ref` | `typeuse` | callee params..., function reference | unreachable | Resolves `typeuse` to a function type; consumes a reference to that function type. |
+| `return_call_ref` | `typeuse` | callee params..., function reference | unreachable | Resolves `typeuse` to a function type; consumes a reference to that function type. It shares the target/reference shape with ordinary `call_ref`, but exits instead of pushing results. |
 
 ### Why “unreachable” is not “no validation”
 
@@ -138,7 +139,7 @@ The omitted table index means table `0`. Starshine's WAST parser accepts that sh
     (return_call_ref (type $sig))))
 ```
 
-`return_call_ref` is not a `ref.func` declaration source by itself. If a fixture materializes the function reference with `ref.func`, the instruction's text/core stack shape lives in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), and the declaration-source rules still live in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+`return_call_ref` is not a `ref.func` declaration source by itself. If a fixture materializes the function reference with `ref.func`, the instruction's text/core stack shape lives in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), and the declaration-source rules still live in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). For the non-tail sibling, use [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md): ordinary `call_ref` is currently a core/binary/validator/generator surface, not Starshine WAST text.
 
 ### Tail call inside `try_table`
 
@@ -169,11 +170,12 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 
 - **Mistake: “`return_call` pushes the callee results.”** It does not push results for the current local continuation. It exits the current function, so following code is unreachable.
 - **Mistake: “`return_call_indirect` is covered by table docs only.”** It is both a table instruction and a tail-call instruction. Table docs cover table indices and table64 caveats; this page covers return-type and terminator semantics.
-- **Mistake: “A tail call declares `ref.func`.”** Direct calls and tail calls use function indices but are not `ref.func` declaration sources.
+- **Mistake: “A tail call declares `ref.func`.”** Direct calls, ordinary `call_ref`, and tail calls consume existing function indices or references but are not `ref.func` declaration sources.
 - **Mistake: “Proposal text can override the current spec.”** The tail-call proposal repository is historical. Use the current WebAssembly core draft/W3C pages for syntax and validation, and use the proposal only for rationale.
 
 ## Source Map
 
+- Focused reference-call source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md)
 - CFG-only tail-call source manifest: [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)

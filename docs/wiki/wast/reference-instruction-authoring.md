@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-20
 sources:
+  - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-20-reference-branch-validation-refresh.md
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
@@ -18,6 +19,7 @@ sources:
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/wast/arbitrary.mbt
 related:
+  - function-call-and-module-authoring.md
   - gc-type-authoring.md
   - gc-aggregate-instruction-authoring.md
   - control-flow-authoring.md
@@ -40,7 +42,7 @@ Use this page when writing, reducing, or widening fixtures that mention WebAssem
 - nullability-specialized branches represented by Starshine core and binary: `br_on_null` and `br_on_non_null`;
 - Starshine's descriptor-family local/custom-descriptor text forms: `ref.test_desc`, `ref.test_desc_null`, `ref.cast_desc_eq`, and `ref.cast_desc_eq_null`.
 
-The broad primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md). The targeted branch/cast refresh is [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md). The key local lesson from both ingests is a layer split: **Starshine's core, binary, validator, and valid-generator surfaces are wider than its current WAST text surface.** Text fixtures can directly author the basic `ref.*` subset and descriptor-family forms today, while ordinary `ref.test` / `ref.cast` and `br_on_*` require core/binary fixtures or a WAST parser/printer widening first. For `ref.i31`, `i31.get_*`, `any.convert_extern`, and struct/array aggregate allocation or access, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
+The broad primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md). The targeted branch/cast refresh is [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), and the focused ordinary reference-call refresh is [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The key local lesson from these ingests is a layer split: **Starshine's core, binary, validator, and valid-generator surfaces are wider than its current WAST text surface.** Text fixtures can directly author the basic `ref.*` subset and descriptor-family forms today, while ordinary `ref.test` / `ref.cast`, `br_on_*`, and ordinary non-tail `call_ref` require core/binary fixtures or a WAST parser/printer widening first. For `ref.i31`, `i31.get_*`, `any.convert_extern`, and struct/array aggregate allocation or access, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 
 ## Beginner Mental Model
 
@@ -129,6 +131,8 @@ Use this for parser/lowerer/typechecker tests that need a simple nullable refere
 
 The export declares `$f` as a legal `ref.func` target before the body use is checked. Without an export, global/table initializer, or element source, the body use fails even though `$f` exists. The declaration-source rules are intentionally centralized in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
+If the next instruction is a core/binary `call_ref`, the declaration rule still belongs to `ref.func`; `call_ref` only consumes the function reference and uses its type immediate for parameter/result stack typing. Current Starshine WAST can express `return_call_ref` text, but not ordinary `call_ref` text, so ordinary reference-call fixtures should route through [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md) and [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md).
+
 ### `ref.eq` and `ref.as_non_null`
 
 ```wasm
@@ -173,17 +177,17 @@ When a pass regression needs one of these forms today, prefer a programmatic `@l
 ## Rewrite And Validation Checklist
 
 1. **Keep text, core, binary, and validation claims separate.** WAST parser support is narrower than core support in this snapshot.
-2. **Preserve `ref.func` declaration sources.** Function-index rewrites must update exports, globals, table initializers, element payloads/expressions, names, annotations, and surviving `ref.func` use sites together. Use [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) and [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
+2. **Preserve `ref.func` declaration sources.** Function-index rewrites must update exports, globals, table initializers, element payloads/expressions, names, annotations, and surviving `ref.func` use sites together. A surviving `call_ref` does not declare anything by itself, but a surviving `ref.func` feeding it must still be declared. Use [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) and [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
 3. **Do not erase traps accidentally.** `ref.as_non_null` and `ref.cast` can trap at runtime. Removing or moving them needs a proof from type/flow facts, not just a successful static typecheck.
 4. **Recheck both branch and fallthrough types for reference branches.** `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` carry refined references to labels, while `br_on_null`, `br_on_cast`, and `br_on_cast_fail` also leave refined fallthrough values. Pair this page with [`control-flow-authoring.md`](control-flow-authoring.md) for ordinary label-depth and branch-payload rules.
 5. **Treat cast/test hierarchy checks as semantic checks.** Binary opcode decode does not prove that source and target heap types share a legal hierarchy relationship.
-6. **Update WAST arbitrary only after text support exists.** `src/wast/arbitrary.mbt` should not emit ordinary `ref.test` / `ref.cast` / `br_on_*` text until keywords, parser, lowerer, printer, and roundtrip tests exist.
+6. **Update WAST arbitrary only after text support exists.** `src/wast/arbitrary.mbt` should not emit ordinary `ref.test` / `ref.cast` / `br_on_*` or ordinary `call_ref` text until keywords, parser, lowerer, printer, and roundtrip tests exist.
 7. **Validate after mutation.** Reference rewrites commonly touch stack types, type indices, function declarations, and labels; run module validation plus the pass's Binaryen-oracle lane where relevant.
 
 ## Source Map
 
-- Primary-source and local-code manifests: [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md)
+- Primary-source and local-code manifests: [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and generation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)
-- Related wiki pages: [`gc-type-authoring.md`](gc-type-authoring.md), [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`control-flow-authoring.md`](control-flow-authoring.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md)
+- Related wiki pages: [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md), [`gc-type-authoring.md`](gc-type-authoring.md), [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`control-flow-authoring.md`](control-flow-authoring.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md)
