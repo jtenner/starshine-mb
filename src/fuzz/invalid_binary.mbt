@@ -109,6 +109,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedI32ConstSleb
   MalformedI64ConstSleb
   MalformedCallFuncIndexUleb
+  MalformedReturnCallFuncIndexUleb
+  MalformedRefFuncIndexUleb
   MalformedCallIndirectTypeIndexUleb
   MalformedBrLabelIndexUleb
   MalformedBrTableTargetCountUleb
@@ -528,6 +530,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
     MalformedI64ConstSleb => "malformed-i64-const-sleb"
     MalformedCallFuncIndexUleb => "malformed-call-func-index-uleb"
+    MalformedReturnCallFuncIndexUleb => "malformed-return-call-func-index-uleb"
+    MalformedRefFuncIndexUleb => "malformed-ref-func-index-uleb"
     MalformedCallIndirectTypeIndexUleb =>
       "malformed-call-indirect-type-index-uleb"
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
@@ -1128,6 +1132,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedCallFuncIndexUleb,
       "malformed-call-func-index-uleb",
       "call instruction with a malformed function-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedReturnCallFuncIndexUleb,
+      "malformed-return-call-func-index-uleb",
+      "return_call instruction with a malformed function-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedRefFuncIndexUleb,
+      "malformed-ref-func-index-uleb",
+      "ref.func instruction with a malformed function-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2371,6 +2389,48 @@ fn validate_invalid_binary_mutate_malformed_call_func_index_uleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x10).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_return_call_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedReturnCallFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x12).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_ref_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedRefFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xd2).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -5012,6 +5072,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_i64_const_sleb(base)
     MalformedCallFuncIndexUleb =>
       validate_invalid_binary_mutate_malformed_call_func_index_uleb(base)
+    MalformedReturnCallFuncIndexUleb =>
+      validate_invalid_binary_mutate_malformed_return_call_func_index_uleb(base)
+    MalformedRefFuncIndexUleb =>
+      validate_invalid_binary_mutate_malformed_ref_func_index_uleb(base)
     MalformedCallIndirectTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_call_indirect_type_index_uleb(
         base,
