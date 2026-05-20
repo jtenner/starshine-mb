@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
+  - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
   - ../raw/moonbit/2026-05-13-moon-cli-validation-docs.md
   - ../../README.md
   - ../../../AGENTS.md
@@ -120,7 +121,7 @@ Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baselin
 
 ## Formal Proof Is A Separate Lane
 
-Official MoonBit docs describe `moon prove` as a proof command, and Starshine keeps that lane separate from ordinary validation. The required local proof target is [`src/validate_proof`](../../../src/validate_proof/), whose package is imported by [`src/validate`](../../../src/validate/) and governed by [`validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md).
+Official MoonBit docs describe `moon prove` as a proof command, and Starshine keeps that lane separate from ordinary validation. The required local proof target is [`src/validate_proof`](../../../src/validate_proof/), whose package is imported by [`src/validate`](../../../src/validate/) and governed by [`validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md). The proof-specific 2026-05-20 refresh in [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md) owns the current trust-surface caveat; this gate page owns only when the repo asks developers to run the proof lane.
 
 Practical rules:
 

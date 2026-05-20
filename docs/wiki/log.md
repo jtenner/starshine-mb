@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validation | MoonBit proof trust-source refresh
+
+- Added [`raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md) after rechecking current official MoonBit formal-verification docs, the Moon command manual/source, the first-class verification blog post, and local `src/validate_proof` / `src/validate` proof-helper surfaces.
+- Refreshed [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md) so the required `moon prove src/validate_proof` lane now distinguishes command-shape authority from repo policy, cites the current exported-helper roster in [`../../src/validate_proof/pkg.generated.mbti`](../../src/validate_proof/pkg.generated.mbti), keeps the nine-helper live import map tied to [`../../src/validate/imports.mbt`](../../src/validate/imports.mbt), and expands the trust-surface ledger beyond only `proof_axiomatized`.
+- Updated [`tooling/validation-gates.md`](tooling/validation-gates.md) and [`index.md`](index.md) so ordinary validation-gate guidance routes proof-specific trust caveats through the focused proof-strategy page and raw refresh instead of duplicating them.
+
 ## [2026-05-20] wast | authoring namespace catalog
 
 - Added [`wast/index.md`](wast/index.md) as the namespace catalog for focused WAST authoring pages, covering module declarations, type/reference/GC surfaces, control/call families, memory/table/data/element instructions, numeric/SIMD/variable instructions, current text-surface caveats, and maintenance rules for keeping parser, lowerer, binary, validator, generator, arbitrary-WAST, and pass evidence distinct.

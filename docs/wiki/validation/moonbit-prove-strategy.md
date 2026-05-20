@@ -1,13 +1,15 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-05-13
+status: supported
+last_reviewed: 2026-05-20
 sources:
+  - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
   - ../raw/moonbit/2026-05-13-formal-verification-docs.md
   - ../raw/research/0077-2026-04-10-moonbit-prove-strategy.md
   - ../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md
   - ../../../src/validate/moon.pkg
   - ../../../src/validate_proof/moon.pkg
+  - ../../../src/validate_proof/pkg.generated.mbti
   - ../../../src/validate/imports.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/validate.mbt
@@ -36,7 +38,7 @@ related:
 
 MoonBit verification is useful in Starshine when a small executable helper has a crisp arithmetic, bounds, or stack-shape postcondition that can be expressed in `.mbtp` predicates. It is **not** a replacement for validator tests, fuzzing, binary roundtrip tests, or pass parity checks. The current project boundary is deliberately narrow: keep the required proof gate in the low-dependency `src/validate_proof` package, then import only stable helpers into `src/validate` after executable tests already describe the behavior.
 
-Official MoonBit docs now frame verification as a Why3-backed workflow driven by `moon prove`, with package opt-in through `proof-enabled` and solver setup around Why3 plus solvers such as Z3, CVC5, or Alt-Ergo. Starshine's local policy follows that model but keeps the broad validator package optional because the PRV006 audit showed direct `src/validate` file targets are not isolated enough for the required gate in this workspace. See the 2026-05-13 official-doc manifest in [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md), the local PRV006 audit in [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md), and the shared validation-gate map in [`../tooling/validation-gates.md`](../tooling/validation-gates.md).
+Official MoonBit docs frame verification as a Why3-backed workflow driven by `moon prove`, with package opt-in through `proof-enabled`, solver setup around Why3 plus solvers such as Z3, CVC5, or Alt-Ergo, executable `where` contracts, and proof-only companion material such as `.mbtp` predicates. The 2026-05-20 refresh adds one policy-relevant emphasis: MoonBit also exposes richer proof-only and trusted/axiomatized surfaces that Starshine does **not** use in committed `src/` code today, so adopting those constructs would widen the trust boundary and must be documented deliberately. Starshine's local policy follows the upstream package model but keeps the broad validator package optional because the PRV006 audit showed direct `src/validate` file targets are not isolated enough for the required gate in this workspace. See the 2026-05-20 command/trust refresh in [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md), the earlier official-doc manifest in [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md), the local PRV006 audit in [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md), and the shared validation-gate map in [`../tooling/validation-gates.md`](../tooling/validation-gates.md).
 
 ## Durable Conclusions
 
@@ -45,14 +47,15 @@ Official MoonBit docs now frame verification as a Why3-backed workflow driven by
 - The official docs describe target-package proving with dependencies assumed. Locally, this reinforces the current design: prove `src/validate_proof` directly, then let `src/validate` consume the verified helper functions instead of making broad dependency proof output part of the default release gate.
 - The current proof model reasons over mathematical integers, so proofs do not replace runtime tests for overflow-sensitive, byte-precise, bit-precise, or wasm-encoding behavior.
 - Starshine should keep first-wave proof work in validator-adjacent helper packages, not in `src/binary`, `src/bitset`, pass implementations, or fuzz entrypoints.
-- `proof_axiomatized` should not become a permanent escape hatch in validator-critical code. Every trusted assumption expands the proof boundary and must stay temporary, explicit, and listed in the trust-surface ledger.
-- As of 2026-05-13, no committed source under `src/` uses `proof_axiomatized`; mentions remain policy/history only in docs and backlog material.
+- `proof_axiomatized` and similar proof-control/trust annotations should not become permanent escape hatches in validator-critical code. Every trusted assumption expands the proof boundary and must stay temporary, explicit, and listed in the trust-surface ledger.
+- As of 2026-05-20, repository search found no committed source under `src/` using `proof_axiomatized`, `#proof_pure`, `proof_decrease`, `proof_reasoning`, `proof_assert`, or `proof_invariant`; mentions remain policy/history only in docs and backlog material.
 
 ## Current Starshine Boundary
 
 ### Required proof gate
 
 - Required proof target on a configured prover host: `moon prove src/validate_proof`.
+- The current Moon command manual/source is the command-shape authority for `moon prove`; Starshine's repo policy still owns *when* to run it and intentionally keeps it out of `bun validate full`.
 - `src/validate_proof/moon.pkg` is proof-enabled and imports only `moonbitlang/core/debug` for tests.
 - `src/validate/moon.pkg` is also proof-enabled, but direct-validator proving remains optional because the PRV006 audit observed that file-targeted `moon prove src/validate/...` dry-runs emit broad package plus dependency proof artifacts.
 - If no configured prover is available, record the host/tooling limitation exactly. Do not treat a missing Why3/solver setup as semantic evidence against the proof kernel.
@@ -72,14 +75,14 @@ Official MoonBit docs now frame verification as a Why3-backed workflow driven by
 | `label_stack_storage_index` | Convert branch-depth style label lookup to reverse storage indexing. | Imported and used by `LabelStack::get` and label resolution in `src/validate/env.mbt`. |
 | `latest_stack_index` | Recover the top element index of a nonempty stack. | Imported and used by rec-stack lookups in `src/validate/env.mbt` and label-tail checks in `src/validate/typecheck.mbt`. |
 | `suffix_start_index` | Recover the start index of a suffix inside a longer list. | Imported and used for current rec-group and imported-function-prefix recovery in `src/validate/validate.mbt`. |
-| `rectype_suffix_member_index` | Compose suffix recovery with group-relative type indexing. | Proved and exported, but not imported into `src/validate` as of 2026-05-13. Keep as sidecar evidence until a call site needs the combined helper. |
+| `rectype_suffix_member_index` | Compose suffix recovery with group-relative type indexing. | Proved and exported, but not imported into `src/validate` as of 2026-05-20. Keep as sidecar evidence until a call site needs the combined helper. |
 | `stack_len_after_push1` | Prove one-value stack push length. | Proved and exported, currently sidecar-only. |
 | `stack_len_after_push_types` | Prove multi-value stack push length. | Proved and exported, currently sidecar-only. |
 | `stack_len_after_pop1` | Prove one-value pop length and underflow behavior. | Proved and exported, currently sidecar-only. |
 | `stack_len_after_pop_types` | Prove multi-value pop length and underflow behavior. | Proved and exported, currently sidecar-only. |
 | `stack_suffix_start_after_end_check` | Prove result-suffix recovery after end-stack checking. | Proved and exported, currently sidecar-only. |
 
-The important maintenance rule is to distinguish **proved/exported** from **wired into the live validator**. The April/May audits remain valuable, but the current code map shows only nine of the fifteen helpers imported by `src/validate/imports.mbt`; the rectype-composition helper and stack-discipline helpers are reusable sidecar proofs until a future typechecker slice adopts them.
+The important maintenance rule is to distinguish **proved/exported** from **wired into the live validator**. The April/May audits remain valuable, but the current code map still shows only nine of the fifteen helpers imported by `src/validate/imports.mbt`; the rectype-composition helper and stack-discipline helpers are reusable sidecar proofs until a future typechecker slice adopts them. `src/validate_proof/pkg.generated.mbti` is the quick roster for exported helper count, while `src/validate/imports.mbt` is the quick roster for live validator consumption.
 
 ## Staged Rollout
 
@@ -100,7 +103,7 @@ The important maintenance rule is to distinguish **proved/exported** from **wire
   - future-only: root-level `moon prove`
 - When Why3 output is opaque, debug with compiler-level emission and explicit WhyML/report output paths instead of widening the required gate.
 - Keep `moon` commands serialized in normal developer workflows because this repo already treats `_build/.moon-lock` contention as real.
-- Do not add a `proof_axiomatized` fact without updating this page, the trust-surface ledger below, the relevant backlog item, and tests that keep the trusted assumption narrow.
+- Do not add `proof_axiomatized`, trusted proof declarations, or other proof-control annotations without updating this page, the trust-surface ledger below, the relevant backlog item, and tests that keep the trusted assumption narrow.
 
 ## Current CI / Local Gate Policy
 
@@ -112,7 +115,7 @@ The important maintenance rule is to distinguish **proved/exported** from **wire
 
 | Surface | Status | Required follow-up |
 | --- | --- | --- |
-| Committed `proof_axiomatized` usage | none found under `src/` on 2026-05-13 | Keep this row current whenever an axiom is introduced or removed. |
+| Committed trusted proof-control usage | none found under `src/` on 2026-05-20 for `proof_axiomatized`, `#proof_pure`, `proof_decrease`, `proof_reasoning`, `proof_assert`, or `proof_invariant` | Keep this row current whenever an axiom, trusted declaration, or proof-control annotation is introduced or removed. |
 | Direct `src/validate` proving | deferred after PRV006 audit | Current targeted dry-runs emit the whole validate package plus dependency proof artifacts; recheck only when this surface is intended for a required gate. |
 | Recursive `match.mbt` subtype/exactness facts | deferred design debt | Keep the Boolean pilot and executable regressions; do not replace recursive proof obligations with permanent axioms. |
 | `LabelStack` structural invariant | deferred second-wave data-structure proof | Arithmetic lookup helpers are proved and live; parent-chain/head/len invariants require a richer mutable-structure model and remain covered by `env_tests.mbt`. |
@@ -121,12 +124,16 @@ The important maintenance rule is to distinguish **proved/exported** from **wire
 ## Sources
 
 - Official MoonBit verification docs: <https://docs.moonbitlang.com/en/latest/language/verification.html>
+- Official Moon command manual: <https://moonbitlang.github.io/moon/commands.html>
+- Official Moon command-manual source: <https://github.com/moonbitlang/moon/blob/main/docs/manual/src/commands.md>
 - Official MoonBit v0.9.1 formal-verification blog post: <https://www.moonbitlang.com/blog/first-class-formal-verification>
-- Official-source manifest: [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md)
+- 2026-05-20 command/trust manifest: [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md)
+- 2026-05-13 official-source manifest: [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md)
 - Original investigation: [`../raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](../raw/research/0077-2026-04-10-moonbit-prove-strategy.md)
 - PRV006 boundary audit: [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md)
 - Current proof package and consumers:
   - [`../../../src/validate_proof/moon.pkg`](../../../src/validate_proof/moon.pkg)
+  - [`../../../src/validate_proof/pkg.generated.mbti`](../../../src/validate_proof/pkg.generated.mbti)
   - [`../../../src/validate/moon.pkg`](../../../src/validate/moon.pkg)
   - [`../../../src/validate/imports.mbt`](../../../src/validate/imports.mbt)
   - [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
