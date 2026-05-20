@@ -352,6 +352,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
+  InvalidOpcodeByte
+  InvalidPrefixSubopcodeByte
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {

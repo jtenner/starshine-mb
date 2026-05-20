@@ -74,6 +74,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
+  InvalidOpcodeByte
+  InvalidPrefixSubopcodeByte
 } derive(Eq, Debug)
 
 ///|
@@ -413,6 +415,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedSimdImmediate => "malformed-simd-immediate"
     SimdLaneIndexOverflow => "simd-lane-index-overflow"
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
+    InvalidOpcodeByte => "invalid-opcode-byte"
+    InvalidPrefixSubopcodeByte => "invalid-prefix-subopcode-byte"
   }
 }
 
@@ -725,6 +729,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidOpcodeByte,
+      "invalid-opcode-byte",
+      "function body with an invalid core opcode byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidPrefixSubopcodeByte,
+      "invalid-prefix-subopcode-byte",
+      "function body with an invalid prefixed subopcode byte sequence",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -788,6 +806,8 @@ fn validate_invalid_binary_strategy_index(
     MalformedSimdImmediate => 40
     SimdLaneIndexOverflow => 41
     MalformedCustomSectionPayload => 42
+    InvalidOpcodeByte => 43
+    InvalidPrefixSubopcodeByte => 44
   }
 }
 
@@ -1463,6 +1483,41 @@ fn validate_invalid_binary_mutate_malformed_custom_section_payload(
 }
 
 ///|
+fn validate_invalid_binary_mutate_invalid_opcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidOpcodeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([(0xff).to_byte()]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidPrefixSubopcodeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0xff).to_byte(),
+        (0xff).to_byte(),
+        (0xff).to_byte(),
+        (0xff).to_byte(),
+        (0x0f).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1626,6 +1681,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_simd_lane_index_overflow(base)
     MalformedCustomSectionPayload =>
       validate_invalid_binary_mutate_malformed_custom_section_payload(base)
+    InvalidOpcodeByte =>
+      validate_invalid_binary_mutate_invalid_opcode_byte(base)
+    InvalidPrefixSubopcodeByte =>
+      validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
