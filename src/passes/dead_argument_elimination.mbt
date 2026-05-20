@@ -8234,6 +8234,12 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64TruncSatF64S
     | @lib.I64TruncSatF64U
     | @lib.V128Not
+    | @lib.I8x16Splat
+    | @lib.I16x8Splat
+    | @lib.I32x4Splat
+    | @lib.I64x2Splat
+    | @lib.F32x4Splat
+    | @lib.F64x2Splat
     | @lib.I8x16Abs
     | @lib.I8x16Neg
     | @lib.I8x16Popcnt
