@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] tooling | Node package export boundary refresh
+
+- Added [`raw/node/2026-05-20-node-package-export-boundary.md`](raw/node/2026-05-20-node-package-export-boundary.md) after checking current Node package `exports` documentation, TypeScript package-resolution documentation, and the local `node/package.json`, build/generation scripts, wrappers, generated MoonBit signatures, and parity tests.
+- Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md) so the Node package contract starts from `node/package.json#exports`, treats `types` plus `import` declaration/runtime parity as a listed-subpath invariant, records `cli-benchmarks` as an omitted active MoonBit package, and keeps the disabled generator / WASI-only build refresh boundary explicit.
+- Corrected [`../../node/README.md`](../../node/README.md) so its build note no longer says `npm run build` regenerates the JS/TS package surface; the current build refreshes `node/internal/starshine.wasm-wasi.wasm`, keeps the checked-in wasm-gc adapter artifact, and leaves wrapper generation disabled.
+- Updated [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/node/` source family and refreshed Node package contract are discoverable.
+
 ## [2026-05-20] wast | memory64 bulk-memory operand matrix
 
 - Added [`raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) after rechecking the current WebAssembly instruction validation/syntax/binary sources plus the memory64 proposal context and Starshine `Limits`, typechecker, and binary codec evidence.

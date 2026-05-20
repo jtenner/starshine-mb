@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
+  - ../raw/node/2026-05-20-node-package-export-boundary.md
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/research/0110-2026-04-18-node-package-api-audit.md
   - ../../../node/package.json
@@ -33,17 +34,18 @@ related:
 The checked-in `node/` package is a hand-maintained, ESM-first boundary package for `@jtenner/starshine`, not a live mirror of every active MoonBit package.
 It exports a small JavaScript-facing toolkit for binary/text roundtrips, command execution, validation, and examples, while deeper compiler internals remain repo-local.
 Treat the Node package as a public API layer whose correctness depends on explicit wrapper tests and packaging checks rather than on automatic regeneration from `src/*`.
+The public boundary is the explicit [`node/package.json`](../../../node/package.json) `exports` map: Node resolves only the listed package subpaths, and TypeScript must resolve matching declaration files through the same listed surface. The 2026-05-20 source bridge in [`../raw/node/2026-05-20-node-package-export-boundary.md`](../raw/node/2026-05-20-node-package-export-boundary.md) records the current Node and TypeScript package-resolution rules checked for that claim.
 
 The current flow has two important artifacts:
 
 1. [`scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs) intentionally throws because the old generator depended on the legacy `src/node_api` adapter and removed pass ports.
-2. [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs) rebuilds the optimized WASI CLI artifact from `src/cmd` but keeps the checked-in `node/internal/starshine.wasm-gc.wasm` boundary artifact.
+2. [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs) rebuilds the optimized WASI CLI artifact from `src/cmd`, copies it to `node/internal/starshine.wasm-wasi.wasm`, and keeps the checked-in `node/internal/starshine.wasm-gc.wasm` boundary artifact.
 
-That split is the main invariant for maintainers: **do not assume `npm run build` refreshes all JS/TS wrappers from the current MoonBit signatures.**
+That split is the main invariant for maintainers: **do not assume `npm run build` refreshes all JS/TS wrappers from the current MoonBit signatures.** The package README now states the same boundary: build refreshes the WASI CLI artifact only, while wrapper generation remains disabled until the Node adapter story is redesigned.
 
 ## Current Export Shape
 
-[`node/package.json`](../../../node/package.json) currently exports these public subpaths:
+[`node/package.json`](../../../node/package.json) currently exports these public subpaths. Each listed subpath has both a `types` target and an `import` target, so the package contract is two-sided: consumers need the declaration shape and the runtime export shape to agree.
 
 | Subpath | Purpose | Current status |
 | --- | --- | --- |
@@ -55,8 +57,8 @@ That split is the main invariant for maintainers: **do not assume `npm run build
 | `./validate` | Module validation and selected validator helpers | Intentionally partial; still the largest missing high-value surface. |
 | `./wast` / `./wat` | Text parsing, printing, and spec helpers | Mostly covered; `wast.evaluate_wast_static_assertion(...)` remains absent from Node. |
 
-Active MoonBit packages under [`src/`](../../../src/) currently include `binary`, `bitset`, `cli`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
-Node deliberately omits several of those (`bitset`, `diff`, `fs`, `fuzz`, `ir`, `passes`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`).
+Active MoonBit packages under [`src/`](../../../src/) currently include `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
+Node deliberately omits several of those (`bitset`, `cli-benchmarks`, `diff`, `fs`, `fuzz`, `ir`, `passes`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`).
 That omission is acceptable only while the README and tests keep the package framed as a partial host boundary, not as the whole Starshine implementation surface.
 
 ## What Changed Since The 2026-04-18 Audit
@@ -124,7 +126,7 @@ A future stronger parity test should compare:
 - [`node/*.js`](../../../node/)
 - [`node/package.json#exports`](../../../node/package.json)
 
-That test should distinguish three cases instead of requiring blanket parity:
+The comparison must start from the `exports` allowlist, not from every file in `node/` or every package under `src/`: unlisted subpaths are intentionally private for package consumers. That test should distinguish three cases instead of requiring blanket parity:
 
 1. public and required now,
 2. intentionally unsupported through the wasm-gc adapter,
@@ -140,6 +142,7 @@ That test should distinguish three cases instead of requiring blanket parity:
 
 ## Sources
 
+- Node/TypeScript package export bridge: [`../raw/node/2026-05-20-node-package-export-boundary.md`](../raw/node/2026-05-20-node-package-export-boundary.md)
 - Archived baseline audit: [`../raw/research/0110-2026-04-18-node-package-api-audit.md`](../raw/research/0110-2026-04-18-node-package-api-audit.md)
 - Package metadata and README: [`../../../node/package.json`](../../../node/package.json), [`../../../node/README.md`](../../../node/README.md)
 - Current Node parity and smoke tests: [`../../../node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/test/examples.test.mjs`](../../../node/test/examples.test.mjs)
