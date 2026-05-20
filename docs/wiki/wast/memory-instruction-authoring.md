@@ -17,6 +17,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
 related:
   - ./memory-argument-authoring.md
+  - ./data-segment-authoring.md
   - ./resource-declaration-authoring.md
   - ./simd-authoring.md
   - ./table-instruction-authoring.md
@@ -144,7 +145,7 @@ Validation in [`typecheck_memory_copy(...)`](../../../src/validate/typecheck.mbt
 
 `memory.init` copies from a passive data segment into a memory. It carries a data index plus a memory index. Validation checks the data segment exists, the memory exists, the destination uses the selected memory address type, and the source offset plus length are `i32`. `data.drop` carries only a data index and consumes no stack values.
 
-The data-count rule is easy to miss: function bodies that use `memory.init` or `data.drop` require a data-count section. Starshine makes that user-visible with a separate [`datacnt_requirement`](../../../src/validate/validate.mbt) phase before code body typechecking. Segment headers, active/passive data modes, and data-count binary layout are covered in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). Data-backed GC array forms (`array.new_data`, `array.init_data`) share the data-segment index space but are not current WAST text; fixture-format guidance for those core/binary instructions lives in [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
+The data-count rule is easy to miss: function bodies that use `memory.init` or `data.drop` require a data-count section. Starshine makes that user-visible with a separate [`datacnt_requirement`](../../../src/validate/validate.mbt) phase before code body typechecking. WAST data authoring, active/passive mode selection, string payloads, and current printer/abbreviation caveats are covered in [`data-segment-authoring.md`](data-segment-authoring.md); segment headers and data-count binary layout are covered in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). Data-backed GC array forms (`array.new_data`, `array.init_data`) share the data-segment index space but are not current WAST text; fixture-format guidance for those core/binary instructions lives in [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 
 ## Layer Map
 
@@ -165,7 +166,7 @@ The data-count rule is easy to miss: function bodies that use `memory.init` or `
 1. **Preserve traps and effect order.** Loads, stores, grow, fill, copy, and init can trap or mutate state. Do not move them across other effects unless the pass has a real alias/effect proof.
 2. **Keep immediates and stack operands separate.** `offset=` and memory/data indices are instruction immediates; destination/source/length values are stack operands. See [`memory-argument-authoring.md`](memory-argument-authoring.md) for the `offset=` split.
 3. **After memory-index rewrites, validate.** A pass that deletes or remaps memories must update scalar `MemArg` carriers, `MemorySize`, `MemoryGrow`, `MemoryFill`, both `MemoryCopy` indices, and the memory half of `MemoryInit`.
-4. **After data-segment rewrites, validate data-count and data users.** A pass that deletes or remaps data segments must update `MemoryInit`, `DataDrop`, active data modes, and `DataCntSec` together.
+4. **After data-segment rewrites, validate data-count and data users.** A pass that deletes or remaps data segments must update `MemoryInit`, `DataDrop`, active data modes, and `DataCntSec` together; use [`data-segment-authoring.md`](data-segment-authoring.md) for the full segment rewrite checklist.
 5. **Do not overclaim WAST text support.** Core/binary/generator support is broader than WAST text for nonzero memory indices and atomics. Use direct core or binary fixtures when testing those surfaces today.
 6. **For memory64, test more than loads.** Include `memory.size`, `memory.grow`, `memory.copy`, and the known `memory.fill` length caveat when changing address-width logic.
 

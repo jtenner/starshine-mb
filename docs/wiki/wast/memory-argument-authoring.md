@@ -15,6 +15,7 @@ sources:
   - ../../../src/validate/gen_valid.mbt
 related:
   - ./memory-instruction-authoring.md
+  - ./data-segment-authoring.md
   - ./resource-declaration-authoring.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/data-element-and-datacount-sections.md
@@ -28,7 +29,7 @@ related:
 
 ## Overview
 
-Use this page when writing, reviewing, or widening WAST fixtures that need memory `offset=`, `align=`, selected-memory, memory32/memory64 address-width, or active data-segment offset guidance. For runtime stack shapes and side-effect/trap behavior of scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, use [`memory-instruction-authoring.md`](memory-instruction-authoring.md). For `(memory ...)` declarations, imports, exports, and the current WAST limit-syntax caveats, use [`resource-declaration-authoring.md`](resource-declaration-authoring.md).
+Use this page when writing, reviewing, or widening WAST fixtures that need memory `offset=`, `align=`, selected-memory, or memory32/memory64 address-width guidance. For active/passive `(data ...)` fields, string payloads, and data-segment initialization offsets, use [`data-segment-authoring.md`](data-segment-authoring.md). For runtime stack shapes and side-effect/trap behavior of scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, use [`memory-instruction-authoring.md`](memory-instruction-authoring.md). For `(memory ...)` declarations, imports, exports, and the current WAST limit-syntax caveats, use [`resource-declaration-authoring.md`](resource-declaration-authoring.md).
 
 A WebAssembly memory instruction has two different address components:
 
@@ -134,7 +135,7 @@ Bulk-memory instructions carry resource indices separately from scalar/SIMD `Mem
 
 In Starshine core, `memory.init` is [`Instruction::MemoryInit(DataIdx, MemIdx)`](../../../src/lib/types.mbt), and `memory.copy` is [`Instruction::MemoryCopy(MemIdx, MemIdx)`](../../../src/lib/types.mbt). Validation stack-types their destination/source/length positions separately in [`typecheck_memory_init(...)`](../../../src/validate/typecheck.mbt) and [`typecheck_memory_copy(...)`](../../../src/validate/typecheck.mbt). WAST lowering currently defaults the memory index to `0` for these instruction forms.
 
-Active data-segment offsets are another nearby concept. An active data segment has a parent `MemIdx` plus a constant offset expression, documented in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). That offset expression is module initialization data, not a function-body `MemArg.offset` immediate.
+Active data-segment offsets are another nearby concept. An active data segment has a parent `MemIdx` plus a constant offset expression, documented for text fixtures in [`data-segment-authoring.md`](data-segment-authoring.md) and for binary/core headers in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). That offset expression is module initialization data, not a function-body `MemArg.offset` immediate.
 
 ## Starshine Code Map
 
@@ -156,7 +157,7 @@ When changing memory-argument text, binary, or validation behavior:
 1. **Start with the layer that owns the behavior.** WAST alignment syntax belongs in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt); binary immediate preservation belongs in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt); address-width stack typing belongs in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt).
 2. **Test defaults and explicit forms separately.** `None` and `Some(MemIdx(0))` may compare equal, but nonzero memory indices must roundtrip and validate distinctly.
 3. **Include memory32 and memory64 fixtures at the right layer.** Memory64 changes the stack address type and `memory.size` / `memory.grow` widths; current WAST declarations only cover the memory32 limit path, so memory64 declaration evidence needs direct core/binary fixtures or new text-surface work first. i32 memories still need offset-range rejection tests.
-4. **Do not conflate `MemArg.offset` with active-segment offsets.** If a pass changes data segment layout, update [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) and any memory-packing or memory64-lowering pages rather than only this WAST page.
+4. **Do not conflate `MemArg.offset` with active-segment offsets.** If a pass changes data segment layout, update [`data-segment-authoring.md`](data-segment-authoring.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), and any memory-packing or memory64-lowering pages rather than only this WAST page.
 5. **Use direct core/binary fixtures for nonzero memory indices until WAST is widened.** If WAST grows explicit memory-index syntax, add parser/lowerer/printer tests first, then route the change through this page, [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), and [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 
 ## Current Gaps And Caveats

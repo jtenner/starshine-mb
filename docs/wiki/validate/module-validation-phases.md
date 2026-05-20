@@ -98,7 +98,7 @@ Two practical consequences follow:
 | `tagsec` | Validates exception tag type indices and empty tag result types. | Extends `tags` incrementally. | `validate_tagsec`, `TagType` validation; WAST catch/throw authoring details live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). |
 | `globalsec` | Validates global types and constant initializers. Later globals see earlier globals only. | Extends `globals` incrementally. | `validate_globalsec`, `validate_const_expr`; WAST global declarations, imports, exports, mutability syntax, and initializer-order examples live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | `elemsec` | Validates passive/declarative/active element modes, element payload types, table targets, and constant offsets. | Extends `elems`. | `validate_elemsec`; segment guide in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). |
-| `datasec` | Validates passive/active data modes, memory targets, and constant offsets. | Extends `datas`. | `validate_datasec`. |
+| `datasec` | Validates passive/active data modes, memory targets, and constant offsets. | Extends `datas`. | `validate_datasec`; WAST fixture guide in [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md). |
 | `datacnt` | Checks declared data-count equality with the data section. | Reports `DataCountSection` diagnostics. | `validate_datacnt`. |
 | `datacnt_requirement` | Rejects bodies using `memory.init` / `data.drop` when the data-count section is absent. | Reports `FunctionBody` diagnostics with absolute imported-prefix function indices. | `validate_bulk_memory_data_count_requirement`; tests for `data count section required`. |
 | `startsec` | Checks the optional start function exists and has no params/results. | Reports `StartSection`, carrying the target `FuncIdx` when present. | `validate_startsec`; start tests in `validate.mbt`. |
@@ -176,7 +176,7 @@ After a pass changes module structure, ask these validator questions before rely
 1. Did every changed type, function, table, memory, global, tag, element, data, or name index get remapped in all carrier instructions and metadata?
 2. Do `FuncSec` and `CodeSec` still agree on defined-function count after imports are accounted for?
 3. If a pass deletes or rewrites functions, do surviving `ref.func` instructions still have declaration sources?
-4. If a pass deletes data segments or bulk-memory instructions, is `DataCntSec` still correct and still present only when required?
+4. If a pass deletes data segments or bulk-memory instructions, is `DataCntSec` still correct, are data-index users repaired, and do WAST fixture expectations still match [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md)?
 5. If a pass rewrites globals, tables, elements, data, or GC aggregate instructions, are initializer expressions still constant under the current environment order, did table-instruction carriers follow the table rewrite checklist in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), and did aggregate type/data/element carriers follow [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)?
 6. If a pass rewrites bodies, do end-of-body result checks still pass with no extra stack values?
 7. If a pass changes public or debug metadata, are structured name maps and raw name payloads cleared or repaired?

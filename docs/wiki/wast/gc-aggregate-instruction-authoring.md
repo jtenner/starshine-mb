@@ -23,6 +23,7 @@ related:
   - table-instruction-authoring.md
   - memory-instruction-authoring.md
   - ../binary/instruction-and-expression-encoding.md
+  - ./data-segment-authoring.md
   - ../binary/data-element-and-datacount-sections.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../fuzzing/wast-arbitrary-parity-plan.md
@@ -162,7 +163,7 @@ When a pass needs these instructions today, construct them directly in core fixt
 3. **Respect mutability.** `struct.set`, `array.set`, `array.fill`, `array.copy`, and `array.init_*` require mutable storage in the destination aggregate type. Do not infer mutability from the presence of a setter opcode alone.
 4. **Treat packed signedness as semantic.** Rewriting `*_get_s` to `*_get_u`, or to plain `get`, changes sign extension for packed fields/elements.
 5. **Preserve traps and bounds checks.** Array index, range, copy, fill, data, and element operations can trap at runtime. Reordering or deleting them needs an effect/bounds proof, not just matching validation.
-6. **Use the segment pages for data/element-backed arrays.** `array.init_data` and `array.new_data` depend on data segments and data-count-style resource validity; `array.init_elem` and `array.new_elem` depend on element segments and function-reference declaration surfaces. See [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`element-segment-authoring.md`](element-segment-authoring.md), and [`table-instruction-authoring.md`](table-instruction-authoring.md).
+6. **Use the segment pages for data/element-backed arrays.** `array.init_data` and `array.new_data` depend on data segments and data-count-style resource validity; `array.init_elem` and `array.new_elem` depend on element segments and function-reference declaration surfaces. See [`data-segment-authoring.md`](data-segment-authoring.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`element-segment-authoring.md`](element-segment-authoring.md), and [`table-instruction-authoring.md`](table-instruction-authoring.md).
 7. **Widen WAST arbitrary only after text support exists.** The generator coverage ledger proves core valid generation for many aggregate operations, but `src/wast/arbitrary.mbt` should not emit unsupported `struct.set` or `array.*` text until the WAST path accepts and prints it.
 
 ## Source Map

@@ -20,6 +20,7 @@ related:
   - table-instruction-authoring.md
   - memory-instruction-authoring.md
   - memory-argument-authoring.md
+  - data-segment-authoring.md
   - variable-instruction-authoring.md
   - element-segment-authoring.md
   - exception-tag-authoring.md
@@ -41,7 +42,7 @@ Use this page when writing or debugging WAST module fields that **declare table,
 - table element abbreviations attached to a table field; and
 - global mutability plus initializer expressions.
 
-This page deliberately does **not** own runtime operations on those resources. Use [`table-instruction-authoring.md`](table-instruction-authoring.md) for `table.get` / `table.init` / `call_indirect`, [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for loads, stores, `memory.copy`, and `memory.init`, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `offset=` / `align=`, and [`variable-instruction-authoring.md`](variable-instruction-authoring.md) for `global.get` / `global.set`. The binary/core section guide remains [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
+This page deliberately does **not** own runtime operations or segment payloads on those resources. Use [`table-instruction-authoring.md`](table-instruction-authoring.md) for `table.get` / `table.init` / `call_indirect`, [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for loads, stores, `memory.copy`, and `memory.init`, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `offset=` / `align=`, [`data-segment-authoring.md`](data-segment-authoring.md) for `(data ...)` fields and the current inline memory-data abbreviation caveat, and [`variable-instruction-authoring.md`](variable-instruction-authoring.md) for `global.get` / `global.set`. The binary/core section guide remains [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
 
 The current primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md). It reconciles the current official WebAssembly text/module/type/validation sources with Starshine's WAST parser, lowerer, printer, core model, binary codec, validator, valid generator, and WAST arbitrary surface.
 
@@ -186,6 +187,7 @@ Useful related signoff pages:
 - Assuming `(memory 1)` proves memory64 behavior. Current WAST declaration lowering produces `I32Limits`; memory64 declaration evidence needs core or binary fixtures.
 - Writing inline table/memory/global import shorthand and expecting Starshine to lower it today. Use explicit import fields.
 - Treating a table-attached `(elem ...)` abbreviation as a `Table(..., Some(expr))` core initializer. Starshine WAST lowers it to an element segment.
+- Using official inline memory-data abbreviation syntax as current Starshine WAST evidence. Use separate `(memory ...)` and `(data ...)` fields until [`data-segment-authoring.md`](data-segment-authoring.md) says otherwise.
 - Forgetting imported-prefix indices when updating `table.get`, `memory.init`, `global.get`, exports, names, or segment modes after resource reordering.
 - Reordering globals without preserving incremental constant-expression visibility.
 - Treating WAST arbitrary resource fields as semantic validation. WAST arbitrary is parser/printer coverage; `gen_valid`, binary tests, and validator tests are the typed-validity lanes.

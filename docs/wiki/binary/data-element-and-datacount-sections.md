@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../raw/wasm/2026-05-13-data-element-and-datacount-sources.md
   - ../../../src/lib/types.mbt
@@ -21,6 +22,7 @@ related:
   - custom-and-name-sections.md
   - ../wast/gc-type-authoring.md
   - ../wast/element-segment-authoring.md
+  - ../wast/data-segment-authoring.md
   - ../wast/memory-instruction-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../validate/module-validation-phases.md
@@ -54,7 +56,7 @@ The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-data-el
 | Passive | `DataMode::passive()` | data header `1`, then bytes | no parent memory or offset to validate. |
 | Active explicit memory | `DataMode::active(memidx, offset_expr)` | data header `2`, then `memidx`, offset expr, bytes | selected memory must exist; offset type follows that memory's limits. |
 
-Text data segments in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) accept an optional data id, optional memory use, optional `(offset ...)` wrapper, and one or more string literals. The lowering path in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) treats an empty offset as passive data and a non-empty offset as active data.
+Text data segments in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) accept an optional data id, optional memory use, optional `(offset ...)` wrapper, and one or more string literals. The lowering path in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) treats an empty offset as passive data and a non-empty offset as active data. Use [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md) for the focused WAST authoring contract, current printer/abbreviation caveats, and fixture guidance.
 
 ### Element segment modes and kinds
 
@@ -83,6 +85,8 @@ Starshine enforces two separate rules in [`src/validate/validate.mbt`](../../../
 This split is useful for diagnostics: a mismatched count is a section-level `datacnt` problem, while missing data count for a bulk-memory instruction is reported against the function body that required it. The instruction/immediate side of `memory.init`, `data.drop`, `table.init`, and `elem.drop` lives in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md); the runtime memory stack/data-count side lives in [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), while WAST text defaults and `table.init` table/element ordering live in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 
 ## WAST Authoring Examples
+
+The concise data-specific WAST guide is [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md). Keep this binary page focused on how those text shapes map to core modes, binary headers, data-count, and validation.
 
 ### Active data for memory `0`
 
@@ -140,7 +144,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 
 ## Edge Cases And Invariants
 
-- **Active offsets are const expressions.** Non-constant active data or element offsets are validator failures and are intentionally covered by invalid-generation lanes. Keep active data offsets distinct from function-body `MemArg.offset`; the WAST memory-argument guide spells out that split in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).
+- **Active offsets are const expressions.** Non-constant active data or element offsets are validator failures and are intentionally covered by invalid-generation lanes. Keep active data offsets distinct from function-body `MemArg.offset`; the data-specific text guide is [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md), and the WAST memory-argument guide spells out the load/store immediate split in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).
 - **Table/memory index defaults are syntax sugar.** Text forms can omit parent indices; lowering resolves them to numeric `TableIdx(0)` or `MemIdx(0)` only when the segment is active.
 - **Typed element segments are not function-index lists.** Once an explicit element type or explicit `(item ...)` expression is present, preserve expression typing instead of collapsing blindly to `FuncsElemKind`; any nested `ref.func` values are still scanned by the declaration validator.
 - **Declarative-mode caveat in WAST lowering.** The core library and binary surfaces support `ElemMode::declarative()`, and generator/validation code exercises it. The WAST parser recognizes `(elem declare func ...)`, but the current WAST `ElemSegment` AST has no explicit mode field, so text-to-lib lowering infers mode from offset emptiness and does not yet preserve declarative mode as a distinct lowered mode. Treat this as a known WAST fidelity gap, not as evidence that Starshine's core representation lacks declarative elements; the focused text-authoring guide is [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
@@ -157,7 +161,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 
 ## Sources
 
-- Primary-source snapshot: [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md); WAST runtime memory companion: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md)
+- Primary-source snapshots: [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md), [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md); WAST data companion: [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md); WAST runtime memory companion: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - WAST parse/lower/print evidence and declarative-mode caveat: [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
