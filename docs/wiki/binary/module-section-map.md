@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-19
 sources:
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../../../src/lib/types.mbt
@@ -16,6 +16,7 @@ related:
   - type-table-memory-global-tag-sections.md
   - data-element-and-datacount-sections.md
   - ../wast/resource-declaration-authoring.md
+  - ../wast/string-instruction-authoring.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../tooling/validation-gates.md
   - ../validate/module-validation-phases.md
@@ -25,7 +26,7 @@ related:
 
 ## Overview
 
-This is the high-level map for Starshine's whole-module binary contract. It ties together the section-specific pages for custom/name metadata, functions/imports/exports/code, instruction/expression encoding, non-function resource sections, and segments so pass authors can answer one common question: "If I change this module field, what else must move with it?" For fixture-facing WAST table, memory, and global declarations, use [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md); this page stays focused on binary section order and cross-section index repair.
+This is the high-level map for Starshine's whole-module binary contract. It ties together the section-specific pages for custom/name metadata, functions/imports/exports/code, instruction/expression encoding, non-function resource sections, and segments so pass authors can answer one common question: "If I change this module field, what else must move with it?" For fixture-facing WAST table, memory, and global declarations, use [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md); for text-level string helper stack/storage rules, use [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md). This page stays focused on binary section order and cross-section index repair.
 
 The official WebAssembly 3.0 binary format has two ordering rules that are easy to conflate:
 
@@ -46,7 +47,7 @@ Starshine follows those rules in its core module representation and validation e
 | 4 | Table | `4` | `table_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local table definitions after table imports; optional table initializer expressions are preserved. |
 | 5 | Memory | `5` | `mem_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local memory definitions after memory imports; shared memories need maxima in Starshine validation. |
 | 6 | Tag | `13` | `tag_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Post-MVP section id, but Starshine decodes/encodes it before globals to match the current core spec order. |
-| 7 | Local stringrefs | local `14` | `stringrefs_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local literal pool used by `string.const` binary round trips; not a stable core section in the checked official sources. |
+| 7 | Local stringrefs | local `14` | `stringrefs_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) | Local literal pool used by `string.const` binary round trips; not a stable core section in the checked official sources. |
 | 8 | Global | `6` | `global_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local globals validate incrementally, so earlier globals are visible to later initializers but not vice versa. |
 | 9 | Export | `7` | `export_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) | Export names must be unique and indices must resolve in their target spaces. |
 | 10 | Start | `8` | `start_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) | Target function must exist and have no params/results. |
@@ -110,7 +111,7 @@ Use this checklist before implementing or reviewing any pass that deletes, reord
 | Tags | `throw`, catch clauses, imports/exports, tag names, and exception validation assumptions. |
 | Elements or data segments | Segment indices, active parent table/memory indices, `table.init` / `elem.drop` / `memory.init` / `data.drop`, name maps, data-count equality, and startup-trap policy; pair element runtime uses with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
 | Custom/name metadata | Clear `raw_name_sec_payload` after structured rewrites, update affected name maps, preserve unrelated non-`name` custom payloads unless the pass explicitly owns a stripping policy. |
-| Local `stringrefs` pool | Keep `StringRefsSec`, `Instruction::StringConst`, and string pass assumptions consistent; do not describe id `14` as stable core Wasm without refreshing upstream sources. |
+| Local `stringrefs` pool | Keep `StringRefsSec`, `Instruction::StringConst`, supported string helper assumptions, and string pass assumptions consistent; use [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) for text stack/storage rules and do not describe id `14` as stable core Wasm without refreshing upstream sources. |
 
 The pass dossiers most sensitive to this checklist include [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md), [`duplicate-function-elimination`](../binaryen/passes/duplicate-function-elimination/index.md), [`duplicate-import-elimination`](../binaryen/passes/duplicate-import-elimination/index.md), [`reorder-functions`](../binaryen/passes/reorder-functions/index.md), [`reorder-globals`](../binaryen/passes/reorder-globals/index.md), [`remove-unused-types`](../binaryen/passes/remove-unused-types/index.md), [`reorder-types`](../binaryen/passes/reorder-types/index.md), and [`memory-packing`](../binaryen/passes/memory-packing/index.md).
 

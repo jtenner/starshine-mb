@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | binary string helper backlinks
+
+- During the post-update whole-wiki health pass, searched string helper, `StringOps`, `string.const`, and local `StringRefsSec` references for binary-section pages that still routed readers only through literal-pool pages.
+- Updated [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), and [`index.md`](index.md) so stringrefs section rewrite checklists and catalog summaries point at [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md) for WAST stack/storage rules while keeping stable-section caveats on the binary resource pages.
+
 ## [2026-05-19] wast | string instruction authoring
 
 - Added [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md) as the focused WAST guide for `string.const`, array-backed string new helpers, array-backed encode helpers, packed `i8`/`i16` GC-array requirements, encode-destination mutability, proposal/local support boundaries, and generator-versus-WAST-arbitrary coverage rules.

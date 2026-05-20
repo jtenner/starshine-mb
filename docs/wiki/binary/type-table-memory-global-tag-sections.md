@@ -23,6 +23,7 @@ related:
   - ../wast/resource-declaration-authoring.md
   - ../wast/variable-instruction-authoring.md
   - ../wast/exception-tag-authoring.md
+  - ../wast/string-instruction-authoring.md
   - ../binaryen/passes/remove-unused-types/index.md
   - ../binaryen/passes/reorder-types/index.md
   - ../binaryen/passes/reorder-globals/index.md
@@ -42,7 +43,7 @@ This page is the shared Starshine guide for the core module-definition sections 
 - **tag section**: exception tag declarations; and
 - **stringrefs section**: Starshine's local/proposal-facing literal pool for `string.const` binary round trips.
 
-For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
+For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). For `string.const`, array-backed string helpers, and string-helper validation stack/storage rules, pair it with [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md).
 
 The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) is the primary external source for section ids and the core type/table/memory/global/tag validation model. The same snapshot records an important caveat: the reviewed core and js-string-builtins module sources do **not** define a stable core `stringrefs` section id, so Starshine's section-id-`14` `StringRefsSec` should be treated as a local/proposal-facing implementation surface until upstream standardization says otherwise.
 
@@ -55,7 +56,7 @@ The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-ta
 | Memory | `5` | [`MemSec(Array[MemType])`](../../../src/lib/types.mbt) | Memory imports precede definitions in the memory index space; shared memories require a maximum in Starshine validation. |
 | Global | `6` | [`GlobalSec(Array[Global])`](../../../src/lib/types.mbt) | Each global validates under the environment containing imports and earlier globals only; its initializer must be a constant expression of the declared type. |
 | Tag | `13` | [`TagSec(Array[TagType])`](../../../src/lib/types.mbt) | Tag imports precede definitions in the tag index space; each tag type index must resolve to a function type with no results. |
-| Stringrefs | local `14` | [`StringRefsSec(Array[Bytes])`](../../../src/lib/types.mbt) | Local literal pool used by Starshine's binary encoder/decoder for `string.const`; not currently a core-spec section according to the reviewed sources. |
+| Stringrefs | local `14` | [`StringRefsSec(Array[Bytes])`](../../../src/lib/types.mbt) | Local literal pool used by Starshine's binary encoder/decoder for `string.const`; not currently a core-spec section according to the reviewed sources. WAST-side string helper semantics live in [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md). |
 
 Imports are deliberately not duplicated in these definition sections. An imported memory, for example, appears in `ImportSec` as `MemExternType` and then occupies `MemIdx(0)` before the first locally defined memory. The same imported-prefix rule applies to table, global, and tag indices.
 
@@ -162,7 +163,7 @@ A module pass that changes any of these sections must audit more than the sectio
 - **Memory rewrites** must update `MemIdx` carriers: load/store `MemArg` memory operands, `memory.size`, `memory.grow`, `memory.copy`, `memory.fill`, `memory.init`, active data modes, exports/imports, and names. The explicit-memory-index `MemArg` encoding is summarized in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md).
 - **Global rewrites** must update `GlobalIdx` carriers: `global.get`, `global.set`, exports/imports, name maps, global initializer expressions, and any pass summaries that cache global mutability or constant values. The fixture-facing `global.set` mutability and const-expression `global.get` rules are in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 - **Tag rewrites** must update `TagIdx` carriers: `throw`, `try_table` `catch` / `catch_ref` clauses, imports/exports, names, and exception-handling validation assumptions; the focused WAST-side checklist is in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
-- **String literal-pool rewrites** must keep `StringRefsSec`, `string.const` instructions, string-gathering/lowering/lifting passes, and binary round trips consistent.
+- **String literal-pool rewrites** must keep `StringRefsSec`, `string.const` instructions, supported array-backed string helper assumptions, string-gathering/lowering/lifting passes, and binary round trips consistent. Use [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) for WAST stack/storage and proposal/local support boundaries.
 
 Related pass dossiers that depend on this checklist include [`remove-unused-types`](../binaryen/passes/remove-unused-types/index.md), [`reorder-types`](../binaryen/passes/reorder-types/index.md), [`reorder-globals`](../binaryen/passes/reorder-globals/index.md), [`global-refining`](../binaryen/passes/global-refining/index.md), [`multi-memory-lowering`](../binaryen/passes/multi-memory-lowering/index.md), [`memory64-lowering`](../binaryen/passes/memory64-lowering/index.md), [`string-gathering`](../binaryen/passes/string-gathering/index.md), and [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md).
 
