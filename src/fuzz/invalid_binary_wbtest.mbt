@@ -77,6 +77,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-data-index-uleb", "malformed-elem-index-uleb", "invalid-name-section-func-name-utf8",
     "invalid-name-section-local-name-utf8", "invalid-name-section-module-name-utf8",
     "invalid-name-section-type-name-utf8", "invalid-functype-byte", "invalid-code-local-valtype-byte",
+    "type-section-count-underflow", "code-section-count-underflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -97,7 +98,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -990,7 +991,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "simd-load-lane-index-overflow", "malformed-data-index-uleb", "malformed-elem-index-uleb",
       "invalid-name-section-func-name-utf8", "invalid-name-section-local-name-utf8",
       "invalid-name-section-module-name-utf8", "invalid-name-section-type-name-utf8",
-      "invalid-functype-byte", "invalid-code-local-valtype-byte",
+      "invalid-functype-byte", "invalid-code-local-valtype-byte", "type-section-count-underflow",
+      "code-section-count-underflow",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()

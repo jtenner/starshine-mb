@@ -124,6 +124,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionTypeNameUtf8
   InvalidFuncTypeByte
   InvalidCodeLocalValTypeByte
+  TypeSectionCountUnderflow
+  CodeSectionCountUnderflow
 } derive(Eq, Debug)
 
 ///|
@@ -514,6 +516,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidNameSectionTypeNameUtf8 => "invalid-name-section-type-name-utf8"
     InvalidFuncTypeByte => "invalid-functype-byte"
     InvalidCodeLocalValTypeByte => "invalid-code-local-valtype-byte"
+    TypeSectionCountUnderflow => "type-section-count-underflow"
+    CodeSectionCountUnderflow => "code-section-count-underflow"
   }
 }
 
@@ -1176,6 +1180,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      TypeSectionCountUnderflow,
+      "type-section-count-underflow",
+      "type section whose vector count is smaller than its payload entries",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      CodeSectionCountUnderflow,
+      "code-section-count-underflow",
+      "code section whose vector count is smaller than its payload bodies",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -1289,6 +1307,8 @@ fn validate_invalid_binary_strategy_index(
     InvalidNameSectionTypeNameUtf8 => 90
     InvalidFuncTypeByte => 91
     InvalidCodeLocalValTypeByte => 92
+    TypeSectionCountUnderflow => 93
+    CodeSectionCountUnderflow => 94
   }
 }
 
@@ -2656,6 +2676,91 @@ fn validate_invalid_binary_mutate_invalid_code_local_valtype_byte(
 }
 
 ///|
+fn validate_invalid_binary_module_with_type_section_count_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_code_section_count_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_type_section_count_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TypeSectionCountUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_type_section_count_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_code_section_count_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      CodeSectionCountUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_code_section_count_underflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -3831,6 +3936,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_functype_byte(base)
     InvalidCodeLocalValTypeByte =>
       validate_invalid_binary_mutate_invalid_code_local_valtype_byte(base)
+    TypeSectionCountUnderflow =>
+      validate_invalid_binary_mutate_type_section_count_underflow(base)
+    CodeSectionCountUnderflow =>
+      validate_invalid_binary_mutate_code_section_count_underflow(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
