@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
+  - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
   - ../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md
   - ../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md
@@ -21,6 +22,7 @@ sources:
 related:
   - ../wast/gc-type-authoring.md
   - ../wast/reference-instruction-authoring.md
+  - ../validate/type-section-and-subtyping.md
   - ../validate/stack-polymorphism-and-bottom.md
   - ./static-fixtures.md
   - ./exact-reference-equivalence.md
@@ -46,7 +48,7 @@ related:
 4. Typechecking verifies that the inspected type has descriptor metadata, that the operand is compatible with the inspected type, and that the result exactness follows the operand.
 5. The static harness keeps `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` on the checked static path while separating runtime-skip debt from conformance evidence.
 
-Use this page for `ref.get_desc` fixture, lowering, validator, generator, or pass work. Use [`exact-reference-equivalence.md`](exact-reference-equivalence.md) for the lower-level exact-ref structural equality rule and [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for authoring `describes` / `descriptor` metadata.
+Use this page for `ref.get_desc` fixture, lowering, validator, generator, or pass work. Use [`exact-reference-equivalence.md`](exact-reference-equivalence.md) for the lower-level exact-ref structural equality rule, [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for authoring `describes` / `descriptor` metadata, and [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md) for the validator phase that proves descriptor metadata pairs are structurally valid before instructions can rely on them.
 
 The current source bridge is [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md). It rechecked the custom-descriptors proposal, the WebAssembly proposals tracker, the upstream bottom-input discussion, the V8 fix, and the current Starshine parser/lowerer/typechecker code.
 

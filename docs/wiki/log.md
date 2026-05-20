@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validate | type-section subtyping and rec-group normalization
+
+- Added [`raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md) after rechecking current WebAssembly Core 3.0 type syntax, binary type encoding, validation, matching, and module-validation sources plus Starshine validator, matching, invalid-fuzzer, and proof-helper evidence.
+- Added [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md) as the focused validator guide for `validate_typesec`, recursive-group `rec_stack` versus normalized `Env.global_types`, `RecIdx`-to-absolute-`TypeIdx` normalization, function/struct/array/field/reference matching rules, descriptor metadata group checks, exact-reference defined-heap-type validation, TypeSection invalid-fuzzer strategies, official-versus-local subtype side-condition caveats, and rewrite/proof signoff guidance.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md), [`custom-descriptors/exact-reference-equivalence.md`](custom-descriptors/exact-reference-equivalence.md), and [`index.md`](index.md) so parser/lowerer, binary-section, descriptor, exactness, and broad validator pages route type-section semantics through one focused contract instead of repeating partial summaries.
+- Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/match.mbt`](../../src/validate/match.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/imports.mbt`](../../src/validate/imports.mbt), and [`../../src/validate_proof/rectype_index.mbt`](../../src/validate_proof/rectype_index.mbt).
+
 ## [2026-05-20] health | trace benchmark gate backlink hygiene
 
 - During the post-update whole-wiki health pass, searched trace benchmark, `validate_trace`, `phase_totals`, `helper_totals`, `hotspots`, and raw-source-family references across validation, tooling, index, and raw pages.

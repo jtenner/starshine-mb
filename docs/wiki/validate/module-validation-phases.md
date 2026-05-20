@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
+  - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
@@ -30,6 +31,7 @@ sources:
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/validate_trace/main.mbt
 related:
+  - ./type-section-and-subtyping.md
   - ./constant-expressions.md
   - ./stack-polymorphism-and-bottom.md
   - ./import-export-and-external-type-matching.md
@@ -66,7 +68,7 @@ Starshine validates a module by building a WebAssembly validation context, check
 
 The local implementation is split deliberately:
 
-- [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) owns whole-module phases, section validation, constant-expression checks, diagnostics, trace phases, invalid-generator feature ledgers, and cross-section checks.
+- [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) owns whole-module phases, section validation, type-section and descriptor metadata checks, constant-expression checks, diagnostics, trace phases, invalid-generator feature ledgers, and cross-section checks.
 - [`src/validate/env.mbt`](../../../src/validate/env.mbt) owns the validation context (`Env`): types, functions, resource index spaces, locals, labels, and return type.
 - [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) owns expression and instruction stack typing; the byte-level instruction and immediate contract that feeds it is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md).
 - [`src/validate/match.mbt`](../../../src/validate/match.mbt) owns subtype/import/export matching, exact reference equivalence, and limit matching.
@@ -103,7 +105,7 @@ Two practical consequences follow:
 
 | Phase | What it checks/builds | Env or diagnostic effect | Main evidence |
 | --- | --- | --- | --- |
-| `typesec` | Validates recursive type groups, subtype references, descriptor metadata, exact-ref constraints, and appends normalized types. | Extends `Env.global_types` and `rec_stack`. | `validate_typesec`, `validate_rectype_and_extend`, descriptor tests in `validate.mbt`. |
+| `typesec` | Validates recursive type groups, subtype references, descriptor metadata, exact-ref constraints, then normalizes group-local `RecIdx` references into absolute `TypeIdx` entries. | Extends `Env.global_types`; uses `rec_stack` only while a current rec group is in scope. | Focused contract in [`type-section-and-subtyping.md`](type-section-and-subtyping.md), `validate_typesec`, `validate_rectype_and_extend`, descriptor tests in `validate.mbt`. |
 | `importsec` | Validates imported extern types and extends imported-prefix index spaces; it does not match host-provided values during ordinary module validation. | Extends `funcs`, `func_type_idxs`, `tables`, `mems`, `globals`, and `tags`. | `validate_importsec`; focused import/export and matching guide in [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md); imported-prefix section guide in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), with WAST function import syntax in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md) and table/memory/global import syntax in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | `funcsec` | Validates defined-function type indices. | Appends defined function signatures after imported functions. | `validate_funcsec`; code/function length tests. |
 | `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`; the constant-expression contract is in [`constant-expressions.md`](constant-expressions.md), WAST table declarations and table element abbreviations are summarized in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), and instruction-side table use is in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
@@ -207,6 +209,7 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Constant-expression source bridge: [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md)
 - Stack-polymorphism source bridge: [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md)
 - Import/export matching source bridge: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
+- Type-section and subtyping bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Section-order snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
 - `ref.func` snapshot: [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md)
 - Diagnostics/repro snapshot: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md)

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-19
 sources:
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
+  - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
   - ../../../src/binary/decode.mbt
@@ -19,6 +20,7 @@ related:
   - data-element-and-datacount-sections.md
   - custom-and-name-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/type-section-and-subtyping.md
   - ../validate/import-export-and-external-type-matching.md
   - ../validate/constant-expressions.md
   - ../wast/gc-type-authoring.md
@@ -45,7 +47,7 @@ This page is the shared Starshine guide for the core module-definition sections 
 - **tag section**: exception tag declarations; and
 - **stringrefs section**: Starshine's local/proposal-facing literal pool for `string.const` binary round trips.
 
-For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For import/export validation, duplicate export names, and external-type matching rules that consume these resource types, pair it with [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md). For the initializer and table-initializer constant-expression allow-list, local/spec caveats, and immutable-`global.get` visibility, pair it with [`../validate/constant-expressions.md`](../validate/constant-expressions.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). For `string.const`, array-backed string helpers, and string-helper validation stack/storage rules, pair it with [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md).
+For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For type-section validation, recursive-group normalization, subtype matching, descriptor metadata checks, and official-versus-local subtype caveats, pair it with [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md). For import/export validation, duplicate export names, and external-type matching rules that consume these resource types, pair it with [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md). For the initializer and table-initializer constant-expression allow-list, local/spec caveats, and immutable-`global.get` visibility, pair it with [`../validate/constant-expressions.md`](../validate/constant-expressions.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). For `string.const`, array-backed string helpers, and string-helper validation stack/storage rules, pair it with [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md).
 
 The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) is the primary external source for section ids and the core type/table/memory/global/tag validation model. The same snapshot records an important caveat: the reviewed core and js-string-builtins module sources do **not** define a stable core `stringrefs` section id, so Starshine's section-id-`14` `StringRefsSec` should be treated as a local/proposal-facing implementation surface until upstream standardization says otherwise.
 
@@ -97,7 +99,7 @@ Starshine's validator mirrors the section dependency order in [`validate_module_
 
 Important section-specific rules:
 
-- [`validate_typesec(...)`](../../../src/validate/validate.mbt) accepts each `RecType` under a recursive context, then appends normalized absolute subtype references to `Env.global_types`. This is why later code-body validation can resolve types without needing the original rec-group-relative context.
+- [`validate_typesec(...)`](../../../src/validate/validate.mbt) accepts each `RecType` under a recursive context, checks subtype matching and descriptor metadata, then appends normalized absolute subtype references to `Env.global_types`. This is why later code-body validation can resolve types without needing the original rec-group-relative context. The focused validator contract, including the current local/spec caveat around official subtype side conditions, is [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
 - [`validate_importsec(...)`](../../../src/validate/validate.mbt) validates each imported extern type and appends imported function/table/memory/global/tag entries before local definition sections run. It does not match host values; see [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md) for the validation-versus-instantiation split.
 - [`Validate for TableType`](../../../src/validate/validate.mbt) checks the reference type and limit maximum; [`validate_table(...)`](../../../src/validate/validate.mbt) additionally checks optional initializers as constant expressions of the table element type. Use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for the local allow-list and table-initializer `global.get` caveat.
 - [`Validate for MemType`](../../../src/validate/validate.mbt) checks limit bounds and requires shared memories to have a maximum.
@@ -160,7 +162,7 @@ When Starshine encodes a module containing `Instruction::StringConst`, it collec
 
 A module pass that changes any of these sections must audit more than the section being edited:
 
-- **Type rewrites** must update function signatures, block types, table element types, global types, tag types, casts, GC construction/access instructions, element segment types, export/import types, names, and any pass-local type caches.
+- **Type rewrites** must update function signatures, block types, table element types, global types, tag types, casts, GC construction/access instructions, element segment types, export/import types, names, and any pass-local type caches. Revalidate recursive-group normalization and subtype matching with [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md) before relying on output validity.
 - **Table rewrites** must update `TableIdx` carriers: table instructions, `call_indirect` / `return_call_indirect`, active element modes, table exports/imports, names, and table initializers. For WAST text defaults and instruction-stack caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 - **Memory rewrites** must update `MemIdx` carriers: load/store `MemArg` memory operands, `memory.size`, `memory.grow`, `memory.copy`, `memory.fill`, `memory.init`, active data modes, exports/imports, and names. The explicit-memory-index `MemArg` encoding is summarized in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md).
 - **Global rewrites** must update `GlobalIdx` carriers: `global.get`, `global.set`, exports/imports, name maps, global initializer expressions, and any pass summaries that cache global mutability or constant values. The fixture-facing `global.set` mutability and const-expression `global.get` rules are in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
@@ -182,6 +184,7 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 ## Sources
 
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md)
+- Type-section validation refresh: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation environment and rules: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
