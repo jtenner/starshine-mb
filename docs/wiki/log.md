@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] binary | LEB128 integer encoding contract
+
+- Added [`raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md) after rechecking current WebAssembly Core binary values/conventions, the upstream `binary-leb128.wast` fixture, and Starshine binary decode/encode/test/fuzz/static-harness evidence.
+- Added [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) as the focused guide for bounded-but-not-shortest LEB128 decoding, unsigned/signed terminal unused-bit rules, Starshine decode/encode/size-helper error families, `u32`/`s32`/`s33`/`u64`/`s64` width limits, section-size/vector/index/constant/blocktype/memarg carriers, invalid-binary malformed-section-size fuzzing, and pass byte-profitability guidance.
+- Updated [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so binary layout, instruction-byte, and invalid-fuzz readers route integer-byte spelling through one shared contract instead of relying on scattered LEB notes in pass dossiers.
+- Grounded the local code map in [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt), [`../../src/fuzz/invalid_binary.mbt`](../../src/fuzz/invalid_binary.mbt), [`../../src/fuzz/invalid_binary_wbtest.mbt`](../../src/fuzz/invalid_binary_wbtest.mbt), [`../../src/wast/spec_harness.mbt`](../../src/wast/spec_harness.mbt), and [`../../tests/spec/binary-leb128.wast`](../../tests/spec/binary-leb128.wast).
+
 ## [2026-05-20] tooling | release process source-backed checklist
 
 - Added [`raw/release/2026-05-20-starshine-release-process-sources.md`](raw/release/2026-05-20-starshine-release-process-sources.md) after checking current npm package metadata, publish, pack, and lifecycle-script docs plus local `AGENTS.md`, `docs/README.md`, `moon.mod.json`, `node/package.json`, Node build/generation scripts, validation gates, and existing MoonBit/Node raw source bridges.

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
+  - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
   - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
@@ -24,6 +25,7 @@ sources:
   - ../../../src/binary/tests.mbt
 related:
   - module-section-map.md
+  - leb128-and-integer-encoding.md
   - function-import-export-and-code-sections.md
   - type-table-memory-global-tag-sections.md
   - data-element-and-datacount-sections.md
@@ -59,6 +61,8 @@ The central invariant is a layer split:
 ```text
 binary bytes -> syntactic Instruction / Expr decode -> module validation/typecheck
 ```
+
+LEB128 integer spellings are part of the first layer. Starshine rejects unterminated, too-wide, out-of-range, or malformed-terminal LEB bytes during decode, but it still accepts official-compatible overlong encodings inside the byte-count bound. That focused contract now lives in [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md).
 
 `src/binary/decode.mbt` and `src/binary/encode.mbt` own bytes, opcode numbers, immediates, expression terminators, and malformed-encoding errors. `src/validate/typecheck.mbt` owns stack effects, block labels, index resolution, memory/table/data/element preconditions, and unreachable-code stack polymorphism; the bottom-value and concrete pushed-value boundary is now centralized in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 
@@ -109,7 +113,7 @@ The local/global variable instruction family is byte-simple but semantically cou
 
 ### Scalar numeric instructions
 
-Scalar numeric constants and operators are mostly byte-simple but validation-sensitive. `i32.const`, `i64.const`, `f32.const`, and `f64.const` use opcodes `0x41` through `0x44` plus literal immediates; most tests, comparisons, arithmetic, and conversions use one-byte opcodes; sign-extension uses `0xC0` through `0xC4`; and saturating truncations use `0xFC` subcodes `0` through `7`. The byte codec does not prove stack validity, trap preservation, signedness, or NaN behavior. Use [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) for text literal caveats, scalar stack effects, and pass rewrite hazards, and [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for which scalar forms Starshine currently permits in initializer/offset expressions.
+Scalar numeric constants and operators are mostly byte-simple but validation-sensitive. `i32.const`, `i64.const`, `f32.const`, and `f64.const` use opcodes `0x41` through `0x44` plus literal immediates; the integer constants use signed LEB encodings while the float constants use fixed little-endian payload bytes. Most tests, comparisons, arithmetic, and conversions use one-byte opcodes; sign-extension uses `0xC0` through `0xC4`; and saturating truncations use `0xFC` subcodes `0` through `7`. The byte codec does not prove stack validity, trap preservation, signedness, or NaN behavior. Use [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md) for integer-byte spelling and size accounting, [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) for text literal caveats, scalar stack effects, and pass rewrite hazards, and [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for which scalar forms Starshine currently permits in initializer/offset expressions.
 
 ### Reference instructions
 
@@ -196,6 +200,7 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 ## Edge Cases And Invariants
 
 - **Binary well-formedness is not validation.** A decoded instruction can still have invalid stack effects or unresolved indices.
+- **LEB well-formedness is byte-layer only.** Do not reject official-compatible overlong encodings as malformed, but do reject EOF, too-many-byte, out-of-range, and invalid terminal unused/sign-extension-bit forms before validation; the focused examples live in [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md).
 - **Expression terminators are structural.** Do not preserve or synthesize raw `end` opcodes in the `Instruction` enum; they are owned by expression/control encoding. Use [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md) when the same shape needs text-level label, `br_if`, or `br_table` guidance.
 - **Blocktype type indices must name function types.** Struct/array type indices are not legal blocktype expansions.
 - **Recursive-index blocktypes are not binary-output-safe.** Normalize to absolute type indices before encode.
@@ -207,6 +212,7 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 ## Sources
 
 - SIMD lane-immediate validation refresh: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md), [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
+- LEB128 binary integer refresh: [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Official source snapshot: [`../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md)
 - Local code source map: [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
