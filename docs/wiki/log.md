@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | element segment mode and payload refresh
+
+- Added [`raw/wasm/2026-05-20-wast-element-segment-source-refresh.md`](raw/wasm/2026-05-20-wast-element-segment-source-refresh.md) after rechecking the current WebAssembly 3.0 text/syntax/binary/validation sources plus Starshine WAST parser/lowerer/printer, core/binary element model, validator, `gen_valid`, and core arbitrary evidence.
+- Refreshed [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md) from a declarative-mode caveat note into a full mode/payload guide covering active/passive/declarative semantics, function-list versus typed-expression payloads, binary header `0..7` mapping, active/passive/declarative examples, non-`funcref` typed element fixtures, table element abbreviations, rewrite/signoff guidance, and the current WAST gaps around declarative-mode preservation and typed declarative text.
+- Updated [`wast/index.md`](wast/index.md), [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md) so WAST navigation, table runtime payload guidance, and `[FZG]021` generator coverage route element text mirrors through the focused element-segment page instead of only the binary segment guide.
+- Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/wast/passive_typed_elem_surface_test.mbt`](../../src/wast/passive_typed_elem_surface_test.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
+
 ## [2026-05-20] validation | MoonBit proof trust-source refresh
 
 - Added [`raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md) after rechecking current official MoonBit formal-verification docs, the Moon command manual/source, the first-class verification blog post, and local `src/validate_proof` / `src/validate` proof-helper surfaces.

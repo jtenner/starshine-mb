@@ -142,7 +142,7 @@ This is the safe shape for multi-table fixtures because it makes destination/sou
     (elem.drop $e)))
 ```
 
-Use a passive segment for `table.init` / `elem.drop` fixtures. The focused element segment guide explains why declarative segments are declaration-only and why current Starshine WAST lowering still has a declarative-mode preservation gap: [`element-segment-authoring.md`](element-segment-authoring.md).
+Use a passive segment for `table.init` / `elem.drop` fixtures. The focused element segment guide explains the passive-versus-declarative split, typed-expression payloads, and why current Starshine WAST lowering still has a declarative-mode preservation gap plus no proven typed-declarative text surface: [`element-segment-authoring.md`](element-segment-authoring.md).
 
 ### Table64 caution fixture
 
@@ -160,7 +160,7 @@ When a pass or generator change touches table instructions, use this checklist:
 1. **Table remaps:** update `TableIdx` carriers in `call_indirect`, `return_call_indirect`, `table.get`, `table.set`, `table.size`, `table.grow`, `table.fill`, `table.copy`, `table.init`, active element modes, table exports/imports, table names, and table initializer expressions.
 2. **Element remaps:** update `ElemIdx` carriers in `table.init`, `elem.drop`, `array.new_elem`, `array.init_elem`, element names, and any element-section payload references documented in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). The `array.*` element-backed forms are core/binary/validator-visible but not current WAST text; route fixture-format decisions through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 3. **Function remaps:** indirect-call tables often start from element payloads; function reordering/deletion must also update element payloads, `ref.func` declaration sources, exports, starts, calls, names, and annotations as described in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
-4. **Segment mode:** only passive element segments are runtime payloads for `table.init` / `elem.drop`; declarative element segments are for declaration effects. Do not paper over the current WAST declarative-mode lowering gap.
+4. **Segment mode:** use passive element segments for runtime `table.init` / `elem.drop` payload fixtures; declarative element segments are for declaration effects. Do not paper over the current WAST declarative-mode lowering gap or the separate typed-declarative text gap.
 5. **Type validation:** after table or element rewrites, re-run module validation so reference-type matching, address-width stack types, table index existence, element index existence, and indirect-call funcref compatibility are checked.
 6. **Fuzz evidence:** generator/table work should update the coverage-ledger page and route WAST arbitrary claims through [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md) rather than treating parser acceptance as semantic validation.
 

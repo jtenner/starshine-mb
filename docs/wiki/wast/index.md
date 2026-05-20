@@ -74,7 +74,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 - [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md) — threads-proposal atomic loads/stores/RMW/wait/notify/fence; core/binary/validator/generator support with a current WAST keyword/parser gap.
 - [`table-instruction-authoring.md`](table-instruction-authoring.md) — `call_indirect`, table get/set/size/grow/fill/copy/init, `elem.drop`, and table64 caveats.
 - [`data-segment-authoring.md`](data-segment-authoring.md) — active/passive `(data ...)`, offsets, string payloads, conservative emitted `DataCntSec`, and pass guidance for data-index users.
-- [`element-segment-authoring.md`](element-segment-authoring.md) — active/passive/declarative element segments, typed empty elements, and the current text declarative-mode lowering gap.
+- [`element-segment-authoring.md`](element-segment-authoring.md) — active/passive/declarative element segments, function-list versus typed-expression payloads, typed empty and non-`funcref` examples, table element abbreviation behavior, and current WAST gaps around declarative-mode preservation plus typed declarative text.
 
 ### Numeric, SIMD, and variables
 
@@ -90,7 +90,7 @@ The WAST pages deliberately keep text-surface gaps visible instead of smoothing 
 - **Aggregate instruction text:** many official `array.*` and `struct.set` families currently need core/binary/generator fixtures; route through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 - **Atomic text:** `0xFE` atomic instructions are core/binary/validator/generator-visible, while WAST keywords/parser cases are still absent; route through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md).
 - **Memory and table widths:** memory64/table64 behavior is often best proved at the core/binary layer until declaration and validation widening lands; route through [`memory-argument-authoring.md`](memory-argument-authoring.md), [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and [`table-instruction-authoring.md`](table-instruction-authoring.md).
-- **Declarative elements:** direct core/binary/generator paths preserve declarative mode, but current text lowering has a declarative-mode preservation gap; route through [`element-segment-authoring.md`](element-segment-authoring.md).
+- **Declarative elements:** direct core/binary/generator paths preserve declarative mode, but current text lowering has a declarative-mode preservation gap and typed declarative text is not a proven WAST surface; route through [`element-segment-authoring.md`](element-segment-authoring.md).
 - **Constant expressions:** official and Starshine-local initializer/offset allow-lists differ; route through [`../validate/constant-expressions.md`](../validate/constant-expressions.md) instead of duplicating the list here.
 
 ## Maintenance Rules
