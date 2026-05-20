@@ -913,7 +913,15 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
 }
 
 ///|
-test "dae raw cleanup strips local self assignments and tees" {
+test "dae raw cleanup strips local and global self assignments and tees" {
+  let same_global_set = [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+  ]
+  let different_global_set = [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+  ]
   let same_local_set = [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
@@ -952,25 +960,40 @@ test "dae raw cleanup strips local self assignments and tees" {
     @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
     @lib.Instruction::drop(),
   ]
-  let mod_ = @lib.Module::new().with_code_sec(
-    @lib.CodeSec::new([
-      @lib.Func::new(
-        @lib.Locals::empty(),
-        @lib.Expr::new(
-          [
-            ..same_local_set,
-            ..same_local_tee_drop,
-            ..same_local_tee_pure_use_drop,
-            ..same_local_tee_set,
-            ..same_local_tee_used,
-            ..different_local_set,
-            ..different_local_tee_drop,
-            @lib.Instruction::return_(),
-          ],
+  let mod_ = @lib.Module::new()
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
         ),
-      ),
-    ]),
-  )
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new(
+            [
+              ..same_global_set,
+              ..same_local_set,
+              ..same_local_tee_drop,
+              ..same_local_tee_pure_use_drop,
+              ..same_local_tee_set,
+              ..same_local_tee_used,
+              ..different_global_set,
+              ..different_local_set,
+              ..different_local_tee_drop,
+              @lib.Instruction::return_(),
+            ],
+          ),
+        ),
+      ]),
+    )
   let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
   assert_true(result.changed)
   match result.mod_out.code_sec {
@@ -980,6 +1003,7 @@ test "dae raw cleanup strips local self assignments and tees" {
         cleaned,
         [
           ..same_local_tee_used_cleaned,
+          ..different_global_set,
           ..different_local_set,
           ..different_local_tee_drop,
           @lib.Instruction::return_(),

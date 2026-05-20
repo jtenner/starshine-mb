@@ -8862,6 +8862,11 @@ fn dae_local_idx_equal(lhs : @lib.LocalIdx, rhs : @lib.LocalIdx) -> Bool {
 }
 
 ///|
+fn dae_global_idx_equal(lhs : @lib.GlobalIdx, rhs : @lib.GlobalIdx) -> Bool {
+  dae_global_idx_slot(lhs) == dae_global_idx_slot(rhs)
+}
+
+///|
 fn dae_strip_dropped_pure_if_keep_condition(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
@@ -8934,6 +8939,13 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         (@lib.LocalGet(lhs), @lib.LocalTee(rhs)) if dae_local_idx_equal(
             lhs, rhs,
           ) => {
+          idx += 1
+          continue
+        }
+        (@lib.GlobalGet(lhs), @lib.GlobalSet(rhs)) if dae_global_idx_equal(
+            lhs, rhs,
+          ) => {
+          ignore(out.pop())
           idx += 1
           continue
         }
