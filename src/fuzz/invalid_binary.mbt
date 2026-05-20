@@ -164,6 +164,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   TagSectionSizeUnderflow
   TypeSectionSizeOverflow
   ImportSectionSizeOverflow
+  ExportSectionSizeOverflow
+  TableSectionSizeOverflow
 } derive(Eq, Debug)
 
 ///|
@@ -595,6 +597,8 @@ fn validate_invalid_binary_strategy_label(
     TagSectionSizeUnderflow => "tag-section-size-underflow"
     TypeSectionSizeOverflow => "type-section-size-overflow"
     ImportSectionSizeOverflow => "import-section-size-overflow"
+    ExportSectionSizeOverflow => "export-section-size-overflow"
+    TableSectionSizeOverflow => "table-section-size-overflow"
   }
 }
 
@@ -1534,6 +1538,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       ImportSectionSizeOverflow,
       "import-section-size-overflow",
       "import section whose declared payload size extends past the available payload bytes",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      ExportSectionSizeOverflow,
+      "export-section-size-overflow",
+      "export section whose declared payload size extends past the available payload bytes",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      TableSectionSizeOverflow,
+      "table-section-size-overflow",
+      "table section whose declared payload size extends past the available payload bytes",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4202,6 +4220,85 @@ fn validate_invalid_binary_mutate_import_section_size_overflow(
 }
 
 ///|
+fn validate_invalid_binary_module_with_export_section_size_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x07).to_byte(),
+    (0x06).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x78).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_table_section_size_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x04).to_byte(),
+    (0x05).to_byte(),
+    (0x01).to_byte(),
+    (0x70).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_export_section_size_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      ExportSectionSizeOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_export_section_size_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_table_section_size_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TableSectionSizeOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_table_section_size_overflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -5525,6 +5622,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_type_section_size_overflow(base)
     ImportSectionSizeOverflow =>
       validate_invalid_binary_mutate_import_section_size_overflow(base)
+    ExportSectionSizeOverflow =>
+      validate_invalid_binary_mutate_export_section_size_overflow(base)
+    TableSectionSizeOverflow =>
+      validate_invalid_binary_mutate_table_section_size_overflow(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
