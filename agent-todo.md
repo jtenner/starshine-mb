@@ -608,16 +608,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
-- [FUZ]1000 - GenValid Diagnostics, Result API, And Artifact Manifest
-  - Goal: make valid generation explain what happened instead of returning only a `Module`.
-  - Why: `gen_valid_module_with_config(...)` currently retries internally and loses useful facts about failed candidates, retry count, feature facts, and the exact config/seed path that produced the final module. Agents debugging generator regressions need that information without rerunning by hand.
-  - Deliverables: add a result-bearing generator API such as `gen_valid_module_result(...)`; keep the current public compatibility wrapper; define `GenValidGenerated` and `GenValidFailure` records; optionally include a stable config/profile label, retry count, validation error message, feature facts, and the final or last candidate module.
-  - Required APIs: `src/validate/gen_valid.mbt`, `src/validate/validate.mbt` validation errors, `src/fuzz/main.mbt` batch emission, and generated `.mbti` updates.
-  - Invariants: do not weaken the existing guarantee that emitted batch artifacts validate; do not make ordinary smoke profiles slower by default; preserve deterministic output for the same seed/config.
-  - Dependencies: none; this is the preferred first FUZ slice because later slices can reuse the diagnostics and manifest fields.
-  - Suggested Tests: focused generator-result wbtests for success, forced validation failure with a deliberately impossible config if feasible, batch-emitter tests proving old artifact names remain deterministic, `moon test src/validate`, `moon test src/fuzz`.
-  - Exit Criteria: callers can choose either the old module-only API or the new diagnostic API, and a failed generation path reports enough context for an agent to reproduce the config/seed/attempt.
-
 - [FUZ]1001 - Explicit GenValid Profile Taxonomy
   - Goal: replace implicit config aliases with named, documented generator profiles.
   - Why: today `Natural`, `CoverageForced`, binary-oracle coverage, small invalid seeds, and repro seeds are spread across config constructors and helper wrappers. Agents need clear names for the intended behavior before widening generation.

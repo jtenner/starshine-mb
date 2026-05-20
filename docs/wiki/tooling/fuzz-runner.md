@@ -87,6 +87,8 @@ bun fuzz run --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>
 
 The batch config is [`GenValidConfig::binaryen_oracle_coverage_forced_default()`](../../../src/fuzz/main.mbt), not the default natural generator. This makes the emitted corpus useful for Binaryen-oracle pass comparison while keeping imports, memories, tables, globals, tags, elems, datas, SIMD, ref-types, and similar features constrained to the current portable comparison subset.
 
+Callers that need generation diagnostics can use [`gen_valid_module_result(...)`](../../../src/validate/gen_valid.mbt) instead of the compatibility `Module`-only wrapper. The result-bearing API reports the stable config label, retry attempt count, feature facts for successful modules, and the last validation message/candidate on failure. The fuzz package also exposes [`emit_gen_valid_batch_artifacts_with_manifest(...)`](../../../src/fuzz/main.mbt), which preserves the existing `.wasm` artifact names while returning an in-memory manifest with file name, seed, index, config label, attempts, validation status, and feature facts for each generated input.
+
 ### Invalid repro bundles
 
 The MoonBit runner also exposes the shared invalid-repro builder:

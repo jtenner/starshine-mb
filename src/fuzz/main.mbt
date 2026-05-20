@@ -941,6 +941,74 @@ fn emit_gen_valid_batch_config() -> GenValidConfig {
 }
 
 ///|
+pub struct GenValidBatchManifestEntry {
+  file_name : String
+  seed : UInt64
+  index : Int
+  config_label : String
+  attempts : Int
+  validated : Bool
+  validation_error_message : String?
+  facts : GenValidFeatureFacts
+} derive(Eq, Debug)
+
+///|
+pub struct GenValidBatchArtifacts {
+  artifacts : Array[(String, Bytes)]
+  manifest : Array[GenValidBatchManifestEntry]
+} derive(Eq, Debug)
+
+///|
+pub fn emit_gen_valid_batch_artifacts_with_manifest(
+  count : Int,
+  seed : UInt64,
+) -> Result[GenValidBatchArtifacts, String] {
+  if count < 0 {
+    return Err("count must be non-negative")
+  }
+  let rnd = @splitmix.new(seed~)
+  let config = emit_gen_valid_batch_config()
+  let artifacts : Array[(String, Bytes)] = []
+  let manifest : Array[GenValidBatchManifestEntry] = []
+  let mut i = 0
+  while i < count {
+    let generated = match gen_valid_module_result(rnd, config) {
+      Ok(v) => v
+      Err(failure) =>
+        return Err(
+          "gen-valid batch failed at index \{i + 1} after \{failure.attempts} attempts: \{failure.validation_error_message}",
+        )
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        return Err(
+          "gen-valid batch produced invalid module at index \{i + 1}: \{validation_error_message(err)}",
+        )
+    }
+    let bytes = match encode_module(generated.wasm_module) {
+      Ok(v) => v
+      Err(err) =>
+        return Err("gen-valid batch encode failed at index \{i + 1}: \{err}")
+    }
+    let file_name = "gen-valid-\{fuzz_zero_pad_decimal(i + 1, 6)}.wasm"
+    artifacts.push((file_name, bytes))
+    manifest.push({
+      file_name,
+      seed,
+      index: i + 1,
+      config_label: generated.config_label,
+      attempts: generated.attempts,
+      validated: true,
+      validation_error_message: None,
+      facts: generated.facts,
+    })
+    i += 1
+  }
+  Ok({ artifacts, manifest })
+}
+
+///|
 pub fn emit_gen_valid_batch_artifacts(
   count : Int,
   seed : UInt64,

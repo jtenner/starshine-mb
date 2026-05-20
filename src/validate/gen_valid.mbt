@@ -405,6 +405,42 @@ pub struct GenValidFeatureFacts {
 } derive(Eq, Debug)
 
 ///|
+pub struct GenValidGenerated {
+  wasm_module : Module
+  config : GenValidConfig
+  config_label : String
+  attempts : Int
+  facts : GenValidFeatureFacts
+} derive(Eq, Debug)
+
+///|
+pub struct GenValidFailure {
+  last_candidate : Module
+  config : GenValidConfig
+  config_label : String
+  attempts : Int
+  validation_error_message : String
+} derive(Eq, Debug)
+
+///|
+pub fn gen_valid_config_label(config : GenValidConfig) -> String {
+  if config == GenValidConfig::binaryen_oracle_coverage_forced_default() {
+    "binaryen-oracle-coverage-forced"
+  } else if config == GenValidConfig::portable_coverage_forced_default() {
+    "portable-coverage-forced"
+  } else if config == GenValidConfig::coverage_forced_default() {
+    "coverage-forced"
+  } else if config == GenValidConfig::natural_default() {
+    "natural"
+  } else {
+    match config.mode {
+      Natural => "custom-natural"
+      CoverageForced => "custom-coverage-forced"
+    }
+  }
+}
+
+///|
 pub struct GenValidFeatureStats {
   mode : GenValidMode
   modules : Int
@@ -5802,25 +5838,50 @@ fn gen_valid_module_once_with_config(
 }
 
 ///|
+pub fn gen_valid_module_result(
+  rnd : RandomState,
+  config : GenValidConfig,
+) -> Result[GenValidGenerated, GenValidFailure] {
+  let max_attempts = if config.mode == CoverageForced { 512 } else { 64 }
+  let config_label = gen_valid_config_label(config)
+  let mut attempt = 1
+  let mut last = gen_valid_module_once_with_config(rnd, config)
+  let mut last_error_message = ""
+  while attempt <= max_attempts {
+    match validate_module(last) {
+      Ok(_) =>
+        return Ok({
+          wasm_module: last,
+          config,
+          config_label,
+          attempts: attempt,
+          facts: gen_valid_feature_facts(last, config.mode),
+        })
+      Err(err) => last_error_message = validation_error_message(err)
+    }
+    if attempt < max_attempts {
+      last = gen_valid_module_once_with_config(rnd, config)
+    }
+    attempt += 1
+  }
+  Err({
+    last_candidate: last,
+    config,
+    config_label,
+    attempts: max_attempts,
+    validation_error_message: last_error_message,
+  })
+}
+
+///|
 pub fn gen_valid_module_with_config(
   rnd : RandomState,
   config : GenValidConfig,
 ) -> Module {
-  let attempts = if config.mode == CoverageForced { 512 } else { 64 }
-  let mut last = gen_valid_module_once_with_config(rnd, config)
-  if validate_module(last) is Ok(_) {
-    return last
+  match gen_valid_module_result(rnd, config) {
+    Ok(generated) => generated.wasm_module
+    Err(failure) => failure.last_candidate
   }
-  let mut remaining = attempts - 1
-  while remaining > 0 {
-    let candidate = gen_valid_module_once_with_config(rnd, config)
-    if validate_module(candidate) is Ok(_) {
-      return candidate
-    }
-    last = candidate
-    remaining -= 1
-  }
-  last
 }
 
 ///|

@@ -27,6 +27,8 @@ pub fn build_validate_invalid_binary_minimal_repro_by_stable_id(String) -> Resul
 
 pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
 
+pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenValidBatchArtifacts, String]
+
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
 
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
@@ -190,6 +192,22 @@ pub fn GenInvalidBinaryParams::small_natural_seed(ValidateInvalidBinaryStrategyI
 pub enum GenInvalidBinarySeedMode {
   RandomValidSeed
   MinimalValidSeed
+} derive(Eq, @debug.Debug)
+
+pub struct GenValidBatchArtifacts {
+  artifacts : Array[(String, Bytes)]
+  manifest : Array[GenValidBatchManifestEntry]
+} derive(Eq, @debug.Debug)
+
+pub struct GenValidBatchManifestEntry {
+  file_name : String
+  seed : UInt64
+  index : Int
+  config_label : String
+  attempts : Int
+  validated : Bool
+  validation_error_message : String?
+  facts : @validate.GenValidFeatureFacts
 } derive(Eq, @debug.Debug)
 
 pub struct InvalidFuzzArtifact {

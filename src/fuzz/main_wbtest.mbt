@@ -132,6 +132,30 @@ test "emit_invalid_repro_report builds a persisted-report-ready case" {
 }
 
 ///|
+test "emit_gen_valid_batch_artifacts_with_manifest returns deterministic diagnostics" {
+  let batch = match emit_gen_valid_batch_artifacts_with_manifest(2, 0x5eedUL) {
+    Ok(v) => v
+    Err(e) => fail("expected gen-valid batch success, got \{e}")
+  }
+  @debug.assert_eq(batch.artifacts.length(), 2)
+  @debug.assert_eq(batch.manifest.length(), 2)
+  @debug.assert_eq(batch.manifest[0].file_name, "gen-valid-000001.wasm")
+  @debug.assert_eq(batch.manifest[0].seed, 0x5eedUL)
+  @debug.assert_eq(batch.manifest[0].index, 1)
+  @debug.assert_eq(
+    batch.manifest[0].config_label,
+    "binaryen-oracle-coverage-forced",
+  )
+  assert_true(batch.manifest[0].attempts >= 1)
+  @debug.assert_eq(batch.manifest[0].validated, true)
+  assert_true(batch.manifest[0].validation_error_message is None)
+  @debug.assert_eq(
+    batch.manifest[0].facts.mode,
+    emit_gen_valid_batch_config().mode,
+  )
+}
+
+///|
 test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files" {
   let first = match emit_gen_valid_batch_artifacts(2, 0x5eedUL) {
     Ok(v) => v

@@ -44,9 +44,13 @@ pub fn gen_invalid_seed_mode_name(GenInvalidSeedMode) -> String
 
 pub fn gen_invalid_small_gen_valid_config(GenValidConfig) -> GenValidConfig
 
+pub fn gen_valid_config_label(GenValidConfig) -> String
+
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
+
+pub fn gen_valid_module_result(@splitmix.RandomState, GenValidConfig) -> Result[GenValidGenerated, GenValidFailure]
 
 pub fn gen_valid_module_with_config(@splitmix.RandomState, GenValidConfig) -> @lib.Module
 
@@ -282,6 +286,14 @@ pub impl Show for GenValidConfig
 
 type GenValidContext
 
+pub struct GenValidFailure {
+  last_candidate : @lib.Module
+  config : GenValidConfig
+  config_label : String
+  attempts : Int
+  validation_error_message : String
+} derive(Eq, @debug.Debug)
+
 pub struct GenValidFeatureFacts {
   mode : GenValidMode
   has_imports : Bool
@@ -415,6 +427,14 @@ pub struct GenValidFeatureToggles {
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self
 pub impl Show for GenValidFeatureToggles
+
+pub struct GenValidGenerated {
+  wasm_module : @lib.Module
+  config : GenValidConfig
+  config_label : String
+  attempts : Int
+  facts : GenValidFeatureFacts
+} derive(Eq, @debug.Debug)
 
 pub enum GenValidMode {
   Natural
