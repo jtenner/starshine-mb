@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | element segment backlink hygiene
+
+- During the post-update whole-wiki health pass, searched element-segment, declarative-mode, typed-empty, typed-expression, GC-type, custom-descriptor, and `[FZG]021` references for stale wording that still treated the element guide as only a typed-empty/declarative-mode caveat page.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), and [`custom-descriptors/exact-reference-equivalence.md`](custom-descriptors/exact-reference-equivalence.md) so generator proofs, GC typed-table fixtures, and exact-reference fixture guidance route non-`funcref` typed element surfaces plus typed-declarative caveats through [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md).
+
 ## [2026-05-20] wast | element segment mode and payload refresh
 
 - Added [`raw/wasm/2026-05-20-wast-element-segment-source-refresh.md`](raw/wasm/2026-05-20-wast-element-segment-source-refresh.md) after rechecking the current WebAssembly 3.0 text/syntax/binary/validation sources plus Starshine WAST parser/lowerer/printer, core/binary element model, validator, `gen_valid`, and core arbitrary evidence.
