@@ -61,6 +61,14 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
   )
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let pure_typeidx_block_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let param_typeidx_block_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
   let shuffle_low_lanes = @lib.Instruction::i8x16_shuffle(
     @lib.LaneIdx::new(b'\x00'),
     @lib.LaneIdx::new(b'\x01'),
@@ -216,6 +224,21 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::drop(),
     @lib.Instruction::block(
       @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    ),
+    @lib.Instruction::i32_eqz(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::block(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(12)),
+        @lib.Instruction::i32_const(@lib.I32(30)),
+        @lib.Instruction::i32_add(),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::block(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
       @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
     ),
     @lib.Instruction::i32_eqz(),
@@ -411,6 +434,12 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
       @lib.Expr::new([@lib.Instruction::unreachable_()]),
     ),
     @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(99)),
+    @lib.Instruction::block(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      @lib.Expr::new([]),
+    ),
+    @lib.Instruction::drop(),
     @lib.Instruction::i64_const(@lib.I64(-9223372036854775808L)),
     @lib.Instruction::i64_const(@lib.I64(-1L)),
     @lib.Instruction::i64_div_s(),
@@ -520,6 +549,9 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Limits::i32(1U, None),
   )
   let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([pure_typeidx_block_type, param_typeidx_block_type]),
+    )
     .with_table_sec(@lib.TableSec::new([@lib.Table::new(table_type, None)]))
     .with_mem_sec(
       @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
@@ -602,6 +634,12 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
         @lib.Instruction::block(
           @lib.BlockType::val_type(@lib.ValType::i32()),
           @lib.Expr::new([@lib.Instruction::unreachable_()]),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(99)),
+        @lib.Instruction::block(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+          @lib.Expr::new([]),
         ),
         @lib.Instruction::drop(),
         @lib.Instruction::i64_const(@lib.I64(-9223372036854775808L)),

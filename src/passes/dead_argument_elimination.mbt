@@ -8647,21 +8647,52 @@ fn dae_instr_is_const_safe_numeric_binary(
 }
 
 ///|
-fn dae_instr_droppable_pure_block_value(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) =>
-      match dae_find_droppable_pure_stack_expr_start(body) {
-        Some(0) => true
-        _ => false
+fn dae_block_type_is_zero_param_single_result(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+) -> Bool {
+  match block_type {
+    @lib.ValTypeBlockType(_) => true
+    @lib.TypeIdxBlockType(type_idx) =>
+      match type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              params.length() == 0 && results.length() == 1
+            None => false
+          }
+        None => false
       }
     _ => false
   }
 }
 
 ///|
-fn dae_instr_dropped_pure_value_arity(instr : @lib.Instruction) -> Int? {
+fn dae_instr_droppable_pure_block_value(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      if dae_block_type_is_zero_param_single_result(block_type, type_sec) {
+        match dae_find_droppable_pure_stack_expr_start(body, type_sec) {
+          Some(0) => true
+          _ => false
+        }
+      } else {
+        false
+      }
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_dropped_pure_value_arity(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> Int? {
   if dae_instr_is_droppable_pure_leaf(instr) ||
-    dae_instr_droppable_pure_block_value(instr) {
+    dae_instr_droppable_pure_block_value(instr, type_sec) {
     return Some(0)
   }
   if dae_instr_is_nontrapping_pure_unary(instr) {
@@ -8679,6 +8710,7 @@ fn dae_instr_dropped_pure_value_arity(instr : @lib.Instruction) -> Int? {
 ///|
 fn dae_find_droppable_pure_stack_expr_start(
   out : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
 ) -> Int? {
   if out.length() == 0 {
     return None
@@ -8740,7 +8772,7 @@ fn dae_find_droppable_pure_stack_expr_start(
         instr if dae_instr_is_i31_success_ref_cast(instr) => needs.push(1)
         instr if dae_instr_is_nullable_ref_cast(instr) => needs.push(2)
         _ =>
-          match dae_instr_dropped_pure_value_arity(out[start]) {
+          match dae_instr_dropped_pure_value_arity(out[start], type_sec) {
             Some(arity) => {
               let mut input = 0
               while input < arity {
@@ -8769,6 +8801,7 @@ fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit 
 ///|
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -8781,7 +8814,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       _ => ()
     }
     if instrs[idx] == @lib.Instruction::drop() {
-      match dae_find_droppable_pure_stack_expr_start(out) {
+      match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
         Some(start) => {
           dae_truncate_instrs(out, start)
           idx += 1
@@ -8826,14 +8859,18 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         out.push(
           @lib.Instruction::block(
             block_type,
-            @lib.Expr::new(dae_strip_nops_and_dropped_pure_leaf_instrs(body)),
+            @lib.Expr::new(
+              dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec),
+            ),
           ),
         )
       @lib.Loop(block_type, @lib.Expr(body)) =>
         out.push(
           @lib.Instruction::loop_(
             block_type,
-            @lib.Expr::new(dae_strip_nops_and_dropped_pure_leaf_instrs(body)),
+            @lib.Expr::new(
+              dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec),
+            ),
           ),
         )
       @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
@@ -8841,17 +8878,21 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           @lib.Instruction::try_table(
             block_type,
             catches,
-            @lib.Expr::new(dae_strip_nops_and_dropped_pure_leaf_instrs(body)),
+            @lib.Expr::new(
+              dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec),
+            ),
           ),
         )
       @lib.If(block_type, then_body, else_body) =>
         out.push(
           @lib.Instruction::if_(
             block_type,
-            dae_strip_nops_and_dropped_pure_leaf_instrs(then_body),
+            dae_strip_nops_and_dropped_pure_leaf_instrs(then_body, type_sec),
             match else_body {
               Some(body) =>
-                Some(dae_strip_nops_and_dropped_pure_leaf_instrs(body))
+                Some(
+                  dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec),
+                )
               None => None
             },
           ),
@@ -8894,7 +8935,10 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   let mut def_idx = 0
   while def_idx < funcs.length() {
     let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-    let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(body)
+    let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
+      body,
+      mod_.type_sec,
+    )
     if rewritten != body {
       funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
       changed = true
@@ -8980,6 +9024,7 @@ fn dae_try_retarget_selected_func236_locals_once(
   local_map[9] = 1
   let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
     dae_rewrite_locals_instrs(body, local_map),
+    mod_.type_sec,
   )
   if dae_instrs_reference_local_at_or_above(rewritten, param_count) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
