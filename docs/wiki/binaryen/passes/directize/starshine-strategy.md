@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: current
-last_reviewed: 2026-05-08
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
+  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
+  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
@@ -13,6 +15,8 @@ sources:
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/directize.mbt
   - ../../../../../src/passes/directize_test.mbt
   - ../../../../../agent-todo.md
@@ -53,10 +57,10 @@ The current local strategy is still deliberately conservative where the upstream
 - rewrite compatible constant-index indirect calls through non-imported, non-exported, non-mutated known table entries
 - classify known holes, out-of-range entries, and wrong-type targets as traps and rewrite them to `unreachable`
 - lower the narrow known-target `select` shape to direct-call `if` arms with fresh locals
-- keep the canonical no-DWARF tail slot documented but out of presets until the neighboring `string-gathering -> reorder-globals -> directize` tail can be replayed together
+- keep the accepted public late-tail suffix documented alongside the no-DWARF order, with any broader widening beyond that suffix still gated on fresh evidence
 - leave optional `directize-initial-contents-immutable` pass-arg behavior for a future pass-arg surface
 
-So this page is now an **implemented explicit-pass status-and-port-map** page. The current 2026-05-05 current-main source bridge remains the upstream contract for future preset and pass-arg work.
+So this page is now an **implemented explicit-pass status-and-port-map** page. The current 2026-05-05 current-main source bridge remains the upstream contract for future pass-arg and broader-widening work.
 
 ## Exact local code map today
 
@@ -73,7 +77,7 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/directize_test.mbt:2`
 - backlog and delivery plan
   - `agent-todo.md`
-    - the remaining late-tail preset blocker now lives under shared `SG` scheduling work after the direct `DIR` triple-replay slice was closed
+    - the remaining follow-up is pass-arg support and any broader widening beyond the accepted public suffix; the direct `DIR` triple-replay slice is closed
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:34-35`
     - the final late-tail slot where `directize` follows `reorder-globals`
@@ -117,14 +121,14 @@ It also handles the two important non-direct-call target classes from the defaul
 - known holes / out-of-range / wrong-type targets become `unreachable`
 - the narrow known-target `select` index shape becomes an `if` with direct-call arms and fresh locals for operands
 
-### 3. The remaining work is preset and option integration, not core default-pass parity
+### 3. The remaining work is pass-arg and broader-widening integration, not core default-pass parity
 
 `agent-todo.md` no longer needs a dedicated `DIR` replay blocker because the neighboring `string-gathering -> reorder-globals -> directize` sequence is now locally replayable.
 
 The active remaining local work is narrower:
 
 - keep direct Binaryen oracle evidence current
-- keep the broader late-tail preset blocked until the earlier scheduled neighbors also exist locally
+- keep any broader late-tail widening beyond the accepted public suffix gated on fresh neighboring evidence
 - decide how Starshine should expose Binaryen-style pass args before adding `directize-initial-contents-immutable`
 
 That framing keeps the implemented explicit pass separate from still-unscheduled broader tail integration.
@@ -148,7 +152,7 @@ So the local strategy is:
 4. preserve late-tail scheduler placement after the neighboring global/string/module cleanup passes
 5. keep validation and artifact proof focused on mixed known/unknown/trap table surfaces
 
-In other words, the implemented explicit pass is ready, while the future preset slot still has to fit into the documented late optimization ecosystem.
+In other words, the implemented explicit pass is ready, while any broader widening beyond the accepted public suffix still has to fit into the documented late optimization ecosystem.
 
 ## The most important local dependency map
 
@@ -190,17 +194,17 @@ A future contributor should be careful not to overread the current local surface
 Starshine still does **not** currently have:
 
 - the optional `directize-initial-contents-immutable` pass-arg mode
-- preset scheduling for the full no-DWARF late tail
-- the broader scheduled late-tail replay that starts earlier at `simplify-globals-optimizing -> remove-unused-module-elements`
+- any broader late-tail widening beyond the accepted public suffix
+- any replay that extends earlier than the accepted public suffix at `simplify-globals-optimizing -> remove-unused-module-elements`
 
 So the current repo status is best summarized as:
 
 - active module pass tracked
 - default explicit-pass directize behavior implemented
 - direct Binaryen oracle evidence recorded
-- scheduler slot documented but not preset-scheduled
+- accepted public late-tail suffix scheduled in `optimize` / `shrink`
 - parser / IR / binary / validation / HOT substrates mapped
-- remaining work is pass-arg support and broader late-tail preset integration, not the core default explicit pass
+- remaining work is pass-arg support and any broader widening beyond the accepted public suffix, not the core default explicit pass
 
 ## Validation evidence and future validation plan
 
@@ -221,7 +225,7 @@ Current direct evidence:
 5. current-head late-tail triple replay
    - `.tmp/self-opt-string-reorder-directize-20260508`: canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm` for `--string-gathering --reorder-globals --directize`
 
-Future changes should rerun those direct lanes when touching table facts, trap rewriting, select lowering, type matching, or local insertion. Preset scheduling should additionally replay the broader scheduled late tail once the remaining earlier neighbors exist locally.
+Future changes should rerun those direct lanes when touching table facts, trap rewriting, select lowering, type matching, or local insertion. Any broader widening beyond the accepted public suffix should additionally replay the broader scheduled late tail once the remaining earlier neighbors exist locally.
 
 ## Bottom line
 
@@ -229,8 +233,8 @@ Current Starshine `directize` strategy is an active explicit module pass plus la
 
 - the pass name is intentionally preserved in `src/passes/optimize.mbt` as an active module pass
 - `src/passes/directize.mbt` implements default directize behavior for direct calls, known traps, and narrow select lowering
-- `agent-todo.md` now leaves the remaining preset blocker under shared late-tail scheduling work rather than a dedicated `DIR` replay item
-- the canonical slot is already documented in the no-DWARF optimizer notes but remains out of presets
+- `agent-todo.md` now leaves only the optional pass-arg / broader-widening follow-up; the accepted public late-tail suffix is already scheduled in `optimize` / `shrink`
+- the canonical slot is already documented in the no-DWARF optimizer notes and the accepted public suffix now matches that order
 - the surrounding `duplicate-import-elimination`, `simplify-globals-optimizing`, `remove-unused-module-elements`, `string-gathering`, and `reorder-globals` dossiers already define the practical landing zone for scheduled tail integration
 
 So the right mental model today is:
@@ -238,7 +242,7 @@ So the right mental model today is:
 - **explicit pass implemented**
 - **direct Binaryen oracle parity green**
 - **clear late-tail dependency story**
-- **preset/pass-arg integration remains future work**
+- **pass-arg support and any broader widening beyond the accepted public suffix remain future work**
 
 ## Sources
 

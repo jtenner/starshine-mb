@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | directize public suffix reconciliation
+
+- Reworked the `directize` dossier and catalog summaries so they now reflect the accepted public `optimize` / `shrink` late-tail suffix from [`raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md) and the supporting 0571 neighborhood proof, while keeping `directize-initial-contents-immutable` and any broader widening as the remaining follow-up.
+- Updated [`binaryen/passes/directize/index.md`](binaryen/passes/directize/index.md), [`binaryen/passes/directize/starshine-strategy.md`](binaryen/passes/directize/starshine-strategy.md), [`binaryen/passes/directize/starshine-port-readiness-and-validation.md`](binaryen/passes/directize/starshine-port-readiness-and-validation.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), and the root [`index.md`](index.md) so the public preset suffix, option-surface caveat, and current local schedule are consistent.
+- No external source was needed; the repo-authored 0571/0572 research notes and current living docs were sufficient.
+
 ## [2026-05-20] wiki | tracker catalog normalization
 
 - Replaced the temporary 2026-05-06 audit-warning language in [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md) and [`binaryen/passes/index.md`](binaryen/passes/index.md) with current source-of-truth guidance pointing at [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt), then renamed the second tracker section so it covers the mixed additional queue of active-partial, active, removed, boundary-only, and upstream-only entries instead of mislabeling it as upstream-only research.

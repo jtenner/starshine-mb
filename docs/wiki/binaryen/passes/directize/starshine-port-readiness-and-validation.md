@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: current
-last_reviewed: 2026-05-08
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
+  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
+  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
@@ -17,6 +19,8 @@ sources:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/directize.mbt
   - ../../../../../src/passes/directize_test.mbt
   - ../../../../../src/wast/parser.mbt
@@ -54,7 +58,7 @@ The goal here is narrower than either page:
 
 ## Current local status in one sentence
 
-Starshine now implements the default explicit `directize` module pass with post-fuzzer-change Binaryen oracle evidence for direct calls, known traps, subtype-compatible checks, and narrow `select` lowering; remaining work is preset scheduling and optional `directize-initial-contents-immutable` pass-arg support.
+Starshine now implements the default explicit `directize` module pass with post-fuzzer-change Binaryen oracle evidence for direct calls, known traps, subtype-compatible checks, and narrow `select` lowering; the accepted public late-tail suffix is already scheduled, and the remaining work is optional `directize-initial-contents-immutable` pass-arg support plus any broader widening beyond that suffix.
 
 ## Why the first slice is not a peephole
 
@@ -157,7 +161,7 @@ This slice is now landed and revalidated for the explicit default pass:
 - focused tests demonstrate constant known-target rewrites, mutable-table bailout, known-hole trap rewrite, and select lowering,
 - the 2026-05-06 mixed-generator lane `.tmp/pass-fuzz-directize` compared 6759 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
-Future code changes should keep that active status honest by preserving Binaryen-matching behavior and not widening presets until the neighboring late tail is replayable.
+Future code changes should keep that active status honest by preserving Binaryen-matching behavior and not broadening beyond the accepted public suffix without replaying the neighboring late tail.
 
 ### Slice 1: table facts and no-op proof
 
@@ -233,9 +237,9 @@ Exit criterion:
 
 - Starshine output preserves operand side effects and validates.
 
-### Slice 5: option surface and late-tail scheduling
+### Slice 5: option surface and broader-widening guardrails
 
-Only after direct `--pass directize` behavior is correct should the pass be wired into the late no-DWARF tail.
+The accepted public late-tail suffix is already wired; use this slice to define the remaining option surface and any broader directize widening beyond that suffix.
 
 Minimum checks:
 
@@ -262,11 +266,11 @@ Use the official Binaryen files as the reduced-shape map when extending the pass
 3. `directize-wasm64.wast`
    - full-width table index behavior.
 4. no-DWARF late-tail replay
-   - keep the proven inner `string-gathering -> reorder-globals -> directize` replay green, then verify the broader scheduled neighborhood once the earlier neighbors are active.
+   - keep the proven inner `string-gathering -> reorder-globals -> directize` replay green, and rerun the broader scheduled neighborhood whenever option-surface or broader-widening work changes.
 
 ## What to avoid
 
-Do not widen presets solely because direct explicit-pass parity is green. The inner `string-gathering -> reorder-globals -> directize` sequence is now proven, but the scheduled tail still depends on the earlier late-tail neighbors that feed it.
+Do not treat the accepted public suffix as evidence that the pass-arg surface is done. The inner `string-gathering -> reorder-globals -> directize` sequence is now proven and publicly scheduled; the remaining questions are the optional `directize-initial-contents-immutable` surface and any broader widening beyond that suffix.
 
 Do not silently conflate the default pass with `directize-initial-contents-immutable`. That Binaryen pass arg loosens table trust under a separate policy and should wait for an explicit Starshine pass-arg surface.
 
@@ -276,7 +280,7 @@ Do not fold `call_ref` into this pass. Binaryen's `directize` source does not do
 
 - Where should the pass argument for immutable initial contents be exposed?
 - Should table-info construction become reusable infrastructure for future table-layout or call-target passes?
-- What exact validation lane should gate adding the final no-DWARF tail preset once the remaining earlier late-tail neighbors are active?
+- What broader directize widening, if any, should be validated beyond the accepted public suffix?
 
 ## Bottom line
 

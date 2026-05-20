@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: current
-last_reviewed: 2026-05-08
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
@@ -111,7 +111,7 @@ That is much closer to the real pass than either:
 - It classifies known holes, out-of-range targets, and wrong-type targets as traps and rewrites them to `unreachable` when the table facts prove the trap.
 - It lowers the narrow known-target `select` shape to an `if` with direct-call arms and fresh locals for operands, matching Binaryen's default directize shape on reduced fixtures.
 - Direct oracle evidence now includes the post-fuzzer-change 2026-05-06 lane `.tmp/pass-fuzz-directize`: 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. Earlier implementation evidence remains recorded in `.tmp/pass-fuzz-directize-genvalid-10000-final2`, `.tmp/pass-fuzz-directize-mixed-10000-final2`, and `.tmp/self-opt-directize-debug-final2`.
-- The explicit remaining caveats are broader preset scheduling for the full late tail that still starts earlier at `simplify-globals-optimizing -> remove-unused-module-elements`, and the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet. The inner `string-gathering -> reorder-globals -> directize` triple itself now has a current-head replay recorded in [`../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`](../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md).
+- The accepted public `optimize` / `shrink` late-tail suffix now includes `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` via [`../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md), and the direct five-pass neighborhood proof remains in [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md). The remaining caveat is the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet. The inner `string-gathering -> reorder-globals -> directize` triple itself still has a current-head replay recorded in [`../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`](../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md).
 
 ## Page map
 
@@ -126,7 +126,7 @@ That is much closer to the real pass than either:
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Dedicated Starshine status-and-port-map page covering the active module-pass implementation, direct oracle evidence, canonical no-DWARF tail slot, and the exact neighboring local dossiers the completed tail slot must compose with.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Implementation-readiness and validation bridge for Starshine work: local parser / IR / binary / validator / HOT prerequisite map, implemented default-pass status, reduced-test families, Binaryen oracle evidence, and remaining preset/pass-arg caveats.
+  Implementation-readiness and validation bridge for Starshine work: local parser / IR / binary / validator / HOT prerequisite map, implemented default-pass status, reduced-test families, Binaryen oracle evidence, accepted public late-tail suffix, and remaining pass-arg / broader-widening caveats.
 
 ## Current maintenance rule
 
@@ -139,6 +139,8 @@ That is much closer to the real pass than either:
 ## Sources
 
 - [`../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md`](../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md)
+- [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md)
+- [`../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md)
 - [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
