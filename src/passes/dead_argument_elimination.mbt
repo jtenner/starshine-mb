@@ -8173,7 +8173,9 @@ fn dae_instr_is_droppable_pure_leaf(instr : @lib.Instruction) -> Bool {
     | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | @lib.RefNull(_)
     | @lib.LocalGet(_)
-    | @lib.GlobalGet(_) => true
+    | @lib.GlobalGet(_)
+    | @lib.MemorySize(_)
+    | @lib.TableSize(_) => true
     _ => false
   }
 }

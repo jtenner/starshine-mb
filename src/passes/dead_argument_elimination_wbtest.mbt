@@ -171,6 +171,10 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::drop(),
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
     @lib.Instruction::drop(),
+    @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::table_size(@lib.TableIdx::new(0U)),
+    @lib.Instruction::drop(),
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::i32_eqz(),
     @lib.Instruction::drop(),
@@ -432,12 +436,21 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     @lib.Instruction::drop(),
     @lib.Instruction::return_(),
   ]
-  let mod_ = @lib.Module::new().with_code_sec(
-    @lib.CodeSec::new([
-      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(noisy_body)),
-      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(noisy_body)),
-    ]),
+  let table_type = @lib.TableType::new(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+    @lib.Limits::i32(1U, None),
   )
+  let mod_ = @lib.Module::new()
+    .with_table_sec(@lib.TableSec::new([@lib.Table::new(table_type, None)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(noisy_body)),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(noisy_body)),
+      ]),
+    )
   let no_touch_result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [
     false, false,
   ])
