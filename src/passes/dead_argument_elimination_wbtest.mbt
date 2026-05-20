@@ -331,6 +331,33 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
       [@lib.Instruction::unreachable_()],
       None,
     ),
+    @lib.Instruction::try_table(
+      @lib.BlockType::void_(),
+      [],
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(78)),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+    @lib.Instruction::try_table(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(2U)),
+      [],
+      @lib.Expr::new([
+        @lib.Instruction::i64_const(@lib.I64(79L)),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(103)),
+    @lib.Instruction::try_table(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(3U)),
+      [],
+      @lib.Expr::new([@lib.Instruction::drop()]),
+    ),
+    @lib.Instruction::try_table(
+      @lib.BlockType::void_(),
+      [],
+      @lib.Expr::new([@lib.Instruction::unreachable_()]),
+    ),
     @lib.Instruction::i32_const(@lib.I32(1)),
     @lib.Instruction::i32_const(@lib.I32(2)),
     @lib.Instruction::i32_const(@lib.I32(0)),
@@ -697,6 +724,17 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
           @lib.BlockType::void_(),
           [@lib.Instruction::unreachable_()],
           None,
+        ),
+        @lib.Instruction::i32_const(@lib.I32(103)),
+        @lib.Instruction::try_table(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(3U)),
+          [],
+          @lib.Expr::new([@lib.Instruction::drop()]),
+        ),
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [],
+          @lib.Expr::new([@lib.Instruction::unreachable_()]),
         ),
         @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::i31())),
         @lib.Instruction::i31_get_s(),
