@@ -19,6 +19,7 @@ related:
   - ../binary/type-table-memory-global-tag-sections.md
   - ../binary/instruction-and-expression-encoding.md
   - ../validate/module-validation-phases.md
+  - ../validate/stack-polymorphism-and-bottom.md
   - ../validate/fuzz-hardening.md
   - ../fuzzing/wast-arbitrary-parity-plan.md
 ---
@@ -144,7 +145,7 @@ Treat this as compatibility syntax, not as proof that Starshine has a preserved 
 ## Validation Invariants And Edge Cases
 
 - **Tag type result lists must be empty.** A tag type index resolving to `(func (result i32))` is invalid even though it is a function type.
-- **`throw` is stack-polymorphic after consuming payload.** It pops the tag's parameters and makes the remaining path unreachable.
+- **`throw` is stack-polymorphic after consuming payload.** It pops the tag's parameters and makes the remaining path unreachable; the general bottom-value and concrete-stack-junk boundary is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - **`throw_ref` consumes nullable `exnref`.** [`typecheck_throw_ref`](../../../src/validate/typecheck.mbt) pops `ValType::ref_null_exn()` before marking the path unreachable. A non-null exception reference is accepted by subtyping, but validation does not require non-nullness; runtime execution must still preserve the null-trap versus non-null-throw distinction.
 - **Catch payloads must match their target labels.** `catch` expects the tag payload at the branch target; `catch_ref` expects payload plus non-null `(ref exn)`; `catch_all` expects no values; `catch_all_ref` expects non-null `(ref exn)`.
 - **Catch labels are not the try body's temporary label.** The body uses an internal result label for stack typing, but catches branch to labels in the enclosing context.
@@ -178,4 +179,5 @@ When a pass rewrites control around `try_table`, rerun validation. The high-risk
 - Targeted `throw_ref` nullability refresh: [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md)
 - Binary tag/resource guide: [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md)
 - Validator phase guide: [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
+- Stack-polymorphism guide: [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)
 - Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

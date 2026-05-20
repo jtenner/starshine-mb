@@ -17,6 +17,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
 related:
   - control-flow-authoring.md
+  - ../validate/stack-polymorphism-and-bottom.md
   - variable-instruction-authoring.md
   - numeric-instruction-authoring.md
   - reference-instruction-authoring.md
@@ -39,7 +40,7 @@ These instructions are "parametric" because their core behavior is about stack v
 - untyped `select` consumes two candidate values plus an `i32` condition and produces one selected value;
 - typed `select (result t)` carries an explicit result type annotation, which is required for some reference-typed cases and is the safest form for new fixtures.
 
-Ordinary control-flow labels, `br_if` fallthrough payloads, loop parameters, `br_table`, and unreachable-code stack polymorphism stay in [`control-flow-authoring.md`](control-flow-authoring.md). This page focuses on the parametric stack shapes and the places where Starshine's current implementation is wider than the current official validation text.
+Ordinary control-flow labels, `br_if` fallthrough payloads, loop parameters, and `br_table` stay in [`control-flow-authoring.md`](control-flow-authoring.md). The validator-side bottom-value contract for unreachable-code stack polymorphism lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). This page focuses on the parametric stack shapes and the places where Starshine's current implementation is wider than the current official validation text.
 
 The primary-source and local-code manifest is [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md).
 
@@ -149,7 +150,7 @@ This shape is useful as a local regression surface for Starshine's vector-valued
 ## Edge Cases And Rewrite Guidance
 
 1. **Condition order matters.** The `i32` condition is on top of the two candidate values. Folded WAST may visually nest operands, but the core instruction still consumes stack values.
-2. **Unreachable code can synthesize missing operands.** `drop` and `select` use the same bottom-value stack-polymorphism model as other instructions. Concrete values pushed after an unreachable point still need to be consumed correctly before block/function end checks.
+2. **Unreachable code can synthesize missing operands.** `drop` and `select` use the same bottom-value stack-polymorphism model as other instructions; the focused validator contract is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). Concrete values pushed after an unreachable point still need to be consumed correctly before block/function end checks.
 3. **Typed select is the reference-safe authoring form.** Prefer `select (result <ref-type>)` for `externref`, `funcref`, GC refs, exact refs, or descriptor-related refs. Route reference-type syntax and exactness questions through [`reference-instruction-authoring.md`](reference-instruction-authoring.md), [`gc-type-authoring.md`](gc-type-authoring.md), and the custom-descriptor pages.
 4. **Do not collapse typed and untyped select in passes.** Rewriting `select (result t)` to untyped `select` can change validity for reference operands and can erase an intentional local multi-value annotation.
 5. **Treat local multi-value typed select as a caveat.** It may be the right Starshine regression case, but portable WebAssembly signoff should use single-result typed select unless the validator/conformance target is updated.
@@ -160,5 +161,5 @@ This shape is useful as a local regression surface for Starshine's vector-valued
 - Primary-source and local-code manifest: [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
-- Validation and matching: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
+- Validation and matching: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Generator and WAST arbitrary: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md), [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md)

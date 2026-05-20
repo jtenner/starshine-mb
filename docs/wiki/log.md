@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validate | stack polymorphism and bottom contract
+
+- Added [`raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md) after rechecking the current WebAssembly 3.0 validation-instruction, validation-algorithm, module-validation, and syntax sources plus Starshine `ValType::bottom`, `TcState`, typechecker, validator, and regression-test evidence.
+- Added [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md) as the focused guide for unreachable-code stack polymorphism: official algorithm intuition, `reachable` / `BotValType` mapping, missing-operand synthesis versus concrete pushed-value checks, branch escapes, `br_if` fallthrough, tail-call/throw terminal behavior, constant-expression strictness, and pass/fixture signoff guidance.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), [`wast/parametric-instruction-authoring.md`](wast/parametric-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so existing WAST and validator pages route shared bottom-value details through the focused page instead of repeating partial explanations.
+- Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), and [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt).
+
 ## [2026-05-20] health | memory64/table64 catalog caveat alignment
 
 - During the post-update whole-wiki health pass, searched table64, `table.fill`, table typechecker, and `memory64-lowering` catalog references for summaries that still mentioned only get/set/size/grow cleanup or only the memory64 `memory.fill` length caveat.

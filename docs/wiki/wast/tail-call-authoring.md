@@ -26,6 +26,7 @@ related:
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/function-import-export-and-code-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/stack-polymorphism-and-bottom.md
   - ../fuzzing/generator-coverage-ledger.md
 ---
 
@@ -51,7 +52,7 @@ The focused `call_ref` / `return_call_ref` split is refreshed in [`../raw/wasm/2
 | WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | `$` ids and type uses resolve to numeric `FuncIdx`, `TableIdx`, and `TypeIdx`. Printer emits explicit resolved indices, so default-table input may roundtrip less tersely. Type-use details are centralized in [`gc-type-authoring.md`](gc-type-authoring.md). |
 | Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Distinct `Instruction::ReturnCall`, `ReturnCallIndirect`, and `ReturnCallRef` variants keep direct, table-mediated, and reference-call carriers visible to passes. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Direct, indirect, and reference tail calls encode as `0x12`, `0x13`, and `0x15`. `return_call_indirect` encodes type index before table index, matching the ordinary `call_indirect` binary order. |
-| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | The selected callee results must match the current function return type. On success, the state becomes unreachable/stack-polymorphic for local continuation. |
+| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | The selected callee results must match the current function return type. On success, the state becomes unreachable/stack-polymorphic for local continuation; the general bottom-value model lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). |
 | IR2 CFG | [`src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`src/ir/cfg.mbt`](../../../src/ir/cfg.mbt) | Tail-call HOT ops are calls, side-effecting/trapping, and terminators. The concrete CFG builder routes them to the synthetic normal exit with `ReturnEdge`; see [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md) for the current helper-test gap. |
 
 ## Instruction Families And Stack Shapes
@@ -66,7 +67,7 @@ The official validation model is easiest to remember as “ordinary call inputs,
 
 ### Why “unreachable” is not “no validation”
 
-After a tail call validates, following code is stack-polymorphic because it is unreachable. The tail-call instruction itself still has strict checks:
+After a tail call validates, following code is stack-polymorphic because it is unreachable. The tail-call instruction itself still has strict checks; use [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md) for the shared bottom-value and concrete-stack-junk boundary:
 
 1. target function/type/table indices must exist;
 2. the operand stack must provide the callee parameters, plus a table index or function reference for indirect/reference forms;

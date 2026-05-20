@@ -66,7 +66,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 ### Control and calls
 
-- [`control-flow-authoring.md`](control-flow-authoring.md) — `block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, `unreachable`, label-depth lowering, and stack-polymorphic unreachable code.
+- [`control-flow-authoring.md`](control-flow-authoring.md) — `block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, `unreachable`, label-depth lowering, and WAST shapes for stack-polymorphic unreachable code; validator bottom-value mechanics live in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md) — `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select portability caveats.
 - [`tail-call-authoring.md`](tail-call-authoring.md) — `return_call`, `return_call_indirect`, and `return_call_ref` across text, core, binary, validation, CFG, and generator layers, including the `return_call_ref` split from ordinary non-tail `call_ref`.
 
