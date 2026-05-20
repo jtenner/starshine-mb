@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | WAST arbitrary atomic backlinks
+
+- During the post-update whole-wiki health pass, searched atomic, `[FZG]017`, memory-instruction, and WAST arbitrary references for pages that could still route atomic text gaps only through ordinary memory-instruction docs.
+- Updated [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md) and [`index.md`](index.md) so `[FZG]027` text-generation guidance records atomic memory text keywords as a current WAST arbitrary gap and points the distinction between parser/printer coverage and `[FZG]017` core/binary/generator coverage at [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md).
+
 ## [2026-05-20] wast | atomic memory instruction boundary
 
 - Added [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) as the focused atomic-memory guide for the WebAssembly threads/proposal source boundary, Starshine core/binary/validator/generator/HOT support, `0xFE` subcode families, stack/effect/trap rules, `[FZG]017` signoff guidance, and the current WAST keyword/parser gap.
