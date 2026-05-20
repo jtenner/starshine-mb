@@ -8647,6 +8647,34 @@ fn dae_instr_is_const_safe_numeric_binary(
 }
 
 ///|
+fn dae_instr_is_integer_right_zero_identity(
+  rhs : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> Bool {
+  match (rhs, instr) {
+    (@lib.I32Const(@lib.I32(0)), @lib.I32Add)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32Sub)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32Or)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32Xor)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32Shl)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32ShrS)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32ShrU)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32Rotl)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32Rotr)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Add)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Sub)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Or)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Xor)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Shl)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64ShrS)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64ShrU)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Rotl)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Rotr) => true
+    _ => false
+  }
+}
+
+///|
 fn dae_block_type_is_zero_param_single_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -9004,6 +9032,11 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         }
         _ => ()
       }
+    }
+    if idx + 1 < instrs.length() &&
+      dae_instr_is_integer_right_zero_identity(instrs[idx], instrs[idx + 1]) {
+      idx += 2
+      continue
     }
     if allow_live_local_copy_cleanup && idx + 1 < instrs.length() {
       match (instrs[idx], instrs[idx + 1]) {
