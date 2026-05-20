@@ -1124,26 +1124,26 @@ fn sgo_nested_if_arm_flow_outer_if_index(
 }
 
 ///|
-fn sgo_nested_if_arm_flow_reaches_block_result(
+fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  prefix_stack : Array[Bool],
-) -> Bool {
-  if prefix_stack.length() == 0 {
-    return false
-  }
+  idx : @lib.GlobalIdx,
+) -> (Bool, Int, Bool) {
   let stack : Array[Bool] = []
-  for i = 0; i + 1 < prefix_stack.length(); i = i + 1 {
-    stack.push(prefix_stack[i])
-  }
-  sgo_flow_push_tainted(stack)
-  for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
+  let mut reads = 0
+  for scan = 0; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
     if sgo_const_instr(instr) != None {
       sgo_flow_push_clean(stack)
       continue
     }
     match instr {
+      @lib.GlobalGet(get_idx) => {
+        if get_idx == idx {
+          return (false, reads, false)
+        }
+        sgo_flow_push_clean(stack)
+        continue
+      }
       @lib.LocalGet(_) => {
         sgo_flow_push_clean(stack)
         continue
@@ -1154,7 +1154,7 @@ fn sgo_nested_if_arm_flow_reaches_block_result(
             sgo_flow_push_clean(stack)
             continue
           }
-          _ => return false
+          _ => return (false, reads, false)
         }
       @lib.I32Load(_) =>
         match sgo_flow_pop(stack) {
@@ -1162,16 +1162,45 @@ fn sgo_nested_if_arm_flow_reaches_block_result(
             sgo_flow_push_clean(stack)
             continue
           }
-          _ => return false
+          _ => return (false, reads, false)
         }
       @lib.Drop =>
         match sgo_flow_pop(stack) {
           Some(false) => continue
-          _ => return false
+          _ => return (false, reads, false)
         }
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        let (block_ok, block_reads, block_tainted) = sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
+          body, idx,
+        )
+        reads = reads + block_reads
+        if !block_ok || reads > 1 {
+          return (false, reads, false)
+        }
+        stack.push(block_tainted)
+        continue
+      }
+      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
+        match sgo_flow_pop(stack) {
+          Some(false) => ()
+          _ => return (false, reads, false)
+        }
+        let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
+          then_body, idx,
+        )
+        let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
+          else_body, idx,
+        )
+        reads = reads + then_reads + else_reads
+        if !then_ok || !else_ok || reads > 1 {
+          return (false, reads, false)
+        }
+        stack.push(then_tainted || else_tainted)
+        continue
+      }
       @lib.Call(_) => {
         if sgo_flow_stack_has_taint(stack) {
-          return false
+          return (false, reads, false)
         }
         sgo_flow_clear_stack(stack)
         sgo_flow_push_clean(stack)
@@ -1179,28 +1208,31 @@ fn sgo_nested_if_arm_flow_reaches_block_result(
       }
       @lib.Select(_) => {
         if !sgo_flow_apply_select(stack) {
-          return false
+          return (false, reads, false)
         }
         continue
       }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
           if !sgo_flow_apply_unary(stack) {
-            return false
+            return (false, reads, false)
           }
           continue
         }
         if sgo_is_flowscanner_binary_pure_instr(instr) {
           if !sgo_flow_apply_binary(stack) {
-            return false
+            return (false, reads, false)
           }
           continue
         }
-        return false
+        return (false, reads, false)
       }
     }
   }
-  stack == [true]
+  match stack {
+    [tainted] => (true, reads, tainted)
+    _ => (false, reads, false)
+  }
 }
 
 ///|
@@ -1218,44 +1250,11 @@ fn sgo_count_block_wrapped_nested_if_arm_flow_read(
         Some(set_idx) => set_idx
         None => return
       }
-      for pos = 0; pos < body.length(); pos = pos + 1 {
-        match body[pos] {
-          @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-            let (clean_prefix_ok, clean_prefix_stack) = sgo_flow_scan_clean_prefix_until(
-              body, pos,
-            )
-            if !clean_prefix_ok || clean_prefix_stack.length() == 0 {
-              continue
-            }
-            if !sgo_nested_if_arm_flow_reaches_block_result(
-                body, pos, clean_prefix_stack,
-              ) {
-              continue
-            }
-            let (prefix_ok, prefix_reads, prefix_stack) = sgo_flow_scan_prefix_until(
-              body, pos, idx,
-            )
-            if !prefix_ok ||
-              prefix_reads != 0 ||
-              prefix_stack.length() == 0 ||
-              sgo_flow_stack_has_taint(prefix_stack) {
-              continue
-            }
-            let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
-              then_body, idx,
-            )
-            let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
-              else_body, idx,
-            )
-            if then_ok &&
-              else_ok &&
-              then_reads + else_reads == 1 &&
-              (then_tainted || else_tainted) {
-              sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-            }
-          }
-          _ => ()
-        }
+      let (ok, reads, tainted) = sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
+        body, idx,
+      )
+      if ok && reads == 1 && tainted {
+        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       }
     }
     _ => ()

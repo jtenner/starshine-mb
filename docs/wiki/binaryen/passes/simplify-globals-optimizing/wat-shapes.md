@@ -313,7 +313,7 @@ A side-effecting condition can also hide the candidate read in a nested `if (res
 )
 ```
 
-Binaryen promotes this family because the call decides which arm runs, while `$once` only flows out to the final branch condition. Starshine's current subset accepts this transparent block-result wrapper for supported pure post-consumers like `i32.eqz` and for the supported clean-sibling `select` value form, and it preserves the neighboring negative where the block-wrapped post-consumer is a trapping `i32.load` whose address comes from the global-derived value.
+Binaryen promotes this family because the call decides which arm runs, while `$once` only flows out to the final branch condition. Starshine's current subset accepts one or more transparent block-result wrappers for supported pure post-consumers like `i32.eqz` and for the supported clean-sibling `select` value form, and it preserves the neighboring negative where the block-wrapped post-consumer is a trapping `i32.load` whose address comes from the global-derived value.
 
 ### No-op const/drop condition-prefix variation
 
