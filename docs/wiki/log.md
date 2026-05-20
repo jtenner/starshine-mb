@@ -395,6 +395,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] backlog | SGO v0.1.1 follow-ups
+
+- Updated [`../../agent-todo.md`](../../agent-todo.md) and [`raw/research/0573-2026-05-19-sgo-v010-signoff.md`](raw/research/0573-2026-05-19-sgo-v010-signoff.md) to move non-blocking SGO improvement opportunities into v0.1.1 follow-up slices.
+- Added `[SGO]003` for optional Binaryen `SimplifyGlobals.cpp` breadth, `[SGO]004` for nested cleanup runtime / exact-scheduler experiments, and `[SGO]005` for default-local compare normalization. These are not v0.1.0 blockers and should resume only with new semantic, validation, artifact/code-size, string/GC/refinalization, release-QA, or measured SGO-specific wall-time evidence.
+
 ## [2026-05-19] passes | SGO v0.1.0 signoff
 
 - Added [`raw/research/0573-2026-05-19-sgo-v010-signoff.md`](raw/research/0573-2026-05-19-sgo-v010-signoff.md), updated [`binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md), and pruned [`../../agent-todo.md`](../../agent-todo.md) so SGO is no longer an active v0.1.0 correctness or preset-scheduling blocker.

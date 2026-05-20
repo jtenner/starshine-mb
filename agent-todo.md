@@ -110,6 +110,30 @@ Completed direct-pass slices
   - Deliverables: add a native-only worker queue over eligible defined functions for the hot batch payload (`ssa-nomerge -> dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`); keep final output byte-stable and deterministic; gate behind an explicit native-only option.
   - Dependencies: [HOT]001 replay hardening must stay green.
 
+## v0.1.1 Backlog
+
+### SGO - Follow-Up Improvements
+
+- [SGO]003 - Optional Binaryen `SimplifyGlobals.cpp` Breadth
+  - Status: deferred to v0.1.1; not a v0.1.0 blocker after `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
+  - Goal: broaden the signed-off SGO supported surface only when a targeted need appears, without reopening the accepted v0.1.0 direct/nested/late-tail signoff by default.
+  - Resume when: a new semantic mismatch, wasm validation failure, targeted artifact/code-size need, or string/GC/refinalization requirement points at SGO breadth.
+  - Candidate families: side-effecting-but-safe `read-only-to-write` value-flow positives, broader same-as-init expression matching beyond direct literal / `ref.null` / `ref.func`, broader runtime linear-trace propagation, and additional GC/refinalization-safe replacement surfaces.
+  - Deliverables when resumed: add focused shape tests first, rerun direct `--pass simplify-globals-optimizing` oracle fuzz for the new family, and update the SGO wiki pages with the exact accepted subset.
+
+- [SGO]004 - Nested Cleanup Runtime And Exact-Scheduler Experiment
+  - Status: deferred to v0.1.1; not a v0.1.0 blocker because the accepted nested lane is valid, smaller than Binaryen on the direct artifact, and inside the direct pass-local runtime floor.
+  - Goal: decide whether to optimize remaining nested cleanup wrapper overhead or intentionally restore more exact Binaryen default-function scheduler slots despite measured runtime cost.
+  - Resume when: a measured SGO-specific wall-time owner appears, the nested `vacuum` wrapper overhead becomes a concrete runtime target, or an artifact/code-size case demonstrates value from omitted nested default-function slots.
+  - Candidate work: reduce nested `vacuum` / lift-lower wrapper cost, add cheaper function-filtered adapters for currently module-shaped cleanup passes, or run a controlled exact-scheduler experiment with artifact and fuzz evidence.
+  - Deliverables when resumed: trace before/after nested timers, preserve validation and direct 10k SGO fuzz parity, and document whether the accepted artifact-tuned lane changes.
+
+- [SGO]005 - Default-Local Compare Normalization
+  - Status: deferred to v0.1.1 tooling/cosmetic follow-up; not a v0.1.0 correctness blocker.
+  - Goal: eliminate or normalize the accepted direct SGO `defined=48 abs=69` artifact diff where Binaryen preserves an explicit `local.set $0 (i32.const 0)` and Starshine relies on WebAssembly default local zero-initialization.
+  - Resume when: exact artifact diffs need to become quieter for release QA or compare-harness work.
+  - Deliverables when resumed: either teach the compare helper to ignore explicit default local initialization when semantically equivalent, or add a deliberate Starshine emission/canonicalization option if preserving the explicit set proves more useful.
+
 ## v0.2.0 Backlog
 
 ### INL - Deferred Inliner Breadth
