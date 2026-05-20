@@ -662,6 +662,10 @@ pub struct GenValidFeatureFacts {
   has_element_segment_range : Bool
   has_data_segment_range : Bool
   has_name_custom_sections : Bool
+  has_gc_exception_combo : Bool
+  has_gc_tail_call_combo : Bool
+  has_shared_memory_atomics : Bool
+  has_imports_start_exports : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -757,6 +761,10 @@ pub struct GenValidFeatureStats {
   element_segment_range : Int
   data_segment_range : Int
   name_custom_sections : Int
+  gc_exception_combo : Int
+  gc_tail_call_combo : Int
+  shared_memory_atomics : Int
+  imports_start_exports : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -860,6 +868,14 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.data_segment_range.output(logger)
   logger.write_string(", name_custom_sections: ")
   self.name_custom_sections.output(logger)
+  logger.write_string(", gc_exception_combo: ")
+  self.gc_exception_combo.output(logger)
+  logger.write_string(", gc_tail_call_combo: ")
+  self.gc_tail_call_combo.output(logger)
+  logger.write_string(", shared_memory_atomics: ")
+  self.shared_memory_atomics.output(logger)
+  logger.write_string(", imports_start_exports: ")
+  self.imports_start_exports.output(logger)
   logger.write_string(", exact_opcode_counts: ")
   self.exact_opcode_counts.output(logger)
   logger.write_char('}')
@@ -917,6 +933,10 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     element_segment_range: 0,
     data_segment_range: 0,
     name_custom_sections: 0,
+    gc_exception_combo: 0,
+    gc_tail_call_combo: 0,
+    shared_memory_atomics: 0,
+    imports_start_exports: 0,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
   }
 }
@@ -1000,6 +1020,14 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_data_segment_range),
     name_custom_sections: self.name_custom_sections +
     gen_valid_bool_count(facts.has_name_custom_sections),
+    gc_exception_combo: self.gc_exception_combo +
+    gen_valid_bool_count(facts.has_gc_exception_combo),
+    gc_tail_call_combo: self.gc_tail_call_combo +
+    gen_valid_bool_count(facts.has_gc_tail_call_combo),
+    shared_memory_atomics: self.shared_memory_atomics +
+    gen_valid_bool_count(facts.has_shared_memory_atomics),
+    imports_start_exports: self.imports_start_exports +
+    gen_valid_bool_count(facts.has_imports_start_exports),
     exact_opcode_counts: self.exact_opcode_counts.add(facts.exact_opcode_counts),
   }
 }
@@ -1038,6 +1066,13 @@ pub struct GenValidExactOpcodeCounts {
   i64_reinterpret_f64 : Int
   f32_reinterpret_i32 : Int
   f64_reinterpret_i64 : Int
+  br_table : Int
+  unreachable_opcode : Int
+  local_tee : Int
+  typed_select : Int
+  return_call : Int
+  return_call_indirect : Int
+  return_call_ref : Int
 } derive(Eq, Debug)
 
 ///|
@@ -1067,6 +1102,7 @@ priv struct GenValidInstrFacts {
   has_exception_try_table_matrix : Bool
   has_subtyping_topology : Bool
   has_rich_gc_field_plans : Bool
+  has_shared_memories : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
   control_nodes : Int
   branch_ops : Int
@@ -1109,6 +1145,13 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i64_reinterpret_f64: 0,
     f32_reinterpret_i32: 0,
     f64_reinterpret_i64: 0,
+    br_table: 0,
+    unreachable_opcode: 0,
+    local_tee: 0,
+    typed_select: 0,
+    return_call: 0,
+    return_call_indirect: 0,
+    return_call_ref: 0,
   }
 }
 
@@ -1144,6 +1187,13 @@ pub fn GenValidExactOpcodeCounts::add(
     i64_reinterpret_f64: self.i64_reinterpret_f64 + other.i64_reinterpret_f64,
     f32_reinterpret_i32: self.f32_reinterpret_i32 + other.f32_reinterpret_i32,
     f64_reinterpret_i64: self.f64_reinterpret_i64 + other.f64_reinterpret_i64,
+    br_table: self.br_table + other.br_table,
+    unreachable_opcode: self.unreachable_opcode + other.unreachable_opcode,
+    local_tee: self.local_tee + other.local_tee,
+    typed_select: self.typed_select + other.typed_select,
+    return_call: self.return_call + other.return_call,
+    return_call_indirect: self.return_call_indirect + other.return_call_indirect,
+    return_call_ref: self.return_call_ref + other.return_call_ref,
   }
 }
 
@@ -1165,6 +1215,20 @@ pub impl Show for GenValidExactOpcodeCounts with output(self, logger) {
   self.f32_add.output(logger)
   logger.write_string(", f64_add: ")
   self.f64_add.output(logger)
+  logger.write_string(", br_table: ")
+  self.br_table.output(logger)
+  logger.write_string(", unreachable_opcode: ")
+  self.unreachable_opcode.output(logger)
+  logger.write_string(", local_tee: ")
+  self.local_tee.output(logger)
+  logger.write_string(", typed_select: ")
+  self.typed_select.output(logger)
+  logger.write_string(", return_call: ")
+  self.return_call.output(logger)
+  logger.write_string(", return_call_indirect: ")
+  self.return_call_indirect.output(logger)
+  logger.write_string(", return_call_ref: ")
+  self.return_call_ref.output(logger)
   logger.write_char('}')
 }
 
@@ -1203,6 +1267,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_exception_try_table_matrix: false,
     has_subtyping_topology: false,
     has_rich_gc_field_plans: false,
+    has_shared_memories: false,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
     control_nodes: 0,
     branch_ops: 0,
@@ -6507,6 +6572,7 @@ fn gen_valid_merge_instr_facts(
     right.has_subtyping_topology,
     has_rich_gc_field_plans: left.has_rich_gc_field_plans ||
     right.has_rich_gc_field_plans,
+    has_shared_memories: left.has_shared_memories || right.has_shared_memories,
     exact_opcode_counts: left.exact_opcode_counts.add(right.exact_opcode_counts),
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
@@ -6557,6 +6623,15 @@ fn gen_valid_exact_opcode_counts_for_instr(
       GenValidExactOpcodeCounts::{ ..zero, f32_reinterpret_i32: 1 }
     F64ReinterpretI64 =>
       GenValidExactOpcodeCounts::{ ..zero, f64_reinterpret_i64: 1 }
+    BrTable(_, _) => GenValidExactOpcodeCounts::{ ..zero, br_table: 1 }
+    Unreachable => GenValidExactOpcodeCounts::{ ..zero, unreachable_opcode: 1 }
+    LocalTee(_) => GenValidExactOpcodeCounts::{ ..zero, local_tee: 1 }
+    Select(Some(_)) => GenValidExactOpcodeCounts::{ ..zero, typed_select: 1 }
+    ReturnCall(_) => GenValidExactOpcodeCounts::{ ..zero, return_call: 1 }
+    ReturnCallIndirect(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, return_call_indirect: 1 }
+    ReturnCallRef(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, return_call_ref: 1 }
     _ => zero
   }
 }
@@ -6851,6 +6926,12 @@ fn gen_valid_mem_type_has_limit_variant(mt : MemType) -> Bool {
 }
 
 ///|
+fn gen_valid_mem_type_is_shared(mt : MemType) -> Bool {
+  let MemType(_, shared) = mt
+  shared
+}
+
+///|
 fn gen_valid_table_type_has_limit_variant(
   table_type : TableType,
   init_opt : Expr?,
@@ -6944,6 +7025,14 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
     return GenValidInstrFacts::{
       ..GenValidInstrFacts::empty(),
       has_numeric_full_ops: gen_valid_instr_is_expanded_scalar_numeric(instr),
+      has_br_table: instr is BrTable(_, _),
+      has_standalone_unreachable: instr is Unreachable,
+      has_local_tee: instr is LocalTee(_),
+      has_typed_select: instr is Select(Some(_)),
+      has_tail_calls: match instr {
+        ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) => true
+        _ => false
+      },
       exact_opcode_counts,
     }
   }
@@ -7237,6 +7326,7 @@ pub fn gen_valid_feature_facts(
   let mut has_element_segment_range = false
   let mut has_data_segment_range = false
   let mut has_name_custom_sections = false
+  let mut has_shared_memories = false
   let mut exact_opcode_counts = GenValidExactOpcodeCounts::empty()
   let mut control_nodes = 0
   let mut branch_ops = 0
@@ -7305,6 +7395,8 @@ pub fn gen_valid_feature_facts(
               has_mems = true
               has_memory_limit_variants = has_memory_limit_variants ||
                 gen_valid_mem_type_has_limit_variant(mt)
+              has_shared_memories = has_shared_memories ||
+                gen_valid_mem_type_is_shared(mt)
             }
             GlobalExternType(global_type) => {
               imported_global_count += 1
@@ -7348,6 +7440,8 @@ pub fn gen_valid_feature_facts(
       for mt in mems {
         has_memory_limit_variants = has_memory_limit_variants ||
           gen_valid_mem_type_has_limit_variant(mt)
+        has_shared_memories = has_shared_memories ||
+          gen_valid_mem_type_is_shared(mt)
       }
     }
     _ => ()
@@ -7737,6 +7831,15 @@ pub fn gen_valid_feature_facts(
     None => ()
   }
 
+  let has_gc_feature = has_gc_constructors ||
+    has_gc_accessors ||
+    has_subtyping_topology ||
+    has_rich_gc_field_plans
+  let has_any_export = has_func_exports ||
+    has_table_exports ||
+    has_mem_exports ||
+    has_global_exports ||
+    has_tag_exports
   {
     mode,
     has_imports,
@@ -7786,6 +7889,10 @@ pub fn gen_valid_feature_facts(
     has_element_segment_range,
     has_data_segment_range,
     has_name_custom_sections,
+    has_gc_exception_combo: has_gc_feature && has_exception_try_table_matrix,
+    has_gc_tail_call_combo: has_gc_feature && has_tail_calls,
+    has_shared_memory_atomics: has_shared_memories && has_atomics,
+    has_imports_start_exports: has_imports && has_start && has_any_export,
     exact_opcode_counts,
   }
 }

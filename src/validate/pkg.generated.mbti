@@ -323,6 +323,13 @@ pub struct GenValidExactOpcodeCounts {
   i64_reinterpret_f64 : Int
   f32_reinterpret_i32 : Int
   f64_reinterpret_i64 : Int
+  br_table : Int
+  unreachable_opcode : Int
+  local_tee : Int
+  typed_select : Int
+  return_call : Int
+  return_call_indirect : Int
+  return_call_ref : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidExactOpcodeCounts::add(Self, Self) -> Self
 pub fn GenValidExactOpcodeCounts::empty() -> Self
@@ -385,6 +392,10 @@ pub struct GenValidFeatureFacts {
   has_element_segment_range : Bool
   has_data_segment_range : Bool
   has_name_custom_sections : Bool
+  has_gc_exception_combo : Bool
+  has_gc_tail_call_combo : Bool
+  has_shared_memory_atomics : Bool
+  has_imports_start_exports : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 
@@ -438,6 +449,10 @@ pub struct GenValidFeatureStats {
   element_segment_range : Int
   data_segment_range : Int
   name_custom_sections : Int
+  gc_exception_combo : Int
+  gc_tail_call_combo : Int
+  shared_memory_atomics : Int
+  imports_start_exports : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
@@ -703,6 +718,10 @@ pub enum ValidateValidFeatureKey {
   ElementSegmentRange
   DataSegmentRange
   NameCustomSections
+  GcExceptionCombo
+  GcTailCallCombo
+  SharedMemoryAtomics
+  ImportsStartExports
   InvalidAstStrategies
   InvalidBinaryStrategies
   WastArbitraryParity

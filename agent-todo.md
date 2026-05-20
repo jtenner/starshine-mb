@@ -718,17 +718,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: deterministic seed tests, feature-floor tests across multiple seeds, generated-module validation, small pass-fuzz compare lanes for each randomized family.
   - Exit Criteria: coverage-forced mode no longer emits one fixed body shape for each major feature family, but still satisfies all configured floors.
 
-- [FUZ]1013 - Exact Coverage Ledger And Cross-Feature Floors
-  - Status: IN PROGRESS (cron 23, 2026-05-20) - first exact-counter slice landed: `GenValidFeatureFacts.exact_opcode_counts` / `GenValidFeatureStats.exact_opcode_counts` now aggregate exact counts for scalar numeric constants, equality/addition representatives, saturating truncations, and reinterprets, with `gen_valid_feature_facts records exact scalar opcode counts` plus docs coverage. Validation passed: `moon info`, `moon fmt`, `moon test src/validate`, and `moon test`. Remaining blocker before closing FUZ1013: widen exact counters beyond this initial scalar numeric subset, add cross-feature shape rows/floors, and decide which rows become `ValidateValidFeatureKey` floors rather than telemetry-only counters.
-  - Goal: expand `GenValidFeatureFacts` from coarse booleans to exact opcode/shape counters and cross-feature combinations.
-  - Why: current counters can say “SIMD happened” or “Atomics happened” but cannot say which opcodes or whether GC+exceptions+tail-calls occurred together.
-  - Deliverables: add exact counters for instruction opcodes and important shapes; add cross-feature rows for GC+exceptions, GC+tail-calls, memory64+bulk-memory, shared-memory+atomics, typed-table+elem segments, try_table+result, multi-value+branch payload, imports+start+exports, and other high-value intersections.
-  - Required APIs: `GenValidFeatureFacts`, `GenValidFeatureStats`, `ValidateValidFeatureKey`, scanner functions in `src/validate/gen_valid.mbt` and floor logic in `src/validate/validate.mbt`.
-  - Invariants: do not make future rows required until generation is deterministic; missing future rows should be `MissingOptional` until a floor is added; keep docs/wiki ledger aligned.
-  - Dependencies: none, but it improves every later FUZ slice.
-  - Suggested Tests: ledger optional/required tests, exact opcode scanner unit tests, profile floor tests, docs updates in `docs/wiki/fuzzing/generator-coverage-ledger.md`.
-  - Exit Criteria: CI can detect the loss of a specific opcode/shape instead of only broad family coverage.
-
 - [FUZ]1014 - Coverage-Guided GenValid Selection
   - Goal: add a local coverage-guided generation loop that keeps modules which satisfy missing feature floors.
   - Why: hardcoded forced preludes do not scale to every future family. A generate-measure-select loop can target feature floors without hand-authoring every combination.

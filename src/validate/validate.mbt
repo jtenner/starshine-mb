@@ -3379,6 +3379,10 @@ pub enum ValidateValidFeatureKey {
   ElementSegmentRange
   DataSegmentRange
   NameCustomSections
+  GcExceptionCombo
+  GcTailCallCombo
+  SharedMemoryAtomics
+  ImportsStartExports
   InvalidAstStrategies
   InvalidBinaryStrategies
   WastArbitraryParity
@@ -3434,6 +3438,10 @@ pub impl Show for ValidateValidFeatureKey with output(self, logger) {
     ElementSegmentRange => logger.write_string("ElementSegmentRange")
     DataSegmentRange => logger.write_string("DataSegmentRange")
     NameCustomSections => logger.write_string("NameCustomSections")
+    GcExceptionCombo => logger.write_string("GcExceptionCombo")
+    GcTailCallCombo => logger.write_string("GcTailCallCombo")
+    SharedMemoryAtomics => logger.write_string("SharedMemoryAtomics")
+    ImportsStartExports => logger.write_string("ImportsStartExports")
     InvalidAstStrategies => logger.write_string("InvalidAstStrategies")
     InvalidBinaryStrategies => logger.write_string("InvalidBinaryStrategies")
     WastArbitraryParity => logger.write_string("WastArbitraryParity")
@@ -3589,6 +3597,10 @@ pub fn validate_valid_feature_actual_count(
     ElementSegmentRange => stats.element_segment_range
     DataSegmentRange => stats.data_segment_range
     NameCustomSections => stats.name_custom_sections
+    GcExceptionCombo => stats.gc_exception_combo
+    GcTailCallCombo => stats.gc_tail_call_combo
+    SharedMemoryAtomics => stats.shared_memory_atomics
+    ImportsStartExports => stats.imports_start_exports
     InvalidAstStrategies => 0
     InvalidBinaryStrategies => 0
     WastArbitraryParity => 0
@@ -3645,6 +3657,10 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     ElementSegmentRange,
     DataSegmentRange,
     NameCustomSections,
+    GcExceptionCombo,
+    GcTailCallCombo,
+    SharedMemoryAtomics,
+    ImportsStartExports,
     InvalidAstStrategies,
     InvalidBinaryStrategies,
     WastArbitraryParity,
@@ -3756,6 +3772,10 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     ElementSegmentRange => "element_segment_range"
     DataSegmentRange => "data_segment_range"
     NameCustomSections => "name_custom_sections"
+    GcExceptionCombo => "gc_exception_combo"
+    GcTailCallCombo => "gc_tail_call_combo"
+    SharedMemoryAtomics => "shared_memory_atomics"
+    ImportsStartExports => "imports_start_exports"
     InvalidAstStrategies => "invalid_ast_strategies"
     InvalidBinaryStrategies => "invalid_binary_strategies"
     WastArbitraryParity => "wast_arbitrary_parity"
@@ -3813,6 +3833,10 @@ fn validate_valid_fzg_feature_floors(
     validate_valid_feature_floor(ElementSegmentRange, min_count),
     validate_valid_feature_floor(DataSegmentRange, min_count),
     validate_valid_feature_floor(NameCustomSections, min_count),
+    validate_valid_feature_floor(GcExceptionCombo, min_count),
+    validate_valid_feature_floor(GcTailCallCombo, min_count),
+    validate_valid_feature_floor(SharedMemoryAtomics, min_count),
+    validate_valid_feature_floor(ImportsStartExports, min_count),
   ]
 }
 
@@ -7831,7 +7855,7 @@ test "gen_valid_feature_facts record imports sections exports and instruction fa
 }
 
 ///|
-test "gen_valid_feature_facts records exact scalar opcode counts" {
+test "gen_valid_feature_facts records exact scalar and control opcode counts" {
   let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([sig]))
@@ -7855,6 +7879,12 @@ test "gen_valid_feature_facts records exact scalar opcode counts" {
             Instruction::f64_const(4.0),
             Instruction::i64_trunc_sat_f64u(),
             Instruction::drop(),
+            Instruction::local_tee(LocalIdx::new(0U)),
+            Instruction::drop(),
+            Instruction::select(types=Some([ValType::i32()])),
+            Instruction::drop(),
+            Instruction::br_table([], LabelIdx::new(0U)),
+            Instruction::unreachable_(),
           ]),
         ),
       ]),
@@ -7869,11 +7899,52 @@ test "gen_valid_feature_facts records exact scalar opcode counts" {
   @debug.assert_eq(exact.f32_eq, 1)
   @debug.assert_eq(exact.f64_const, 1)
   @debug.assert_eq(exact.i64_trunc_sat_f64u, 1)
+  @debug.assert_eq(exact.local_tee, 1)
+  @debug.assert_eq(exact.typed_select, 1)
+  @debug.assert_eq(exact.br_table, 1)
+  @debug.assert_eq(exact.unreachable_opcode, 1)
   let stats = GenValidFeatureStats::empty(CoverageForced)
     .record(facts)
     .record(facts)
   @debug.assert_eq(stats.exact_opcode_counts.i32_const, 4)
   @debug.assert_eq(stats.exact_opcode_counts.i64_trunc_sat_f64u, 2)
+  @debug.assert_eq(stats.exact_opcode_counts.local_tee, 2)
+  @debug.assert_eq(stats.exact_opcode_counts.br_table, 2)
+}
+
+///|
+test "gen_valid coverage-forced records cross-feature ledger rows" {
+  let generated = gen_valid_module_result(
+    @splitmix.new(seed=0x5eedUL),
+    GenValidConfig::for_profile(CoverageForcedAllFeaturesProfile),
+  )
+  match generated {
+    Ok(result) => {
+      let facts = result.facts
+      assert_true(facts.has_gc_exception_combo)
+      assert_true(facts.has_gc_tail_call_combo)
+      assert_true(facts.has_shared_memory_atomics)
+      assert_true(facts.has_imports_start_exports)
+      let stats = GenValidFeatureStats::empty(CoverageForced).record(facts)
+      @debug.assert_eq(
+        validate_valid_feature_actual_count(stats, GcExceptionCombo),
+        1,
+      )
+      @debug.assert_eq(
+        validate_valid_feature_actual_count(stats, GcTailCallCombo),
+        1,
+      )
+      @debug.assert_eq(
+        validate_valid_feature_actual_count(stats, SharedMemoryAtomics),
+        1,
+      )
+      @debug.assert_eq(
+        validate_valid_feature_actual_count(stats, ImportsStartExports),
+        1,
+      )
+    }
+    Err(_) => fail("expected coverage-forced all-features module")
+  }
 }
 
 ///|
