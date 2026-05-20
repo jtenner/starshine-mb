@@ -84,6 +84,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedRefNullHeaptypeImmediate
   InvalidGlobalValTypeByte
   InvalidExportKindByte
+  InvalidMemoryLimitsFlagByte
+  InvalidGlobalMutabilityByte
 } derive(Eq, Debug)
 
 ///|
@@ -433,6 +435,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
     InvalidGlobalValTypeByte => "invalid-global-valtype-byte"
     InvalidExportKindByte => "invalid-export-kind-byte"
+    InvalidMemoryLimitsFlagByte => "invalid-memory-limits-flag-byte"
+    InvalidGlobalMutabilityByte => "invalid-global-mutability-byte"
   }
 }
 
@@ -815,6 +819,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidMemoryLimitsFlagByte,
+      "invalid-memory-limits-flag-byte",
+      "memory section with an invalid limits flag byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidGlobalMutabilityByte,
+      "invalid-global-mutability-byte",
+      "global section with an invalid mutability byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -888,6 +906,8 @@ fn validate_invalid_binary_strategy_index(
     MalformedRefNullHeaptypeImmediate => 50
     InvalidGlobalValTypeByte => 51
     InvalidExportKindByte => 52
+    InvalidMemoryLimitsFlagByte => 53
+    InvalidGlobalMutabilityByte => 54
   }
 }
 
@@ -1878,6 +1898,74 @@ fn validate_invalid_binary_mutate_invalid_export_kind_byte(
 }
 
 ///|
+fn validate_invalid_binary_module_with_invalid_memory_limits_flag_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x05).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0xff).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_memory_limits_flag_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidMemoryLimitsFlagByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_memory_limits_flag_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_global_mutability_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x06).to_byte(),
+    (0x06).to_byte(),
+    (0x01).to_byte(),
+    (0x7f).to_byte(),
+    (0xff).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_global_mutability_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidGlobalMutabilityByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_global_mutability_byte(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -2061,6 +2149,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_global_valtype_byte(base)
     InvalidExportKindByte =>
       validate_invalid_binary_mutate_invalid_export_kind_byte(base)
+    InvalidMemoryLimitsFlagByte =>
+      validate_invalid_binary_mutate_invalid_memory_limits_flag_byte(base)
+    InvalidGlobalMutabilityByte =>
+      validate_invalid_binary_mutate_invalid_global_mutability_byte(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
