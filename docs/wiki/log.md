@@ -395,6 +395,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | SGO v0.1.0 signoff
+
+- Added [`raw/research/0573-2026-05-19-sgo-v010-signoff.md`](raw/research/0573-2026-05-19-sgo-v010-signoff.md), updated [`binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md), and pruned [`../../agent-todo.md`](../../agent-todo.md) so SGO is no longer an active v0.1.0 correctness or preset-scheduling blocker.
+- Signoff scope: current Starshine v0.1.0 supported direct-pass / nested-runtime / late-tail scheduling surface, not full Binaryen `SimplifyGlobals.cpp` rewrite-family completeness. Future SGO work now requires new semantic, validation, artifact/code-size, string/GC/refinalization, or measured SGO-specific wall-time evidence.
+- Evidence carried forward: direct artifact `.tmp/sgo-direct-debug-artifact-nested-pruned` validated, stayed smaller than Binaryen (`2,860,269` vs `2,861,435` bytes), and met the pass-local runtime floor (`153.143ms` vs `107.210ms`); the remaining `defined=48 abs=69` diff is accepted representation-only local/default-init drift. Standard direct fuzz `.tmp/pass-fuzz-sgo-nested-pruned-10k` reported `9975/10000` compared, `0` mismatches, and `0` validation failures; late-tail 10k ordered-neighborhood fuzz also reported `0` mismatches and `0` validation failures.
+- Full public `--optimize` wall-time measurement remains infeasible in this environment by user decision and belongs under `[WALL]001` unless future measurement attributes cost specifically to SGO.
+
 ## [2026-05-19] passes | public late-tail preset suffix scheduling
 
 - Updated [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt), [`../../src/passes/optimize_test.mbt`](../../src/passes/optimize_test.mbt), and [`../../src/passes/registry_test.mbt`](../../src/passes/registry_test.mbt) so public `optimize` and `shrink` append the accepted suffix `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`.

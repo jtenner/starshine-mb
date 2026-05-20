@@ -36,11 +36,12 @@ Use this page after the source contract pages:
 - [`./wat-shapes.md`](./wat-shapes.md) shows the important transformed shapes.
 - [`./starshine-strategy.md`](./starshine-strategy.md) records current local status.
 
-This page answers the practical porting question: now that Starshine has a first partial module-pass slice, what remains and how should each next slice be validated?
+This page answers the practical porting question: now that Starshine has a signed-off v0.1.0 supported surface, what optional Binaryen-breadth work remains and how should any future slice be validated?
 
 ## Current port-readiness summary
 
-`simplify-globals-optimizing` is **partially implemented** in Starshine today.
+`simplify-globals-optimizing` is signed off for the current Starshine v0.1.0 supported direct-pass / nested-runtime / late-tail scheduling surface. It remains a partial, deliberately scoped port of Binaryen's broader `SimplifyGlobals.cpp` engine; unsupported breadth is no longer an active v0.1.0 blocker without new evidence of a semantic mismatch, wasm validation failure, targeted artifact/code-size need, or measured SGO-specific wall-time owner. The signoff record is [`../../../raw/research/0573-2026-05-19-sgo-v010-signoff.md`](../../../raw/research/0573-2026-05-19-sgo-v010-signoff.md).
+
 The useful local status is:
 
 | Surface | Current state | Code / doc anchor |
@@ -50,11 +51,11 @@ The useful local status is:
 | Implementation owner | first constant/dead-set/same-init/read-only-to-write/startup/single-use-init/exact-copy-chain/plain-block/if-then-runtime subset | [`src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt) |
 | Focused tests | registry, constants, single-use init folding, exact-type immutable copy chains, dead sets, single-const/ref-null same-init writes plus expression/result-block and funcref/externref alias guardrails, narrow read-only-to-write self guards including `i32.eqz`, bidirectional compare-const, simple pure-condition positives with i32 unary/bitwise/shift-rotate ops, i64 equality/compare and non-trapping value ops, plus f32/f64 compares, nested block-condition, block-wrapped pure-condition and block-yielded condition reads including `i32.eqz`, no-op const/drop prefixes before block-wrapped condition reads, `nop` / void-`block` transparent bodies, no-op const/drop prefixes before the write, exact/eqz/bidirectional compare/pure-condition/block-wrapped-condition/block-wrapped-pure-condition/nested-block-wrapped-condition/block-yielded-condition/block-yielded-condition+set/block-wrapped-set/block-wrapped-condition+set `if return; set` positives and trailing-code negatives, flow-into-`local.tee`, wrong-target, non-constant set operand, `else`, `select`, and trapping-load negatives, straight-line/top-level-noise/adjacent/nested plain-block and if-then-body runtime propagation, imported/exported and reference-typed runtime fact guardrails including deeper reference and externref-null call/loop/branch/`try_table`/post-if boundaries plus pre-block nested call/branch barriers and mixed scalar/reference and same-global non-constant independent-write preservation, harmless block-body drop/pure-noise positives, call/control/non-constant/exported/imported/loop/try_table/post-if-join/else-arm guardrails, startup offsets, touched-only nested cleanup, current nested cleanup pass-order and guard characterization (default cleanup sequence from `dead-code-elimination` through `redundant-set-elimination` and `vacuum` with no `precompute-propagate`, function-body rewrites trigger cleanup but startup-only data-offset and global-initializer rewrites do not, touched-function-count and module-function-count no longer skip cleanup, and individually large touched functions with `> 192` locals or `> 1000` instructions are filtered out of the nested cleanup set), typed `ref.null`, typed externref-null direct/alias/block-result, and direct/alias/block-result `ref.func` function-body replacement, typed element item/ref.func alias bailouts, exported bailout | [`src/passes/simplify_globals_optimizing_test.mbt`](../../../../../src/passes/simplify_globals_optimizing_test.mbt) |
 | Direct fuzz evidence | 10000/10000 gen-valid normalized matches; 9975/10000 mixed-generator compared matches with only Binaryen/tool command failures | [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) |
-| Active presets | local `optimize` / `shrink` still stop before the late Binaryen post-pass tail | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) |
-| Backlog | still split into broader global rewrite parity plus nested/artifact parity | [`agent-todo.md`](../../../../../agent-todo.md) |
+| Active presets | public `optimize` / `shrink` append the accepted late-tail suffix after direct ordered-neighborhood proof | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) |
+| Backlog | no active v0.1.0 SGO blocker; broader Binaryen rewrite breadth is follow-up-only | [`agent-todo.md`](../../../../../agent-todo.md) |
 | Canonical placement | after `duplicate-import-elimination`, before `remove-unused-module-elements` | [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) |
 
-That means the wiki should now teach the pass as an active but incomplete module/global port, not as a HOT peephole and not as full Binaryen parity. The 2026-05-18 current-main refresh found no semantic drift from Binaryen `version_129` at observed `main` commit `d3029d2b975488acdf9253eb2994a3fc55bd3549`, so the remaining port map remains current.
+That means the wiki should teach the pass as an accepted v0.1.0 supported-surface module/global port, not as a HOT peephole and not as a claim of full Binaryen rewrite-family completeness. The 2026-05-18 current-main refresh found no semantic drift from Binaryen `version_129` at observed `main` commit `d3029d2b975488acdf9253eb2994a3fc55bd3549`, so the remaining optional breadth map remains current.
 
 ## Minimum viable Starshine slice
 
@@ -89,9 +90,9 @@ The current first slice covers fact collection, single-use initializer folding i
    - keep the landed exact touched-function set from replacement/removal phases;
    - continue rerunning Starshine's default function cleanup on those functions only;
    - do **not** prepend `precompute-propagate`, unlike the nearby DAE/inlining optimizing siblings;
-   - the current guard is now artifact-informed: nested cleanup runs above the earlier `8` touched-function and `100` defined-function limits; individually large touched functions (`> 192` locals or `> 1000` instructions) are filtered out, and cleanup skips with `reason=large-touched-function` only when every touched function is filtered; startup-only data-offset and global-initializer rewrites leave the touched-function set empty and do not trigger nested cleanup. The direct debug-artifact compare now runs cleanup on the artifact's local-heavy touched functions and makes Starshine smaller than Binaryen, but remains red at a representation/local-cleanup frontier and is slower than Binaryen pass-local time, so `[SGO]002` remains active.
+   - the current guard is now artifact-informed: nested cleanup runs above the earlier `8` touched-function and `100` defined-function limits; individually large touched functions (`> 192` locals or `> 1000` instructions) are filtered out, and cleanup skips with `reason=large-touched-function` only when every touched function is filtered; startup-only data-offset and global-initializer rewrites leave the touched-function set empty and do not trigger nested cleanup. The direct debug-artifact compare now runs cleanup on the artifact's local-heavy touched functions, makes Starshine smaller than Binaryen, and is accepted for v0.1.0 with the remaining first diff classified as representation-only default-local initialization drift.
 
-Every partial implementation should name the subset it supports until the fact collection, rewrite, nested-rerun, direct oracle, and artifact evidence all exist.
+Any future breadth implementation should name the newly supported subset and rerun focused oracle evidence instead of reopening the accepted v0.1.0 supported surface by default.
 
 ## Transformed-shape coverage to preserve
 
@@ -121,7 +122,7 @@ The current public-surface baseline is:
 - `simplify-globals-optimizing` is an active module pass;
 - direct active requests run the partial implementation;
 - plain `simplify-globals` remains boundary-only;
-- presets do not silently include the late-tail pass.
+- public presets explicitly include the accepted late-tail suffix and keep that order under tests.
 
 Any future classification or preset change should update registry/preset tests in the same commit.
 
@@ -159,7 +160,7 @@ Run isolated oracle comparison before late-tail replay:
 - reduced fixtures from Binaryen's `simplify-globals-*` lit family;
 - targeted debug-artifact runs once the module-boundary harness accepts the pass.
 
-Current active-partial evidence (with direct artifact drift accepted as representation-only):
+Current signed-off supported-surface evidence (with direct artifact drift accepted as representation-only):
 
 - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-globals-optimizing --out-dir .tmp/sgo-direct-debug-artifact-nested-pruned --starshine-bin _build/native/release/build/cmd/cmd.exe` completed direct debug-artifact replay after pruning expensive SGO nested cleanup slots. It stayed valid; canonical wasm/WAT/function compare were unequal and the first difference remained `defined=48 abs=69`, now accepted by user decision as local/default-init representation drift. Starshine stayed smaller than Binaryen (`2,860,269` bytes versus `2,861,435`) and pass-local runtime moved inside the 2x Binaryen floor (`153.143ms` versus Binaryen `107.210ms`). The paired trace `.tmp/sgo-nested-pruned-trace.txt` reported total SGO pass time `139.507ms` and `detail:sgo:nested-total=86.104ms`; the remaining largest nested wrapper slot is `vacuum=45.538ms`. Previous attribution in `.tmp/sgo-nested-timers-trace.txt` showed the unpruned nested lane at `detail:sgo:nested-total=213.664ms`, led by `simplify-locals=60.031ms`, `vacuum=47.410ms`, and `remove-unused-brs=20.042ms`; this motivated the artifact-tuned nested-list pruning.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-local-threshold-192-10k` compared `9975/10000` mixed-generator modules after the SGO local-heavy nested cleanup threshold slice, matched all `9975`, found `0` validation failures, and hit `25` Binaryen/tool command failures.
@@ -240,13 +241,13 @@ The exact owner file is still undecided, but a faithful port needs these categor
 | Type repair / validation path | GC and `ref.func` replacements can refine expression types. |
 | Nested function-pass scheduler | The optimizing sibling requires per-changed-function default cleanup without the DAE/inlining prefix. |
 
-If a future port implements only startup propagation or only dead-write cleanup, keep `simplify-globals-optimizing` marked as partial until the nested rerun contract exists too.
+The current v0.1.0 surface includes the optimizing nested-rerun contract. Future startup, dead-write, value-flow, or GC/refinalization breadth should be treated as incremental follow-up work with its own focused evidence.
 
 ## Open design questions
 
 - How much of Binaryen's `FlowScanner` should Starshine model before accepting side-effecting-but-safe condition positives? Starshine now has pure-condition positives plus focused negatives for values flowing into `local.tee`, `select`, wrong-target writes, non-constant set operands, `else` arms, and trapping loads; the remaining recommendation is to keep the official safe-side-effect positive as its own value-flow slice.
 - Should Starshine land a shared `simplify-globals` / `simplify-globals-optimizing` owner first, or a narrower startup-only `propagate-globals-globally` substrate first?
-- Should touched-function cleanup reuse the existing active preset list exactly, or define a smaller Binaryen-equivalent default-function subset for nested runs?
+- Should a future exact-parity experiment restore more of Binaryen's nested default-function scheduler despite the measured runtime cost, or keep the accepted artifact-tuned subset?
 - How should local type repair represent Binaryen's `ReFinalize()` obligations for reference-typed replacements?
 - Should global fact collection reuse broader module-analysis caches or stay pass-local until another global-family pass needs it?
 
