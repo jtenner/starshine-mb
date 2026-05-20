@@ -7,6 +7,7 @@ sources:
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
+  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/match.mbt
   - ../../../src/validate/env.mbt
@@ -19,6 +20,7 @@ related:
   - ./diagnostics-and-invalid-repro.md
   - ./start-section.md
   - ./ref-func-declarations.md
+  - ./resource-sections-and-limits.md
   - ../binary/function-import-export-and-code-sections.md
   - ../binary/type-table-memory-global-tag-sections.md
   - ../binary/custom-and-name-sections.md
@@ -78,8 +80,8 @@ An imported external type must be internally valid before it can extend an index
 | Imported kind | Validation rule | Important edge case |
 | --- | --- | --- |
 | function | Type index must resolve to a function type. | A type index that exists but names a struct/array type is rejected for `FuncExternType`. |
-| table | Reference type must validate; limits must be in range. | Current WAST declarations lower natural limits to i32 limits, but core/binary paths can represent i64 table limits. |
-| memory | Limits must be in range; shared memories require an explicit maximum. | Memory32 max is bounded to 65536 pages; memory64 uses the wider local core limit. |
+| table | Reference type must validate; limits must be in range. | Current WAST declarations lower natural limits to i32 limits, but core/binary paths can represent i64 table limits; the shared table-limit contract lives in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| memory | Limits must be in range; shared memories require an explicit maximum. | Memory32 max is bounded to 65536 pages; memory64 uses the wider local core limit; the shared-memory maximum policy and limit-width caveats live in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | global | Value type must validate; mutability is carried for matching and runtime `global.set` checks. | Immutable imported globals can be read from constant expressions when they are already in the environment; see [`constant-expressions.md`](constant-expressions.md). |
 | tag | Type index must resolve to a function type with empty results. | Tag imports extend the tag index space before local tags. |
 
@@ -119,8 +121,8 @@ The official WebAssembly model uses a matching relation to decide whether one ex
 
 | Type surface | Starshine matching rule | Why it matters |
 | --- | --- | --- |
-| `Limits` | Same limit width (`i32` with `i32`, `i64` with `i64`); actual minimum must be at least expected minimum; actual maximum must be no larger than expected maximum when expected is bounded. | A host memory/table with enough initial capacity and no too-large maximum can satisfy an import. |
-| `MemType` | Limits match and the `shared` flag is identical. | A shared-memory import cannot be satisfied by an unshared memory or the reverse. |
+| `Limits` | Same limit width (`i32` with `i32`, `i64` with `i64`); actual minimum must be at least expected minimum; actual maximum must be no larger than expected maximum when expected is bounded. | A host memory/table with enough initial capacity and no too-large maximum can satisfy an import; section-level range validation remains centralized in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| `MemType` | Limits match and the `shared` flag is identical. | A shared-memory import cannot be satisfied by an unshared memory or the reverse; this matching rule sits on top of the local shared-memory-with-maximum validation policy. |
 | immutable `GlobalType` | Value type is covariant. | A `(global (ref eq))` can satisfy a `(global (ref any))`-style expectation when the reference type matches by subtype. |
 | mutable `GlobalType` | Value type is invariant and mutability must match. | Mutable globals can be read and written, so allowing only one direction would be unsound. |
 | `TableType` | Limits match and reference type matches both directions. | Starshine treats table element reference type as invariant even when heap types have subtyping. |
@@ -153,6 +155,7 @@ When a pass, generator, or fixture changes import/export structure:
 6. For import-declaration fuzzing, expect `ImportSection` diagnostics for invalid imported function/tag type indices or invalid external type shapes.
 7. For export fuzzing, expect `ExportSection` diagnostics for duplicate names and invalid function/table/memory/global/tag export indices.
 8. For future instantiation tests, add host-value matching cases separately from ordinary module validation.
+9. When changing table or memory limit validation, update [`resource-sections-and-limits.md`](resource-sections-and-limits.md) first, then keep this page focused on the import/export and host-matching boundary.
 
 ## Sources
 
@@ -160,7 +163,8 @@ When a pass, generator, or fixture changes import/export structure:
 - Module-validation phase snapshot: [`../raw/wasm/2026-05-13-module-validation-phase-sources.md`](../raw/wasm/2026-05-13-module-validation-phase-sources.md)
 - Function/import/export snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - WAST resource declaration snapshot: [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md)
+- Resource-section validation snapshot: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`resource-sections-and-limits.md`](resource-sections-and-limits.md)
 - Validation implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
 - Invalid-fuzzer evidence: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt)
 - Core/binary/WAST surfaces: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
-- Related pages: [`module-validation-phases.md`](module-validation-phases.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md), [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md)
+- Related pages: [`module-validation-phases.md`](module-validation-phases.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`resource-sections-and-limits.md`](resource-sections-and-limits.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md), [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md)

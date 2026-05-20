@@ -21,6 +21,7 @@ related:
   - ./memory-instruction-authoring.md
   - ./memory-argument-authoring.md
   - ./resource-declaration-authoring.md
+  - ../validate/resource-sections-and-limits.md
   - ../binary/instruction-and-expression-encoding.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../validate/module-validation-phases.md
@@ -32,7 +33,7 @@ related:
 
 Atomic memory instructions are the threads/proposal-backed memory operations that synchronize through linear memory: `memory.atomic.notify`, `memory.atomic.wait32`, `memory.atomic.wait64`, `atomic.fence`, atomic loads/stores, atomic read-modify-write (RMW), and atomic compare-exchange. In Starshine they are **real core instructions** with binary, validation, generator, HOT-IR, and effect-model coverage, but they are **not yet high-level WAST parser syntax**.
 
-Use this page when a fixture, pass, fuzzer row, or wiki claim mentions atomics. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for ordinary scalar and bulk memory instructions, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `MemArg` alignment/offset/index rules, and [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for memory definitions, imports, shared-memory caveats, and the current WAST declaration limits path.
+Use this page when a fixture, pass, fuzzer row, or wiki claim mentions atomics. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for ordinary scalar and bulk memory instructions, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `MemArg` alignment/offset/index rules, [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for memory declarations/imports in WAST text, and [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for validator-side memory limits, memory64, and Starshine-local shared-memory maximum policy.
 
 The source manifest is [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md). It checks the official WebAssembly threads proposal pages plus Starshine core, binary, validator, generator, HOT, and WAST surfaces.
 
@@ -108,7 +109,7 @@ let cmpxchg = [
 ]
 ```
 
-For broad generator coverage, use the existing coverage-forced path instead of hand-writing every variant. [`gen_valid_append_atomic_ops(...)`](../../../src/validate/gen_valid.mbt) emits representative loads, stores, RMW, cmpxchg, wait/notify, and fence once [`gen_valid_atomic_shared_mem_idx(...)`](../../../src/validate/gen_valid.mbt) finds a shared memory.
+For broad generator coverage, use the existing coverage-forced path instead of hand-writing every variant. [`gen_valid_append_atomic_ops(...)`](../../../src/validate/gen_valid.mbt) emits representative loads, stores, RMW, cmpxchg, wait/notify, and fence once [`gen_valid_atomic_shared_mem_idx(...)`](../../../src/validate/gen_valid.mbt) finds a shared memory. The validity of that shared memory is the resource-section contract, not an atomic-instruction special case; keep shared-memory maximum and memory64 declaration details routed through [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
 
 ## Binary Encoding Contract
 
@@ -128,7 +129,7 @@ The exact local map is in [`src/binary/decode.mbt`](../../../src/binary/decode.m
 When touching atomics:
 
 1. **Validate stack effects, not just decode.** Add positive and negative coverage near [`src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt) for operand order, expected value type, invalid memory index, alignment, and offset-width failures.
-2. **Keep shared-memory/resource context explicit.** The valid generator emits atomics only when a shared memory is available. Direct fixtures should explain whether they are testing local stack typing, proposal-level shared-memory semantics, or byte-codec coverage.
+2. **Keep shared-memory/resource context explicit.** The valid generator emits atomics only when a shared memory is available. Direct fixtures should explain whether they are testing local stack typing, proposal-level shared-memory semantics, byte-codec coverage, or the resource-section rule that shared memories need a maximum; route that last rule through [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
 3. **Preserve memory ordering and trap behavior.** Treat atomic loads as reads, atomic stores/notify as writes, RMW/cmpxchg as read-write, and wait operations as read/trap-sensitive. `atomic.fence` has no stack effect, but it is still an ordering operation; do not delete or move it as if it were a `nop` without a memory-model proof.
 4. **Keep WAST claims scoped.** If a test uses `@lib.Instruction` or raw bytes, call it core/binary evidence. Do not call it WAST text coverage until `src/wast/keywords.mbt`, `src/wast/parser.mbt`, lowering, printing, and WAST tests are widened.
 5. **After memory remaps, repair `MemArg`s.** Atomics carry the same `MemArg` memory-index/offset/alignment risks as ordinary loads and stores. Pair this page with [`memory-argument-authoring.md`](memory-argument-authoring.md).
@@ -138,7 +139,7 @@ When touching atomics:
 
 - Starshine WAST does not currently accept atomic text keywords such as `i32.atomic.load`, `memory.atomic.wait32`, or `atomic.fence`.
 - Core debug `Show` output for atomics is not a parser roundtrip contract.
-- WAST memory declarations still lower through the `i32` limits path and have no shared-memory spelling; use direct core/binary fixtures for shared-memory atomic cases today.
+- WAST memory declarations still lower through the `i32` limits path and have no shared-memory spelling; use direct core/binary fixtures for shared-memory atomic cases today, and cite [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for the validator-side shared-memory maximum rule.
 - The generator's `[FZG]017` row is strong core/binary/validator evidence for atomics, not evidence that arbitrary WAST text can author those shapes.
 
 ## Sources

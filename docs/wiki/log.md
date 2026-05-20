@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | import and atomic resource backlink hygiene
+
+- Continued the resource-section health pass by checking import/export matching and atomic-memory authoring pages for memory/table limit and shared-memory wording that still stood apart from the new validator guide.
+- Updated [`validate/import-export-and-external-type-matching.md`](validate/import-export-and-external-type-matching.md) so import declaration validation and `Match for ExternType` limit/shared-memory rules route section-level range validation, memory64/table64 caveats, and the shared-memory maximum policy through [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md).
+- Updated [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) so `[FZG]017` shared-memory generator and fixture guidance distinguishes atomic stack/effect rules from resource-section validity, and updated [`index.md`](index.md) summaries for both pages.
+
 ## [2026-05-20] health | generator resource-section backlink hygiene
 
 - During the post-update whole-wiki health pass, searched memory/table limit, shared-memory, data-count, segment, and new resource-section backlinks across validator, binary, WAST, fuzzing, index, and log pages.
