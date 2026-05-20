@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] binary | name-section subsection source correction
+
+- Added [`raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md) after rechecking the current WebAssembly Core custom-section appendix and binary module pages against Starshine's `NameSec` code.
+- Corrected [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) so current official WebAssembly 3.0 name subsections are distinguished from Starshine-local table, memory, global, element, and data name maps, while preserving the local decode/encode/validation/pass-repair contract.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md), and [`index.md`](index.md) so validator divergence, `[FZG]023` coverage, WAST source-id guidance, and the catalog no longer overclaim the local `0..11` name-map span as current official WebAssembly.
+- Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt), and [`../../src/validate/gen_invalid_tests.mbt`](../../src/validate/gen_invalid_tests.mbt).
+
 ## [2026-05-20] health | WAST identifier type-use backlink
 
 - During the post-update whole-wiki health pass, searched WAST pages for remaining `type use`, `TypeIdx`, and `(type $sig)` guidance that did not route through the refreshed GC type authoring page.
