@@ -34,6 +34,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   TrailingGarbage
   TruncatedModule
   DuplicateTypeSection
+  DuplicateImportSection
+  DuplicateExportSection
   WrongSectionOrder
   InvalidFuncTypeIndex
   InvalidStartSignatureModule
@@ -470,6 +472,8 @@ fn validate_invalid_binary_strategy_label(
     TrailingGarbage => "trailing-garbage"
     TruncatedModule => "truncated-module"
     DuplicateTypeSection => "duplicate-type-section"
+    DuplicateImportSection => "duplicate-import-section"
+    DuplicateExportSection => "duplicate-export-section"
     WrongSectionOrder => "wrong-section-order"
     InvalidFuncTypeIndex => "invalid-func-type-index"
     InvalidStartSignatureModule => "invalid-start-signature-module"
@@ -935,6 +939,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       "datacount-mismatch-too-large-module",
       "encoded module with datacount larger than data segment count",
       ValidateRejected("datacount"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateImportSection,
+      "duplicate-import-section",
+      "duplicate import section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateExportSection,
+      "duplicate-export-section",
+      "duplicate export section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
       MalformedSimdImmediate,
@@ -2062,8 +2080,10 @@ fn validate_invalid_binary_mutate_truncated_module(
 }
 
 ///|
-fn validate_invalid_binary_mutate_duplicate_type_section(
+fn validate_invalid_binary_mutate_duplicate_section(
   mod : Module,
+  strategy : ValidateInvalidBinaryStrategyId,
+  section_id : Int,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
   let encoded = match validate_invalid_binary_encode_seed_module(mod) {
     Ok(v) => v
@@ -2073,12 +2093,13 @@ fn validate_invalid_binary_mutate_duplicate_type_section(
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
-  let type_span = match validate_invalid_binary_find_section(spans, 1) {
+  let section_span = match
+    validate_invalid_binary_find_section(spans, section_id) {
     Some(span) => span
     None =>
       return Ok(
         validate_invalid_binary_mutation(
-          DuplicateTypeSection,
+          strategy,
           DecodeRejected,
           false,
           encoded,
@@ -2090,16 +2111,45 @@ fn validate_invalid_binary_mutate_duplicate_type_section(
   validate_invalid_binary_append_range(
     mutated,
     source,
-    type_span.header_start,
-    type_span.end,
+    section_span.header_start,
+    section_span.end,
   )
   Ok(
     validate_invalid_binary_mutation(
-      DuplicateTypeSection,
+      strategy,
       DecodeRejected,
       true,
       Bytes::from_array(mutated),
     ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_type_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(mod, DuplicateTypeSection, 1)
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_import_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateImportSection,
+    2,
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_export_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateExportSection,
+    7,
   )
 }
 
@@ -6220,6 +6270,10 @@ pub fn apply_validate_invalid_binary_strategy(
     TruncatedModule => validate_invalid_binary_mutate_truncated_module(base)
     DuplicateTypeSection =>
       validate_invalid_binary_mutate_duplicate_type_section(base)
+    DuplicateImportSection =>
+      validate_invalid_binary_mutate_duplicate_import_section(base)
+    DuplicateExportSection =>
+      validate_invalid_binary_mutate_duplicate_export_section(base)
     WrongSectionOrder =>
       validate_invalid_binary_mutate_wrong_section_order(base)
     InvalidFuncTypeIndex =>

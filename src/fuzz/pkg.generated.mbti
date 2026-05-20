@@ -312,6 +312,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   TrailingGarbage
   TruncatedModule
   DuplicateTypeSection
+  DuplicateImportSection
+  DuplicateExportSection
   WrongSectionOrder
   InvalidFuncTypeIndex
   InvalidStartSignatureModule
