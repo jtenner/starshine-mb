@@ -105,7 +105,7 @@ Most passes should preserve `custom_secs` unless they specifically own a metadat
 
 ### Fuzzing and invalid repros
 
-The generator coverage ledger tracks `NameCustomSections` so valid-generator coverage includes both a structured `name` section and a non-`name` custom section. Current coverage-forced modules may include Starshine-local label/table/memory/global/element/data name maps in addition to the official module/function/local/type/field/tag families. The invalid lanes separately cover malformed custom-section names, duplicate/invalid name subsections, invalid UTF-8 inside function and local name maps, and out-of-range structured name-map entries. When adding a new metadata surface, update [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) and [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) instead of hiding the behavior in pass-only tests.
+The generator coverage ledger tracks `NameCustomSections` so valid-generator coverage includes both a structured `name` section and a non-`name` custom section. Current coverage-forced modules may include Starshine-local label/table/memory/global/element/data name maps in addition to the official module/function/local/type/field/tag families. The invalid lanes separately cover malformed custom-section names, duplicate/invalid name subsections, invalid UTF-8 inside module names plus function, local, and type name maps, and out-of-range structured name-map entries. When adding a new metadata surface, update [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) and [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) instead of hiding the behavior in pass-only tests.
 
 ## Edge Cases And Invariants
 

@@ -396,6 +396,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedElemIndexUleb
   InvalidNameSectionFuncNameUtf8
   InvalidNameSectionLocalNameUtf8
+  InvalidNameSectionModuleNameUtf8
+  InvalidNameSectionTypeNameUtf8
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
