@@ -382,6 +382,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedI64ConstSleb
   MalformedCallFuncIndexUleb
   MalformedBrLabelIndexUleb
+  MalformedTableIndexUleb
+  MalformedSelectTypeCountUleb
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
 } derive(Eq, @debug.Debug)
