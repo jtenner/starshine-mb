@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | name-section label subsection correction
+
+- During the whole-wiki health pass, rechecked the current WebAssembly custom-section appendix while reviewing code-metadata sources and found that the earlier 2026-05-20 name-section refresh still overclaimed standard label-name subsection id `3`.
+- Added [`raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](raw/wasm/2026-05-20-name-section-label-subsection-correction.md) to record that the current checked official set is module/function/local/type/field/tag, while Starshine still treats label/table/memory/global/element/data name maps as local structured metadata.
+- Updated [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), and [`index.md`](index.md) so official-versus-local name-section wording no longer lists labels as standard WebAssembly 3.0 metadata.
+
 ## [2026-05-20] health | code-metadata backlink hygiene
 
 - During the post-update whole-wiki health pass, searched `FuncAnnotationSec`, `func_annotation_sec`, `metadata.code.inline`, `metadata.code.branch_hint`, `function annotations`, `codeAnnotations`, `branch hints`, and `toolchain annotations` across the wiki.
