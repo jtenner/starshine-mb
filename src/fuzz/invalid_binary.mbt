@@ -99,7 +99,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   ElementSectionCountOverflow
   DataSectionCountOverflow
   MalformedLocalIndexUleb
+  MalformedGlobalIndexUleb
   MalformedI32ConstSleb
+  MalformedI64ConstSleb
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
 } derive(Eq, Debug)
@@ -466,7 +468,9 @@ fn validate_invalid_binary_strategy_label(
     ElementSectionCountOverflow => "element-section-count-overflow"
     DataSectionCountOverflow => "data-section-count-overflow"
     MalformedLocalIndexUleb => "malformed-local-index-uleb"
+    MalformedGlobalIndexUleb => "malformed-global-index-uleb"
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
+    MalformedI64ConstSleb => "malformed-i64-const-sleb"
     SimdShuffleLaneOverflow => "simd-shuffle-lane-overflow"
     SimdLoadLaneIndexOverflow => "simd-load-lane-index-overflow"
   }
@@ -957,9 +961,23 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedGlobalIndexUleb,
+      "malformed-global-index-uleb",
+      "global.get instruction with a malformed global-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedI32ConstSleb,
       "malformed-i32-const-sleb",
       "i32.const instruction with a malformed signed LEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedI64ConstSleb,
+      "malformed-i64-const-sleb",
+      "i64.const instruction with a malformed signed LEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -1065,9 +1083,11 @@ fn validate_invalid_binary_strategy_index(
     ElementSectionCountOverflow => 65
     DataSectionCountOverflow => 66
     MalformedLocalIndexUleb => 67
-    MalformedI32ConstSleb => 68
-    SimdShuffleLaneOverflow => 69
-    SimdLoadLaneIndexOverflow => 70
+    MalformedGlobalIndexUleb => 68
+    MalformedI32ConstSleb => 69
+    MalformedI64ConstSleb => 70
+    SimdShuffleLaneOverflow => 71
+    SimdLoadLaneIndexOverflow => 72
   }
 }
 
@@ -1843,6 +1863,27 @@ fn validate_invalid_binary_mutate_malformed_local_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_global_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedGlobalIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x23).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_i32_const_sleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1853,6 +1894,27 @@ fn validate_invalid_binary_mutate_malformed_i32_const_sleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x41).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_i64_const_sleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedI64ConstSleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x42).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -2885,8 +2947,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_data_section_count_overflow(base)
     MalformedLocalIndexUleb =>
       validate_invalid_binary_mutate_malformed_local_index_uleb(base)
+    MalformedGlobalIndexUleb =>
+      validate_invalid_binary_mutate_malformed_global_index_uleb(base)
     MalformedI32ConstSleb =>
       validate_invalid_binary_mutate_malformed_i32_const_sleb(base)
+    MalformedI64ConstSleb =>
+      validate_invalid_binary_mutate_malformed_i64_const_sleb(base)
     SimdShuffleLaneOverflow =>
       validate_invalid_binary_mutate_simd_shuffle_lane_overflow(base)
     SimdLoadLaneIndexOverflow =>
