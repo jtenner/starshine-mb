@@ -94,6 +94,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   ExportSectionCountOverflow
   ImportSectionCountOverflow
   GlobalSectionCountOverflow
+  FunctionSectionCountOverflow
+  MemorySectionCountOverflow
+  ElementSectionCountOverflow
+  DataSectionCountOverflow
 } derive(Eq, Debug)
 
 ///|
@@ -453,6 +457,10 @@ fn validate_invalid_binary_strategy_label(
     ExportSectionCountOverflow => "export-section-count-overflow"
     ImportSectionCountOverflow => "import-section-count-overflow"
     GlobalSectionCountOverflow => "global-section-count-overflow"
+    FunctionSectionCountOverflow => "function-section-count-overflow"
+    MemorySectionCountOverflow => "memory-section-count-overflow"
+    ElementSectionCountOverflow => "element-section-count-overflow"
+    DataSectionCountOverflow => "data-section-count-overflow"
   }
 }
 
@@ -905,6 +913,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      FunctionSectionCountOverflow,
+      "function-section-count-overflow",
+      "function section whose vector count exceeds its payload type indices",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MemorySectionCountOverflow,
+      "memory-section-count-overflow",
+      "memory section whose vector count exceeds its payload memories",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      ElementSectionCountOverflow,
+      "element-section-count-overflow",
+      "element section whose vector count exceeds its payload elements",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DataSectionCountOverflow,
+      "data-section-count-overflow",
+      "data section whose vector count exceeds its payload data segments",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -988,6 +1024,10 @@ fn validate_invalid_binary_strategy_index(
     ExportSectionCountOverflow => 60
     ImportSectionCountOverflow => 61
     GlobalSectionCountOverflow => 62
+    FunctionSectionCountOverflow => 63
+    MemorySectionCountOverflow => 64
+    ElementSectionCountOverflow => 65
+    DataSectionCountOverflow => 66
   }
 }
 
@@ -2352,6 +2392,149 @@ fn validate_invalid_binary_mutate_global_section_count_overflow(
 }
 
 ///|
+fn validate_invalid_binary_module_with_function_section_count_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_function_section_count_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      FunctionSectionCountOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_function_section_count_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_memory_section_count_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x05).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_memory_section_count_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MemorySectionCountOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_memory_section_count_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_element_section_count_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x09).to_byte(),
+    (0x06).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_element_section_count_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      ElementSectionCountOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_element_section_count_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_data_section_count_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x06).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_data_section_count_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      DataSectionCountOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_data_section_count_overflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -2555,6 +2738,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_import_section_count_overflow(base)
     GlobalSectionCountOverflow =>
       validate_invalid_binary_mutate_global_section_count_overflow(base)
+    FunctionSectionCountOverflow =>
+      validate_invalid_binary_mutate_function_section_count_overflow(base)
+    MemorySectionCountOverflow =>
+      validate_invalid_binary_mutate_memory_section_count_overflow(base)
+    ElementSectionCountOverflow =>
+      validate_invalid_binary_mutate_element_section_count_overflow(base)
+    DataSectionCountOverflow =>
+      validate_invalid_binary_mutate_data_section_count_overflow(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

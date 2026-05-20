@@ -372,6 +372,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   ExportSectionCountOverflow
   ImportSectionCountOverflow
   GlobalSectionCountOverflow
+  FunctionSectionCountOverflow
+  MemorySectionCountOverflow
+  ElementSectionCountOverflow
+  DataSectionCountOverflow
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
