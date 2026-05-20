@@ -21,6 +21,7 @@ sources:
 related:
   - ../wast/gc-type-authoring.md
   - ../wast/reference-instruction-authoring.md
+  - ../validate/stack-polymorphism-and-bottom.md
   - ./static-fixtures.md
   - ./exact-reference-equivalence.md
   - ../../../src/wast/parser.mbt
@@ -95,7 +96,7 @@ The inspected type immediate is `$node`, not `$node_desc`. Starshine resolves th
 
 The custom-descriptors issue and V8 fix rechecked for this page both call out the bottom-input edge case: `none` / unreachable inputs should be treated as more specific than the exact target, so they produce an exact descriptor result. Starshine's current implementation has the same behavior through two paths:
 
-- `typecheck_ref_get_desc(...)` gets `None` from `pop_ref_or_bot()` for unreachable stack-polymorphic input, and `Env::descriptor_result_type(...)` treats the missing concrete operand as exact.
+- `typecheck_ref_get_desc(...)` gets `None` from `pop_ref_or_bot()` for unreachable stack-polymorphic input, and `Env::descriptor_result_type(...)` treats the missing concrete operand as exact. The general bottom-value rule and concrete-stack-junk boundary live in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - `Match::matches(...)` has an exact-target path where inexact abstract bottom refs such as `none` (for struct/array targets) and `nofunc` (for function targets) can match exact defined targets.
 
 ### Missing descriptor or wrong operand remains invalid
@@ -156,4 +157,4 @@ After any rewrite, rerun validation. The common failure modes are `type without 
 - Current primary-source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - GC/custom-descriptor source snapshot: [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md)
 - Archived fixture-path research: [`../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md`](../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md), [`../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md`](../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md), [`../raw/research/0024-2026-03-22-wast-struct-get-surface.md`](../raw/research/0024-2026-03-22-wast-struct-get-surface.md), [`../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md`](../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md), [`../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md`](../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md), [`../raw/research/0027-2026-03-22-exact-ref-null-immediates.md`](../raw/research/0027-2026-03-22-exact-ref-null-immediates.md), [`../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md`](../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md)
-- Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt)
+- Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt); shared bottom-value contract: [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)

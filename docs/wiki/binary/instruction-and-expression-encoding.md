@@ -7,6 +7,7 @@ sources:
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
   - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
+  - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
@@ -26,6 +27,7 @@ related:
   - type-table-memory-global-tag-sections.md
   - data-element-and-datacount-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/stack-polymorphism-and-bottom.md
   - ../validate/ref-func-declarations.md
   - ../tooling/validation-gates.md
   - ../wast/gc-type-authoring.md
@@ -56,7 +58,7 @@ The central invariant is a layer split:
 binary bytes -> syntactic Instruction / Expr decode -> module validation/typecheck
 ```
 
-`src/binary/decode.mbt` and `src/binary/encode.mbt` own bytes, opcode numbers, immediates, expression terminators, and malformed-encoding errors. `src/validate/typecheck.mbt` owns stack effects, block labels, index resolution, memory/table/data/element preconditions, and unreachable-code stack polymorphism.
+`src/binary/decode.mbt` and `src/binary/encode.mbt` own bytes, opcode numbers, immediates, expression terminators, and malformed-encoding errors. `src/validate/typecheck.mbt` owns stack effects, block labels, index resolution, memory/table/data/element preconditions, and unreachable-code stack polymorphism; the bottom-value and concrete pushed-value boundary is now centralized in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 
 ## Core Shapes In Starshine
 
@@ -138,7 +140,7 @@ Key typechecker responsibilities:
 - Scalar numeric constants, comparisons, arithmetic, conversions, reinterprets, sign-extension, and saturating truncations validate stack arity and exact operand/result value types above the byte layer; text fixture rules and rewrite hazards live in [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md).
 - `memory.init`, `data.drop`, `memory.copy`, and `memory.fill` validate memory/data resource indices, stack operands, and data-count preconditions above the binary `0xFC` immediates; use [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md) for the runtime memory stack/effect contract and [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md) for `align=` / `offset=`. `table.init`, `elem.drop`, and `table.copy` validate segment/resource indices and stack operands separately; for text-level table-index defaults, `table.init` ordering, and table64 caveats, use [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 - Reference and GC aggregate instructions have layered semantics: `ref.func` is syntactically just an immediate but also needs whole-module declaration checking; `ref.test` / `ref.cast` and `br_on_*` need hierarchy, nullability, and label-payload checks; `struct.*` / `array.*` need type, field, mutability, segment, and packed-signedness checks above the byte layer. See [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
-- Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly.
+- Unreachable code is stack-polymorphic: missing operands can become bottom values, while concrete values pushed after unreachable still have to be consumed correctly. Use [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md) for the focused validator mechanics and regression map.
 
 ## Concrete Before/After Mental Models
 
@@ -206,5 +208,5 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Local code source map: [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
-- Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
+- Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md), [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../wast/atomic-memory-instruction-authoring.md`](../wast/atomic-memory-instruction-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)

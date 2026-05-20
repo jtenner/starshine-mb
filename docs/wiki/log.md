@@ -9,6 +9,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), [`wast/parametric-instruction-authoring.md`](wast/parametric-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so existing WAST and validator pages route shared bottom-value details through the focused page instead of repeating partial explanations.
 - Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), and [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt).
 
+## [2026-05-20] health | stack-polymorphism backlink hygiene
+
+- During the post-update whole-wiki health pass, searched stack-polymorphic, `BotValType`, bottom-value, concrete-stack-junk, and module-validation references across binary, WAST, validator, and custom-descriptor pages.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md), and [`index.md`](index.md) so byte-layer and descriptor-exactness readers route unreachable-code bottom mechanics through [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md) rather than relying on older one-line summaries.
+
 ## [2026-05-20] health | memory64/table64 catalog caveat alignment
 
 - During the post-update whole-wiki health pass, searched table64, `table.fill`, table typechecker, and `memory64-lowering` catalog references for summaries that still mentioned only get/set/size/grow cleanup or only the memory64 `memory.fill` length caveat.
