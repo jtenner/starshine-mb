@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-exception-tag-sources.md
+  - ../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/wast/module_wast.mbt
@@ -30,11 +31,11 @@ Exception handling in Starshine crosses three layers:
 
 1. **Text/WAST authoring**: fixtures use `(tag ...)`, `throw`, `throw_ref`, and `try_table` catch clauses.
 2. **Core module representation**: tags occupy the same imported-prefix `TagIdx` space whether they come from imports or from the tag section; instructions carry numeric `TagIdx` and `LabelIdx` values.
-3. **Validation**: tag types must point at function types with no results; `throw` consumes a tag payload and makes control unreachable; `try_table` catches branch to labels outside the temporary try body.
+3. **Validation**: tag types must point at function types with no results; `throw` consumes a tag payload and makes control unreachable; `throw_ref` consumes nullable `exnref` and makes control unreachable; `try_table` catches branch to labels outside the temporary try body.
 
 Use this page when adding WAST fixtures, fuzz-prelude shapes, validation tests, or pass rewrite rules that touch exception tags. The broader binary section guide in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) explains section id `13` and imported-prefix index spaces; this page focuses on the text syntax and lowering/validation traps that are easiest to miss.
 
-The current primary-source snapshot is [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md). It checked the official WebAssembly 3.0 syntax, text, binary, and validation pages plus the local parser/lowering/printer/typechecker sources.
+The broad primary-source snapshot is [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md). It checked the official WebAssembly 3.0 syntax, text, binary, and validation pages plus the local parser/lowering/printer/typechecker sources. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md) supersedes one stale wording detail: `throw_ref` validates with a nullable `exnref` operand, while `catch_ref` / `catch_all_ref` branch payloads carry a non-null captured `(ref exn)`.
 
 ## Concrete Text Shapes
 
@@ -102,7 +103,7 @@ Starshine's lowering gives the `try_table` body its own temporary label for resu
     (drop)))
 ```
 
-`catch_ref` branches with the tag payload followed by a non-null `exnref`; `catch_all_ref` branches with just the `exnref`. Plain `catch` carries only the tag payload, and plain `catch_all` carries no values. This is a validation property, not merely syntax. The typechecker functions in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) enforce those four payload shapes.
+`catch_ref` branches with the tag payload followed by a captured non-null `(ref exn)` value; `catch_all_ref` branches with just that non-null exception reference. A target label written as `(result exnref)` can still receive it because non-null `(ref exn)` is a subtype of nullable `exnref`. Plain `catch` carries only the tag payload, and plain `catch_all` carries no values. This is a validation property, not merely syntax. The typechecker functions in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) enforce those four payload shapes.
 
 ## Starshine Implementation Map
 
@@ -113,7 +114,7 @@ Starshine's lowering gives the `try_table` body its own temporary label for resu
 | WAST print | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints tag fields, tag import/export descriptors, throw forms, modern `try_table` catches, and legacy catch syntax. |
 | WAST lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves tag ids to absolute imported-prefix `TagIdx`, converts modern `try_table` to core `TryTable`, validates catch labels during lowering, and lowers legacy `try` to synthetic block/unreachable forms. |
 | Module validation | [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Validates tag definitions after memories and before globals; each `TagType` must resolve to a function type with no results. |
-| Instruction typecheck | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Checks `throw`, `throw_ref`, `try_table`, and catch payload-to-label compatibility. |
+| Instruction typecheck | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Checks `throw`, nullable-operand `throw_ref`, `try_table`, and catch payload-to-label compatibility, with `catch_ref` / `catch_all_ref` adding non-null `(ref exn)` to branch payloads. |
 | Fuzz/text coverage | [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) | WAST arbitrary generation includes representative exception syntax; invalid lanes include tag-family diagnostics and unlinkable tag-import seeds. |
 
 ## Modern Versus Legacy Exception Syntax
@@ -144,8 +145,8 @@ Treat this as compatibility syntax, not as proof that Starshine has a preserved 
 
 - **Tag type result lists must be empty.** A tag type index resolving to `(func (result i32))` is invalid even though it is a function type.
 - **`throw` is stack-polymorphic after consuming payload.** It pops the tag's parameters and makes the remaining path unreachable.
-- **`throw_ref` consumes `exnref`.** The typechecker expects the local non-null `exnref` representation before marking the path unreachable.
-- **Catch payloads must match their target labels.** `catch` expects the tag payload at the branch target; `catch_ref` expects payload plus `exnref`; `catch_all` expects no values; `catch_all_ref` expects `exnref`.
+- **`throw_ref` consumes nullable `exnref`.** [`typecheck_throw_ref`](../../../src/validate/typecheck.mbt) pops `ValType::ref_null_exn()` before marking the path unreachable. A non-null exception reference is accepted by subtyping, but validation does not require non-nullness; runtime execution must still preserve the null-trap versus non-null-throw distinction.
+- **Catch payloads must match their target labels.** `catch` expects the tag payload at the branch target; `catch_ref` expects payload plus non-null `(ref exn)`; `catch_all` expects no values; `catch_all_ref` expects non-null `(ref exn)`.
 - **Catch labels are not the try body's temporary label.** The body uses an internal result label for stack typing, but catches branch to labels in the enclosing context.
 - **Inline tag export/import syntax is supported, with a local caveat.** Inline tag exports lower into ordinary export entries. Inline tag import shorthand rejects inline exports; use a separate `(export ...)` field for that combination.
 - **Binary tag attributes may grow later.** The official binary tag type shape includes an attributes byte. Starshine currently models `TagType` as only a `TypeIdx`, so future binary broadening should revisit decode/encode/types together if attributes become meaningful.
@@ -161,7 +162,7 @@ Any pass that removes, reorders, deduplicates, imports, exports, or renames tags
 5. validation summaries or caches that include tag payload types.
 6. WAST id/name expectations if the fixture source uses `$tag` ids.
 
-When a pass rewrites control around `try_table`, rerun validation. The high-risk failure mode is a catch branch whose payload no longer matches the target label's result type, especially for `catch_ref` / `catch_all_ref` because they carry `exnref`.
+When a pass rewrites control around `try_table`, rerun validation. The high-risk failure mode is a catch branch whose payload no longer matches the target label's result type, especially for `catch_ref` / `catch_all_ref` because they carry a non-null captured `(ref exn)`. When a pass rewrites around `throw_ref`, preserve operand evaluation and the possible null trap; do not treat nullable `exnref` input as already proven non-null unless the proof is local and validated.
 
 ## Authoring And Signoff Guidance
 
@@ -173,7 +174,8 @@ When a pass rewrites control around `try_table`, rerun validation. The high-risk
 
 ## Sources
 
-- Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md)
+- Broad primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md)
+- Targeted `throw_ref` nullability refresh: [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md)
 - Binary tag/resource guide: [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md)
 - Validator phase guide: [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

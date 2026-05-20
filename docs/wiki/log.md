@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | exception throw_ref nullability refresh
+
+- Added [`raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md) after rechecking the current official WebAssembly control-instruction syntax, validation, and execution pages plus Starshine's `ValType::ref_null_exn()`, `ThrowRef`, `CatchRef`, `CatchAllRef`, lowering tests, and generator type pool.
+- Corrected [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) so `throw_ref` validation is documented as consuming nullable `exnref`, while `catch_ref` / `catch_all_ref` branch payloads are documented as carrying non-null `(ref exn)` values that may still flow to nullable `exnref` labels by subtyping.
+- Updated [`index.md`](index.md) so the catalog advertises the targeted nullability refresh and the null-trap/payload rewrite distinction.
+- Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
+
 ## [2026-05-20] custom-descriptors | ref.get_desc and exactness refresh
 
 - Added [`raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md) after rechecking the current custom-descriptors proposal, WebAssembly proposals tracker, the `ref.get_desc` bottom-input issue, the V8 exactness fix, and current Starshine WAST/validator sources.
