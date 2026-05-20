@@ -8705,6 +8705,20 @@ fn dae_find_droppable_pure_stack_expr_start(
         _ => return None
       }
     } else {
+      if start >= 1 &&
+        needs.length() == 0 &&
+        dae_instr_is_const_safe_float_to_int_unary(out[start - 1], out[start]) {
+        return Some(start - 1)
+      }
+      if start >= 2 &&
+        needs.length() == 0 &&
+        dae_instr_is_const_safe_numeric_binary(
+          out[start - 2],
+          out[start - 1],
+          out[start],
+        ) {
+        return Some(start - 2)
+      }
       match out[start] {
         @lib.I31GetS | @lib.I31GetU => needs.push(1)
         @lib.RefAsNonNull => needs.push(1)
