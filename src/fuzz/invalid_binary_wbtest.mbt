@@ -85,6 +85,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "data-section-count-underflow", "tag-section-count-underflow", "type-section-size-underflow",
     "code-body-size-underflow", "import-section-size-underflow", "export-section-size-underflow",
     "table-section-size-underflow", "memory-section-size-underflow", "global-section-size-underflow",
+    "function-section-size-underflow", "element-section-size-underflow", "data-section-size-underflow",
+    "tag-section-size-underflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -107,7 +109,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1008,7 +1011,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "function-section-count-underflow", "element-section-count-underflow", "data-section-count-underflow",
       "tag-section-count-underflow", "type-section-size-underflow", "code-body-size-underflow",
       "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
-      "memory-section-size-underflow", "global-section-size-underflow",
+      "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
+      "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()
