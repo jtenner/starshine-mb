@@ -358,6 +358,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBlocktypeImmediate
   InvalidExportNameUtf8
   InvalidImportModuleNameUtf8
+  InvalidImportFieldNameUtf8
+  InvalidImportKindByte
   InvalidTableRefTypeByte
   MalformedRefNullHeaptypeImmediate
   InvalidGlobalValTypeByte

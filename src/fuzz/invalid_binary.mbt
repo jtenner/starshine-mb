@@ -80,6 +80,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBlocktypeImmediate
   InvalidExportNameUtf8
   InvalidImportModuleNameUtf8
+  InvalidImportFieldNameUtf8
+  InvalidImportKindByte
   InvalidTableRefTypeByte
   MalformedRefNullHeaptypeImmediate
   InvalidGlobalValTypeByte
@@ -453,6 +455,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
     InvalidExportNameUtf8 => "invalid-export-name-utf8"
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
+    InvalidImportFieldNameUtf8 => "invalid-import-field-name-utf8"
+    InvalidImportKindByte => "invalid-import-kind-byte"
     InvalidTableRefTypeByte => "invalid-table-reftype-byte"
     MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
     InvalidGlobalValTypeByte => "invalid-global-valtype-byte"
@@ -836,6 +840,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      InvalidImportFieldNameUtf8,
+      "invalid-import-field-name-utf8",
+      "import section with an invalid UTF-8 field name",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportKindByte,
+      "invalid-import-kind-byte",
+      "import section with an invalid import kind byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       InvalidTableRefTypeByte,
       "invalid-table-reftype-byte",
       "table section with an invalid reference type byte",
@@ -1100,34 +1118,36 @@ fn validate_invalid_binary_strategy_index(
     MalformedBlocktypeImmediate => 46
     InvalidExportNameUtf8 => 47
     InvalidImportModuleNameUtf8 => 48
-    InvalidTableRefTypeByte => 49
-    MalformedRefNullHeaptypeImmediate => 50
-    InvalidGlobalValTypeByte => 51
-    InvalidExportKindByte => 52
-    InvalidMemoryLimitsFlagByte => 53
-    InvalidGlobalMutabilityByte => 54
-    InvalidElementSegmentFlagByte => 55
-    InvalidDataSegmentFlagByte => 56
-    TypeSectionCountOverflow => 57
-    CodeSectionCountOverflow => 58
-    TableSectionCountOverflow => 59
-    ExportSectionCountOverflow => 60
-    ImportSectionCountOverflow => 61
-    GlobalSectionCountOverflow => 62
-    FunctionSectionCountOverflow => 63
-    MemorySectionCountOverflow => 64
-    ElementSectionCountOverflow => 65
-    DataSectionCountOverflow => 66
-    MalformedLocalIndexUleb => 67
-    MalformedGlobalIndexUleb => 68
-    MalformedI32ConstSleb => 69
-    MalformedI64ConstSleb => 70
-    MalformedCallFuncIndexUleb => 71
-    MalformedBrLabelIndexUleb => 72
-    MalformedTableIndexUleb => 73
-    MalformedSelectTypeCountUleb => 74
-    SimdShuffleLaneOverflow => 75
-    SimdLoadLaneIndexOverflow => 76
+    InvalidImportFieldNameUtf8 => 49
+    InvalidImportKindByte => 50
+    InvalidTableRefTypeByte => 51
+    MalformedRefNullHeaptypeImmediate => 52
+    InvalidGlobalValTypeByte => 53
+    InvalidExportKindByte => 54
+    InvalidMemoryLimitsFlagByte => 55
+    InvalidGlobalMutabilityByte => 56
+    InvalidElementSegmentFlagByte => 57
+    InvalidDataSegmentFlagByte => 58
+    TypeSectionCountOverflow => 59
+    CodeSectionCountOverflow => 60
+    TableSectionCountOverflow => 61
+    ExportSectionCountOverflow => 62
+    ImportSectionCountOverflow => 63
+    GlobalSectionCountOverflow => 64
+    FunctionSectionCountOverflow => 65
+    MemorySectionCountOverflow => 66
+    ElementSectionCountOverflow => 67
+    DataSectionCountOverflow => 68
+    MalformedLocalIndexUleb => 69
+    MalformedGlobalIndexUleb => 70
+    MalformedI32ConstSleb => 71
+    MalformedI64ConstSleb => 72
+    MalformedCallFuncIndexUleb => 73
+    MalformedBrLabelIndexUleb => 74
+    MalformedTableIndexUleb => 75
+    MalformedSelectTypeCountUleb => 76
+    SimdShuffleLaneOverflow => 77
+    SimdLoadLaneIndexOverflow => 78
   }
 }
 
@@ -2199,6 +2219,92 @@ fn validate_invalid_binary_mutate_invalid_import_module_name_utf8(
 }
 
 ///|
+fn validate_invalid_binary_module_with_invalid_import_field_name_utf8() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x02).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_import_kind_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x02).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x78).to_byte(),
+    (0xff).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_import_field_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidImportFieldNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_import_field_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_import_kind_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidImportKindByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_import_kind_byte(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_table_reftype_byte() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -3033,6 +3139,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_export_name_utf8(base)
     InvalidImportModuleNameUtf8 =>
       validate_invalid_binary_mutate_invalid_import_module_name_utf8(base)
+    InvalidImportFieldNameUtf8 =>
+      validate_invalid_binary_mutate_invalid_import_field_name_utf8(base)
+    InvalidImportKindByte =>
+      validate_invalid_binary_mutate_invalid_import_kind_byte(base)
     InvalidTableRefTypeByte =>
       validate_invalid_binary_mutate_invalid_table_reftype_byte(base)
     MalformedRefNullHeaptypeImmediate =>
