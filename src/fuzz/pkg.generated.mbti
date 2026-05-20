@@ -400,6 +400,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionLocalNameUtf8
   InvalidNameSectionModuleNameUtf8
   InvalidNameSectionTypeNameUtf8
+  InvalidFuncTypeByte
+  InvalidCodeLocalValTypeByte
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {

@@ -134,7 +134,7 @@ For example:
     local.get $tmp))
 ```
 
-Lowering resolves `$tmp` to absolute `LocalIdx(1)`, but the binary code entry encodes one `i32` local in the local-run vector. During encoding, [`Encode for Func`](../../../src/binary/encode.mbt) serializes the local runs and expression into a temporary body payload, prefixes that payload length, and writes the raw body bytes. During decoding, [`Decode for Func`](../../../src/binary/decode.mbt) reads that length-framed body, decodes local runs, rejects expanded local counts above `2^32 - 1`, then decodes the expression.
+Lowering resolves `$tmp` to absolute `LocalIdx(1)`, but the binary code entry encodes one `i32` local in the local-run vector. During encoding, [`Encode for Func`](../../../src/binary/encode.mbt) serializes the local runs and expression into a temporary body payload, prefixes that payload length, and writes the raw body bytes. During decoding, [`Decode for Func`](../../../src/binary/decode.mbt) reads that length-framed body, decodes local runs, rejects expanded local counts above `2^32 - 1`, rejects malformed local value-type bytes, then decodes the expression. The binary-invalid lane locks that decode-stage surface with `invalid-code-local-valtype-byte`.
 
 This distinction matters for rewrites:
 

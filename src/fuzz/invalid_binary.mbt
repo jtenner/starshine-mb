@@ -122,6 +122,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionLocalNameUtf8
   InvalidNameSectionModuleNameUtf8
   InvalidNameSectionTypeNameUtf8
+  InvalidFuncTypeByte
+  InvalidCodeLocalValTypeByte
 } derive(Eq, Debug)
 
 ///|
@@ -510,6 +512,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidNameSectionLocalNameUtf8 => "invalid-name-section-local-name-utf8"
     InvalidNameSectionModuleNameUtf8 => "invalid-name-section-module-name-utf8"
     InvalidNameSectionTypeNameUtf8 => "invalid-name-section-type-name-utf8"
+    InvalidFuncTypeByte => "invalid-functype-byte"
+    InvalidCodeLocalValTypeByte => "invalid-code-local-valtype-byte"
   }
 }
 
@@ -1158,6 +1162,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidFuncTypeByte,
+      "invalid-functype-byte",
+      "type section entry with an invalid function-type byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidCodeLocalValTypeByte,
+      "invalid-code-local-valtype-byte",
+      "code section local declaration with an invalid value-type byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -1269,6 +1287,8 @@ fn validate_invalid_binary_strategy_index(
     InvalidNameSectionLocalNameUtf8 => 88
     InvalidNameSectionModuleNameUtf8 => 89
     InvalidNameSectionTypeNameUtf8 => 90
+    InvalidFuncTypeByte => 91
+    InvalidCodeLocalValTypeByte => 92
   }
 }
 
@@ -2556,6 +2576,86 @@ fn validate_invalid_binary_mutate_invalid_name_section_type_name_utf8(
 }
 
 ///|
+fn validate_invalid_binary_module_with_invalid_functype_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0xff).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_code_local_valtype_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x06).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0xff).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_functype_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidFuncTypeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_functype_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_code_local_valtype_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidCodeLocalValTypeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_code_local_valtype_byte(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -3727,6 +3827,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_name_section_module_name_utf8(base)
     InvalidNameSectionTypeNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_type_name_utf8(base)
+    InvalidFuncTypeByte =>
+      validate_invalid_binary_mutate_invalid_functype_byte(base)
+    InvalidCodeLocalValTypeByte =>
+      validate_invalid_binary_mutate_invalid_code_local_valtype_byte(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
