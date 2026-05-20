@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | reference-instruction ref.func citation hygiene
+
+- During the post-update whole-wiki health pass, searched `ref.func`, `refs`, declaration-source, start-divergence, and old `2026-05-13-ref-func-declaration-sources` references across WAST, validation, binary, fuzzing, Binaryen pass, raw-source, index, and log pages.
+- Updated [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md) so reference-instruction readers cite the refreshed [`raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](raw/wasm/2026-05-20-ref-func-declaration-refresh.md) alongside the reference-branch and ordinary `call_ref` refreshes, rather than routing `ref.func` declaration membership only through the older 2026-05-13 snapshot.
+
 ## [2026-05-20] validate | ref.func declaration source refresh
 
 - Added [`raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](raw/wasm/2026-05-20-ref-func-declaration-refresh.md) after rechecking the current WebAssembly Core 3.0 module, instruction, and syntax sources against Starshine's `ref.func` typechecker, declaration-bitmap validator, focused tests, and invalid-fuzzer stable-id evidence.
