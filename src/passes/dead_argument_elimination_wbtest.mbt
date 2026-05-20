@@ -911,3 +911,72 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
     None => fail("expected rewritten code section")
   }
 }
+
+///|
+test "dae raw cleanup strips empty zero-result try_tables even with catches" {
+  let param_void_typeidx_block_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let catching_empty_body = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::try_table(
+        @lib.BlockType::void_(),
+        [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(12)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  let catching_trapping_body = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::try_table(
+        @lib.BlockType::void_(),
+        [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+    ]),
+  )
+  let catching_param_body = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(13)),
+      @lib.Instruction::try_table(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+        @lib.Expr::new([]),
+      ),
+    ]),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([param_void_typeidx_block_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            catching_empty_body,
+            catching_trapping_body,
+            catching_param_body,
+            @lib.Instruction::return_(),
+          ]),
+        ),
+      ]),
+    )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      assert_eq(cleaned, [
+        catching_trapping_body,
+        catching_param_body,
+        @lib.Instruction::return_(),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}

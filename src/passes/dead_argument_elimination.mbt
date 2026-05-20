@@ -8917,8 +8917,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
           body, type_sec,
         )
-        if catches.length() == 0 &&
-          dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
+        if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
           ()
         } else {
