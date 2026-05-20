@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-18
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
@@ -291,6 +291,29 @@ Binaryen's `FlowScanner` has a specific carveout for another no-else read-only-t
 ```
 
 Starshine now accepts this two-layer family plus the lit-style three-layer version where the inner condition is itself a result block containing a no-else same-global self-guard and then yielding another `global.get`. It still rejects near misses where the nested `if` has an `else`, or where an extra dropped `global.get $once` makes the number of actual reads exceed the number of safe pattern reads. The public SGO wrapper may skip nested cleanup for the resulting value-block/control body and return the valid core rewrite directly.
+
+### Nested-arm FlowScanner block-result variation
+
+A side-effecting condition can also hide the candidate read in a nested `if (result i32)` arm, then wrap that nested condition in a transparent result block before the final self-guard branch:
+
+```wat
+(global $once (mut i32) (i32.const 0))
+(func
+  (if
+    (block (result i32)
+      (if (result i32)
+        (call $cond)
+        (then (i32.const 0))
+        (else (global.get $once))
+      )
+      (i32.eqz)
+    )
+    (then (global.set $once (i32.const 1)))
+  )
+)
+```
+
+Binaryen promotes this family because the call decides which arm runs, while `$once` only flows out to the final branch condition. Starshine's current subset accepts this transparent block-result wrapper for supported pure post-consumers like `i32.eqz` and for the supported clean-sibling `select` value form, and it preserves the neighboring negative where the block-wrapped post-consumer is a trapping `i32.load` whose address comes from the global-derived value.
 
 ### No-op const/drop condition-prefix variation
 

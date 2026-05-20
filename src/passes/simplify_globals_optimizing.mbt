@@ -496,6 +496,11 @@ fn sgo_count_read_only_to_write_instrs(
             instrs[pos + 1],
             safe_reads,
           )
+          sgo_count_block_wrapped_nested_if_arm_flow_read(
+            instr,
+            instrs[pos + 1],
+            safe_reads,
+          )
         }
         if pos + 2 < instrs.length() {
           if pos + 3 == instrs.length() {
@@ -1116,6 +1121,145 @@ fn sgo_nested_if_arm_flow_outer_if_index(
     }
   }
   None
+}
+
+///|
+fn sgo_nested_if_arm_flow_reaches_block_result(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  prefix_stack : Array[Bool],
+) -> Bool {
+  if prefix_stack.length() == 0 {
+    return false
+  }
+  let stack : Array[Bool] = []
+  for i = 0; i + 1 < prefix_stack.length(); i = i + 1 {
+    stack.push(prefix_stack[i])
+  }
+  sgo_flow_push_tainted(stack)
+  for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
+    let instr = instrs[scan]
+    if sgo_const_instr(instr) != None {
+      sgo_flow_push_clean(stack)
+      continue
+    }
+    match instr {
+      @lib.LocalGet(_) => {
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.LocalTee(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return false
+        }
+      @lib.I32Load(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return false
+        }
+      @lib.Drop =>
+        match sgo_flow_pop(stack) {
+          Some(false) => continue
+          _ => return false
+        }
+      @lib.Call(_) => {
+        if sgo_flow_stack_has_taint(stack) {
+          return false
+        }
+        sgo_flow_clear_stack(stack)
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.Select(_) => {
+        if !sgo_flow_apply_select(stack) {
+          return false
+        }
+        continue
+      }
+      _ => {
+        if sgo_is_flowscanner_unary_pure_instr(instr) {
+          if !sgo_flow_apply_unary(stack) {
+            return false
+          }
+          continue
+        }
+        if sgo_is_flowscanner_binary_pure_instr(instr) {
+          if !sgo_flow_apply_binary(stack) {
+            return false
+          }
+          continue
+        }
+        return false
+      }
+    }
+  }
+  stack == [true]
+}
+
+///|
+fn sgo_count_block_wrapped_nested_if_arm_flow_read(
+  instr : @lib.Instruction,
+  next : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  match (instr, next) {
+    (
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)),
+      @lib.If(_, outer_then, None),
+    ) => {
+      let idx = match sgo_single_const_global_set_idx(outer_then) {
+        Some(set_idx) => set_idx
+        None => return
+      }
+      for pos = 0; pos < body.length(); pos = pos + 1 {
+        match body[pos] {
+          @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
+            let (clean_prefix_ok, clean_prefix_stack) = sgo_flow_scan_clean_prefix_until(
+              body, pos,
+            )
+            if !clean_prefix_ok || clean_prefix_stack.length() == 0 {
+              continue
+            }
+            if !sgo_nested_if_arm_flow_reaches_block_result(
+                body, pos, clean_prefix_stack,
+              ) {
+              continue
+            }
+            let (prefix_ok, prefix_reads, prefix_stack) = sgo_flow_scan_prefix_until(
+              body, pos, idx,
+            )
+            if !prefix_ok ||
+              prefix_reads != 0 ||
+              prefix_stack.length() == 0 ||
+              sgo_flow_stack_has_taint(prefix_stack) {
+              continue
+            }
+            let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
+              then_body, idx,
+            )
+            let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
+              else_body, idx,
+            )
+            if then_ok &&
+              else_ok &&
+              then_reads + else_reads == 1 &&
+              (then_tainted || else_tainted) {
+              sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+            }
+          }
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
 }
 
 ///|
