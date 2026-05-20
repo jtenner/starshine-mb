@@ -605,3 +605,595 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Status: deferred behind [HOT]002 and future Node package rebuild work.
   - Deliverables: reuse the native hot-batch queue contract in the shipped Node package with `worker_threads`, one WasmGC module per worker, worker-local heap state, and stable-order serialized merge.
   - Dependencies: [HOT]002 native queue contract, worker-local function serialization hooks, and future Node package rebuild work.
+
+### FUZ - Fuzzer Hardening and GenValid Widening
+
+- [FUZ]1000 - GenValid Diagnostics, Result API, And Artifact Manifest
+  - Goal: make valid generation explain what happened instead of returning only a `Module`.
+  - Why: `gen_valid_module_with_config(...)` currently retries internally and loses useful facts about failed candidates, retry count, feature facts, and the exact config/seed path that produced the final module. Agents debugging generator regressions need that information without rerunning by hand.
+  - Deliverables: add a result-bearing generator API such as `gen_valid_module_result(...)`; keep the current public compatibility wrapper; define `GenValidGenerated` and `GenValidFailure` records; optionally include a stable config/profile label, retry count, validation error message, feature facts, and the final or last candidate module.
+  - Required APIs: `src/validate/gen_valid.mbt`, `src/validate/validate.mbt` validation errors, `src/fuzz/main.mbt` batch emission, and generated `.mbti` updates.
+  - Invariants: do not weaken the existing guarantee that emitted batch artifacts validate; do not make ordinary smoke profiles slower by default; preserve deterministic output for the same seed/config.
+  - Dependencies: none; this is the preferred first FUZ slice because later slices can reuse the diagnostics and manifest fields.
+  - Suggested Tests: focused generator-result wbtests for success, forced validation failure with a deliberately impossible config if feasible, batch-emitter tests proving old artifact names remain deterministic, `moon test src/validate`, `moon test src/fuzz`.
+  - Exit Criteria: callers can choose either the old module-only API or the new diagnostic API, and a failed generation path reports enough context for an agent to reproduce the config/seed/attempt.
+
+- [FUZ]1001 - Explicit GenValid Profile Taxonomy
+  - Goal: replace implicit config aliases with named, documented generator profiles.
+  - Why: today `Natural`, `CoverageForced`, binary-oracle coverage, small invalid seeds, and repro seeds are spread across config constructors and helper wrappers. Agents need clear names for the intended behavior before widening generation.
+  - Deliverables: introduce profile names or constructors for natural-small, natural-wide, natural-deep, coverage-forced-portable, coverage-forced-all-features, binaryen-oracle-portable, mutation-seed-small, mutation-seed-rich, pass-fuzz-stress, validator-stress, no-imports, imports-heavy, GC-heavy, SIMD-heavy, memory-heavy, and control-heavy as appropriate.
+  - Required APIs: `GenValidConfig`, `GenValidFeatureToggles`, `GenValidSectionBias`, `validate_valid_run_config(...)`, invalid seed helpers in `src/validate/gen_invalid.mbt` and `src/fuzz/invalid_binary.mbt`.
+  - Invariants: existing profile names `smoke`, `ci`, and `stress` must keep their current externally visible behavior unless docs/tests are updated; Binaryen-oracle profile must remain intentionally portable.
+  - Dependencies: [FUZ]1000 recommended but not required.
+  - Suggested Tests: config equality tests for old constructors, profile lookup tests, invalid profile diagnostics, README/wiki updates, `moon test src/validate`, `moon test src/fuzz`.
+  - Exit Criteria: future fuzz tasks can select a named generator profile without reverse-engineering a large struct literal.
+
+- [FUZ]1002 - Typed Stack-Aware GenValid Body Generator
+  - Goal: add a typed expression/body generator that tracks operand stack, labels, reachability, locals, globals, funcs, tables, memories, tags, and type information while emitting instructions.
+  - Why: the current body generation relies heavily on hand-picked drop-wrapped preludes and `append_value_instrs(...)`. It proves surfaces exist but does not generate enough structurally diverse valid programs.
+  - Deliverables: add a new internal generator path such as `gen_expr(expected_results, env, fuel)`, `gen_stmt(env, stack, label_stack, fuel)`, and `gen_value(type, env, fuel)`; initially use it for a small subset of numeric/control/local instructions, then expand behind config flags.
+  - Required APIs: `GenValidBodyEnv`, `Instruction`, `BlockType`, `ValType`, validator typechecking behavior in `src/validate/validate.mbt`.
+  - Invariants: generated modules must validate without relying on retry as the normal path; use bounded fuel to avoid runaway recursion; keep deterministic generation for a seed.
+  - Dependencies: [FUZ]1000 for diagnostics is strongly recommended.
+  - Suggested Tests: focused tests for typed block result generation, typed `if`, branch payloads, local get/set/tee, unreachable stack-polymorphic regions, and validation of generated modules across several seeds.
+  - Exit Criteria: at least one profile uses the typed generator for nontrivial bodies and records feature facts beyond the existing deterministic prelude.
+
+- [FUZ]1003 - GenValid Module Topology And High-Index Generation
+  - Goal: widen valid module shape beyond small mostly-low-index modules.
+  - Why: many validator and optimizer bugs appear only with high index spaces, many functions, repeated imports/exports, nonzero table/memory indices, or odd custom-section placement.
+  - Deliverables: generate many-function modules, high type/function/table/memory/global/tag/data/elem indices, multiple import modules, imported re-exports, repeated valid exports of the same index under distinct names, modules without `main`, modules without exports, and custom sections before/between/after standard sections where the binary model supports it.
+  - Required APIs: `Module`, section builders in `src/lib`, binary encode/decode, `gen_valid_feature_facts(...)`, pass-fuzz batch emission.
+  - Invariants: keep the current small profiles small; put high-index and many-function shapes behind explicit profile/config knobs; avoid producing modules that Binaryen cannot parse in the binary-oracle profile unless that profile explicitly opts into tool-failure exploration.
+  - Dependencies: [FUZ]1001 profile taxonomy recommended.
+  - Suggested Tests: feature-fact tests for high index/topology rows, encode/decode/validate roundtrips, a small `--generator gen-valid` pass-fuzz smoke on a topology-heavy profile.
+  - Exit Criteria: a dedicated profile can reliably emit validated modules with nonzero index spaces and richer import/export/custom-section topology.
+
+- [FUZ]1004 - GenValid Type, Subtyping, And GC Topology Widening
+  - Goal: generate richer recursive types, subtype graphs, descriptors, structs, arrays, and exact-reference flows.
+  - Why: current GC coverage is broad but still template-heavy. Optimizer and validator bugs often live in recursive type topology, descriptor pairing, defaultability, exact refs, and typed aggregate access.
+  - Deliverables: add generation for rec groups of varied sizes, mutually recursive struct/array groups, deep chains, wide fanout, final/open subtype matrices, descriptor/describes pairs, descriptor edge cases that remain valid, packed and ref fields, mutable/immutable field mixes, arrays over packed/ref fields, and exact refs flowing through params/locals/globals/calls/blocks.
+  - Required APIs: `RecType`, `SubType`, `CompType`, `FieldType`, `StorageType`, `TypeMetadata`, `RefType`, `HeapType`, GC instruction constructors, validation type environment.
+  - Invariants: do not weaken subtype validation; keep official-vs-local caveats documented; ensure every generated exact non-null ref has a real construction path or safe fallback.
+  - Dependencies: [FUZ]1002 helps produce diverse GC bodies but is not strictly required for type-section widening.
+  - Suggested Tests: focused validation tests for each topology family, feature fact counters for exact-ref and descriptor flows, `moon test src/validate`, small pass-fuzz lanes against GC-sensitive passes.
+  - Exit Criteria: natural or GC-heavy profiles organically produce multiple GC topology families without relying only on the coverage prelude.
+
+- [FUZ]1005 - GenValid Control Flow, Multi-Value, And Branch Payloads
+  - Goal: generate varied valid control-flow bodies with typed block/loop/if results and branch payloads.
+  - Why: current branch-heavy coverage proves `br`, `br_if`, `br_table`, typed `select`, and wrappers exist, but not enough payload/result combinations are explored.
+  - Deliverables: add generation for multi-value blocks, value-producing loops where valid, `br` with payloads, `br_if` with payload and fallthrough values, `br_table` with matching result arities, nested labels, unreachable stack-polymorphic tails, returns from nested control, and typed `select` over numeric/ref/v128 where valid.
+  - Required APIs: typed body generator from [FUZ]1002, `BlockType`, `LabelIdx`, `Instruction::{Block,Loop,If,Br,BrIf,BrTable,Return,Select}`.
+  - Invariants: label-depth and payload typing must be proven by validation tests; avoid unbounded recursion; preserve deterministic seeds.
+  - Dependencies: [FUZ]1002.
+  - Suggested Tests: one focused fixture per branch payload family, generated-module validation across seeds, pass-fuzz smoke for branch-sensitive passes such as `code-folding`, `remove-unused-brs`, and `simplify-locals`.
+  - Exit Criteria: feature facts can distinguish simple branch-heavy coverage from payload-bearing multi-value control coverage.
+
+- [FUZ]1006 - GenValid Call, Reference Call, Indirect Call, Recursion, And Tail-Call Widening
+  - Goal: generate diverse valid call graphs and callable-reference flows.
+  - Why: call-related optimizer bugs depend on direct calls, imported calls, recursion, call_indirect tables, call_ref values, and tail-call terminal placement. Current coverage is useful but too narrow.
+  - Deliverables: generate recursive and mutually recursive functions, imported calls, multi-param/multi-result calls, calls with ref/v128 params/results, `call_indirect` through populated tables and nonzero table indices, `call_ref` from locals/globals/ref.func/block values, and direct/indirect/ref tail calls in deeper terminal positions.
+  - Required APIs: function signature planning in `gen_valid_module_once_with_config`, table/elem generation, typed body generator, call and tail-call instruction constructors.
+  - Invariants: every call target must have a matching signature; tail calls must appear only in valid terminal contexts; keep `ref.func` declaration requirements satisfied.
+  - Dependencies: [FUZ]1002 and [FUZ]1007 for table-backed indirect-call diversity.
+  - Suggested Tests: generated direct-call, recursive-call, call_indirect, call_ref, and return_call fixtures; pass-fuzz compare for `inlining`, `inlining-optimizing`, `dae-optimizing`, and `directize` on call-heavy profiles.
+  - Exit Criteria: call-heavy generation exercises direct, indirect, ref, and tail-call surfaces in multiple structurally distinct ways.
+
+- [FUZ]1007 - GenValid Memory, Table, Data, And Element Segment Widening
+  - Goal: expand valid resource and segment generation beyond current first-memory/first-table-heavy shapes.
+  - Why: memory/table/data/elem bugs often require nonzero indices, mixed active/passive/declarative segments, memory64/shared variants, typed tables, and bulk operations over varied targets.
+  - Deliverables: generate nonzero memory/table operations, mixed memory32/memory64 modules, multiple shared memories, active data on different memories, passive data payload variety, `memory.copy` across different memories, `memory.init` over different data indices, multiple `data.drop`, table get/set/grow/size/fill/copy/init over nonzero tables, typed element expressions, nonzero active table targets, and table initializer expressions.
+  - Required APIs: memory/table/data/elem section builders, `MemArg`, `MemType`, `TableType`, `Data`, `Elem`, bulk memory/table instructions.
+  - Invariants: preserve Binaryen-oracle portability by gating memory64/shared/non-funcref table combinations; keep all offsets and payloads valid for validation even if runtime traps would occur.
+  - Dependencies: [FUZ]1001 profiles recommended.
+  - Suggested Tests: feature facts for nonzero memory/table/segment ranges, validation tests for memory64/shared/table typed variants, pass-fuzz compare for `memory-packing`, `remove-unused-module-elements`, `heap-store-optimization`, and table-sensitive passes.
+  - Exit Criteria: memory-heavy and table-heavy profiles reliably produce validated modules with nonzero resource indices and mixed segment modes.
+
+- [FUZ]1008 - GenValid Exception, Tag, Throw, ThrowRef, And TryTable Widening
+  - Goal: generate a broader matrix of exception/tag and `try_table` shapes.
+  - Why: current exception coverage proves mixed catch lists exist, but not enough tag payload, result type, nesting, and label-depth variation is exercised.
+  - Deliverables: generate multiple imported/defined tags, tags with params, throws with nontrivial operands, `throw_ref` from catch-ref/local/block sources, void/numeric/ref result `try_table`, nested `try_table`, mixed catch/catch_all and catch_ref/catch_all_ref lists, multiple catch tags, and varied catch label depths.
+  - Required APIs: `TagType`, `Catch`, `TryTable`, `Throw`, `ThrowRef`, typed body generator and label stack.
+  - Invariants: generated catch targets must have valid payload arities; nullable `throw_ref` traps are runtime behavior, not validation failures; invalid nullability belongs in invalid lanes.
+  - Dependencies: [FUZ]1002 and [FUZ]1005.
+  - Suggested Tests: focused validation for each catch topology, feature facts for exact catch-list combinations, WAST mirror tests where parser support exists.
+  - Exit Criteria: exception-heavy profiles produce more than the single deterministic matrix currently used by coverage-forced generation.
+
+- [FUZ]1009 - GenValid Numeric Constants, Arithmetic, Conversion, And Trap-Safe Cleanup Surfaces
+  - Goal: widen scalar numeric generation with safe boundary constants and operation combinations.
+  - Why: optimizers need arithmetic, comparisons, conversions, reinterprets, saturation, NaNs, signedness, and boundary constants in realistic expression trees, not only isolated drop-wrapped operations.
+  - Deliverables: generate full integer arithmetic and bit ops, shifts/rotates, comparisons, float unary/binary/comparison ops, reinterpret operations, sign-extension, saturating conversions, safe regular conversions, boundary constants (`0`, `1`, `-1`, min/max, powers of two), float `-0`, infinities, NaNs, and nontrivial expression trees.
+  - Required APIs: numeric instruction constructors, typed body generator, feature scanner exact opcode counters from [FUZ]1013.
+  - Invariants: valid generation must avoid compile-time invalidity; runtime-trapping operations may appear only if they are valid wasm and acceptable for the target lane; optimizer cleanup tests must preserve trap/effect ordering.
+  - Dependencies: [FUZ]1002 and [FUZ]1013 recommended.
+  - Suggested Tests: per-opcode coverage counters, validation of numeric-heavy modules, pass-fuzz compare for `precompute`, `optimize-instructions`, `pick-load-signs`, `dae-optimizing`.
+  - Exit Criteria: numeric-heavy profiles prove exact opcode diversity and boundary literal coverage.
+
+- [FUZ]1010 - GenValid SIMD Exact Opcode And Relaxed-SIMD Widening
+  - Goal: extend SIMD generation from phase-level coverage to exact opcode and relaxed-SIMD coverage.
+  - Why: the AST appears to represent relaxed SIMD, but current GenValid docs note relaxed SIMD is not emitted. Phase counters are too coarse to detect missing individual SIMD op families.
+  - Deliverables: add exact SIMD opcode counters; emit relaxed SIMD behind an explicit toggle/profile; widen lane index coverage to min/max/middle legal lanes; thread v128 values through locals/params/results/select/block results where valid; add SIMD memory ops with varied memargs and nonzero memory indices where supported.
+  - Required APIs: SIMD instruction constructors in `src/lib/types.mbt`, binary encoder/decoder, validator SIMD typing, `gen_valid_feature_facts(...)`.
+  - Invariants: keep relaxed-SIMD disabled in Binaryen-oracle portable profiles unless tool support is proven; lane immediates in valid generation must stay in range.
+  - Dependencies: [FUZ]1013 exact coverage ledger.
+  - Suggested Tests: one validation fixture per relaxed SIMD subgroup, exact counter tests, pass-fuzz compare against `remove-relaxed-simd` once relevant, binary roundtrip for new opcodes.
+  - Exit Criteria: SIMD coverage can report exact standard and relaxed opcode presence rather than only phase booleans.
+
+- [FUZ]1011 - GenValid Atomic Instruction And Shared-Memory Matrix Widening
+  - Goal: cover the full atomic operation matrix over valid shared memories.
+  - Why: current coverage-forced atomics emit a curated subset. Atomic bugs depend on width, operation, alignment, shared-memory index, and ordinary-memory interactions.
+  - Deliverables: generate every atomic load/store width, every RMW op and narrow width, cmpxchg widths, wait/notify/fence, nonzero shared memory indices, and mixed ordinary+atomic memory sequences.
+  - Required APIs: atomic instruction constructors, `AtomicRmwOp`, `AtomicCmpxchgOp`, shared `MemType`, validator alignment/shared-memory rules, exact coverage counters.
+  - Invariants: valid generation must use shared memories and valid alignments; invalid alignment/non-shared-memory cases belong in invalid AST/binary lanes.
+  - Dependencies: [FUZ]1007 for memory widening and [FUZ]1013 for exact counters.
+  - Suggested Tests: per-opcode atomic counter tests, validation fixtures for each op family, invalid-lane follow-ups for non-shared/invalid alignment, pass-fuzz compare on memory-heavy profiles.
+  - Exit Criteria: atomic-heavy profiles can prove every represented atomic family is generated at least once over a bounded run.
+
+- [FUZ]1012 - Randomized Coverage-Forced Templates
+  - Goal: keep coverage-forced floors deterministic while varying the concrete templates used to satisfy them.
+  - Why: today many forced surfaces are emitted by a predictable prelude. That is excellent for floors but can overfit optimizers and validators to one layout.
+  - Deliverables: for each forced family, add several equivalent valid templates, randomize ordering and placement across functions/blocks, and record which template family was selected in feature facts or generation diagnostics.
+  - Required APIs: coverage-forced prelude helpers in `src/validate/gen_valid.mbt`, feature facts, profile/config toggles.
+  - Invariants: smoke must remain stable and fast; every required floor must still be satisfied deterministically for the same seed/config; template selection must not make Binaryen-oracle profile flaky.
+  - Dependencies: [FUZ]1000 diagnostics and [FUZ]1013 exact coverage recommended.
+  - Suggested Tests: deterministic seed tests, feature-floor tests across multiple seeds, generated-module validation, small pass-fuzz compare lanes for each randomized family.
+  - Exit Criteria: coverage-forced mode no longer emits one fixed body shape for each major feature family, but still satisfies all configured floors.
+
+- [FUZ]1013 - Exact Coverage Ledger And Cross-Feature Floors
+  - Goal: expand `GenValidFeatureFacts` from coarse booleans to exact opcode/shape counters and cross-feature combinations.
+  - Why: current counters can say “SIMD happened” or “Atomics happened” but cannot say which opcodes or whether GC+exceptions+tail-calls occurred together.
+  - Deliverables: add exact counters for instruction opcodes and important shapes; add cross-feature rows for GC+exceptions, GC+tail-calls, memory64+bulk-memory, shared-memory+atomics, typed-table+elem segments, try_table+result, multi-value+branch payload, imports+start+exports, and other high-value intersections.
+  - Required APIs: `GenValidFeatureFacts`, `GenValidFeatureStats`, `ValidateValidFeatureKey`, scanner functions in `src/validate/gen_valid.mbt` and floor logic in `src/validate/validate.mbt`.
+  - Invariants: do not make future rows required until generation is deterministic; missing future rows should be `MissingOptional` until a floor is added; keep docs/wiki ledger aligned.
+  - Dependencies: none, but it improves every later FUZ slice.
+  - Suggested Tests: ledger optional/required tests, exact opcode scanner unit tests, profile floor tests, docs updates in `docs/wiki/fuzzing/generator-coverage-ledger.md`.
+  - Exit Criteria: CI can detect the loss of a specific opcode/shape instead of only broad family coverage.
+
+- [FUZ]1014 - Coverage-Guided GenValid Selection
+  - Goal: add a local coverage-guided generation loop that keeps modules which satisfy missing feature floors.
+  - Why: hardcoded forced preludes do not scale to every future family. A generate-measure-select loop can target feature floors without hand-authoring every combination.
+  - Deliverables: implement a helper like `generate_until_features(config, required_floors, max_attempts)`; support profile filters such as require/exclude feature; return selected modules plus coverage ledger and skipped-candidate stats.
+  - Required APIs: generator diagnostics from [FUZ]1000, exact ledger from [FUZ]1013, `emit_gen_valid_batch_artifacts(...)`.
+  - Invariants: deterministic for seed/config/filter; bounded attempts; clear failure message listing unmet floors.
+  - Dependencies: [FUZ]1000 and [FUZ]1013.
+  - Suggested Tests: synthetic floor selection tests, failure tests for impossible floors, batch emission using require/exclude filters, `moon test src/fuzz`.
+  - Exit Criteria: agents can request “give me N modules with feature X and without feature Y” without manually tweaking generator internals.
+
+- [FUZ]1015 - GenValid Batch Profiles, Feature Filters, And Input Manifests
+  - Goal: make `--emit-gen-valid-batch` useful beyond the current Binaryen-oracle portable corpus.
+  - Why: pass-fuzz compare and validator fuzzing need different valid-generator profiles, and every saved `.wasm` should carry its config and feature facts.
+  - Deliverables: add `--gen-valid-profile`, `--require-feature`, `--exclude-feature`, and manifest emission for generated batches; write per-input records with file name, seed, index, config/profile, feature facts, and validation result.
+  - Required APIs: `src/fuzz/main.mbt` parser, `scripts/lib/fuzz-task.ts` forwarding, feature ledger APIs, docs/tooling pages.
+  - Invariants: default batch behavior and file names remain compatible; manifest emission should be opt-in or backward-compatible; invalid generated candidates must never be written as successful batch artifacts.
+  - Dependencies: [FUZ]1001 and [FUZ]1013; [FUZ]1014 for filters if implemented first.
+  - Suggested Tests: CLI parse tests, deterministic artifact/manifest tests, wrapper forwarding tests, `moon test src/fuzz`, script tests for `bun fuzz run --emit-gen-valid-batch`.
+  - Exit Criteria: every generated batch can be replayed and understood from its manifest without regenerating feature facts.
+
+- [FUZ]1016 - Pass-Fuzz Compare Generator Profiles, Replay Modes, And Failure Metadata
+  - Goal: widen `bun fuzz compare-pass` so it can consume richer GenValid profiles and replay every failure status.
+  - Why: compare-pass currently uses one gen-valid batch config and replays command failures only. Agents need profile selection, feature-aware inputs, and replay for mismatches/validation failures too.
+  - Deliverables: add `--gen-valid-profile`, feature filters, manifest copying, replay by status (`mismatch`, `validation-failure`, `generator-failure`, `command-failure`, and optionally `match` by case index), and richer failure metadata with feature facts.
+  - Required APIs: `scripts/lib/pass-fuzz-compare-task.ts`, `scripts/test/pass-fuzz-compare-command.ts`, batch manifest from [FUZ]1015.
+  - Invariants: current `--generator both|wasm-smith|gen-valid` semantics remain; Binaryen/tool command failures must stay clearly classified as tool/generator issues, not semantic mismatches.
+  - Dependencies: [FUZ]1015.
+  - Suggested Tests: command parser tests, replay tests for non-command statuses using fake artifacts, result.json schema tests, smoke compare with a small gen-valid profile.
+  - Exit Criteria: a saved pass-fuzz run is self-contained enough for another agent to replay any interesting case by status, class, feature, or case index.
+
+- [FUZ]1017 - Command Harness Generator Profiles, Pass Profiles, And Idempotence Checks
+  - Goal: turn `cmd-harness` into a stronger optimizer-pipeline fuzzer.
+  - Why: `run_cmd_fuzz_harness(...)` currently uses natural GenValid and an optional pass list, but profiles do not exercise named generator configs, pass clusters, repeated passes, or idempotence by default.
+  - Deliverables: add generator profile selection, pass-list profiles, each-pass and common-cluster modes, default-pipeline mode, optimize idempotence checks, encode/decode idempotence checks, pass minimization on failure, and richer persisted failure reports with config/feature facts.
+  - Required APIs: `src/cmd/fuzz_harness.mbt`, `src/cmd/cmd.mbt`, `src/fuzz/main.mbt`, pass registry, `minimize_fuzz_passes(...)`, differential validators.
+  - Invariants: smoke profile remains quick; failure callback stays backward-compatible; no destructive writes unless corpus/output dir is explicit.
+  - Dependencies: [FUZ]1001, [FUZ]1013, [FUZ]1015 recommended.
+  - Suggested Tests: profile parser tests, fake pass minimization tests, idempotence fixture tests, native differential-availability tests where supported.
+  - Exit Criteria: `cmd-harness` can battle-test no-pass, single-pass, pass-cluster, and full-pipeline behavior over chosen generator profiles.
+
+- [FUZ]1018 - Invalid Strategy Variants And Exact Diagnostic Expectations
+  - Goal: let each invalid stable id own multiple variants and optionally exact issue-kind expectations.
+  - Why: the current invalid lanes usually have one deterministic mutation per stable id and validate only broad diagnostic family/stage. That keeps smoke stable but limits breadth and can hide wrong first-error diagnostics inside the same family.
+  - Deliverables: add variant ids under AST/binary/text strategies; extend stats with variant attempted/applicable/mutated/rejected/expected counts; add optional exact `ValidationIssue` kind expectations for stable strategies; keep family-only mode for smoke if exact diagnostics are too brittle.
+  - Required APIs: `ValidateInvalidAstStrategySpec`, `ValidateInvalidBinaryStrategySpec`, text/spec seed specs, invalid stats structs, repro metadata.
+  - Invariants: stable strategy ids must remain compatible; variants may be added without renaming existing ids; exact issue checks must not require parsing human-readable messages.
+  - Dependencies: none, but [FUZ]1025 should record variants in artifacts.
+  - Suggested Tests: variant registry tests, one exact issue-kind assertion per stable family where practical, fuzz stats floor tests.
+  - Exit Criteria: invalid fuzz output can say exactly which variant ran and whether it reached the intended family and issue kind.
+
+- [FUZ]1019 - Declarative Invalid Seed Prerequisites And Mixed Seed Profiles
+  - Goal: make invalid strategy seed shaping data-driven and run invalid strategies over multiple base profiles.
+  - Why: prerequisite widening is currently hardcoded in seed-config functions. As strategies grow, agents need a declarative way to request defined funcs, memories, passive data, names, refs, tags, tables, etc.
+  - Deliverables: add prerequisite metadata to invalid strategy specs; derive `GenValidConfig` adjustments from prerequisites; run invalid fuzz profiles over minimal, repro, small-natural, small-coverage, natural, coverage-forced, and rich seed profiles as configured.
+  - Required APIs: `src/validate/gen_invalid.mbt`, `src/fuzz/invalid_binary.mbt`, strategy registries, `GenValidConfig` profile constructors.
+  - Invariants: existing default invalid fuzz behavior remains stable until profiles are explicitly widened; strategies must fail clearly when prerequisites are impossible.
+  - Dependencies: [FUZ]1001 profiles; [FUZ]1018 variants recommended.
+  - Suggested Tests: prerequisite-to-config tests, mixed seed profile stats tests, minimal/repro/natural seed generation tests for representative strategies.
+  - Exit Criteria: adding a new invalid strategy no longer requires bespoke seed-config code unless the prerequisite is genuinely new.
+
+- [FUZ]1020 - Invalid AST Strategy Expansion Across Validator Families
+  - Goal: add deeper AST-invalid mutations for type, import, function, table, memory, tag, global, element, data, datacount, start, export, code, name, and function-body families.
+  - Why: every family has at least one strategy, but many families need more per-rule coverage: subtype variance, descriptor cycles, branch payload mismatches, local/global/table/memory/tag indices, GC field errors, array errors, exception payloads, atomics, memory64 address typing, and body stack typing.
+  - Deliverables: add a prioritized batch of AST variants with focused tests first; include repair checks where possible (`valid -> mutate -> reject`, then `repair -> accept`); update docs/wiki family summaries.
+  - Required APIs: `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, validation diagnostics, exact strategy variants from [FUZ]1018.
+  - Invariants: each mutation starts from a valid base unless explicitly testing structural section absence; expected family must be explicit; no strategy should count as coverage if mutation was not applicable.
+  - Dependencies: [FUZ]1018 and [FUZ]1019 recommended.
+  - Suggested Tests: one focused test per new strategy/variant, smoke required-strategy floor tests, invalid repro build/replay tests.
+  - Exit Criteria: AST-invalid coverage includes multiple meaningful strategies in every validator family, not just one representative stable id.
+
+- [FUZ]1021 - Invalid Binary Malformed-Byte Matrix
+  - Goal: turn binary-invalid fuzzing into a broad section/immediate-aware malformed-byte generator.
+  - Why: current binary invalid coverage has a curated header/order/section core. Decoder hardening needs truncations, malformed LEBs, wrong counts, wrong payload lengths, invalid opcodes, bad prefixes, UTF-8 corruption, lane overflow, and memarg/alignment corruption across many contexts.
+  - Deliverables: add corruptions for every section boundary, vector count mismatch, section size too small/large/off-by-one, duplicate/out-of-order known sections, malformed and overwide LEBs, invalid UTF-8 in names/imports/exports/custom sections, invalid opcode/prefix subopcode bytes, invalid heap/ref/blocktype encodings, invalid lane immediates, and invalid memargs.
+  - Required APIs: byte mutation helpers in `src/fuzz/invalid_binary.mbt`, binary section scanner, LEB encode/decode helpers, invalid repro persistence.
+  - Invariants: stage expectation must distinguish decode-rejected from decode-accepted validate-rejected; noncanonical-but-valid encodings should be tracked separately from true malformed bytes.
+  - Dependencies: [FUZ]1018 variants recommended.
+  - Suggested Tests: focused byte fixtures per corruption class, minimal repro builder tests, `run_validate_invalid_binary_fuzz("smoke", seed)`.
+  - Exit Criteria: binary-invalid smoke/CI can prove coverage for many malformed byte classes rather than only the current curated set.
+
+- [FUZ]1022 - Invalid Binary Validator-Rejected Encoded Modules
+  - Goal: expand binary-invalid cases that decode successfully but fail validation for semantic reasons.
+  - Why: encoded invalid AST modules currently cover several families, but body-level and proposal-heavy validation failures need more direct binary evidence.
+  - Deliverables: add validator-rejected binary strategies for body stack mismatch, bad branch labels/payloads, bad local/global/table/memory/tag/type indices, invalid call_indirect/call_ref signatures, GC field/array errors, invalid exception payloads, atomic-on-non-shared memory, invalid memory64 address typing, invalid const expressions, and relaxed SIMD validation failures where represented.
+  - Required APIs: AST invalid mutation helpers, direct binary builders where AST constructors cannot represent invalid states, `ValidateInvalidBinaryExpectedResult`.
+  - Invariants: decode must succeed for these strategies; expected validation family and optional exact issue must be recorded.
+  - Dependencies: [FUZ]1020 for AST mutations and [FUZ]1018 variants.
+  - Suggested Tests: one decode-then-validate test per strategy, invalid binary fuzz stats tests, minimal repro artifact tests.
+  - Exit Criteria: binary-invalid lane has a balanced split between malformed decode failures and validator-rejected decoded modules.
+
+- [FUZ]1023 - Dynamic Invalid Text Mutation Lane
+  - Goal: generate invalid WAT/WAST by mutating valid text instead of relying only on a static inline registry.
+  - Why: `validate-invalid-text` is stable but mostly fixed. Parser/lowerer/validator bugs need token, syntax, index, type, opcode, string, memarg, lane, and module-field mutations over generated sources.
+  - Deliverables: start from valid WAT/WAST generated by GenValid or WAST arbitrary; mutate one controlled surface; classify parse/lower rejected, validate rejected, valid-before-link, or unexpectedly accepted; record mutation kind and source feature facts.
+  - Required APIs: `src/fuzz/invalid_text.mbt`, WAT/WAST printers/parsers, static assertion evaluator, GenValid text emission if available.
+  - Invariants: keep existing static registry as smoke-stable; dynamic lane should be separate or stress/CI-gated; unexpected acceptance must persist repro artifacts.
+  - Dependencies: [FUZ]1027 for better WAT/WAST reporting and [FUZ]1025 for artifact metadata recommended.
+  - Suggested Tests: deterministic mutation tests for missing parens, bad opcode, bad type token, duplicate export, mutable global const init, bad lane, bad memarg; fuzz-runner suite tests.
+  - Exit Criteria: text invalid fuzz can discover new parser/lowerer/validator failures from generated valid text, not just replay known inline strings.
+
+- [FUZ]1024 - Dynamic Spec-Seed Sampler
+  - Goal: sample committed `tests/spec/*.wast` assertions by file, assertion kind, occurrence, and feature family.
+  - Why: the current spec-seed registry is curated and fixed. CI/stress should be able to cover more official malformed/invalid/unlinkable assertions without hand-adding every case.
+  - Deliverables: add a scanner/registry builder for selected spec files; classify `assert_malformed`, `assert_invalid`, and `assert_unlinkable`; keep curated smoke seeds; add CI/stress floors by assertion kind and optionally by file/family.
+  - Required APIs: `src/fuzz/invalid_text.mbt`, `validate_invalid_text_extract_assertion_source_from_spec(...)`, WAST static assertion evaluator, file IO.
+  - Invariants: full dynamic sampling must tolerate known unsupported spec cases through explicit skip policy; smoke should stay deterministic and small.
+  - Dependencies: none, but [FUZ]1025 artifact metadata should include scanned source path/occurrence.
+  - Suggested Tests: scanner tests on small fixture files, occurrence extraction tests, stage/floor tests, docs updates for skip policy.
+  - Exit Criteria: adding a new committed spec file can increase fuzz coverage without manually enumerating every assertion in code.
+
+- [FUZ]1025 - Invalid Repro Metadata, Variant Recording, And Actual Specimen Shrinking
+  - Goal: make invalid repros record more context and shrink the actual generated failing specimen, not only the strategy's known minimal form.
+  - Why: current repros are useful but reduction often jumps to a canned minimal artifact. Agents also need variant id, seed profile, generator config, feature facts, exact issue kind, and shrink lineage.
+  - Deliverables: extend `InvalidFuzzFailureReport` metadata; record strategy variant, exact issue kind, generator config/profile, feature facts, and source artifact manifest; add delta-style shrinking for AST modules, binary bytes, text assertions, and spec-seed extracts while preserving expected stage/family/issue.
+  - Required APIs: `src/fuzz/invalid_repro.mbt`, invalid strategy variants, feature ledger, binary/text/module persistence helpers.
+  - Invariants: current metadata parser must remain backward-compatible or versioned; shrinkers must preserve the expected failure classification before replacing artifacts.
+  - Dependencies: [FUZ]1018 variants and [FUZ]1013 feature facts recommended.
+  - Suggested Tests: metadata roundtrip tests, backward compatibility tests, shrink-preserves-outcome tests for AST/binary/text/spec-seed reports.
+  - Exit Criteria: a persisted invalid failure contains enough data to replay, understand, and minimize the actual failing specimen.
+
+- [FUZ]1026 - Multi-Fault Invalid Stress Lane
+  - Goal: add a separate stress-only invalid lane that combines multiple faults without requiring exact first-error stability.
+  - Why: single-fault lanes are ideal for diagnostic oracles, but real malformed inputs often contain several independent problems. The validator should reject without crashing/hanging even when first-error family is not deterministic.
+  - Deliverables: compose two or more AST/binary/text mutations; classify only broad outcome (`rejected`, `accepted`, crash/tool failure) unless a stable first family is intentionally tested; persist multi-fault repros with all mutation ids.
+  - Required APIs: invalid AST/binary/text mutation helpers, fuzz runner suite registry, invalid repro metadata.
+  - Invariants: do not mix multi-fault outcomes into single-fault expected-family floors; this lane should never weaken exact diagnostic tests.
+  - Dependencies: [FUZ]1018 and [FUZ]1025 recommended.
+  - Suggested Tests: deterministic two-fault examples, no-acceptance smoke tests, repro persistence tests.
+  - Exit Criteria: stress fuzzing can exercise hostile multi-fault inputs while keeping diagnostic-stable lanes clean.
+
+- [FUZ]1027 - WAT/WAST Roundtrip Reporting And GenValid Text Roundtrip Lanes
+  - Goal: make WAT/WAST fuzzing report why cases fail and add lanes that roundtrip GenValid modules through text.
+  - Why: current WAT/WAST roundtrip fuzz silently skips many failed generated cases and compares text by deleting all whitespace, which can hide useful parser/printer information.
+  - Deliverables: count print failures, parse failures, roundtrip print failures, unstable text, script render failures, and no-module-command failures; add `GenValid -> WAT -> parse -> validate` and `GenValid -> WAST -> lower -> binary -> decode -> validate` lanes; improve normalization or compare parsed AST/module facts rather than raw whitespace-stripped text.
+  - Required APIs: `src/wat/fuzz_tests.mbt`, `src/wast/fuzz_tests.mbt`, WAT/WAST parser/printer/lowerer, `gen_valid_module_with_config(...)`.
+  - Invariants: existing smoke success thresholds remain reasonable; do not treat unsupported WAST text syntax as a validator failure.
+  - Dependencies: [FUZ]1001 profiles and [FUZ]1000 diagnostics recommended.
+  - Suggested Tests: stats tests for failure categories, stable normalization tests with strings/comments, GenValid text roundtrip validation tests.
+  - Exit Criteria: WAT/WAST fuzz output tells agents which surface failed and can roundtrip typed GenValid modules through text when supported.
+
+- [FUZ]1028 - WAST Arbitrary Parity Exact Coverage
+  - Goal: align `src/wast/arbitrary.mbt` with the GenValid coverage vocabulary through exact counters and profile-specific WAST generation.
+  - Why: WAST arbitrary intentionally does not call typed GenValid, but duplicated opcode pickers can drift from the FZG ledger.
+  - Deliverables: add WAST arbitrary feature/opcode counters, floors for FZG mirror families, profiles for valid-only modules, parser-stress modules, static assertions, scripts, and module-only output; generate WAST assertion scripts where feasible.
+  - Required APIs: `src/wast/arbitrary.mbt`, WAST printer/parser, `docs/wiki/fuzzing/wast-arbitrary-parity-plan.md`, feature ledger labels.
+  - Invariants: do not claim WAST support for core instructions the local parser/printer cannot represent; keep unsupported text gaps documented.
+  - Dependencies: [FUZ]1013 exact ledger and [FUZ]1027 reporting.
+  - Suggested Tests: exact WAST opcode counter tests, parity floor tests, WAST parse-back tests for widened prelude, docs updates.
+  - Exit Criteria: WAST arbitrary coverage can be compared against GenValid coverage by feature name and exact supported text shape.
+
+- [FUZ]1029 - Binary Roundtrip Valid-Module, Byte-Fuzz, And Exact Coverage Lanes
+  - Goal: supplement arbitrary value roundtrips with full valid-module binary roundtrips and decoder byte fuzzing.
+  - Why: `run_binary_roundtrip_fuzz` roundtrips many arbitrary types, but agents also need full-module `GenValid -> encode -> decode -> validate -> encode` coverage and malformed byte decode stress.
+  - Deliverables: add valid-module binary roundtrip suite, byte-fuzz suite with random and structured corruptions, exact instruction/section/immediate roundtrip counters, boundary corpus for LEBs, high indices, floats/NaNs, v128 lanes, and differential full-module decode with `wasm-tools` where available.
+  - Required APIs: `src/binary/tests.mbt`, binary encode/decode, GenValid profiles, invalid binary corruption helpers, external validators for native lanes.
+  - Invariants: arbitrary invalid modules from quickcheck should not be confused with valid-module generator failures; byte-fuzz decode failures are expected and should be classified.
+  - Dependencies: [FUZ]1001 profiles and [FUZ]1021 byte matrix recommended.
+  - Suggested Tests: focused roundtrip corpus tests, exact counter tests, byte-fuzz classification tests, native differential tests behind availability checks.
+  - Exit Criteria: binary fuzzing covers full valid module roundtrips, arbitrary type roundtrips, and malformed bytes as separate measurable lanes.
+
+- [FUZ]1030 - Fuzz Runner Detailed Reports, Seed Sweeps, And Sharding
+  - Goal: make `moon run src/fuzz` and `bun fuzz run` suitable for long multi-seed CI and agent runs.
+  - Why: current output is concise, but broad fuzz work needs JSON reports, seed sweeps, sharding, and suite-level detailed stats without hand-wrapping commands.
+  - Deliverables: add `--output json` or detailed JSONL, `--write-report <path>`, `--seed-count <n>`, `--shard-index <i> --shard-count <n>`, and per-suite detailed stats including feature/strategy ledgers when available.
+  - Required APIs: `src/fuzz/main.mbt`, `scripts/lib/fuzz-task.ts`, task-family command tests, suite stats structs.
+  - Invariants: existing text and JSONL output contracts remain stable; seed derivation for sweeps/shards must be deterministic and recorded.
+  - Dependencies: [FUZ]1013 ledgers helpful but not required.
+  - Suggested Tests: CLI parse tests, deterministic seed sweep tests, shard partition tests, report schema tests, Bun wrapper tests.
+  - Exit Criteria: agents can launch reproducible multi-seed fuzz runs and inspect one machine-readable report.
+
+- [FUZ]1031 - Standard Fuzz Output Directory And Corpus Workflow
+  - Goal: standardize where fuzz runs store results, generated inputs, failures, manifests, and ledgers.
+  - Why: pass-fuzz compare has useful artifact directories, while ordinary fuzz suites mostly print results or write specific repros. Agents need one predictable layout for long-running fuzz work.
+  - Deliverables: add optional `--out-dir` for ordinary fuzz runs; write `result.json`, `cases.jsonl`, `generated/`, `failures/`, `feature-ledger.json`, `strategy-ledger.json`, and suite-specific manifests; document retention and replay behavior.
+  - Required APIs: fuzz runner, invalid repro persistence, GenValid batch manifests, pass-fuzz metadata conventions.
+  - Invariants: no output directory should be created unless explicitly requested or defaulted by a documented command; artifact paths must be repo-relative or clearly absolute in metadata.
+  - Dependencies: [FUZ]1015 and [FUZ]1030 recommended.
+  - Suggested Tests: output directory creation tests with fake IO where possible, metadata schema tests, docs updates in `docs/wiki/tooling/fuzz-runner.md`.
+  - Exit Criteria: every fuzz suite can leave durable artifacts in a predictable directory when requested.
+
+- [FUZ]1032 - External Differential Validation And Optional Semantic Execution
+  - Goal: compare Starshine validation and optimized outputs against external validators/runtimes where available.
+  - Why: internal validation plus Binaryen normalized text comparison is useful, but external validator and simple execution oracles can catch tool disagreements and semantic regressions earlier.
+  - Deliverables: add optional native adapters for `wasm-tools validate`, Binaryen `wasm-validate`, and a runtime such as Wasmtime when available; instantiate modules with generated/stub imports; call exported functions with generated simple args; compare traps/results for Starshine-vs-Binaryen outputs in optional semantic mode.
+  - Required APIs: `DifferentialAdapters`, command harness, pass-fuzz compare task, import stub generation, runtime command adapters.
+  - Invariants: external tools must be optional and skipped clearly when unavailable; execution tests must not replace validation/parity tests; nondeterministic/runtime-trapping cases need conservative classification.
+  - Dependencies: [FUZ]1017 command harness and [FUZ]1016 pass-fuzz metadata recommended.
+  - Suggested Tests: fake adapter mismatch tests, unavailable-tool tests, simple executable fixture comparisons, docs updates.
+  - Exit Criteria: native fuzz runs can opt into external validator/runtime evidence without making default smoke dependent on local tools.
+
+- [FUZ]1033 - Optimizer Battle-Test Properties In Pass Fuzz
+  - Goal: add property checks to pass-fuzz beyond one-shot Starshine-vs-Binaryen normalized output comparison.
+  - Why: optimizer bugs often show up as non-idempotence, invalid output after repeated passes, or pass-order composition surprises even when a single direct comparison is green.
+  - Deliverables: add optional modes for idempotence (`pass(pass(m)) == pass(m)` under normalization), repeated pass validation, selected pass composition checks, Starshine self-comparison of pass order where intended, and saved artifacts for property failures.
+  - Required APIs: `scripts/lib/pass-fuzz-compare-task.ts`, pass flag parser, canonicalization/normalization helpers, result schema.
+  - Invariants: do not confuse property failures with Binaryen semantic mismatches; classify and report them separately; keep direct pass signoff defaults unchanged.
+  - Dependencies: [FUZ]1016 replay/metadata improvements recommended.
+  - Suggested Tests: command parser tests for property flags, fake normalizer property tests, small real pass smoke with `--check-idempotent`.
+  - Exit Criteria: agents can battle-test passes for repeatability and composition robustness using the same artifact/replay workflow as compare-pass.
+
+- [FUZ]1034 - Deterministic PRNG Stream Split And Repro Audit
+  - Goal: make every generator and harness consume randomness through named deterministic substreams.
+  - Why: widening GenValid and invalid fuzzing will otherwise make old seeds drift whenever a new choice is inserted early in generation. Named streams let agents add one family without invalidating unrelated repros.
+  - Deliverables: define stream labels for module topology, types, funcs, bodies, memories, tables, data, elems, invalid strategy choice, invalid mutation choice, text mutation choice, and harness shuffling; record stream labels and seed derivation in manifests.
+  - Required APIs: generator random helpers in `src/validate/gen_valid.mbt`, invalid strategy runners, fuzz runner seed parsing, batch manifests.
+  - Invariants: same root seed/profile must remain deterministic; old public seed behavior should either be preserved or migrated with an explicit manifest version.
+  - Dependencies: [FUZ]1000 and [FUZ]1015 recommended for recording the stream map.
+  - Suggested Tests: same-seed determinism tests, add-choice-does-not-change-unrelated-stream tests using a fake stream, manifest seed-derivation roundtrip tests.
+  - Exit Criteria: a repro can identify which stream made the interesting choice, and adding new choices in one family does not churn unrelated generated modules.
+
+- [FUZ]1035 - Generator Fuel, Size Budgets, And Pathological Shape Stress
+  - Goal: add explicit size/fuel budgets and separate pathological-but-valid stress profiles.
+  - Why: a typed generator needs recursion limits, but validators and optimizers also need safe exposure to deep nesting, large vectors, wide type graphs, and large local/function counts.
+  - Deliverables: introduce budget knobs for instruction count, expression depth, block depth, rec-group depth, section counts, byte-size target, local count, name length, and segment payload size; add stress profiles that approach limits without becoming default smoke behavior.
+  - Required APIs: `GenValidConfig`, typed body generator from [FUZ]1002, module topology generation, fuzz runner profile selection.
+  - Invariants: every budget must be bounded; smoke/CI defaults must stay fast; pathological profiles must report when a candidate was skipped for size/fuel instead of silently retrying forever.
+  - Dependencies: [FUZ]1000 diagnostics and [FUZ]1002 typed generation recommended.
+  - Suggested Tests: budget cap tests, deterministic skip diagnostics, deep-nesting valid fixture, large-vector valid fixture, timeout-free fuzz smoke.
+  - Exit Criteria: agents can intentionally request small, medium, large, or pathological valid modules and understand which budget stopped growth.
+
+- [FUZ]1036 - Metamorphic Valid Module Transformer Suite
+  - Goal: generate new valid test cases by applying semantics-preserving rewrites to already-valid modules.
+  - Why: mutating valid modules in controlled ways exercises encoders, validators, and optimizers without requiring every shape to be born directly from GenValid.
+  - Deliverables: add metamorphic transforms such as renaming locals/exports, inserting dead functions/globals, wrapping expressions in identity blocks, adding harmless drops, reordering independent custom sections, splitting/merging local declarations, duplicating equivalent types, and adding unused passive segments where valid.
+  - Required APIs: module traversal/edit helpers, validator, binary/text printers, feature facts.
+  - Invariants: each transform must validate the output before returning success; transforms that alter observable semantics must be excluded or explicitly marked semantic-risky.
+  - Dependencies: [FUZ]1013 for recording transform facts; [FUZ]1033 for property-style checks recommended.
+  - Suggested Tests: one fixture per transform, `valid -> transform -> validate`, encode/decode roundtrip after transform, pass-fuzz smoke using transformed cases.
+  - Exit Criteria: fuzz harnesses can request N transformed variants per generated seed and classify failures by transform id.
+
+- [FUZ]1037 - Const Expression And Initializer Expression Matrix
+  - Goal: cover all valid constant-expression and initializer-expression contexts with a shared generator.
+  - Why: globals, element offsets, data offsets, table initializers, GC descriptors, and future proposal features each have subtly different expression constraints. Bugs often live at the boundary between ordinary body expressions and const-only expressions.
+  - Deliverables: implement a const-expression generator that knows allowed op families per context; cover numeric constants, `ref.null`, `ref.func`, `global.get` for imported immutable globals, GC initializer forms where valid, i31 refs, and boundary offsets for memory/table segments.
+  - Required APIs: global/table/data/elem builders, validator const-expression rules, GenValid facts, invalid const-expression mutations.
+  - Invariants: const-expression generation must not accidentally use ordinary body-only instructions; invalid const-expression cases belong in [FUZ]1020/[FUZ]1022.
+  - Dependencies: [FUZ]1004 GC widening and [FUZ]1007 segment widening recommended.
+  - Suggested Tests: valid fixture per initializer context, invalid fixture per disallowed instruction family, binary/text roundtrip for const expressions.
+  - Exit Criteria: initializer expressions are generated from a common matrix and feature facts identify which contexts and op forms appeared.
+
+- [FUZ]1038 - Import, Export, Name, String, And Custom Section Stress
+  - Goal: widen non-code module metadata surfaces without mixing them into body-generation work.
+  - Why: import/export names, custom sections, name sections, UTF-8 strings, duplicates, long strings, empty names, and unusual module names are common decoder/parser/optimizer edge cases.
+  - Deliverables: generate empty and long valid names, Unicode names, repeated imported module names, many exports under distinct names, export aliases, name-section function/local/label names, unknown custom sections with varied placement, and payloads containing arbitrary bytes.
+  - Required APIs: import/export/name/custom-section types, binary encoder/decoder, text printer/parser where names are represented.
+  - Invariants: valid mode must keep export names unique where required; invalid duplicate/name/UTF-8 cases should be routed to invalid binary/text lanes.
+  - Dependencies: [FUZ]1003 topology widening and [FUZ]1021 binary malformed-byte matrix recommended.
+  - Suggested Tests: encode/decode/name preservation fixtures, duplicate-export invalid fixture, Unicode string text/binary roundtrip tests, custom-section placement tests.
+  - Exit Criteria: metadata-heavy profiles produce measurable name/custom-section coverage without needing large function bodies.
+
+- [FUZ]1039 - Start Function, Global Init, Element Init, And Data Init Interaction Profiles
+  - Goal: exercise valid and invalid initialization-time interactions as a first-class fuzz surface.
+  - Why: start functions, imported immutable globals, active element/data offsets, table initializers, passive segment drops, and memory/table counts interact across sections and are easy to under-test.
+  - Deliverables: add profiles with and without start functions, start functions that call helpers, global initializers depending on imports, active data/elem offsets using imported globals, table initializers using `ref.func` and typed refs, and invalid counterparts for missing imports or wrong initializer types.
+  - Required APIs: start/global/data/elem generation, const-expression generator from [FUZ]1037, import planning, invalid strategy prerequisites.
+  - Invariants: valid start functions must have type `[] -> []`; initializer expressions must validate under official section-order rules.
+  - Dependencies: [FUZ]1037 and [FUZ]1019 recommended.
+  - Suggested Tests: valid start/global/segment fixtures, invalid wrong-start-type and wrong-offset-type fixtures, pass-fuzz smoke for passes that remove unused elements.
+  - Exit Criteria: initialization-heavy modules can be generated reproducibly and invalid tests cover the common bad cross-section references.
+
+- [FUZ]1040 - Effect And Trap Feature Facts For Optimizer Oracles
+  - Goal: annotate generated modules with approximate effect/trap facts for safer mismatch classification.
+  - Why: pass-fuzz mismatches cannot be judged solely by validation and size. Agents need to know whether a case contains calls, memory effects, table effects, globals, throws, atomics, traps, unreachable code, or floating NaNs before deciding if a transform is semantic-risky.
+  - Deliverables: add feature facts for side effects, possible traps, memory/table/global mutation, imported calls, exceptions, atomics, nondeterministic host imports, NaN-sensitive float ops, and unreachable stack-polymorphic regions.
+  - Required APIs: instruction scanner, feature ledger, pass-fuzz result schema, command harness reports.
+  - Invariants: facts are conservative; `mayTrap=false` must only be used when confidently proven, otherwise default to `unknown/mayTrap`.
+  - Dependencies: [FUZ]1013 exact coverage ledger and [FUZ]1016 pass-fuzz metadata.
+  - Suggested Tests: scanner fixtures for each effect family, conservative unknown tests, result.json fact propagation tests.
+  - Exit Criteria: mismatch reports include enough effect/trap context for agents to prioritize semantic review.
+
+- [FUZ]1041 - Pass-Targeted GenValid Profiles From Pass Preconditions
+  - Goal: create generator profiles tailored to the preconditions and sensitive surfaces of individual optimizer passes.
+  - Why: one broad generator wastes time when signing off a pass. Each pass needs dense coverage of the shapes it is supposed to rewrite and the barriers it must not cross.
+  - Deliverables: add profile recipes for `precompute`, `optimize-instructions`, `simplify-locals`, `vacuum`, `remove-unused-*`, `dae`, `inlining`, `code-folding`, `directize`, memory passes, GC passes, and tail-call/control passes; document each pass's required features, barriers, and known Binaryen portability constraints.
+  - Required APIs: pass registry, GenValid profile taxonomy, feature filters, pass-fuzz compare task.
+  - Invariants: targeted profiles are additive and do not change generic smoke defaults; profile names must be stable enough for docs and CI.
+  - Dependencies: [FUZ]1001, [FUZ]1013, and [FUZ]1016.
+  - Suggested Tests: profile lookup tests, feature-floor tests per pass profile, tiny compare-pass smoke for representative profiles.
+  - Exit Criteria: pass signoff can request a named profile that densely exercises the pass's intended rewrite and no-rewrite cases.
+
+- [FUZ]1042 - Corpus Promotion, Quarantine, And Regression Replay Workflow
+  - Goal: define how interesting fuzz findings become durable regression inputs.
+  - Why: without a promotion workflow, agents either lose valuable seeds or commit noisy unminimized corpora. A quarantine lane keeps known tool failures and accepted semantic-safe divergences from blocking unrelated work.
+  - Deliverables: add corpus directories or docs for promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine cases; store metadata with source run, seed, profile, feature facts, classification, and replay command; add a replay-all task.
+  - Required APIs: fuzz output dirs from [FUZ]1031, invalid repro metadata, pass-fuzz result schema, docs/wiki corpus page.
+  - Invariants: no large or private artifacts should be committed accidentally; every promoted case must have a human-readable reason and replay command.
+  - Dependencies: [FUZ]1031 and [FUZ]1016 recommended.
+  - Suggested Tests: metadata schema tests, replay command parser tests, small promoted fixture replay in CI.
+  - Exit Criteria: agents know whether to promote, quarantine, or discard a fuzz artifact and can replay all promoted cases deterministically.
+
+- [FUZ]1043 - Cross-Harness Failure Minimizer And Case Reducer
+  - Goal: share shrinking/minimization logic across GenValid, invalid fuzzing, command harness, and pass-fuzz compare.
+  - Why: every harness currently risks inventing its own minimizer. Shared reduction makes failures smaller and more comparable across validator, parser, binary, and optimizer lanes.
+  - Deliverables: implement a common reduction interface with predicates for validation failure, parse failure, pass mismatch, command crash, and property failure; support module-level deletion, function deletion, section deletion where legal, instruction subtree replacement, byte-slice deletion, and text token deletion.
+  - Required APIs: invalid shrinking from [FUZ]1025, pass-fuzz artifacts, module traversal/edit helpers, binary/text persistence helpers.
+  - Invariants: minimization must never replace the original artifact unless the predicate still reproduces; store original and reduced artifacts separately.
+  - Dependencies: [FUZ]1025 and [FUZ]1031.
+  - Suggested Tests: fake predicate reducer tests, known fixture reductions, original-vs-reduced metadata roundtrip tests.
+  - Exit Criteria: any fuzz harness can hand a failure to one reducer and get a smaller reproducible artifact plus shrink log.
+
+- [FUZ]1044 - N-Way Binary Parser And Validator Differential
+  - Goal: compare Starshine binary decode/validate results against multiple external tools when available.
+  - Why: Binaryen alone is not a complete oracle. WABT, wasm-tools, and Starshine may disagree on proposal support, malformed encodings, canonical LEB policy, and diagnostic staging.
+  - Deliverables: add optional adapters for `wasm-tools validate`, WABT `wasm-validate`, and Binaryen `wasm-validate`; classify agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, and unsupported-feature.
+  - Required APIs: external adapter layer from [FUZ]1032, invalid binary lane, valid-module binary roundtrip lane, result schema.
+  - Invariants: external tool absence must skip cleanly; proposal support differences must be reported, not auto-labeled as Starshine bugs.
+  - Dependencies: [FUZ]1029 and [FUZ]1032.
+  - Suggested Tests: fake adapter classification tests, unavailable-tool tests, known malformed binary disagreements, docs for supported tool versions.
+  - Exit Criteria: binary fuzz runs can provide n-way evidence for decode/validation behavior without hard-requiring every external tool.
+
+- [FUZ]1045 - N-Way Text Printer, Parser, And Lowering Differential
+  - Goal: compare WAT/WAST parsing, printing, and lowering against external text tools when available.
+  - Why: local text support can drift from WABT or wasm-tools in syntax, abbreviation handling, name resolution, blocktype/typeuse forms, and assertion scripts.
+  - Deliverables: add optional adapters for WABT `wat2wasm`/`wasm2wat` and wasm-tools text commands; classify parse disagreement, print disagreement, lower disagreement, unsupported syntax, and semantic validation disagreement; store both text and binary artifacts.
+  - Required APIs: WAT/WAST fuzzing from [FUZ]1027, external adapters, text artifact persistence.
+  - Invariants: whitespace-only differences are not failures; unsupported local syntax must be separated from validation failures.
+  - Dependencies: [FUZ]1027 and [FUZ]1032.
+  - Suggested Tests: fake text adapter tests, abbreviation fixtures, name-resolution fixtures, unavailable-tool skip tests.
+  - Exit Criteria: text fuzzing can explain whether a failure is local parser/printer behavior, external tool disagreement, or true validation divergence.
+
+- [FUZ]1046 - Proposal Feature Gate Positive And Negative Matrix
+  - Goal: test every proposal/feature toggle with both accepted and rejected examples.
+  - Why: GenValid enables many modern wasm features, but validators must also reject proposal instructions/types when disabled and accept them when enabled.
+  - Deliverables: define a feature-gate matrix for GC, function references, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, reference types, and any local proposal flags; generate one positive and one negative fixture per gate.
+  - Required APIs: feature toggles, validator feature checks, invalid AST/binary strategies, docs/wiki coverage ledger.
+  - Invariants: negative tests must fail because of the disabled feature, not because the module is otherwise malformed; positive tests must validate under the matching feature set.
+  - Dependencies: [FUZ]1013 exact ledger and [FUZ]1020 invalid AST expansion.
+  - Suggested Tests: per-feature enabled/disabled fixtures, exact issue-kind expectations where available, CLI profile tests for feature toggles.
+  - Exit Criteria: adding or changing a feature gate requires updating one obvious matrix and its positive/negative tests.
+
+- [FUZ]1047 - Normalization And Canonicalization Oracle Audit
+  - Goal: audit the normalization layers used by pass-fuzz compare so they do not hide real semantic differences or report known harmless representation noise.
+  - Why: normalized text, raw wasm, canonical text, debug stripping, NaN formatting, default locals, block wrappers, and name sections can all affect mismatch classification.
+  - Deliverables: document each normalization step; add fixtures for debug-only differences, default-local initialization, NaN payload/printing, equivalent block wrappers, local/name stripping, custom sections, and order-stable section printing; report which normalizer decided equality.
+  - Required APIs: compare-pass canonicalization helpers, Binaryen output capture, Starshine text/binary printers, docs/tooling pages.
+  - Invariants: do not expand normalization to semantic-risky rewrites without proof; preserve raw artifacts for human review.
+  - Dependencies: [FUZ]1016 pass-fuzz failure metadata and [FUZ]1040 effect/trap facts.
+  - Suggested Tests: one equality/inequality fixture per normalization rule, result schema tests showing raw and normalized hashes.
+  - Exit Criteria: agents can tell whether a mismatch disappeared due to a documented harmless normalization rule or a potentially risky oracle choice.
+
+- [FUZ]1048 - Fuzz Result Trend Reports And Coverage Deltas
+  - Goal: compare fuzz coverage and outcomes across commits, seeds, and profiles.
+  - Why: broad generator work can accidentally remove surfaces while all tests still pass. Trend reports make coverage regressions visible.
+  - Deliverables: write summary JSON for feature/opcode counters, strategy counters, pass statuses, failure classes, timings, and artifact counts; add a diff tool that compares two reports and highlights lost required/optional coverage.
+  - Required APIs: fuzz JSON reports from [FUZ]1030, exact ledger from [FUZ]1013, pass-fuzz result schema, docs/wiki tooling.
+  - Invariants: report comparison must tolerate newly added optional counters; required counter drops should fail only when a profile declares that floor.
+  - Dependencies: [FUZ]1013 and [FUZ]1030.
+  - Suggested Tests: report diff tests, optional-counter compatibility tests, fake coverage regression tests.
+  - Exit Criteria: CI or agents can show “what coverage changed?” after a generator edit.
+
+- [FUZ]1049 - Parallel Long-Run Fuzz Queue And Stable Merge
+  - Goal: support long fuzz runs that execute shards in parallel and merge results deterministically.
+  - Why: seed sweeps and wide profiles will outgrow single-process interactive runs. Agents need parallelism without nondeterministic result ordering.
+  - Deliverables: add a work queue for suites/seeds/profiles; run shards independently; merge `result.json`, `cases.jsonl`, ledgers, minimized failures, and manifests in stable seed/profile/suite order; include resume behavior for completed cases.
+  - Required APIs: fuzz runner sharding from [FUZ]1030, output directory workflow from [FUZ]1031, Bun task wrappers.
+  - Invariants: no two workers should write the same artifact path; merged outputs must be deterministic independent of completion order.
+  - Dependencies: [FUZ]1030 and [FUZ]1031.
+  - Suggested Tests: fake queue merge tests, deterministic order tests, interrupted-run resume tests.
+  - Exit Criteria: a long fuzz run can be split across workers and later inspected as one stable report.
+
+- [FUZ]1050 - Corpus Deduplication, Interestingness Hashes, And Case Index
+  - Goal: prevent fuzz artifact directories and promoted corpora from filling with duplicate or equivalent cases.
+  - Why: wide generation will produce many modules that are byte-distinct but structurally or semantically redundant. Dedup keeps review and CI costs manageable.
+  - Deliverables: compute hashes for raw bytes/text, decoded module shape, feature facts, normalized canonical form, failure predicate, and reduced artifact; maintain an index mapping hash to source seeds and profiles; define an interestingness score for rare features or new failure classes.
+  - Required APIs: feature ledger, normalizers, output directory manifests, corpus workflow.
+  - Invariants: never delete the only artifact for an unreduced failure; dedup decisions must be recorded and reversible for debugging.
+  - Dependencies: [FUZ]1031, [FUZ]1042, and [FUZ]1047.
+  - Suggested Tests: duplicate artifact fixtures, structurally-same/raw-different fixtures, index roundtrip tests.
+  - Exit Criteria: repeated fuzz runs can skip or compress duplicate artifacts while preserving reproduction metadata.
+
+- [FUZ]1051 - Checked-In Fuzz Recipes And Config Schema
+  - Goal: move complex fuzz command combinations into versioned recipes.
+  - Why: long CLI invocations for GenValid profiles, pass filters, feature floors, seed sweeps, external tools, and output dirs are easy to mistype and hard to reproduce.
+  - Deliverables: define a JSON or TOML recipe schema for suite, seeds, profiles, filters, harness options, external adapters, budgets, and artifact policy; add checked-in recipes for smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle runs.
+  - Required APIs: fuzz runner CLI, Bun task wrappers, profile taxonomy, docs/tooling pages.
+  - Invariants: explicit CLI flags should override recipe fields predictably; recipes must record schema version.
+  - Dependencies: [FUZ]1001, [FUZ]1030, and [FUZ]1031.
+  - Suggested Tests: recipe parse tests, override precedence tests, invalid recipe diagnostics, docs examples.
+  - Exit Criteria: agents can launch standard fuzz scenarios by recipe name and get reproducible settings.
+
+- [FUZ]1052 - Runtime Import Stub Generator And Export Invocation Matrix
+  - Goal: enable optional execution oracles by generating host stubs and calls for exported functions.
+  - Why: validation and text/binary parity cannot prove semantic equivalence for optimizer outputs. Simple execution across generated inputs catches many wrong-code bugs when runtime tooling is available.
+  - Deliverables: generate deterministic imports for numeric/ref/global/table/memory functions where feasible; choose simple argument vectors for exported functions; execute Starshine and Binaryen outputs under the same runtime; classify equal result, equal trap, runtime unsupported, nondeterministic import, and semantic mismatch.
+  - Required APIs: external runtime adapter from [FUZ]1032, import planning, effect/trap facts from [FUZ]1040, pass-fuzz result schema.
+  - Invariants: execution remains opt-in; imports with host side effects or nondeterminism must be stubbed conservatively or skipped.
+  - Dependencies: [FUZ]1032 and [FUZ]1040.
+  - Suggested Tests: simple add/export execution fixture, equal-trap fixture, unsupported-import skip test, fake runtime mismatch test.
+  - Exit Criteria: selected pass-fuzz runs can produce semantic execution evidence for simple generated modules.
+
+- [FUZ]1053 - Resource-Limit, Timeout, And Nontermination Hardening
+  - Goal: make every fuzz harness classify timeouts and resource exhaustion safely.
+  - Why: deep generated modules, malformed binaries, parser corner cases, and external tools can hang or consume excessive memory. Fuzzing should find and report those cases without wedging CI.
+  - Deliverables: add per-case time budgets, total run budgets, memory/byte-size limits where available, cancellation paths, timeout classifications, and minimized timeout repro artifacts.
+  - Required APIs: fuzz runner, pass-fuzz task runner, external adapter subprocess wrappers, output report schema.
+  - Invariants: timeout must be reported separately from semantic mismatch, validation failure, or crash; default smoke budgets must be conservative.
+  - Dependencies: [FUZ]1030 and [FUZ]1031.
+  - Suggested Tests: fake hanging adapter test, timeout report schema test, partial artifact cleanup test.
+  - Exit Criteria: a hanging parser/validator/tool case produces a clear timeout artifact instead of blocking the full fuzz run.
+
+- [FUZ]1054 - Local Declaration, Param/Result, And Body Layout Widening
+  - Goal: stress function-body layout details that are distinct from instruction semantics.
+  - Why: local declaration grouping, many locals, zero locals, mixed param/result arities, unused locals, shadowed names, and locals of every supported type can reveal encoder, decoder, validator, and optimizer bugs.
+  - Deliverables: generate varied local-declaration groups, high local indices, mixed value types including refs/v128, unused and write-only locals, multi-result functions, empty bodies where valid, unreachable bodies with declared results, and text name-section local names.
+  - Required APIs: function builder, local index planning, typed body generator, binary encoder/decoder, name-section support.
+  - Invariants: body expressions must still satisfy declared result arity; high local profiles must remain budget-gated.
+  - Dependencies: [FUZ]1002 typed body generation and [FUZ]1035 budgets.
+  - Suggested Tests: local grouping binary roundtrip tests, high-local validation fixtures, optimizer smoke for `simplify-locals` and `vacuum`.
+  - Exit Criteria: local/body-layout coverage is measurable separately from opcode coverage.
+
+- [FUZ]1055 - Multi-Module WAST, Linking, Unlinkable, And Instantiation Lanes
+  - Goal: treat multi-module scripts and link-time behavior as a distinct fuzz target.
+  - Why: validation accepts individual modules, but WAST assertions and real tooling also care about imports, exports, duplicate module names, register commands, instantiation, and unlinkable modules.
+  - Deliverables: generate WAST scripts with multiple modules, module names, register commands, import/export wiring, `assert_unlinkable`, valid linked pairs, and intentionally missing or type-mismatched imports.
+  - Required APIs: WAST arbitrary generator, static assertion evaluator, text parser/lowerer, import/export planning.
+  - Invariants: unlinkable cases must be classified separately from invalid modules; unsupported WAST script commands should be skipped with explicit counters.
+  - Dependencies: [FUZ]1024 dynamic spec-seed sampler and [FUZ]1027 WAST reporting.
+  - Suggested Tests: two-module valid link fixture, missing-import unlinkable fixture, type-mismatch unlinkable fixture, register command fixture.
+  - Exit Criteria: WAST fuzzing can exercise link-time behavior without conflating it with validation failures.
+
+- [FUZ]1056 - Parser Recovery, Error Span, And Diagnostic Location Fuzzing
+  - Goal: verify that parser and decoder errors include stable, useful locations when possible.
+  - Why: invalid fuzzing currently emphasizes accept/reject and diagnostic family. Developer productivity also depends on error spans, byte offsets, section ids, line/column info, and stable first-error behavior.
+  - Deliverables: add optional expected byte offset/section/line/column checks for curated invalid binary/text cases; fuzz malformed inputs near boundaries; persist diagnostic location metadata in repros.
+  - Required APIs: binary decoder diagnostics, WAT/WAST parser diagnostics, invalid text/binary strategy specs, repro metadata.
+  - Invariants: location assertions should be exact only for curated stable cases; randomized lanes may record locations without requiring exact match.
+  - Dependencies: [FUZ]1018 exact diagnostic expectations and [FUZ]1025 repro metadata.
+  - Suggested Tests: malformed section offset fixture, bad text token line/column fixture, diagnostic metadata roundtrip tests.
+  - Exit Criteria: diagnostic regressions in locations can be caught for stable invalid fixtures while fuzz artifacts still record best-effort positions.
+
+- [FUZ]1057 - Binary Canonical Versus Noncanonical Encoding Policy
+  - Goal: decide and test how the binary decoder handles noncanonical-but-well-formed encodings.
+  - Why: malformed byte fuzzing needs to distinguish truly invalid encodings from encodings that some tools accept but canonical encoders do not emit, especially overwide LEBs, section lengths, blocktypes, and immediates.
+  - Deliverables: document canonicality policy; add fixtures for canonical LEBs, overwide LEBs, signed LEB boundary forms, section size encodings, NaN payload preservation, and custom-section byte preservation; classify external tool disagreements as canonicality-policy differences when appropriate.
+  - Required APIs: binary decoder/encoder, invalid binary strategy specs, external binary differential from [FUZ]1044.
+  - Invariants: encoder should keep emitting canonical encodings unless explicitly configured otherwise; decoder acceptance/rejection must be consistent and documented.
+  - Dependencies: [FUZ]1021 malformed-byte matrix and [FUZ]1044 n-way binary differential.
+  - Suggested Tests: LEB canonicality fixtures, roundtrip canonicalization tests, external disagreement classification tests.
+  - Exit Criteria: fuzz reports stop treating canonicality policy decisions as ambiguous decoder bugs.
+
+- [FUZ]1058 - Fuzzer Self-Tests, Golden Seeds, And Deterministic Example Catalog
+  - Goal: maintain a small catalog of seeds/examples that prove each major fuzz surface still works.
+  - Why: large random runs are poor smoke tests. Future agents need fast deterministic examples for GenValid profiles, invalid variants, text mutation, binary corruption, pass-fuzz metadata, and minimization.
+  - Deliverables: add golden seeds for each profile/family, expected feature/strategy counters, expected artifact names, and a docs page explaining what each seed is meant to cover.
+  - Required APIs: GenValid profiles, invalid strategy ledgers, fuzz runner reports, batch manifests.
+  - Invariants: golden seeds should be few and intentionally maintained; broad coverage remains the job of CI/stress fuzz, not the catalog.
+  - Dependencies: [FUZ]1013 exact ledger and [FUZ]1030 detailed reports.
+  - Suggested Tests: golden seed smoke suite, expected counter snapshots with controlled update process, docs sync test if available.
+  - Exit Criteria: a quick deterministic suite tells agents whether the fuzzer infrastructure itself regressed before they launch long runs.
