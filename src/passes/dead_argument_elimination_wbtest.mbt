@@ -951,6 +951,31 @@ test "dae raw cleanup strips local and global self assignments and tees" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
   ]
+  let same_local_set_read = [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+  ]
+  let same_local_set_read_cleaned = [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+  ]
+  let same_local_tee_set_from_const = [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  ]
+  let same_local_tee_set_from_const_cleaned = [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  ]
+  let different_local_set_read = [
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  ]
   let different_local_set = [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
@@ -985,6 +1010,9 @@ test "dae raw cleanup strips local and global self assignments and tees" {
               ..same_local_tee_pure_use_drop,
               ..same_local_tee_set,
               ..same_local_tee_used,
+              ..same_local_set_read,
+              ..same_local_tee_set_from_const,
+              ..different_local_set_read,
               ..different_global_set,
               ..different_local_set,
               ..different_local_tee_drop,
@@ -1003,6 +1031,9 @@ test "dae raw cleanup strips local and global self assignments and tees" {
         cleaned,
         [
           ..same_local_tee_used_cleaned,
+          ..same_local_set_read_cleaned,
+          ..same_local_tee_set_from_const_cleaned,
+          ..different_local_set_read,
           ..different_global_set,
           ..different_local_set,
           ..different_local_tee_drop,

@@ -8857,6 +8857,17 @@ fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit 
 }
 
 ///|
+fn dae_out_ends_with_droppable_pure_stack(
+  out : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Bool {
+  match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
 fn dae_local_idx_equal(lhs : @lib.LocalIdx, rhs : @lib.LocalIdx) -> Bool {
   dae_local_idx_slot(lhs) == dae_local_idx_slot(rhs)
 }
@@ -8901,6 +8912,7 @@ fn dae_strip_or_drop_condition(
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
+  allow_live_local_copy_cleanup? : Bool = true,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -8952,6 +8964,27 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         _ => ()
       }
     }
+    if allow_live_local_copy_cleanup && idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalSet(lhs), @lib.LocalGet(rhs)) if dae_local_idx_equal(
+            lhs, rhs,
+          ) &&
+          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          out.push(@lib.Instruction::local_tee(lhs))
+          idx += 2
+          continue
+        }
+        (@lib.LocalTee(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(
+            lhs, rhs,
+          ) &&
+          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          out.push(@lib.Instruction::local_set(lhs))
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
     if idx + 1 < instrs.length() &&
       dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
       instrs[idx + 1] == @lib.Instruction::drop() {
@@ -8986,7 +9019,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
     match instrs[idx] {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
-          body, type_sec,
+          body,
+          type_sec,
+          allow_live_local_copy_cleanup~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -8999,7 +9034,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
-          body, type_sec,
+          body,
+          type_sec,
+          allow_live_local_copy_cleanup~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9012,7 +9049,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
-          body, type_sec,
+          body,
+          type_sec,
+          allow_live_local_copy_cleanup~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9029,11 +9068,19 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       }
       @lib.If(block_type, then_body, else_body) => {
         let rewritten_then = dae_strip_nops_and_dropped_pure_leaf_instrs(
-          then_body, type_sec,
+          then_body,
+          type_sec,
+          allow_live_local_copy_cleanup~,
         )
         let rewritten_else = match else_body {
           Some(body) =>
-            Some(dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec))
+            Some(
+              dae_strip_nops_and_dropped_pure_leaf_instrs(
+                body,
+                type_sec,
+                allow_live_local_copy_cleanup~,
+              ),
+            )
           None => None
         }
         let else_empty = match rewritten_else {
@@ -9091,6 +9138,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
     let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
       body,
       mod_.type_sec,
+      allow_live_local_copy_cleanup=touched[def_idx],
     )
     if rewritten != body {
       funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
