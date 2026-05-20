@@ -10,6 +10,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`binaryen/passes/memory64-lowering/index.md`](binaryen/passes/memory64-lowering/index.md), [`binaryen/passes/memory64-lowering/starshine-strategy.md`](binaryen/passes/memory64-lowering/starshine-strategy.md), and [`binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md`](binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md) so future pass-planning language no longer implies full local `memory.fill` memory64 validation before the length caveat is fixed.
 - Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), and [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt).
 
+## [2026-05-20] health | memory64 pass catalog summaries
+
+- During the post-update whole-wiki health pass, searched memory64, bulk-memory, `memory.fill`, and pass-tracker summaries for stale phrasing that still described the `memory64-lowering` dossier only as mixed bulk memory/table width coverage or broad local validation readiness.
+- Updated [`binaryen/passes/index.md`](binaryen/passes/index.md) and [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md) so pass catalog readers see the 2026-05-20 memory64 bulk-memory validation refresh, positional bulk-memory width wording, and the local memory64 `memory.fill` length validator caveat.
+
 ## [2026-05-20] health | element segment backlink hygiene
 
 - During the post-update whole-wiki health pass, searched element-segment, declarative-mode, typed-empty, typed-expression, GC-type, custom-descriptor, and `[FZG]021` references for stale wording that still treated the element guide as only a typed-empty/declarative-mode caveat page.
