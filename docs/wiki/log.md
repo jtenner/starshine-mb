@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validate | ref.func declaration source refresh
+
+- Added [`raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](raw/wasm/2026-05-20-ref-func-declaration-refresh.md) after rechecking the current WebAssembly Core 3.0 module, instruction, and syntax sources against Starshine's `ref.func` typechecker, declaration-bitmap validator, focused tests, and invalid-fuzzer stable-id evidence.
+- Refreshed [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md) so the `refs` rule now distinguishes constant-expression eligibility, ordinary `FuncIdx` existence typing, whole-module declaration membership, the official memory/start source-family wording, and Starshine's intentional start-exclusion regression.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/constant-expressions.md`](validate/constant-expressions.md), [`validate/start-section.md`](validate/start-section.md), and [`index.md`](index.md) so broad validator, initializer, start-section, and catalog readers route `ref.func` declaration membership through the refreshed focused page instead of treating `ref.func` constant-expression or start-section facts as declaration proof.
+- Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), and [`../../src/validate/gen_invalid.mbt`](../../src/validate/gen_invalid.mbt).
+
 ## [2026-05-20] validate | SIMD lane immediate validation split
 
 - Added [`raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md) after rechecking current WebAssembly Core 3.0 text, binary, and validation instruction sources plus Starshine WAST lowerer, binary codec, typechecker, and generator evidence.

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
+  - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/match.mbt
@@ -75,13 +76,13 @@ The helper is used by global validation, table initializer validation, active da
 | Optional core/binary table initializer | The table element reference type. | Uses the current validation environment. Starshine accepts imported immutable `global.get` table initializers; treat broader visibility as local behavior unless rechecked against the official spec version you target. | `table` |
 | Active data offset | The selected memory's address type: `i32` for memory32, `i64` for memory64. | The memory index must exist; the expression is startup/module initialization data, not a function-body `MemArg.offset`. | `data` |
 | Active element offset | The selected table's address type. | The table index must exist, the segment reference type must match the table element type, then the offset is checked. | `element` |
-| Element expression payload | The segment element reference type, or `funcref` for legacy expression segments. | `ref.func` expressions also participate in Starshine's declared-function bitmap. | `element` or later `ref_func_declarations` |
+| Element expression payload | The segment element reference type, or `funcref` for legacy expression segments. | `ref.func` expressions also participate in Starshine's declared-function bitmap; use [`ref-func-declarations.md`](ref-func-declarations.md) for the separate declaration-membership rule. | `element` or later `ref_func_declarations` |
 
 For binary/data layout details, pair this page with [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). For fixture-facing WAST text, use [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md), and [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
 
 ## Official List Versus Starshine Local List
 
-The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`.
+The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md).
 
 Starshine's local [`validate_const_instr(...)`](../../../src/validate/validate.mbt) is **not identical** to that official list:
 
@@ -166,6 +167,7 @@ When changing constant-expression behavior:
 ## Sources
 
 - Source manifest: [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md)
+- `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Generator and invalid-fuzzer evidence: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt)
 - Related validator pages: [`module-validation-phases.md`](module-validation-phases.md), [`ref-func-declarations.md`](ref-func-declarations.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md)
