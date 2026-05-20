@@ -9,6 +9,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/ir2/` source-family directory and the expanded local SSA contract are discoverable.
 - Grounded the local code map in [`../../src/ir/ssa_policy.mbt`](../../src/ir/ssa_policy.mbt), [`../../src/ir/ssa_local.mbt`](../../src/ir/ssa_local.mbt), [`../../src/ir/ssa_destroy.mbt`](../../src/ir/ssa_destroy.mbt), [`../../src/ir/ssa_policy_test.mbt`](../../src/ir/ssa_policy_test.mbt), [`../../src/ir/ssa_local_test.mbt`](../../src/ir/ssa_local_test.mbt), and [`../../src/ir/ssa_destroy_test.mbt`](../../src/ir/ssa_destroy_test.mbt).
 
+## [2026-05-20] health | raw-source repo-link depth cleanup
+
+- During the post-update whole-wiki health pass, searched committed raw-source manifests for repo-root links that used `../../../src/...` from `docs/wiki/raw/<topic>/`, which resolves under `docs/` instead of the repository root.
+- Fixed local source links in [`raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md`](raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md) and [`raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](raw/binaryen/2026-05-05-gufa-current-main-recheck.md), and verified the new IR2 raw bridge uses `../../../../src/...` for repository source paths.
+
 ## [2026-05-20] wast | static harness skip policy
 
 - Added [`raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) after rechecking the current official WebAssembly reference-interpreter script contract and Starshine's `spec_harness` skip/mismatch logic.

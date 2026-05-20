@@ -17,9 +17,9 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa-optimizing.wast#L1-L3
   - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/gufa-cast-all.wast#L1-L8
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa-cast-all.wast#L1-L8
-  - ../../../src/passes/optimize.mbt
-  - ../../../src/cmd/cmd.mbt
-  - ../../../src/passes/pass_manager.mbt
+  - ../../../../src/passes/optimize.mbt
+  - ../../../../src/cmd/cmd.mbt
+  - ../../../../src/passes/pass_manager.mbt
 ---
 
 # `gufa` Current-Main Recheck And Primary-Source Manifest
@@ -43,6 +43,6 @@ This recheck refreshes the plain `gufa` dossier with a 2026-05-05 upstream ancho
 
 ## Local surfaces to read with this manifest
 
-- [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
-- [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt)
-- [`../../../src/passes/pass_manager.mbt`](../../../src/passes/pass_manager.mbt)
+- [`../../../../src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt)
+- [`../../../../src/cmd/cmd.mbt`](../../../../src/cmd/cmd.mbt)
+- [`../../../../src/passes/pass_manager.mbt`](../../../../src/passes/pass_manager.mbt)
