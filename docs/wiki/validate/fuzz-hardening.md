@@ -7,6 +7,7 @@ sources:
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
+  - ../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md
   - ../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md
   - ../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md
   - ../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md
@@ -38,6 +39,30 @@ related:
 ---
 
 # Validator Fuzz Hardening
+
+## Reader Map
+
+Use this page as the durable, living answer for Starshine validator fuzzing. The historical execution plan in [`../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) is now source material rather than the active task list: its suite-surface, valid-generator, invalid-lane, repro, and wrapper alignment slices are all landed, and new work should start from the live runner/API surfaces below plus [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md), and [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
+
+| If you need to... | Start here | Why |
+| --- | --- | --- |
+| Run broad validator fuzzing | [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md) | Owns `moon run src/fuzz` / `bun fuzz run` command shapes, suites, profiles, seeds, JSONL, and artifact commands. |
+| Understand what the generator can build | This page's valid-generator bullets plus [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) | Separates natural broad sampling from coverage-forced Binaryen-oracle batches and lists the feature families that have counters. |
+| Add or debug an invalid strategy | [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md) plus this page's lane summaries | Keeps stable ids, expected stages, diagnostic families, and persisted artifacts aligned. |
+| Use official WAST assertions as seeds | [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) | Defines `assert_malformed`, `assert_invalid`, `assert_unlinkable`, runtime skips, and known spec-suite mismatch policy. |
+| Compare optimizer behavior with generated modules | [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md) | The compare harness consumes the coverage-forced `gen-valid` batch surface but has its own oracle, normalization, and mismatch-classification rules. |
+
+## Suite And Lane Model
+
+Think of the fuzz stack as five cooperating lanes, not one monolithic random test:
+
+1. **Valid generation** builds modules that should validate, then checks breadth floors so a dead feature family cannot disappear silently.
+2. **AST invalidation** starts from valid modules and applies semantic mutations that should fail a specific `ValidationIssueFamily`.
+3. **Binary invalidation** corrupts wasm bytes or encodes validator-invalid modules so decode-stage and validate-stage failures stay distinct.
+4. **Text/spec invalidation** exercises malformed text, invalid text, unlinkable text, and curated official spec assertions through the shared static WAST evaluator.
+5. **Invalid repro artifacts** persist enough seed, profile, strategy, stage, family, and specimen data to replay or shrink failures without rerunning the original fuzz loop.
+
+The key invariant is that coverage means **the intended strategy ran and reached the expected stage/family**, not merely that some validator error occurred.
 
 ## Durable Conclusions
 
@@ -99,6 +124,7 @@ related:
 ## Sources
 
 - Archived research doc: [`../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md`](../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md)
+- Completed execution plan / historical slice ledger: [`../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md)
 - WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
 - Diagnostic-family and invalid-repro source manifest: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md)
-- Active backlog slices: [`../../../agent-todo.md`](../../../agent-todo.md)
+- Active follow-up backlog, if any: [`../../../agent-todo.md`](../../../agent-todo.md)

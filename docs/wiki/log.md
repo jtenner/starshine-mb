@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validate | fuzz-hardening reader map and plan supersession
+
+- Refreshed [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so beginner and advanced readers now start from a concise runner/generator/invalid-strategy/spec-seed/compare-pass map before the dense durable-conclusions ledger.
+- Marked [`../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) as a historical completed execution plan rather than the active fuzz backlog, with live contracts now routed through [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), and [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md).
+- Updated [`index.md`](index.md) so catalog readers see the new reader map and historical-plan supersession note. No new external source was needed because this change reconciles existing repository evidence in [`../../src/fuzz/main.mbt`](../../src/fuzz/main.mbt), [`../../src/fuzz/invalid_repro.mbt`](../../src/fuzz/invalid_repro.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and the completed plan itself.
+
 ## [2026-05-20] health | reference-instruction ref.func citation hygiene
 
 - During the post-update whole-wiki health pass, searched `ref.func`, `refs`, declaration-source, start-divergence, and old `2026-05-13-ref-func-declaration-sources` references across WAST, validation, binary, fuzzing, Binaryen pass, raw-source, index, and log pages.

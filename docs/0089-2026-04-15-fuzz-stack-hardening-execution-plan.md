@@ -1,5 +1,7 @@
 # 0089 - Fuzz Stack Hardening Execution Plan
 
+> **Status as of 2026-05-20:** this is a historical execution plan and source document, not the active fuzz backlog. The durable living contract is [`docs/wiki/validate/fuzz-hardening.md`](./wiki/validate/fuzz-hardening.md), with command shape in [`docs/wiki/tooling/fuzz-runner.md`](./wiki/tooling/fuzz-runner.md), diagnostics/repro semantics in [`docs/wiki/validate/diagnostics-and-invalid-repro.md`](./wiki/validate/diagnostics-and-invalid-repro.md), and feature-counter coverage in [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./wiki/fuzzing/generator-coverage-ledger.md). All original `[FUZ]001` through `[FUZ]010` slices are recorded as complete below; new validator-fuzz work should add focused follow-ups rather than reopening this plan as the task source of truth.
+
 ## Scope
 
 - Make one canonical handoff document for widening Starshine's fuzz stack, especially valid-module generation and invalid/rejection coverage.
