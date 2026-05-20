@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
+  - ../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-19-wast-data-segment-sources.md

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | fuzz-hardening source-list hygiene
+
+- During the post-update whole-wiki health pass, searched `0089-2026-04-15-fuzz-stack-hardening-execution-plan`, `raw/research/README.md`, and `2026-05-20-wast-static-harness-skip-policy-refresh` references across the wiki.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so its frontmatter source list cites the WAST static-harness skip-policy refresh already used by its Sources section and spec-seed guidance.
+
 ## [2026-05-20] wiki | research archive move checklist
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
