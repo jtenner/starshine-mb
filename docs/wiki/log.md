@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] tooling | validation gate Moon CLI refresh
+
+- Added [`raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md) after checking the current official MoonBit generated command docs, the up-to-date `moon` manual, the `moonbitlang/moon` manual source, and local Starshine validation/fuzz wrapper code.
+- Refreshed [`tooling/validation-gates.md`](tooling/validation-gates.md) so upstream Moon capabilities stay separate from Starshine wrapper policy: upstream target `all` is not locally whitelisted, local `bun validate full` invokes mutating `moon fmt` rather than `moon fmt --check`, bare `moon info` remains the canonical gate step, and focused upstream path/doc/package selectors are TDD conveniences rather than full-gate command shape.
+- Updated [`index.md`](index.md) so the validation-gate catalog advertises the new Moon CLI/manual provenance, local target-whitelist distinction, and formatting caveat.
+- Grounded the local code map in [`../../scripts/lib/validate-task.ts`](../../scripts/lib/validate-task.ts), [`../../scripts/lib/task-runtime.ts`](../../scripts/lib/task-runtime.ts), [`../../scripts/lib/fuzz-task.ts`](../../scripts/lib/fuzz-task.ts), and [`../../scripts/test/task-family-commands.ts`](../../scripts/test/task-family-commands.ts).
+
 ## [2026-05-20] ir2 | local SSA overlay contract refresh
 
 - Added [`raw/ir2/2026-05-20-local-ssa-source-bridge.md`](raw/ir2/2026-05-20-local-ssa-source-bridge.md) to anchor the local SSA vocabulary in the classic Cytron/Ferrante/Rosen/Wegman/Zadeck SSA paper while keeping Starshine-specific exclusions and writeback semantics grounded in repository code.
