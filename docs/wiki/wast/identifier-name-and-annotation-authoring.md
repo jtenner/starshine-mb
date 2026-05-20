@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
+  - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
   - ../raw/wasm/2026-05-13-custom-and-name-section-sources.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
@@ -134,7 +135,8 @@ Do not infer official text `@custom` placement support from this. The official c
 ## Sources
 
 - Focused primary-source snapshot: [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md)
-- Binary name-section source snapshot: [`../raw/wasm/2026-05-13-custom-and-name-section-sources.md`](../raw/wasm/2026-05-13-custom-and-name-section-sources.md)
+- Correcting binary name-section refresh: [`../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md)
+- Earlier superseded binary name-section source snapshot: [`../raw/wasm/2026-05-13-custom-and-name-section-sources.md`](../raw/wasm/2026-05-13-custom-and-name-section-sources.md)
 - WAST parser/printer/lowerer: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
 - Core module metadata: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md)
 - Resource declaration syntax: [`resource-declaration-authoring.md`](resource-declaration-authoring.md)

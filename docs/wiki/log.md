@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | name-section source citation hygiene
+
+- During the post-update whole-wiki health pass, searched IR2 links plus name-section and custom-section references for stale citations and source-list drift.
+- Updated [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md) so its frontmatter and source list cite the correcting [`raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md) beside the older superseded 2026-05-13 name-section snapshot, matching the page's existing official-versus-Starshine-local name-map caveat.
+
 ## [2026-05-20] ir2 | test matrix repository refresh
 
 - Added [`raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md) as the current repository-evidence bridge for IR2 test placement, after checking the expanded `src/ir` HOT builder/core/label/type/flag/side-table/module-context/mutation/region-edit/walk/query/lift/lower/verify, CFG/analysis, SSA, cache, and shared pass-helper test surface.
