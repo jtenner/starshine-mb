@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | memory-argument resource backlink hygiene
+
+- Continued the resource-section health pass by checking [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), which owned selected-memory and memory64 address-width advice but still routed declaration-level memory64/shared-memory validity only through WAST declaration caveats.
+- Updated [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) so validator-side memory limits, memory64 declaration validity, `[FZG]006` memory-limit coverage, and shared-memory maximum policy route through [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), while keeping `offset=` / `align=` / selected-memory instruction behavior on the memory-argument page.
+- Updated [`index.md`](index.md) so the memory-argument catalog summary exposes the new resource-section backlink.
+
 ## [2026-05-20] health | import and atomic resource backlink hygiene
 
 - Continued the resource-section health pass by checking import/export matching and atomic-memory authoring pages for memory/table limit and shared-memory wording that still stood apart from the new validator guide.
