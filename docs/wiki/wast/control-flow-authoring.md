@@ -17,6 +17,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
   - ../../../src/validate/gen_valid.mbt
 related:
+  - index.md
   - tail-call-authoring.md
   - exception-tag-authoring.md
   - reference-instruction-authoring.md

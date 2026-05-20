@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | authoring namespace catalog
+
+- Added [`wast/index.md`](wast/index.md) as the namespace catalog for focused WAST authoring pages, covering module declarations, type/reference/GC surfaces, control/call families, memory/table/data/element instructions, numeric/SIMD/variable instructions, current text-surface caveats, and maintenance rules for keeping parser, lowerer, binary, validator, generator, arbitrary-WAST, and pass evidence distinct.
+- Updated [`index.md`](index.md) plus the central WAST pages [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), and [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so readers can navigate from focused pages back to the WAST namespace map.
+- No new raw source ingest was needed: this was a cross-linking and schema-health update that consolidates already reviewed WAST source manifests and repository evidence under [`raw/wasm/`](raw/wasm/), [`../../src/wast/`](../../src/wast/), [`../../src/validate/`](../../src/validate/), and the existing focused pages.
+
 ## [2026-05-20] health | constant-expression backlink hygiene
 
 - During the post-update whole-wiki health pass, searched constant-expression, immutable `global.get`, `string.const`, WAST arbitrary, binary instruction, and resource-section references for pages that still routed initializer/offset claims only through WAST instruction pages or the broad module phase map.

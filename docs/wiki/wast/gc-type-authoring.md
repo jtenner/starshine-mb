@@ -11,6 +11,7 @@ sources:
   - ../raw/research/0020-2026-03-22-wast-rec-group-surface.md
   - ../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md
 related:
+  - index.md
   - ../binary/data-element-and-datacount-sections.md
   - element-segment-authoring.md
   - exception-tag-authoring.md

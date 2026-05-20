@@ -12,6 +12,7 @@ sources:
   - ../../../src/fuzz/invalid_text.mbt
   - ../../../src/fuzz/invalid_text_wbtest.mbt
 related:
+  - index.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../tooling/fuzz-runner.md
