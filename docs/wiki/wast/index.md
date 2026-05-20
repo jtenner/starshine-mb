@@ -56,7 +56,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 - [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md) — `(func ...)`, inline and explicit function imports/exports, `(start ...)`, direct `call`, the function/type side of `call_indirect`, and the current ordinary `call_ref` core/binary/generator-only text caveat.
 - [`resource-declaration-authoring.md`](resource-declaration-authoring.md) — table, memory, and global declarations/imports/exports, global initializers, imported-prefix resource indices, and current memory64/shared text caveats.
 - [`exception-tag-authoring.md`](exception-tag-authoring.md) — tag declarations and exception instructions, including `throw_ref` nullable operands and catch payloads.
-- [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md) — `$` source identifiers, name-section metadata, and the boundary between source ids and debug names.
+- [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md) — `$` source identifiers, current official-vs-local name-section metadata, and the boundary between source ids and debug names.
 - [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md) — Starshine's function/import-only `(@...)` lane, Binaryen code metadata such as inline and branch hints, internal no-inline markers, and pass rewrite obligations.
 - [`static-assertion-harness.md`](static-assertion-harness.md) — `.wast` script assertions, static-only evaluation, and pass/skip/fail policy for spec-runner use.
 
