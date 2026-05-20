@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | archive absorbed IR2 March notes
+
+- Moved the absorbed March IR2 architecture, CFG contract, local SSA policy, and pass-porting checklist notes from `docs/` into [`raw/research/`](raw/research/) as stable archived source material: [`raw/research/0059-2026-03-24-ir2-architecture-rules.md`](raw/research/0059-2026-03-24-ir2-architecture-rules.md), [`raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md), [`raw/research/0061-2026-03-24-local-ssa-policy.md`](raw/research/0061-2026-03-24-local-ssa-policy.md), and [`raw/research/0062-2026-03-24-pass-porting-checklist.md`](raw/research/0062-2026-03-24-pass-porting-checklist.md).
+- Repointed the live IR2 pages [`ir2/architecture-rules.md`](ir2/architecture-rules.md), [`ir2/cfg-contract.md`](ir2/cfg-contract.md), [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), and [`ir2/pass-porting-checklist.md`](ir2/pass-porting-checklist.md) so they cite the archive notes as provenance while remaining the current contracts.
+- Repaired follow-on references in [`../0065-2026-03-24-ir2-execution-plan.md`](../0065-2026-03-24-ir2-execution-plan.md), [`raw/ir2/2026-05-20-local-ssa-source-bridge.md`](raw/ir2/2026-05-20-local-ssa-source-bridge.md), and the older simplify-locals research plan, then updated [`index.md`](index.md) so schema readers can find the archived-note location.
+- No new external source was needed: this was a wiki-schema and link-health cleanup grounded in the existing living IR2 pages, March notes, raw IR2 source bridge, and [`raw/research/README.md`](raw/research/README.md) move checklist.
+
 ## [2026-05-20] health | memory-argument resource backlink hygiene
 
 - Continued the resource-section health pass by checking [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), which owned selected-memory and memory64 address-width advice but still routed declaration-level memory64/shared-memory validity only through WAST declaration caveats.

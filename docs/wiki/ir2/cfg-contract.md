@@ -3,7 +3,7 @@ kind: decision
 status: supported
 last_reviewed: 2026-05-19
 sources:
-  - ../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
+  - ../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../wast/control-flow-authoring.md
@@ -169,7 +169,7 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 
 ## Sources
 
-- Numbered research doc: [`../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](../../0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
+- Archived original CFG contract note: [`../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
 - Tail-call source manifest: [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md)
 - Policy layer: [`../../../src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt)
 - Concrete builder: [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)

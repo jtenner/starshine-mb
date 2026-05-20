@@ -17,7 +17,7 @@ topic now live in:
 
 ## Existing Starshine Context
 
-- `HotFunc` is the only owned optimizer body representation. Future work must stay within the `lift -> verify -> analyze -> mutate -> verify -> lower` contract from [`../../../../docs/0059-2026-03-24-ir2-architecture-rules.md`](../../../../docs/0059-2026-03-24-ir2-architecture-rules.md), [`../../../../docs/0061-2026-03-24-local-ssa-policy.md`](../../../../docs/0061-2026-03-24-local-ssa-policy.md), and [`../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../docs/0065-2026-03-24-ir2-execution-plan.md).
+- `HotFunc` is the only owned optimizer body representation. Future work must stay within the `lift -> verify -> analyze -> mutate -> verify -> lower` contract from [`0059-2026-03-24-ir2-architecture-rules.md`](0059-2026-03-24-ir2-architecture-rules.md), [`0061-2026-03-24-local-ssa-policy.md`](0061-2026-03-24-local-ssa-policy.md), and [`../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../docs/0065-2026-03-24-ir2-execution-plan.md).
 - The current pass in [`../../../../src/passes/simplify_locals.mbt`](../../../../src/passes/simplify_locals.mbt) is intentionally narrow:
   - it looks up SSA defs for `LocalSet` / `LocalTee`
   - removes defs with zero SSA uses

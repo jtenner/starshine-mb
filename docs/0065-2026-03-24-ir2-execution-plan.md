@@ -8,10 +8,10 @@
 
 ## Canonical References
 
-- Architecture rules: [`0059-2026-03-24-ir2-architecture-rules.md`](./0059-2026-03-24-ir2-architecture-rules.md)
-- CFG contract ADR: [`0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](./0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
-- SSA policy ADR: [`0061-2026-03-24-local-ssa-policy.md`](./0061-2026-03-24-local-ssa-policy.md)
-- Pass-porting checklist: [`0062-2026-03-24-pass-porting-checklist.md`](./0062-2026-03-24-pass-porting-checklist.md)
+- Architecture rules: [`wiki/ir2/architecture-rules.md`](./wiki/ir2/architecture-rules.md), with original March note archived at [`wiki/raw/research/0059-2026-03-24-ir2-architecture-rules.md`](./wiki/raw/research/0059-2026-03-24-ir2-architecture-rules.md)
+- CFG contract ADR: [`wiki/ir2/cfg-contract.md`](./wiki/ir2/cfg-contract.md), with original March note archived at [`wiki/raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](./wiki/raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
+- SSA policy ADR: [`wiki/ir2/local-ssa-policy.md`](./wiki/ir2/local-ssa-policy.md), with original March note archived at [`wiki/raw/research/0061-2026-03-24-local-ssa-policy.md`](./wiki/raw/research/0061-2026-03-24-local-ssa-policy.md)
+- Pass-porting checklist: [`wiki/ir2/pass-porting-checklist.md`](./wiki/ir2/pass-porting-checklist.md), with original March note archived at [`wiki/raw/research/0062-2026-03-24-pass-porting-checklist.md`](./wiki/raw/research/0062-2026-03-24-pass-porting-checklist.md)
 - Registry and batch map: [`0063-2026-03-24-pass-port-batches-and-registry-map.md`](./0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - Shared IR2 test matrix: [`0064-2026-03-24-ir2-test-matrix.md`](./0064-2026-03-24-ir2-test-matrix.md)
 

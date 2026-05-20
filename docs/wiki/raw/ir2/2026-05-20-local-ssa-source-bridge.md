@@ -19,7 +19,7 @@ _Captured:_ 2026-05-20
 
 ## Repository evidence paired with this source
 
-- Normative historical policy: [`../../../0061-2026-03-24-local-ssa-policy.md`](../../../0061-2026-03-24-local-ssa-policy.md)
+- Archived historical policy: [`../research/0061-2026-03-24-local-ssa-policy.md`](../research/0061-2026-03-24-local-ssa-policy.md)
 - Policy and query surface: [`../../../../src/ir/ssa_policy.mbt`](../../../../src/ir/ssa_policy.mbt)
 - Local SSA builder: [`../../../../src/ir/ssa_local.mbt`](../../../../src/ir/ssa_local.mbt)
 - SSA destruction/lowering: [`../../../../src/ir/ssa_destroy.mbt`](../../../../src/ir/ssa_destroy.mbt)

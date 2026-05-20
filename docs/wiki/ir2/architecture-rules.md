@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../0059-2026-03-24-ir2-architecture-rules.md
+  - ../raw/research/0059-2026-03-24-ir2-architecture-rules.md
 related:
   - ./cfg-contract.md
   - ./local-ssa-policy.md
@@ -30,12 +30,12 @@ related:
 
 ## Practical Rule
 
-- The numbered doc in `docs/` remains the canonical normative architecture ADR; keep this page synchronized with it.
+- This living page is now the canonical architecture contract; the archived March note in `docs/wiki/raw/research/` is retained as provenance for the original ADR.
 - Land architecture rules before landing a pass that needs a new IR invariant, cache rule, or mutation contract.
 - Keep pass descriptors honest about required analyses and invalidations.
 - Public docs must not imply that deleted ownership layers still exist.
 
 ## Sources
 
-- Canonical normative doc: [`../../0059-2026-03-24-ir2-architecture-rules.md`](../../0059-2026-03-24-ir2-architecture-rules.md)
+- Archived original architecture note: [`../raw/research/0059-2026-03-24-ir2-architecture-rules.md`](../raw/research/0059-2026-03-24-ir2-architecture-rules.md)
 - Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)

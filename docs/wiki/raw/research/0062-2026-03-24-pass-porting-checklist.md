@@ -8,8 +8,8 @@
 ## Current Behavior
 
 - Hot passes run through `lift -> verify -> run passes -> verify -> lower -> validate`.
-- Shared pass helpers live in [`src/passes/pass_common.mbt`](../src/passes/pass_common.mbt).
-- Shared pass test helpers live in [`src/passes/pass_test_helpers.mbt`](../src/passes/pass_test_helpers.mbt).
+- Shared pass helpers live in [`src/passes/pass_common.mbt`](../../../../src/passes/pass_common.mbt).
+- Shared pass test helpers live in [`src/passes/pass_test_helpers.mbt`](../../../../src/passes/pass_test_helpers.mbt).
 - The registry and preset surface remain the only CLI-visible source of pass ids.
 
 ## Porting Checklist

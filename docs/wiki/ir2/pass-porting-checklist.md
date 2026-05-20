@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../0062-2026-03-24-pass-porting-checklist.md
+  - ../raw/research/0062-2026-03-24-pass-porting-checklist.md
 related:
   - ./execution-plan.md
   - ./test-matrix.md
@@ -57,6 +57,6 @@ related:
 
 ## Sources
 
-- Numbered research doc: [`../../0062-2026-03-24-pass-porting-checklist.md`](../../0062-2026-03-24-pass-porting-checklist.md)
+- Archived original pass-porting note: [`../raw/research/0062-2026-03-24-pass-porting-checklist.md`](../raw/research/0062-2026-03-24-pass-porting-checklist.md)
 - Shared helper layer: [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt)
 - Shared helper tests: [`../../../src/passes/pass_common_test.mbt`](../../../src/passes/pass_common_test.mbt)
