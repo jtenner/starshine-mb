@@ -8642,6 +8642,9 @@ fn dae_find_droppable_pure_stack_expr_start(
   if out.length() == 0 {
     return None
   }
+  // Need marker 0 accepts any recognized pure/nontrapping value stack.
+  // Need marker 1 accepts only a stack ending in ref.i31, which constructs a
+  // non-null i31 reference and makes i31.get/ref.as_non_null nontrapping.
   let needs : Array[Int] = [0]
   for start = out.length() - 1; start >= 0; start = start - 1 {
     let need = match needs.pop() {
@@ -8656,6 +8659,7 @@ fn dae_find_droppable_pure_stack_expr_start(
     } else {
       match out[start] {
         @lib.I31GetS | @lib.I31GetU => needs.push(1)
+        @lib.RefAsNonNull => needs.push(1)
         _ =>
           match dae_instr_dropped_pure_value_arity(out[start]) {
             Some(arity) => {
