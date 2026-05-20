@@ -8857,6 +8857,26 @@ fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit 
 }
 
 ///|
+fn dae_strip_dropped_pure_if_keep_condition(
+  out : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Bool {
+  if out.length() == 0 {
+    return false
+  }
+  let last_idx = out.length() - 1
+  if !dae_instr_droppable_pure_if_value(out[last_idx], type_sec) {
+    return false
+  }
+  ignore(out.pop())
+  match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
+    Some(start) => dae_truncate_instrs(out, start)
+    None => out.push(@lib.Instruction::drop())
+  }
+  true
+}
+
+///|
 fn dae_strip_or_drop_condition(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
@@ -8890,6 +8910,10 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           continue
         }
         None => ()
+      }
+      if dae_strip_dropped_pure_if_keep_condition(out, type_sec) {
+        idx += 1
+        continue
       }
     }
     if idx + 1 < instrs.length() &&

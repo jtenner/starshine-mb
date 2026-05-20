@@ -998,7 +998,7 @@ test "dae raw cleanup strips dropped pure value ifs" {
     ),
   )
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
-  let trapping_condition_if = [
+  let effectful_condition_if = [
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::i32_load(memarg),
     @lib.Instruction::if_(
@@ -1006,6 +1006,11 @@ test "dae raw cleanup strips dropped pure value ifs" {
       [@lib.Instruction::i32_const(@lib.I32(1))],
       Some([@lib.Instruction::i32_const(@lib.I32(2))]),
     ),
+    @lib.Instruction::drop(),
+  ]
+  let effectful_condition_drop = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_load(memarg),
     @lib.Instruction::drop(),
   ]
   let trapping_branch_if = [
@@ -1059,7 +1064,7 @@ test "dae raw cleanup strips dropped pure value ifs" {
               ),
               @lib.Instruction::i64_eqz(),
               @lib.Instruction::drop(),
-              ..trapping_condition_if,
+              ..effectful_condition_if,
               ..trapping_branch_if,
               ..param_if,
               @lib.Instruction::return_(),
@@ -1076,7 +1081,7 @@ test "dae raw cleanup strips dropped pure value ifs" {
       assert_eq(
         cleaned,
         [
-          ..trapping_condition_if,
+          ..effectful_condition_drop,
           ..trapping_branch_if,
           ..param_if,
           @lib.Instruction::return_(),
