@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | tracker catalog normalization
+
+- Replaced the temporary 2026-05-06 audit-warning language in [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md) and [`binaryen/passes/index.md`](binaryen/passes/index.md) with current source-of-truth guidance pointing at [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt), then renamed the second tracker section so it covers the mixed additional queue of active-partial, active, removed, boundary-only, and upstream-only entries instead of mislabeling it as upstream-only research.
+- Updated [`index.md`](index.md) so the root catalog summary now describes the tracker as spanning implemented, active-partial, boundary-only, removed, and upstream-only states.
+- No external source was needed; the local registry source and living pass folders were sufficient.
+
 ## [2026-05-20] wiki | type-ssa table-initializer caveat alignment
 
 - Clarified the corrected Binaryen `type-ssa` dossier so the living pages now mention the still-open table-initializer TODO alongside the module-code/global/element allocation scan surface, matching the 2026-05-06 current-main freshness manifest rather than leaving that edge only in the raw capture.

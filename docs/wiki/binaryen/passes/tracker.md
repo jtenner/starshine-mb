@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-20
 sources:
   - ../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
@@ -318,7 +318,8 @@ This page is the durable answer to two recurring questions:
 1. which Binaryen-adjacent passes are already **implemented** in Starshine?
 2. which passes have already been **wiki-ified** enough to guide more work?
 
-> Audit note (2026-05-06): this tracker is currently stale in a few active-pass rows and summary counts. The fresh cross-check is [`../../raw/research/0513-2026-05-06-starshine-pass-audit.md`](../../raw/research/0513-2026-05-06-starshine-pass-audit.md). Until this page is fully rewritten, treat `src/passes/optimize.mbt` as authoritative for active-vs-removed status.
+> Source-of-truth note: treat [`src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt) as the registry source of truth and keep this page aligned with it whenever a pass changes status or gains its first dedicated living page.
+> The tables below intentionally mix implemented, active-partial, active, removed, boundary-only, and upstream-only rows so queue state and wiki coverage stay visible together.
 
 ## Source-of-truth rule
 
@@ -417,10 +418,9 @@ This table is the main implementation queue tracker. Some rows have active regis
 | `flatten` | O4z-only | removed | deep | `—` | Dedicated dossier exists: [`flatten/index.md`](flatten/index.md); the refreshed folder now has tagged, current-main, and 2026-04-27 port-readiness raw source manifests, a source-confirmed implementation/test-map page, a Starshine status/port-strategy page, and [`flatten/starshine-port-readiness-and-validation.md`](flatten/starshine-port-readiness-and-validation.md). The current guidance keeps exact removed-registry / CLI-spelling / dispatcher-gap / Batch 2 planning surfaces visible, records the still-missing active backlog slice, splits official smoke/all-features/EH proof lanes, and requires analyzer-first Flat IR classification before any future port claims parity. |
 | `merge-locals` | O4z-only | implemented module | deep | `—` | Dedicated source-corrected dossier exists: [`merge-locals/index.md`](merge-locals/index.md); the 2026-05-05 landing slice activates the direct Starshine module pass for same-typed copy-shaped local retargeting, registry/dispatcher/tests/compare-harness wiring, and debug-artifact oracle lane while leaving broader LocalGraph-equivalent control-flow retargeting out of presets until separately proven. The maintained contract remains copy-shape local.set/local.get balancing with a `LocalGraph` orientation solve and post-graph rollback; this supersedes the stale one-set-local / `EquivalentCopies` / `LocalStructuralDominance` overcorrection while preserving the older saved-`O4z` queue context. |
 
-## Additional upstream-only pass research outside the main no-DWARF / saved-`-O4z` queue
+## Additional tracked passes outside the main no-DWARF / saved-`O4z` queue
 
-These passes are not part of the current open-world no-DWARF path or the saved generated-artifact skipped-slot queue above.
-They are still fair campaign targets when they are already named in the local registry **or** when neighboring living docs now depend on teaching them explicitly.
+These passes are outside the current open-world no-DWARF path or the saved generated-artifact skipped-slot queue above. They may still be active, active-partial, removed, boundary-only, or upstream-only, and this table keeps their current registry state and wiki coverage in one place.
 Now that the first tracker-expansion wave is dossier-covered too, this table is also where newly justified expansions like `alignment-lowering` and `ssa` should be recorded.
 
 | Pass | Why it matters | Registry status | Wiki status | Current tracking note |

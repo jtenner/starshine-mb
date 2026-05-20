@@ -308,7 +308,8 @@ related:
   - `binaryen-strategy.md`
   - a Starshine strategy page when the folder has a meaningful local status, implementation, or port-planning story (`starshine-strategy.md` or a similarly precise local-status page; older folders may still have historical names only until they are cleaned up)
   - pass-specific notes, decisions, or parity pages
-- Audit note (2026-05-06): some entries below still lag the live registry after recent activations. See [`../../raw/research/0513-2026-05-06-starshine-pass-audit.md`](../../raw/research/0513-2026-05-06-starshine-pass-audit.md) for the fresh registry-vs-wiki cross-check until this catalog is fully normalized.
+- Source-of-truth note: treat [`src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt) as the registry source of truth and keep this catalog aligned with it whenever a pass changes status or gains its first dedicated living page.
+- The tables below intentionally mix implemented, active-partial, active, removed, boundary-only, and upstream-only rows so queue state and wiki coverage stay visible together.
 
 ## Active Module Passes
 
@@ -339,9 +340,9 @@ related:
 
 ## Tracking
 
-- [`tracker.md`](tracker.md) - Canonical progress tracker for which Binaryen passes are already implemented, which ones already have dedicated living wiki coverage, and which missing `-O4z` / no-DWARF parity passes still need both implementation and docs.
+- [`tracker.md`](tracker.md) - Canonical progress tracker for which Binaryen passes are implemented, active, active-partial, boundary-only, removed, or upstream-only, which ones already have dedicated living wiki coverage, and which missing `-O4z` / no-DWARF parity passes still need both implementation and docs.
 
-## Tracked Missing Or Newly-Activated `-O4z` / no-DWARF Pass Research
+## Tracked Passes Outside the Main no-DWARF / saved-`O4z` Queue
 
 - [`flatten/index.md`](flatten/index.md) - Deepened dossier for the upstream aggressive flat-IR preparation pass that still remains removed in Starshine; the folder now has tagged, current-main, and 2026-04-27 port-readiness raw source manifests, a source-confirmed implementation/test-map page, Starshine status/port-strategy coverage, and a dedicated [`flatten/starshine-port-readiness-and-validation.md`](flatten/starshine-port-readiness-and-validation.md) bridge that maps analyzer-first Flat IR classification, narrow first mutating slices, tee/branch/EH follow-ups, unsupported-family policy, exact removed-registry / CLI-spelling / dispatcher-gap surfaces, and downstream validation lanes.
 - [`simplify-locals-notee-nostructure/index.md`](simplify-locals-notee-nostructure/index.md) - Active direct dossier for the upstream aggressive no-tee/no-structure locals pass; records the saved generated-artifact `-O4z` slot `10`, exact `SimplifyLocals<false, false, true>` variant surface, Starshine's exact active HOT spelling, shared locals-engine policy gates for direct single-use sinks without fresh tees or structure synthesis, focused registry/dispatcher/harness/test coverage, direct Binaryen parity evidence including repaired `gen-valid`, plus a 2026-05-05 current-main recheck on `SimplifyLocals.cpp`, `pass.cpp`, and the dedicated tests, and the fact that the post-`flatten` / pre-`local-cse` preset neighborhood remains readiness-gated.
