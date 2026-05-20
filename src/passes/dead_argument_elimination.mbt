@@ -8668,6 +8668,27 @@ fn dae_block_type_is_zero_param_single_result(
 }
 
 ///|
+fn dae_block_type_is_zero_param_zero_result(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+) -> Bool {
+  match block_type {
+    @lib.VoidBlockType => true
+    @lib.TypeIdxBlockType(type_idx) =>
+      match type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              params.length() == 0 && results.length() == 0
+            None => false
+          }
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn dae_instr_droppable_pure_block_value(
   instr : @lib.Instruction,
   type_sec : @lib.TypeSec?,
@@ -8855,15 +8876,19 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       continue
     }
     match instrs[idx] {
-      @lib.Block(block_type, @lib.Expr(body)) =>
-        out.push(
-          @lib.Instruction::block(
-            block_type,
-            @lib.Expr::new(
-              dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec),
-            ),
-          ),
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
+          body, type_sec,
         )
+        if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
+          rewritten_body.length() == 0 {
+          ()
+        } else {
+          out.push(
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        }
+      }
       @lib.Loop(block_type, @lib.Expr(body)) =>
         out.push(
           @lib.Instruction::loop_(
