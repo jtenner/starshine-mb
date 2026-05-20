@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-20
 sources:
+  - ../raw/wasm/2026-05-20-function-code-section-source-refresh.md
   - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
@@ -51,7 +52,7 @@ Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L377)
 | Start | `8` | [`StartSec(FuncIdx)`](../../../src/lib/types.mbt#L463). | Target function exists and has no params/results. |
 | Code | `10` | [`CodeSec(Array[Func])`](../../../src/lib/types.mbt#L493). | Body vector length equals `FuncSec` length; body ordinal `i` belongs to absolute function index `imported_func_count + i`; each body is locals plus an expression whose binary instruction details are covered in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). |
 
-The source snapshot in [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md) records the current official WebAssembly 3.0 module, binary, validation, and text sources behind this table.
+The current source refresh in [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md) rechecks the official WebAssembly 3.0 module, binary, validation, and text sources behind this table. The earlier broader snapshot [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md) remains the surrounding function/import/export/start context.
 
 ## Imported-Prefix Function Index Model
 
@@ -99,6 +100,45 @@ These helpers matter for diagnostics and pass writeback. A failure in defined bo
 
 Starshine does not preserve a source-level interleaving of imports, functions, exports, and start declarations after lowering. The core module preserves the semantic section surfaces and index targets.
 
+## Code Body Local Model
+
+The binary code section is easy to misread because the function type and the function body split the local environment across two sections:
+
+```text
+function type from TypeSec / FuncSec
+  params: local indices 0 .. param_count - 1
+  results: expected body result types
+
+code entry from CodeSec
+  u32 body_size
+  compressed local runs for non-parameter locals
+  expression ending in end
+```
+
+Starshine follows that split directly. [`FuncSec(Array[TypeIdx])`](../../../src/lib/types.mbt) stores each defined function's signature index, while each [`Func(Locals, Expr)`](../../../src/lib/types.mbt) stores only the body-local declarations and expression. The WAST lowerer assigns parameter ids first, computes the base local index from either the referenced type-use or inline parameter count, then assigns explicit `(local ...)` ids after that base before lowering instructions. The stored [`Locals`](../../../src/lib/types.mbt) are therefore **not** the full local index space; they are the non-parameter suffix that the code entry encodes.
+
+For example:
+
+```wat
+(module
+  (type $add1 (func (param i32) (result i32)))
+  (func $f (type $add1) (local $tmp i32)
+    local.get 0      ;; parameter from the function type
+    i32.const 1
+    i32.add
+    local.tee $tmp   ;; explicit body local, absolute local index 1
+    drop
+    local.get $tmp))
+```
+
+Lowering resolves `$tmp` to absolute `LocalIdx(1)`, but the binary code entry encodes one `i32` local in the local-run vector. During encoding, [`Encode for Func`](../../../src/binary/encode.mbt) serializes the local runs and expression into a temporary body payload, prefixes that payload length, and writes the raw body bytes. During decoding, [`Decode for Func`](../../../src/binary/decode.mbt) reads that length-framed body, decodes local runs, rejects expanded local counts above `2^32 - 1`, then decodes the expression.
+
+This distinction matters for rewrites:
+
+- Changing a function signature changes the parameter prefix and can invalidate body `LocalIdx` uses even when the code-local vector is untouched.
+- Adding, deleting, or reordering body locals changes the code entry and every instruction that uses affected local indices, but it does not change the `FuncSec` type index unless parameter/result types change.
+- Body ordinal `i` still maps to absolute `FuncIdx(imported_func_count + i)`. Do not use a code-section array index as a module-wide function index without adding the imported-function prefix.
+
 ## Validation Contract
 
 Validation is phased so every index space exists before function bodies are typechecked. [`validate/module-validation-phases.md`](../validate/module-validation-phases.md) owns the full phase contract; [`validate_module_impl`](../../../src/validate/validate.mbt#L2895-L3266) runs roughly:
@@ -130,6 +170,7 @@ A pass that deletes, merges, reorders, or appends functions must audit all of th
 
 - `func_sec` and `code_sec` must remain parallel for defined functions.
 - Function imports are part of the absolute `FuncIdx` space but have no code bodies.
+- Function signature edits must distinguish parameter locals from encoded body locals; local-index repair often crosses both the type-use and code-entry layers.
 - Body instructions include direct calls, tail calls, and `ref.func` through [`Instruction::Call`](../../../src/lib/types.mbt#L526), `ReturnCall`, and `RefFunc`.
 - `start_sec` stores one `FuncIdx`.
 - `export_sec` can store `FuncExternIdx` values.
@@ -156,7 +197,8 @@ Existing pass dossiers that depend on this checklist include:
 
 ## Sources
 
-- Primary-source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
+- Current primary-source refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
+- Broader primary-source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation and proof helpers: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate_proof/func_index.mbt`](../../../src/validate_proof/func_index.mbt)

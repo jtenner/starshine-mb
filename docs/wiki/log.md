@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] binary | function code-body local model refresh
+
+- Added [`raw/wasm/2026-05-20-function-code-section-source-refresh.md`](raw/wasm/2026-05-20-function-code-section-source-refresh.md) after rechecking the current WebAssembly 3.0 syntax, binary, validation, and text module sources plus Starshine core module, binary codec, validator, proof-helper, and WAST lowering evidence.
+- Refreshed [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md) with the code-entry local model: params come from the function type, encoded `Locals` are only the non-parameter suffix, code entries are length-framed, body ordinals map to `FuncIdx(imported_func_count + body_idx)`, and rewrites must distinguish signature changes from body-local changes.
+- Updated [`index.md`](index.md) so binary-section catalog readers see the new local-run versus parameter-local split and the refreshed source snapshot.
+- Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate_proof/func_index.mbt`](../../src/validate_proof/func_index.mbt), and [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt).
+
 ## [2026-05-20] wast | ordinary call_ref source refresh
 
 - Added [`raw/wasm/2026-05-20-call-ref-source-refresh.md`](raw/wasm/2026-05-20-call-ref-source-refresh.md) after rechecking current WebAssembly syntax, binary, validation, and execution instruction pages plus Starshine core instruction, binary codec, validator, WAST, and valid-generator evidence.
