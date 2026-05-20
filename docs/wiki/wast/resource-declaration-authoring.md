@@ -149,7 +149,7 @@ Global initializers validate as constant expressions. Starshine also supports a 
 )
 ```
 
-The runtime instruction rules for `global.get` and `global.set` live in [`variable-instruction-authoring.md`](variable-instruction-authoring.md). The validator phase order and constant-expression policy live in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
+The runtime instruction rules for `global.get` and `global.set` live in [`variable-instruction-authoring.md`](variable-instruction-authoring.md). The focused initializer allow-list and local/spec caveats live in [`../validate/constant-expressions.md`](../validate/constant-expressions.md); the broader validator phase order lives in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
 
 ## Lowering And Printing Flow
 

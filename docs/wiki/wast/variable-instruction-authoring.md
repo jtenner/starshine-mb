@@ -139,7 +139,7 @@ Starshine allows an extended immutable-`global.get` constant-expression subset i
 )
 ```
 
-The validator-side phase and policy details live in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md). The invalid-repro and strategy names for mutable-global constant-expression failures are covered by [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) and [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md).
+The focused validator-side allow-list, ordering, and portability caveats live in [`../validate/constant-expressions.md`](../validate/constant-expressions.md); the broader phase map remains in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md). The invalid-repro and strategy names for mutable-global constant-expression failures are covered by [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) and [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md).
 
 ## Rewrite And Signoff Guidance
 

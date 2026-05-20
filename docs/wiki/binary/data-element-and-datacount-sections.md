@@ -26,6 +26,7 @@ related:
   - ../wast/memory-instruction-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../validate/module-validation-phases.md
+  - ../validate/constant-expressions.md
   - ../validate/fuzz-hardening.md
   - ../validate/ref-func-declarations.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -52,7 +53,7 @@ The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-data-el
 
 | Concept | Starshine representation | Binary shape | Validation contract |
 | --- | --- | --- | --- |
-| Active memory `0` | `DataMode::active(MemIdx(0), offset_expr)` | data header `0`, then offset expr, then bytes | memory `0` must exist; offset is a constant expression of that memory's address type. |
+| Active memory `0` | `DataMode::active(MemIdx(0), offset_expr)` | data header `0`, then offset expr, then bytes | memory `0` must exist; offset is a constant expression of that memory's address type; see [`../validate/constant-expressions.md`](../validate/constant-expressions.md). |
 | Passive | `DataMode::passive()` | data header `1`, then bytes | no parent memory or offset to validate. |
 | Active explicit memory | `DataMode::active(memidx, offset_expr)` | data header `2`, then `memidx`, offset expr, bytes | selected memory must exist; offset type follows that memory's limits. |
 
@@ -62,7 +63,7 @@ Text data segments in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) acce
 
 | Concept | Starshine representation | Binary shape | Validation contract |
 | --- | --- | --- | --- |
-| Active function-index list on table `0` | `Elem(Active(TableIdx(0), offset), FuncsElemKind(funcs))` | elem header `0` | functions must exist; table `0` must accept `funcref`; offset is a constant address expression. |
+| Active function-index list on table `0` | `Elem(Active(TableIdx(0), offset), FuncsElemKind(funcs))` | elem header `0` | functions must exist; table `0` must accept `funcref`; offset is a constant address expression; see [`../validate/constant-expressions.md`](../validate/constant-expressions.md). |
 | Passive function-index list | `Elem(Passive, FuncsElemKind(funcs))` | elem header `1`, kind byte `0` | functions must exist; no table or offset is checked. |
 | Active function-index list on explicit table | `Elem(Active(tableidx, offset), FuncsElemKind(funcs))` | elem header `2`, table index, offset, kind byte `0` | selected table must exist and accept the segment ref type. |
 | Declarative function-index list | `Elem(Declarative, FuncsElemKind(funcs))` | elem header `3`, kind byte `0` | functions must exist; no table or offset is checked; the function indices count as `ref.func` declarations. |

@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validate | constant-expression validation contract
+
+- Added [`validate/constant-expressions.md`](validate/constant-expressions.md) as the focused guide for module-level constant expressions: global/table initializers, active data/element offsets, element expression payloads, `validate_const_instr` / `validate_const_expr` flow, empty-local/label/return typechecking, reachability and stack-arity checks, immutable-`global.get` visibility, pass/generator guidance, and `[FZG]008` vocabulary.
+- Added [`raw/wasm/2026-05-20-constant-expression-validation-sources.md`](raw/wasm/2026-05-20-constant-expression-validation-sources.md) after rechecking the current WebAssembly 3.0 module/instruction validation sources plus Starshine validator, generator, and invalid-fuzzer evidence.
+- Reconciled the official-versus-local allow-list explicitly: Starshine accepts many local scalar/reference/string/descriptor forms beyond the official list, while the reviewed local allow-list still omits currently official array constructor constant-expression forms.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/variable-instruction-authoring.md`](wast/variable-instruction-authoring.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md), and [`index.md`](index.md) so initializer, offset, global-get, and generator claims route through the focused validator contract instead of duplicating partial summaries.
+- Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/match.mbt`](../../src/validate/match.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt).
+
 ## [2026-05-20] tooling | pass-fuzz compare workflow
 
 - Added [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md) as the focused Binaryen-oracle compare-pass workflow covering command shape, generator modes, input/output validation, Binaryen canonicalization and normalized-WAT comparison, pass-flag aliasing, result and failure-artifact contracts, command-failure classes, replay filters, concurrency rules, and signoff guidance.

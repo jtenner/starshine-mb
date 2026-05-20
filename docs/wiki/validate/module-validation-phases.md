@@ -16,6 +16,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
   - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
+  - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/env.mbt
@@ -23,6 +24,7 @@ sources:
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/validate_trace/main.mbt
 related:
+  - ./constant-expressions.md
   - ./ref-func-declarations.md
   - ./diagnostics-and-invalid-repro.md
   - ./fuzz-hardening.md
@@ -95,10 +97,10 @@ Two practical consequences follow:
 | `typesec` | Validates recursive type groups, subtype references, descriptor metadata, exact-ref constraints, and appends normalized types. | Extends `Env.global_types` and `rec_stack`. | `validate_typesec`, `validate_rectype_and_extend`, descriptor tests in `validate.mbt`. |
 | `importsec` | Validates imported extern types and extends imported-prefix index spaces. | Extends `funcs`, `func_type_idxs`, `tables`, `mems`, `globals`, and `tags`. | `validate_importsec`; imported-prefix section guide in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), with WAST function import syntax in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md) and table/memory/global import syntax in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | `funcsec` | Validates defined-function type indices. | Appends defined function signatures after imported functions. | `validate_funcsec`; code/function length tests. |
-| `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`; WAST table declarations and table element abbreviations are summarized in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), while instruction-side table use is in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
+| `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`; the constant-expression contract is in [`constant-expressions.md`](constant-expressions.md), WAST table declarations and table element abbreviations are summarized in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), and instruction-side table use is in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
 | `memsec` | Validates memory limits, memory64 address widths, and shared-memory maximum requirements. | Extends `mems` incrementally. | `validate_memsec`, `MemType` validation; WAST memory declaration caveats live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), memory argument address-width effects in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), and runtime memory stack shapes plus the current `memory.fill` memory64 length caveat in [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md). |
 | `tagsec` | Validates exception tag type indices and empty tag result types. | Extends `tags` incrementally. | `validate_tagsec`, `TagType` validation; WAST catch/throw authoring details live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). |
-| `globalsec` | Validates global types and constant initializers. Later globals see earlier globals only. | Extends `globals` incrementally. | `validate_globalsec`, `validate_const_expr`; WAST global declarations, imports, exports, mutability syntax, and initializer-order examples live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
+| `globalsec` | Validates global types and constant initializers. Later globals see earlier globals only. | Extends `globals` incrementally. | `validate_globalsec`, `validate_const_expr`; the focused initializer and immutable-`global.get` rules live in [`constant-expressions.md`](constant-expressions.md), while WAST global declarations, imports, exports, and mutability syntax live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | `elemsec` | Validates passive/declarative/active element modes, element payload types, table targets, and constant offsets. | Extends `elems`. | `validate_elemsec`; segment guide in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). |
 | `datasec` | Validates passive/active data modes, memory targets, and constant offsets. | Extends `datas`. | `validate_datasec`; WAST fixture guide in [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md). |
 | `datacnt` | Checks declared data-count equality with the data section. | Reports `DataCountSection` diagnostics. | `validate_datacnt`. |
@@ -126,15 +128,9 @@ The most important beginner trap is unreachable-code stack polymorphism. When co
 
 ## Constant Expressions
 
-`validate_const_expr(...)` enforces a stricter gate before using ordinary typechecking:
+[`constant-expressions.md`](constant-expressions.md) is now the focused contract for Starshine initializer and active-offset validation. In short, `validate_const_expr(...)` first applies a constant-instruction allow-list, then typechecks the expression with empty locals, empty labels, and no return type; the result must remain reachable, leave exactly one value, and match the expected type.
 
-1. each instruction must be allowed in a constant-expression context;
-2. the expression is typechecked with empty locals, empty labels, and no return type;
-3. the expression must remain reachable;
-4. it must leave exactly one value;
-5. that value must match the expected type.
-
-Starshine allows current extended constant-expression families such as immutable `global.get`, arithmetic over constants, `ref.null`, `ref.func`, `string.const`, and selected GC constructors used by local fixtures. It rejects mutable-global reads, non-constant offsets, unreachable constant expressions, wrong result counts, and wrong result types. [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) documents scalar numeric constant-expression and trap/signedness caveats; [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md) gives the instruction-level immutable-global examples; [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) owns the string-specific split between `string.const` constant-expression support and non-constant array helper operations; [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md) records the supported struct-constructor text subset versus core-only aggregate operations; [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md) gives the declaration-level global initializer ordering examples. Segment pages such as [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) and resource-section pages such as [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) should point here when explaining why initializer order matters.
+Use the focused page for the local/spec split around Starshine's broader constant-instruction list, immutable `global.get` visibility, `ref.func` and declaration-source interactions, active data/element offset typing, generator `[FZG]008` coverage, and invalid-AST strategies for mutable-global reads or non-constant offsets.
 
 ## Diagnostics And Trace Contract
 
@@ -196,6 +192,7 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 ## Sources
 
 - Source snapshot: [`../raw/wasm/2026-05-13-module-validation-phase-sources.md`](../raw/wasm/2026-05-13-module-validation-phase-sources.md)
+- Constant-expression source bridge: [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md)
 - Section-order snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
 - `ref.func` snapshot: [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md)
 - Diagnostics/repro snapshot: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md)

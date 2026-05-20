@@ -171,7 +171,7 @@ But the const-instruction filter is not a free pass:
 - expressions that leave too many or too few values are rejected;
 - unreachable constant expressions are rejected;
 - local variables are unavailable in constant-expression environments;
-- resource-sensitive instructions still follow their focused pages, such as immutable `global.get` in [`variable-instruction-authoring.md`](variable-instruction-authoring.md) and segment offsets in [`memory-argument-authoring.md`](memory-argument-authoring.md).
+- resource-sensitive instructions still follow their focused pages, such as immutable `global.get` in [`variable-instruction-authoring.md`](variable-instruction-authoring.md), segment offsets in [`data-segment-authoring.md`](data-segment-authoring.md) / [`element-segment-authoring.md`](element-segment-authoring.md), and the validator-side allow-list in [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 
 ## Rewrite And Signoff Guidance
 
