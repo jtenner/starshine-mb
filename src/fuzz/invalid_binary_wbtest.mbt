@@ -68,10 +68,11 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-data-segment-flag-byte", "type-section-count-overflow", "code-section-count-overflow",
     "table-section-count-overflow", "export-section-count-overflow", "import-section-count-overflow",
     "global-section-count-overflow", "function-section-count-overflow", "memory-section-count-overflow",
-    "element-section-count-overflow", "data-section-count-overflow", "malformed-local-index-uleb",
-    "malformed-global-index-uleb", "malformed-i32-const-sleb", "malformed-i64-const-sleb",
-    "malformed-call-func-index-uleb", "malformed-br-label-index-uleb", "malformed-table-index-uleb",
-    "malformed-select-type-count-uleb", "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow",
+    "element-section-count-overflow", "data-section-count-overflow", "tag-section-count-overflow",
+    "malformed-tag-type-index-uleb", "malformed-local-index-uleb", "malformed-global-index-uleb",
+    "malformed-i32-const-sleb", "malformed-i64-const-sleb", "malformed-call-func-index-uleb",
+    "malformed-br-label-index-uleb", "malformed-table-index-uleb", "malformed-select-type-count-uleb",
+    "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -90,7 +91,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -974,10 +975,11 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "invalid-data-segment-flag-byte", "type-section-count-overflow", "code-section-count-overflow",
       "table-section-count-overflow", "export-section-count-overflow", "import-section-count-overflow",
       "global-section-count-overflow", "function-section-count-overflow", "memory-section-count-overflow",
-      "element-section-count-overflow", "data-section-count-overflow", "malformed-local-index-uleb",
-      "malformed-global-index-uleb", "malformed-i32-const-sleb", "malformed-i64-const-sleb",
-      "malformed-call-func-index-uleb", "malformed-br-label-index-uleb", "malformed-table-index-uleb",
-      "malformed-select-type-count-uleb", "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow",
+      "element-section-count-overflow", "data-section-count-overflow", "tag-section-count-overflow",
+      "malformed-tag-type-index-uleb", "malformed-local-index-uleb", "malformed-global-index-uleb",
+      "malformed-i32-const-sleb", "malformed-i64-const-sleb", "malformed-call-func-index-uleb",
+      "malformed-br-label-index-uleb", "malformed-table-index-uleb", "malformed-select-type-count-uleb",
+      "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()

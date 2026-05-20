@@ -100,6 +100,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MemorySectionCountOverflow
   ElementSectionCountOverflow
   DataSectionCountOverflow
+  TagSectionCountOverflow
+  MalformedTagTypeIndexUleb
   MalformedLocalIndexUleb
   MalformedGlobalIndexUleb
   MalformedI32ConstSleb
@@ -475,6 +477,8 @@ fn validate_invalid_binary_strategy_label(
     MemorySectionCountOverflow => "memory-section-count-overflow"
     ElementSectionCountOverflow => "element-section-count-overflow"
     DataSectionCountOverflow => "data-section-count-overflow"
+    TagSectionCountOverflow => "tag-section-count-overflow"
+    MalformedTagTypeIndexUleb => "malformed-tag-type-index-uleb"
     MalformedLocalIndexUleb => "malformed-local-index-uleb"
     MalformedGlobalIndexUleb => "malformed-global-index-uleb"
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
@@ -980,6 +984,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      TagSectionCountOverflow,
+      "tag-section-count-overflow",
+      "tag section whose vector count exceeds its payload tags",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTagTypeIndexUleb,
+      "malformed-tag-type-index-uleb",
+      "tag section entry with a malformed type-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedLocalIndexUleb,
       "malformed-local-index-uleb",
       "local.get instruction with a malformed local-index ULEB",
@@ -1138,16 +1156,18 @@ fn validate_invalid_binary_strategy_index(
     MemorySectionCountOverflow => 66
     ElementSectionCountOverflow => 67
     DataSectionCountOverflow => 68
-    MalformedLocalIndexUleb => 69
-    MalformedGlobalIndexUleb => 70
-    MalformedI32ConstSleb => 71
-    MalformedI64ConstSleb => 72
-    MalformedCallFuncIndexUleb => 73
-    MalformedBrLabelIndexUleb => 74
-    MalformedTableIndexUleb => 75
-    MalformedSelectTypeCountUleb => 76
-    SimdShuffleLaneOverflow => 77
-    SimdLoadLaneIndexOverflow => 78
+    TagSectionCountOverflow => 69
+    MalformedTagTypeIndexUleb => 70
+    MalformedLocalIndexUleb => 71
+    MalformedGlobalIndexUleb => 72
+    MalformedI32ConstSleb => 73
+    MalformedI64ConstSleb => 74
+    MalformedCallFuncIndexUleb => 75
+    MalformedBrLabelIndexUleb => 76
+    MalformedTableIndexUleb => 77
+    MalformedSelectTypeCountUleb => 78
+    SimdShuffleLaneOverflow => 79
+    SimdLoadLaneIndexOverflow => 80
   }
 }
 
@@ -2964,6 +2984,77 @@ fn validate_invalid_binary_mutate_data_section_count_overflow(
 }
 
 ///|
+fn validate_invalid_binary_module_with_tag_section_count_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0d).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_tag_section_count_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TagSectionCountOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_tag_section_count_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_tag_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTagTypeIndexUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x0d).to_byte(),
+        (0x07).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -3179,6 +3270,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_element_section_count_overflow(base)
     DataSectionCountOverflow =>
       validate_invalid_binary_mutate_data_section_count_overflow(base)
+    TagSectionCountOverflow =>
+      validate_invalid_binary_mutate_tag_section_count_overflow(base)
+    MalformedTagTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_tag_type_index_uleb(base)
     MalformedLocalIndexUleb =>
       validate_invalid_binary_mutate_malformed_local_index_uleb(base)
     MalformedGlobalIndexUleb =>
