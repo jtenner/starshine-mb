@@ -95,9 +95,41 @@ Prefix runs showed the same first diff already appears at `simplify-globals-opti
 
 This attributes the artifact frontier to the SGO-fed RUME function-retention / function-index layout boundary, not to the later `string-gathering -> reorder-globals -> directize` triple.
 
-## Ordered-neighborhood fuzz smoke
+## Same-input RUME isolation
 
-Command:
+The `defined=39 abs=60` frontier is not a same-input RUME mismatch.
+
+Commands:
+
+```sh
+bun scripts/self-optimize-compare.ts \
+  .tmp/sgo-direct-debug-artifact-nested-pruned/starshine.raw.wasm \
+  --remove-unused-module-elements \
+  --out-dir .tmp/rume-cross-sgo/self-compare-star-sgo-rume \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
+
+bun scripts/self-optimize-compare.ts \
+  .tmp/sgo-direct-debug-artifact-nested-pruned/binaryen.raw.wasm \
+  --remove-unused-module-elements \
+  --out-dir .tmp/rume-cross-sgo/self-compare-bin-sgo-rume \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
+```
+
+Results:
+
+- Starshine-SGO input through RUME: canonical wasm equal `yes`, normalized WAT equal `yes`.
+- Binaryen-SGO input through RUME: canonical wasm equal `yes`, normalized WAT equal `yes`.
+
+Function-count cross-check:
+
+- Starshine SGO output after either RUME implementation: `6305` defined functions.
+- Binaryen SGO output after either RUME implementation: `6311` defined functions.
+
+This means both RUME implementations agree on each concrete SGO-side input. The debug-artifact frontier comes from applying RUME to two already-representationally-different SGO outputs, not from Starshine RUME making a different keep/drop decision on the same module.
+
+## Ordered-neighborhood fuzz signoff
+
+Smoke command:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts \
@@ -116,8 +148,28 @@ bun scripts/pass-fuzz-compare.ts \
 
 Result: `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `2` Binaryen/tool command failures.
 
+Standard command:
+
+```sh
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass simplify-globals-optimizing \
+  --pass remove-unused-module-elements \
+  --pass string-gathering \
+  --pass reorder-globals \
+  --pass directize \
+  --max-failures 20 \
+  --keep-going-after-command-failures \
+  --jobs auto \
+  --out-dir .tmp/pass-fuzz-sg-tail-neighborhood-10k \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
+```
+
+Result: `9972/10000` compared, `9972` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `28` Binaryen/tool command failures.
+
 ## Conclusion
 
-The five-pass late-tail neighborhood is executable, validates on the debug artifact, and has a green 1k ordered-neighborhood fuzz smoke. The remaining debug-artifact canonical diff is earlier than the string/reorder/directize tail: it appears as soon as RUME runs after the accepted SGO output and is carried forward unchanged by the later tail passes.
+The five-pass late-tail neighborhood is executable, validates on the debug artifact, and has standard 10k ordered-neighborhood fuzz parity. The remaining debug-artifact canonical diff is inherited from accepted SGO representation drift feeding RUME: same-input RUME comparisons are green on both the Starshine-SGO and Binaryen-SGO artifacts, but the two SGO-side inputs have different reachable helper/function-layout frontiers after RUME. The later `string-gathering -> reorder-globals -> directize` tail carries that frontier forward unchanged.
 
-Do not widen public `optimize` / `shrink` yet. The next step is to classify the SGO-fed RUME function-retention / numeric-index layout drift as either accepted representation/function-layout drift or a targeted RUME retention mismatch, then rerun the ordered neighborhood at the standard 10k level if acceptance is desired for preset scheduling.
+This is enough to treat the direct ordered neighborhood as oracle-proven for v0.1.0 scheduling purposes. Public `optimize` / `shrink` widening should still be a separate preset change with preset-order tests and its own artifact evidence, rather than being folded into this classification commit.
