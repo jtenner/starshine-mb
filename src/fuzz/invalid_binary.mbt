@@ -88,6 +88,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidGlobalMutabilityByte
   InvalidElementSegmentFlagByte
   InvalidDataSegmentFlagByte
+  TypeSectionCountOverflow
+  CodeSectionCountOverflow
 } derive(Eq, Debug)
 
 ///|
@@ -441,6 +443,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidGlobalMutabilityByte => "invalid-global-mutability-byte"
     InvalidElementSegmentFlagByte => "invalid-element-segment-flag-byte"
     InvalidDataSegmentFlagByte => "invalid-data-segment-flag-byte"
+    TypeSectionCountOverflow => "type-section-count-overflow"
+    CodeSectionCountOverflow => "code-section-count-overflow"
   }
 }
 
@@ -851,6 +855,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      TypeSectionCountOverflow,
+      "type-section-count-overflow",
+      "type section whose vector count exceeds its payload entries",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      CodeSectionCountOverflow,
+      "code-section-count-overflow",
+      "code section whose vector count exceeds its payload bodies",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -928,6 +946,8 @@ fn validate_invalid_binary_strategy_index(
     InvalidGlobalMutabilityByte => 54
     InvalidElementSegmentFlagByte => 55
     InvalidDataSegmentFlagByte => 56
+    TypeSectionCountOverflow => 57
+    CodeSectionCountOverflow => 58
   }
 }
 
@@ -2050,6 +2070,84 @@ fn validate_invalid_binary_mutate_invalid_data_segment_flag_byte(
 }
 
 ///|
+fn validate_invalid_binary_module_with_type_section_count_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x02).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_type_section_count_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TypeSectionCountOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_type_section_count_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_code_section_count_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x04).to_byte(),
+    (0x02).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_code_section_count_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      CodeSectionCountOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_code_section_count_overflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -2241,6 +2339,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_element_segment_flag_byte(base)
     InvalidDataSegmentFlagByte =>
       validate_invalid_binary_mutate_invalid_data_segment_flag_byte(base)
+    TypeSectionCountOverflow =>
+      validate_invalid_binary_mutate_type_section_count_overflow(base)
+    CodeSectionCountOverflow =>
+      validate_invalid_binary_mutate_code_section_count_overflow(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

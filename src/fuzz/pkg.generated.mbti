@@ -366,6 +366,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidGlobalMutabilityByte
   InvalidElementSegmentFlagByte
   InvalidDataSegmentFlagByte
+  TypeSectionCountOverflow
+  CodeSectionCountOverflow
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
