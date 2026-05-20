@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | generator resource-section backlink hygiene
+
+- During the post-update whole-wiki health pass, searched memory/table limit, shared-memory, data-count, segment, and new resource-section backlinks across validator, binary, WAST, fuzzing, index, and log pages.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so `[FZG]006` memory-limit/proposal and `[FZG]007` table-limit/initializer rows route validator-side limit, import-prefix, shared-memory, table-initializer, and active element/table matching details through [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md) while leaving WAST text caveats on [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md).
+- Updated [`index.md`](index.md) so the generator-ledger catalog summary exposes the new validator backlink rather than describing memory/table limits only as WAST declaration concerns.
+
 ## [2026-05-20] validate | resource sections and limits contract
 
 - Added [`raw/wasm/2026-05-20-resource-section-validation-refresh.md`](raw/wasm/2026-05-20-resource-section-validation-refresh.md) after rechecking current WebAssembly Core validation/type/binary/module sources against Starshine `Limits`, table, memory, tag, global, data, element, data-count, and invalid-fuzzer evidence.
