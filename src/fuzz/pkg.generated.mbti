@@ -419,6 +419,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   TagSectionCountUnderflow
   TypeSectionSizeUnderflow
   CodeBodySizeUnderflow
+  ImportSectionSizeUnderflow
+  ExportSectionSizeUnderflow
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
