@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
+  - ../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -17,6 +18,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
 related:
   - ./memory-argument-authoring.md
+  - ./atomic-memory-instruction-authoring.md
   - ./data-segment-authoring.md
   - ./resource-declaration-authoring.md
   - ./simd-authoring.md
@@ -40,7 +42,7 @@ Use this page when writing or reviewing WAST fixtures, validator tests, or optim
 - `memory.size` and `memory.grow`;
 - bulk-memory instructions `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`.
 
-The companion page [`memory-argument-authoring.md`](memory-argument-authoring.md) owns `offset=`, `align=`, default memory `0`, memory32/memory64 address widths, and the current WAST gap around explicit nonzero memory indices. [`resource-declaration-authoring.md`](resource-declaration-authoring.md) owns `(memory ...)` declarations, imports, exports, and the current text-surface caveat that WAST memory declarations lower through the `i32` limits path. This page owns the **instruction stack shapes**, **resource-index relationships**, **data-count requirement**, **side-effect/trap behavior**, and **Starshine layer map**.
+Atomic memory instructions are deliberately routed to [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md): Starshine core/binary/validator/generator supports them, but current WAST keywords and parser cases do not expose atomic text syntax. The companion page [`memory-argument-authoring.md`](memory-argument-authoring.md) owns `offset=`, `align=`, default memory `0`, memory32/memory64 address widths, and the current WAST gap around explicit nonzero memory indices. [`resource-declaration-authoring.md`](resource-declaration-authoring.md) owns `(memory ...)` declarations, imports, exports, and the current text-surface caveat that WAST memory declarations lower through the `i32` limits path. This page owns the **instruction stack shapes**, **resource-index relationships**, **data-count requirement**, **side-effect/trap behavior**, and **Starshine layer map**.
 
 The current source manifest is [`../raw/wasm/2026-05-19-wast-memory-instruction-sources.md`](../raw/wasm/2026-05-19-wast-memory-instruction-sources.md). It checks current official WebAssembly text/syntax/binary/validation/module sources plus Starshine WAST parser/lowerer/printer, core instruction, binary codec, validator, generator, arbitrary WAST, and HOT-IR effect surfaces.
 
@@ -151,14 +153,14 @@ The data-count rule is easy to miss: function bodies that use `memory.init` or `
 
 | Layer | Files | Current behavior |
 | --- | --- | --- |
-| WAST keywords | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt) | Recognizes scalar load/store names, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`; current WAST does not expose atomic memory keywords. |
+| WAST keywords | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt) | Recognizes scalar load/store names, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`; atomic text keywords are a separate current gap documented in [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md). |
 | WAST parsing | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Parses scalar memargs, size/grow/fill/copy/init/drop text shapes, and has focused parser tests for the basic families. |
 | WAST lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Lowers scalar loads/stores through `wt_load_store(...)`; defaults `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, and `memory.init` memory operands to `MemIdx(0)`; resolves data identifiers for `memory.init` / `data.drop`. |
 | WAST printing | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints runtime memory instruction keywords and data indices, but does not print explicit memory indices for these forms. |
 | Core IR | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Stores `MemArg` on scalar loads/stores and explicit `MemIdx` / `DataIdx` immediates on size/grow/fill/copy/init/drop. |
 | Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Encodes/decodes scalar opcodes, one-byte `memory.size` / `memory.grow`, and `0xFC` subcodes `8..11` for bulk memory. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Stack-types memory instructions, checks selected resources, enforces the data-count requirement, and currently has the `memory.fill` memory64 length caveat described above. |
-| Generator / WAST arbitrary | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | Valid generator covers scalar memory widths, nonzero memargs, memory-limit variants, bulk-memory bodies, and atomics; WAST arbitrary has representative parser/printer bulk-memory text, not full typed-validity coverage. |
+| Generator / WAST arbitrary | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | Valid generator covers scalar memory widths, nonzero memargs, memory-limit variants, bulk-memory bodies, and atomics; [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md) keeps the `[FZG]017` core/binary/generator evidence separate from WAST text support. WAST arbitrary has representative parser/printer bulk-memory text, not full typed-validity coverage. |
 | HOT IR and passes | [`src/ir/hot_lift.mbt`](../../../src/ir/hot_lift.mbt), [`src/ir/hot_lower.mbt`](../../../src/ir/hot_lower.mbt), [`src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`src/ir/effects.mbt`](../../../src/ir/effects.mbt) | Carries memory operations into HOT form, marks memory effects/traps, and lowers memory immediates back to core instructions. |
 
 ## Strategy Notes For Pass Authors
@@ -167,18 +169,19 @@ The data-count rule is easy to miss: function bodies that use `memory.init` or `
 2. **Keep immediates and stack operands separate.** `offset=` and memory/data indices are instruction immediates; destination/source/length values are stack operands. See [`memory-argument-authoring.md`](memory-argument-authoring.md) for the `offset=` split.
 3. **After memory-index rewrites, validate.** A pass that deletes or remaps memories must update scalar `MemArg` carriers, `MemorySize`, `MemoryGrow`, `MemoryFill`, both `MemoryCopy` indices, and the memory half of `MemoryInit`.
 4. **After data-segment rewrites, validate data-count and data users.** A pass that deletes or remaps data segments must update `MemoryInit`, `DataDrop`, active data modes, and `DataCntSec` together; use [`data-segment-authoring.md`](data-segment-authoring.md) for the full segment rewrite checklist.
-5. **Do not overclaim WAST text support.** Core/binary/generator support is broader than WAST text for nonzero memory indices and atomics. Use direct core or binary fixtures when testing those surfaces today.
+5. **Do not overclaim WAST text support.** Core/binary/generator support is broader than WAST text for nonzero memory indices and atomics. Use direct core or binary fixtures when testing those surfaces today, and use [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md) for atomic stack/effect/signoff rules.
 6. **For memory64, test more than loads.** Include `memory.size`, `memory.grow`, `memory.copy`, and the known `memory.fill` length caveat when changing address-width logic.
 
 ## Current Gaps And Caveats
 
 - Current WAST text lowering defaults runtime memory instruction memory operands to memory `0`; nonzero memory-index behavior belongs in direct core/binary fixtures until WAST syntax and printer support are widened.
 - Current Starshine validation types `memory.fill` length as `i32` even for memory64; official validation uses the selected memory address type for that length operand.
-- Atomic memory instructions are present in core/binary/typecheck/generator surfaces, but current WAST keyword/parser evidence does not expose them as WAST text syntax. Keep `[FZG]017` claims scoped to generator/core/binary evidence until an atomic WAST page or parser work lands.
+- Atomic memory instructions are present in core/binary/typecheck/generator surfaces, but current WAST keyword/parser evidence does not expose them as WAST text syntax. Keep `[FZG]017` claims scoped to generator/core/binary evidence and route atomic stack/effect details through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md).
 - WAST arbitrary bulk-memory coverage is representative parser/printer coverage; typed-validity and memory64/multi-memory coverage belong to `gen_valid`, binary tests, or validator tests.
 
 ## Sources
 
 - Source manifest: [`../raw/wasm/2026-05-19-wast-memory-instruction-sources.md`](../raw/wasm/2026-05-19-wast-memory-instruction-sources.md)
+- Atomic companion manifest: [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md), [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/modules.html>
 - Starshine implementation: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | atomic memory instruction boundary
+
+- Added [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) as the focused atomic-memory guide for the WebAssembly threads/proposal source boundary, Starshine core/binary/validator/generator/HOT support, `0xFE` subcode families, stack/effect/trap rules, `[FZG]017` signoff guidance, and the current WAST keyword/parser gap.
+- Ingested [`raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](raw/wasm/2026-05-20-atomic-memory-instruction-sources.md) after checking the official WebAssembly threads proposal status, syntax/text/binary/validation pages, and local core instruction, binary codec, validator, generator, HOT, and WAST keyword/parser surfaces.
+- Updated [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md) so atomic claims route through one shared contract instead of being split between ordinary memory, binary prefix, and FZG rows.
+- Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/ir/hot_lift.mbt`](../../src/ir/hot_lift.mbt), [`../../src/ir/hot_lower.mbt`](../../src/ir/hot_lower.mbt), [`../../src/ir/effects.mbt`](../../src/ir/effects.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), and [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt).
+
 ## [2026-05-19] health | binary string helper backlinks
 
 - During the post-update whole-wiki health pass, searched string helper, `StringOps`, `string.const`, and local `StringRefsSec` references for binary-section pages that still routed readers only through literal-pool pages.
