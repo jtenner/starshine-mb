@@ -83,7 +83,7 @@ The corrected current-source read in [`../raw/wasm/2026-05-20-name-section-label
 
 - raw `CustomSec("name", ...)` entries are rejected; use `Module.name_sec`;
 - function, type, tag, and the local Starshine label, table, memory, global, element, and data name maps must point at existing indices;
-- local names are official in the current checked source; local and local-Starshine label names must point at an existing function and an in-range local or label inside that function;
+- local names are official in the current checked source; label names and Starshine-local label names must point at an existing function and an in-range local or label inside that function;
 - field names must point at an existing struct type and an in-range field;
 - name validation failures report the `NameSectionFamily` through invalid-generation tests in [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt) and binary invalid tests in [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt).
 

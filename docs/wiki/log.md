@@ -12,6 +12,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Archived the completed validator-fuzz hardening execution plan by moving the historical ledger from [`../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) into [`raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md), then repointed [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and the catalog summary so the live contract now cites the archive path instead of the old docs location.
 - Left a small forwarding stub at the old docs path for link stability during the transition, while keeping the durable runner, invalid-repro, and generator coverage pages as the live answer for future fuzz work.
 
+## [2026-05-20] health | custom-and-name-section wording cleanup
+
+- Clarified [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) so the validation contract now says "label names and Starshine-local label names" rather than the older awkward "local and local-Starshine label names" phrasing, making the official-vs-local split easier to read without changing the underlying contract.
+
 ## [2026-05-20] health | WAST identifier/name source-list hygiene
 
 - Added [`raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](raw/wasm/2026-05-20-name-section-label-subsection-correction.md) as the correcting source note for the current official `name` subsections versus Starshine-local label/table/memory/global/element/data metadata, then refreshed [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md) so its overview, layer map, invariant note, and source list cite the correction directly.
