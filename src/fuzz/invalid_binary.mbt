@@ -98,6 +98,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MemorySectionCountOverflow
   ElementSectionCountOverflow
   DataSectionCountOverflow
+  MalformedLocalIndexUleb
+  MalformedI32ConstSleb
 } derive(Eq, Debug)
 
 ///|
@@ -461,6 +463,8 @@ fn validate_invalid_binary_strategy_label(
     MemorySectionCountOverflow => "memory-section-count-overflow"
     ElementSectionCountOverflow => "element-section-count-overflow"
     DataSectionCountOverflow => "data-section-count-overflow"
+    MalformedLocalIndexUleb => "malformed-local-index-uleb"
+    MalformedI32ConstSleb => "malformed-i32-const-sleb"
   }
 }
 
@@ -941,6 +945,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      MalformedLocalIndexUleb,
+      "malformed-local-index-uleb",
+      "local.get instruction with a malformed local-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedI32ConstSleb,
+      "malformed-i32-const-sleb",
+      "i32.const instruction with a malformed signed LEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -1028,6 +1046,8 @@ fn validate_invalid_binary_strategy_index(
     MemorySectionCountOverflow => 64
     ElementSectionCountOverflow => 65
     DataSectionCountOverflow => 66
+    MalformedLocalIndexUleb => 67
+    MalformedI32ConstSleb => 68
   }
 }
 
@@ -1771,6 +1791,48 @@ fn validate_invalid_binary_mutate_malformed_blocktype_immediate(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x02).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_local_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedLocalIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x20).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_i32_const_sleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedI32ConstSleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x41).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -2746,6 +2808,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_element_section_count_overflow(base)
     DataSectionCountOverflow =>
       validate_invalid_binary_mutate_data_section_count_overflow(base)
+    MalformedLocalIndexUleb =>
+      validate_invalid_binary_mutate_malformed_local_index_uleb(base)
+    MalformedI32ConstSleb =>
+      validate_invalid_binary_mutate_malformed_i32_const_sleb(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

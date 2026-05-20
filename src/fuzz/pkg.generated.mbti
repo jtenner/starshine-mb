@@ -376,6 +376,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MemorySectionCountOverflow
   ElementSectionCountOverflow
   DataSectionCountOverflow
+  MalformedLocalIndexUleb
+  MalformedI32ConstSleb
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
