@@ -111,6 +111,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   TagSectionCountOverflow
   MalformedTagTypeIndexUleb
   MalformedLocalIndexUleb
+  MalformedLocalSetIndexUleb
+  MalformedLocalTeeIndexUleb
   MalformedGlobalIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
@@ -545,6 +547,8 @@ fn validate_invalid_binary_strategy_label(
     TagSectionCountOverflow => "tag-section-count-overflow"
     MalformedTagTypeIndexUleb => "malformed-tag-type-index-uleb"
     MalformedLocalIndexUleb => "malformed-local-index-uleb"
+    MalformedLocalSetIndexUleb => "malformed-local-set-index-uleb"
+    MalformedLocalTeeIndexUleb => "malformed-local-tee-index-uleb"
     MalformedGlobalIndexUleb => "malformed-global-index-uleb"
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
     MalformedI64ConstSleb => "malformed-i64-const-sleb"
@@ -1171,6 +1175,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedLocalIndexUleb,
       "malformed-local-index-uleb",
       "local.get instruction with a malformed local-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedLocalSetIndexUleb,
+      "malformed-local-set-index-uleb",
+      "local.set instruction with a malformed local-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedLocalTeeIndexUleb,
+      "malformed-local-tee-index-uleb",
+      "local.tee instruction with a malformed local-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2537,6 +2555,48 @@ fn validate_invalid_binary_mutate_malformed_local_index_uleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x20).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_local_set_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedLocalSetIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x21).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_local_tee_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedLocalTeeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x22).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -5601,6 +5661,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_tag_type_index_uleb(base)
     MalformedLocalIndexUleb =>
       validate_invalid_binary_mutate_malformed_local_index_uleb(base)
+    MalformedLocalSetIndexUleb =>
+      validate_invalid_binary_mutate_malformed_local_set_index_uleb(base)
+    MalformedLocalTeeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_local_tee_index_uleb(base)
     MalformedGlobalIndexUleb =>
       validate_invalid_binary_mutate_malformed_global_index_uleb(base)
     MalformedI32ConstSleb =>

@@ -389,6 +389,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   TagSectionCountOverflow
   MalformedTagTypeIndexUleb
   MalformedLocalIndexUleb
+  MalformedLocalSetIndexUleb
+  MalformedLocalTeeIndexUleb
   MalformedGlobalIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
