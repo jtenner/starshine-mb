@@ -9,6 +9,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/constant-expressions.md`](validate/constant-expressions.md), [`wast/data-segment-authoring.md`](wast/data-segment-authoring.md), [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so data/element-backed GC array users route through the aggregate fixture-format guide and initializer eligibility stays centralized in the focused validator page.
 - Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
 
+## [2026-05-20] health | GC aggregate generator evidence hygiene
+
+- During the post-update whole-wiki health pass, searched `array.new`, `array.init`, `struct.set`, `constant-expression`, `validate_const_instr`, and GC aggregate backlinks across WAST, binary, validator, fuzzing, raw-source, pass, index, and log pages.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so `[FZG]011` and its validation anchor distinguish ordinary-body core/binary/validator evidence from both WAST text support and Starshine initializer eligibility, routing those caveats through [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) and [`validate/constant-expressions.md`](validate/constant-expressions.md).
+- Updated [`index.md`](index.md) so the generator-ledger catalog summary exposes the body-core versus initializer/WAST distinction for GC constructor rows.
+
 ## [2026-05-20] health | MoonBit package-map backlink hygiene
 
 - During the post-update whole-wiki health pass, searched `moon.pkg`, `pkg.generated.mbti`, `moon info`, `proof-enabled`, `is-main`, Node package, validation-gate, and proof-policy references across tooling, validation, index, raw-source, and pass pages.
