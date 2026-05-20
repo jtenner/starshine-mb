@@ -80,6 +80,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBlocktypeImmediate
   InvalidExportNameUtf8
   InvalidImportModuleNameUtf8
+  InvalidTableRefTypeByte
+  MalformedRefNullHeaptypeImmediate
 } derive(Eq, Debug)
 
 ///|
@@ -425,6 +427,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
     InvalidExportNameUtf8 => "invalid-export-name-utf8"
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
+    InvalidTableRefTypeByte => "invalid-table-reftype-byte"
+    MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
   }
 }
 
@@ -779,6 +783,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidTableRefTypeByte,
+      "invalid-table-reftype-byte",
+      "table section with an invalid reference type byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedRefNullHeaptypeImmediate,
+      "malformed-ref-null-heaptype-immediate",
+      "ref.null instruction with a malformed heaptype immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -848,6 +866,8 @@ fn validate_invalid_binary_strategy_index(
     MalformedBlocktypeImmediate => 46
     InvalidExportNameUtf8 => 47
     InvalidImportModuleNameUtf8 => 48
+    InvalidTableRefTypeByte => 49
+    MalformedRefNullHeaptypeImmediate => 50
   }
 }
 
@@ -1696,6 +1716,61 @@ fn validate_invalid_binary_mutate_invalid_import_module_name_utf8(
 }
 
 ///|
+fn validate_invalid_binary_module_with_invalid_table_reftype_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x04).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0xff).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_table_reftype_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidTableRefTypeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_table_reftype_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_ref_null_heaptype_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedRefNullHeaptypeImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xd0).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1871,6 +1946,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_export_name_utf8(base)
     InvalidImportModuleNameUtf8 =>
       validate_invalid_binary_mutate_invalid_import_module_name_utf8(base)
+    InvalidTableRefTypeByte =>
+      validate_invalid_binary_mutate_invalid_table_reftype_byte(base)
+    MalformedRefNullHeaptypeImmediate =>
+      validate_invalid_binary_mutate_malformed_ref_null_heaptype_immediate(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
