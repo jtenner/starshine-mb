@@ -8857,6 +8857,11 @@ fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit 
 }
 
 ///|
+fn dae_local_idx_equal(lhs : @lib.LocalIdx, rhs : @lib.LocalIdx) -> Bool {
+  dae_local_idx_slot(lhs) == dae_local_idx_slot(rhs)
+}
+
+///|
 fn dae_strip_dropped_pure_if_keep_condition(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
@@ -8914,6 +8919,25 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       if dae_strip_dropped_pure_if_keep_condition(out, type_sec) {
         idx += 1
         continue
+      }
+    }
+    if out.length() > 0 {
+      let last_idx = out.length() - 1
+      match (out[last_idx], instrs[idx]) {
+        (@lib.LocalGet(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(
+            lhs, rhs,
+          ) => {
+          ignore(out.pop())
+          idx += 1
+          continue
+        }
+        (@lib.LocalGet(lhs), @lib.LocalTee(rhs)) if dae_local_idx_equal(
+            lhs, rhs,
+          ) => {
+          idx += 1
+          continue
+        }
+        _ => ()
       }
     }
     if idx + 1 < instrs.length() &&

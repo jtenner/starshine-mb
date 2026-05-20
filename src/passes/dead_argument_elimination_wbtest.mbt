@@ -913,6 +913,84 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
 }
 
 ///|
+test "dae raw cleanup strips local self assignments and tees" {
+  let same_local_set = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  ]
+  let same_local_tee_drop = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ]
+  let same_local_tee_pure_use_drop = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_eqz(),
+    @lib.Instruction::drop(),
+  ]
+  let same_local_tee_set = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ]
+  let same_local_tee_used = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ]
+  let same_local_tee_used_cleaned = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ]
+  let different_local_set = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ]
+  let different_local_tee_drop = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ]
+  let mod_ = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new(
+          [
+            ..same_local_set,
+            ..same_local_tee_drop,
+            ..same_local_tee_pure_use_drop,
+            ..same_local_tee_set,
+            ..same_local_tee_used,
+            ..different_local_set,
+            ..different_local_tee_drop,
+            @lib.Instruction::return_(),
+          ],
+        ),
+      ),
+    ]),
+  )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      assert_eq(
+        cleaned,
+        [
+          ..same_local_tee_used_cleaned,
+          ..different_local_set,
+          ..different_local_tee_drop,
+          @lib.Instruction::return_(),
+        ],
+      )
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae raw cleanup strips dropped pure value loops" {
   let pure_typeidx_loop_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
