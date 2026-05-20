@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-20
 sources:
   - ../../0065-2026-03-24-ir2-execution-plan.md
   - ../../0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -37,7 +37,7 @@ related:
 
 ### Module passes
 
-`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `string-gathering`, `reorder-globals`, and `directize`.
+`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `simplify-globals-optimizing`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
 
 ### Presets
 
@@ -52,7 +52,8 @@ tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals ->
 remove-unused-brs -> heap2local -> optimize-casts -> local-subtyping ->
 coalesce-locals -> local-cse -> simplify-locals -> merge-blocks ->
 remove-unused-brs -> remove-unused-names -> merge-blocks -> precompute ->
-optimize-instructions -> heap-store-optimization
+optimize-instructions -> heap-store-optimization -> simplify-globals-optimizing ->
+remove-unused-module-elements -> string-gathering -> reorder-globals -> directize
 ```
 
 Slot caveats:
@@ -60,6 +61,7 @@ Slot caveats:
 - `simplify-locals-notee-nostructure` is runnable explicitly but kept out of presets until the exact `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood is ready.
 - `reorder-locals` is scheduled once inside the tuple/no-structure cleanup lane.
 - `optimize` and `shrink` should stay identical until a tested size-specific divergence lands.
+- The current shared late tail is `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`; this is registry- and slot-tested and should not be shortened in docs when summarizing the live preset.
 
 ## Current Migration Gaps
 

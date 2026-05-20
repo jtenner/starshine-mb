@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-05-20
 sources:
   - ../../0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../src/passes/optimize.mbt
@@ -40,7 +40,7 @@ These have `HotPass` category and a hot descriptor where applicable:
 
 These have `ModulePass` category and are runnable through the same pass request path, but apply module-level logic or module-shaped adapters:
 
-`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `string-gathering`, `reorder-globals`, and `directize`.
+`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `simplify-globals-optimizing`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
 
 ### Active presets
 
@@ -55,10 +55,11 @@ tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals ->
 remove-unused-brs -> heap2local -> optimize-casts -> local-subtyping ->
 coalesce-locals -> local-cse -> simplify-locals -> merge-blocks ->
 remove-unused-brs -> remove-unused-names -> merge-blocks -> precompute ->
-optimize-instructions -> heap-store-optimization
+optimize-instructions -> heap-store-optimization -> simplify-globals-optimizing ->
+remove-unused-module-elements -> string-gathering -> reorder-globals -> directize
 ```
 
-The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the single `reorder-locals` preset slot, repeated `remove-unused-brs`, repeated `merge-blocks`, and repeated `precompute`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
+The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the single `reorder-locals` preset slot, repeated `remove-unused-brs`, repeated `merge-blocks`, repeated `precompute`, and the accepted late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
 
 ## Boundary-Only And Removed Behavior
 

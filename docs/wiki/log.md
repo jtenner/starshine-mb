@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | IR2 registry and preset drift check
+
+- During the post-reference-branch whole-wiki health pass, compared [`ir2/registry-map.md`](ir2/registry-map.md) and [`ir2/execution-plan.md`](ir2/execution-plan.md) against the live registry in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) plus registry and slot tests in [`../../src/passes/registry_test.mbt`](../../src/passes/registry_test.mbt) and [`../../src/passes/optimize_test.mbt`](../../src/passes/optimize_test.mbt).
+- Refreshed both IR2 pages so the active module-pass roster includes `simplify-globals-optimizing`, plain/optimizing `inlining`, and the `no-inline` policy passes, and so the shared `optimize` / `shrink` preset includes the tested late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`.
+- Updated [`index.md`](index.md) so catalog readers see the IR2 live-registry refresh instead of relying on the older 2026-05-13 summaries.
+
 ## [2026-05-20] wast | reference branch validation refresh
 
 - Added [`raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](raw/wasm/2026-05-20-reference-branch-validation-refresh.md) after rechecking current WebAssembly Core 3.0 instruction validation/syntax/text/binary sources, proposal lineage pages, and Starshine WAST keyword/parser, core instruction, binary codec, validator, negative-test, and valid-generator evidence.
