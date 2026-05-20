@@ -8647,8 +8647,21 @@ fn dae_instr_is_const_safe_numeric_binary(
 }
 
 ///|
+fn dae_instr_droppable_pure_block_value(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) =>
+      match dae_find_droppable_pure_stack_expr_start(body) {
+        Some(0) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn dae_instr_dropped_pure_value_arity(instr : @lib.Instruction) -> Int? {
-  if dae_instr_is_droppable_pure_leaf(instr) {
+  if dae_instr_is_droppable_pure_leaf(instr) ||
+    dae_instr_droppable_pure_block_value(instr) {
     return Some(0)
   }
   if dae_instr_is_nontrapping_pure_unary(instr) {
