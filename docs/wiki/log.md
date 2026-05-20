@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] wast | string instruction authoring
+
+- Added [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md) as the focused WAST guide for `string.const`, array-backed string new helpers, array-backed encode helpers, packed `i8`/`i16` GC-array requirements, encode-destination mutability, proposal/local support boundaries, and generator-versus-WAST-arbitrary coverage rules.
+- Ingested [`raw/wasm/2026-05-19-wast-string-instruction-sources.md`](raw/wasm/2026-05-19-wast-string-instruction-sources.md) after checking the current WebAssembly stringref proposal, stable WebAssembly 3.0 instruction pages, prior stringrefs section-id evidence, and Starshine WAST parser/lowerer/printer, core instruction, binary codec, validator, valid-generator, coverage-ledger, and WAST arbitrary surfaces.
+- Updated [`strings/string-const-surface.md`](strings/string-const-surface.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so string-helper claims route through one shared contract instead of being split between literal-pool, GC aggregate, binary, validation, and generator pages.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt).
+
 ## [2026-05-19] health | validator fuzz data-segment backlinks
 
 - During the post-update whole-wiki health pass, searched active data offset, data-segment range, data-count, and data-backed GC array references for pages that still routed WAST authors only through the binary section guide.

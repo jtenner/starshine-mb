@@ -19,6 +19,7 @@ sources:
 related:
   - gc-type-authoring.md
   - reference-instruction-authoring.md
+  - string-instruction-authoring.md
   - element-segment-authoring.md
   - table-instruction-authoring.md
   - memory-instruction-authoring.md
@@ -33,7 +34,7 @@ related:
 
 ## Overview
 
-Use this page when writing or reducing fixtures that allocate, read, or mutate WebAssembly GC aggregates: structs, arrays, packed fields, i31 values, and the nearby `any`/`extern` conversion instructions. The companion [`gc-type-authoring.md`](gc-type-authoring.md) page owns type declarations such as `(type $S (struct ...))` and `(type $A (array ...))`; this page owns the **instruction** layer that consumes those types.
+Use this page when writing or reducing fixtures that allocate, read, or mutate WebAssembly GC aggregates: structs, arrays, packed fields, i31 values, and the nearby `any`/`extern` conversion instructions. The companion [`gc-type-authoring.md`](gc-type-authoring.md) page owns type declarations such as `(type $S (struct ...))` and `(type $A (array ...))`; this page owns the **instruction** layer that consumes those types. Array-backed string helpers such as `string.new_utf8_array` and `string.encode_utf8_array` are covered in [`string-instruction-authoring.md`](string-instruction-authoring.md), but their fixtures still depend on the GC array type/storage rules summarized here.
 
 The high-value local rule is a layer split:
 
@@ -173,4 +174,4 @@ When a pass needs these instructions today, construct them directly in core fixt
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/show.mbt`](../../../src/lib/show.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and generation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)
-- Related WAST pages: [`reference-instruction-authoring.md`](reference-instruction-authoring.md), [`element-segment-authoring.md`](element-segment-authoring.md), [`memory-instruction-authoring.md`](memory-instruction-authoring.md), [`table-instruction-authoring.md`](table-instruction-authoring.md)
+- Related WAST pages: [`reference-instruction-authoring.md`](reference-instruction-authoring.md), [`string-instruction-authoring.md`](string-instruction-authoring.md), [`element-segment-authoring.md`](element-segment-authoring.md), [`memory-instruction-authoring.md`](memory-instruction-authoring.md), [`table-instruction-authoring.md`](table-instruction-authoring.md)

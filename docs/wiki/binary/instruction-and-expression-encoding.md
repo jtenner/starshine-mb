@@ -119,9 +119,9 @@ Do not audit instruction coverage by one-byte opcodes only. Starshine's current 
 | `0xFC` | Saturating conversion, bulk memory, and table operations | `i32.trunc_sat_f32_s`, `memory.init`, `data.drop`, `memory.copy`, `table.init`, `elem.drop` |
 | `0xFD` | SIMD | `v128.load`, `i8x16.shuffle`, lane extract/replace, relaxed SIMD forms; WAST fixture rules live in [`../wast/simd-authoring.md`](../wast/simd-authoring.md). |
 | `0xFE` | Atomics | atomic load/store/rmw/cmpxchg, wait/notify, fence |
-| `0xFB` | GC/aggregate/reference-family local surface | `struct.new`, `struct.get`, `struct.set`, `array.new`, descriptor-aware operations; WAST/core support boundaries live in [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md). |
+| `0xFB` | GC/aggregate/reference/string-family local surface | `struct.new`, `struct.get`, `struct.set`, `array.new`, descriptor-aware operations, `string.const`, and Starshine's supported array-backed string helpers; WAST/core support boundaries live in [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md) and [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md). |
 
-String and custom-descriptor instructions have additional proposal/local caveats; see [`../strings/string-const-surface.md`](../strings/string-const-surface.md), [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), and [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the local `StringRefsSec` caveat.
+String and custom-descriptor instructions have additional proposal/local caveats; see [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md), [`../strings/string-const-surface.md`](../strings/string-const-surface.md), [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), and [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the local `StringRefsSec` caveat.
 
 ## Validation Contract
 
