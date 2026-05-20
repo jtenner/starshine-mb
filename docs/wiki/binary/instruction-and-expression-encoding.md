@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-20
 sources:
+  - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
   - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
@@ -27,6 +28,7 @@ related:
   - type-table-memory-global-tag-sections.md
   - data-element-and-datacount-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/simd-lane-immediates.md
   - ../validate/stack-polymorphism-and-bottom.md
   - ../validate/ref-func-declarations.md
   - ../tooling/validation-gates.md
@@ -120,7 +122,7 @@ Do not audit instruction coverage by one-byte opcodes only. Starshine's current 
 | Prefix | Family in Starshine | Examples |
 | ---: | --- | --- |
 | `0xFC` | Saturating conversion, bulk memory, and table operations | `i32.trunc_sat_f32_s`, `memory.init`, `data.drop`, `memory.copy`, `table.init`, `elem.drop` |
-| `0xFD` | SIMD | `v128.load`, `i8x16.shuffle`, lane extract/replace, relaxed SIMD forms; WAST fixture rules live in [`../wast/simd-authoring.md`](../wast/simd-authoring.md). |
+| `0xFD` | SIMD | `v128.load`, `i8x16.shuffle`, lane extract/replace, relaxed SIMD forms; byte-level lane immediates must still satisfy the focused validation contract in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md), and WAST fixture rules live in [`../wast/simd-authoring.md`](../wast/simd-authoring.md). |
 | `0xFE` | Atomics | atomic load/store/rmw/cmpxchg, wait/notify, fence; core/binary/generator support and the current WAST text gap live in [`../wast/atomic-memory-instruction-authoring.md`](../wast/atomic-memory-instruction-authoring.md). |
 | `0xFB` | GC/aggregate/reference/string-family local surface | `struct.new`, `struct.get`, `struct.set`, `array.new`, descriptor-aware operations, `string.const`, and Starshine's supported array-backed string helpers; WAST/core support boundaries live in [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md) and [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md). |
 
@@ -199,11 +201,12 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - **Recursive-index blocktypes are not binary-output-safe.** Normalize to absolute type indices before encode.
 - **Explicit memory indices are encoded through Starshine's extended memarg form.** Passes touching memories must update `MemArg` carriers, not only `memory.size` / `memory.grow` instructions.
 - **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses scalar `0xFC` saturating truncations, bulk memory, table bulk operations, SIMD, atomics, and GC/custom-descriptor operations. For scalar numeric text fixtures, pair this binary guide with [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) so constants, signedness, trap behavior, and `[FZG]002` coverage stay aligned. For GC aggregate fixtures, pair it with [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md) so the current WAST support gap around `struct.set` and `array.*` does not get mistaken for core/binary absence. For table text fixtures specifically, pair this binary guide with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md) so default table indices and `table.init` element/table ordering stay aligned across text, core, and binary layers. For SIMD, pair it with [`../wast/simd-authoring.md`](../wast/simd-authoring.md) so lane-shaped text fixtures stay aligned with the canonical 16-byte core representation. For atomics, pair it with [`../wast/atomic-memory-instruction-authoring.md`](../wast/atomic-memory-instruction-authoring.md) so `0xFE` byte coverage, `[FZG]017` generator evidence, and missing WAST text support stay separated.
-- **SIMD lane immediates need shape-specific evidence.** Starshine's WAST lowerer enforces exact lane bounds, but binary decode currently uses a coarse generic `<16` lane guard except for shuffle's `<32` decoder; see [`../wast/simd-authoring.md`](../wast/simd-authoring.md) before treating binary-origin lane acceptance as validation parity.
+- **SIMD lane immediates need shape-specific evidence.** Starshine's WAST lowerer enforces exact lane bounds, but binary decode currently uses a coarse generic `<16` lane guard except for shuffle's `<32` decoder; see [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md) and [`../wast/simd-authoring.md`](../wast/simd-authoring.md) before treating binary-origin lane acceptance as validation parity.
 - **Deep nesting is a fuzz-hardening boundary.** Raising or removing the decoder limit should be treated as a security/performance-sensitive codec change.
 
 ## Sources
 
+- SIMD lane-immediate validation refresh: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md), [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
 - Official source snapshot: [`../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md)
 - Local code source map: [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)

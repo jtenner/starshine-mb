@@ -82,7 +82,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 ### Numeric, SIMD, and variables
 
 - [`numeric-instruction-authoring.md`](numeric-instruction-authoring.md) — scalar numeric constants, tests, comparisons, arithmetic, conversions, reinterprets, sign-extension, and saturating truncations.
-- [`simd-authoring.md`](simd-authoring.md) — `v128.const`, lane bounds, shuffle, SIMD memory args, relaxed-SIMD arities/spellings, and generator-versus-WAST coverage.
+- [`simd-authoring.md`](simd-authoring.md) — `v128.const`, lane bounds, shuffle, SIMD memory args, relaxed-SIMD arities/spellings, generator-versus-WAST coverage, and the cross-layer lane-validation split routed through [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md).
 - [`variable-instruction-authoring.md`](variable-instruction-authoring.md) — `local.get` / `set` / `tee`, `global.get` / `set`, local/global index spaces, and immutable-`global.get` constant-expression policy.
 
 ## Current Caveat Map

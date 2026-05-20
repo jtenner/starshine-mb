@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validate | SIMD lane immediate validation split
+
+- Added [`raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md) after rechecking current WebAssembly Core 3.0 text, binary, and validation instruction sources plus Starshine WAST lowerer, binary codec, typechecker, and generator evidence.
+- Added [`validate/simd-lane-immediates.md`](validate/simd-lane-immediates.md) as the focused guide for shape-specific SIMD lane bounds, `i8x16.shuffle` `0..31` immediates, WAST-origin versus binary-origin enforcement, the current coarse binary single-lane decoder caveat, pass rewrite hazards, and generator-versus-invalid-test signoff.
+- Updated [`wast/simd-authoring.md`](wast/simd-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so SIMD lane claims route through one validator contract instead of relying on the WAST authoring caveat alone.
+- Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
+
 ## [2026-05-20] health | type-section generator backlink hygiene
 
 - During the post-update whole-wiki health pass, searched `InvalidSubtype`, `SubtypingTopology`, `TypeSectionFamily`, `rec_stack`, `validate_typesec`, and type-section references across validation, WAST, custom-descriptor, binary, fuzzing, and pass pages.

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-20
 sources:
+  - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md
   - ../raw/wasm/2026-05-19-wast-simd-sources.md
   - ../../../src/wast/parser.mbt
@@ -17,6 +18,7 @@ sources:
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/validate/validate.mbt
 related:
+  - ../validate/simd-lane-immediates.md
   - ../binary/instruction-and-expression-encoding.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../fuzzing/wast-arbitrary-parity-plan.md
@@ -34,7 +36,7 @@ SIMD is WebAssembly's 128-bit vector instruction family. A value of type `v128` 
 
 Use this page when writing or reviewing WAST fixtures that mention `v128`, `v128.const`, `i8x16.shuffle`, lane extract/replace instructions, vector loads/stores, or relaxed SIMD. The byte-level `0xFD` encoding overview lives in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md); this page focuses on text syntax, lowering, validation, and fuzzer coverage.
 
-The current broad source manifest is [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md). The relaxed-SIMD spelling and arity refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md). Together they check the official WebAssembly 3.0 text, binary, and validation instruction pages, the relaxed-SIMD proposal overview, and Starshine's parser, lowerer, printer, binary codec, typechecker, valid generator, and WAST arbitrary generator.
+The current broad source manifest is [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md). The focused lane-immediate validation refresh is [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md), with the durable validator guide in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md). The relaxed-SIMD spelling and arity refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md). Together they check the official WebAssembly 3.0 text, binary, and validation instruction pages, the relaxed-SIMD proposal overview, and Starshine's parser, lowerer, printer, binary codec, typechecker, valid generator, and WAST arbitrary generator.
 
 ## Mental Model
 
@@ -96,7 +98,7 @@ The valid lane range is `0..31`, not `0..15`: lanes `0..15` select bytes from th
 
 ### Extract, replace, and lane memory forms have shape-specific lane bounds
 
-Single-lane instructions use one immediate lane index, but the maximum depends on the lane shape:
+Single-lane instructions use one immediate lane index, but the maximum depends on the lane shape. The validator-side contract and binary-origin caveat are now centralized in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md):
 
 | Family | Valid lanes | Example |
 | --- | ---: | --- |
@@ -107,7 +109,7 @@ Single-lane instructions use one immediate lane index, but the maximum depends o
 
 Starshine parses lane indices as natural-number immediates in [`WastParser::parse_lane_index`](../../../src/wast/parser.mbt) and checks the shape-specific range while lowering in [`wt_lane_idx`](../../../src/wast/lower_to_lib.mbt). The typechecker treats the already-lowered lane index as an immediate and checks only stack types.
 
-Binary-origin fixtures have a sharper caveat: [`Decode for LaneIdx`](../../../src/binary/decode.mbt) currently accepts any single-lane immediate below `16`, while [`decode_i8x16_shuffle_lanes`](../../../src/binary/decode.mbt) has the special shuffle-only `0..31` rule. That means WAST lowering is the stronger local evidence for shape-specific rejection today; a future binary/validation hardening slice should add per-instruction lane-bound tests and reject decoded `i64x2.extract_lane 15`-style inputs during decode or validation.
+Binary-origin fixtures have a sharper caveat: [`Decode for LaneIdx`](../../../src/binary/decode.mbt) currently accepts any single-lane immediate below `16`, while [`decode_i8x16_shuffle_lanes`](../../../src/binary/decode.mbt) has the special shuffle-only `0..31` rule. That means WAST lowering is the stronger local evidence for shape-specific rejection today; future binary/validation hardening should follow the decode-versus-validation placement guidance in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md) and reject decoded `i64x2.extract_lane 15`-style inputs during decode or validation.
 
 ### Vector memory operations use ordinary `MemArg` rules
 
@@ -195,11 +197,13 @@ When changing SIMD WAST support:
 - Relaxed-SIMD dot-product spellings are intentionally called out because Starshine's WAST keywords currently use `relaxed_dot` while the proposal/Binaryen spelling does not. Treat this as a fixture-porting caveat, not a semantic difference in the lowered instruction.
 - Current relaxed-SIMD evidence comes from WAST/core/binary/typechecker paths and Binaryen oracle fixtures, not from `gen_valid`: a whole-wiki health check on 2026-05-20 found no relaxed-SIMD op generation in [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt).
 - Starshine's core `V128Const` stores bytes, so exact original text shape is not preserved through WAST-to-core lowering.
-- WAST lowering checks lane-index shape rules before typechecking. Binary decode currently has only a coarse single-lane `<16` guard plus the shuffle-specific `<32` guard, so binary-origin hardening should add explicit per-instruction lane-bound tests instead of relying on WAST lowering tests.
+- WAST lowering checks lane-index shape rules before typechecking. Binary decode currently has only a coarse single-lane `<16` guard plus the shuffle-specific `<32` guard, so binary-origin hardening should add explicit per-instruction lane-bound tests instead of relying on WAST lowering tests; the focused validator/binary split lives in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md).
 - **Vector memory instructions inherit all memory-index, memory64, and alignment hazards from the ordinary memory-argument contract.** Use [`memory-argument-authoring.md`](memory-argument-authoring.md) for the shared `offset=` / `align=` / memory-index model rather than duplicating it in SIMD-only docs.
 
 ## Sources
 
+- SIMD lane-immediate validation manifest: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
+- Focused lane-immediate validator guide: [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
 - Relaxed-SIMD spelling/arity manifest: [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md)
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
