@@ -8689,12 +8689,13 @@ fn dae_block_type_is_zero_param_zero_result(
 }
 
 ///|
-fn dae_instr_droppable_pure_block_value(
+fn dae_instr_droppable_pure_control_value(
   instr : @lib.Instruction,
   type_sec : @lib.TypeSec?,
 ) -> Bool {
   match instr {
-    @lib.Block(block_type, @lib.Expr(body)) =>
+    @lib.Block(block_type, @lib.Expr(body))
+    | @lib.Loop(block_type, @lib.Expr(body)) =>
       if dae_block_type_is_zero_param_single_result(block_type, type_sec) {
         match dae_find_droppable_pure_stack_expr_start(body, type_sec) {
           Some(0) => true
@@ -8713,7 +8714,7 @@ fn dae_instr_dropped_pure_value_arity(
   type_sec : @lib.TypeSec?,
 ) -> Int? {
   if dae_instr_is_droppable_pure_leaf(instr) ||
-    dae_instr_droppable_pure_block_value(instr, type_sec) {
+    dae_instr_droppable_pure_control_value(instr, type_sec) {
     return Some(0)
   }
   if dae_instr_is_nontrapping_pure_unary(instr) {

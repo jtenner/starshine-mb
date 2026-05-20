@@ -913,6 +913,81 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
 }
 
 ///|
+test "dae raw cleanup strips dropped pure value loops" {
+  let pure_typeidx_loop_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let param_typeidx_loop_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let param_loop = [
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      @lib.Expr::new([
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(6)),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+  ]
+  let trapping_loop = [
+    @lib.Instruction::loop_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::unreachable_()]),
+    ),
+    @lib.Instruction::drop(),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([pure_typeidx_loop_type, param_typeidx_loop_type]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new(
+            [
+              @lib.Instruction::loop_(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32(40)),
+                  @lib.Instruction::i32_const(@lib.I32(2)),
+                  @lib.Instruction::i32_add(),
+                ]),
+              ),
+              @lib.Instruction::drop(),
+              @lib.Instruction::loop_(
+                @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+                @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+              ),
+              @lib.Instruction::i32_eqz(),
+              @lib.Instruction::drop(),
+              ..param_loop,
+              ..trapping_loop,
+              @lib.Instruction::return_(),
+            ],
+          ),
+        ),
+      ]),
+    )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      assert_eq(
+        cleaned,
+        [..param_loop, ..trapping_loop, @lib.Instruction::return_()],
+      )
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae raw cleanup strips empty zero-result try_tables even with catches" {
   let param_void_typeidx_block_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
