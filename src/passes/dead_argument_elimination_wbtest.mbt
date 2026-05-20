@@ -988,6 +988,106 @@ test "dae raw cleanup strips dropped pure value loops" {
 }
 
 ///|
+test "dae raw cleanup strips dropped pure value ifs" {
+  let pure_typeidx_if_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+  )
+  let param_typeidx_if_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let trapping_condition_if = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_load(memarg),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@lib.Instruction::i32_const(@lib.I32(1))],
+      Some([@lib.Instruction::i32_const(@lib.I32(2))]),
+    ),
+    @lib.Instruction::drop(),
+  ]
+  let trapping_branch_if = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@lib.Instruction::unreachable_()],
+      Some([@lib.Instruction::i32_const(@lib.I32(3))]),
+    ),
+    @lib.Instruction::drop(),
+  ]
+  let param_if = [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      [@lib.Instruction::drop(), @lib.Instruction::i32_const(@lib.I32(5))],
+      Some([@lib.Instruction::drop(), @lib.Instruction::i32_const(@lib.I32(6))]),
+    ),
+    @lib.Instruction::drop(),
+  ]
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([pure_typeidx_if_type, param_typeidx_if_type]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new(
+            [
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::if_(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                [
+                  @lib.Instruction::i32_const(@lib.I32(40)),
+                  @lib.Instruction::i32_const(@lib.I32(2)),
+                  @lib.Instruction::i32_add(),
+                ],
+                Some([@lib.Instruction::i32_const(@lib.I32(7))]),
+              ),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::if_(
+                @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+                [@lib.Instruction::i64_const(@lib.I64(8L))],
+                Some([@lib.Instruction::i64_const(@lib.I64(9L))]),
+              ),
+              @lib.Instruction::i64_eqz(),
+              @lib.Instruction::drop(),
+              ..trapping_condition_if,
+              ..trapping_branch_if,
+              ..param_if,
+              @lib.Instruction::return_(),
+            ],
+          ),
+        ),
+      ]),
+    )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      assert_eq(
+        cleaned,
+        [
+          ..trapping_condition_if,
+          ..trapping_branch_if,
+          ..param_if,
+          @lib.Instruction::return_(),
+        ],
+      )
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae raw cleanup strips dropped pure value try_tables without catches" {
   let pure_typeidx_try_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
