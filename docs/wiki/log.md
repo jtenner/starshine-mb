@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-20] binaryen | SGO reference ref-eq nested-arm FlowScanner slice
+
+- Extended `[SGO]003` nested-if arm-flow coverage so reference-typed `eqref` candidate reads may flow through the nontrapping `ref.eq` post-consumer, with or without a transparent result-block wrapper, before the outer same-global `ref.null` write guard.
+- Added `ref.i31` initializers to the focused positives so the test proves read-only-to-write FlowScanner behavior rather than same-as-init null cleanup, plus a neighboring negative where the `ref.eq` result feeds a post-consumer call and the mutable global is preserved.
+- Recorded validation evidence from `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-ref-eq-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+- Grounded the change in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-05-20] binaryen | SGO reference nested-arm FlowScanner slice
 
 - Extended `[SGO]003` nested-if arm-flow coverage so reference-typed `funcref` candidate reads may flow through the nontrapping `ref.is_null` post-consumer, with or without a transparent result-block wrapper, before the outer same-global `ref.func` write guard.

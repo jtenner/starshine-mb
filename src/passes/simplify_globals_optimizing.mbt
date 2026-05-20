@@ -720,7 +720,8 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.I32Eq
+    @lib.RefEq
+    | @lib.I32Eq
     | @lib.I32Ne
     | @lib.I32LtS
     | @lib.I32LtU

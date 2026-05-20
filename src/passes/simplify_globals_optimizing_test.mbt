@@ -3899,6 +3899,127 @@ test "simplify-globals-optimizing keeps ref-is-null arm flow into post-consumer 
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow through ref-eq post-consumer" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut eqref) (ref.i31 (i32.const 0)))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result eqref)
+      #|      ref.null eq
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    ref.null eq
+      #|    ref.eq
+      #|    if
+      #|      ref.null eq
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      ),
+      false,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes block-wrapped nested-if arm flow through ref-eq" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut eqref) (ref.i31 (i32.const 0)))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      call $cond
+      #|      if (result eqref)
+      #|        ref.null eq
+      #|      else
+      #|        global.get $guard
+      #|      end
+      #|      ref.null eq
+      #|      ref.eq
+      #|    end
+      #|    if
+      #|      ref.null eq
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      ),
+      false,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps ref-eq arm flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $guard (mut eqref) (ref.i31 (i32.const 0)))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result eqref)
+      #|      ref.null eq
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    ref.null eq
+      #|    ref.eq
+      #|    call $use
+      #|    if
+      #|      ref.null eq
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      ),
+      true,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps nested-if call operands derived from the global" {
   let optimized = sgo_test_run(
     (
