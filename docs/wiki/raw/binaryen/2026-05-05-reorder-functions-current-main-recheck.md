@@ -6,7 +6,7 @@ _Status:_ immutable current-main source bridge for the `docs/wiki/binaryen/passe
 ## Scope
 
 This file records the primary online sources rechecked for the 2026-05-05 `reorder-functions` wiki-health pass.
-It extends, rather than replaces, the earlier tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md) and the 2026-05-04 freshness note in [`docs/wiki/raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md`](../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md).
+It extends, rather than replaces, the earlier tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](./2026-04-24-reorder-functions-primary-sources.md) and the 2026-05-04 freshness note in [`docs/wiki/raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md`](../research/0439-2026-05-04-reorder-functions-current-main-recheck.md).
 Use the living pages for the teachable contract:
 
 - `docs/wiki/binaryen/passes/reorder-functions/index.md`

@@ -6,7 +6,7 @@ _Status:_ immutable current-main source bridge for the `docs/wiki/binaryen/passe
 ## Scope
 
 This file records the primary online sources rechecked for the 2026-05-05 `constant-field-null-test-folding` wiki-health pass.
-It extends, rather than replaces, the sibling-specific tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md) and the 2026-04-25 research bridge in [`docs/wiki/raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md).
+It extends, rather than replaces, the sibling-specific tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](./2026-04-25-constant-field-null-test-folding-primary-sources.md) and the 2026-04-25 research bridge in [`docs/wiki/raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md).
 Use the living pages for the teachable contract:
 
 - `docs/wiki/binaryen/passes/constant-field-null-test-folding/index.md`

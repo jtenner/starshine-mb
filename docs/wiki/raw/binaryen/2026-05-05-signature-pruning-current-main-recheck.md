@@ -6,7 +6,7 @@ _Status:_ immutable current-main source bridge for the `docs/wiki/binaryen/passe
 ## Scope
 
 This file records the primary online sources rechecked for the 2026-05-05 `signature-pruning` wiki-health pass.
-It extends, rather than replaces, the earlier tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md) and the 2026-04-26 port-readiness bridge in [`docs/wiki/raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md).
+It extends, rather than replaces, the earlier tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](./2026-04-24-signature-pruning-primary-sources.md) and the 2026-04-26 port-readiness bridge in [`docs/wiki/raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`](./2026-04-26-signature-pruning-port-readiness-primary-sources.md).
 Use the living pages for the teachable contract:
 
 - `docs/wiki/binaryen/passes/signature-pruning/index.md`

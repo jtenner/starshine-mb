@@ -6,7 +6,7 @@ _Status:_ immutable current-main source bridge for the `docs/wiki/binaryen/passe
 ## Scope
 
 This file records the primary online sources rechecked for the 2026-05-05 `constant-field-propagation` wiki-health pass.
-It extends, rather than replaces, the earlier tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md) and the 2026-04-24 research follow-up in [`docs/wiki/raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md).
+It extends, rather than replaces, the earlier tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](./2026-04-24-constant-field-propagation-primary-sources.md) and the 2026-04-24 research follow-up in [`docs/wiki/raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md).
 Use the living pages for the teachable contract:
 
 - `docs/wiki/binaryen/passes/constant-field-propagation/index.md`

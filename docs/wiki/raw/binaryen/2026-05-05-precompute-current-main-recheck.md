@@ -6,7 +6,7 @@ _Status:_ immutable current-main source bridge for the `docs/wiki/binaryen/passe
 ## Scope
 
 This file records the primary online sources rechecked for the 2026-05-05 `precompute` wiki-health pass.
-It extends, rather than replaces, the earlier tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md) and the earlier current-main bridge in [`docs/wiki/raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md).
+It extends, rather than replaces, the earlier tagged-source manifest in [`docs/wiki/raw/binaryen/2026-04-22-precompute-primary-sources.md`](./2026-04-22-precompute-primary-sources.md) and the earlier current-main bridge in [`docs/wiki/raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](./2026-04-26-precompute-current-main-port-readiness.md).
 Use the living pages for the teachable contract:
 
 - `docs/wiki/binaryen/passes/precompute/index.md`
