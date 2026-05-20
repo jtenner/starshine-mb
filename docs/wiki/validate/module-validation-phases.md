@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
+  - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
@@ -26,6 +27,7 @@ sources:
   - ../../../src/validate_trace/main.mbt
 related:
   - ./constant-expressions.md
+  - ./start-section.md
   - ./ref-func-declarations.md
   - ./diagnostics-and-invalid-repro.md
   - ./fuzz-hardening.md
@@ -106,7 +108,7 @@ Two practical consequences follow:
 | `datasec` | Validates passive/active data modes, memory targets, and constant offsets. | Extends `datas`. | `validate_datasec`; WAST fixture guide in [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md). |
 | `datacnt` | Checks declared data-count equality with the data section. | Reports `DataCountSection` diagnostics. | `validate_datacnt`. |
 | `datacnt_requirement` | Rejects bodies using `memory.init` / `data.drop` when the data-count section is absent. | Reports `FunctionBody` diagnostics with absolute imported-prefix function indices. | `validate_bulk_memory_data_count_requirement`; tests for `data count section required`. |
-| `startsec` | Checks the optional start function exists and has no params/results. | Reports `StartSection`, carrying the target `FuncIdx` when present. | `validate_startsec`; start tests in `validate.mbt`. |
+| `startsec` | Checks the optional start function exists and has no params/results. | Reports `StartSection`, carrying the target `FuncIdx` when present. | [`start-section.md`](start-section.md), `validate_startsec`, and start tests in `validate.mbt`. |
 | `exportsec` | Checks export target indices and duplicate export names. | Reports `ExportSection`. | `validate_exportsec_unique`; invalid-fuzzer duplicate-export strategy. |
 | `ref_func_declarations` | Builds the declared-function bitmap, then checks every `ref.func` in globals/tables/elements/code against it. | Reports section-specific diagnostics, with body uses reported as `FunctionBody`. | [`./ref-func-declarations.md`](./ref-func-declarations.md). |
 | `codesec` | Checks code/function section presence and length, maps defined body ordinals to absolute `FuncIdx`, validates the encoded non-parameter body locals against the function type's parameter prefix, and typechecks bodies decoded through the instruction/expression binary contract. | Reports `CodeSection` or `FunctionBody`. | `validate_codesec_diag`, `validate_func_body_against_functype`, `Typecheck` implementation, [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). |
@@ -163,7 +165,7 @@ The trace benchmark harness in [`src/validate_trace/main.mbt`](../../../src/vali
 
 | Surface | Official source model | Current Starshine behavior | What to keep visible |
 | --- | --- | --- | --- |
-| `ref.func` declared references | The official module `refs` set includes module-level declaration sources, including start. | Starshine computes a declaration bitmap from exports, global/table initializer `ref.func`, element payloads, and element expressions, but excludes `start_sec`. | Keep [`./ref-func-declarations.md`](./ref-func-declarations.md) and the negative start regression aligned until a deliberate policy change lands. |
+| `ref.func` declared references | The official module `refs` set includes module-level declaration sources, including start. | Starshine computes a declaration bitmap from exports, global/table initializer `ref.func`, element payloads, and element expressions, but excludes `start_sec`. | Keep [`./start-section.md`](./start-section.md), [`./ref-func-declarations.md`](./ref-func-declarations.md), and the negative start regression aligned until a deliberate policy change lands. |
 | Structured `name` section | Core custom sections are not normally semantic validation blockers; current WebAssembly 3.0 name-section subsections cover module/function/local/label/type/field/tag names. | Starshine rejects raw `name` custom sections in `custom_secs`, validates official maps, and also validates local table/memory/global/elem/data name maps against their index spaces. | Link [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md) when changing name metadata or pass rewrite rules; keep its 2026-05-20 official-versus-local subsection caveat visible. Tag-name rewrites should also follow [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). |
 | Data-count requirement diagnostics | Bulk-memory validation requires a data-count section when data-segment instructions appear. | Starshine has a distinct `datacnt_requirement` phase so missing data-count use in a body reports as `FunctionBody` with absolute `FuncIdx`. | Keep invalid-fuzzer expected family and imported-prefix tests updated. |
 | Memory64 `memory.fill` length | Official validation types `memory.fill` destination and length with the selected memory address type, while the byte value is `i32`. | Starshine currently types the destination as selected-memory `at` but still pops `len:i32`, so memory64 positive fixtures need a direct validator follow-up before they can be accepted locally. | Keep [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md) and [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) linked when changing memory64 bulk-memory typing. |

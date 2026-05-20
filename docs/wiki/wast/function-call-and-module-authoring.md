@@ -5,6 +5,7 @@ last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
+  - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -25,6 +26,7 @@ related:
   - gc-type-authoring.md
   - identifier-name-and-annotation-authoring.md
   - ../binary/function-import-export-and-code-sections.md
+  - ../validate/start-section.md
   - ../validate/ref-func-declarations.md
   - ../validate/module-validation-phases.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -139,7 +141,7 @@ Exports target absolute function indices and have globally unique export names a
 (start $init)
 ```
 
-A start function must exist and have no parameters and no results. Current WAST lowering stores the last parsed start field as the module `StartSec`; validation still rejects invalid start signatures. Do not use start as a stand-in for a `ref.func` declaration source in current Starshine: the official module-validation rule includes start in the `refs` set, but Starshine intentionally does not yet treat start-only references as declared, as documented in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+A start function must exist and have no parameters and no results. The focused validation and invalid-fuzz matrix now lives in [`../validate/start-section.md`](../validate/start-section.md). Current WAST lowering stores the last parsed start field as the module `StartSec`; validation still rejects invalid start signatures. Do not use start as a stand-in for a `ref.func` declaration source in current Starshine: the official module-validation rule includes start in the `refs` set, but Starshine intentionally does not yet treat start-only references as declared, as documented in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
 ## Call Instruction Shapes
 
@@ -209,7 +211,7 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 - **Mistake: “The first defined function is always `FuncIdx(0)`.** It is only `0` when there are no function imports. With imports, defined bodies start at `imported_func_count`.
 - **Mistake: “Inline exports are source-only and can be ignored after parsing.”** They lower to ordinary export entries and affect duplicate-export validation and `ref.func` declaration coverage.
 - **Mistake: “`call_indirect` belongs only to table docs.”** Table docs own table resource rules, but the instruction also depends on function types and call argument/result typing.
-- **Mistake: “Start roots a `ref.func` use in Starshine.”** Not today. Start validates as an empty-signature function target, but start-only `ref.func` declaration remains a recorded local/spec divergence.
+- **Mistake: “Start roots a `ref.func` use in Starshine.”** Not today. Start validates as an empty-signature function target through [`../validate/start-section.md`](../validate/start-section.md), but start-only `ref.func` declaration remains a recorded local/spec divergence.
 - **Mistake: “WAST arbitrary call text proves valid module typing.”** WAST arbitrary primarily exercises parser/printer roundtrips. Use `gen_valid` and module validation for typed-validity evidence.
 
 ## Sources
@@ -217,6 +219,7 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 - Focused `call_ref` source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - Focused function/import/export/start snapshot: [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md)
 - Binary code-entry/local-run refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
+- Start-section validation refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
 - Broader function-section snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - WAST parser/lowerer/printer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)
 - Core, binary, and validation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

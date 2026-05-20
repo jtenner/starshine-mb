@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
+  - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
@@ -20,6 +21,7 @@ related:
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../tooling/validation-gates.md
   - ../validate/module-validation-phases.md
+  - ../validate/start-section.md
 ---
 
 # Binary Module Section Map
@@ -50,7 +52,7 @@ Starshine follows those rules in its core module representation and validation e
 | 7 | Local stringrefs | local `14` | `stringrefs_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) | Local literal pool used by `string.const` binary round trips; not a stable core section in the checked official sources. |
 | 8 | Global | `6` | `global_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local globals validate incrementally, so earlier globals are visible to later initializers but not vice versa. |
 | 9 | Export | `7` | `export_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) | Export names must be unique and indices must resolve in their target spaces. |
-| 10 | Start | `8` | `start_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) | Target function must exist and have no params/results. |
+| 10 | Start | `8` | `start_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`../validate/start-section.md`](../validate/start-section.md) | Target function must exist and have no params/results; imported-empty-signature targets are valid. |
 | 11 | Element | `9` | `elem_sec` | [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) | Table-initialization resources plus passive/declarative element pools. |
 | 12 | Data count | `12` | `data_cnt_sec` | [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) | Appears before code so `memory.init` / `data.drop` immediates can be validated before the data section payload is reached. |
 | 13 | Code | `10` | `code_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md) | Body count must match defined-function declaration count, body ordinal maps to absolute `FuncIdx(imported_func_count + ordinal)`, and each body encodes only the non-parameter local-run suffix plus an expression terminated on the wire by `end`. |

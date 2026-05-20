@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
+  - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
@@ -16,6 +17,7 @@ sources:
   - ../../../src/fuzz/main.mbt
 related:
   - ./module-validation-phases.md
+  - ./start-section.md
   - ./fuzz-hardening.md
   - ./ref-func-declarations.md
   - ../tooling/fuzz-runner.md
@@ -82,7 +84,7 @@ Do not classify failures by message substrings. The issue variant and family map
 | `ElementSection` | `element` | `elemsec`, `ref_func_declarations` for element expressions | Element modes, payload typing, table targets, offsets, and declaration expressions. |
 | `DataSection` | `data` | `datasec` | Data modes, memory targets, and offsets. |
 | `DataCountSection` | `datacount` | `datacnt` | Data-count equality and illegal standalone data-count surfaces. |
-| `StartSection` | `start` | `startsec` | Start target resolution and empty parameter/result signature. May carry `func_idx`. |
+| `StartSection` | `start` | `startsec` | Start target resolution and empty parameter/result signature; see [`start-section.md`](start-section.md). May carry `func_idx`. |
 | `ExportSection` | `export` | `exportsec` | Export target bounds and duplicate export names. |
 | `CodeSection` | `code` | `codesec` structural gate | Missing or mismatched `FuncSec` / `CodeSec`, missing function type for a body ordinal, or other section-level code problems. |
 | `NameSection` | `name` | `namesec` | Starshine validates structured name maps even though custom sections are not ordinary core semantic blockers. |

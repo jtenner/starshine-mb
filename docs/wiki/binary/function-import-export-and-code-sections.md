@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-20-function-code-section-source-refresh.md
+  - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
@@ -22,6 +23,7 @@ related:
   - type-table-memory-global-tag-sections.md
   - ../validation/moonbit-prove-strategy.md
   - ../validate/module-validation-phases.md
+  - ../validate/start-section.md
   - ../validate/ref-func-declarations.md
   - ../wast/function-call-and-module-authoring.md
   - ../binaryen/passes/reorder-functions/index.md
@@ -158,7 +160,7 @@ Important function-section rules:
 
 - [`validate_importsec`](../../../src/validate/validate.mbt#L1816-L1852) resolves imported function type indices and appends imported signatures before defined signatures.
 - [`validate_funcsec`](../../../src/validate/validate.mbt#L1569-L1590) requires each defined-function type index to resolve to a function type and appends it to the environment.
-- [`validate_startsec`](../../../src/validate/validate.mbt#L1857-L1875) rejects an absent target, any parameter, or any result on the start function.
+- [`validate_startsec`](../../../src/validate/validate.mbt#L1857-L1875) rejects an absent target, any parameter, or any result on the start function; the focused start-section guide is [`../validate/start-section.md`](../validate/start-section.md).
 - [`validate_exportsec_unique`](../../../src/validate/validate.mbt#L2168-L2190) first validates export indices, then rejects duplicate export names.
 - [`validate_codesec_diag`](../../../src/validate/validate.mbt#L1405-L1554) rejects mismatched `FuncSec`/`CodeSec` presence or length, maps code body ordinals to absolute function indices, then validates each body against its resolved signature.
 
@@ -191,13 +193,14 @@ Existing pass dossiers that depend on this checklist include:
 - **Empty `FuncSec`/`CodeSec` absence is equivalent.** Starshine validation accepts both sections absent, and also accepts a present empty side without a non-empty partner; a non-empty side without the other side is invalid.
 - **Imports are bodyless functions.** Imported functions can be called, exported, named, and used as start targets if their signature is empty, but they do not have entries in `CodeSec`.
 - **Export-name uniqueness is semantic in Starshine validation.** Import names do not need to be unique, but duplicate export names are rejected.
-- **Start does not by itself make `ref.func` declared in Starshine's current declaration check.** The focused declaration guide in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) records the current local/spec divergence and the validator phase order. The current test suite includes a regression titled `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L8032-L8060). If that policy changes, update this page, the declaration guide, and the raw-source snapshots together.
+- **Start does not by itself make `ref.func` declared in Starshine's current declaration check.** The focused start-section guide in [`../validate/start-section.md`](../validate/start-section.md) owns empty-signature validation, imported-start invalid matrices, and rewrite guidance; the declaration guide in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) records the current local/spec divergence. The current test suite includes a regression titled `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L8032-L8060). If that policy changes, update this page, both validator guides, and the raw-source snapshots together.
 - **Function body diagnostics use absolute indices.** A code-body ordinal is not a user-facing function index once imports exist.
 - **Section order is canonical on encode.** WAST source order and custom-section gaps are normalized into the core section order; exact source layout is not a stable post-lowering property.
 
 ## Sources
 
 - Current primary-source refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
+- Focused start-section refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
 - Broader primary-source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)

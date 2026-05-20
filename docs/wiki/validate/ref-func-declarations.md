@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
+  - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
@@ -16,6 +17,7 @@ sources:
   - ../wast/element-segment-authoring.md
 related:
   - ./module-validation-phases.md
+  - ./start-section.md
   - ./diagnostics-and-invalid-repro.md
   - ./fuzz-hardening.md
   - ./trace-benchmark-baseline.md
@@ -37,7 +39,7 @@ related:
 1. a valid function index in the module's imported-prefix function index space; and
 2. present in the module's declared function-reference set.
 
-The official WebAssembly 3.0 validation sources call that second set `refs`. The focused raw-source snapshot in [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md) records the current primary-source rule: `ref.func x` requires `x` in the validation context's `funcs` and `refs`, and module validation builds `refs` from function-index occurrences in module-level declaration sources such as globals, tables, element segments, start, and exports.
+The official WebAssembly 3.0 validation sources call that second set `refs`. The focused raw-source snapshot in [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md), refreshed for start-section context in [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md), records the current primary-source rule: `ref.func x` requires `x` in the validation context's `funcs` and `refs`, and module validation builds `refs` from function-index occurrences in module-level declaration sources such as globals, tables, element segments, start, and exports.
 
 Starshine implements the same idea as a separate `ref_func_declarations` validation phase in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), within the broader phase order documented in [`./module-validation-phases.md`](./module-validation-phases.md). The text/core/binary stack shape for the `ref.func` instruction itself is summarized with the rest of the reference family in [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md). This page owns the additional whole-module declaration rule. It has one visible local/spec divergence: current Starshine does **not** treat `start_sec` alone as a `ref.func` declaration source. That stricter local policy is deliberate enough to have a regression test, so keep it visible until a validator change intentionally aligns it with the official rule.
 
@@ -75,7 +77,7 @@ That split matters because [`typecheck_ref_func`](../../../src/validate/typechec
 | Element segment function-index payload | Yes | `FuncsElemKind(funcs)` entries are marked directly. | Declarative elements are the canonical text-level way to forward-declare function references. Current Starshine WAST parsing accepts `(elem declare func ...)`, but text lowering loses declarative mode; see [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md). |
 | Element expression `ref.func` | Yes | `FuncExprsElemKind` and `TypedExprsElemKind` expressions are scanned; tests cover typed expression sources and mixed element declarations. | See [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) for element-mode shapes. |
 | Function body `ref.func` | Use site, not declaration source | `validate_ref_func_declarations_in_module` scans bodies after computing the bitmap. | A body `ref.func` fails unless some module-level source declared the same index. |
-| Start section | **No, current local divergence** | Test `validate_module does not treat start as a ref.func declaration source`. | The official module-validation rule includes optional start in `refs`; Starshine currently does not. |
+| Start section | **No, current local divergence** | Test `validate_module does not treat start as a ref.func declaration source`; empty-signature start validation itself is documented in [`start-section.md`](start-section.md). | The official module-validation rule includes optional start in `refs`; Starshine currently does not. |
 | Direct `call` / `return_call` | No | Declaration scan only matches `Instruction::RefFunc`. | Calls validate through ordinary function type rules, not reference-declaration rules. |
 
 ## Worked Shapes
@@ -125,7 +127,7 @@ The element function-index payload declares `$f` even though the segment is not 
   (start $f))
 ```
 
-The official module-validation source set includes start, but current Starshine intentionally rejects this shape unless another declaration source also names `$f`. If Starshine changes this policy, update this page, [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), the raw-source snapshot, and the validator regression tests together.
+The official module-validation source set includes start, but current Starshine intentionally rejects this shape unless another declaration source also names `$f`. If Starshine changes this policy, update this page, [`start-section.md`](start-section.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), the raw-source snapshots, and the validator regression tests together.
 
 ## Pass And Validator Invariants
 
@@ -144,6 +146,7 @@ The official module-validation source set includes start, but current Starshine 
 ## Sources
 
 - Focused primary-source snapshot: [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md)
+- Focused start-section refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
 - Broader function-section source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
 - Invalid-fuzz registration: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)
