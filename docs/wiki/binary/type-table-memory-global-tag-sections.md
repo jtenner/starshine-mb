@@ -5,6 +5,7 @@ last_reviewed: 2026-05-19
 sources:
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
+  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
   - ../../../src/binary/decode.mbt
@@ -21,6 +22,7 @@ related:
   - custom-and-name-sections.md
   - ../validate/module-validation-phases.md
   - ../validate/type-section-and-subtyping.md
+  - ../validate/resource-sections-and-limits.md
   - ../validate/import-export-and-external-type-matching.md
   - ../validate/constant-expressions.md
   - ../wast/gc-type-authoring.md
@@ -47,7 +49,7 @@ This page is the shared Starshine guide for the core module-definition sections 
 - **tag section**: exception tag declarations; and
 - **stringrefs section**: Starshine's local/proposal-facing literal pool for `string.const` binary round trips.
 
-For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For type-section validation, recursive-group normalization, subtype matching, descriptor metadata checks, and official-versus-local subtype caveats, pair it with [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md). For import/export validation, duplicate export names, and external-type matching rules that consume these resource types, pair it with [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md). For the initializer and table-initializer constant-expression allow-list, local/spec caveats, and immutable-`global.get` visibility, pair it with [`../validate/constant-expressions.md`](../validate/constant-expressions.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). For `string.const`, array-backed string helpers, and string-helper validation stack/storage rules, pair it with [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md).
+For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For type-section validation, recursive-group normalization, subtype matching, descriptor metadata checks, and official-versus-local subtype caveats, pair it with [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md). For table/memory/global/tag/data/element limits, incremental resource environments, active segment offset checks, shared-memory maximum policy, and data-count validation, pair it with [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md). For import/export validation, duplicate export names, and external-type matching rules that consume these resource types, pair it with [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md). For the initializer and table-initializer constant-expression allow-list, local/spec caveats, and immutable-`global.get` visibility, pair it with [`../validate/constant-expressions.md`](../validate/constant-expressions.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). For `string.const`, array-backed string helpers, and string-helper validation stack/storage rules, pair it with [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md).
 
 The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) is the primary external source for section ids and the core type/table/memory/global/tag validation model. The same snapshot records an important caveat: the reviewed core and js-string-builtins module sources do **not** define a stable core `stringrefs` section id, so Starshine's section-id-`14` `StringRefsSec` should be treated as a local/proposal-facing implementation surface until upstream standardization says otherwise.
 
@@ -95,7 +97,7 @@ The consequence is subtle but important: changing one of these sections is rarel
 
 ## Validation Contract
 
-Starshine's validator mirrors the section dependency order in [`validate_module_impl`](../../../src/validate/validate.mbt): types first, then imports, function declarations, tables, memories, tags, globals, segments, start/exports/ref declarations, code, and names. The full validator-side phase map lives in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
+Starshine's validator mirrors the section dependency order in [`validate_module_impl`](../../../src/validate/validate.mbt): types first, then imports, function declarations, tables, memories, tags, globals, segments, start/exports/ref declarations, code, and names. The full validator-side phase map lives in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md); the focused table/memory/global/tag/data/element limit and environment-extension rules live in [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
 
 Important section-specific rules:
 
@@ -185,6 +187,7 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md)
 - Type-section validation refresh: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
+- Resource-section validation refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation environment and rules: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)

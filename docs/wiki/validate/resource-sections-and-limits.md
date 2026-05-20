@@ -1,0 +1,179 @@
+---
+kind: concept
+status: supported
+last_reviewed: 2026-05-20
+sources:
+  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
+  - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
+  - ../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md
+  - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
+  - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
+  - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
+  - ../raw/wasm/2026-05-13-data-element-and-datacount-sources.md
+  - ../../../src/validate/validate.mbt
+  - ../../../src/validate/env.mbt
+  - ../../../src/validate/invalid_fuzzer.mbt
+  - ../../../src/validate/gen_valid.mbt
+  - ../../../src/lib/types.mbt
+related:
+  - module-validation-phases.md
+  - constant-expressions.md
+  - import-export-and-external-type-matching.md
+  - diagnostics-and-invalid-repro.md
+  - fuzz-hardening.md
+  - ../binary/type-table-memory-global-tag-sections.md
+  - ../binary/data-element-and-datacount-sections.md
+  - ../wast/resource-declaration-authoring.md
+  - ../wast/data-segment-authoring.md
+  - ../wast/element-segment-authoring.md
+  - ../wast/table-instruction-authoring.md
+  - ../wast/memory-instruction-authoring.md
+  - ../fuzzing/generator-coverage-ledger.md
+---
+
+# Resource Sections And Limits Validation
+
+## Overview
+
+Use this page for the validator-side contract behind **tables, memories, globals, tags, data segments, element segments, data-count, and their limits**. These resources are easy to confuse because they all live at module scope and many of them can be imported, defined locally, exported, named, and referenced by instructions or segments.
+
+This page deliberately sits between three neighboring guides:
+
+- [`module-validation-phases.md`](module-validation-phases.md) explains the full `validate_module_impl(...)` phase order.
+- [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) and [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) explain binary section ids, core representations, and rewrite carriers.
+- [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md), and [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) explain text fixture shapes and current WAST gaps.
+
+The current source bridge is [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md). It rechecks current WebAssembly Core validation, binary, and syntax pages plus Starshine's validator and invalid-fuzzer evidence. Shared-memory wording is intentionally local/proposal-facing: Starshine has a `shared` flag and rejects shared memories without a maximum, but the core WebAssembly pages checked for this refresh do not by themselves make that flag a stable core field.
+
+## Beginner Model
+
+Think of resource validation as building several independent index spaces:
+
+```text
+imports first, then local definitions
+
+TableIdx:  imported tables  | table section entries
+MemIdx:    imported memories| memory section entries
+GlobalIdx: imported globals | global section entries
+TagIdx:    imported tags    | tag section entries
+ElemIdx:   element section entries only
+DataIdx:   data section entries only
+```
+
+A module can have valid bytes and still fail resource validation. Examples:
+
+- a memory has `min > max`, or an i32 memory exceeds the `65536`-page cap;
+- a shared memory is missing a maximum in Starshine's local model;
+- a table initializer uses a mutable `global.get`, which is not a valid constant expression;
+- an active data segment names a missing memory or has an offset expression with the wrong address type;
+- an active element segment's payload reference type does not match the target table's element type;
+- a data-count section is present but does not equal the number of data segments; or
+- a function body uses `memory.init` / `data.drop` while the module has no data-count section.
+
+## Shared Limit Primitive
+
+[`ValidateMax for Limits`](../../../src/validate/validate.mbt) is the common range checker. For both `I32Limits(min, max?)` and `I64Limits(min, max?)`, validation requires:
+
+1. `min <= family_max`; and
+2. if `max` exists, then `min <= max <= family_max`.
+
+Starshine then chooses the family maximum by resource kind:
+
+| Resource | Local max passed to `ValidateMax` | Why it matters |
+| --- | ---: | --- |
+| i32 memory | `65536` pages | WebAssembly's ordinary memory32 page-count cap. |
+| i64 memory | `18446744073709551615` pages | Starshine's local memory64 surface allows the full `UInt64` page-count range. |
+| table | `4294967295` elements | The current table-type validator uses a 32-bit element-count cap for both `I32Limits` and `I64Limits`; instruction-side table64 address-width caveats are separate and documented in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
+
+`Validate for MemType` adds the Starshine-local shared-memory rule: when `shared=true`, either `I32Limits` or `I64Limits` must carry `Some(max)`. The invalid-fuzzer keeps both `shared-memory-without-max` and `shared-memory64-without-max` as `MemorySection` strategies in [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt).
+
+## Section Validators
+
+| Section / type | Starshine validator | Main rule | Common failure family |
+| --- | --- | --- | --- |
+| Table type and table section | `Validate for TableType`, `validate_table(...)`, `validate_tablesec(...)` | Reference type must validate, limits must be in range, and an optional core table initializer must be a constant expression of the table element type. Accepted tables extend `Env.tables` incrementally. | `TableSection` |
+| Memory type and memory section | `Validate for MemType`, `validate_memsec(...)` | Limits must be in range; shared memories require a maximum; accepted memories extend `Env.mems`. | `MemorySection` |
+| Tag type and tag section | `Validate for TagType`, `validate_tagsec(...)` | Tag type index must resolve to a function type, parameter types must validate, and result list must be empty. Accepted tags extend `Env.tags`. | `TagSection` |
+| Global section | `validate_global(...)`, `validate_globalsec(...)` | Global type must validate; initializer must be a constant expression of the declared type. Globals are checked and appended one by one, so each initializer sees imports plus earlier globals only. | `GlobalSection` |
+| Data section | `Validate for DataMode`, `Validate for Data`, `validate_datasec(...)` | Passive data has no parent; active data must name an existing memory and have a constant offset of that memory's address type. Accepted data segments extend `Env.datas`. | `DataSection` |
+| Element section | `validate_elem_mode(...)`, `Validate for ElemKind`, `Validate for Elem`, `validate_elemsec(...)` | Payload function indices or expressions must validate; active elements must name an existing table, have a compatible element type, and have a constant offset of the selected table's address type. Passive/declarative modes have no parent table or offset. Accepted elements extend `Env.elems`. | `ElementSection` |
+| Data-count | `validate_datacnt(...)`, `validate_bulk_memory_data_count_requirement(...)` | A present count must equal the number of data segments; separately, body uses of `memory.init` / `data.drop` require the data-count section to exist. | `DataCountSection` or `FunctionBody`, depending on which rule fails |
+
+The table and global initializer rows route through the same focused constant-expression contract as active segment offsets: [`constant-expressions.md`](constant-expressions.md). That page owns Starshine's local allow-list, immutable-`global.get` visibility, official-versus-local initializer differences, and active data/element offset examples.
+
+## Concrete Shapes
+
+### Incremental global visibility
+
+```wat
+(module
+  (global $a i32 (i32.const 1))
+  (global $b i32 (global.get $a)) ;; accepted locally: earlier immutable global
+  ;; (global $bad i32 (global.get $later)) ;; rejected if $later is defined later
+  (global $later i32 (i32.const 2)))
+```
+
+`validate_globalsec(...)` validates each global under the environment that contains only imports and previously accepted globals, then appends the new `GlobalType`. Reordering globals can therefore invalidate initializer expressions unless every `GlobalIdx` carrier and constant-expression visibility assumption is rechecked.
+
+### Table initializer versus table element abbreviation
+
+```wat
+(module
+  (func $f)
+  (table $t funcref (elem $f)))
+```
+
+In Starshine WAST this table-attached `(elem ...)` abbreviation lowers to an **active element segment**, not to the optional core [`Table(TableType, Expr?)`](../../../src/lib/types.mbt) initializer field. The optional core table initializer is still real and validated by `validate_table(...)`, but text fixtures that use the abbreviation should route through [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) and [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md).
+
+### Active data offset address type
+
+```wat
+(module
+  (memory 1)
+  (data (i32.const 8) "abc"))
+```
+
+For an i32 memory, `Validate for DataMode` expects the active offset expression to produce `i32`. For a memory64 core/binary fixture, the selected memory's `Limits::addr_valtype()` changes that expected offset type to `i64`. This is separate from load/store `MemArg.offset`, which is an immediate byte offset documented in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).
+
+### Active element type matching
+
+```wat
+(module
+  (type $f (func))
+  (func $target)
+  (table 1 (ref null $f))
+  (elem (i32.const 0) (ref null $f) (item (ref.func $target))))
+```
+
+`Validate for ElemKind` checks each payload expression against the element segment's declared reference type. Then `validate_elem_mode(...)` checks that the segment reference type matches the target table element type. If the selected table exists but expects an incompatible reference type, the failure is an `ElementSection` issue rather than a function-body stack error.
+
+## Current Local Caveats
+
+- **WAST table/memory declarations are narrower than core/binary.** Current WAST lowering uses `Limits::i32(...)` for table and memory declarations. Use direct core, binary, or generator fixtures for memory64/table64 declaration validation until the text surface is widened.
+- **Shared memory is local/proposal-facing here.** Starshine rejects shared memories without maximum through `Validate for MemType`; do not describe this as stable core WebAssembly unless a future source refresh links the relevant proposal text.
+- **Table64 and memory64 instruction widths are not fully solved by resource validation.** A memory or table can have i64 limits while particular instruction validators still carry caveats. Keep [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md) and [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md) linked when changing address-width behavior.
+- **Declarative elements are core/binary-visible, but WAST lowering is still narrower.** Starshine core, binary, generator, and validator paths can represent declarative elements. Current high-level WAST lowering has a declarative-mode preservation gap; the text-facing contract is [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
+- **Data-count equality is not the same as data-count requirement.** A bad `DataCntSec` length is a `DataCountSection` issue. A missing data-count section needed by `memory.init` / `data.drop` is reported against the body as `FunctionBody` with the relevant absolute `FuncIdx`.
+
+## Rewrite And Signoff Checklist
+
+When a pass, generator, or fixture mutates resource sections, check all affected index carriers:
+
+1. **Tables:** table imports/definitions, table initializers, element active modes, table instructions, `call_indirect` / `return_call_indirect`, table exports, and table name maps.
+2. **Memories:** memory imports/definitions, active data modes, memory instructions, memory exports, memory name maps, and data-count dependencies for bulk-memory instructions.
+3. **Globals:** global imports/definitions, global initializer visibility, `global.get` / `global.set`, exports, names, and pass-local global summaries.
+4. **Tags:** tag imports/definitions, `throw`, `try_table` catches, exports, names, and exception-handler validation assumptions.
+5. **Data and elements:** segment modes, payload function/reference/data indices, active offsets, `memory.init` / `data.drop`, `table.init` / `elem.drop`, GC aggregate data/element instructions, names, and declaration-source effects for `ref.func`.
+6. **Diagnostics:** update invalid-AST strategy expected families when a validator rule moves between `DataCountSection`, `ElementSection`, `DataSection`, or `FunctionBody`.
+
+Validation signoff should include the focused tests or fuzz lanes for the changed family. Existing anchors include `validate_invalid_ast_mutate_*` strategies in [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), limit-variant generator tests in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), and the broad gate map in [`../tooling/validation-gates.md`](../tooling/validation-gates.md).
+
+## Sources
+
+- Source bridge: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
+- Focused initializer contract: [`constant-expressions.md`](constant-expressions.md)
+- Import/export and host-matching split: [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md)
+- Binary resource maps: [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md)
+- WAST resource and segment maps: [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md), [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md)
+- Starshine validator: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
+- Invalid and valid generator evidence: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)

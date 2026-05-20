@@ -5,6 +5,7 @@ last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
+  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
@@ -17,6 +18,7 @@ sources:
   - ../../../src/fuzz/main.mbt
 related:
   - ./module-validation-phases.md
+  - ./resource-sections-and-limits.md
   - ./import-export-and-external-type-matching.md
   - ./start-section.md
   - ./fuzz-hardening.md
@@ -78,13 +80,13 @@ Do not classify failures by message substrings. The issue variant and family map
 | `TypeSection` | `type` | `typesec` | Recursive type, subtype, descriptor, and type-index rules. |
 | `ImportSection` | `import` | `importsec` | Import type/reference errors before local definition suffixes are added; detailed import declaration versus host matching rules live in [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md). |
 | `FunctionSection` | `function` | `funcsec` | Defined-function type-index declarations, not body typing. |
-| `TableSection` | `table` | `tablesec` | Table types and table initializer expressions. |
-| `MemorySection` | `memory` | `memsec` | Memory limit, memory64, and shared-memory maximum rules. |
-| `TagSection` | `tag` | `tagsec` | Exception tag type and result-shape rules. |
-| `GlobalSection` | `global` | `globalsec`, `ref_func_declarations` for global initializers | Global types and constant initializers. |
-| `ElementSection` | `element` | `elemsec`, `ref_func_declarations` for element expressions | Element modes, payload typing, table targets, offsets, and declaration expressions. |
-| `DataSection` | `data` | `datasec` | Data modes, memory targets, and offsets. |
-| `DataCountSection` | `datacount` | `datacnt` | Data-count equality and illegal standalone data-count surfaces. |
+| `TableSection` | `table` | `tablesec` | Table types and table initializer expressions; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| `MemorySection` | `memory` | `memsec` | Memory limit, memory64, and shared-memory maximum rules; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| `TagSection` | `tag` | `tagsec` | Exception tag type and result-shape rules; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md) plus [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). |
+| `GlobalSection` | `global` | `globalsec`, `ref_func_declarations` for global initializers | Global types and constant initializers; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md) and [`constant-expressions.md`](constant-expressions.md). |
+| `ElementSection` | `element` | `elemsec`, `ref_func_declarations` for element expressions | Element modes, payload typing, table targets, offsets, and declaration expressions; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| `DataSection` | `data` | `datasec` | Data modes, memory targets, and offsets; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| `DataCountSection` | `datacount` | `datacnt` | Data-count equality and illegal standalone data-count surfaces; body-level data-count requirements remain `FunctionBody`, as explained in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | `StartSection` | `start` | `startsec` | Start target resolution and empty parameter/result signature; see [`start-section.md`](start-section.md). May carry `func_idx`. |
 | `ExportSection` | `export` | `exportsec` | Export target bounds and duplicate export names; see [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md) for the focused export-index and duplicate-name contract. |
 | `CodeSection` | `code` | `codesec` structural gate | Missing or mismatched `FuncSec` / `CodeSec`, missing function type for a body ordinal, or other section-level code problems. |
@@ -164,7 +166,7 @@ When changing validator diagnostics or invalid repros:
 4. **Preserve stable ids.** Rename only when the old meaning is truly gone; otherwise keep aliases or mark supersession in docs and log.
 5. **Update repro builders.** If a new source kind, stage, or artifact layout appears, update `InvalidFuzzFailureReport`, persistence/parsing tests, shrinking tests, and [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md).
 6. **Update Node/API docs.** [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md) still marks `validationIssueFamily(...)` and invalid-repro helpers as missing high-value Node surfaces.
-7. **Keep phase and family docs in sync.** Update [`module-validation-phases.md`](module-validation-phases.md), [`fuzz-hardening.md`](fuzz-hardening.md), this page, [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) when floors/strategy ledgers change, and [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) when text/spec stages change.
+7. **Keep phase and family docs in sync.** Update [`module-validation-phases.md`](module-validation-phases.md), [`resource-sections-and-limits.md`](resource-sections-and-limits.md) for resource/segment/limit families, [`fuzz-hardening.md`](fuzz-hardening.md), this page, [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) when floors/strategy ledgers change, and [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) when text/spec stages change.
 
 ## Sources
 

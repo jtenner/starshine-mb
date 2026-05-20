@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
   - ../../../src/wast/parser.mbt
@@ -28,6 +29,7 @@ related:
   - ../binary/type-table-memory-global-tag-sections.md
   - ../binary/data-element-and-datacount-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/resource-sections-and-limits.md
   - ../validate/import-export-and-external-type-matching.md
   - ../fuzzing/generator-coverage-ledger.md
 ---
@@ -46,7 +48,7 @@ Use this page when writing or debugging WAST module fields that **declare table,
 
 This page deliberately does **not** own runtime operations or segment payloads on those resources. Use [`table-instruction-authoring.md`](table-instruction-authoring.md) for `table.get` / `table.init` / `call_indirect`, [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for loads, stores, `memory.copy`, and `memory.init`, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `offset=` / `align=`, [`data-segment-authoring.md`](data-segment-authoring.md) for `(data ...)` fields and the current inline memory-data abbreviation caveat, and [`variable-instruction-authoring.md`](variable-instruction-authoring.md) for `global.get` / `global.set`. The binary/core section guide remains [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
 
-The current primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md). It reconciles the current official WebAssembly text/module/type/validation sources with Starshine's WAST parser, lowerer, printer, core model, binary codec, validator, valid generator, and WAST arbitrary surface.
+The current WAST-facing primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md). It reconciles official WebAssembly text/module/type/validation sources with Starshine's WAST parser, lowerer, printer, core model, binary codec, validator, valid generator, and WAST arbitrary surface. The validator-focused resource refresh is [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), with durable limit, shared-memory, initializer, and segment-offset rules in [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
 
 ## Beginner Mental Model
 
@@ -181,6 +183,7 @@ When a pass, generator, or fixture touches resource declarations, check these in
 Useful related signoff pages:
 
 - [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) for core/binary remap surfaces;
+- [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for table/memory/global/tag/data/element limits, initializer checks, shared-memory maximum policy, active segment offset typing, and invalid-fuzzer families;
 - [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md) for validation phase order;
 - [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md) for import/export index checks, duplicate export names, and external-type matching;
 - [`table-instruction-authoring.md`](table-instruction-authoring.md), [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and [`variable-instruction-authoring.md`](variable-instruction-authoring.md) for instruction users of the declared resources;
@@ -199,7 +202,8 @@ Useful related signoff pages:
 
 ## Sources
 
-- Source manifest: [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md)
+- WAST source manifest: [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md)
+- Validator resource-section refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Import/export matching source bridge: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
 - Broader binary/core resource manifest: [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/text/types.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/memory64/core/>

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validate | resource sections and limits contract
+
+- Added [`raw/wasm/2026-05-20-resource-section-validation-refresh.md`](raw/wasm/2026-05-20-resource-section-validation-refresh.md) after rechecking current WebAssembly Core validation/type/binary/module sources against Starshine `Limits`, table, memory, tag, global, data, element, data-count, and invalid-fuzzer evidence.
+- Added [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md) as the focused validator guide for imported-prefix resource index spaces, shared `Limits` range checking, Starshine-local shared-memory maximum policy, incremental global initializer visibility, optional core table initializers, active data/element address-typed offsets, active element/table type matching, data-count equality versus body-level requirement diagnostics, invalid-fuzzer family anchors, and rewrite/signoff guidance.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
+- Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
+
 ## [2026-05-20] health | LEB size-model backlink hygiene
 
 - During the post-update whole-wiki health pass, searched `LEB128`, `signed-LEB`, `ULEB`, `binary-leb128.wast`, and `malformed-section-size-uleb` references across binary, validation, pass, raw-source, index, and log pages.

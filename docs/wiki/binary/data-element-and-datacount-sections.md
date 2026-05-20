@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
@@ -28,6 +29,7 @@ related:
   - ../wast/memory-instruction-authoring.md
   - ../wast/memory-argument-authoring.md
   - ../validate/module-validation-phases.md
+  - ../validate/resource-sections-and-limits.md
   - ../validate/constant-expressions.md
   - ../validate/fuzz-hardening.md
   - ../validate/ref-func-declarations.md
@@ -47,7 +49,7 @@ Data and element segments are module-level initialization resources, not ordinar
 - **element segments** provide reference values for tables, either at instantiation time (`active`), later through table instructions (`passive`), or only as a declared pool of references (`declarative`);
 - **data-count** records the number of data segments early enough for code-section validation of `memory.init` and `data.drop`.
 
-The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md) is the primary source for section ids, segment modes, and data-count presence rules. Starshine mirrors those concepts in [`ElemMode`](../../../src/lib/types.mbt), [`ElemKind`](../../../src/lib/types.mbt), [`DataMode`](../../../src/lib/types.mbt), `ElemSec`, `DataCntSec`, and `DataSec`.
+The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md) is the primary source for section ids, segment modes, and data-count presence rules. The newer validator-side resource refresh in [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md) and focused page [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) own the active-segment offset type checks, element/table type matching, data-count equality versus body-requirement split, and invalid-fuzzer family mapping. Starshine mirrors those concepts in [`ElemMode`](../../../src/lib/types.mbt), [`ElemKind`](../../../src/lib/types.mbt), [`DataMode`](../../../src/lib/types.mbt), `ElemSec`, `DataCntSec`, and `DataSec`.
 
 ## Core Shapes
 
@@ -142,7 +144,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 1. **Binary decode** reads `ElemSec` section `9`, `DataCntSec` section `12`, and `DataSec` section `11` into the structured module fields. Invalid element or data headers are decode errors.
 2. **WAST parse** resolves text surface shape only: ids, table/memory uses, offsets, string payloads, function-index items, and typed item expressions.
 3. **WAST lower** resolves ids to numeric indices, chooses `FuncsElemKind` when every item is a simple function reference and no explicit typed intent is present, chooses typed expression kinds for richer payloads, and inserts `DataCntSec` when data segments exist.
-4. **Validation** checks parent memories/tables, offset const-ness and address type, element expression type, function/data/element index bounds, data-count equality, and the special code-section data-count requirement; see the full phase map in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
+4. **Validation** checks parent memories/tables, offset const-ness and address type, element expression type, function/data/element index bounds, data-count equality, and the special code-section data-count requirement; see the focused segment/resource contract in [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) and the full phase map in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md).
 5. **Passes** that delete or reorder memories, tables, functions, data segments, or element segments must repair every affected surface: segment modes, payload references, bulk-memory/table-init instructions, exports, names, and any pass-local metadata. Table runtime instruction carriers should follow the checklist in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
 
 ## Edge Cases And Invariants
@@ -164,7 +166,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 
 ## Sources
 
-- Primary-source snapshots: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md), [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md); WAST data companion: [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md); WAST runtime memory companion: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md); aggregate instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
+- Primary-source snapshots: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md), [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md); WAST data companion: [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md); WAST runtime memory companion: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md); aggregate instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - WAST parse/lower/print evidence and declarative-mode caveat: [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
