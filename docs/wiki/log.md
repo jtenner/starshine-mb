@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | validation-gate source wording
+
+- During the post-update whole-wiki health pass, searched Moon CLI, validation-gate, target-whitelist, and formatting references for stale singular wording after adding the second Moon command-source manifest.
+- Updated [`tooling/validation-gates.md`](tooling/validation-gates.md) so the citation rule refers to command-source manifests plural while preserving the local-script/test authority for Starshine-specific defaults.
+
 ## [2026-05-20] tooling | validation gate Moon CLI refresh
 
 - Added [`raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md) after checking the current official MoonBit generated command docs, the up-to-date `moon` manual, the `moonbitlang/moon` manual source, and local Starshine validation/fuzz wrapper code.
