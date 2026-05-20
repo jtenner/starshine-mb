@@ -2937,6 +2937,171 @@ test "simplify-globals-optimizing removes nested-if arm value flow with independ
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm value flow with pure call condition" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "foo" (func $foo (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $foo
+      #|    i32.eqz
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm value flow with local tee condition" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    i32.const 0
+      #|    local.tee $tmp
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm flow with independent arm effect" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (import "env" "tick" (func $tick))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result i32)
+      #|      call $tick
+      #|      global.get $guard
+      #|    else
+      #|      i32.const 1
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm flow with independent call-result arm" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (import "env" "val" (func $val (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result i32)
+      #|      call $val
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm flow with independent call-result pure arm" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (import "env" "val" (func $val (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result i32)
+      #|      call $val
+      #|      i32.eqz
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps nested-if conditions steered by the global" {
   let optimized = sgo_test_run(
     (
