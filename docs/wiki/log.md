@@ -2,6 +2,19 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] custom-descriptors | ref.get_desc and exactness refresh
+
+- Added [`raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md) after rechecking the current custom-descriptors proposal, WebAssembly proposals tracker, the `ref.get_desc` bottom-input issue, the V8 exactness fix, and current Starshine WAST/validator sources.
+- Expanded [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md) into a full-stack `ref.get_desc` guide covering type-immediate parsing, metadata lowering, binary roundtrip, `Env::descriptor_result_type(...)`, exact/inexact result typing, bottom/null operand exactness, invalid cases, pass rewrite checklist, and static-harness signoff.
+- Expanded [`custom-descriptors/exact-reference-equivalence.md`](custom-descriptors/exact-reference-equivalence.md) into a beginner-to-advanced structural-equivalence guide for exact refs, including subtype-vs-exact boundaries, metadata participation, cycle guards, bottom-null exact-target behavior, and exactness signoff guidance.
+- Updated [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md) and [`index.md`](index.md) so custom-descriptor static fixture policy, catalog summaries, proposal-local caveats, and exactness/ref.get_desc implementation links stay aligned.
+- Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/match.mbt`](../../src/validate/match.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/match_tests.mbt`](../../src/validate/match_tests.mbt), and [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt).
+
+## [2026-05-20] health | GC type custom-descriptor backlinks
+
+- During the post-update whole-wiki health pass, searched custom-descriptor, `ref_get_desc`, `ref.get_desc`, exact-reference, and GC-type pages for stale summaries that still routed descriptor semantics only through the older 2026-05-13 source snapshot.
+- Updated [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md) and [`index.md`](index.md) so GC type authoring points descriptor runtime/exactness readers at [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md), [`custom-descriptors/exact-reference-equivalence.md`](custom-descriptors/exact-reference-equivalence.md), and the new 2026-05-20 raw source bridge without weakening the existing struct-only proposal caveat.
+
 ## [2026-05-20] health | validation-gate source wording
 
 - During the post-update whole-wiki health pass, searched Moon CLI, validation-gate, target-whitelist, and formatting references for stale singular wording after adding the second Moon command-source manifest.

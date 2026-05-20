@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
+  - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
   - ../raw/research/0018-2026-03-22-wast-struct-type-surface.md
   - ../raw/research/0019-2026-03-22-wast-array-type-surface.md
@@ -17,6 +18,7 @@ related:
   - reference-instruction-authoring.md
   - static-assertion-harness.md
   - ../custom-descriptors/static-fixtures.md
+  - ../custom-descriptors/ref-get-desc-fixture-path.md
   - ../custom-descriptors/exact-reference-equivalence.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
@@ -31,7 +33,7 @@ related:
 
 Starshine's higher-level `src/wast` path can author, print, lower, and validate useful GC type fixtures directly from text. Use it for new GC/custom-descriptor tests before falling back to binary-only fixtures: the text AST carries the source structure developers need to debug, while `src/wast/lower_to_lib.mbt` translates that structure into the flat type-index space used by the binary module model. For GC-typed element segment authoring, typed empty element fixtures, and the current declarative-element lowering caveat, pair this page with [`element-segment-authoring.md`](element-segment-authoring.md) and the broader binary segment map in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). For reference instructions over those types, including `ref.null`, `ref.func`, cast/test forms, and the current ordinary `ref.test` / `ref.cast` / `br_on_*` WAST parser gap, use [`reference-instruction-authoring.md`](reference-instruction-authoring.md). For exception tags with reference-typed payloads, `try_table`, and `exnref` catch-reference flows, use the focused [`exception-tag-authoring.md`](exception-tag-authoring.md) guide.
 
-The current type-use and subtype refresh is [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md). The custom-descriptor baseline remains [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md). WebAssembly's core type forms are `func`, `struct`, and `array`; recursive groups give each member its own flat type index; subtypes can name supertypes and finality; type-use sites either name an existing function type or spell an inline function signature. Custom descriptors add `describes` / `descriptor` metadata and exact descriptor-aware struct construction. Starshine follows the core `func` / `struct` / `array`, rec-group, subtype, and type-use model, and intentionally documents the local places where the proposal surface is broader or still provisional. For instructions that allocate, read, or mutate those aggregate types, including the current WAST text gap around official `struct.set` and `array.*` operations, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
+The current type-use and subtype refresh is [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md). The descriptor metadata baseline is [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md), and the focused `ref.get_desc` / exactness refresh is [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md). WebAssembly's core type forms are `func`, `struct`, and `array`; recursive groups give each member its own flat type index; subtypes can name supertypes and finality; type-use sites either name an existing function type or spell an inline function signature. Custom descriptors add `describes` / `descriptor` metadata and exact descriptor-aware struct construction; the runtime instruction and exactness rules live in [`../custom-descriptors/ref-get-desc-fixture-path.md`](../custom-descriptors/ref-get-desc-fixture-path.md) and [`../custom-descriptors/exact-reference-equivalence.md`](../custom-descriptors/exact-reference-equivalence.md). Starshine follows the core `func` / `struct` / `array`, rec-group, subtype, and type-use model, and intentionally documents the local places where the proposal surface is broader or still provisional. For instructions that allocate, read, or mutate those aggregate types, including the current WAST text gap around official `struct.set` and `array.*` operations, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 
 ## Starshine Surface
 
@@ -153,12 +155,13 @@ Starshine rejects the second type because `describes` appears after `descriptor`
 - Parser or printer changes should exercise [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt) and [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt) before changing lowering.
 - Type-use changes should cover at least one named `(type $sig)` site and one inline signature site, then validate the lowered module. Include a rec-group-before-inline-signature shape when changing implicit function type insertion or flat type-index accounting.
 - Lowering changes should add focused coverage in [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) or a sibling `*_test.mbt`, then validate the lowered module with `@validate.validate_module(...)` when the fixture is meant to be semantically valid.
-- Descriptor fixture lifts should cross-check the static custom-descriptor harness in [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md) and the exact-reference compatibility rules in [`../custom-descriptors/exact-reference-equivalence.md`](../custom-descriptors/exact-reference-equivalence.md).
+- Descriptor fixture lifts should cross-check the static custom-descriptor harness in [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md), the `ref.get_desc` operand/result exactness flow in [`../custom-descriptors/ref-get-desc-fixture-path.md`](../custom-descriptors/ref-get-desc-fixture-path.md), and the exact-reference compatibility rules in [`../custom-descriptors/exact-reference-equivalence.md`](../custom-descriptors/exact-reference-equivalence.md).
 - If upstream custom-descriptors remains struct-only, do not cite Starshine's array metadata lowering test as proposal evidence. Either keep it documented as a local broad surface or narrow the parser/validator in a dedicated behavior change.
 
 ## Sources
 
 - Type-use/subtype refresh: [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md)
+- Custom-descriptor `ref.get_desc` / exactness refresh: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Custom-descriptor and GC-type snapshot: [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md)
 - Archived research docs:
   [`../raw/research/0018-2026-03-22-wast-struct-type-surface.md`](../raw/research/0018-2026-03-22-wast-struct-type-surface.md),
