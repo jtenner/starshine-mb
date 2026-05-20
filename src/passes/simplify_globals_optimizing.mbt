@@ -678,7 +678,8 @@ fn sgo_flow_apply_select(stack : Array[Bool]) -> Bool {
 ///|
 fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.I32Clz
+    @lib.RefIsNull
+    | @lib.I32Clz
     | @lib.I32Ctz
     | @lib.I32Popcnt
     | @lib.I32Eqz

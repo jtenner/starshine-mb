@@ -3790,6 +3790,115 @@ test "simplify-globals-optimizing keeps nested-if arm flow through global-steere
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow through ref-is-null post-consumer" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (func $target)
+      #|  (elem declare func $target)
+      #|  (global $guard (mut funcref) (ref.null func))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result funcref)
+      #|      ref.null func
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    ref.is_null
+      #|    if
+      #|      ref.func $target
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes block-wrapped nested-if arm flow through ref-is-null" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (func $target)
+      #|  (elem declare func $target)
+      #|  (global $guard (mut funcref) (ref.null func))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      call $cond
+      #|      if (result funcref)
+      #|        ref.null func
+      #|      else
+      #|        global.get $guard
+      #|      end
+      #|      ref.is_null
+      #|    end
+      #|    if
+      #|      ref.func $target
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps ref-is-null arm flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (func $target)
+      #|  (elem declare func $target)
+      #|  (global $guard (mut funcref) (ref.null func))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result funcref)
+      #|      ref.null func
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    ref.is_null
+      #|    call $use
+      #|    if
+      #|      ref.func $target
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps nested-if call operands derived from the global" {
   let optimized = sgo_test_run(
     (

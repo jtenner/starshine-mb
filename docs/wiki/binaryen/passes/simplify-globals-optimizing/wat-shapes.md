@@ -317,6 +317,8 @@ Binaryen promotes this family because the call decides which arm runs, while `$o
 
 The 2026-05-20 if-wrapper follow-up covers another adjacent FlowScanner parent-walk family: a clean value-producing `if` arm can itself contain the supported nested-if arm-flow result, then yield to a supported pure post-consumer or clean-sibling `select` before the outer same-global write guard. Starshine preserves the paired negatives where the wrapper result feeds a trapping `i32.load` or the candidate `global.get` steers the inner wrapper condition.
 
+The next reference-typed post-consumer slice admits the same nested-if arm flow when a `funcref` candidate flows through nontrapping `ref.is_null`, with or without a transparent result-block wrapper, before the outer same-global `ref.func` write guard. The paired negative keeps the global mutable when that boolean result feeds a post-consumer call before the final branch.
+
 ### No-op const/drop condition-prefix variation
 
 A block-wrapped condition can also contain side-effect-free constant/drop pairs before the yielded self-guard read:
