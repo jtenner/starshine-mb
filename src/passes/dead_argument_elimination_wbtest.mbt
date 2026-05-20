@@ -996,6 +996,15 @@ test "dae raw cleanup strips local and global self assignments and tees" {
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
   ]
+  let local_tee_drop_from_effect = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::drop(),
+  ]
+  let local_tee_drop_from_effect_cleaned = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  ]
   let same_local_set_read_drop = [
     @lib.Instruction::i32_const(@lib.I32(5)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
@@ -1040,6 +1049,10 @@ test "dae raw cleanup strips local and global self assignments and tees" {
     @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
     @lib.Instruction::drop(),
   ]
+  let different_local_tee_drop_cleaned = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ]
   let mod_ = @lib.Module::new()
     .with_global_sec(
       @lib.GlobalSec::new([
@@ -1067,6 +1080,7 @@ test "dae raw cleanup strips local and global self assignments and tees" {
               ..same_local_tee_used,
               ..same_local_set_read,
               ..same_local_tee_set_from_const,
+              ..local_tee_drop_from_effect,
               ..same_local_set_read_drop,
               ..same_local_set_read_set,
               ..effect_local_set_read_drop,
@@ -1094,6 +1108,7 @@ test "dae raw cleanup strips local and global self assignments and tees" {
           ..same_local_tee_used_cleaned,
           ..same_local_set_read_cleaned,
           ..same_local_tee_set_from_const_cleaned,
+          ..local_tee_drop_from_effect_cleaned,
           ..same_local_set_read_drop_cleaned,
           ..same_local_set_read_set_cleaned,
           ..effect_local_set_read_drop_cleaned,
@@ -1103,7 +1118,7 @@ test "dae raw cleanup strips local and global self assignments and tees" {
           ..different_local_set_read,
           ..different_global_set,
           ..different_local_set,
-          ..different_local_tee_drop,
+          ..different_local_tee_drop_cleaned,
           @lib.Instruction::return_(),
         ],
       )

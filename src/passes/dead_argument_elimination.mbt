@@ -8925,6 +8925,18 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       _ => ()
     }
     if instrs[idx] == @lib.Instruction::drop() {
+      if out.length() > 0 {
+        let last_idx = out.length() - 1
+        match out[last_idx] {
+          @lib.LocalTee(local_idx) => {
+            ignore(out.pop())
+            out.push(@lib.Instruction::local_set(local_idx))
+            idx += 1
+            continue
+          }
+          _ => ()
+        }
+      }
       match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
         Some(start) => {
           dae_truncate_instrs(out, start)
