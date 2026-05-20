@@ -352,6 +352,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
+  MalformedCustomSectionNameLengthUleb
+  MalformedNameSubsectionSizeUleb
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte
   MalformedMemargImmediate

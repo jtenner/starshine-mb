@@ -60,6 +60,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
     "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
     "malformed-simd-immediate", "simd-lane-index-overflow", "malformed-custom-section-payload",
+    "malformed-custom-section-name-length-uleb", "malformed-name-subsection-size-uleb",
     "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "malformed-memarg-immediate",
     "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb", "malformed-blocktype-immediate",
     "invalid-export-name-utf8", "invalid-import-module-name-utf8", "invalid-import-field-name-utf8",
@@ -113,7 +114,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -989,6 +990,7 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
   for
     strategy in [
       "malformed-simd-immediate", "simd-lane-index-overflow", "malformed-custom-section-payload",
+      "malformed-custom-section-name-length-uleb", "malformed-name-subsection-size-uleb",
       "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "malformed-memarg-immediate",
       "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
       "malformed-blocktype-immediate", "invalid-export-name-utf8", "invalid-import-module-name-utf8",
