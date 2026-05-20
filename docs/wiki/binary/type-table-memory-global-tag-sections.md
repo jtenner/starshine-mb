@@ -143,7 +143,7 @@ This mirrors the function imported-prefix model documented in [`function-import-
   (global $b i32 (global.get $a)))
 ```
 
-The second initializer validates because `$a` is already in the global environment. A reverse reference from `$a` to `$b` would fail because globals are checked and appended one at a time. For the WAST-side `global.get` / `global.set` stack rules, mutability checks, and immutable-`global.get` constant-expression examples, see [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
+The second initializer validates because `$a` is already in the global environment. A reverse reference from `$a` to `$b` would fail because globals are checked and appended one at a time. For the WAST-side `global.get` / `global.set` stack rules and mutability checks, see [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md); for initializer-specific immutable-`global.get` visibility, see [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 
 ### Local stringrefs round trip
 

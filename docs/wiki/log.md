@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | constant-expression backlink hygiene
+
+- During the post-update whole-wiki health pass, searched constant-expression, immutable `global.get`, `string.const`, WAST arbitrary, binary instruction, and resource-section references for pages that still routed initializer/offset claims only through WAST instruction pages or the broad module phase map.
+- Updated [`strings/string-const-surface.md`](strings/string-const-surface.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so constant-expression eligibility now routes through [`validate/constant-expressions.md`](validate/constant-expressions.md) while instruction syntax, binary opcode, and parser/printer coverage remain on their focused pages.
+
 ## [2026-05-20] validate | constant-expression validation contract
 
 - Added [`validate/constant-expressions.md`](validate/constant-expressions.md) as the focused guide for module-level constant expressions: global/table initializers, active data/element offsets, element expression payloads, `validate_const_instr` / `validate_const_expr` flow, empty-local/label/return typechecking, reachability and stack-arity checks, immutable-`global.get` visibility, pass/generator guidance, and `[FZG]008` vocabulary.
