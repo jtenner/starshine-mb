@@ -116,6 +116,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   SimdLoadLaneIndexOverflow
   MalformedDataIndexUleb
   MalformedElemIndexUleb
+  InvalidNameSectionFuncNameUtf8
+  InvalidNameSectionLocalNameUtf8
 } derive(Eq, Debug)
 
 ///|
@@ -497,6 +499,8 @@ fn validate_invalid_binary_strategy_label(
     SimdLoadLaneIndexOverflow => "simd-load-lane-index-overflow"
     MalformedDataIndexUleb => "malformed-data-index-uleb"
     MalformedElemIndexUleb => "malformed-elem-index-uleb"
+    InvalidNameSectionFuncNameUtf8 => "invalid-name-section-func-name-utf8"
+    InvalidNameSectionLocalNameUtf8 => "invalid-name-section-local-name-utf8"
   }
 }
 
@@ -1103,6 +1107,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidNameSectionFuncNameUtf8,
+      "invalid-name-section-func-name-utf8",
+      "name section function-name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidNameSectionLocalNameUtf8,
+      "invalid-name-section-local-name-utf8",
+      "name section local-name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -1208,6 +1226,8 @@ fn validate_invalid_binary_strategy_index(
     SimdLoadLaneIndexOverflow => 82
     MalformedDataIndexUleb => 83
     MalformedElemIndexUleb => 84
+    InvalidNameSectionFuncNameUtf8 => 85
+    InvalidNameSectionLocalNameUtf8 => 86
   }
 }
 
@@ -2284,6 +2304,90 @@ fn validate_invalid_binary_mutate_malformed_elem_index_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_name_section_func_name_utf8() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x04).to_byte(),
+    (0x6e).to_byte(),
+    (0x61).to_byte(),
+    (0x6d).to_byte(),
+    (0x65).to_byte(),
+    (0x01).to_byte(),
+    (0x05).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_name_section_local_name_utf8() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0d).to_byte(),
+    (0x04).to_byte(),
+    (0x6e).to_byte(),
+    (0x61).to_byte(),
+    (0x6d).to_byte(),
+    (0x65).to_byte(),
+    (0x02).to_byte(),
+    (0x06).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_name_section_func_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidNameSectionFuncNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_name_section_func_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_name_section_local_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidNameSectionLocalNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_name_section_local_name_utf8(),
     ),
   )
 }
@@ -3446,6 +3550,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_data_index_uleb(base)
     MalformedElemIndexUleb =>
       validate_invalid_binary_mutate_malformed_elem_index_uleb(base)
+    InvalidNameSectionFuncNameUtf8 =>
+      validate_invalid_binary_mutate_invalid_name_section_func_name_utf8(base)
+    InvalidNameSectionLocalNameUtf8 =>
+      validate_invalid_binary_mutate_invalid_name_section_local_name_utf8(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
