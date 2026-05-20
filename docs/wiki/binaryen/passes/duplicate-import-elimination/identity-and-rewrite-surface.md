@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
@@ -13,6 +13,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ../../../validate/start-section.md
 ---
 
 # `duplicate-import-elimination`: identity key and rewrite surface
@@ -183,7 +184,7 @@ Binaryen explicitly rewrites:
 
 - `module.start`
 
-So if the start function was the later duplicate import, it is retargeted to the canonical first import.
+So if the start function was the later duplicate import, it is retargeted to the canonical first import. After retargeting, the shared start validator still requires the canonical import's type to be empty; see [`../../../validate/start-section.md`](../../../validate/start-section.md).
 
 ## Function exports
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
@@ -16,6 +16,7 @@ related:
   - ./roots-reference-only-and-nullification.md
   - ./retention-and-index-rewrites.md
   - ./parity.md
+  - ../../../validate/start-section.md
 ---
 
 # Starshine strategy for `remove-unused-module-elements`
@@ -70,7 +71,7 @@ The local root-policy helpers that are easiest to miss live near the middle of `
 
 This is where current Starshine makes the key policy decisions about:
 
-- start-function rooting, including the Binaryen-style no-op start-section drop
+- start-function rooting, including the Binaryen-style no-op start-section drop; validator-level start metadata and imported-empty-signature rules live in [`../../../validate/start-section.md`](../../../validate/start-section.md)
 - export rooting across all module-element kinds
 - active imported-table / imported-memory parent retention for semantically meaningful elem/data initializers
 - whether extraction mode should keep or suppress that imported-parent policy
@@ -153,7 +154,7 @@ The extraction helper is not the public pass itself, but it matters for maintain
 ## Current strengths
 
 - imported-parent retention policy is explicit instead of accidental
-- no-op start-section dropping is local, visible, and test-backed
+- no-op start-section dropping is local, visible, test-backed, and cross-linked to the shared [`start-section`](../../../validate/start-section.md) validator contract
 - broad surviving-index rewrite coverage is centralized in one file
 - dead imported functions and dead type entries are cleaned up together
 - CLI coverage exists in addition to direct module-pass tests

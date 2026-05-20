@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
@@ -30,6 +30,7 @@ related:
   - ../remove-unused-module-elements/starshine-hot-ir-strategy.md
   - ../remove-unused-module-elements/retention-and-index-rewrites.md
   - ../remove-unused-module-elements/parity.md
+  - ../../../validate/start-section.md
 ---
 
 # Starshine strategy for `remove-unused-non-function-elements`
@@ -85,7 +86,7 @@ The closest local implementation is full RUME:
   - `rume_run_nonfunction_module_pass(...)` at `:3518-3532` wires the sibling policy into the shared rewrite path.
   - full-RUME import counters and absolute-index helpers live near lines `17-118`.
   - `rume_defined_func_count(...)` and defined-function lookup surfaces live near lines `200-252`.
-  - `rume_has_binaryen_noop_start_sec(...)` captures the Binaryen-compatible no-op-start cleanup around lines `264-270`.
+  - `rume_has_binaryen_noop_start_sec(...)` captures the Binaryen-compatible no-op-start cleanup around lines `264-270`; the validator-side distinction between `start_sec` metadata, imported-empty-signature targets, and `ref.func` declaration coverage now lives in [`../../../validate/start-section.md`](../../../validate/start-section.md).
   - `rume_mark_*` helpers and expression traversal cover function/global/table/memory/tag/elem/data roots around lines `276-573`.
   - `rume_mark_imported_parent_segments(...)` preserves visible active imported-parent element/data segments around lines `768-807`.
   - `rume_rewrite_*` helpers rewrite surviving module indices from roughly lines 1021 onward.
@@ -133,7 +134,7 @@ The implemented Starshine port added tests before and during implementation:
 2. **dead non-function section vanishes**: dead memory/table/global/tag/data/elem sections still clean up.
 3. **dead imported function can vanish**: an unused imported function is pruned while a used imported function remains.
 4. **function types still compact**: type-section cleanup remains active.
-5. **no-op start metadata is separate**: a no-op start declaration can disappear while the start function body survives.
+5. **no-op start metadata is separate**: a no-op start declaration can disappear while the start function body survives; pair this with the shared start-section validator contract in [`../../../validate/start-section.md`](../../../validate/start-section.md).
 6. **full RUME stays stricter**: the existing `remove-unused-module-elements` behavior still deletes dead defined helpers, proving the sibling policy did not leak into full RUME.
 7. **Binaryen parity**: compare the direct pass against `wasm-opt --remove-unused-nonfunction-module-elements`.
 

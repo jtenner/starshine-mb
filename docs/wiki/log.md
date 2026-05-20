@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | start-section pass backlink hygiene
+
+- During the post-update whole-wiki health pass, searched start-section, no-op start, imported-start, and start-retarget references across pass dossiers and validation pages.
+- Updated [`binaryen/passes/remove-unused-module-elements/starshine-hot-ir-strategy.md`](binaryen/passes/remove-unused-module-elements/starshine-hot-ir-strategy.md), [`binaryen/passes/remove-unused-non-function-elements/starshine-strategy.md`](binaryen/passes/remove-unused-non-function-elements/starshine-strategy.md), [`binaryen/passes/remove-unused-non-function-elements/module-shapes.md`](binaryen/passes/remove-unused-non-function-elements/module-shapes.md), and [`binaryen/passes/duplicate-import-elimination/identity-and-rewrite-surface.md`](binaryen/passes/duplicate-import-elimination/identity-and-rewrite-surface.md) so pass readers that touch `start_sec`, no-op start metadata, or imported-start retargeting route validator facts through [`validate/start-section.md`](validate/start-section.md).
+- Updated [`index.md`](index.md) so the pass-catalog summaries expose those start-section backlinks instead of leaving start metadata cleanup as pass-local lore.
+
 ## [2026-05-20] validate | start-section validation contract
 
 - Added [`raw/wasm/2026-05-20-start-section-validation-sources.md`](raw/wasm/2026-05-20-start-section-validation-sources.md) after rechecking the current WebAssembly 3.0 syntax, binary, text, validation, and execution module sources plus Starshine core, WAST, binary, validator, and invalid-fuzz evidence.

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
@@ -20,6 +20,7 @@ related:
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-module-elements/wat-shapes.md
+  - ../../../validate/start-section.md
 ---
 
 # `remove-unused-nonfunction-module-elements` module-shape catalog
@@ -326,7 +327,7 @@ The shared start cleanup drops a no-op start declaration before or during root s
 
 ### Durable lesson
 
-Start metadata and function-body preservation are separate ideas here.
+Start metadata and function-body preservation are separate ideas here. The shared validator-side start contract, including imported-empty-signature targets and the current no-`ref.func` declaration caveat, is [`../../../validate/start-section.md`](../../../validate/start-section.md).
 
 ## Preserved family 2: TNH changes startup-trap retention, not the sibling contract
 
