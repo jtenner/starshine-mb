@@ -28,6 +28,7 @@ related:
   - ../binary/type-table-memory-global-tag-sections.md
   - ../binary/data-element-and-datacount-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/import-export-and-external-type-matching.md
   - ../fuzzing/generator-coverage-ledger.md
 ---
 
@@ -174,12 +175,14 @@ When a pass, generator, or fixture touches resource declarations, check these in
 4. **Table abbreviations are element-segment sugar.** If a pass deletes or remaps tables or functions, repair the generated active element segments too.
 5. **Global initializers see only imports and earlier globals.** Reordering globals can invalidate or change initializer `global.get` references unless all `GlobalIdx` carriers are rewritten and validation is rerun.
 6. **Current WAST resource declarations are not memory64/shared evidence.** Use direct core, binary, or generator fixtures for `I64Limits`, table64/memory64 declaration behavior, and shared-memory validation until WAST text support exists.
-7. **Re-run full module validation after resource rewrites.** Section-level changes affect exports, names, instructions, segments, constant expressions, and pass-local summaries.
+7. **Import/export declarations are module-boundary facts, not host-linking proof.** Explicit imports extend local index spaces; inline and explicit exports lower to `ExportSec` and duplicate-name checks. The external-type matching relation for future linker/embedding work lives in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md).
+8. **Re-run full module validation after resource rewrites.** Section-level changes affect imports, exports, names, instructions, segments, constant expressions, and pass-local summaries.
 
 Useful related signoff pages:
 
 - [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) for core/binary remap surfaces;
 - [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md) for validation phase order;
+- [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md) for import/export index checks, duplicate export names, and external-type matching;
 - [`table-instruction-authoring.md`](table-instruction-authoring.md), [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and [`variable-instruction-authoring.md`](variable-instruction-authoring.md) for instruction users of the declared resources;
 - [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) for valid-generator coverage claims that go beyond WAST parser/printer fixtures.
 
@@ -190,12 +193,14 @@ Useful related signoff pages:
 - Treating a table-attached `(elem ...)` abbreviation as a `Table(..., Some(expr))` core initializer. Starshine WAST lowers it to an element segment.
 - Using official inline memory-data abbreviation syntax as current Starshine WAST evidence. Use separate `(memory ...)` and `(data ...)` fields until [`data-segment-authoring.md`](data-segment-authoring.md) says otherwise.
 - Forgetting imported-prefix indices when updating `table.get`, `memory.init`, `global.get`, exports, names, or segment modes after resource reordering.
+- Treating a valid import declaration as proof that a host can satisfy it. Module validation and host external-type matching are separate contracts.
 - Reordering globals without preserving incremental constant-expression visibility.
 - Treating WAST arbitrary resource fields as semantic validation. WAST arbitrary is parser/printer coverage; `gen_valid`, binary tests, and validator tests are the typed-validity lanes.
 
 ## Sources
 
 - Source manifest: [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md)
+- Import/export matching source bridge: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
 - Broader binary/core resource manifest: [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/text/types.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/memory64/core/>
 - Starshine implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)

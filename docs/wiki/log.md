@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validate | import/export external-type matching
+
+- Added [`raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](raw/wasm/2026-05-20-external-type-matching-import-export-validation.md) after rechecking current WebAssembly 3.0 module validation, type validation/matching, abstract module syntax, and runtime instantiation sources plus Starshine `validate_importsec`, `validate_exportsec_unique`, `Match for ExternType`, invalid-fuzzer, core/binary, and WAST lowering evidence.
+- Added [`validate/import-export-and-external-type-matching.md`](validate/import-export-and-external-type-matching.md) as the focused guide for import declaration validation versus host external-value matching, imported-prefix index extension, export-index and duplicate-export-name validation, `ImportSection` / `ExportSection` invalid-fuzzer families, external-type matching variance rules, the current no-public-linker boundary, and pass/generator remap guidance.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, binary, and WAST resource pages route detailed import/export boundary semantics through the focused page instead of repeating partial summaries.
+- Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/match.mbt`](../../src/validate/match.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_invalid_tests.mbt`](../../src/validate/gen_invalid_tests.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), and [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt).
+
 ## [2026-05-20] health | name-section source citation hygiene
 
 - During the post-update whole-wiki health pass, searched IR2 links plus name-section and custom-section references for stale citations and source-list drift.
