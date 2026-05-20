@@ -648,6 +648,18 @@ fn sgo_flow_apply_binary(stack : Array[Bool]) -> Bool {
 }
 
 ///|
+fn sgo_flow_stack_has_taint(stack : Array[Bool]) -> Bool {
+  stack.any(fn(tainted) { tainted })
+}
+
+///|
+fn sgo_flow_clear_stack(stack : Array[Bool]) -> Unit {
+  while stack.length() > 0 {
+    ignore(stack.pop())
+  }
+}
+
+///|
 fn sgo_flow_apply_select(stack : Array[Bool]) -> Bool {
   match (sgo_flow_pop(stack), sgo_flow_pop(stack), sgo_flow_pop(stack)) {
     (Some(condition), Some(second), Some(first)) => {
@@ -822,9 +834,10 @@ fn sgo_flow_scan_prefix_until(
           _ => return (false, reads, stack)
         }
       @lib.Call(_) => {
-        if stack.length() != 0 {
+        if sgo_flow_stack_has_taint(stack) {
           return (false, reads, stack)
         }
+        sgo_flow_clear_stack(stack)
         sgo_flow_push_clean(stack)
         continue
       }
@@ -885,9 +898,10 @@ fn sgo_flow_arm_result_taint_and_reads(
         continue
       }
       @lib.Call(_) => {
-        if stack.length() != 0 {
+        if sgo_flow_stack_has_taint(stack) {
           return (false, reads, false)
         }
+        sgo_flow_clear_stack(stack)
         if scan + 1 == instrs.length() {
           sgo_flow_push_clean(stack)
         } else {
