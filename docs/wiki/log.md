@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | scalar numeric backlink hygiene
+
+- During the post-update whole-wiki health pass, searched scalar numeric, NaN, signed-zero, `trunc_sat`, and `numeric-instruction-authoring` references across WAST, validation, fuzzing, binary, index, and raw-source pages.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`wast/index.md`](wast/index.md), and [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so validator-source lists, WAST namespace summaries, and `[FZG]002` generator guidance route the official-vs-Starshine scalar literal split and trap/saturation/signedness/NaN/signed-zero hazards through the refreshed numeric guide.
+
 ## [2026-05-20] wast | scalar numeric literal and rewrite refresh
 
 - Added [`raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md) after rechecking current WebAssembly text-value, text-instruction, validation-instruction, and numeric-execution sources plus Starshine WAST lexer/parser/lowerer/printer/arbitrary and validator evidence.
