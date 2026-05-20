@@ -8419,6 +8419,8 @@ fn dae_instr_is_nontrapping_pure_binary(instr : @lib.Instruction) -> Bool {
     | @lib.V128Andnot
     | @lib.V128Or
     | @lib.V128Xor
+    | @lib.I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.I8x16Swizzle
     | @lib.I8x16Eq
     | @lib.I8x16Ne
     | @lib.I8x16LtS
