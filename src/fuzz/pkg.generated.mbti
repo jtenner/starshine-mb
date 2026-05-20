@@ -365,10 +365,12 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportFieldNameUtf8
   InvalidImportKindByte
   InvalidTableRefTypeByte
+  InvalidTableLimitsFlagByte
   MalformedRefNullHeaptypeImmediate
   InvalidGlobalValTypeByte
   InvalidExportKindByte
   InvalidMemoryLimitsFlagByte
+  InvalidTagAttributeByte
   InvalidGlobalMutabilityByte
   InvalidElementSegmentFlagByte
   InvalidDataSegmentFlagByte

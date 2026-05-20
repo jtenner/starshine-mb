@@ -1296,6 +1296,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added two decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `import-section-count-overflow` corrupts an import-section vector count so it exceeds the available import entries, and `global-section-count-overflow` corrupts a global-section vector count so it exceeds the available global entries.
 - Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the binary-invalid strategy summary includes the new import/global vector-count overflow malformed-byte families.
 
+## [2026-05-20] fuzzing | table/tag descriptor invalid-binary coverage
+
+- Added two decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `invalid-table-limits-flag-byte` corrupts a table-section limits flag byte, and `invalid-tag-attribute-byte` corrupts a tag-section attribute byte.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the binary-invalid strategy summary includes the new table limits flag and tag attribute malformed-byte families.
+
 ## [2026-05-20] fuzzing | table/export vector-count invalid-binary coverage
 
 - Added two decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `table-section-count-overflow` corrupts a table-section vector count so it exceeds the available table entries, and `export-section-count-overflow` corrupts an export-section vector count so it exceeds the available export entries.

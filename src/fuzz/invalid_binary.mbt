@@ -87,10 +87,12 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportFieldNameUtf8
   InvalidImportKindByte
   InvalidTableRefTypeByte
+  InvalidTableLimitsFlagByte
   MalformedRefNullHeaptypeImmediate
   InvalidGlobalValTypeByte
   InvalidExportKindByte
   InvalidMemoryLimitsFlagByte
+  InvalidTagAttributeByte
   InvalidGlobalMutabilityByte
   InvalidElementSegmentFlagByte
   InvalidDataSegmentFlagByte
@@ -511,10 +513,12 @@ fn validate_invalid_binary_strategy_label(
     InvalidImportFieldNameUtf8 => "invalid-import-field-name-utf8"
     InvalidImportKindByte => "invalid-import-kind-byte"
     InvalidTableRefTypeByte => "invalid-table-reftype-byte"
+    InvalidTableLimitsFlagByte => "invalid-table-limits-flag-byte"
     MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
     InvalidGlobalValTypeByte => "invalid-global-valtype-byte"
     InvalidExportKindByte => "invalid-export-kind-byte"
     InvalidMemoryLimitsFlagByte => "invalid-memory-limits-flag-byte"
+    InvalidTagAttributeByte => "invalid-tag-attribute-byte"
     InvalidGlobalMutabilityByte => "invalid-global-mutability-byte"
     InvalidElementSegmentFlagByte => "invalid-element-segment-flag-byte"
     InvalidDataSegmentFlagByte => "invalid-data-segment-flag-byte"
@@ -987,6 +991,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      InvalidTableLimitsFlagByte,
+      "invalid-table-limits-flag-byte",
+      "table section with an invalid limits flag byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedRefNullHeaptypeImmediate,
       "malformed-ref-null-heaptype-immediate",
       "ref.null instruction with a malformed heaptype immediate",
@@ -1011,6 +1022,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidMemoryLimitsFlagByte,
       "invalid-memory-limits-flag-byte",
       "memory section with an invalid limits flag byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidTagAttributeByte,
+      "invalid-tag-attribute-byte",
+      "tag section with an invalid attribute byte",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4237,6 +4255,39 @@ fn validate_invalid_binary_mutate_invalid_table_reftype_byte(
 }
 
 ///|
+fn validate_invalid_binary_module_with_invalid_table_limits_flag_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x04).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x70).to_byte(),
+    (0xff).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_table_limits_flag_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidTableLimitsFlagByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_table_limits_flag_byte(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_ref_null_heaptype_immediate(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -4372,6 +4423,39 @@ fn validate_invalid_binary_mutate_invalid_memory_limits_flag_byte(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_memory_limits_flag_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_tag_attribute_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0d).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0xff).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_tag_attribute_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidTagAttributeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_tag_attribute_byte(),
     ),
   )
 }
@@ -5124,6 +5208,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_import_kind_byte(base)
     InvalidTableRefTypeByte =>
       validate_invalid_binary_mutate_invalid_table_reftype_byte(base)
+    InvalidTableLimitsFlagByte =>
+      validate_invalid_binary_mutate_invalid_table_limits_flag_byte(base)
     MalformedRefNullHeaptypeImmediate =>
       validate_invalid_binary_mutate_malformed_ref_null_heaptype_immediate(base)
     InvalidGlobalValTypeByte =>
@@ -5132,6 +5218,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_export_kind_byte(base)
     InvalidMemoryLimitsFlagByte =>
       validate_invalid_binary_mutate_invalid_memory_limits_flag_byte(base)
+    InvalidTagAttributeByte =>
+      validate_invalid_binary_mutate_invalid_tag_attribute_byte(base)
     InvalidGlobalMutabilityByte =>
       validate_invalid_binary_mutate_invalid_global_mutability_byte(base)
     InvalidElementSegmentFlagByte =>
