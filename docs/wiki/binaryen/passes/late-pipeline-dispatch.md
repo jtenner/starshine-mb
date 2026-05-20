@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-05-20
 sources:
   - ../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
+  - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
   - ../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
   - ../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md
@@ -32,6 +34,7 @@ related:
 - `-O4z` still resolves to `optimize_level=4` and `shrink_level=4`; when no explicit pass flags are present, `shrink` owns the tail roster.
 - The late tail is implemented in-tree. The current module-pass slice includes `memory-packing`, `once-reduction`, `global-refining`, and `global-struct-inference`.
 - The current hot-pass slice includes `dead-code-elimination`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `precompute`, `heap2local`, and `simplify-locals`.
+- Public `optimize` and `shrink` now append the accepted late-tail suffix `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`; broader widening earlier in the preset remains separate work.
 - The broader preset still interleaves `ssa-nomerge`, `remove-unused-names`, and `remove-unused-brs` around that tail; this page keeps those supporting cleanup passes implicit to stay compact.
 - `vacuum` is a registered hot pass in `src/passes/optimize.mbt` and runs through the hot-pass dispatcher in `src/passes/pass_manager.mbt`.
 - The remaining work for these pages is documentation depth, not dispatcher reachability.

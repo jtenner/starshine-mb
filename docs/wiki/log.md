@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | late-pipeline dispatch public suffix reconciliation
+
+- Updated [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the late-tail roster page now cites the 2026-05-19 neighborhood baseline and public preset scheduling research notes, bumps `last_reviewed` to `2026-05-20`, and states the accepted public `optimize` / `shrink` suffix directly in the durable conclusions.
+- No external source was needed; the repo-authored 0571/0572 research notes and existing scheduler docs were sufficient.
+
 ## [2026-05-20] wiki | no-DWARF optimize path source refresh
 
 - Updated [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) so the canonical optimize-path page now cites the 2026-05-19 late-tail neighborhood baseline and public preset scheduling research notes alongside the older archived 0066 source. Its frontmatter `last_reviewed` is now `2026-05-20`, matching the new accepted public `optimize` / `shrink` suffix evidence already recorded in the body.
