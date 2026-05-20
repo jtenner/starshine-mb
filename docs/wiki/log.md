@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | scalar numeric literal and rewrite refresh
+
+- Added [`raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md) after rechecking current WebAssembly text-value, text-instruction, validation-instruction, and numeric-execution sources plus Starshine WAST lexer/parser/lowerer/printer/arbitrary and validator evidence.
+- Refreshed [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md) so scalar numeric fixture authors distinguish official literal spellings from Starshine tokenization, scalar lowering, index parsing, SIMD-lane parsing, assertion-result NaN expectations, and printback behavior; the pass checklist now routes float/NaN/signed-zero rewrite hazards through the new source bridge.
+- Updated [`index.md`](index.md) so catalog readers can find the new scalar-literal/rewrite anchor from the WAST numeric entry.
+
 ## [2026-05-20] wiki | archive absorbed IR2 March notes
 
 - Moved the absorbed March IR2 architecture, CFG contract, local SSA policy, and pass-porting checklist notes from `docs/` into [`raw/research/`](raw/research/) as stable archived source material: [`raw/research/0059-2026-03-24-ir2-architecture-rules.md`](raw/research/0059-2026-03-24-ir2-architecture-rules.md), [`raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md), [`raw/research/0061-2026-03-24-local-ssa-policy.md`](raw/research/0061-2026-03-24-local-ssa-policy.md), and [`raw/research/0062-2026-03-24-pass-porting-checklist.md`](raw/research/0062-2026-03-24-pass-porting-checklist.md).

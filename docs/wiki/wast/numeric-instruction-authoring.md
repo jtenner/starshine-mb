@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
+  - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -38,7 +39,7 @@ Use this page when writing or reviewing scalar numeric WAST fixtures for `i32`, 
 - float unary, binary, and comparison operations;
 - conversions, reinterprets, sign-extension operations, and saturating truncations.
 
-This page is scalar-only. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). The checked primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md).
+This page is scalar-only. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). The checked primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md). The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md) sharpens the official-literal versus Starshine lexer/parser/lowerer split and the optimizer rewrite hazards around traps, saturation, reinterprets, signedness, NaNs, and signed zero.
 
 ## Beginner Mental Model
 
@@ -84,10 +85,11 @@ After Starshine lowers this text, `$x` is already a numeric `LocalIdx`, constant
 (f64.const -inf)    ;; pushes f64
 ```
 
-Starshine's WAST parser records the literal text, and the lowerer parses it later. Practical local caveats:
+Starshine's WAST parser records the literal text, and the lowerer parses it later. The official text-value grammar is the portability target, but Starshine has several local paths that should not be conflated:
 
-- `i32.const` and `i64.const` accept integer tokens in the text path, then `wt_parse_i32` / `wt_parse_i64` parse signed 64-bit text. Keep huge unsigned wraparound fixtures focused and test-backed instead of assuming every official spelling roundtrips through the current local parser.
-- `f32.const` and `f64.const` body instructions currently forward integer and float tokens to lowering. The lowerer can canonicalize `nan*` text when it receives that text, and WAST assertion-result parsing has explicit `nan:canonical` / `nan:arithmetic` expectation variants. Broad roundtrip tests should not assume exact NaN payload spelling survives unless the test checks that path deliberately.
+- The lexer recognizes decimal and hexadecimal numeric tokens, underscore-separated digit runs, hexadecimal floats, infinities, and `nan` / payload spellings. That proves tokenization, not full semantic acceptance by every downstream scalar-constant path.
+- `i32.const` and `i64.const` lower through `wt_parse_i32` / `wt_parse_i64`, which currently delegate ordinary scalar integer text to signed parsing. Index parsing and SIMD-lane parsing have separate helper paths that strip underscores or parse unsigned hex explicitly, so do not use those surfaces as proof that every scalar integer literal spelling roundtrips. Keep non-decimal, separator-heavy, or unsigned-wrap scalar integer fixtures focused and test-backed.
+- `f32.const` and `f64.const` body instructions forward integer and float tokens to lowering. The lowerer can canonicalize `nan*` text when it receives that text, while WAST assertion-result parsing has explicit `nan:canonical` / `nan:arithmetic` expectation variants. Broad roundtrip tests should not assume exact NaN payload spelling survives unless the test checks that path deliberately.
 - In WAST spec assertions, constants also appear as expected values. `render_wast_value(...)` and `render_wast_result(...)` print the scalar constant spelling family for `assert_return` arguments, including the assertion-only NaN expectation spellings.
 
 ### Tests and comparisons produce `i32`
@@ -181,7 +183,7 @@ When a pass changes scalar numeric code, check these invariants before accepting
 2. **Trap behavior:** ordinary integer division/remainder and non-saturating float-to-int truncations can trap; `trunc_sat` does not trap for the same out-of-range/NaN cases. Do not fold through a trap boundary without proof.
 3. **Signedness:** `_s` and `_u` suffixes are semantic. They are not alternate spellings and cannot be interchanged because a fixture happens to use a small positive literal.
 4. **Bit-level identity:** `reinterpret` preserves bits, while `convert`, `promote`, `demote`, `wrap`, and `extend` compute numeric conversions. Optimizers must keep that distinction visible.
-5. **NaN and float corner cases:** float `min`/`max`, NaN payloads, signed zero, and rounding operations need oracle or source-backed evidence before canonicalization.
+5. **NaN and float corner cases:** float `min`/`max`, NaN payloads, signed zero, and rounding operations need oracle or source-backed evidence before canonicalization. The 2026-05-20 literal/rewrite refresh is the current wiki anchor for why typechecking alone is not enough here.
 6. **Constant expression context:** if a pass moves numeric work into globals, table initializers, element/data offsets, or other initializer contexts, rerun module validation rather than assuming body-valid code is initializer-valid.
 7. **Coverage vocabulary:** use [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) for `[FZG]002` valid-generator evidence, and [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md) when the same syntax is only parser/printer coverage.
 
@@ -199,6 +201,7 @@ Useful local signoff lanes for numeric authoring changes are `moon test src/wast
 ## Sources
 
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md)
+- Targeted literal/rewrite refresh: [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Official text values source: <https://webassembly.github.io/spec/core/text/values.html>
 - Local parser/lowerer/printer sources listed in the frontmatter above.
