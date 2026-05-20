@@ -18,6 +18,7 @@ sources:
 related:
   - ./cli-command-and-dispatcher.md
   - ./fuzz-runner.md
+  - ./pass-fuzz-compare.md
   - ./tracing-playbook.md
   - ../validation/moonbit-prove-strategy.md
   - ../validate/module-validation-phases.md
@@ -87,7 +88,7 @@ bun fuzz compare-pass --pass <canonical-pass>|--<pass-flag> --count 10000 --seed
 
 For script-level compatibility, `bun scripts/pass-fuzz-compare.ts` is the same underlying implementation and still valid when invoked directly.
 
-The pass-comparison harness has its own contract: generated inputs, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, and optional replay by failure class/case. Keep pass evidence in the affected pass dossier; keep this page as the shared gate map.
+The pass-comparison harness has its own contract: generated inputs, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, optional replay by failure class/case, and `--jobs >1` requiring a prebuilt `--starshine-bin`. Keep pass evidence in the affected pass dossier; keep the detailed harness behavior in [`pass-fuzz-compare.md`](pass-fuzz-compare.md), and keep this page as the shared gate map.
 
 ## Coverage Gate Semantics
 
@@ -155,4 +156,4 @@ Practical rules:
 - Local validation orchestration: [`../../../scripts/validate.ts`](../../../scripts/validate.ts), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts)
 - Command-shape tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)
 - Package and workspace metadata: [`../../../package.json`](../../../package.json), [`../../../moon.mod.json`](../../../moon.mod.json)
-- Related workflow pages: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)
+- Related workflow pages: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./pass-fuzz-compare.md`](./pass-fuzz-compare.md), [`./tracing-playbook.md`](./tracing-playbook.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)

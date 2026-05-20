@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] tooling | pass-fuzz compare workflow
+
+- Added [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md) as the focused Binaryen-oracle compare-pass workflow covering command shape, generator modes, input/output validation, Binaryen canonicalization and normalized-WAT comparison, pass-flag aliasing, result and failure-artifact contracts, command-failure classes, replay filters, concurrency rules, and signoff guidance.
+- Added [`raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md) after checking current Binaryen, `wasm-tools`, `wasm-smith`, WebAssembly validation, and local Starshine compare harness sources.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md) so ordinary fuzz-suite, validation-gate, FZG029, and catalog claims route detailed compare-pass behavior through the new focused page instead of duplicating partial summaries.
+- Grounded the local code map in [`../../scripts/lib/pass-fuzz-compare-task.ts`](../../scripts/lib/pass-fuzz-compare-task.ts), [`../../scripts/lib/fuzz-task.ts`](../../scripts/lib/fuzz-task.ts), [`../../scripts/test/pass-fuzz-compare-command.ts`](../../scripts/test/pass-fuzz-compare-command.ts), [`../../scripts/test/task-family-commands.ts`](../../scripts/test/task-family-commands.ts), [`../../src/fuzz/main.mbt`](../../src/fuzz/main.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
+
 ## [2026-05-20] wast | parametric drop/select authoring
 
 - Added [`wast/parametric-instruction-authoring.md`](wast/parametric-instruction-authoring.md) as the focused guide for `drop`, untyped `select`, and typed `select (result ...)`, including stack order, binary opcodes `0x1A` / `0x1B` / `0x1C`, typed reference-select authoring, local multi-value typed-select support, and the portability caveats around current official validation text.

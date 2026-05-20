@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-15
+last_reviewed: 2026-05-20
 sources:
   - ../raw/research/0003-2026-03-12-fuzz-migration.md
+  - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
   - ../../../src/fuzz/main.mbt
   - ../../../src/fuzz/main_wbtest.mbt
   - ../../../src/fuzz/invalid_repro.mbt
@@ -12,6 +13,7 @@ sources:
   - ../../../scripts/test/task-family-commands.ts
 related:
   - ./validation-gates.md
+  - ./pass-fuzz-compare.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -109,38 +111,9 @@ It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...
 - `--moon <path>` / `--moon=<path>`.
 - `--suite`, `--profile`, `--seed`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding.
 
-`bun fuzz compare-pass ...` is a sibling entrypoint, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine and Binaryen.
+`bun fuzz compare-pass ...` is a sibling entrypoint, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine, `wasm-tools`, and Binaryen.
 
-`bun fuzz compare-pass` contract (defaults shown):
-
-```text
-bun fuzz compare-pass \
-  --pass <canonical-pass>|--<pass-flag> [--pass ...] \
-  --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
-  [--generator both|wasm-smith|gen-valid] \
-  [--max-failures 20] [--keep-going-after-command-failures] \
-  [--jobs 1]
-```
-
-Passes can be supplied by canonical name (`vacuum`, `optimize-casts`) or short flag form (`--vacuum`, `--optimize-casts`); repeat `--pass` for multiple passes.
-
-`--pass` is required; unsupported names fail fast. Discovery helpers:
-
-- `bun fuzz compare-pass --list-passes`
-- `bun fuzz compare-pass --list-failure-classes`
-
-Replay helpers:
-
-- `--replay-failures-from <dir>` reloads `cases.jsonl` and saved inputs from a prior compare run.
-- `--failure-class <id>` and `--case-index <n>` narrow replay.
-
-Concurrency and execution invariants:
-
-- `--jobs <n|auto>` defaults to `1`; `auto` uses runtime parallelism.
-- `--jobs >1` requires `--starshine-bin` so workers reuse a prebuilt native Starshine binary (preventing concurrent `moon run src/cmd` invocations).
-- `--list-passes` and `--list-failure-classes` are metadata-only entrypoints (they are independent of compare-run configuration like `--count`, `--out-dir`, and `--jobs`).
-
-Use compare-pass for optimizer parity signoff or failure-replay workflows, not broad fuzz-suite coverage.
+Use compare-pass for optimizer parity signoff or failure-replay workflows, not broad fuzz-suite coverage. The detailed command, generator, normalization, failure-class, replay, and `--jobs` contract now lives in [`pass-fuzz-compare.md`](pass-fuzz-compare.md); keep this page focused on the ordinary `src/fuzz` runner and wrapper split.
 
 ## Maintenance Guidance
 
