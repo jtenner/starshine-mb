@@ -2556,7 +2556,7 @@ test "simplify-globals-optimizing keeps self guards with else arms" {
 }
 
 ///|
-test "simplify-globals-optimizing keeps self guards through select value flow" {
+test "simplify-globals-optimizing removes pure select condition self guards" {
   let optimized = sgo_test_run(
     (
       #|(module
@@ -2576,12 +2576,67 @@ test "simplify-globals-optimizing keeps self guards through select value flow" {
 
   @debug.assert_eq(
     try! sgo_test_defined_global_type(optimized, 0),
-    @lib.GlobalType::new(@lib.ValType::i32(), true),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
   )
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("select"), msg=pretty)
-  assert_true(pretty.contains("global.set"), msg=pretty)
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes pure select first-value self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i32.const 1
+      #|    i32.const 0
+      #|    select
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes pure select second-value self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    global.get $guard
+      #|    i32.const 1
+      #|    select
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
 }
 
 ///|
@@ -2609,6 +2664,335 @@ test "simplify-globals-optimizing keeps self guards through trapping memory load
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.get"), msg=pretty)
   assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes side-effecting safe condition self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    i32.const 1
+      #|    local.tee $tmp
+      #|    i32.const 2
+      #|    i32.load
+      #|    global.get $guard
+      #|    i32.const 1337
+      #|    i32.add
+      #|    select
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes side-effecting safe select value self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    global.get $guard
+      #|    i32.const 1337
+      #|    i32.add
+      #|    i32.const 1
+      #|    local.tee $tmp
+      #|    i32.const 2
+      #|    i32.load
+      #|    select
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes side-effecting safe second select value self guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    i32.const 1
+      #|    local.tee $tmp
+      #|    global.get $guard
+      #|    i32.const 1337
+      #|    i32.add
+      #|    i32.const 2
+      #|    i32.load
+      #|    select
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes side-effecting safe select chains through extra pure ops" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    i32.const 1
+      #|    local.tee $tmp
+      #|    i32.const 2
+      #|    i32.load
+      #|    global.get $guard
+      #|    i32.const 1337
+      #|    i32.add
+      #|    i32.const 7
+      #|    i32.xor
+      #|    select
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes side-effecting safe second-value select chains through extra pure ops" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    i32.const 1
+      #|    local.tee $tmp
+      #|    global.get $guard
+      #|    i32.const 1337
+      #|    i32.add
+      #|    i32.const 7
+      #|    i32.xor
+      #|    i32.const 2
+      #|    i32.load
+      #|    select
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps conditions with multiple same-global reads" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    global.get $guard
+      #|    i32.add
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps global-derived local tees after pure flow" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    global.get $guard
+      #|    i32.const 1
+      #|    i32.add
+      #|    local.tee $tmp
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm value flow with independent call condition" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "foo" (func $foo (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $foo
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps nested-if conditions steered by the global" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "foo" (func $foo (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    if (result i32)
+      #|      call $foo
+      #|    else
+      #|      i32.const 1
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps side-effecting conditions steered by the global" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i32.load
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
   assert_true(pretty.contains("global.set"), msg=pretty)
 }
 

@@ -560,6 +560,14 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-20] binaryen | SGO parity matrix and safe condition slice
+
+- Added [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md) to separate the valid v0.1.0 supported-surface signoff from incomplete full Binaryen `SimplifyGlobals.cpp` breadth and to classify implemented, partial, missing, intentionally conservative, and unknown SGO families.
+- Updated the SGO dossier pages so `[SGO]003` is active again due to the product goal changing toward full Binaryen breadth, not because the earlier direct/nested/late-tail signoff was invalid.
+- Recorded the first reopened breadth slices: pure const/`select` self-guards plus side-effecting-but-safe `read-only-to-write` conditions from the official-style `local.tee` / `i32.load` / `global.get + const` / `select` / `i32.eqz` family, where the actual `global.get` only flows to the final branch decision in three select positions and the neighboring trapping-load negative remains preserved.
+- Updated the slice after the FlowScanner follow-up so Starshine now uses a conservative stack/value-flow scanner for independent `local.tee` / `i32.load` plus extra non-trapping pure ops, with guardrails for tainted `local.tee`, tainted loads, and multiple same-global reads in one condition.
+- Added the next source-backed FlowScanner slice for the nested `if (result i32)` arm-flow positive where an independent zero-operand call decides the nested arm and the candidate global appears only in a value arm; the neighboring global-steered nested-call negative remains preserved.
+- Grounded the change in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), and [`../../agent-todo.md`](../../agent-todo.md).
 
 ## [2026-05-20] wast | GC aggregate initializer boundary
 

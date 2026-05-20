@@ -220,12 +220,13 @@ Execution rules for all DAE slices
 
 ### SGO - Follow-Up Improvements
 
-- [SGO]003 - Optional Binaryen `SimplifyGlobals.cpp` Breadth
-  - Status: deferred to v0.1.1; not a v0.1.0 blocker after `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
-  - Goal: broaden the signed-off SGO supported surface only when a targeted need appears, without reopening the accepted v0.1.0 direct/nested/late-tail signoff by default.
-  - Resume when: a new semantic mismatch, wasm validation failure, targeted artifact/code-size need, or string/GC/refinalization requirement points at SGO breadth.
-  - Candidate families: side-effecting-but-safe `read-only-to-write` value-flow positives, broader same-as-init expression matching beyond direct literal / `ref.null` / `ref.func`, broader runtime linear-trace propagation, and additional GC/refinalization-safe replacement surfaces.
-  - Deliverables when resumed: add focused shape tests first, rerun direct `--pass simplify-globals-optimizing` oracle fuzz for the new family, and update the SGO wiki pages with the exact accepted subset.
+- [SGO]003 - Binaryen `SimplifyGlobals.cpp` Breadth
+  - Status: active again for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
+  - Goal: broaden SGO toward full Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
+  - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
+  - Landed first slices: source-backed `read-only-to-write` value-flow positives through pure const/`select` self-guards and side-effecting-but-safe official-style `local.tee` / `i32.load` / `global.get + const` / `select` / `i32.eqz`, where the actual `global.get` only flows to the outer branch decision, including three select positions; the current conservative stack/value-flow scanner now also admits extra non-trapping pure ops between the actual `global.get` and final branch, plus a narrow nested-`if (result i32)` arm-flow positive when an independent zero-operand call is the nested condition, while preserving focused negatives for trapping global-derived loads, global-derived `local.tee`, multiple same-global reads in one condition, and nested conditions steered by the global.
+  - Remaining candidate families: broader safe-side-effect `read-only-to-write` positives beyond the local stack scanner (broader nested `if` arms, calls/effects whose independence needs stack proof, broader loads/tables, and Binaryen's recursive nested-pattern carveout), broader same-as-init expression matching beyond direct literal / `ref.null` / `ref.func`, broader runtime linear-trace propagation, shared plain `simplify-globals` / `propagate-globals-globally` engine exposure, and additional GC/refinalization-safe replacement surfaces.
+  - Deliverables for each next slice: add focused shape tests first, confirm the expected failure, implement a minimal safe subset, rerun direct `--pass simplify-globals-optimizing` oracle fuzz when nontrivial, and update the SGO wiki pages with the exact accepted subset.
 
 - [SGO]004 - Nested Cleanup Runtime And Exact-Scheduler Experiment
   - Status: deferred to v0.1.1; not a v0.1.0 blocker because the accepted nested lane is valid, smaller than Binaryen on the direct artifact, and inside the direct pass-local runtime floor.

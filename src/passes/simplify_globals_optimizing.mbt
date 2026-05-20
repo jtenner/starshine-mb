@@ -584,6 +584,7 @@ fn sgo_count_read_only_to_write_instrs(
       }
       @lib.Loop(_, body) => sgo_count_read_only_to_write_expr(body, safe_reads)
       @lib.If(_, then_body, else_body) => {
+        sgo_count_nested_if_arm_flow_read(instrs, pos, safe_reads)
         sgo_count_read_only_to_write_instrs(then_body, safe_reads)
         match else_body {
           Some(body) => sgo_count_read_only_to_write_instrs(body, safe_reads)
@@ -610,11 +611,486 @@ fn sgo_if_is_read_only_to_write_set(
 }
 
 ///|
+fn sgo_flow_pop(stack : Array[Bool]) -> Bool? {
+  stack.pop()
+}
+
+///|
+fn sgo_flow_push_clean(stack : Array[Bool]) -> Unit {
+  stack.push(false)
+}
+
+///|
+fn sgo_flow_push_tainted(stack : Array[Bool]) -> Unit {
+  stack.push(true)
+}
+
+///|
+fn sgo_flow_apply_unary(stack : Array[Bool]) -> Bool {
+  match sgo_flow_pop(stack) {
+    Some(tainted) => {
+      stack.push(tainted)
+      true
+    }
+    None => false
+  }
+}
+
+///|
+fn sgo_flow_apply_binary(stack : Array[Bool]) -> Bool {
+  match (sgo_flow_pop(stack), sgo_flow_pop(stack)) {
+    (Some(rhs), Some(lhs)) => {
+      stack.push(lhs || rhs)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn sgo_flow_apply_select(stack : Array[Bool]) -> Bool {
+  match (sgo_flow_pop(stack), sgo_flow_pop(stack), sgo_flow_pop(stack)) {
+    (Some(condition), Some(second), Some(first)) => {
+      stack.push(first || second || condition)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I32Eqz
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.I64Eqz
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_flow_arm_result_taint_and_reads(
+  instrs : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+) -> (Bool, Int, Bool) {
+  let stack : Array[Bool] = []
+  let mut reads = 0
+  for instr in instrs {
+    if sgo_const_instr(instr) != None {
+      sgo_flow_push_clean(stack)
+      continue
+    }
+    match instr {
+      @lib.GlobalGet(get_idx) => {
+        if get_idx == idx {
+          reads += 1
+          if reads > 1 {
+            return (false, reads, false)
+          }
+          sgo_flow_push_tainted(stack)
+        } else {
+          sgo_flow_push_clean(stack)
+        }
+        continue
+      }
+      @lib.LocalGet(_) => {
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.Select(_) => {
+        if !sgo_flow_apply_select(stack) {
+          return (false, reads, false)
+        }
+        continue
+      }
+      _ => {
+        if sgo_is_flowscanner_unary_pure_instr(instr) {
+          if !sgo_flow_apply_unary(stack) {
+            return (false, reads, false)
+          }
+          continue
+        }
+        if sgo_is_flowscanner_binary_pure_instr(instr) {
+          if !sgo_flow_apply_binary(stack) {
+            return (false, reads, false)
+          }
+          continue
+        }
+        return (false, reads, false)
+      }
+    }
+  }
+  match stack {
+    [tainted] => (true, reads, tainted)
+    _ => (false, reads, false)
+  }
+}
+
+///|
+fn sgo_count_nested_if_arm_flow_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  if pos != 1 || pos + 1 >= instrs.length() {
+    return
+  }
+  match instrs[0] {
+    @lib.Call(_) => ()
+    _ => return
+  }
+  match instrs[pos] {
+    @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
+      let idx = match instrs[pos + 1] {
+        @lib.If(_, outer_then, None) =>
+          match sgo_single_const_global_set_idx(outer_then) {
+            Some(set_idx) => set_idx
+            None => return
+          }
+        _ => return
+      }
+      let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
+        then_body, idx,
+      )
+      let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
+        else_body, idx,
+      )
+      if then_ok &&
+        else_ok &&
+        then_reads + else_reads == 1 &&
+        (then_tainted || else_tainted) {
+        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_read_only_to_write_flow_scanner_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let stack : Array[Bool] = []
+  for scan = 0; scan < instrs.length(); scan = scan + 1 {
+    let instr = instrs[scan]
+    if scan == pos {
+      match instr {
+        @lib.GlobalGet(get_idx) if get_idx == idx => {
+          sgo_flow_push_tainted(stack)
+          continue
+        }
+        _ => return false
+      }
+    }
+    if sgo_const_instr(instr) != None {
+      sgo_flow_push_clean(stack)
+      continue
+    }
+    match instr {
+      @lib.GlobalGet(get_idx) => {
+        if get_idx == idx {
+          return false
+        }
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.LocalGet(_) => {
+        sgo_flow_push_clean(stack)
+        continue
+      }
+      @lib.LocalTee(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return false
+        }
+      @lib.I32Load(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return false
+        }
+      @lib.Drop =>
+        match sgo_flow_pop(stack) {
+          Some(false) => continue
+          _ => return false
+        }
+      @lib.Select(_) => {
+        if !sgo_flow_apply_select(stack) {
+          return false
+        }
+        continue
+      }
+      @lib.If(_, _, _) =>
+        match sgo_flow_pop(stack) {
+          Some(true) => return sgo_if_is_read_only_to_write_set(instr, idx)
+          Some(false) => return false
+          None => return false
+        }
+      _ => {
+        if sgo_is_flowscanner_unary_pure_instr(instr) {
+          if !sgo_flow_apply_unary(stack) {
+            return false
+          }
+          continue
+        }
+        if sgo_is_flowscanner_binary_pure_instr(instr) {
+          if !sgo_flow_apply_binary(stack) {
+            return false
+          }
+          continue
+        }
+        return false
+      }
+    }
+  }
+  false
+}
+
+///|
+fn sgo_read_only_to_write_pure_select_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let global_is_condition = pos >= 2 &&
+    pos + 2 < instrs.length() &&
+    sgo_const_instr(instrs[pos - 2]) != None &&
+    sgo_const_instr(instrs[pos - 1]) != None &&
+    instrs[pos + 1] == @lib.Instruction::select() &&
+    sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
+  let global_is_first_value = pos + 4 < instrs.length() &&
+    sgo_const_instr(instrs[pos + 1]) != None &&
+    sgo_const_instr(instrs[pos + 2]) != None &&
+    instrs[pos + 3] == @lib.Instruction::select() &&
+    sgo_if_is_read_only_to_write_set(instrs[pos + 4], idx)
+  let global_is_second_value = pos >= 1 &&
+    pos + 3 < instrs.length() &&
+    sgo_const_instr(instrs[pos - 1]) != None &&
+    sgo_const_instr(instrs[pos + 1]) != None &&
+    instrs[pos + 2] == @lib.Instruction::select() &&
+    sgo_if_is_read_only_to_write_set(instrs[pos + 3], idx)
+  global_is_condition || global_is_first_value || global_is_second_value
+}
+
+///|
+fn sgo_read_only_to_write_select_condition_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  if pos < 4 || pos + 5 >= instrs.length() {
+    return false
+  }
+  if sgo_const_instr(instrs[pos - 4]) == None {
+    return false
+  }
+  match instrs[pos - 3] {
+    @lib.LocalTee(_) => ()
+    _ => return false
+  }
+  if sgo_const_instr(instrs[pos - 2]) == None {
+    return false
+  }
+  match instrs[pos - 1] {
+    @lib.I32Load(_) => ()
+    _ => return false
+  }
+  sgo_const_instr(instrs[pos + 1]) != None &&
+  instrs[pos + 2] == @lib.Instruction::i32_add() &&
+  instrs[pos + 3] == @lib.Instruction::select() &&
+  instrs[pos + 4] == @lib.Instruction::i32_eqz() &&
+  sgo_if_is_read_only_to_write_set(instrs[pos + 5], idx)
+}
+
+///|
+fn sgo_read_only_to_write_select_value_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  if pos + 9 >= instrs.length() {
+    return false
+  }
+  if sgo_const_instr(instrs[pos + 1]) == None ||
+    instrs[pos + 2] != @lib.Instruction::i32_add() ||
+    sgo_const_instr(instrs[pos + 3]) == None {
+    return false
+  }
+  match instrs[pos + 4] {
+    @lib.LocalTee(_) => ()
+    _ => return false
+  }
+  if sgo_const_instr(instrs[pos + 5]) == None {
+    return false
+  }
+  match instrs[pos + 6] {
+    @lib.I32Load(_) => ()
+    _ => return false
+  }
+  instrs[pos + 7] == @lib.Instruction::select() &&
+  instrs[pos + 8] == @lib.Instruction::i32_eqz() &&
+  sgo_if_is_read_only_to_write_set(instrs[pos + 9], idx)
+}
+
+///|
+fn sgo_read_only_to_write_select_second_value_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  if pos < 2 || pos + 7 >= instrs.length() {
+    return false
+  }
+  if sgo_const_instr(instrs[pos - 2]) == None {
+    return false
+  }
+  match instrs[pos - 1] {
+    @lib.LocalTee(_) => ()
+    _ => return false
+  }
+  if sgo_const_instr(instrs[pos + 1]) == None ||
+    instrs[pos + 2] != @lib.Instruction::i32_add() ||
+    sgo_const_instr(instrs[pos + 3]) == None {
+    return false
+  }
+  match instrs[pos + 4] {
+    @lib.I32Load(_) => ()
+    _ => return false
+  }
+  instrs[pos + 5] == @lib.Instruction::select() &&
+  instrs[pos + 6] == @lib.Instruction::i32_eqz() &&
+  sgo_if_is_read_only_to_write_set(instrs[pos + 7], idx)
+}
+
+///|
+fn sgo_read_only_to_write_select_side_effect_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  sgo_read_only_to_write_select_condition_read_at(instrs, pos, idx) ||
+  sgo_read_only_to_write_select_value_read_at(instrs, pos, idx) ||
+  sgo_read_only_to_write_select_second_value_read_at(instrs, pos, idx)
+}
+
+///|
 fn sgo_read_only_to_write_read_at(
   instrs : Array[@lib.Instruction],
   pos : Int,
   idx : @lib.GlobalIdx,
 ) -> Bool {
+  sgo_read_only_to_write_flow_scanner_read_at(instrs, pos, idx) ||
   sgo_is_exact_if_return_set(instrs, pos, idx) ||
   sgo_is_pure_condition_if_return_set(instrs, pos, idx) ||
   (
@@ -645,7 +1121,9 @@ fn sgo_read_only_to_write_read_at(
     ) &&
     sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
   ) ||
-  sgo_read_only_to_write_pure_condition_read_at(instrs, pos, idx)
+  sgo_read_only_to_write_pure_condition_read_at(instrs, pos, idx) ||
+  sgo_read_only_to_write_pure_select_read_at(instrs, pos, idx) ||
+  sgo_read_only_to_write_select_side_effect_read_at(instrs, pos, idx)
 }
 
 ///|
