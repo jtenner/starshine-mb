@@ -8961,6 +8961,35 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           idx += 1
           continue
         }
+        (@lib.LocalTee(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(
+            lhs, rhs,
+          ) => {
+          ignore(out.pop())
+          out.push(@lib.Instruction::local_set(lhs))
+          idx += 1
+          continue
+        }
+        _ => ()
+      }
+    }
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.LocalSet(lhs), @lib.LocalGet(rhs), drop) if dae_local_idx_equal(
+            lhs, rhs,
+          ) &&
+          drop == @lib.Instruction::drop() => {
+          out.push(@lib.Instruction::local_set(lhs))
+          idx += 3
+          continue
+        }
+        (@lib.LocalSet(lhs), @lib.LocalGet(mid), @lib.LocalSet(rhs)) if dae_local_idx_equal(
+            lhs, mid,
+          ) &&
+          dae_local_idx_equal(lhs, rhs) => {
+          out.push(@lib.Instruction::local_set(lhs))
+          idx += 3
+          continue
+        }
         _ => ()
       }
     }

@@ -922,6 +922,31 @@ test "dae raw cleanup strips local and global self assignments and tees" {
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
     @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
   ]
+  let same_global_set_read_drop = [
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ]
+  let same_global_set_read_drop_cleaned = [
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+  ]
+  let same_global_set_read_set = [
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+  ]
+  let same_global_set_read_set_cleaned = [
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+  ]
+  let different_global_set_read = [
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+  ]
   let same_local_set = [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
@@ -971,8 +996,38 @@ test "dae raw cleanup strips local and global self assignments and tees" {
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
   ]
-  let different_local_set_read = [
+  let same_local_set_read_drop = [
     @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::drop(),
+  ]
+  let same_local_set_read_drop_cleaned = [
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  ]
+  let same_local_set_read_set = [
+    @lib.Instruction::i32_const(@lib.I32(6)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  ]
+  let same_local_set_read_set_cleaned = [
+    @lib.Instruction::i32_const(@lib.I32(6)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  ]
+  let effect_local_set_read_drop = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::drop(),
+  ]
+  let effect_local_set_read_drop_cleaned = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  ]
+  let different_local_set_read = [
+    @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
   ]
@@ -1012,6 +1067,12 @@ test "dae raw cleanup strips local and global self assignments and tees" {
               ..same_local_tee_used,
               ..same_local_set_read,
               ..same_local_tee_set_from_const,
+              ..same_local_set_read_drop,
+              ..same_local_set_read_set,
+              ..effect_local_set_read_drop,
+              ..same_global_set_read_drop,
+              ..same_global_set_read_set,
+              ..different_global_set_read,
               ..different_local_set_read,
               ..different_global_set,
               ..different_local_set,
@@ -1033,6 +1094,12 @@ test "dae raw cleanup strips local and global self assignments and tees" {
           ..same_local_tee_used_cleaned,
           ..same_local_set_read_cleaned,
           ..same_local_tee_set_from_const_cleaned,
+          ..same_local_set_read_drop_cleaned,
+          ..same_local_set_read_set_cleaned,
+          ..effect_local_set_read_drop_cleaned,
+          ..same_global_set_read_drop_cleaned,
+          ..same_global_set_read_set_cleaned,
+          ..different_global_set_read,
           ..different_local_set_read,
           ..different_global_set,
           ..different_local_set,
