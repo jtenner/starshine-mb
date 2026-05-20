@@ -113,6 +113,14 @@ pub fn validate_invalid_spec_seed_registry() -> Array[ValidateInvalidSpecSeedSpe
 
 pub fn validate_invalid_spec_seed_run_config(String) -> Result[ValidateInvalidSpecSeedRunConfig, String]
 
+pub fn validate_invalid_spec_seed_scan_directory(String) -> Result[Array[ValidateInvalidDynamicSpecSeed], String]
+
+pub fn validate_invalid_spec_seed_scan_paths(Array[String]) -> Result[Array[ValidateInvalidDynamicSpecSeed], String]
+
+pub fn validate_invalid_spec_seed_scan_source(String, String) -> Result[Array[ValidateInvalidDynamicSpecSeed], String]
+
+pub fn validate_invalid_spec_seed_select(Array[ValidateInvalidDynamicSpecSeed], path_filter? : String, assertion_kind_filter? : ValidateInvalidTextAssertionKind?, occurrence_filter? : Int?, feature_family_filter? : String) -> Array[ValidateInvalidDynamicSpecSeed]
+
 pub fn validate_invalid_text_registry() -> Array[ValidateInvalidTextStrategySpec]
 
 pub fn validate_invalid_text_run_config(String) -> Result[ValidateInvalidTextRunConfig, String]
@@ -375,6 +383,16 @@ pub struct ValidateInvalidBinaryStrategyStats {
   variant_mutated : Int
   variant_rejected : Int
   rejected_exact_issue : Int
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidDynamicSpecSeed {
+  stable_id : String
+  path : String
+  feature_family : String
+  assertion_kind : ValidateInvalidTextAssertionKind
+  assertion_occurrence : Int
+  expected_stage : ValidateInvalidTextStage
+  assertion_source : String
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidSpecSeedFuzzStats {

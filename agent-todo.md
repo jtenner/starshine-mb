@@ -809,6 +809,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Exit Criteria: text invalid fuzz can discover new parser/lowerer/validator failures from generated valid text, not just replay known inline strings.
 
 - [FUZ]1024 - Dynamic Spec-Seed Sampler
+  - Status: IN PROGRESS (cron 23, 2026-05-20) - dynamic scanner and selector API landed; next resume should wire dynamic scanned inventories into CI/stress spec-seed sampling floors or document a deliberate library-only boundary.
   - Goal: sample committed `tests/spec/*.wast` assertions by file, assertion kind, occurrence, and feature family.
   - Why: the current spec-seed registry is curated and fixed. CI/stress should be able to cover more official malformed/invalid/unlinkable assertions without hand-adding every case.
   - Deliverables: add a scanner/registry builder for selected spec files; classify `assert_malformed`, `assert_invalid`, and `assert_unlinkable`; keep curated smoke seeds; add CI/stress floors by assertion kind and optionally by file/family.

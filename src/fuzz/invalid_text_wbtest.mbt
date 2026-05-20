@@ -872,6 +872,82 @@ test "eleventh incompatible import type spec-seed case stays valid before link" 
 }
 
 ///|
+test "dynamic spec-seed source scanner classifies assertion kind occurrence and feature family" {
+  let source =
+    #|(module)
+    #|(assert_malformed (module quote "\00") "bad string")
+    #|(assert_invalid (module (func (result i32))) "type mismatch")
+    #|(assert_unlinkable (module (import "missing" "f" (func))) "unknown import")
+    #|(assert_invalid (module (func (i32.const 1) (i64.add))) "type mismatch")
+  let scanned = match
+    validate_invalid_spec_seed_scan_source(
+      "tests/spec/example-family.wast", source,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(scanned.length(), 4)
+  @debug.assert_eq(scanned.map(fn(item) { item.stable_id }), [
+    "example-family-malformed-1", "example-family-invalid-1", "example-family-invalid-2",
+    "example-family-unlinkable-1",
+  ])
+  @debug.assert_eq(scanned.map(fn(item) { item.feature_family }), [
+    "example-family", "example-family", "example-family", "example-family",
+  ])
+  @debug.assert_eq(scanned.map(fn(item) { item.assertion_occurrence }), [
+    0, 0, 1, 0,
+  ])
+  @debug.assert_eq(
+    scanned.map(fn(item) {
+      validate_invalid_text_stage_name(item.expected_stage)
+    }),
+    [
+      "parse-or-lower-rejected", "validate-rejected", "validate-rejected", "valid-before-link",
+    ],
+  )
+}
+
+///|
+test "dynamic spec-seed directory scanner discovers non-curated committed spec assertions" {
+  let scanned = match validate_invalid_spec_seed_scan_directory("tests/spec") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(scanned.length() > validate_invalid_spec_seed_registry().length())
+  assert_true(
+    scanned.any(fn(item) {
+      item.stable_id == "token-malformed-1" &&
+      item.path == "tests/spec/token.wast"
+    }),
+  )
+}
+
+///|
+test "dynamic spec-seed sampler filters scanned assertions by file kind and occurrence" {
+  let source =
+    #|(assert_malformed (module quote "\00") "bad string")
+    #|(assert_invalid (module (func (result i32))) "type mismatch")
+    #|(assert_invalid (module (func (i32.const 1) (i64.add))) "type mismatch")
+  let scanned = match
+    validate_invalid_spec_seed_scan_source(
+      "tests/spec/filter-family.wast", source,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let selected = validate_invalid_spec_seed_select(
+    scanned,
+    path_filter="tests/spec/filter-family.wast",
+    assertion_kind_filter=Some(InvalidTextAssertion),
+    occurrence_filter=Some(1),
+    feature_family_filter="filter-family",
+  )
+  @debug.assert_eq(selected.length(), 1)
+  @debug.assert_eq(selected[0].stable_id, "filter-family-invalid-2")
+  @debug.assert_eq(selected[0].assertion_source.contains("i64.add"), true)
+}
+
+///|
 test "run_validate_invalid_text_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_text_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v

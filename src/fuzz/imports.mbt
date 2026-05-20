@@ -24,7 +24,7 @@ using @validate {
 }
 
 ///|
-using @fs {create_dir, read_file_sync, write_file_bytes}
+using @fs {create_dir, list_files_recursive, read_file_sync, write_file_bytes}
 
 ///|
 using @wast {

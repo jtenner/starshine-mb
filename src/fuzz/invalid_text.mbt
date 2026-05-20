@@ -1205,6 +1205,207 @@ pub struct ValidateInvalidSpecSeedFuzzStats {
 } derive(Eq, Debug)
 
 ///|
+pub struct ValidateInvalidDynamicSpecSeed {
+  stable_id : String
+  path : String
+  feature_family : String
+  assertion_kind : ValidateInvalidTextAssertionKind
+  assertion_occurrence : Int
+  expected_stage : ValidateInvalidTextStage
+  assertion_source : String
+} derive(Eq, Debug)
+
+///|
+fn validate_invalid_spec_seed_kind_slug(
+  kind : ValidateInvalidTextAssertionKind,
+) -> String {
+  match kind {
+    MalformedTextAssertion => "malformed"
+    InvalidTextAssertion => "invalid"
+    UnlinkableTextAssertion => "unlinkable"
+  }
+}
+
+///|
+fn validate_invalid_spec_seed_expected_stage(
+  kind : ValidateInvalidTextAssertionKind,
+) -> ValidateInvalidTextStage {
+  match kind {
+    MalformedTextAssertion => ParseOrLowerRejectedStage
+    InvalidTextAssertion => ValidateRejectedStage
+    UnlinkableTextAssertion => ValidBeforeLinkStage
+  }
+}
+
+///|
+fn validate_invalid_spec_seed_feature_family(path : String) -> String {
+  let mut start = 0
+  let mut i = 0
+  while i < path.length() {
+    if path[i] == '/' || path[i] == '\\' {
+      start = i + 1
+    }
+    i += 1
+  }
+  let mut end = path.length()
+  if end >= 5 &&
+    path[end - 5] == '.' &&
+    path[end - 4] == 'w' &&
+    path[end - 3] == 'a' &&
+    path[end - 2] == 's' &&
+    path[end - 1] == 't' {
+    end -= 5
+  }
+  if end <= start {
+    return path
+  }
+  validate_invalid_text_ascii_lower(
+    validate_invalid_text_slice(path, start, end),
+  )
+}
+
+///|
+fn validate_invalid_spec_seed_push_kind(
+  out : Array[ValidateInvalidDynamicSpecSeed],
+  source : String,
+  path : String,
+  feature_family : String,
+  kind : ValidateInvalidTextAssertionKind,
+) -> Unit {
+  let kind_slug = validate_invalid_spec_seed_kind_slug(kind)
+  let expected_stage = validate_invalid_spec_seed_expected_stage(kind)
+  let mut occurrence = 0
+  while true {
+    match
+      validate_invalid_text_extract_assertion_source_from_spec(
+        source, path, kind, occurrence,
+      ) {
+      Ok(assertion_source) => {
+        out.push({
+          stable_id: "\{feature_family}-\{kind_slug}-\{occurrence + 1}",
+          path,
+          feature_family,
+          assertion_kind: kind,
+          assertion_occurrence: occurrence,
+          expected_stage,
+          assertion_source,
+        })
+        occurrence += 1
+      }
+      Err(_) => break
+    }
+  }
+}
+
+///|
+pub fn validate_invalid_spec_seed_scan_source(
+  path : String,
+  source : String,
+) -> Result[Array[ValidateInvalidDynamicSpecSeed], String] {
+  let feature_family = validate_invalid_spec_seed_feature_family(path)
+  let out : Array[ValidateInvalidDynamicSpecSeed] = []
+  validate_invalid_spec_seed_push_kind(
+    out,
+    source,
+    path,
+    feature_family,
+    MalformedTextAssertion,
+  )
+  validate_invalid_spec_seed_push_kind(
+    out,
+    source,
+    path,
+    feature_family,
+    InvalidTextAssertion,
+  )
+  validate_invalid_spec_seed_push_kind(
+    out,
+    source,
+    path,
+    feature_family,
+    UnlinkableTextAssertion,
+  )
+  Ok(out)
+}
+
+///|
+fn validate_invalid_spec_seed_is_wast_path(path : String) -> Bool {
+  let len = path.length()
+  len >= 5 &&
+  path[len - 5] == '.' &&
+  path[len - 4] == 'w' &&
+  path[len - 3] == 'a' &&
+  path[len - 2] == 's' &&
+  path[len - 1] == 't'
+}
+
+///|
+pub fn validate_invalid_spec_seed_scan_paths(
+  paths : Array[String],
+) -> Result[Array[ValidateInvalidDynamicSpecSeed], String] {
+  let out : Array[ValidateInvalidDynamicSpecSeed] = []
+  for path in paths {
+    if !validate_invalid_spec_seed_is_wast_path(path) {
+      continue
+    }
+    let source = match read_file_sync(path) {
+      Ok(v) => v
+      Err(msg) => return Err(msg)
+    }
+    let scanned = match validate_invalid_spec_seed_scan_source(path, source) {
+      Ok(v) => v
+      Err(msg) => return Err(msg)
+    }
+    for item in scanned {
+      out.push(item)
+    }
+  }
+  Ok(out)
+}
+
+///|
+pub fn validate_invalid_spec_seed_scan_directory(
+  root : String,
+) -> Result[Array[ValidateInvalidDynamicSpecSeed], String] {
+  let paths = match list_files_recursive(root) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  validate_invalid_spec_seed_scan_paths(paths)
+}
+
+///|
+pub fn validate_invalid_spec_seed_select(
+  scanned : Array[ValidateInvalidDynamicSpecSeed],
+  path_filter? : String = "",
+  assertion_kind_filter? : ValidateInvalidTextAssertionKind? = None,
+  occurrence_filter? : Int? = None,
+  feature_family_filter? : String = "",
+) -> Array[ValidateInvalidDynamicSpecSeed] {
+  scanned.filter(fn(item) {
+    if path_filter.length() > 0 && item.path != path_filter {
+      return false
+    }
+    match assertion_kind_filter {
+      Some(kind) => if item.assertion_kind != kind { return false }
+      None => ()
+    }
+    match occurrence_filter {
+      Some(occurrence) =>
+        if item.assertion_occurrence != occurrence {
+          return false
+        }
+      None => ()
+    }
+    if feature_family_filter.length() > 0 &&
+      item.feature_family != feature_family_filter {
+      return false
+    }
+    true
+  })
+}
+
+///|
 fn validate_invalid_spec_seed_spec(
   id : ValidateInvalidSpecSeedId,
   stable_id : String,
