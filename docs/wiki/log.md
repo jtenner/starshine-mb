@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | trace benchmark gate backlink hygiene
+
+- During the post-update whole-wiki health pass, searched trace benchmark, `validate_trace`, `phase_totals`, `helper_totals`, `hotspots`, and raw-source-family references across validation, tooling, index, and raw pages.
+- Updated [`tooling/validation-gates.md`](tooling/validation-gates.md) so the command matrix includes `--list-corpora`, the trace benchmark section points at the new [`raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md), and the page's source list cites the refreshed corpus/test/wrapper evidence.
+
 ## [2026-05-20] validation | trace benchmark maintenance contract
 
 - Added [`raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md) after checking the current MoonBit `moon run` command shape, Starshine `src/validate_trace` corpus builder and tests, validator trace totals, Bun wrapper, wrapper command tests, and the archived March baseline.

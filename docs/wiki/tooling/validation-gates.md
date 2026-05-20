@@ -6,6 +6,7 @@ sources:
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
   - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
   - ../raw/moonbit/2026-05-13-moon-cli-validation-docs.md
+  - ../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md
   - ../../README.md
   - ../../../AGENTS.md
   - ../../../package.json
@@ -52,7 +53,7 @@ The important maintenance rule is: **do not blur tool capability with repo polic
 | `bun validate full [--profile ci] [--seed <seed>] [--target wasm-gc]` | Runs the repo's local CI floor: `info`, `fmt`, `check`, `test`, then all fuzz suites through [`runFuzz(...)`](../../../scripts/lib/fuzz-task.ts). | Defaults: profile `ci`, target `wasm-gc`, random/time-derived fuzz seed when omitted, `moon` from `MOON_BIN` or `moon`. | Release-like local gate, broad validation before publishing, and high-risk behavior changes. |
 | `bun validate coverage [--top n] [--baseline path] [--update-baseline]` | Parses `moon coverage analyze`, reports uncovered-line totals, and optionally fails CI on uncovered-line regression versus a simple baseline file. | Default top count is `10`; no baseline means report-only. | Coverage reviews and CI coverage-regression checks. |
 | `bun validate readme-api-sync ...` | Verifies README/API synchronization through [`scripts/lib/readme-api-sync`](../../../scripts/lib/readme-api-sync.ts). | Arguments are owned by the readme-sync parser. | Public API or README surface changes. |
-| `bun validate trace-benchmark [--repeat n] [--corpus name] [--target target]` | Runs `src/validate_trace` benchmark corpora and emits trace summaries; the wiki stores durable corpus totals separately from machine wall time. | Default target `wasm-gc`; `--list-corpora` lists available corpora. | Validator trace performance work. |
+| `bun validate trace-benchmark [--repeat n] [--corpus name] [--target target] [--list-corpora]` | Runs `src/validate_trace` benchmark corpora and emits trace summaries; the wiki stores durable corpus totals separately from machine wall time. | Default target `wasm-gc`; repeated `--corpus` filters and `--list-corpora` lists available corpora. | Validator trace performance work. |
 | `moon prove src/validate_proof` | Required formal-proof gate for the proof helper package, separate from ordinary validation. | Requires a configured MoonBit proof toolchain and solvers. | Changes to proved helper contracts or the validator proof kernel. |
 
 ## `bun validate full` Flow
@@ -117,7 +118,7 @@ In CI (`CI=true`), an increased uncovered-line count versus the baseline is fata
 moon run --target <target> src/validate_trace -- --repeat <n> --corpus <name> ...
 ```
 
-Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for durable corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines. Do not put raw local wall-time claims into long-lived docs unless the machine/environment and corpus are recorded.
+Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for durable corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines, and use the 2026-05-20 source refresh in [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md) for the current corpus/test/wrapper evidence. Do not put raw local wall-time claims into long-lived docs unless the machine/environment and corpus are recorded.
 
 ## Formal Proof Is A Separate Lane
 
@@ -152,6 +153,7 @@ Practical rules:
 ## Sources
 
 - MoonBit command-manual refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
+- Validation trace benchmark source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
 - Earlier MoonBit command-doc source bridge: [`../raw/moonbit/2026-05-13-moon-cli-validation-docs.md`](../raw/moonbit/2026-05-13-moon-cli-validation-docs.md)
 - Repo validation rules: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
 - Local validation orchestration: [`../../../scripts/validate.ts`](../../../scripts/validate.ts), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts)
