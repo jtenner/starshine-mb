@@ -280,6 +280,20 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
       @lib.HeapType::abs(@lib.AbsHeapType::i31()),
     ),
     @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(656)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::ref_cast(
+      false,
+      @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(657)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::ref_cast(
+      true,
+      @lib.HeapType::abs(@lib.AbsHeapType::any()),
+    ),
+    @lib.Instruction::drop(),
     @lib.Instruction::i32_const(@lib.I32(655)),
     @lib.Instruction::ref_i31(),
     @lib.Instruction::ref_cast(

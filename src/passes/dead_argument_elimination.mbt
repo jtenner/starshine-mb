@@ -8383,9 +8383,21 @@ fn dae_instr_is_const_safe_float_to_int_unary(
 }
 
 ///|
-fn dae_instr_is_i31_ref_cast(instr : @lib.Instruction) -> Bool {
+fn dae_heap_type_accepts_i31_ref(ht : @lib.HeapType) -> Bool {
+  match ht {
+    @lib.AbsHeapTypeHeapType(
+      @lib.I31AbsHeapType
+      | @lib.EqAbsHeapType
+      | @lib.AnyAbsHeapType
+    ) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_is_i31_success_ref_cast(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.RefCast(_, @lib.AbsHeapTypeHeapType(@lib.I31AbsHeapType)) => true
+    @lib.RefCast(_, ht) => dae_heap_type_accepts_i31_ref(ht)
     _ => false
   }
 }
@@ -8660,10 +8672,11 @@ fn dae_find_droppable_pure_stack_expr_start(
   }
   // Need marker 0 accepts any recognized pure/nontrapping value stack.
   // Need marker 1 accepts only a stack ending in ref.i31, which constructs a
-  // non-null i31 reference and makes i31.get/ref.as_non_null/ref.cast i31
-  // nontrapping. Need marker 2 accepts only a stack ending in ref.null, which
-  // makes nullable ref.cast nontrapping while still preserving null-trapping
-  // ref.as_non_null and non-nullable ref.cast.
+  // non-null i31 reference and makes i31.get/ref.as_non_null/ref.cast to
+  // i31 supertypes nontrapping. Need marker 2 accepts only a stack ending in
+  // ref.null, which makes nullable ref.cast nontrapping while still preserving
+  // null-trapping ref.as_non_null and non-nullable ref.cast. Need marker 3 is
+  // for nullable ref.cast targets that accept both null and ref.i31 roots.
   let needs : Array[Int] = [0]
   for start = out.length() - 1; start >= 0; start = start - 1 {
     let need = match needs.pop() {
@@ -8673,7 +8686,7 @@ fn dae_find_droppable_pure_stack_expr_start(
     if need == 1 {
       match out[start] {
         @lib.RefI31 => needs.push(0)
-        instr if dae_instr_is_i31_ref_cast(instr) => needs.push(1)
+        instr if dae_instr_is_i31_success_ref_cast(instr) => needs.push(1)
         _ => return None
       }
     } else if need == 2 {
@@ -8682,11 +8695,22 @@ fn dae_find_droppable_pure_stack_expr_start(
         instr if dae_instr_is_nullable_ref_cast(instr) => needs.push(2)
         _ => return None
       }
+    } else if need == 3 {
+      match out[start] {
+        @lib.RefNull(_) => ()
+        @lib.RefI31 => needs.push(0)
+        @lib.RefCast(true, ht) if dae_heap_type_accepts_i31_ref(ht) =>
+          needs.push(3)
+        instr if dae_instr_is_nullable_ref_cast(instr) => needs.push(2)
+        _ => return None
+      }
     } else {
       match out[start] {
         @lib.I31GetS | @lib.I31GetU => needs.push(1)
         @lib.RefAsNonNull => needs.push(1)
-        instr if dae_instr_is_i31_ref_cast(instr) => needs.push(1)
+        @lib.RefCast(true, ht) if dae_heap_type_accepts_i31_ref(ht) =>
+          needs.push(3)
+        instr if dae_instr_is_i31_success_ref_cast(instr) => needs.push(1)
         instr if dae_instr_is_nullable_ref_cast(instr) => needs.push(2)
         _ =>
           match dae_instr_dropped_pure_value_arity(out[start]) {
