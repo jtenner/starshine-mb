@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | archive fuzz-stack hardening plan
+
+- Archived the completed validator-fuzz hardening execution plan by moving the historical ledger from [`../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) into [`raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md), then repointed [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and the catalog summary so the live contract now cites the archive path instead of the old docs location.
+- Left a small forwarding stub at the old docs path for link stability during the transition, while keeping the durable runner, invalid-repro, and generator coverage pages as the live answer for future fuzz work.
+
 ## [2026-05-20] health | scalar numeric backlink hygiene
 
 - During the post-update whole-wiki health pass, searched scalar numeric, NaN, signed-zero, `trunc_sat`, and `numeric-instruction-authoring` references across WAST, validation, fuzzing, binary, index, and raw-source pages.

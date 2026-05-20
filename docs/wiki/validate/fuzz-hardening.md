@@ -9,7 +9,7 @@ sources:
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
-  - ../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md
+  - ../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md
   - ../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md
   - ../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md
   - ../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md
@@ -45,7 +45,7 @@ related:
 
 ## Reader Map
 
-Use this page as the durable, living answer for Starshine validator fuzzing. The historical execution plan in [`../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) is now source material rather than the active task list: its suite-surface, valid-generator, invalid-lane, repro, and wrapper alignment slices are all landed, and new work should start from the live runner/API surfaces below plus [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md), and [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
+Use this page as the durable, living answer for Starshine validator fuzzing. The historical execution plan in [`../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) is now archived source material rather than the active task list: its suite-surface, valid-generator, invalid-lane, repro, and wrapper alignment slices are all landed, and new work should start from the live runner/API surfaces below plus [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md), and [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 
 | If you need to... | Start here | Why |
 | --- | --- | --- |
@@ -127,7 +127,7 @@ The key invariant is that coverage means **the intended strategy ran and reached
 ## Sources
 
 - Archived research doc: [`../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md`](../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md)
-- Completed execution plan / historical slice ledger: [`../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md)
+- Completed execution plan / historical slice ledger: [`../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md)
 - WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
 - Diagnostic-family and invalid-repro source manifest: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md)
 - LEB128 binary-integer source refresh: [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md)
