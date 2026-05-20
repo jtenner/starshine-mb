@@ -93,6 +93,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 - `[FZG]028` retunes `validate-valid` smoke/ci/stress feature floors for the completed gen-valid widening rows. These profiles now use coverage-forced gen-valid configs so smoke requires at least one observation for every `[FZG]002`-`[FZG]023` family, while ci and stress require minimums of `10` and `100` respectively.
 - `[FZG]029` makes `pass-fuzz-compare` failure directories self-describing. Every persisted generator failure, invalid generated base, validation failure, command failure, or normalized mismatch now includes `failure-metadata.json` with the case index, generator, detail, copied artifact list, and relative replay input plus pass flags, alongside the existing `failure.txt`, `input.wasm`, and best-effort `input.print.wat`. The detailed compare harness contract, including generator modes, normalization, failure classes, replay filters, and `--jobs` rules, now lives in [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md).
 - `[FUZ]1001` gives future fuzzer widening tasks stable generator-profile vocabulary before they add new knobs. Invalid AST/binary seed helpers now reuse `mutation-seed-rich` for their coverage-shaped seed config, while small natural/repro helpers remain backward-compatible through the existing small-profile wrappers.
+- `[FUZ]1013` has begun replacing coarse booleans with exact opcode counts. `GenValidFeatureFacts.exact_opcode_counts` and `GenValidFeatureStats.exact_opcode_counts` now aggregate exact counts for the first scalar numeric/counting slice: numeric constants, equality/addition representatives, saturating truncation opcodes, and reinterpret opcodes. These counters are telemetry for generator-loss detection and downstream profile work; they do not yet add new required feature-floor rows or claim full per-opcode coverage for every scalar, SIMD, GC, memory, call, or control instruction.
 
 ## How to use the ledger
 
@@ -127,6 +128,7 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 
 ## Validation anchors
 
+- `gen_valid_feature_facts records exact scalar opcode counts` proves the first `[FUZ]1013` exact-counter slice records scalar opcode counts on module facts and aggregates them in `GenValidFeatureStats`.
 - `validate_valid_feature_ledger reports optional missing FZG surfaces` proves the ledger reports both covered existing rows and optional zero-count future rows.
 - `validate_valid_run_config retunes FZG feature floors by profile` proves smoke/ci/stress now require every completed gen-valid FZG family at the intended `1`/`10`/`100` levels.
 - `check_validate_valid_feature_floors fails future FZG surfaces only when required` proves missing future rows remain non-fatal unless a caller adds an explicit floor.

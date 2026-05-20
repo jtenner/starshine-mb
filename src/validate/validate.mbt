@@ -7831,6 +7831,52 @@ test "gen_valid_feature_facts record imports sections exports and instruction fa
 }
 
 ///|
+test "gen_valid_feature_facts records exact scalar opcode counts" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::i32_const(I32(2)),
+            Instruction::i32_add(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(3L)),
+            Instruction::i64_eqz(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_const(2.0),
+            Instruction::f32_eq(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::i64_trunc_sat_f64u(),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let facts = gen_valid_feature_facts(mod, CoverageForced)
+  let exact = facts.exact_opcode_counts
+  @debug.assert_eq(exact.i32_const, 2)
+  @debug.assert_eq(exact.i32_add, 1)
+  @debug.assert_eq(exact.i64_const, 1)
+  @debug.assert_eq(exact.i64_eqz, 1)
+  @debug.assert_eq(exact.f32_const, 2)
+  @debug.assert_eq(exact.f32_eq, 1)
+  @debug.assert_eq(exact.f64_const, 1)
+  @debug.assert_eq(exact.i64_trunc_sat_f64u, 1)
+  let stats = GenValidFeatureStats::empty(CoverageForced)
+    .record(facts)
+    .record(facts)
+  @debug.assert_eq(stats.exact_opcode_counts.i32_const, 4)
+  @debug.assert_eq(stats.exact_opcode_counts.i64_trunc_sat_f64u, 2)
+}
+
+///|
 test "validate_module reports typed ValidationError variant" {
   let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()

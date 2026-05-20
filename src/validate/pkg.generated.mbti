@@ -296,6 +296,38 @@ pub impl Show for GenValidConfig
 
 type GenValidContext
 
+pub struct GenValidExactOpcodeCounts {
+  i32_const : Int
+  i64_const : Int
+  f32_const : Int
+  f64_const : Int
+  i32_eqz : Int
+  i64_eqz : Int
+  i32_eq : Int
+  i64_eq : Int
+  f32_eq : Int
+  f64_eq : Int
+  i32_add : Int
+  i64_add : Int
+  f32_add : Int
+  f64_add : Int
+  i32_trunc_sat_f32s : Int
+  i32_trunc_sat_f32u : Int
+  i32_trunc_sat_f64s : Int
+  i32_trunc_sat_f64u : Int
+  i64_trunc_sat_f32s : Int
+  i64_trunc_sat_f32u : Int
+  i64_trunc_sat_f64s : Int
+  i64_trunc_sat_f64u : Int
+  i32_reinterpret_f32 : Int
+  i64_reinterpret_f64 : Int
+  f32_reinterpret_i32 : Int
+  f64_reinterpret_i64 : Int
+} derive(Eq, @debug.Debug)
+pub fn GenValidExactOpcodeCounts::add(Self, Self) -> Self
+pub fn GenValidExactOpcodeCounts::empty() -> Self
+pub impl Show for GenValidExactOpcodeCounts
+
 pub struct GenValidFailure {
   last_candidate : @lib.Module
   config : GenValidConfig
@@ -353,6 +385,7 @@ pub struct GenValidFeatureFacts {
   has_element_segment_range : Bool
   has_data_segment_range : Bool
   has_name_custom_sections : Bool
+  exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -405,6 +438,7 @@ pub struct GenValidFeatureStats {
   element_segment_range : Int
   data_segment_range : Int
   name_custom_sections : Int
+  exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self

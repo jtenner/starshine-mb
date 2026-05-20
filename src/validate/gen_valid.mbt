@@ -662,6 +662,7 @@ pub struct GenValidFeatureFacts {
   has_element_segment_range : Bool
   has_data_segment_range : Bool
   has_name_custom_sections : Bool
+  exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
 ///|
@@ -756,6 +757,7 @@ pub struct GenValidFeatureStats {
   element_segment_range : Int
   data_segment_range : Int
   name_custom_sections : Int
+  exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
 ///|
@@ -858,6 +860,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.data_segment_range.output(logger)
   logger.write_string(", name_custom_sections: ")
   self.name_custom_sections.output(logger)
+  logger.write_string(", exact_opcode_counts: ")
+  self.exact_opcode_counts.output(logger)
   logger.write_char('}')
 }
 
@@ -913,6 +917,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     element_segment_range: 0,
     data_segment_range: 0,
     name_custom_sections: 0,
+    exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
   }
 }
 
@@ -995,6 +1000,7 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_data_segment_range),
     name_custom_sections: self.name_custom_sections +
     gen_valid_bool_count(facts.has_name_custom_sections),
+    exact_opcode_counts: self.exact_opcode_counts.add(facts.exact_opcode_counts),
   }
 }
 
@@ -1003,6 +1009,36 @@ struct GenValidContext {
   rnd : RandomState
   config : GenValidConfig
 }
+
+///|
+pub struct GenValidExactOpcodeCounts {
+  i32_const : Int
+  i64_const : Int
+  f32_const : Int
+  f64_const : Int
+  i32_eqz : Int
+  i64_eqz : Int
+  i32_eq : Int
+  i64_eq : Int
+  f32_eq : Int
+  f64_eq : Int
+  i32_add : Int
+  i64_add : Int
+  f32_add : Int
+  f64_add : Int
+  i32_trunc_sat_f32s : Int
+  i32_trunc_sat_f32u : Int
+  i32_trunc_sat_f64s : Int
+  i32_trunc_sat_f64u : Int
+  i64_trunc_sat_f32s : Int
+  i64_trunc_sat_f32u : Int
+  i64_trunc_sat_f64s : Int
+  i64_trunc_sat_f64u : Int
+  i32_reinterpret_f32 : Int
+  i64_reinterpret_f64 : Int
+  f32_reinterpret_i32 : Int
+  f64_reinterpret_i64 : Int
+} derive(Eq, Debug)
 
 ///|
 priv struct GenValidInstrFacts {
@@ -1031,6 +1067,7 @@ priv struct GenValidInstrFacts {
   has_exception_try_table_matrix : Bool
   has_subtyping_topology : Bool
   has_rich_gc_field_plans : Bool
+  exact_opcode_counts : GenValidExactOpcodeCounts
   control_nodes : Int
   branch_ops : Int
 }
@@ -1041,6 +1078,101 @@ fn GenValidContext::new(
   config : GenValidConfig,
 ) -> GenValidContext {
   { rnd, config }
+}
+
+///|
+pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
+  {
+    i32_const: 0,
+    i64_const: 0,
+    f32_const: 0,
+    f64_const: 0,
+    i32_eqz: 0,
+    i64_eqz: 0,
+    i32_eq: 0,
+    i64_eq: 0,
+    f32_eq: 0,
+    f64_eq: 0,
+    i32_add: 0,
+    i64_add: 0,
+    f32_add: 0,
+    f64_add: 0,
+    i32_trunc_sat_f32s: 0,
+    i32_trunc_sat_f32u: 0,
+    i32_trunc_sat_f64s: 0,
+    i32_trunc_sat_f64u: 0,
+    i64_trunc_sat_f32s: 0,
+    i64_trunc_sat_f32u: 0,
+    i64_trunc_sat_f64s: 0,
+    i64_trunc_sat_f64u: 0,
+    i32_reinterpret_f32: 0,
+    i64_reinterpret_f64: 0,
+    f32_reinterpret_i32: 0,
+    f64_reinterpret_i64: 0,
+  }
+}
+
+///|
+pub fn GenValidExactOpcodeCounts::add(
+  self : GenValidExactOpcodeCounts,
+  other : GenValidExactOpcodeCounts,
+) -> GenValidExactOpcodeCounts {
+  {
+    i32_const: self.i32_const + other.i32_const,
+    i64_const: self.i64_const + other.i64_const,
+    f32_const: self.f32_const + other.f32_const,
+    f64_const: self.f64_const + other.f64_const,
+    i32_eqz: self.i32_eqz + other.i32_eqz,
+    i64_eqz: self.i64_eqz + other.i64_eqz,
+    i32_eq: self.i32_eq + other.i32_eq,
+    i64_eq: self.i64_eq + other.i64_eq,
+    f32_eq: self.f32_eq + other.f32_eq,
+    f64_eq: self.f64_eq + other.f64_eq,
+    i32_add: self.i32_add + other.i32_add,
+    i64_add: self.i64_add + other.i64_add,
+    f32_add: self.f32_add + other.f32_add,
+    f64_add: self.f64_add + other.f64_add,
+    i32_trunc_sat_f32s: self.i32_trunc_sat_f32s + other.i32_trunc_sat_f32s,
+    i32_trunc_sat_f32u: self.i32_trunc_sat_f32u + other.i32_trunc_sat_f32u,
+    i32_trunc_sat_f64s: self.i32_trunc_sat_f64s + other.i32_trunc_sat_f64s,
+    i32_trunc_sat_f64u: self.i32_trunc_sat_f64u + other.i32_trunc_sat_f64u,
+    i64_trunc_sat_f32s: self.i64_trunc_sat_f32s + other.i64_trunc_sat_f32s,
+    i64_trunc_sat_f32u: self.i64_trunc_sat_f32u + other.i64_trunc_sat_f32u,
+    i64_trunc_sat_f64s: self.i64_trunc_sat_f64s + other.i64_trunc_sat_f64s,
+    i64_trunc_sat_f64u: self.i64_trunc_sat_f64u + other.i64_trunc_sat_f64u,
+    i32_reinterpret_f32: self.i32_reinterpret_f32 + other.i32_reinterpret_f32,
+    i64_reinterpret_f64: self.i64_reinterpret_f64 + other.i64_reinterpret_f64,
+    f32_reinterpret_i32: self.f32_reinterpret_i32 + other.f32_reinterpret_i32,
+    f64_reinterpret_i64: self.f64_reinterpret_i64 + other.f64_reinterpret_i64,
+  }
+}
+
+///|
+pub impl Show for GenValidExactOpcodeCounts with output(self, logger) {
+  logger.write_string("GenValidExactOpcodeCounts {i32_const: ")
+  self.i32_const.output(logger)
+  logger.write_string(", i64_const: ")
+  self.i64_const.output(logger)
+  logger.write_string(", f32_const: ")
+  self.f32_const.output(logger)
+  logger.write_string(", f64_const: ")
+  self.f64_const.output(logger)
+  logger.write_string(", i32_add: ")
+  self.i32_add.output(logger)
+  logger.write_string(", i64_add: ")
+  self.i64_add.output(logger)
+  logger.write_string(", f32_add: ")
+  self.f32_add.output(logger)
+  logger.write_string(", f64_add: ")
+  self.f64_add.output(logger)
+  logger.write_char('}')
+}
+
+///|
+fn gen_valid_exact_opcode_counts_nonzero(
+  counts : GenValidExactOpcodeCounts,
+) -> Bool {
+  counts != GenValidExactOpcodeCounts::empty()
 }
 
 ///|
@@ -1071,6 +1203,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_exception_try_table_matrix: false,
     has_subtyping_topology: false,
     has_rich_gc_field_plans: false,
+    exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -6374,8 +6507,57 @@ fn gen_valid_merge_instr_facts(
     right.has_subtyping_topology,
     has_rich_gc_field_plans: left.has_rich_gc_field_plans ||
     right.has_rich_gc_field_plans,
+    exact_opcode_counts: left.exact_opcode_counts.add(right.exact_opcode_counts),
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
+  }
+}
+
+///|
+fn gen_valid_exact_opcode_counts_for_instr(
+  instr : Instruction,
+) -> GenValidExactOpcodeCounts {
+  let zero = GenValidExactOpcodeCounts::empty()
+  match instr {
+    I32Const(_) => GenValidExactOpcodeCounts::{ ..zero, i32_const: 1 }
+    I64Const(_) => GenValidExactOpcodeCounts::{ ..zero, i64_const: 1 }
+    F32Const(_) => GenValidExactOpcodeCounts::{ ..zero, f32_const: 1 }
+    F64Const(_) => GenValidExactOpcodeCounts::{ ..zero, f64_const: 1 }
+    I32Eqz => GenValidExactOpcodeCounts::{ ..zero, i32_eqz: 1 }
+    I64Eqz => GenValidExactOpcodeCounts::{ ..zero, i64_eqz: 1 }
+    I32Eq => GenValidExactOpcodeCounts::{ ..zero, i32_eq: 1 }
+    I64Eq => GenValidExactOpcodeCounts::{ ..zero, i64_eq: 1 }
+    F32Eq => GenValidExactOpcodeCounts::{ ..zero, f32_eq: 1 }
+    F64Eq => GenValidExactOpcodeCounts::{ ..zero, f64_eq: 1 }
+    I32Add => GenValidExactOpcodeCounts::{ ..zero, i32_add: 1 }
+    I64Add => GenValidExactOpcodeCounts::{ ..zero, i64_add: 1 }
+    F32Add => GenValidExactOpcodeCounts::{ ..zero, f32_add: 1 }
+    F64Add => GenValidExactOpcodeCounts::{ ..zero, f64_add: 1 }
+    I32TruncSatF32S =>
+      GenValidExactOpcodeCounts::{ ..zero, i32_trunc_sat_f32s: 1 }
+    I32TruncSatF32U =>
+      GenValidExactOpcodeCounts::{ ..zero, i32_trunc_sat_f32u: 1 }
+    I32TruncSatF64S =>
+      GenValidExactOpcodeCounts::{ ..zero, i32_trunc_sat_f64s: 1 }
+    I32TruncSatF64U =>
+      GenValidExactOpcodeCounts::{ ..zero, i32_trunc_sat_f64u: 1 }
+    I64TruncSatF32S =>
+      GenValidExactOpcodeCounts::{ ..zero, i64_trunc_sat_f32s: 1 }
+    I64TruncSatF32U =>
+      GenValidExactOpcodeCounts::{ ..zero, i64_trunc_sat_f32u: 1 }
+    I64TruncSatF64S =>
+      GenValidExactOpcodeCounts::{ ..zero, i64_trunc_sat_f64s: 1 }
+    I64TruncSatF64U =>
+      GenValidExactOpcodeCounts::{ ..zero, i64_trunc_sat_f64u: 1 }
+    I32ReinterpretF32 =>
+      GenValidExactOpcodeCounts::{ ..zero, i32_reinterpret_f32: 1 }
+    I64ReinterpretF64 =>
+      GenValidExactOpcodeCounts::{ ..zero, i64_reinterpret_f64: 1 }
+    F32ReinterpretI32 =>
+      GenValidExactOpcodeCounts::{ ..zero, f32_reinterpret_i32: 1 }
+    F64ReinterpretI64 =>
+      GenValidExactOpcodeCounts::{ ..zero, f64_reinterpret_i64: 1 }
+    _ => zero
   }
 }
 
@@ -6757,6 +6939,14 @@ fn gen_valid_instr_is_basic_ref_instruction(instr : Instruction) -> Bool {
 
 ///|
 fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
+  let exact_opcode_counts = gen_valid_exact_opcode_counts_for_instr(instr)
+  if gen_valid_exact_opcode_counts_nonzero(exact_opcode_counts) {
+    return GenValidInstrFacts::{
+      ..GenValidInstrFacts::empty(),
+      has_numeric_full_ops: gen_valid_instr_is_expanded_scalar_numeric(instr),
+      exact_opcode_counts,
+    }
+  }
   if gen_valid_instr_is_simd_phase1(instr) {
     return GenValidInstrFacts::{
       ..GenValidInstrFacts::empty(),
@@ -7047,6 +7237,7 @@ pub fn gen_valid_feature_facts(
   let mut has_element_segment_range = false
   let mut has_data_segment_range = false
   let mut has_name_custom_sections = false
+  let mut exact_opcode_counts = GenValidExactOpcodeCounts::empty()
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -7204,6 +7395,9 @@ pub fn gen_valid_feature_facts(
           has_string_ops = has_string_ops || expr_facts.has_string_ops
           has_exception_try_table_matrix = has_exception_try_table_matrix ||
             expr_facts.has_exception_try_table_matrix
+          exact_opcode_counts = exact_opcode_counts.add(
+            expr_facts.exact_opcode_counts,
+          )
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -7324,6 +7518,9 @@ pub fn gen_valid_feature_facts(
               has_string_ops = has_string_ops || facts.has_string_ops
               has_exception_try_table_matrix = has_exception_try_table_matrix ||
                 facts.has_exception_try_table_matrix
+              exact_opcode_counts = exact_opcode_counts.add(
+                facts.exact_opcode_counts,
+              )
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -7370,6 +7567,9 @@ pub fn gen_valid_feature_facts(
                 has_string_ops = has_string_ops || facts.has_string_ops
                 has_exception_try_table_matrix = has_exception_try_table_matrix ||
                   facts.has_exception_try_table_matrix
+                exact_opcode_counts = exact_opcode_counts.add(
+                  facts.exact_opcode_counts,
+                )
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -7413,6 +7613,9 @@ pub fn gen_valid_feature_facts(
                 has_string_ops = has_string_ops || facts.has_string_ops
                 has_exception_try_table_matrix = has_exception_try_table_matrix ||
                   facts.has_exception_try_table_matrix
+                exact_opcode_counts = exact_opcode_counts.add(
+                  facts.exact_opcode_counts,
+                )
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -7474,6 +7677,9 @@ pub fn gen_valid_feature_facts(
               has_string_ops = has_string_ops || facts.has_string_ops
               has_exception_try_table_matrix = has_exception_try_table_matrix ||
                 facts.has_exception_try_table_matrix
+              exact_opcode_counts = exact_opcode_counts.add(
+                facts.exact_opcode_counts,
+              )
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -7524,6 +7730,7 @@ pub fn gen_valid_feature_facts(
         has_string_ops = has_string_ops || facts.has_string_ops
         has_exception_try_table_matrix = has_exception_try_table_matrix ||
           facts.has_exception_try_table_matrix
+        exact_opcode_counts = exact_opcode_counts.add(facts.exact_opcode_counts)
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -7579,5 +7786,6 @@ pub fn gen_valid_feature_facts(
     has_element_segment_range,
     has_data_segment_range,
     has_name_custom_sections,
+    exact_opcode_counts,
   }
 }
