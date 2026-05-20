@@ -8287,6 +8287,16 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.F64x2Floor
     | @lib.F64x2Trunc
     | @lib.F64x2Nearest
+    | @lib.F32x4DemoteF64x2Zero
+    | @lib.F64x2PromoteLowF32x4
+    | @lib.I32x4TruncSatF32x4S
+    | @lib.I32x4TruncSatF32x4U
+    | @lib.F32x4ConvertI32x4S
+    | @lib.F32x4ConvertI32x4U
+    | @lib.I32x4TruncSatF64x2SZero
+    | @lib.I32x4TruncSatF64x2UZero
+    | @lib.F64x2ConvertLowI32x4S
+    | @lib.F64x2ConvertLowI32x4U
     | @lib.V128AnyTrue
     | @lib.I8x16AllTrue
     | @lib.I8x16Bitmask
