@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validation | table64 table.fill width correction
+
+- Added [`raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md) after rechecking the current WebAssembly 3.0 table-instruction validation, text, and binary sources plus Starshine `Limits`, table typechecker, table-section validator, WAST parser, and lowerer evidence.
+- Corrected [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md) so the table64 caveat no longer overstates local `table.fill` support: Starshine uses table limit width for the destination/start operand, but still types length as `i32` even though the official rule uses table address type for both destination and length.
+- Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`binaryen/passes/memory64-lowering/index.md`](binaryen/passes/memory64-lowering/index.md), [`binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md`](binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md), [`binaryen/passes/memory64-lowering/starshine-strategy.md`](binaryen/passes/memory64-lowering/starshine-strategy.md), [`binaryen/passes/memory64-lowering/wat-shapes.md`](binaryen/passes/memory64-lowering/wat-shapes.md), and [`index.md`](index.md) so future `table64-lowering` planning lists `table.fill` length cleanup beside hard-coded `i32` ordinary table operations.
+- Grounded the local code map in [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), and [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt).
+
 ## [2026-05-20] health | start-section pass backlink hygiene
 
 - During the post-update whole-wiki health pass, searched start-section, no-op start, imported-start, and start-retarget references across pass dossiers and validation pages.

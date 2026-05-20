@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
@@ -10,6 +10,7 @@ sources:
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
+  - ../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/decode.mbt
@@ -41,7 +42,7 @@ The local code has enough wasm64/table64 representation to plan a port, but not 
 - `src/validate/typecheck.mbt:1538` through `:1577` already rejects high static memory-operation `offset=` immediates for i32 memories.
 - `src/validate/typecheck.mbt:2408` through `:2498` derives memory `size`, `grow`, `init`, and `copy` stack types from memory limits.
 - `src/validate/typecheck.mbt:2502` derives `memory.fill` destination width from memory limits but still hard-codes the length operand to `i32`; the focused refresh in [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) records this local/spec divergence.
-- `src/validate/typecheck.mbt:587`, `:602`, `:625`, and `:635` still hard-code `i32` for `table.get`, `table.set`, `table.size`, and `table.grow`.
+- `src/validate/typecheck.mbt` still hard-codes `i32` for `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` table index/result positions; `table.fill` is only partially widened locally because its destination/start operand uses the table limit width but its length operand remains `i32`. [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md) records this local/spec divergence.
 
 ## Port goal
 
@@ -123,6 +124,7 @@ Exit criteria:
 ### Slice 5: table64 sibling after typechecker cleanup
 
 - First fix table typing so table operations use `TableType` limits consistently rather than hard-coded `i32`.
+- Include the targeted `table.fill` cleanup: destination/start and length must both follow the selected table address type, while the reference value stays at the table element type.
 - Then add declaration, active element offset, `table.get`, `table.set`, `table.size`, `table.grow`, and table bulk-operation lowering.
 
 Exit criteria:
@@ -157,7 +159,7 @@ For every Starshine fixture, compare:
 - Do not infer dynamic in-range facts.
 - Do not fold dynamic `i64.const` address operands into static high-offset traps; Binaryen's corrected contract wraps stack operands and reserves the high-offset trap family for static `MemArg.offset` immediates.
 - Do not advertise full local memory64 bulk-memory validation until the `memory.fill` length caveat is resolved.
-- Do not advertise table64 parity until table operation typechecking is coherent.
+- Do not advertise table64 parity until table operation typechecking is coherent, including the `table.fill` length rule.
 
 ## Open questions
 

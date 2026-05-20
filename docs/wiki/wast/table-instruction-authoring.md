@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-table-instruction-sources.md
+  - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
@@ -59,7 +60,7 @@ The main invariant for authors is: **do not infer core or binary immediate order
 
 ## Instruction Families And Stack Shapes
 
-The official validation model uses a selected table's reference type `rt` and address type `at`. For ordinary table32 fixtures, `at` is `i32`. For table64, `at` should be `i64`, but see the local caveat below.
+The official validation model uses a selected table's reference type `rt` and address type `at`. For ordinary table32 fixtures, `at` is `i32`. For table64, `at` should be `i64`, but see the local caveat below. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md) corrects the earlier shorthand that treated local `table.fill` as fully address-width-aware.
 
 | WAST instruction | Text immediates | Stack before | Stack after | Starshine notes |
 | --- | --- | --- | --- | --- |
@@ -69,7 +70,7 @@ The official validation model uses a selected table's reference type `rt` and ad
 | `table.set` | optional `tableidx` | `at`, `rt` | none | Current local typechecker expects `i32` for the index. |
 | `table.size` | optional `tableidx` | none | `at` | Current local typechecker returns `i32`. |
 | `table.grow` | optional `tableidx` | `rt`, delta `at` | previous size `at` or `-1` | Current local typechecker consumes an `i32` delta and returns `i32`. |
-| `table.fill` | optional `tableidx` | destination `at`, value `rt`, length `at` | none | Current local typechecker uses the table limit address type. |
+| `table.fill` | optional `tableidx` | destination `at`, value `rt`, length `at` | none | Officially both destination and length use `at`; current Starshine uses the table limit address type for the destination/start operand but still hard-codes the length operand to `i32`. |
 | `table.copy` | optional destination `tableidx`, optional source `tableidx` | destination `at1`, source `at2`, length `min(at1, at2)` | none | If both indices are omitted, parser uses table `0` for both. Typechecker requires source reference type to match destination reference type. |
 | `table.init` | either `elemidx` or `tableidx elemidx` | destination `at`, source `i32`, length `i32` | none | Text `table.init elemidx` means table `0`. Lowered core stores `TableInit(ElemIdx, TableIdx)`. |
 | `elem.drop` | `elemidx` | none | none | Validates the element segment index; it does not inspect table stack operands. |
@@ -148,7 +149,8 @@ Use a passive segment for `table.init` / `elem.drop` fixtures. The focused eleme
 
 Do **not** use WAST `table64` instruction fixtures as complete validation evidence yet. The official rules use a table address type, but Starshine's current typechecker is mixed:
 
-- `table.copy`, `table.init` destination, and `table.fill` consult table limit address widths;
+- `table.copy` uses destination/source table limit widths plus mixed-width length selection, and `table.init` uses the destination table limit width while source and length remain `i32`;
+- `table.fill` is only partially widened locally: the destination/start operand uses the table limit width, but the length operand still uses `i32` even though the official table64 rule uses `at`;
 - `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` still use `i32` index/result assumptions locally.
 
 Until that gap is fixed and tested, table64 table-instruction work belongs in a validation-widening task, not ordinary WAST authoring documentation. The Binaryen feature-lowering sibling is tracked from the pass side in [`../binaryen/passes/memory64-lowering/index.md`](../binaryen/passes/memory64-lowering/index.md), which also records table64-lowering context.
@@ -167,6 +169,7 @@ When a pass or generator change touches table instructions, use this checklist:
 ## Source Map
 
 - Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-table-instruction-sources.md`](../raw/wasm/2026-05-19-wast-table-instruction-sources.md)
+- Targeted table64 / `table.fill` validation correction: [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - WAST opcode vocabulary and parser: [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
 - WAST printer and lowerer: [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core instruction model: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)

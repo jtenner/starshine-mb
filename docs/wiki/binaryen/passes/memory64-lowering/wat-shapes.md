@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
+  - ../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -298,7 +299,29 @@ After:
 
 This is the table sibling of active data offset repair. Keep it separate from static memory-access `offset=` immediates; the reviewed source lowers active offset expressions to the new address type rather than documenting a high-active-offset `unreachable` special case.
 
-## 14. Table copy mixed-width rules
+## 14. Table fill width split
+
+Before:
+
+```wat
+(table.fill $tab64
+  (local.get $dst-i64)
+  (local.get $value)
+  (local.get $len-i64))
+```
+
+After:
+
+```wat
+(table.fill $tab32
+  (i32.wrap_i64 (local.get $dst-i64))
+  (local.get $value)
+  (i32.wrap_i64 (local.get $len-i64)))
+```
+
+The official table64 rule uses the table address type for both destination and length, while the value position remains the table element reference type. Current Starshine validation is not yet a positive oracle for this shape: the 2026-05-20 table64 refresh records that the local typechecker widens the destination/start operand but still expects `len:i32`.
+
+## 15. Table copy mixed-width rules
 
 Before:
 
@@ -327,6 +350,7 @@ That detail is important for mixed table32/table64 cases.
 - This pass is not address arithmetic simplification.
 - This pass is not dynamic pointer-range validation; its source-confirmed high-address repair is for static memory-access `offset=` immediates, not arbitrary dynamic operand constants.
 - This pass is not a Starshine feature today.
+- Current Starshine table64 validation is not coherent enough to prove the table shapes here without prerequisite typechecker cleanup, including `table.fill` length.
 
 ## Sources
 
@@ -337,5 +361,6 @@ That detail is important for mixed table32/table64 cases.
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
+- [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - Binaryen `memory64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory64-lowering.wast>
 - Binaryen `table64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/table64-lowering.wast>

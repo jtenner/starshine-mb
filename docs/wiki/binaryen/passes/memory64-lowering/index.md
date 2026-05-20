@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
@@ -12,6 +12,7 @@ sources:
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
+  - ../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -90,7 +91,7 @@ The output module has:
 - `memory.grow` / `table.grow`, which have operand wrapping plus failure-sentinel result repair, not just blind zero-extension.
 - SIMD and atomic memory instructions, which have normal address operands even though their payload/result types are unrelated to address width.
 - Active data/element offsets outside function bodies.
-- Table64 support in Starshine is currently uneven: `src/validate/typecheck.mbt` derives address widths for some table operations but still hard-codes `i32` for `table.get`, `table.set`, `table.size`, and `table.grow`.
+- Table64 support in Starshine is currently uneven: `src/validate/typecheck.mbt` derives address widths for `table.copy`, `table.init` destination, and only the destination/start operand of `table.fill`, but still hard-codes `i32` for `table.fill` length plus `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` table indices/results. The focused correction is [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md).
 
 ## Validation strategy
 
@@ -110,7 +111,7 @@ For a future Starshine port, add tests in this order:
 7. `memory.grow` operand wrapping plus failure-sentinel result repair;
 8. `memory.init`, `memory.copy`, and `memory.fill` positional width cases, including the validator follow-up for memory64 `memory.fill` length;
 9. table64 `table.get` / `table.set` / `table.size` / `table.grow` after local typechecking is made coherent;
-10. table copy/fill/init mixed-width cases;
+10. table copy/fill/init mixed-width cases, including the validator follow-up for table64 `table.fill` length;
 11. SIMD and atomic address wrapping plus high static `offset=` replacement.
 
 The future Starshine sequencing is spelled out in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md): start with registry honesty and a no-op analyzer, then memory declarations plus active data offsets, scalar body rewrites, size/grow repair, bulk/SIMD/atomic families, and only then table64 after table typechecking cleanup.
@@ -135,5 +136,6 @@ The future Starshine sequencing is spelled out in [`starshine-port-readiness-and
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
+- [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>
 - Binaryen registration source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
