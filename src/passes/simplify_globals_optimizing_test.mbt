@@ -4020,6 +4020,204 @@ test "simplify-globals-optimizing keeps ref-eq arm flow into post-consumer call"
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow through ref-i31 and ref-eq" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    ref.i31
+      #|    ref.null eq
+      #|    ref.eq
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm flow through any-extern conversions" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut anyref) (ref.i31 (i32.const 0)))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result anyref)
+      #|      ref.null any
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    extern.convert_any
+      #|    any.convert_extern
+      #|    ref.is_null
+      #|    if
+      #|      ref.null any
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+      ),
+      false,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes block-wrapped nested-if arm flow through any-extern conversions" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut anyref) (ref.i31 (i32.const 0)))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      call $cond
+      #|      if (result anyref)
+      #|        ref.null any
+      #|      else
+      #|        global.get $guard
+      #|      end
+      #|      extern.convert_any
+      #|      any.convert_extern
+      #|      ref.is_null
+      #|    end
+      #|    if
+      #|      ref.null any
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+      ),
+      false,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps any-extern conversion arm flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $guard (mut anyref) (ref.i31 (i32.const 0)))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result anyref)
+      #|      ref.null any
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    extern.convert_any
+      #|    any.convert_extern
+      #|    ref.is_null
+      #|    call $use
+      #|    if
+      #|      ref.null any
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+      ),
+      true,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps nullable i31-get arm flow conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut i31ref) (ref.null i31))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result i31ref)
+      #|      ref.null i31
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    i31.get_s
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      ref.i31
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+      ),
+      true,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps nested-if call operands derived from the global" {
   let optimized = sgo_test_run(
     (

@@ -679,6 +679,9 @@ fn sgo_flow_apply_select(stack : Array[Bool]) -> Bool {
 fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.RefIsNull
+    | @lib.AnyConvertExtern
+    | @lib.ExternConvertAny
+    | @lib.RefI31
     | @lib.I32Clz
     | @lib.I32Ctz
     | @lib.I32Popcnt
