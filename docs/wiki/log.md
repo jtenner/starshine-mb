@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | relaxed SIMD generator coverage caveat
+
+- During the post-update whole-wiki health pass, searched SIMD, relaxed-SIMD, `[FZG]014`-`[FZG]016`, WAST arbitrary, and `gen_valid` references for places that could overclaim relaxed-SIMD generator coverage.
+- Updated [`wast/simd-authoring.md`](wast/simd-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so deterministic SIMD generator coverage remains separate from the WAST/core/binary relaxed-SIMD surface and Binaryen's removal-pass dossier.
+
 ## [2026-05-20] wast | relaxed SIMD arity and spelling refresh
 
 - Refreshed [`wast/simd-authoring.md`](wast/simd-authoring.md) with a source-backed relaxed-SIMD arity table, concrete WAST fixture shape, Starshine `0xFD` subopcode / typechecker code map, and the local `relaxed_dot` spelling caveat versus proposal/Binaryen dot-product spelling.
