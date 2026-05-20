@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] validation | trace benchmark maintenance contract
+
+- Added [`raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md) after checking the current MoonBit `moon run` command shape, Starshine `src/validate_trace` corpus builder and tests, validator trace totals, Bun wrapper, wrapper command tests, and the archived March baseline.
+- Expanded [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) from a short baseline summary into a maintainer guide covering Bun-to-Moon wrapper flow, output contract, fixed corpus map, durable baseline routing, refresh triggers, and regression triage rules for `phase_totals`, `helper_totals`, and `hotspots`.
+- Updated [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/validation/` source family and refreshed trace-benchmark contract are discoverable. No new WebAssembly semantic source was needed because this target documents Starshine's validation-trace harness; official validation semantics remain covered by focused validator and WAST manifests.
+- Grounded the local code map in [`../../src/validate_trace/main.mbt`](../../src/validate_trace/main.mbt), [`../../src/validate_trace/main_wbtest.mbt`](../../src/validate_trace/main_wbtest.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../scripts/lib/validate-task.ts`](../../scripts/lib/validate-task.ts), and [`../../scripts/test/task-family-commands.ts`](../../scripts/test/task-family-commands.ts).
+
 ## [2026-05-20] health | import/export boundary backlink hygiene
 
 - During the post-update whole-wiki health pass, searched `ExternType`, `ImportSection`, `ExportSection`, `importsec`, `exportsec`, duplicate-export, and import/export declaration references across WAST, binary, validator, and Binaryen pass pages.

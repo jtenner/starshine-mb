@@ -6,7 +6,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [`../../AGENTS.md`](../../AGENTS.md) - Compact repo essentials, always-follow workflow rules, and task-specific guidance for repo work and wiki maintenance.
 - [`../README.md`](../README.md) - Canonical docs and wiki schema, now split into high-signal repo rules plus lower-frequency reference details.
-- [`raw/README.md`](raw/README.md) - Rules for committed raw sources, including immutable source captures, numbered research notes, and topic raw-source directories such as `raw/binaryen/`, `raw/ir2/`, `raw/moonbit/`, `raw/node/`, and `raw/wasm/`.
+- [`raw/README.md`](raw/README.md) - Rules for committed raw sources, including immutable source captures, numbered research notes, and topic raw-source directories such as `raw/binaryen/`, `raw/ir2/`, `raw/moonbit/`, `raw/node/`, `raw/validation/`, and `raw/wasm/`.
 - [`raw/research/README.md`](raw/research/README.md) - Rules for the archived numbered research notes moved out of `docs/`.
 
 ## Concepts
@@ -635,7 +635,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/simplify-locals/parity.md`](binaryen/passes/simplify-locals/parity.md) - Current Binaryen parity state for simplify-locals, including retired reducer families, rejected ideas, and the active exact-path frontier.
 - [`binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md`](binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md) - Skip-reason taxonomy, retired artifact hotspots, timer interpretation, and the dated large-artifact performance frontier for simplify-locals.
 - [`binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md`](binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md) - Treat `invalid tag index` `remove-unused-names` failures as Binaryen parser-family gaps, not Starshine semantic mismatches.
-- [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) - Committed corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines for validator trace work, now cross-linked to the shared `bun validate trace-benchmark` command gate, the canonical module-validation phase map, and the focused `ref.func` declaration-source guide.
+- [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) - Maintainer guide for the validation trace benchmark: Bun-to-Moon wrapper flow, fixed corpus map, `phase_totals` / `helper_totals` / `hotspots` output contract, March baseline snapshot routing, refresh triggers, and regression triage rules grounded in the 2026-05-20 source refresh plus the shared validation-gate, tracing, phase-map, and `ref.func` declaration guides.
 
 ## Sessions
 
