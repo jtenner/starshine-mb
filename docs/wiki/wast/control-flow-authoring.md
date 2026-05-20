@@ -20,6 +20,7 @@ related:
   - exception-tag-authoring.md
   - reference-instruction-authoring.md
   - table-instruction-authoring.md
+  - gc-type-authoring.md
   - ../validate/module-validation-phases.md
   - ../binary/instruction-and-expression-encoding.md
   - ../ir2/cfg-contract.md
@@ -38,7 +39,7 @@ Use this page when writing, reducing, or widening WAST fixtures that use ordinar
 - terminators: `return` and `unreachable`;
 - nearby parametric control value selection: untyped and typed `select`.
 
-Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). This page focuses on the label stack, branch payloads, fallthrough, and stack-polymorphic unreachable code shared by the ordinary control family.
+Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). Shared `(type $sig)` and inline function-signature type-use rules for block types live in [`gc-type-authoring.md`](gc-type-authoring.md). This page focuses on the label stack, branch payloads, fallthrough, and stack-polymorphic unreachable code shared by the ordinary control family.
 
 The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md).
 
@@ -140,7 +141,7 @@ Starshine's WAST parser accepts the same practical block-type families fixture a
 ```wasm
 (block)                         ;; no params/results
 (block $exit (result i32) ...)  ;; optional label plus result
-(block (type $sig) ...)         ;; type use
+(block (type $sig) ...)         ;; type use; see gc-type-authoring.md
 (block i32 ...)                 ;; single-result shorthand
 (loop $again (param i32) (result i32) ...)
 (if (result i32) ...)

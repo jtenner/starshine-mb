@@ -18,6 +18,7 @@ related:
   - table-instruction-authoring.md
   - tail-call-authoring.md
   - reference-instruction-authoring.md
+  - gc-type-authoring.md
   - identifier-name-and-annotation-authoring.md
   - ../binary/function-import-export-and-code-sections.md
   - ../validate/ref-func-declarations.md
@@ -41,6 +42,7 @@ Neighbor pages own the parts that are easy to conflate with this topic:
 
 - [`table-instruction-authoring.md`](table-instruction-authoring.md) owns table-index defaults, `call_indirect` table compatibility, table64 caveats, and runtime table instructions.
 - [`tail-call-authoring.md`](tail-call-authoring.md) owns `return_call`, `return_call_indirect`, and `return_call_ref` because tail calls are also return-family terminators.
+- [`gc-type-authoring.md`](gc-type-authoring.md) owns WAST type definitions, rec groups, subtypes, and shared type-use rules for `(type $sig)` and inline `(param ...)` / `(result ...)` signatures.
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) own `ref.func`, declaration sources, and the current start-section declaration divergence.
 - [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md) owns binary section ids, imported-prefix function index spaces, `FuncSec`/`CodeSec` parallelism, and module-pass remap checklists.
 
@@ -67,7 +69,7 @@ After lowering, Starshine does not keep `call $add1` as a symbolic call. [`src/w
 | Layer | Owner | What to remember |
 | --- | --- | --- |
 | WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Registers and parses `func`, `import`, `export`, `start`, `call`, `call_indirect`, and tail-call keywords. `call_indirect` accepts an optional table index that defaults to `0`. Ordinary `call_ref` is not currently a WAST keyword. |
-| WAST lowerer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves `$` and numeric indices to imported-prefix `FuncIdx`, `TypeIdx`, and `TableIdx`; turns inline exports into ordinary export entries; turns inline function imports into ordinary import entries. |
+| WAST lowerer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves `$` and numeric indices to imported-prefix `FuncIdx`, `TypeIdx`, and `TableIdx`; turns inline exports into ordinary export entries; turns inline function imports into ordinary import entries. Type-use details and rec-group flat-index caveats live in [`gc-type-authoring.md`](gc-type-authoring.md). |
 | WAST printer | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints resolved indices for call-family instructions, so shorthand/default-table input can roundtrip as a more explicit numeric form. |
 | Core model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Stores `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, `CodeSec`, `FuncIdx`, and distinct `Call`, `CallIndirect`, `ReturnCall*`, and core-only `CallRef` instruction variants. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Typechecks call stack effects, validates function/import/export/start/code sections, rejects duplicate export names, and checks code bodies after all signatures are known. |
@@ -172,7 +174,7 @@ The direct call consumes the argument produced by `local.get` and pushes the `i3
     (call_indirect $tab (type $sig))))
 ```
 
-`call_indirect` crosses three index spaces: the table index, the type index, and the dynamic table element index on the operand stack. The source text spells table then type; Starshine lowers to the core `Instruction::call_indirect(TypeIdx, TableIdx)` order.
+`call_indirect` crosses three index spaces: the table index, the type index, and the dynamic table element index on the operand stack. The source text spells table then type; Starshine lowers to the core `Instruction::call_indirect(TypeIdx, TableIdx)` order. If the type use names a signature after a `rec` group or relies on an inline signature, apply the flat-index and implicit-function-type rules in [`gc-type-authoring.md`](gc-type-authoring.md).
 
 ### Ordinary `call_ref` caveat
 

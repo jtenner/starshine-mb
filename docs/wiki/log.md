@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | GC type-use and subtype authoring
+
+- Refreshed [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md) with a source-backed type-use/subtype expansion: `sub` / `final` authoring, shared `(type $sig)` and inline-signature type-use rules, flat rec-group index accounting, implicit function-type insertion, examples, and validation/signoff guidance.
+- Added [`raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md) after checking the current WebAssembly text/syntax/validation type and module pages plus local WAST parser/lowerer/test evidence.
+- Updated [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), and [`index.md`](index.md) so call/table/tail/control pages route `TypeIdx` and type-use caveats through the shared GC type authoring page instead of duplicating partial guidance.
+- Grounded the local code map in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/wast/module_wast_tests.mbt`](../../src/wast/module_wast_tests.mbt), and [`../../src/wast/rec_group_typeuse_test.mbt`](../../src/wast/rec_group_typeuse_test.mbt).
+
 ## [2026-05-20] health | relaxed SIMD generator coverage caveat
 
 - During the post-update whole-wiki health pass, searched SIMD, relaxed-SIMD, `[FZG]014`-`[FZG]016`, WAST arbitrary, and `gen_valid` references for places that could overclaim relaxed-SIMD generator coverage.

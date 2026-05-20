@@ -18,6 +18,7 @@ sources:
 related:
   - function-call-and-module-authoring.md
   - table-instruction-authoring.md
+  - gc-type-authoring.md
   - exception-tag-authoring.md
   - reference-instruction-authoring.md
   - ../ir2/cfg-contract.md
@@ -37,7 +38,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 - `return_call_indirect` for a table-mediated tail call;
 - `return_call_ref` for a reference-call tail call.
 
-The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).
+The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md); shared WAST type-use and rec-group flat-index rules live in [`gc-type-authoring.md`](gc-type-authoring.md).
 
 The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md). The narrower CFG-only source snapshot remains in [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
@@ -46,7 +47,7 @@ The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-tail
 | Layer | Owner | Tail-call facts to remember |
 | --- | --- | --- |
 | WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | `return_call` requires a function index. `return_call_indirect` accepts an optional table index before its type use and defaults omitted table to `0`. `return_call_ref` takes a type use. |
-| WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | `$` ids and type uses resolve to numeric `FuncIdx`, `TableIdx`, and `TypeIdx`. Printer emits explicit resolved indices, so default-table input may roundtrip less tersely. |
+| WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | `$` ids and type uses resolve to numeric `FuncIdx`, `TableIdx`, and `TypeIdx`. Printer emits explicit resolved indices, so default-table input may roundtrip less tersely. Type-use details are centralized in [`gc-type-authoring.md`](gc-type-authoring.md). |
 | Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Distinct `Instruction::ReturnCall`, `ReturnCallIndirect`, and `ReturnCallRef` variants keep direct, table-mediated, and reference-call carriers visible to passes. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Direct, indirect, and reference tail calls encode as `0x12`, `0x13`, and `0x15`. `return_call_indirect` encodes type index before table index, matching the ordinary `call_indirect` binary order. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | The selected callee results must match the current function return type. On success, the state becomes unreachable/stack-polymorphic for local continuation. |
@@ -157,7 +158,7 @@ A tail call in a protected region is still a return-position transfer for normal
 When a pass, generator, or fixture change touches tail calls, use this checklist:
 
 1. **Function remaps:** update direct `FuncIdx` carriers in `return_call` along with `call`, `ref.func`, start, exports, element payloads, function names, and function annotations. The full function-index map lives in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
-2. **Type remaps:** update `TypeIdx` carriers in `return_call_indirect` and `return_call_ref` when rewriting function types, rec groups, or signature tables.
+2. **Type remaps:** update `TypeIdx` carriers in `return_call_indirect` and `return_call_ref` when rewriting function types, rec groups, or signature tables. For WAST-origin fixtures, also keep named and inline type-use behavior aligned with [`gc-type-authoring.md`](gc-type-authoring.md).
 3. **Table remaps:** update the `TableIdx` carrier in `return_call_indirect`; the table side of this contract is shared with [`table-instruction-authoring.md`](table-instruction-authoring.md).
 4. **Signature rewrites:** if a pass changes callee parameter or result types, revalidate all tail callsites. Dropping or changing a result is more constrained than for ordinary calls because the target results must equal the current function returns.
 5. **CFG/analysis:** treat tail calls as calls for effect, escape, and target-use analysis, but as terminators for block splitting, dominance, liveness, and local SSA continuation.
@@ -178,4 +179,4 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and CFG: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)
-- Related WAST guides: [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md), [`table-instruction-authoring.md`](table-instruction-authoring.md), [`exception-tag-authoring.md`](exception-tag-authoring.md), [`reference-instruction-authoring.md`](reference-instruction-authoring.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md)
+- Related WAST guides: [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md), [`table-instruction-authoring.md`](table-instruction-authoring.md), [`gc-type-authoring.md`](gc-type-authoring.md), [`exception-tag-authoring.md`](exception-tag-authoring.md), [`reference-instruction-authoring.md`](reference-instruction-authoring.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md)
