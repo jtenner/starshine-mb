@@ -385,7 +385,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedI32ConstSleb
   MalformedI64ConstSleb
   MalformedCallFuncIndexUleb
+  MalformedCallIndirectTypeIndexUleb
   MalformedBrLabelIndexUleb
+  MalformedBrTableTargetCountUleb
   MalformedTableIndexUleb
   MalformedSelectTypeCountUleb
   MalformedStartFuncIndexUleb

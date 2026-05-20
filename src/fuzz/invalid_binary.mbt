@@ -107,7 +107,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedI32ConstSleb
   MalformedI64ConstSleb
   MalformedCallFuncIndexUleb
+  MalformedCallIndirectTypeIndexUleb
   MalformedBrLabelIndexUleb
+  MalformedBrTableTargetCountUleb
   MalformedTableIndexUleb
   MalformedSelectTypeCountUleb
   MalformedStartFuncIndexUleb
@@ -492,7 +494,10 @@ fn validate_invalid_binary_strategy_label(
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
     MalformedI64ConstSleb => "malformed-i64-const-sleb"
     MalformedCallFuncIndexUleb => "malformed-call-func-index-uleb"
+    MalformedCallIndirectTypeIndexUleb =>
+      "malformed-call-indirect-type-index-uleb"
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
+    MalformedBrTableTargetCountUleb => "malformed-br-table-target-count-uleb"
     MalformedTableIndexUleb => "malformed-table-index-uleb"
     MalformedSelectTypeCountUleb => "malformed-select-type-count-uleb"
     MalformedStartFuncIndexUleb => "malformed-start-func-index-uleb"
@@ -1049,9 +1054,23 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedCallIndirectTypeIndexUleb,
+      "malformed-call-indirect-type-index-uleb",
+      "call_indirect instruction with a malformed type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedBrLabelIndexUleb,
       "malformed-br-label-index-uleb",
       "br instruction with a malformed label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedBrTableTargetCountUleb,
+      "malformed-br-table-target-count-uleb",
+      "br_table instruction with a malformed target-count ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -1235,19 +1254,21 @@ fn validate_invalid_binary_strategy_index(
     MalformedI32ConstSleb => 73
     MalformedI64ConstSleb => 74
     MalformedCallFuncIndexUleb => 75
-    MalformedBrLabelIndexUleb => 76
-    MalformedTableIndexUleb => 77
-    MalformedSelectTypeCountUleb => 78
-    MalformedStartFuncIndexUleb => 79
-    MalformedDataCountUleb => 80
-    SimdShuffleLaneOverflow => 81
-    SimdLoadLaneIndexOverflow => 82
-    MalformedDataIndexUleb => 83
-    MalformedElemIndexUleb => 84
-    InvalidNameSectionFuncNameUtf8 => 85
-    InvalidNameSectionLocalNameUtf8 => 86
-    InvalidNameSectionModuleNameUtf8 => 87
-    InvalidNameSectionTypeNameUtf8 => 88
+    MalformedCallIndirectTypeIndexUleb => 76
+    MalformedBrLabelIndexUleb => 77
+    MalformedBrTableTargetCountUleb => 78
+    MalformedTableIndexUleb => 79
+    MalformedSelectTypeCountUleb => 80
+    MalformedStartFuncIndexUleb => 81
+    MalformedDataCountUleb => 82
+    SimdShuffleLaneOverflow => 83
+    SimdLoadLaneIndexOverflow => 84
+    MalformedDataIndexUleb => 85
+    MalformedElemIndexUleb => 86
+    InvalidNameSectionFuncNameUtf8 => 87
+    InvalidNameSectionLocalNameUtf8 => 88
+    InvalidNameSectionModuleNameUtf8 => 89
+    InvalidNameSectionTypeNameUtf8 => 90
   }
 }
 
@@ -2107,6 +2128,27 @@ fn validate_invalid_binary_mutate_malformed_call_func_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_call_indirect_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedCallIndirectTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x11).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_br_label_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -2117,6 +2159,27 @@ fn validate_invalid_binary_mutate_malformed_br_label_index_uleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x0c).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_br_table_target_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedBrTableTargetCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x0e).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -3632,8 +3695,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_i64_const_sleb(base)
     MalformedCallFuncIndexUleb =>
       validate_invalid_binary_mutate_malformed_call_func_index_uleb(base)
+    MalformedCallIndirectTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_call_indirect_type_index_uleb(
+        base,
+      )
     MalformedBrLabelIndexUleb =>
       validate_invalid_binary_mutate_malformed_br_label_index_uleb(base)
+    MalformedBrTableTargetCountUleb =>
+      validate_invalid_binary_mutate_malformed_br_table_target_count_uleb(base)
     MalformedTableIndexUleb =>
       validate_invalid_binary_mutate_malformed_table_index_uleb(base)
     MalformedSelectTypeCountUleb =>
