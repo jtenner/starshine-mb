@@ -11,6 +11,10 @@ pub struct FuzzCliArgs {
   seed : UInt64
   seed_i64 : Int64
   output_mode : FuzzOutputMode
+  seed_count : Int
+  shard_index : Int
+  shard_count : Int
+  report_json_path : String?
 } derive(Eq, Debug)
 
 ///|
@@ -68,6 +72,10 @@ pub struct FuzzSuiteResult {
   seed : Int64
   attempts : Int
   elapsed_ms : UInt64
+  seed_index : Int
+  seed_count : Int
+  shard_index : Int
+  shard_count : Int
 } derive(Eq, Debug)
 
 ///|
@@ -138,7 +146,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -744,6 +752,10 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
   let positional : Array[String] = []
   let mut flag_seed : Int64? = None
   let mut output_mode : FuzzOutputMode? = None
+  let mut seed_count : Int? = None
+  let mut shard_index : Int? = None
+  let mut shard_count : Int? = None
+  let mut report_json_path : String? = None
   let mut i = 0
   while i < args.length() {
     let arg = args[i].trim().to_owned()
@@ -793,6 +805,103 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
       i += 1
       continue
     }
+    if arg == "--seed-count" {
+      if i + 1 >= args.length() {
+        abort("missing value for --seed-count")
+      }
+      if seed_count is Some(_) {
+        abort("duplicate --seed-count flag")
+      }
+      seed_count = Some(
+        fuzz_parse_non_negative_decimal_or_abort("seed-count", args[i + 1]),
+      )
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--seed-count=") {
+      if seed_count is Some(_) {
+        abort("duplicate --seed-count flag")
+      }
+      seed_count = Some(
+        fuzz_parse_non_negative_decimal_or_abort(
+          "seed-count",
+          fuzz_tail_string(arg, 13),
+        ),
+      )
+      i += 1
+      continue
+    }
+    if arg == "--shard-index" {
+      if i + 1 >= args.length() {
+        abort("missing value for --shard-index")
+      }
+      if shard_index is Some(_) {
+        abort("duplicate --shard-index flag")
+      }
+      shard_index = Some(
+        fuzz_parse_non_negative_decimal_or_abort("shard-index", args[i + 1]),
+      )
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--shard-index=") {
+      if shard_index is Some(_) {
+        abort("duplicate --shard-index flag")
+      }
+      shard_index = Some(
+        fuzz_parse_non_negative_decimal_or_abort(
+          "shard-index",
+          fuzz_tail_string(arg, 14),
+        ),
+      )
+      i += 1
+      continue
+    }
+    if arg == "--shard-count" {
+      if i + 1 >= args.length() {
+        abort("missing value for --shard-count")
+      }
+      if shard_count is Some(_) {
+        abort("duplicate --shard-count flag")
+      }
+      shard_count = Some(
+        fuzz_parse_non_negative_decimal_or_abort("shard-count", args[i + 1]),
+      )
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--shard-count=") {
+      if shard_count is Some(_) {
+        abort("duplicate --shard-count flag")
+      }
+      shard_count = Some(
+        fuzz_parse_non_negative_decimal_or_abort(
+          "shard-count",
+          fuzz_tail_string(arg, 14),
+        ),
+      )
+      i += 1
+      continue
+    }
+    if arg == "--report-json" {
+      if i + 1 >= args.length() {
+        abort("missing value for --report-json")
+      }
+      if report_json_path is Some(_) {
+        abort("duplicate --report-json flag")
+      }
+      report_json_path = Some(args[i + 1])
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--report-json=") {
+      if report_json_path is Some(_) {
+        abort("duplicate --report-json flag")
+      }
+      report_json_path = Some(fuzz_tail_string(arg, 14))
+      i += 1
+      continue
+    }
     if arg.length() >= 2 && arg[0] == '-' && arg[1] == '-' {
       abort("unknown flag '\{arg}'")
     }
@@ -829,7 +938,47 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
     Some(mode) => mode
     None => FuzzOutputMode::Text
   }
-  FuzzCliArgs::{ suite, profile, seed, seed_i64, output_mode: out_mode }
+  let resolved_seed_count = match seed_count {
+    Some(v) => v
+    None => 1
+  }
+  if resolved_seed_count <= 0 {
+    abort("seed-count must be greater than zero")
+  }
+  let resolved_shard_count = match shard_count {
+    Some(v) => v
+    None => 1
+  }
+  if resolved_shard_count <= 0 {
+    abort("shard-count must be greater than zero")
+  }
+  let resolved_shard_index = match shard_index {
+    Some(v) => v
+    None => 0
+  }
+  if resolved_shard_index >= resolved_shard_count {
+    abort("shard-index must be less than shard-count")
+  }
+  let resolved_report_json_path = match report_json_path {
+    Some(v) =>
+      if v.trim().to_owned().length() == 0 {
+        abort("--report-json must not be empty")
+      } else {
+        Some(v)
+      }
+    None => None
+  }
+  FuzzCliArgs::{
+    suite,
+    profile,
+    seed,
+    seed_i64,
+    output_mode: out_mode,
+    seed_count: resolved_seed_count,
+    shard_index: resolved_shard_index,
+    shard_count: resolved_shard_count,
+    report_json_path: resolved_report_json_path,
+  }
 }
 
 ///|
@@ -903,6 +1052,10 @@ fn run_single_suite(
     seed: seed_i64,
     attempts,
     elapsed_ms: trace_elapsed_ms(start_ms),
+    seed_index: 0,
+    seed_count: 1,
+    shard_index: 0,
+    shard_count: 1,
   })
 }
 
@@ -1099,23 +1252,88 @@ pub fn run_fuzz_suite(
   profile : String,
   seed_i64 : Int64,
 ) -> Result[Array[FuzzSuiteResult], String] {
+  run_fuzz_suite_sweep(suite, profile, seed_i64, 1, 0, 1)
+}
+
+///|
+fn fuzz_seed_add(base : Int64, offset : Int) -> Int64 {
+  (base.reinterpret_as_uint64() + offset.to_uint64()).reinterpret_as_int64()
+}
+
+///|
+fn fuzz_suite_result_with_sweep_metadata(
+  result : FuzzSuiteResult,
+  seed_index : Int,
+  seed_count : Int,
+  shard_index : Int,
+  shard_count : Int,
+) -> FuzzSuiteResult {
+  FuzzSuiteResult::{
+    suite: result.suite,
+    profile: result.profile,
+    seed: result.seed,
+    attempts: result.attempts,
+    elapsed_ms: result.elapsed_ms,
+    seed_index,
+    seed_count,
+    shard_index,
+    shard_count,
+  }
+}
+
+///|
+pub fn run_fuzz_suite_sweep(
+  suite : String,
+  profile : String,
+  seed_i64 : Int64,
+  seed_count : Int,
+  shard_index : Int,
+  shard_count : Int,
+) -> Result[Array[FuzzSuiteResult], String] {
+  if seed_count <= 0 {
+    return Err("seed-count must be greater than zero")
+  }
+  if shard_count <= 0 {
+    return Err("shard-count must be greater than zero")
+  }
+  if shard_index < 0 || shard_index >= shard_count {
+    return Err("shard-index must be non-negative and less than shard-count")
+  }
   let suite_name = fuzz_ascii_lower(suite.trim().to_owned())
   let profile_name = fuzz_ascii_lower(profile.trim().to_owned())
-  if suite_name == "all" {
-    let suites = fuzz_active_suite_names()
-    let out : Array[FuzzSuiteResult] = []
-    for name in suites {
-      match run_single_suite(name, profile_name, seed_i64) {
-        Ok(result) => out.push(result)
-        Err(e) => return Err(e)
+  let out : Array[FuzzSuiteResult] = []
+  let mut seed_index = 0
+  while seed_index < seed_count {
+    if seed_index % shard_count == shard_index {
+      let run_seed = fuzz_seed_add(seed_i64, seed_index)
+      if suite_name == "all" {
+        let suites = fuzz_active_suite_names()
+        for name in suites {
+          match run_single_suite(name, profile_name, run_seed) {
+            Ok(result) =>
+              out.push(
+                fuzz_suite_result_with_sweep_metadata(
+                  result, seed_index, seed_count, shard_index, shard_count,
+                ),
+              )
+            Err(e) => return Err(e)
+          }
+        }
+      } else {
+        match run_single_suite(suite_name, profile_name, run_seed) {
+          Ok(result) =>
+            out.push(
+              fuzz_suite_result_with_sweep_metadata(
+                result, seed_index, seed_count, shard_index, shard_count,
+              ),
+            )
+          Err(e) => return Err(e)
+        }
       }
     }
-    return Ok(out)
+    seed_index += 1
   }
-  match run_single_suite(suite_name, profile_name, seed_i64) {
-    Ok(result) => Ok([result])
-    Err(e) => Err(e)
-  }
+  Ok(out)
 }
 
 ///|
@@ -1139,12 +1357,59 @@ pub fn format_fuzz_suite_result(
   result : FuzzSuiteResult,
   output_mode : FuzzOutputMode,
 ) -> String {
+  let sweep_suffix = if result.seed_count == 1 && result.shard_count == 1 {
+    ""
+  } else {
+    " seed_index=\{result.seed_index} seed_count=\{result.seed_count} shard_index=\{result.shard_index} shard_count=\{result.shard_count}"
+  }
   match output_mode {
     FuzzOutputMode::Text =>
-      "suite=\{result.suite} profile=\{result.profile} seed=\{result.seed} attempts=\{result.attempts} pass=true elapsed_ms=\{result.elapsed_ms}"
+      "suite=\{result.suite} profile=\{result.profile} seed=\{result.seed} attempts=\{result.attempts} pass=true elapsed_ms=\{result.elapsed_ms}\{sweep_suffix}"
     FuzzOutputMode::Jsonl =>
-      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"attempts\":\{result.attempts},\"pass\":true,\"elapsed_ms\":\{result.elapsed_ms}}"
+      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"attempts\":\{result.attempts},\"pass\":true,\"elapsed_ms\":\{result.elapsed_ms},\"seed_index\":\{result.seed_index},\"seed_count\":\{result.seed_count},\"shard_index\":\{result.shard_index},\"shard_count\":\{result.shard_count}}"
   }
+}
+
+///|
+pub fn format_fuzz_run_report_json(
+  suite : String,
+  profile : String,
+  base_seed : Int64,
+  seed_count : Int,
+  shard_index : Int,
+  shard_count : Int,
+  results : Array[FuzzSuiteResult],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"pass\":true,\"run_count\":\{results.length()},\"runs\":[",
+  )
+  let mut i = 0
+  while i < results.length() {
+    if i > 0 {
+      out.write_string(",")
+    }
+    out.write_string(
+      format_fuzz_suite_result(results[i], FuzzOutputMode::Jsonl),
+    )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
+fn fuzz_string_to_bytes(text : String) -> Bytes {
+  let buf = @buffer.new(size_hint=text.length())
+  for c in text {
+    let code = c.to_int()
+    if code >= 0 && code <= 255 {
+      buf.write_byte(code.to_byte())
+    } else {
+      buf.write_byte('?'.to_int().to_byte())
+    }
+  }
+  buf.to_bytes()
 }
 
 ///|
@@ -1208,11 +1473,39 @@ fn main {
       }
     FuzzCliCommand::Run(parsed) => {
       let output_mode = parsed.output_mode
-      match run_fuzz_suite(parsed.suite, parsed.profile, parsed.seed_i64) {
-        Ok(results) =>
+      match
+        run_fuzz_suite_sweep(
+          parsed.suite,
+          parsed.profile,
+          parsed.seed_i64,
+          parsed.seed_count,
+          parsed.shard_index,
+          parsed.shard_count,
+        ) {
+        Ok(results) => {
           for result in results {
             print_fuzz_suite_result(result, output_mode)
           }
+          match parsed.report_json_path {
+            Some(path) => {
+              let report = format_fuzz_run_report_json(
+                parsed.suite,
+                parsed.profile,
+                parsed.seed_i64,
+                parsed.seed_count,
+                parsed.shard_index,
+                parsed.shard_count,
+                results,
+              )
+              match write_file_bytes(path, fuzz_string_to_bytes(report)) {
+                Ok(_) => ()
+                Err(e) =>
+                  abort("failed to write fuzz JSON report \{path}: \{e}")
+              }
+            }
+            None => ()
+          }
+        }
         Err(e) => abort(e)
       }
     }

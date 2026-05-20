@@ -8,6 +8,10 @@ export type FuzzOptions = {
   suite: string;
   seed: string | null;
   output: "text" | "jsonl";
+  seedCount: string | null;
+  shardIndex: string | null;
+  shardCount: string | null;
+  reportJson: string | null;
   target: string;
   moonBin: string;
   listSuites: boolean;
@@ -26,6 +30,10 @@ function defaultFuzzOptions(): FuzzOptions {
     suite: "all",
     seed: null,
     output: "text",
+    seedCount: null,
+    shardIndex: null,
+    shardCount: null,
+    reportJson: null,
     target: "wasm-gc",
     moonBin: resolveMoonBin(),
     listSuites: false,
@@ -156,6 +164,26 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
       i += 1;
       continue;
     }
+    if (token.startsWith("--seed-count=")) {
+      options.seedCount = token.substring("--seed-count=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--shard-index=")) {
+      options.shardIndex = token.substring("--shard-index=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--shard-count=")) {
+      options.shardCount = token.substring("--shard-count=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--report-json=")) {
+      options.reportJson = token.substring("--report-json=".length);
+      i += 1;
+      continue;
+    }
     switch (token) {
       case "--profile":
         options.profile = argv[i + 1] ?? fail("missing value for --profile");
@@ -185,6 +213,22 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
       case "--jsonl":
         options.output = "jsonl";
         i += 1;
+        break;
+      case "--seed-count":
+        options.seedCount = argv[i + 1] ?? fail("missing value for --seed-count");
+        i += 2;
+        break;
+      case "--shard-index":
+        options.shardIndex = argv[i + 1] ?? fail("missing value for --shard-index");
+        i += 2;
+        break;
+      case "--shard-count":
+        options.shardCount = argv[i + 1] ?? fail("missing value for --shard-count");
+        i += 2;
+        break;
+      case "--report-json":
+        options.reportJson = argv[i + 1] ?? fail("missing value for --report-json");
+        i += 2;
         break;
       case "--list-suites":
         options.listSuites = true;
@@ -303,6 +347,18 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
   if (options.output === "jsonl") {
     args.push("--output", "jsonl");
   }
+  if (options.seedCount != null) {
+    args.push("--seed-count", options.seedCount);
+  }
+  if (options.shardIndex != null) {
+    args.push("--shard-index", options.shardIndex);
+  }
+  if (options.shardCount != null) {
+    args.push("--shard-count", options.shardCount);
+  }
+  if (options.reportJson != null) {
+    args.push("--report-json", options.reportJson);
+  }
   runOrThrow(options.moonBin, args, { cwd: repoRoot });
 }
 
@@ -315,7 +371,7 @@ export function main(argv: string[]): void {
   }
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]",
+      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

@@ -217,6 +217,33 @@ process.exit(0);
   );
 
   fs.writeFileSync(logPath, "");
+  const fuzzReportPath = path.join(tmpdir, "fuzz-report.json");
+  runBun(
+    repoRoot,
+    [
+      "fuzz",
+      "run",
+      "--suite=cmd-harness",
+      "--seed=0x10",
+      "--seed-count=5",
+      "--shard-index",
+      "1",
+      "--shard-count",
+      "2",
+      "--report-json",
+      fuzzReportPath,
+      "--target",
+      "wasm",
+    ],
+    env,
+  );
+  const actualFuzzSweep = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualFuzzSweep === `run --target wasm src/fuzz -- cmd-harness smoke --seed 0x10 --seed-count 5 --shard-index 1 --shard-count 2 --report-json ${fuzzReportPath}`,
+    `unexpected fuzz sweep command log:\n${actualFuzzSweep}`,
+  );
+
+  fs.writeFileSync(logPath, "");
   runBun(
     repoRoot,
     ["fuzz", "run", "--suite=cmd-harness", "--seed=0xcafe", "--target=wasm", `--moon=${fakeMoonPath}`],

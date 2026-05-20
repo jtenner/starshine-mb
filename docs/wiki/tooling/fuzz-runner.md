@@ -61,6 +61,7 @@ The plain run form accepts positional arguments or flags:
 ```text
 moon run src/fuzz -- [suite] [profile] [seed]
 moon run src/fuzz -- --seed <int64> --output text|jsonl
+moon run src/fuzz -- cmd-harness smoke --seed 0x10 --seed-count 64 --shard-index 0 --shard-count 4 --report-json .tmp/fuzz-report.json
 bun fuzz run --suite <name> --profile <name> --seed <int64> --jsonl
 ```
 
@@ -69,8 +70,11 @@ Important invariants:
 - Missing suite/profile defaults to `all smoke`.
 - Missing seed uses a time-derived signed `Int64` seed; logged output always includes the resolved signed seed.
 - Seeds accept decimal or `0x...` forms; `--seed` and positional seed are mutually exclusive.
-- Text output lines use `suite=<name> profile=<profile> seed=<seed> attempts=<n> pass=true elapsed_ms=<ms>`.
-- JSONL output emits the same facts as one JSON object per suite result.
+- `--seed-count <n>` performs a deterministic seed sweep from the resolved base seed through `base + n - 1` using wrapping `UInt64` arithmetic mapped back to signed `Int64` output.
+- `--shard-index <i> --shard-count <n>` runs only seed ordinals where `ordinal % shard_count == shard_index`; defaults are `0/1`, and `shard_index` must be less than `shard_count`.
+- Text output lines keep the single-seed contract `suite=<name> profile=<profile> seed=<seed> attempts=<n> pass=true elapsed_ms=<ms>`. Sweep/sharded runs append `seed_index`, `seed_count`, `shard_index`, and `shard_count` fields.
+- JSONL output emits one JSON object per suite result, including sweep/shard metadata.
+- `--report-json <path>` writes a single summary object with `suite`, `profile`, `base_seed`, sweep/shard configuration, aggregate `run_count`, and the per-suite `runs` array. The path must be explicit; the runner does not create a standard output directory for ordinary fuzz runs yet.
 
 Preserve this result contract when adding suites so CI logs, repro reports, and long-running compare tasks can remain machine-readable.
 
@@ -111,7 +115,7 @@ It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...
 
 - `--target <target>` / `--target=<target>` (default `wasm-gc`).
 - `--moon <path>` / `--moon=<path>`.
-- `--suite`, `--profile`, `--seed`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding.
+- `--suite`, `--profile`, `--seed`, `--seed-count`, `--shard-index`, `--shard-count`, `--report-json`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding.
 
 `bun fuzz compare-pass ...` is a sibling entrypoint, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine, `wasm-tools`, and Binaryen.
 

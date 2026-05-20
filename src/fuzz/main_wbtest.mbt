@@ -57,6 +57,59 @@ test "parse_fuzz_cli_args accepts --jsonl alias" {
 }
 
 ///|
+test "parse_fuzz_cli_args accepts seed sweep, shard, and report flags" {
+  let parsed = parse_fuzz_cli_args([
+    "cmd-harness", "smoke", "--seed=0x10", "--seed-count", "5", "--shard-index",
+    "1", "--shard-count", "2", "--report-json", "tmp/fuzz-report.json",
+  ])
+  @debug.assert_eq(parsed.suite, "cmd-harness")
+  @debug.assert_eq(parsed.profile, "smoke")
+  @debug.assert_eq(parsed.seed_i64, 0x10L)
+  @debug.assert_eq(parsed.seed_count, 5)
+  @debug.assert_eq(parsed.shard_index, 1)
+  @debug.assert_eq(parsed.shard_count, 2)
+  @debug.assert_eq(parsed.report_json_path, Some("tmp/fuzz-report.json"))
+}
+
+///|
+test "run_fuzz_suite_sweep derives deterministic shard seeds" {
+  let results = match
+    run_fuzz_suite_sweep("cmd-harness", "smoke", 10L, 5, 1, 2) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(results.length(), 2)
+  @debug.assert_eq(results[0].seed_index, 1)
+  @debug.assert_eq(results[0].seed, 11L)
+  @debug.assert_eq(results[0].seed_count, 5)
+  @debug.assert_eq(results[0].shard_index, 1)
+  @debug.assert_eq(results[0].shard_count, 2)
+  @debug.assert_eq(results[1].seed_index, 3)
+  @debug.assert_eq(results[1].seed, 13L)
+}
+
+///|
+test "format_fuzz_run_report_json summarizes sweep results" {
+  let results = match
+    run_fuzz_suite_sweep("cmd-harness", "smoke", 7L, 2, 0, 1) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let report = format_fuzz_run_report_json(
+    "cmd-harness", "smoke", 7L, 2, 0, 1, results,
+  )
+  assert_true(report.contains("\"suite\":\"cmd-harness\""))
+  assert_true(report.contains("\"profile\":\"smoke\""))
+  assert_true(report.contains("\"base_seed\":7"))
+  assert_true(report.contains("\"seed_count\":2"))
+  assert_true(report.contains("\"shard_index\":0"))
+  assert_true(report.contains("\"shard_count\":1"))
+  assert_true(report.contains("\"runs\":["))
+  assert_true(report.contains("\"seed_index\":0"))
+  assert_true(report.contains("\"seed_index\":1"))
+}
+
+///|
 test "parse_fuzz_cli_command detects control commands" {
   match parse_fuzz_cli_command(["--help"]) {
     Help => ()

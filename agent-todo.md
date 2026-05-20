@@ -879,6 +879,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Exit Criteria: binary fuzzing covers full valid module roundtrips, arbitrary type roundtrips, and malformed bytes as separate measurable lanes.
 
 - [FUZ]1030 - Fuzz Runner Detailed Reports, Seed Sweeps, And Sharding
+  - Status: IN PROGRESS (cron 23, 2026-05-20): first slice landed deterministic `--seed-count` sweeps, `--shard-index` / `--shard-count`, `--report-json`, JSONL sweep metadata, and Bun wrapper forwarding while preserving single-seed text output. Validation evidence: `moon test src/fuzz`, `bun scripts/test/task-family-commands.ts`, `moon info`, `moon fmt`, `moon test`, and a real `moon run src/fuzz -- cmd-harness smoke --seed 0x10 --seed-count 3 --shard-index 1 --shard-count 2 --report-json .tmp/fuz1030/report.json --output jsonl` with `python3 -m json.tool` on the report. Resume here for the remaining detailed per-suite feature/strategy ledger report fields and any standard output-directory workflow.
   - Goal: make `moon run src/fuzz` and `bun fuzz run` suitable for long multi-seed CI and agent runs.
   - Why: current output is concise, but broad fuzz work needs JSON reports, seed sweeps, sharding, and suite-level detailed stats without hand-wrapping commands.
   - Deliverables: add `--output json` or detailed JSONL, `--write-report <path>`, `--seed-count <n>`, `--shard-index <i> --shard-count <n>`, and per-suite detailed stats including feature/strategy ledgers when available.

@@ -31,6 +31,8 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenVa
 
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
 
+pub fn format_fuzz_run_report_json(String, String, Int64, Int, Int, Int, Array[FuzzSuiteResult]) -> String
+
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
 
 pub fn fuzz_active_suite_names() -> Array[String]
@@ -76,6 +78,8 @@ pub fn persist_invalid_fuzz_failure_report(InvalidFuzzFailureReport, InvalidFuzz
 pub fn replay_invalid_fuzz_failure_report(InvalidFuzzFailureReport, prefer_reduced? : Bool) -> Result[InvalidFuzzReplayResult, String]
 
 pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], String]
+
+pub fn run_fuzz_suite_sweep(String, String, Int64, Int, Int, Int) -> Result[Array[FuzzSuiteResult], String]
 
 pub fn run_validate_invalid_binary_fuzz(String, UInt64) -> Result[ValidateInvalidBinaryFuzzStats, String]
 
@@ -145,6 +149,10 @@ pub struct FuzzCliArgs {
   seed : UInt64
   seed_i64 : Int64
   output_mode : FuzzOutputMode
+  seed_count : Int
+  shard_index : Int
+  shard_count : Int
+  report_json_path : String?
 } derive(Eq, @debug.Debug)
 
 pub enum FuzzCliCommand {
@@ -167,6 +175,10 @@ pub struct FuzzSuiteResult {
   seed : Int64
   attempts : Int
   elapsed_ms : UInt64
+  seed_index : Int
+  seed_count : Int
+  shard_index : Int
+  shard_count : Int
 } derive(Eq, @debug.Debug)
 
 pub struct GenInvalidBinaryGenerated {
