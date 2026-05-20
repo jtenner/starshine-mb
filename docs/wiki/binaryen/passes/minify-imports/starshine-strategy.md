@@ -46,7 +46,7 @@ The current strategy is **non-adoption plus explicit documentation**. The pass i
 ## Exact local code locations to read first
 
 - `src/lib/types.mbt:218`
-  - `Import(Name, Name, ExternType)` carries module and base strings.
+  - `Import(Name, Name, ExternType)` carries module and base strings; the module-boundary validation and matching caveats for this payload live in [`../../../validate/import-export-and-external-type-matching.md`](../../../validate/import-export-and-external-type-matching.md).
 - `src/lib/types.mbt:227`
   - `Export(Name, ExternIdx)` is out of scope for plain `minify-imports` but needed by the `-and-exports` siblings.
 - `src/lib/types.mbt:430`
@@ -87,6 +87,7 @@ A faithful local port should be treated as a module-declaration rewrite plus rep
    - add export-name mutation for `minify-imports-and-exports`;
    - add all-module import-base eligibility and singleton module rewrite for `minify-imports-and-exports-and-modules`.
 5. **Validation**
+   - re-run Starshine module validation and check the focused import/export boundary rules in [`../../../validate/import-export-and-external-type-matching.md`](../../../validate/import-export-and-external-type-matching.md);
    - compare WAT/binary changes and JSON output against Binaryen on reduced modules;
    - include custom-module negatives, `wasi_` positives, non-function imports, and sibling surfaces.
 

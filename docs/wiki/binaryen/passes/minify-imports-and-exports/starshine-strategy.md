@@ -59,7 +59,7 @@ The folder tracks Binaryen's public pass because the upstream source is compact,
 - `src/passes/pass_manager.mbt:8628-8649`
   - active module-pass dispatcher; no minify case exists.
 - `src/lib/types.mbt:218-227`
-  - `Import(Name, Name, ExternType)` and `Export(Name, ExternIdx)` hold the strings this pass would rewrite.
+  - `Import(Name, Name, ExternType)` and `Export(Name, ExternIdx)` hold the strings this pass would rewrite; validation of those boundary records is summarized in [`../../../validate/import-export-and-external-type-matching.md`](../../../validate/import-export-and-external-type-matching.md).
 - `src/lib/types.mbt:350-424`
   - `Module` owns optional `import_sec` and `export_sec` fields.
 - `src/lib/types.mbt:8084-8118`

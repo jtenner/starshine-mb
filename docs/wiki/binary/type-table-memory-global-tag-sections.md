@@ -19,6 +19,7 @@ related:
   - data-element-and-datacount-sections.md
   - custom-and-name-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/import-export-and-external-type-matching.md
   - ../validate/constant-expressions.md
   - ../wast/gc-type-authoring.md
   - ../wast/resource-declaration-authoring.md
@@ -44,7 +45,7 @@ This page is the shared Starshine guide for the core module-definition sections 
 - **tag section**: exception tag declarations; and
 - **stringrefs section**: Starshine's local/proposal-facing literal pool for `string.const` binary round trips.
 
-For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For the initializer and table-initializer constant-expression allow-list, local/spec caveats, and immutable-`global.get` visibility, pair it with [`../validate/constant-expressions.md`](../validate/constant-expressions.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). For `string.const`, array-backed string helpers, and string-helper validation stack/storage rules, pair it with [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md).
+For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For import/export validation, duplicate export names, and external-type matching rules that consume these resource types, pair it with [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md). For the initializer and table-initializer constant-expression allow-list, local/spec caveats, and immutable-`global.get` visibility, pair it with [`../validate/constant-expressions.md`](../validate/constant-expressions.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). For `string.const`, array-backed string helpers, and string-helper validation stack/storage rules, pair it with [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md).
 
 The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) is the primary external source for section ids and the core type/table/memory/global/tag validation model. The same snapshot records an important caveat: the reviewed core and js-string-builtins module sources do **not** define a stable core `stringrefs` section id, so Starshine's section-id-`14` `StringRefsSec` should be treated as a local/proposal-facing implementation surface until upstream standardization says otherwise.
 
@@ -59,7 +60,7 @@ The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-ta
 | Tag | `13` | [`TagSec(Array[TagType])`](../../../src/lib/types.mbt) | Tag imports precede definitions in the tag index space; each tag type index must resolve to a function type with no results. |
 | Stringrefs | local `14` | [`StringRefsSec(Array[Bytes])`](../../../src/lib/types.mbt) | Local literal pool used by Starshine's binary encoder/decoder for `string.const`; not currently a core-spec section according to the reviewed sources. WAST-side string helper semantics live in [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md). |
 
-Imports are deliberately not duplicated in these definition sections. An imported memory, for example, appears in `ImportSec` as `MemExternType` and then occupies `MemIdx(0)` before the first locally defined memory. The same imported-prefix rule applies to table, global, and tag indices.
+Imports are deliberately not duplicated in these definition sections. An imported memory, for example, appears in `ImportSec` as `MemExternType` and then occupies `MemIdx(0)` before the first locally defined memory. The same imported-prefix rule applies to table, global, and tag indices. If a host value later needs to satisfy that import, the type-compatibility relation is the external-type matching contract in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md).
 
 ## Beginner-To-Advanced Mental Model
 
@@ -97,7 +98,7 @@ Starshine's validator mirrors the section dependency order in [`validate_module_
 Important section-specific rules:
 
 - [`validate_typesec(...)`](../../../src/validate/validate.mbt) accepts each `RecType` under a recursive context, then appends normalized absolute subtype references to `Env.global_types`. This is why later code-body validation can resolve types without needing the original rec-group-relative context.
-- [`validate_importsec(...)`](../../../src/validate/validate.mbt) validates each imported extern type and appends imported function/table/memory/global/tag entries before local definition sections run.
+- [`validate_importsec(...)`](../../../src/validate/validate.mbt) validates each imported extern type and appends imported function/table/memory/global/tag entries before local definition sections run. It does not match host values; see [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md) for the validation-versus-instantiation split.
 - [`Validate for TableType`](../../../src/validate/validate.mbt) checks the reference type and limit maximum; [`validate_table(...)`](../../../src/validate/validate.mbt) additionally checks optional initializers as constant expressions of the table element type. Use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for the local allow-list and table-initializer `global.get` caveat.
 - [`Validate for MemType`](../../../src/validate/validate.mbt) checks limit bounds and requires shared memories to have a maximum.
 - [`Validate for TagType`](../../../src/validate/validate.mbt) requires the tag's type index to resolve to a function type and rejects non-empty result lists.

@@ -17,6 +17,7 @@ sources:
   - ../../../src/fuzz/main.mbt
 related:
   - ./module-validation-phases.md
+  - ./import-export-and-external-type-matching.md
   - ./start-section.md
   - ./fuzz-hardening.md
   - ./ref-func-declarations.md
@@ -75,7 +76,7 @@ Do not classify failures by message substrings. The issue variant and family map
 | `ValidationIssue` variant | Family label | Typical owner phase | Notes |
 | --- | --- | --- | --- |
 | `TypeSection` | `type` | `typesec` | Recursive type, subtype, descriptor, and type-index rules. |
-| `ImportSection` | `import` | `importsec` | Import type/reference errors before local definition suffixes are added. |
+| `ImportSection` | `import` | `importsec` | Import type/reference errors before local definition suffixes are added; detailed import declaration versus host matching rules live in [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md). |
 | `FunctionSection` | `function` | `funcsec` | Defined-function type-index declarations, not body typing. |
 | `TableSection` | `table` | `tablesec` | Table types and table initializer expressions. |
 | `MemorySection` | `memory` | `memsec` | Memory limit, memory64, and shared-memory maximum rules. |
@@ -85,7 +86,7 @@ Do not classify failures by message substrings. The issue variant and family map
 | `DataSection` | `data` | `datasec` | Data modes, memory targets, and offsets. |
 | `DataCountSection` | `datacount` | `datacnt` | Data-count equality and illegal standalone data-count surfaces. |
 | `StartSection` | `start` | `startsec` | Start target resolution and empty parameter/result signature; see [`start-section.md`](start-section.md). May carry `func_idx`. |
-| `ExportSection` | `export` | `exportsec` | Export target bounds and duplicate export names. |
+| `ExportSection` | `export` | `exportsec` | Export target bounds and duplicate export names; see [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md) for the focused export-index and duplicate-name contract. |
 | `CodeSection` | `code` | `codesec` structural gate | Missing or mismatched `FuncSec` / `CodeSec`, missing function type for a body ordinal, or other section-level code problems. |
 | `NameSection` | `name` | `namesec` | Starshine validates structured name maps even though custom sections are not ordinary core semantic blockers. |
 | `FunctionBody` | `function-body` | `datacnt_requirement`, `ref_func_declarations` body scan, body typechecking | Anything assigned to one function body: stack typing, local use, missing data-count use, undeclared body `ref.func`, etc. |

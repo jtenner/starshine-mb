@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | import/export boundary backlink hygiene
+
+- During the post-update whole-wiki health pass, searched `ExternType`, `ImportSection`, `ExportSection`, `importsec`, `exportsec`, duplicate-export, and import/export declaration references across WAST, binary, validator, and Binaryen pass pages.
+- Updated [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so resource, function-authoring, and diagnostic-family readers route import/export boundary rules through [`validate/import-export-and-external-type-matching.md`](validate/import-export-and-external-type-matching.md).
+- Updated [`binaryen/passes/minify-imports/starshine-strategy.md`](binaryen/passes/minify-imports/starshine-strategy.md) and [`binaryen/passes/minify-imports-and-exports/starshine-strategy.md`](binaryen/passes/minify-imports-and-exports/starshine-strategy.md) so future ABI-visible import/export renaming plans point at the shared validation and host-matching caveat instead of relying only on local section-shape bullets.
+
 ## [2026-05-20] validate | import/export external-type matching
 
 - Added [`raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](raw/wasm/2026-05-20-external-type-matching-import-export-validation.md) after rechecking current WebAssembly 3.0 module validation, type validation/matching, abstract module syntax, and runtime instantiation sources plus Starshine `validate_importsec`, `validate_exportsec_unique`, `Match for ExternType`, invalid-fuzzer, core/binary, and WAST lowering evidence.

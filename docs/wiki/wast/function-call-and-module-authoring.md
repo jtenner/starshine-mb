@@ -27,6 +27,7 @@ related:
   - identifier-name-and-annotation-authoring.md
   - ../binary/function-import-export-and-code-sections.md
   - ../validate/start-section.md
+  - ../validate/import-export-and-external-type-matching.md
   - ../validate/ref-func-declarations.md
   - ../validate/module-validation-phases.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -80,7 +81,7 @@ After lowering, Starshine does not keep `call $add1` as a symbolic call. [`src/w
 | WAST printer | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints resolved indices for call-family instructions, so shorthand/default-table input can roundtrip as a more explicit numeric form. |
 | Core model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Stores `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, `CodeSec`, `FuncIdx`, and distinct `Call`, `CallIndirect`, `ReturnCall*`, `CallRef`, and `ReturnCallRef` instruction variants. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Roundtrips ordinary `call_ref` as opcode `0x14` and `return_call_ref` as opcode `0x15`, each with a `TypeIdx` immediate. Binary support does not imply WAST keyword support. |
-| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Typechecks direct, table-mediated, and reference-call stack effects; validates function/import/export/start/code sections; rejects duplicate export names; and checks code bodies after all signatures are known. |
+| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Typechecks direct, table-mediated, and reference-call stack effects; validates function/import/export/start/code sections; rejects duplicate export names through [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md); and checks code bodies after all signatures are known. |
 | Generator / WAST arbitrary | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | Valid generator tracks ordinary calls, indirect calls, tail calls, start sections, and import/export topology. WAST arbitrary mirrors parser/printer shapes and is not a typed-validity oracle. |
 
 ## Function And Module Field Shapes
@@ -133,7 +134,7 @@ This is a Starshine authoring caveat, not a binary-module limitation: the lowere
 (export "run" (func $run))
 ```
 
-Exports target absolute function indices and have globally unique export names at validation time. Inline function exports and explicit function export fields lower to the same [`ExportSec`](../../../src/lib/types.mbt) shape. Function exports also count as `ref.func` declaration sources in Starshine's whole-module declaration scan; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+Exports target absolute function indices and have globally unique export names at validation time. Inline function exports and explicit function export fields lower to the same [`ExportSec`](../../../src/lib/types.mbt) shape; the focused import/export validation page owns duplicate-name diagnostics and the boundary between declaration validation and host matching: [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md). Function exports also count as `ref.func` declaration sources in Starshine's whole-module declaration scan; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
 ### Start function
 
@@ -209,7 +210,7 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 ## Common Mistakes
 
 - **Mistake: “The first defined function is always `FuncIdx(0)`.** It is only `0` when there are no function imports. With imports, defined bodies start at `imported_func_count`.
-- **Mistake: “Inline exports are source-only and can be ignored after parsing.”** They lower to ordinary export entries and affect duplicate-export validation and `ref.func` declaration coverage.
+- **Mistake: “Inline exports are source-only and can be ignored after parsing.”** They lower to ordinary export entries and affect duplicate-export validation, external-boundary docs, and `ref.func` declaration coverage.
 - **Mistake: “`call_indirect` belongs only to table docs.”** Table docs own table resource rules, but the instruction also depends on function types and call argument/result typing.
 - **Mistake: “Start roots a `ref.func` use in Starshine.”** Not today. Start validates as an empty-signature function target through [`../validate/start-section.md`](../validate/start-section.md), but start-only `ref.func` declaration remains a recorded local/spec divergence.
 - **Mistake: “WAST arbitrary call text proves valid module typing.”** WAST arbitrary primarily exercises parser/printer roundtrips. Use `gen_valid` and module validation for typed-validity evidence.
