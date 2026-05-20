@@ -28,7 +28,7 @@ related:
 
 # Starshine port readiness and validation for `strip-toolchain-annotations`
 
-This page is a future implementation ladder. A 2026-05-06 current-main recheck kept the upstream contract unchanged. Starshine does **not** currently implement or reserve `strip-toolchain-annotations`.
+This page is a future implementation ladder. A 2026-05-06 current-main recheck kept the upstream contract unchanged. Starshine does **not** currently implement or reserve `strip-toolchain-annotations`. For the shared local `FuncAnnotationSec` model, the absence of expression-level code metadata, and the `metadata.code.inline` / branch-hint boundary, see [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md).
 
 ## Current decision point
 
@@ -54,7 +54,7 @@ The safest useful slice is a module pass over `FuncAnnotationSec`:
 5. If the section has no associations left, remove `func_annotation_sec` from the module.
 6. Leave functions, imports, exports, type declarations, code, names, and custom sections otherwise unchanged.
 
-That slice should be documented as **Starshine's local function-annotation subset**, not full Binaryen parity, because Binaryen also strips per-expression `codeAnnotations` and Starshine does not expose an equivalent expression-annotation map today.
+That slice should be documented as **Starshine's local function-annotation subset**, not full Binaryen parity, because Binaryen also strips per-expression `codeAnnotations` and Starshine does not expose an equivalent expression-annotation map today; the focused local boundary is [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md).
 
 ## Shape matrix
 

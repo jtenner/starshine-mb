@@ -19,6 +19,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ../../../wast/code-metadata-and-function-annotations.md
   - ./implementation-structure-and-tests.md
   - ./heuristics-splitting-and-plain-vs-optimizing.md
   - ../inlining-optimizing/index.md
@@ -212,7 +213,7 @@ As of 2026-05-13, Starshine has a first local policy surface for this split:
 - `no_inline_copy_policy_annotations(...)` copies the internal full/partial policy markers from an original function to a copied function, providing the shared hook future clone/copy transforms need to mirror Binaryen `copyFunction` flag preservation;
 - `@metadata.code.inline` annotations are still treated as metadata and do not block full inlining.
 
-The local policy matches names from the structured name section, including those produced from WAST identifiers by the text lowerer. The compaction remap preserves both function names and policy annotations through inlining helper removal, and the copy helper covers the currently available clone-survival surface even though Starshine does not yet have an active monomorphize/copy transform consuming it. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
+The local policy matches names from the structured name section, including those produced from WAST identifiers by the text lowerer. The annotation storage and `metadata.code.inline` / branch-hint caveats are centralized in [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md): Starshine's `(@...)` lane is function/import-only and in-memory today, not a binary or expression-level code-metadata model. The compaction remap preserves both function names and policy annotations through inlining helper removal, and the copy helper covers the currently available clone-survival surface even though Starshine does not yet have an active monomorphize/copy transform consuming it. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
 
 ## What future Starshine widening should preserve
 

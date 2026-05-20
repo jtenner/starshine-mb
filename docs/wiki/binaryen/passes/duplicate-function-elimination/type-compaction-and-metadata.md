@@ -18,6 +18,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
   - ./parity.md
+  - ../../../wast/code-metadata-and-function-annotations.md
 ---
 
 # `duplicate-function-elimination` type compaction and metadata
@@ -65,6 +66,8 @@ So in official DFE, metadata mainly affects equality like this:
 
 - branch hints and debug/source location do not block merging
 - `js.called`, `removable.if.unused`, and `idempotent` do block merging unless they match
+
+For Starshine's local distinction between function/import annotations, expression-level branch hints, and internal no-inline markers, use [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md).
 
 After a merge, Binaryen simply keeps the survivor function and therefore keeps that survivor's metadata surface.
 It is not running a separate metadata-normalization pass.

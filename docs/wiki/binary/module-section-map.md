@@ -5,6 +5,7 @@ last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
+  - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
@@ -18,6 +19,7 @@ related:
   - data-element-and-datacount-sections.md
   - ../wast/resource-declaration-authoring.md
   - ../wast/string-instruction-authoring.md
+  - ../wast/code-metadata-and-function-annotations.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../tooling/validation-gates.md
   - ../validate/module-validation-phases.md
@@ -106,7 +108,7 @@ Use this checklist before implementing or reviewing any pass that deletes, reord
 | Changed thing | Must repair or revalidate |
 | --- | --- |
 | Type definitions | Function signatures, block types, table/global/tag types, imports/exports, GC instructions, casts, element types, type names, and any pass-local type caches. |
-| Function imports/definitions | `func_sec` / `code_sec` parallelism, direct calls, tail calls, `ref.func`, start, exports, element payloads, global/table initializer expressions, function names, local/label names keyed under retained functions, and `func_annotation_sec` when present from WAST lowering. |
+| Function imports/definitions | `func_sec` / `code_sec` parallelism, direct calls, tail calls, `ref.func`, start, exports, element payloads, global/table initializer expressions, function names, local/label names keyed under retained functions, and `func_annotation_sec` when present from WAST lowering; use [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md) for the annotation boundary. |
 | Tables | `TableIdx` instructions, `call_indirect` / `return_call_indirect`, active element modes, imports/exports, table names, and optional table initializer expressions; WAST declaration details live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), and WAST runtime instruction details live in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
 | Memories | `MemArg` memory operands, memory management instructions, active data modes, imports/exports, memory names, memory64/lowering assumptions, and the explicit-memidx encoding caveats in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md); WAST declaration caveats live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | Globals | `global.get` / `global.set`, global initializer expressions, imports/exports, global names, global summaries, and constant-propagation caches; WAST declaration and initializer-order examples live in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
@@ -125,7 +127,7 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 - **Code bodies are defined-function bodies only.** `CodeSec` ordinal `0` is not always `FuncIdx(0)`; imports shift absolute function indices.
 - **Custom-section placement is normalized.** Non-`name` custom payloads survive, but exact gap placement does not.
 - **Structured `name` validation is stronger than core custom-section semantics.** Starshine validates parsed name maps because they are used for diagnostics, printing, and pass rewrite checks.
-- **`func_annotation_sec` is a Starshine/WAST-side metadata surface.** It is present in [`Module`](../../../src/lib/types.mbt#L351-L368) and maintained by some module passes, but it is not part of the core binary section stream described by this page.
+- **`func_annotation_sec` is a Starshine/WAST-side metadata surface.** It is present in [`Module`](../../../src/lib/types.mbt#L351-L368) and maintained by some module passes, but it is not part of the core binary section stream described by this page; the focused contract is [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
 
 ## Sources
 
@@ -133,5 +135,5 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 - Core module representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
-- Section-specific pages: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md)
+- Section-specific pages: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md)
 - Fixture-facing WAST resource declarations: [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md)

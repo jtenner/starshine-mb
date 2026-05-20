@@ -22,6 +22,7 @@ related:
   - ../validate/module-validation-phases.md
   - ../validate/fuzz-hardening.md
   - ../wast/identifier-name-and-annotation-authoring.md
+  - ../wast/code-metadata-and-function-annotations.md
   - ../binaryen/passes/reorder-locals/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - ../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md
@@ -31,7 +32,7 @@ related:
 
 ## Overview
 
-For the whole-module placement and ordering map that ties custom metadata to the standard sections, start with [`module-section-map.md`](module-section-map.md). For the text-authoring side of `$` identifiers, function-name lowering, and function annotations, see [`../wast/identifier-name-and-annotation-authoring.md`](../wast/identifier-name-and-annotation-authoring.md). WebAssembly custom sections are section-id-`0` records that carry a UTF-8 name plus uninterpreted bytes. The core spec treats them as semantically ignored metadata that may appear at custom-section gaps in a binary module.
+For the whole-module placement and ordering map that ties custom metadata to the standard sections, start with [`module-section-map.md`](module-section-map.md). For the text-authoring side of `$` identifiers and function-name lowering, see [`../wast/identifier-name-and-annotation-authoring.md`](../wast/identifier-name-and-annotation-authoring.md); for Starshine's narrow function/import `(@...)` lane and the split from WebAssembly/Binaryen code metadata, see [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md). WebAssembly custom sections are section-id-`0` records that carry a UTF-8 name plus uninterpreted bytes. The core spec treats them as semantically ignored metadata that may appear at custom-section gaps in a binary module.
 
 The standardized name section is a special custom section named `name`, but the official-versus-local boundary matters. The 2026-05-20 primary-source refresh in [`../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md) corrected the earlier 2026-05-13 snapshot: current WebAssembly 3.0 documents module, function, local, label, type, field, and tag name subsections, while Starshine additionally accepts, validates, and can emit table, memory, global, element, and data name maps as local richer metadata.
 
@@ -113,6 +114,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **The official subsection set is smaller than Starshine's local map.** Current primary sources standardize `0`, `1`, `2`, `3`, `4`, `10`, and `11`; Starshine-local ids `5` through `9` cover table, memory, global, element, and data names. Do not add new subsection ids or remove the local-extension caveat without refreshing primary sources and extending decode/encode/validation tests together.
 - **Name maps are not uniqueness maps for strings.** Indices must be unique and ordered; name strings themselves may repeat.
 - **WAST identifiers are a separate authoring layer.** Starshine currently promotes WAST function/import identifiers into `NameSec.func_names`, but local/type/table/memory/global/tag/element/data identifiers remain source-resolution aids unless a dedicated lowering path creates the corresponding structured name map.
+- **Function annotations are not binary name sections.** `FuncAnnotationSec` is a Starshine WAST/in-memory metadata lane today; the binary codec does not encode or decode it. Route code-metadata, inline-hint, branch-hint, and no-inline-marker details through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
 - **Function names depend on absolute function-index stability.** See [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) for the imported-prefix `FuncIdx` model that function name maps describe.
 - **Type/table/memory/global/tag names depend on imported-prefix or definition-order stability.** See [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the shared type and module resource index-space contract.
 - **Element/data names depend on segment-index stability.** See [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) for the canonical segment model that those name maps describe.

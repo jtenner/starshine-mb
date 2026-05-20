@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
+  - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
   - ../raw/wasm/2026-05-13-custom-and-name-section-sources.md
   - ../../../src/wast/parser.mbt
@@ -16,6 +17,7 @@ related:
   - ../binary/function-import-export-and-code-sections.md
   - ../binary/module-section-map.md
   - ../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md
+  - code-metadata-and-function-annotations.md
   - ../binaryen/passes/reorder-locals/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
   - element-segment-authoring.md
@@ -29,13 +31,13 @@ related:
 
 ## Overview
 
-Use this page when a text fixture depends on `$` identifiers, debug names, `--no-inline=<pattern>` matching, or Binaryen-style function annotations. The short rule is:
+Use this page when a text fixture depends on `$` identifiers, debug names, `--no-inline=<pattern>` matching, or the boundary between source identifiers and binary name-section metadata. For the deeper Starshine/Binaryen annotation split—function/import-only `(@...)`, `metadata.code.inline`, branch hints, and internal no-inline markers—use [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md). The short rule is:
 
 - **WAST identifiers** are authoring-time symbols. They make text readable and let later text references resolve to the right type, function, table, memory, global, tag, element, data, local, or label index.
 - **The binary name section** is debug metadata. It can preserve human-readable names after lowering, but it is not how WebAssembly validation resolves operands.
 - **Starshine function annotations** are a local metadata lane for function and function-import annotations. They are not the same as the official text `@custom` placement model.
 
-The official WebAssembly text spec treats identifiers as text syntax, while the custom-section appendix defines the standardized custom section named `name`. Starshine sits between those layers: [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) keeps source identifiers in the WAST AST, [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) resolves them into core numeric indices, and only function/imported-function identifiers currently become structured `NameSec.func_names` entries. The focused primary-source snapshot is [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md); the binary metadata contract is [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). That contract now records the 2026-05-20 source correction: current official name-section subsections are narrower than Starshine's local `NameSec`, so table, memory, global, element, and data name maps are local richer metadata rather than current official WebAssembly 3.0 name subsections.
+The official WebAssembly text spec treats identifiers as text syntax, while the custom-section appendix defines the standardized custom section named `name`. Starshine sits between those layers: [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) keeps source identifiers in the WAST AST, [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) resolves them into core numeric indices, and only function/imported-function identifiers currently become structured `NameSec.func_names` entries. The focused primary-source snapshot is [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md); the binary metadata contract is [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). That contract now records the 2026-05-20 source correction: current official name-section subsections are narrower than Starshine's local `NameSec`, so table, memory, global, element, and data name maps are local richer metadata rather than current official WebAssembly 3.0 name subsections. Function/import annotations now have a dedicated focused page, [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md), because they are WAST/in-memory policy metadata rather than source identifier or name-section metadata.
 
 ## Layer Map
 
@@ -103,7 +105,7 @@ Starshine tracks ids for type, table, memory, global, tag, element, and data def
   (func $f))
 ```
 
-`parse_annotated_module_field(...)` accepts one or more `(@...)` forms immediately before a module field. `attach_annotations(...)` currently allows them only on defined functions and function imports. Lowering writes them into `FuncAnnotationSec` entries keyed by function index.
+`parse_annotated_module_field(...)` accepts one or more `(@...)` forms immediately before a module field. `attach_annotations(...)` currently allows them only on defined functions and function imports. Lowering writes them into `FuncAnnotationSec` entries keyed by function index. The exact code-metadata, branch-hint, binary-roundtrip, no-inline-marker, and pass-remap caveats now live in [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md).
 
 Do not infer official text `@custom` placement support from this. The official custom-section text model carries placement and arbitrary payload semantics; Starshine's current function-annotation path is a narrow function metadata lane used by passes and policy tests.
 

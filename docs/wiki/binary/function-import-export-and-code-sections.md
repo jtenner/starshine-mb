@@ -179,7 +179,7 @@ A pass that deletes, merges, reorders, or appends functions must audit all of th
 - `export_sec` can store `FuncExternIdx` values.
 - `elem_sec` can store legacy function-index payloads and expression payloads containing `ref.func`; see [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md).
 - Global and table initializer expressions can contain `ref.func` declarations that are checked before code validation.
-- `name_sec` and `func_annotation_sec` may be keyed by function index; see [`custom-and-name-sections.md`](custom-and-name-sections.md).
+- `name_sec` and `func_annotation_sec` may be keyed by function index; see [`custom-and-name-sections.md`](custom-and-name-sections.md) for name/custom metadata and [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md) for Starshine's function/import annotation lane.
 - Type, table, memory, global, tag, and local string literal pool changes have their own index-carrier checklist in [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md).
 
 Existing pass dossiers that depend on this checklist include:

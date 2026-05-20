@@ -11,6 +11,7 @@ sources:
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-20-reference-branch-validation-refresh.md
+  - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../../README.md
 related:
   - function-call-and-module-authoring.md
@@ -19,6 +20,7 @@ related:
   - control-flow-authoring.md
   - reference-instruction-authoring.md
   - memory-instruction-authoring.md
+  - code-metadata-and-function-annotations.md
   - ../validate/module-validation-phases.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../fuzzing/wast-arbitrary-parity-plan.md
@@ -54,7 +56,8 @@ Do not treat success in one layer as proof for another. For example, core/binary
 - [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md) — `(func ...)`, inline and explicit function imports/exports, `(start ...)`, direct `call`, the function/type side of `call_indirect`, and the current ordinary `call_ref` core/binary/generator-only text caveat.
 - [`resource-declaration-authoring.md`](resource-declaration-authoring.md) — table, memory, and global declarations/imports/exports, global initializers, imported-prefix resource indices, and current memory64/shared text caveats.
 - [`exception-tag-authoring.md`](exception-tag-authoring.md) — tag declarations and exception instructions, including `throw_ref` nullable operands and catch payloads.
-- [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md) — `$` source identifiers, name-section metadata, function annotations, and pass rewrite obligations.
+- [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md) — `$` source identifiers, name-section metadata, and the boundary between source ids and debug names.
+- [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md) — Starshine's function/import-only `(@...)` lane, Binaryen code metadata such as inline and branch hints, internal no-inline markers, and pass rewrite obligations.
 - [`static-assertion-harness.md`](static-assertion-harness.md) — `.wast` script assertions, static-only evaluation, and pass/skip/fail policy for spec-runner use.
 
 ### Types, references, and GC proposal surfaces
@@ -95,6 +98,7 @@ The WAST pages deliberately keep text-surface gaps visible instead of smoothing 
 - **Memory and table widths:** memory64/table64 behavior is often best proved at the core/binary layer until declaration and validation widening lands; route `offset=` / selected-memory-index questions through [`memory-argument-authoring.md`](memory-argument-authoring.md), runtime bulk-memory stack widths through [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and table address-width caveats through [`table-instruction-authoring.md`](table-instruction-authoring.md).
 - **Declarative elements:** direct core/binary/generator paths preserve declarative mode, but current text lowering has a declarative-mode preservation gap and typed declarative text is not a proven WAST surface; route through [`element-segment-authoring.md`](element-segment-authoring.md).
 - **Constant expressions:** official and Starshine-local initializer/offset allow-lists differ; route through [`../validate/constant-expressions.md`](../validate/constant-expressions.md) instead of duplicating the list here.
+- **Code metadata and annotations:** Starshine's current WAST `(@...)` support is function/import-only and lowers to `FuncAnnotationSec`; expression-level code metadata such as branch hints remains Binaryen-oracle documentation unless a local representation/parser/lowerer is cited. Route through [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md).
 
 ## Maintenance Rules
 
