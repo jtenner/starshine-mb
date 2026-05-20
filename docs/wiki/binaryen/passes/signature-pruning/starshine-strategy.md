@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-20
 sources:
+  - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md
@@ -39,7 +40,7 @@ related:
 
 # Starshine Strategy For `signature-pruning`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md), and the implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md), the 2026-05-20 call-ref source refresh in [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md), and the implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status
@@ -100,8 +101,8 @@ The fastest read-along path through the current Starshine status is:
     - `return_call_ref` parses with a type use today.
   - [`src/wast/lower_to_lib.mbt#L1934-L1981`](../../../../../src/wast/lower_to_lib.mbt#L1934-L1981)
     - `call_indirect`, `return_call_indirect`, and `return_call_ref` lower type-use-bearing WAST forms to library instructions.
-  - current WAT caveat
-    - this follow-up confirmed the library, binary, generator, and validator surfaces for `CallRef`; it did **not** find a direct `CallRef` WAST parser/lowerer case beside the `ReturnCallRef` case, so future text-fixture work should verify or add direct `call_ref` text lowering before relying only on WAT fixtures.
+  - current WAST caveat
+    - the 2026-05-20 call-ref refresh confirms the library, binary, generator, and validator surfaces for `CallRef` and keeps ordinary non-tail `call_ref` classified as core/binary/generator-visible but not high-level Starshine WAST text. Future text-fixture work should add direct `call_ref` keyword/parser/lowerer/printer coverage before relying on WAST-only fixtures; until then, use library/binary fixtures and the focused WAST function-call guide.
 - validation surfaces a future port must preserve after pruning signatures
   - [`src/validate/env.mbt#L179-L190`](../../../../../src/validate/env.mbt#L179-L190)
     - validation resolves `TypeIdx` to `FuncType` and resolves tag function types through the type environment.
@@ -281,7 +282,7 @@ A future implementation should validate in layers:
    - no unbounded rerun loop.
 8. round-trip and validation
    - WAT fixture support where available;
-   - library/binary fixtures for direct `CallRef` until text lowering is confirmed;
+   - library/binary fixtures for direct `CallRef` until ordinary `call_ref` text lowering exists;
    - `moon test` and focused Binaryen comparison once the pass is implemented.
 
 Until those layers exist, the correct Starshine behavior remains the current boundary-only rejection.

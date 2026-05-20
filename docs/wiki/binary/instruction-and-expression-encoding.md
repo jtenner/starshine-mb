@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
+  - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
   - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
@@ -108,7 +109,7 @@ Scalar numeric constants and operators are mostly byte-simple but validation-sen
 
 ### Reference instructions
 
-Reference instructions are split across one-byte opcodes and GC-prefixed forms. Starshine encodes/decodes the basic `0xD0`-family forms (`ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, `br_on_null`, and `br_on_non_null`) and `0xFB` subcodes for ordinary/descriptor test-cast plus cast-branch forms. The text authoring surface is narrower: current WAST supports the basic `ref.*` subset and descriptor forms, but not ordinary `ref.test` / `ref.cast` / `br_on_*` text keywords. Use [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) before drawing parser, binary, or validation conclusions from one layer alone.
+Reference and reference-call instructions are split across one-byte opcodes and GC-prefixed forms. Starshine encodes/decodes the basic `0xD0`-family forms (`ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, `br_on_null`, and `br_on_non_null`), the ordinary reference-call opcodes `call_ref` `0x14` and `return_call_ref` `0x15`, and `0xFB` subcodes for ordinary/descriptor test-cast plus cast-branch forms. The text authoring surface is narrower: current WAST supports the basic `ref.*` subset, descriptor forms, and `return_call_ref`, but not ordinary `ref.test` / `ref.cast` / `br_on_*` or ordinary non-tail `call_ref` text keywords. Use [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) and [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md) before drawing parser, binary, or validation conclusions from one layer alone.
 
 ### Prefixed opcode families
 
@@ -131,7 +132,7 @@ Key typechecker responsibilities:
 
 - [`Typecheck for Expr`](../../../src/validate/typecheck.mbt) runs instructions in order and threads a `TcState` containing environment, operand stack, reachability, and escape state.
 - `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks; ordinary WAST control-flow fixture rules live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), while `try_table` catch payload/label rules are summarized in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
-- `call` and `call_indirect` validate function/type/table indices plus callee parameter/result stack effects above the byte layer; WAST fixture guidance for direct calls, function imports/exports/starts, the function/type side of `call_indirect`, and the current ordinary-`call_ref` text caveat lives in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md).
+- `call`, `call_indirect`, and ordinary `call_ref` validate function/type/table/reference operands plus callee parameter/result stack effects above the byte layer; WAST fixture guidance for direct calls, function imports/exports/starts, the function/type side of `call_indirect`, and the current ordinary-`call_ref` core/binary-versus-text split lives in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md).
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure; ordinary branch payload/fallthrough guidance lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), and WAST fixture guidance for `return_call`, `return_call_indirect`, and `return_call_ref` lives in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 - `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` validate local/global index existence, stack operand types, and global mutability above the byte layer; fixture and rewrite rules live in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 - Scalar numeric constants, comparisons, arithmetic, conversions, reinterprets, sign-extension, and saturating truncations validate stack arity and exact operand/result value types above the byte layer; text fixture rules and rewrite hazards live in [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md).

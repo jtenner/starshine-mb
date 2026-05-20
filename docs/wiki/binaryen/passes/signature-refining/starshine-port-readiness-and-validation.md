@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-20
 sources:
+  - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
@@ -37,7 +38,7 @@ related:
 # `signature-refining`: Starshine port readiness and validation
 
 Use this page when turning the existing `signature-refining` dossier into implementation work.
-The rest of the folder explains the upstream Binaryen contract; this page turns that contract into a Starshine-first implementation ladder.
+The rest of the folder explains the upstream Binaryen contract; this page turns that contract into a Starshine-first implementation ladder, with the ordinary-`call_ref` fixture guidance narrowed by the 2026-05-20 call-ref refresh in [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md).
 
 ## Current status in one sentence
 
@@ -162,8 +163,8 @@ This slice should include:
 
 ### Slice 6: `call_ref` and `return_call_ref`
 
-Use binary or library fixtures first if direct WAT `call_ref` parsing remains absent.
-Do not claim text-fixture parity until direct `call_ref` WAT parsing/lowering is confirmed or added.
+Use binary or library fixtures first because the 2026-05-20 call-ref refresh keeps ordinary non-tail `call_ref` outside high-level Starshine WAST text.
+Do not claim text-fixture parity until direct `call_ref` WAST parsing/lowering/printing is added.
 
 ### Slice 7: `call.without.effects` parity
 
@@ -197,10 +198,11 @@ When it lands, test both:
 
 - The existing folder was internally source-correct, so this follow-up adds a freshness bridge rather than superseding the Binaryen strategy.
 - The current-main source recheck again found no teaching-relevant drift from the `version_129` dossier.
-- The most actionable local hygiene issue is still the direct `call_ref` text-surface gap: future tests should not assume WAT can express every Binaryen proof family until that gap is closed.
+- The most actionable local hygiene issue is still the direct `call_ref` text-surface gap: the 2026-05-20 call-ref refresh keeps ordinary non-tail `call_ref` as core/binary/validator/generator-visible but not high-level Starshine WAST text, so future tests should not assume WAST can express every Binaryen proof family until that gap is closed.
 
 ## Sources
 
+- [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md)

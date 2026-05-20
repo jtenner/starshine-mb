@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-20
 sources:
+  - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
@@ -39,7 +40,7 @@ related:
 
 # Starshine Strategy For `signature-refining`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md), [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md), [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md), [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 For implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That bridge spells out the safe no-rewrite analyzer, first direct-call param-refinement slice, later result/`call_ref`/`call.without.effects` slices, and validation ladder.
@@ -49,7 +50,7 @@ For implementation sequencing, use [`./starshine-port-readiness-and-validation.m
 `signature-refining` is still **unimplemented** in Starshine.
 There is no `src/passes/signature_refining.mbt`, `src/passes/signature-refining.mbt`, or similarly named owner file today.
 
-The 2026-05-05 current-main recheck did not find teaching-relevant Binaryen drift from the `version_129` dossier, and it kept the two local blockers explicit: direct `call_ref` is present in library/binary/validator/HOT surfaces but not in the WAT parser surface beside `return_call_ref`, and `call.without.effects` has no local spelling under `src/`.
+The 2026-05-05 current-main recheck did not find teaching-relevant Binaryen drift from the `version_129` dossier, and the 2026-05-20 call-ref refresh keeps the two local blockers explicit: ordinary non-tail `call_ref` is present in library/binary/validator/generator surfaces but not in high-level Starshine WAST text beside `return_call_ref`, and `call.without.effects` has no local spelling under `src/`.
 
 The current Starshine strategy is deliberately limited:
 
@@ -106,8 +107,8 @@ The fastest read-along path through the current Starshine status is:
     - `return_call_ref` parses with a type use today.
   - [`src/wast/lower_to_lib.mbt#L1934-L1981`](../../../../../src/wast/lower_to_lib.mbt#L1934-L1981)
     - `call_indirect`, `return_call_indirect`, and `return_call_ref` lower type-use-bearing WAST forms to library instructions.
-  - current WAT caveat
-    - this follow-up confirmed the library, binary, generator, and validator surfaces for `CallRef`; it did **not** find a direct `CallRef` WAT parser/lowerer case beside the `ReturnCallRef` case, so future text-fixture work should verify or add direct `call_ref` text lowering before relying only on WAT fixtures.
+  - current WAST caveat
+    - the 2026-05-20 call-ref refresh confirms the library, binary, generator, and validator surfaces for `CallRef` and keeps ordinary non-tail `call_ref` classified as core/binary/generator-visible but not high-level Starshine WAST text. Future text-fixture work should add direct `call_ref` keyword/parser/lowerer/printer coverage before relying on WAST-only fixtures; until then, use library/binary fixtures and the focused WAST function-call guide.
 - validation surfaces a future port must preserve after refining signatures
   - [`src/validate/env.mbt#L179-L190`](../../../../../src/validate/env.mbt#L179-L190)
     - validation resolves `TypeIdx` to `FuncType` and resolves tag function types through the type environment.
@@ -260,7 +261,7 @@ Keep the scheduler relationship explicit instead of folding the passes together.
 ## Current uncertainty and follow-up questions
 
 - Starshine has no local `call.without.effects` spelling under `src/` today. A future parity port needs a real intrinsic model or an explicit scoped exclusion.
-- Direct `CallRef` exists in the library, validator, generator, and binary encoder/decoder, but this run only found WAT text lowering for `return_call_ref`; future text fixture work should confirm or add direct `call_ref` parser/lowerer coverage before relying on WAT-only regression tests.
+- Direct `CallRef` exists in the library, validator, generator, and binary encoder/decoder, but the current WAST text layer only exposes `return_call_ref`; future text fixture work should add direct `call_ref` parser/lowerer/printer coverage before relying on WAST-only regression tests.
 - The upstream pass body itself does not require `--closed-world`, while the default scheduler only runs it in the closed-world GC cluster. This dossier treats that as a scheduler-vs-pass-body split and should keep the distinction visible.
 - No current Starshine module pass provides reusable public-heap-type discovery, returned-value LUBs, parameter local repair, nominal signature rewriting, or `call.without.effects` import cloning. A future implementation should design that shared infrastructure before trying to port the pass as a one-off rewrite.
 

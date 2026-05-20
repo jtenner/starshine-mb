@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-20
 sources:
+  - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
   - ../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md
@@ -31,7 +32,7 @@ related:
 # Starshine port readiness and validation for `signature-pruning`
 
 Use this page as the implementation bridge between Binaryen's source-backed `signature-pruning` contract and Starshine's current boundary-only status.
-The 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md) repeated the same narrow source-level check and found no teaching-relevant drift.
+The 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md) repeated the same narrow source-level check and found no teaching-relevant drift; the 2026-05-20 call-ref refresh in [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md) narrows the local `call_ref` fixture guidance below.
 The pass is still unimplemented locally; this page exists so a future port starts with the right module/type rewrite shape instead of a misleading HOT peephole.
 
 ## Current local decision
@@ -154,7 +155,7 @@ These are not polish. They are the families Binaryen explicitly treats as blocke
 - [`src/wast/parser.mbt#L1875-L1890`](../../../../../src/wast/parser.mbt#L1875-L1890) - current visible type-use-bearing call-family text parser surface includes `return_call_ref`.
 - [`src/wast/lower_to_lib.mbt#L1934-L1981`](../../../../../src/wast/lower_to_lib.mbt#L1934-L1981) - lowerer surface for type-use-bearing indirect and return-call-ref forms.
 
-Caveat: before writing direct `call_ref` text fixtures for this pass, verify the direct `call_ref` parser/lowerer path or use library/binary fixtures.
+Caveat: the 2026-05-20 call-ref refresh keeps ordinary non-tail `call_ref` as a core/binary/validator/generator surface without high-level Starshine WAST text. Before writing direct `call_ref` text fixtures for this pass, add the keyword/parser/lowerer/printer path; otherwise use library/binary fixtures and cite [`../../../wast/function-call-and-module-authoring.md`](../../../wast/function-call-and-module-authoring.md).
 
 ## Validation ladder
 
