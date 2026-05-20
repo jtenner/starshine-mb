@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | relaxed SIMD arity and spelling refresh
+
+- Refreshed [`wast/simd-authoring.md`](wast/simd-authoring.md) with a source-backed relaxed-SIMD arity table, concrete WAST fixture shape, Starshine `0xFD` subopcode / typechecker code map, and the local `relaxed_dot` spelling caveat versus proposal/Binaryen dot-product spelling.
+- Added [`raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md) after checking the current WebAssembly 3.0 text/binary/validation instruction pages, the relaxed-SIMD proposal overview, and local keyword/parser/lowerer/typechecker/binary/HOT surfaces.
+- Updated [`index.md`](index.md) so the WAST SIMD catalog entry advertises relaxed-SIMD arity/spelling guidance and the explicit split from Binaryen's [`binaryen/passes/remove-relaxed-simd/index.md`](binaryen/passes/remove-relaxed-simd/index.md) removal-pass dossier.
+
 ## [2026-05-20] health | WAST arbitrary atomic backlinks
 
 - During the post-update whole-wiki health pass, searched atomic, `[FZG]017`, memory-instruction, and WAST arbitrary references for pages that could still route atomic text gaps only through ordinary memory-instruction docs.

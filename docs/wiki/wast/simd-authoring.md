@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
+  - ../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md
   - ../raw/wasm/2026-05-19-wast-simd-sources.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -20,6 +21,7 @@ related:
   - ../fuzzing/generator-coverage-ledger.md
   - ../fuzzing/wast-arbitrary-parity-plan.md
   - ../tooling/validation-gates.md
+  - ../binaryen/passes/remove-relaxed-simd/index.md
   - resource-declaration-authoring.md
   - memory-argument-authoring.md
 ---
@@ -32,7 +34,7 @@ SIMD is WebAssembly's 128-bit vector instruction family. A value of type `v128` 
 
 Use this page when writing or reviewing WAST fixtures that mention `v128`, `v128.const`, `i8x16.shuffle`, lane extract/replace instructions, vector loads/stores, or relaxed SIMD. The byte-level `0xFD` encoding overview lives in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md); this page focuses on text syntax, lowering, validation, and fuzzer coverage.
 
-The current source manifest is [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md). It checks the official WebAssembly 3.0 text, binary, and validation instruction pages plus Starshine's parser, lowerer, printer, binary codec, typechecker, valid generator, and WAST arbitrary generator.
+The current broad source manifest is [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md). The relaxed-SIMD spelling and arity refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md). Together they check the official WebAssembly 3.0 text, binary, and validation instruction pages, the relaxed-SIMD proposal overview, and Starshine's parser, lowerer, printer, binary codec, typechecker, valid generator, and WAST arbitrary generator.
 
 ## Mental Model
 
@@ -129,7 +131,40 @@ The parser routes SIMD memory arguments through the shared memory-argument parse
 
 Starshine's WAST keyword table includes relaxed SIMD spellings such as `f32x4.relaxed_madd`, `f64x2.relaxed_madd`, relaxed min/max, relaxed lane select, relaxed truncation, and dot-product forms. They lower to ordinary `Instruction` variants and encode under the SIMD `0xFD` space. They do not require a custom section, feature declaration, or WAST wrapper.
 
-For pass work, keep the split with Binaryen's `remove-relaxed-simd` pass clear: authoring a relaxed SIMD instruction is different from implementing the upstream pass that rewrites relaxed instructions into traps or deterministic alternatives.
+The current relaxed-SIMD source refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md). It keeps three boundaries explicit:
+
+| Local WAST family | Stack shape | Local examples | Notes |
+| --- | --- | --- | --- |
+| Unary relaxed truncations | `v128 -> v128` | `i32x4.relaxed_trunc_f32x4_s`, `i32x4.relaxed_trunc_f64x2_u_zero` | The result is still a `v128`, so write a `drop` or consume it in tests. |
+| Binary relaxed operations | `v128, v128 -> v128` | `i8x16.relaxed_swizzle`, `f32x4.relaxed_min`, `f64x2.relaxed_max`, `i16x8.relaxed_q15mulr_s`, `i16x8.relaxed_dot_i8x16_i7x16_s` | Starshine's current dot spelling includes `relaxed_dot`; the proposal/Binaryen spelling caveat below matters for oracle fixtures. |
+| Ternary relaxed operations | `v128, v128, v128 -> v128` | `f32x4.relaxed_madd`, `f64x2.relaxed_nmadd`, `i8x16.relaxed_laneselect`, `i32x4.relaxed_dot_i8x16_i7x16_add_s` | These are ordinary three-operand vector expressions, not immediates or attributes on an earlier vector op. |
+
+Example fixture shape:
+
+```wat
+(module
+  (func (param v128 v128 v128)
+    local.get 0
+    local.get 1
+    i8x16.relaxed_swizzle
+    drop
+
+    local.get 0
+    i32x4.relaxed_trunc_f32x4_s
+    drop
+
+    local.get 0
+    local.get 1
+    local.get 2
+    f32x4.relaxed_madd
+    drop))
+```
+
+Starshine proves this surface in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) with a focused WAST-to-core lowering test that covers all 20 local relaxed opcodes; [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) then stack-types them through unary, binary, and ternary `v128` helpers. The binary codec maps the same operations to SIMD subopcodes `256..275` under the `0xFD` prefix in [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt).
+
+Spelling caveat: current Starshine WAST accepts the dot-product pair as `i16x8.relaxed_dot_i8x16_i7x16_s` and `i32x4.relaxed_dot_i8x16_i7x16_add_s`. The relaxed-SIMD proposal overview and Binaryen's removal-pass notes use dot-product names without that `relaxed_dot` text prefix. When reducing Binaryen oracle fixtures or official proposal examples, normalize that spelling deliberately and record which surface the fixture is meant to test.
+
+For pass work, keep the split with Binaryen's [`remove-relaxed-simd`](../binaryen/passes/remove-relaxed-simd/index.md) pass clear: authoring a relaxed SIMD instruction is different from implementing the upstream pass that rewrites relaxed instructions into traps or deterministic alternatives.
 
 ## Starshine Code Map
 
@@ -157,13 +192,16 @@ When changing SIMD WAST support:
 ## Current Gaps And Caveats
 
 - WAST arbitrary currently emits a representative `v128.const` in the widened prelude, not the full SIMD text surface. The valid generator has broader `[FZG]014` through `[FZG]016` SIMD coverage.
+- Relaxed-SIMD dot-product spellings are intentionally called out because Starshine's WAST keywords currently use `relaxed_dot` while the proposal/Binaryen spelling does not. Treat this as a fixture-porting caveat, not a semantic difference in the lowered instruction.
 - Starshine's core `V128Const` stores bytes, so exact original text shape is not preserved through WAST-to-core lowering.
 - WAST lowering checks lane-index shape rules before typechecking. Binary decode currently has only a coarse single-lane `<16` guard plus the shuffle-specific `<32` guard, so binary-origin hardening should add explicit per-instruction lane-bound tests instead of relying on WAST lowering tests.
 - **Vector memory instructions inherit all memory-index, memory64, and alignment hazards from the ordinary memory-argument contract.** Use [`memory-argument-authoring.md`](memory-argument-authoring.md) for the shared `offset=` / `align=` / memory-index model rather than duplicating it in SIMD-only docs.
 
 ## Sources
 
+- Relaxed-SIMD spelling/arity manifest: [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md)
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
+- WebAssembly relaxed-SIMD proposal overview: <https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md>
 - Starshine WAST and binary implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and generators: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt)
