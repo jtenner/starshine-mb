@@ -129,7 +129,7 @@ section id:   0x01
 payload size: 0x80 0x80 0x80 0x80 0x80
 ```
 
-A section payload length cannot run forever. The invalid-binary fuzzer's `malformed-section-size-uleb` strategy writes this kind of corrupt payload-size field in [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), while section-payload strategies such as `malformed-start-func-index-uleb` and `malformed-datacount-uleb` keep the section size well-formed and corrupt the unsigned LEB inside the payload. Focused tests in [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt) expect decode-stage rejection for these malformed carriers.
+A section payload length cannot run forever. The invalid-binary fuzzer's `malformed-section-size-uleb` strategy writes this kind of corrupt payload-size field in [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), while section-payload strategies such as `malformed-start-func-index-uleb` and `malformed-datacount-uleb` keep the section size well-formed and corrupt the unsigned LEB inside the payload. The same invalid-binary matrix also covers well-formed but too-small declared sizes with `type-section-size-underflow` and `code-body-size-underflow`, which end the declared payload/body before the enclosed type or expression can be decoded. Focused tests in [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt) expect decode-stage rejection for these malformed carriers.
 
 ### Signed 33-bit blocktype boundary
 

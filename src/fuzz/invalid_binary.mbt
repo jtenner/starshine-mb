@@ -126,6 +126,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidCodeLocalValTypeByte
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
+  TypeSectionSizeUnderflow
+  CodeBodySizeUnderflow
 } derive(Eq, Debug)
 
 ///|
@@ -518,6 +520,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidCodeLocalValTypeByte => "invalid-code-local-valtype-byte"
     TypeSectionCountUnderflow => "type-section-count-underflow"
     CodeSectionCountUnderflow => "code-section-count-underflow"
+    TypeSectionSizeUnderflow => "type-section-size-underflow"
+    CodeBodySizeUnderflow => "code-body-size-underflow"
   }
 }
 
@@ -1194,6 +1198,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      TypeSectionSizeUnderflow,
+      "type-section-size-underflow",
+      "type section whose declared payload size ends inside a function type",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      CodeBodySizeUnderflow,
+      "code-body-size-underflow",
+      "code section body whose declared size ends before the function body terminator",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -1309,6 +1327,8 @@ fn validate_invalid_binary_strategy_index(
     InvalidCodeLocalValTypeByte => 92
     TypeSectionCountUnderflow => 93
     CodeSectionCountUnderflow => 94
+    TypeSectionSizeUnderflow => 95
+    CodeBodySizeUnderflow => 96
   }
 }
 
@@ -2761,6 +2781,82 @@ fn validate_invalid_binary_mutate_code_section_count_underflow(
 }
 
 ///|
+fn validate_invalid_binary_module_with_type_section_size_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_code_body_size_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_type_section_size_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TypeSectionSizeUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_type_section_size_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_code_body_size_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      CodeBodySizeUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_code_body_size_underflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -3940,6 +4036,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_type_section_count_underflow(base)
     CodeSectionCountUnderflow =>
       validate_invalid_binary_mutate_code_section_count_underflow(base)
+    TypeSectionSizeUnderflow =>
+      validate_invalid_binary_mutate_type_section_size_underflow(base)
+    CodeBodySizeUnderflow =>
+      validate_invalid_binary_mutate_code_body_size_underflow(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

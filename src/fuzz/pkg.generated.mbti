@@ -404,6 +404,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidCodeLocalValTypeByte
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
+  TypeSectionSizeUnderflow
+  CodeBodySizeUnderflow
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
