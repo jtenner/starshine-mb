@@ -59,7 +59,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-export-global-index-module", "invalid-export-memory-index-module", "invalid-export-tag-index-module",
     "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
     "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
-    "duplicate-import-section", "duplicate-export-section", "malformed-simd-immediate",
+    "duplicate-import-section", "duplicate-export-section", "duplicate-table-section",
+    "duplicate-memory-section", "duplicate-global-section", "malformed-simd-immediate",
     "simd-lane-index-overflow", "malformed-custom-section-payload", "malformed-custom-section-name-length-uleb",
     "malformed-name-subsection-size-uleb", "invalid-opcode-byte", "invalid-prefix-subopcode-byte",
     "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
@@ -129,7 +130,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1004,7 +1005,8 @@ test "gen_invalid_binary_generate supports invalid imported-tag-type modules" {
 test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
   for
     strategy in [
-      "duplicate-import-section", "duplicate-export-section", "malformed-simd-immediate",
+      "duplicate-import-section", "duplicate-export-section", "duplicate-table-section",
+      "duplicate-memory-section", "duplicate-global-section", "malformed-simd-immediate",
       "simd-lane-index-overflow", "malformed-custom-section-payload", "malformed-custom-section-name-length-uleb",
       "malformed-name-subsection-size-uleb", "invalid-opcode-byte", "invalid-prefix-subopcode-byte",
       "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",

@@ -36,6 +36,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   DuplicateTypeSection
   DuplicateImportSection
   DuplicateExportSection
+  DuplicateTableSection
+  DuplicateMemorySection
+  DuplicateGlobalSection
   WrongSectionOrder
   InvalidFuncTypeIndex
   InvalidStartSignatureModule
@@ -491,6 +494,9 @@ fn validate_invalid_binary_strategy_label(
       "invalid-imported-start-func-externref-param-module"
     InvalidImportedStartFuncFuncrefParamModule =>
       "invalid-imported-start-func-funcref-param-module"
+    DuplicateTableSection => "duplicate-table-section"
+    DuplicateMemorySection => "duplicate-memory-section"
+    DuplicateGlobalSection => "duplicate-global-section"
     DuplicateExportNameModule => "duplicate-export-name-module"
     FuncSecWithoutCodeSecModule => "funcsec-without-codesec-module"
     DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
@@ -951,6 +957,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       DuplicateExportSection,
       "duplicate-export-section",
       "duplicate export section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateTableSection,
+      "duplicate-table-section",
+      "duplicate table section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateMemorySection,
+      "duplicate-memory-section",
+      "duplicate memory section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateGlobalSection,
+      "duplicate-global-section",
+      "duplicate global section after a valid module",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2150,6 +2177,39 @@ fn validate_invalid_binary_mutate_duplicate_export_section(
     mod,
     DuplicateExportSection,
     7,
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_table_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateTableSection,
+    4,
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_memory_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateMemorySection,
+    5,
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_global_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateGlobalSection,
+    6,
   )
 }
 
@@ -6274,6 +6334,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_duplicate_import_section(base)
     DuplicateExportSection =>
       validate_invalid_binary_mutate_duplicate_export_section(base)
+    DuplicateTableSection =>
+      validate_invalid_binary_mutate_duplicate_table_section(base)
+    DuplicateMemorySection =>
+      validate_invalid_binary_mutate_duplicate_memory_section(base)
+    DuplicateGlobalSection =>
+      validate_invalid_binary_mutate_duplicate_global_section(base)
     WrongSectionOrder =>
       validate_invalid_binary_mutate_wrong_section_order(base)
     InvalidFuncTypeIndex =>
