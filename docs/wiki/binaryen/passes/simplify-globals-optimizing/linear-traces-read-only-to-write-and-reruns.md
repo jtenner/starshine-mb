@@ -296,13 +296,17 @@ That is why multi-layer examples like this can still optimize:
 )
 ```
 
+Starshine now covers this carveout for the two-layer lit shape and the three-layer `$nested-pattern-thrice` shape where an inner result block itself contains a no-else read-only-to-write guard before yielding the next condition read. The implementation stays count-sensitive: the inner pattern reads are safe only when they match actual no-else same-global self-guards, and the final yielded read is counted separately.
+
 But if the nested form stops being that exact safe family, the optimization stops too.
 
 The test suite has explicit near-miss negatives for:
 
 - nested `if` with `else`
-- extra unrelated `global.get`
+- extra unrelated or dropped `global.get` reads that make total reads exceed safe pattern reads
 - extra trailing code that breaks the exact whole-function shape
+
+One current Starshine-specific caveat: after the recursive nested-pattern core rewrite, small value-block/control bodies can expose a HOT nested-cleanup verification frontier. The SGO wrapper therefore filters touched functions with value blocks containing `if` control out of the nested cleanup lane and returns the valid core rewrite for that shape; this is a local cleanup-scheduler guard, not a Binaryen source rule.
 
 ## 9. The whole-function `if return; set` family is intentionally narrow
 

@@ -1913,13 +1913,82 @@ fn sgo_count_block_condition_read_only_to_write_read(
 }
 
 ///|
+fn sgo_prefix_has_only_nested_read_only_to_write_patterns(
+  instrs : Array[@lib.Instruction],
+  end_ : Int,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let mut scan = 0
+  while scan < end_ {
+    match instrs[scan] {
+      @lib.Nop => {
+        scan = scan + 1
+        continue
+      }
+      _ => ()
+    }
+    if scan + 1 < end_ &&
+      sgo_const_instr(instrs[scan]) != None &&
+      instrs[scan + 1] == @lib.Instruction::drop() {
+      scan = scan + 2
+      continue
+    }
+    match instrs[scan] {
+      @lib.GlobalGet(get_idx) if get_idx == idx => {
+        if scan + 1 < end_ &&
+          sgo_if_is_read_only_to_write_set(instrs[scan + 1], idx) {
+          scan = scan + 2
+          continue
+        }
+        if scan + 2 < end_ &&
+          instrs[scan + 1] == @lib.Instruction::i32_eqz() &&
+          sgo_if_is_read_only_to_write_set(instrs[scan + 2], idx) {
+          scan = scan + 3
+          continue
+        }
+        return false
+      }
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn sgo_block_condition_nested_final_direct_read_matches(
+  instrs : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let mut end_ = instrs.length()
+  while end_ > 0 {
+    match instrs[end_ - 1] {
+      @lib.Nop => end_ = end_ - 1
+      _ => break
+    }
+  }
+  if end_ <= 0 {
+    return false
+  }
+  match instrs[end_ - 1] {
+    @lib.GlobalGet(get_idx) if get_idx == idx =>
+      sgo_prefix_has_only_nested_read_only_to_write_patterns(
+        instrs,
+        end_ - 1,
+        idx,
+      )
+    _ => false
+  }
+}
+
+///|
 fn sgo_count_block_condition_safe_body_read(
   body : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
   safe_reads : Array[Int],
 ) -> Unit {
   if sgo_block_condition_final_read_matches(body, idx) ||
-    sgo_block_condition_pure_read_matches(body, idx) {
+    sgo_block_condition_pure_read_matches(body, idx) ||
+    sgo_block_condition_nested_final_direct_read_matches(body, idx) {
     sgo_count_read_only_to_write_safe_read(idx, safe_reads)
   } else {
     match sgo_block_condition_single_read_idx(body) {

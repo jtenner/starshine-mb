@@ -270,6 +270,28 @@ A transparent value-producing block can provide the same self-guard condition:
 
 The current Starshine SGO subset treats that single yielded `global.get` as the same read-only-to-write condition when the adjacent `if` writes one constant to the same global. The same narrow family also accepts `i32.eqz` inside the block.
 
+### Recursive nested-pattern variation
+
+Binaryen's `FlowScanner` has a specific carveout for another no-else read-only-to-write pattern nested inside the current condition. This lets the outer final read still count as safe:
+
+```wat
+(global $once (mut i32) (i32.const 0))
+(func
+  (if
+    (block (result i32)
+      (if
+        (i32.eqz (global.get $once))
+        (then (global.set $once (i32.const 1)))
+      )
+      (i32.eq (global.get $once) (i32.const 0))
+    )
+    (then (global.set $once (i32.const 1)))
+  )
+)
+```
+
+Starshine now accepts this two-layer family plus the lit-style three-layer version where the inner condition is itself a result block containing a no-else same-global self-guard and then yielding another `global.get`. It still rejects near misses where the nested `if` has an `else`, or where an extra dropped `global.get $once` makes the number of actual reads exceed the number of safe pattern reads. The public SGO wrapper may skip nested cleanup for the resulting value-block/control body and return the valid core rewrite directly.
+
 ### No-op const/drop condition-prefix variation
 
 A block-wrapped condition can also contain side-effect-free constant/drop pairs before the yielded self-guard read:

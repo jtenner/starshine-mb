@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-20] binaryen | SGO recursive nested-pattern FlowScanner slice
+
+- Extended the SGO `[SGO]003` FlowScanner breadth notes for the Binaryen lit recursive nested-pattern carveout: Starshine now accepts the two-layer `$nested-pattern` and three-layer `$nested-pattern-thrice` no-else same-global shapes while preserving the `else` and extra dropped-read negatives.
+- Recorded the local scheduler caveat that the public SGO wrapper filters value-block/control touched functions out of nested cleanup for this shape and returns the valid core rewrite instead of forcing the current HOT cleanup verifier frontier.
+- Grounded the change in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-05-20] binaryen | SGO parity matrix and safe condition slice
 
 - Added [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md) to separate the valid v0.1.0 supported-surface signoff from incomplete full Binaryen `SimplifyGlobals.cpp` breadth and to classify implemented, partial, missing, intentionally conservative, and unknown SGO families.

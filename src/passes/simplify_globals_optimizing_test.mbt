@@ -3200,6 +3200,124 @@ test "simplify-globals-optimizing keeps nested-if conditions steered by the glob
 }
 
 ///|
+test "simplify-globals-optimizing removes recursive nested read-only-to-write pattern" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (block (result i32)
+      #|        (if
+      #|          (i32.eqz (global.get $once))
+      #|          (then (global.set $once (i32.const 1))))
+      #|        (i32.eq (global.get $once) (i32.const 0)))
+      #|      (then (global.set $once (i32.const 1))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes recursive nested read-only-to-write pattern thrice" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    (
+      #|(module
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (block (result i32)
+      #|        (if
+      #|          (i32.eqz
+      #|            (block (result i32)
+      #|              (if
+      #|                (global.get $once)
+      #|                (then (global.set $once (i32.const 1))))
+      #|              (global.get $once)))
+      #|          (then (global.set $once (i32.const 1))))
+      #|        (i32.eq (global.get $once) (i32.const 0)))
+      #|      (then (global.set $once (i32.const 1))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  let trace_text = trace.to_string()
+  assert_true(trace_text.contains("filtered-structural=1"), msg=trace_text)
+  assert_true(trace_text.contains("reason=value-block-control"), msg=trace_text)
+}
+
+///|
+test "simplify-globals-optimizing keeps almost recursive nested pattern with else" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (block (result i32)
+      #|        (if
+      #|          (i32.eqz (global.get $once))
+      #|          (then (global.set $once (i32.const 1)))
+      #|          (else (nop)))
+      #|        (i32.eq (global.get $once) (i32.const 0)))
+      #|      (then (global.set $once (i32.const 1))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps recursive nested pattern with extra dropped read" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (block (result i32)
+      #|        (drop (global.get $once))
+      #|        (if
+      #|          (i32.eqz (global.get $once))
+      #|          (then (global.set $once (i32.const 1))))
+      #|        (i32.eq (global.get $once) (i32.const 0)))
+      #|      (then (global.set $once (i32.const 1))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps side-effecting conditions steered by the global" {
   let optimized = sgo_test_run(
     (

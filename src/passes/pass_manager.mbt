@@ -10425,28 +10425,76 @@ fn run_hot_pipeline_touched_function_size_skip_reason(
 }
 
 ///|
+fn run_hot_pipeline_sgo_instrs_have_if(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  instrs.any(fn(instr) {
+    match instr {
+      @lib.If(_, _, _) => true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_sgo_instrs_have_if(body)
+      _ => false
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_sgo_instrs_have_value_block_with_if(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  instrs.any(fn(instr) {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        if block_type != @lib.BlockType::void_() &&
+          run_hot_pipeline_sgo_instrs_have_if(body) {
+          true
+        } else {
+          run_hot_pipeline_sgo_instrs_have_value_block_with_if(body)
+        }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_sgo_instrs_have_value_block_with_if(body)
+      @lib.If(_, then_body, Some(else_body)) =>
+        run_hot_pipeline_sgo_instrs_have_value_block_with_if(then_body) ||
+        run_hot_pipeline_sgo_instrs_have_value_block_with_if(else_body)
+      @lib.If(_, then_body, None) =>
+        run_hot_pipeline_sgo_instrs_have_value_block_with_if(then_body)
+      _ => false
+    }
+  })
+}
+
+///|
 fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
-) -> (Array[Bool], Int) {
+) -> (Array[Bool], Int, Int) {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let filtered = touched.copy()
       let mut filtered_large = 0
+      let mut filtered_structural = 0
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         if code_idx >= filtered.length() || !filtered[code_idx] {
           continue
         }
-        let @lib.Func(locals, @lib.Expr(body)) = funcs[code_idx]
+        let @lib.Func(locals, body_expr) = funcs[code_idx]
+        let @lib.Expr(body) = body_expr
         let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
         if locals.length() > 192 || instr_count > 1000 {
           filtered[code_idx] = false
           filtered_large = filtered_large + 1
+          continue
+        }
+        if run_hot_pipeline_sgo_instrs_have_value_block_with_if(body) {
+          filtered[code_idx] = false
+          filtered_structural = filtered_structural + 1
         }
       }
-      (filtered, filtered_large)
+      (filtered, filtered_large, filtered_structural)
     }
-    None => (touched, 0)
+    None => (touched, 0, 0)
   }
 }
 
@@ -10587,7 +10635,7 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
   if touched_count == 0 {
     return Ok(mod_)
   }
-  let (cleanup_touched, filtered_large_count) = run_hot_pipeline_sgo_nested_cleanup_filter_touched(
+  let (cleanup_touched, filtered_large_count, filtered_structural_count) = run_hot_pipeline_sgo_nested_cleanup_filter_touched(
     mod_, touched,
   )
   let cleanup_touched_count = sgo_count_touched(cleanup_touched)
@@ -10595,14 +10643,20 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     "pass[simplify-globals-optimizing]:nested-cleanup touched=\{touched_count} prefix=default",
   )
   (options.trace)(
-    "pass[simplify-globals-optimizing]:nested-cleanup-stats touched=\{touched_count} cleaned=\{cleanup_touched_count} filtered-large=\{filtered_large_count}",
+    "pass[simplify-globals-optimizing]:nested-cleanup-stats touched=\{touched_count} cleaned=\{cleanup_touched_count} filtered-large=\{filtered_large_count} filtered-structural=\{filtered_structural_count}",
   )
-  if cleanup_touched_count == 0 && filtered_large_count > 0 {
+  if cleanup_touched_count == 0 &&
+    (filtered_large_count > 0 || filtered_structural_count > 0) {
+    let reason = if filtered_large_count > 0 {
+      "large-touched-function"
+    } else {
+      "value-block-control"
+    }
     pipeline_trace_hook(
       options.trace,
       "simplify-globals-optimizing",
       "nested-cleanup-skip",
-      payload="reason=large-touched-function touched=\{touched_count}",
+      payload="reason=\{reason} touched=\{touched_count}",
     )
     return Ok(mod_)
   }
