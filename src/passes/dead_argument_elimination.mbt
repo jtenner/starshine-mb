@@ -8240,6 +8240,22 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2Splat
     | @lib.F32x4Splat
     | @lib.F64x2Splat
+    | @lib.I16x8ExtaddPairwiseI8x16S
+    | @lib.I16x8ExtaddPairwiseI8x16U
+    | @lib.I32x4ExtaddPairwiseI16x8S
+    | @lib.I32x4ExtaddPairwiseI16x8U
+    | @lib.I16x8ExtendLowI8x16S
+    | @lib.I16x8ExtendHighI8x16S
+    | @lib.I16x8ExtendLowI8x16U
+    | @lib.I16x8ExtendHighI8x16U
+    | @lib.I32x4ExtendLowI16x8S
+    | @lib.I32x4ExtendHighI16x8S
+    | @lib.I32x4ExtendLowI16x8U
+    | @lib.I32x4ExtendHighI16x8U
+    | @lib.I64x2ExtendLowI32x4S
+    | @lib.I64x2ExtendHighI32x4S
+    | @lib.I64x2ExtendLowI32x4U
+    | @lib.I64x2ExtendHighI32x4U
     | @lib.I8x16ExtractLaneS(_)
     | @lib.I8x16ExtractLaneU(_)
     | @lib.I16x8ExtractLaneS(_)
