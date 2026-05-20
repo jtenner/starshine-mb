@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | static harness skip policy
+
+- Added [`raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) after rechecking the current official WebAssembly reference-interpreter script contract and Starshine's `spec_harness` skip/mismatch logic.
+- Updated [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so `Passed`, runtime-only skips, known-unsupported skips, known `tests/spec` mismatch skips, and true failures are explicitly separated instead of letting `Skipped(...)` read like conformance evidence.
+- Updated [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so `starshine spec`, spec-seed fuzzing, and the catalog preserve pass/skip/fail distinctions and point at the shared skip-policy contract.
+- Grounded the local code map in [`../../src/wast/spec_harness.mbt`](../../src/wast/spec_harness.mbt), [`../../src/spec_runner/spec_runner.mbt`](../../src/spec_runner/spec_runner.mbt), [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and [`../../src/cmd/cmd_wbtest.mbt`](../../src/cmd/cmd_wbtest.mbt).
+
 ## [2026-05-20] binary | name-section subsection source correction
 
 - Added [`raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md) after rechecking the current WebAssembly Core custom-section appendix and binary module pages against Starshine's `NameSec` code.

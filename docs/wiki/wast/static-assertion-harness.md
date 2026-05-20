@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
+  - ../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md
   - ../../../src/wast/spec_harness.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/types.mbt
@@ -23,7 +24,7 @@ related:
 
 ## Overview
 
-WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The source snapshot in [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md) records the current upstream reference-interpreter script model plus Starshine's local implementation.
+WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The source snapshots in [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md) and [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) record the current upstream reference-interpreter script model plus Starshine's local implementation and skip policy.
 
 Starshine currently implements a **static** spec-harness subset:
 
@@ -85,6 +86,28 @@ The current static evaluator does not instantiate modules or resolve imports. It
 
 A file with only runtime commands can be skipped. A mixed file should still validate its static commands: tests in [`src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt) cover command-scoped runtime skipping so `assert_exception` or `assert_return` does not hide later static validation checks.
 
+## Skip, Unsupported, And Known-Mismatch Policy
+
+The spec runner reports file-level `Passed`, `Skipped(reason)`, or `Failed(msg)`. Treat those states separately:
+
+| State | Meaning | What it proves |
+| --- | --- | --- |
+| `Passed` | At least one static command was checked, every checked command succeeded, and any runtime-only commands were skipped command-by-command. | Static parse/lower/decode/validation evidence for the checked commands. |
+| `Skipped(reason)` from runtime-only content | The script parsed, but no static command was checked because all commands were runtime actions/assertions such as `invoke`, `register`, or `assert_return`. | Script compatibility only; no validation evidence. |
+| `Skipped(reason)` from known unsupported errors | The script or command needs a parser/lowerer/static-category behavior Starshine does not currently model well enough. | Backlog signal; not conformance evidence. |
+| `Skipped(reason)` from known `tests/spec` mismatches | A narrow path-and-message allowlist tolerated a known mismatch so broad suite runs can keep moving. | Temporary debt with an explicit reason. |
+| `Failed(msg)` | A non-allowlisted parse, lower, validation, or assertion-stage mismatch happened. | The file should block a strict run until investigated. |
+
+[`spec_is_known_unsupported_error(...)`](../../../src/wast/spec_harness.mbt) currently converts outer script parse failures, module-lowering failures, quoted-module parse/lower failures, and pre-compilation failures in `assert_invalid` / `assert_unlinkable` into `Skipped(...)`. This is intentionally conservative: those cases often mean the current WAST front end cannot reach the upstream assertion category, so marking the whole file failed would hide later suite signal behind one known gap.
+
+[`spec_is_known_specsuite_mismatch(...)`](../../../src/wast/spec_harness.mbt) is narrower. It only applies to committed `tests/spec/...` paths and exact message families, currently covering:
+
+- stack-underflow mismatches in `if.wast`, `loop.wast`, and `block.wast`;
+- unexpected local validation success in `br.wast`, `i32.wast`, `load.wast`, `store.wast`, `labels.wast`, `return.wast`, and `local_set.wast`;
+- duplicate-export-name divergence in `names.wast`.
+
+Do **not** cite skipped files as green conformance. When reporting `starshine spec` or native `spec_runner` output, include `total`, `passed`, `skipped`, and `failed`, and preserve the first skipped/failing reason when it is relevant. If a new known-mismatch skip is unavoidable, update this page, [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) if fuzz/spec-seed semantics are affected, and [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) or a later raw refresh with the exact retiring condition.
+
 ## Fuzzing And Spec-Seed Reuse
 
 The text invalid and spec-seed lanes reuse this same static evaluator:
@@ -99,6 +122,7 @@ The practical rule for maintainers is: **do not fork assertion semantics between
 
 - **No runtime execution yet.** `assert_return`, `assert_trap`, `assert_exception`, `assert_exhaustion`, `invoke`, `get`, and `register` are parsed for script compatibility but are not semantic evidence in Starshine's current static harness.
 - **No diagnostic-text parity promise.** Upstream test assertions carry expected error strings. Starshine currently checks kind and stage, not exact upstream diagnostic text.
+- **Skips are visible debt, not hidden passes.** Runtime-only scripts, unsupported parser/lowerer gaps, and narrow `tests/spec` mismatches all report `Skipped(...)` with a reason. Preserve those counts in summaries.
 - **`assert_malformed` is broad locally.** The current static evaluator accepts either parse/lower/decode rejection or validation rejection for malformed assertions. If Starshine wants stricter upstream category fidelity, split that as a deliberate validator/spec-harness change.
 - **`assert_unlinkable` is pre-link only.** `ValidBeforeLink` means the module survived core validation. It does not prove a future link-time error until Starshine has a linker/runtime harness.
 - **Node package gap.** The MoonBit `wast` package exports `evaluate_wast_static_assertion(...)`, but the checked-in Node package does not yet expose `evaluateWastStaticAssertion(...)`; see [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md).
@@ -114,7 +138,7 @@ When touching WAST script support or static assertions:
 
 ## Sources
 
-- Primary-source snapshot: [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md)
+- Primary-source snapshots: [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
 - Parser and AST: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt)
 - Static evaluator and tests: [`../../../src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt)
 - CLI wrapper: [`../../../src/spec_runner/spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt)
