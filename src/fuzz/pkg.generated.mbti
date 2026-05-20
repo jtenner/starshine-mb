@@ -406,6 +406,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidCodeLocalValTypeByte
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
+  ImportSectionCountUnderflow
+  ExportSectionCountUnderflow
   TypeSectionSizeUnderflow
   CodeBodySizeUnderflow
 } derive(Eq, @debug.Debug)
