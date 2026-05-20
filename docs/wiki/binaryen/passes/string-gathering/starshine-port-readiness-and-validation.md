@@ -66,6 +66,8 @@ Remaining readiness is optional broader decoder breadth, optional compare-normal
 
 The broader five-pass late-tail neighborhood is now accepted for direct ordered-neighborhood scheduling proof, not just direct-pass existence: `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` has standard 10k ordered-neighborhood fuzz parity, same-input RUME isolation, and a documented debug-artifact frontier classified as inherited SGO representation/function-layout drift. Public preset widening remains a separate scheduling change; see [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md).
 
+The broader five-pass late-tail neighborhood is now accepted and publicly scheduled, not just direct-pass-ready: `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` has standard 10k ordered-neighborhood fuzz parity, same-input RUME isolation, and a documented debug-artifact frontier classified as inherited SGO representation/function-layout drift. Public `optimize` / `shrink` suffix scheduling is recorded in [`../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md); direct neighborhood proof is recorded in [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md).
+
 ## Slice 0: make the public pass spelling honest — landed
 
 ### Goal

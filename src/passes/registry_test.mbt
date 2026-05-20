@@ -233,7 +233,8 @@ test "preset expansion stays on implemented active pass names" {
     "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
     "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
     "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-    "string-gathering", "reorder-globals", "directize",
+    "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
+    "reorder-globals", "directize",
   ])
   @debug.assert_eq(shrink, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
@@ -244,7 +245,8 @@ test "preset expansion stays on implemented active pass names" {
     "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
     "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
     "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-    "string-gathering", "reorder-globals", "directize",
+    "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
+    "reorder-globals", "directize",
   ])
   for name in optimize {
     match pass_registry_category(name) {

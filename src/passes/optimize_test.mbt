@@ -1,7 +1,7 @@
 ///|
 test "run_hot_pipeline applies optimize preset through the hot pass manager" {
   let input = pass_test_module_from_wat(
-    "(module (func (result i32) nop i32.const 7))",
+    "(module (func (export \"run\") (result i32) nop i32.const 7))",
   )
   let optimized = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize"]) {
@@ -727,6 +727,24 @@ test "optimize and shrink presets schedule reorder-locals only inside the tuple 
     @debug.assert_eq(reorder_slots, [19])
     @debug.assert_eq(preset[reorder_slots[0] - 1], "vacuum")
     @debug.assert_eq(preset[reorder_slots[0] + 1], "remove-unused-brs")
+  }
+}
+
+///|
+test "optimize and shrink presets schedule the accepted SGO late-tail neighborhood" {
+  let expected_tail = [
+    "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
+    "reorder-globals", "directize",
+  ]
+  for
+    preset in [
+      optimize_preset_passes(HotPipelineOptions::new()),
+      shrink_preset_passes(HotPipelineOptions::new()),
+    ] {
+    let start = preset.length() - expected_tail.length()
+    for idx = 0; idx < expected_tail.length(); idx = idx + 1 {
+      @debug.assert_eq(preset[start + idx], expected_tail[idx])
+    }
   }
 }
 

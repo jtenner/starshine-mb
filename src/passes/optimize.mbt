@@ -315,7 +315,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "remove-unused-brs", "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals",
         "local-cse", "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
         "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-        "string-gathering", "reorder-globals", "directize",
+        "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
+        "reorder-globals", "directize",
       ],
     ),
     pass_registry_entry_preset(
@@ -330,7 +331,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "remove-unused-brs", "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals",
         "local-cse", "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
         "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-        "string-gathering", "reorder-globals", "directize",
+        "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
+        "reorder-globals", "directize",
       ],
     ),
   ]
@@ -482,7 +484,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
     "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
     "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-    "string-gathering", "reorder-globals", "directize",
+    "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
+    "reorder-globals", "directize",
   ]
 }
 
@@ -498,7 +501,8 @@ pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
     "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
     "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-    "string-gathering", "reorder-globals", "directize",
+    "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
+    "reorder-globals", "directize",
   ]
 }
 

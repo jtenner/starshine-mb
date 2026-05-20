@@ -395,6 +395,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | public late-tail preset suffix scheduling
+
+- Updated [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt), [`../../src/passes/optimize_test.mbt`](../../src/passes/optimize_test.mbt), and [`../../src/passes/registry_test.mbt`](../../src/passes/registry_test.mbt) so public `optimize` and `shrink` append the accepted suffix `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`.
+- Added [`raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md) and updated the no-DWARF path plus string/reorder docs to record that the accepted late-tail suffix is now public preset behavior.
+- TDD evidence: the new suffix-order test first failed against the old terminal function-phase suffix before the preset arrays were widened. The basic optimize smoke fixture now exports its function because the widened preset legitimately runs `remove-unused-module-elements` and can prune unrooted functions.
+- Validation/evidence: `moon test src/passes` passed (`1261/1261`), `moon test src/cmd` passed (`132/132`), `moon info` passed, `moon fmt` passed, full `moon test` passed (`3325/3325`), and `git diff --check` passed. Full debug-artifact `--optimize` self-compare was not run because repo workflow asks for approval before the full self-optimize optimize pipeline.
+
 ## [2026-05-19] passes | late-tail five-pass neighborhood baseline
 
 - Added [`raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md) and updated [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/string-gathering/starshine-port-readiness-and-validation.md`](binaryen/passes/string-gathering/starshine-port-readiness-and-validation.md), [`binaryen/passes/reorder-globals/index.md`](binaryen/passes/reorder-globals/index.md), and [`../../agent-todo.md`](../../agent-todo.md) with the post-SGO late-tail baseline.
