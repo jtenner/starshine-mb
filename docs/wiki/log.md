@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | type-section generator backlink hygiene
+
+- During the post-update whole-wiki health pass, searched `InvalidSubtype`, `SubtypingTopology`, `TypeSectionFamily`, `rec_stack`, `validate_typesec`, and type-section references across validation, WAST, custom-descriptor, binary, fuzzing, and pass pages.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so `[FZG]018` valid subtyping-topology coverage, `[FZG]024` subtype invalid-AST strategies, validation anchors, sources, and related pages route type-section semantics through [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md) instead of leaving generator coverage as an implicit validation contract.
+- Updated [`index.md`](index.md) so the generator-ledger catalog summary exposes the new focused type-section/subtyping backlink.
+
 ## [2026-05-20] validate | type-section subtyping and rec-group normalization
 
 - Added [`raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md) after rechecking current WebAssembly Core 3.0 type syntax, binary type encoding, validation, matching, and module-validation sources plus Starshine validator, matching, invalid-fuzzer, and proof-helper evidence.
