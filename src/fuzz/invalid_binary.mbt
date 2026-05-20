@@ -77,6 +77,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte
   MalformedMemargImmediate
+  MalformedLoadMemargOffsetUleb
+  MalformedStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
   InvalidExportNameUtf8
   InvalidImportModuleNameUtf8
@@ -494,6 +496,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidOpcodeByte => "invalid-opcode-byte"
     InvalidPrefixSubopcodeByte => "invalid-prefix-subopcode-byte"
     MalformedMemargImmediate => "malformed-memarg-immediate"
+    MalformedLoadMemargOffsetUleb => "malformed-load-memarg-offset-uleb"
+    MalformedStoreMemargOffsetUleb => "malformed-store-memarg-offset-uleb"
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
     InvalidExportNameUtf8 => "invalid-export-name-utf8"
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
@@ -900,6 +904,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedMemargImmediate,
       "malformed-memarg-immediate",
       "memory instruction with a malformed memarg alignment encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedLoadMemargOffsetUleb,
+      "malformed-load-memarg-offset-uleb",
+      "memory load instruction with a malformed memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedStoreMemargOffsetUleb,
+      "malformed-store-memarg-offset-uleb",
+      "memory store instruction with a malformed memarg offset ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -1447,129 +1465,15 @@ pub fn validate_invalid_binary_strategy_by_stable_id(
 fn validate_invalid_binary_strategy_index(
   id : ValidateInvalidBinaryStrategyId,
 ) -> Int {
-  match id {
-    TrailingGarbage => 0
-    TruncatedModule => 1
-    DuplicateTypeSection => 2
-    WrongSectionOrder => 3
-    InvalidFuncTypeIndex => 4
-    InvalidStartSignatureModule => 5
-    InvalidImportedStartFuncParamModule => 6
-    InvalidImportedStartFuncResultModule => 7
-    InvalidImportedStartFuncParamResultModule => 8
-    InvalidImportedStartFuncMultiParamModule => 9
-    InvalidImportedStartFuncF32ParamModule => 10
-    InvalidImportedStartFuncExternrefParamModule => 11
-    InvalidImportedStartFuncFuncrefParamModule => 12
-    DuplicateExportNameModule => 13
-    FuncSecWithoutCodeSecModule => 14
-    DataCountWithoutDataSecModule => 15
-    InvalidNameSectionFuncIndexModule => 16
-    InvalidLocalNameSectionIndexModule => 17
-    InvalidLabelNameSectionIndexModule => 18
-    BadMagicHeader => 19
-    BadVersionHeader => 20
-    MalformedSectionSizeUleb => 21
-    SectionPayloadLengthOverflow => 22
-    CodeSecWithoutFuncSecModule => 23
-    InvalidTableNameSectionIndexModule => 24
-    InvalidGlobalNameSectionIndexModule => 25
-    ReservedSectionId => 26
-    InvalidCustomSectionNameUtf8 => 27
-    InvalidTypeNameSectionIndexModule => 28
-    InvalidFieldNameSectionIndexModule => 29
-    InvalidElemNameSectionIndexModule => 30
-    InvalidDataNameSectionIndexModule => 31
-    InvalidExportTableIndexModule => 32
-    InvalidExportGlobalIndexModule => 33
-    InvalidExportMemoryIndexModule => 34
-    InvalidExportTagIndexModule => 35
-    InvalidTagNameSectionIndexModule => 36
-    InvalidImportedTagTypeIndexModule => 37
-    DataCountMismatchTooSmallModule => 38
-    DataCountMismatchTooLargeModule => 39
-    MalformedSimdImmediate => 40
-    SimdLaneIndexOverflow => 41
-    MalformedCustomSectionPayload => 42
-    InvalidOpcodeByte => 43
-    InvalidPrefixSubopcodeByte => 44
-    MalformedMemargImmediate => 45
-    MalformedBlocktypeImmediate => 46
-    InvalidExportNameUtf8 => 47
-    InvalidImportModuleNameUtf8 => 48
-    InvalidImportFieldNameUtf8 => 49
-    InvalidImportKindByte => 50
-    InvalidTableRefTypeByte => 51
-    MalformedRefNullHeaptypeImmediate => 52
-    InvalidGlobalValTypeByte => 53
-    InvalidExportKindByte => 54
-    InvalidMemoryLimitsFlagByte => 55
-    InvalidGlobalMutabilityByte => 56
-    InvalidElementSegmentFlagByte => 57
-    InvalidDataSegmentFlagByte => 58
-    TypeSectionCountOverflow => 59
-    CodeSectionCountOverflow => 60
-    TableSectionCountOverflow => 61
-    ExportSectionCountOverflow => 62
-    ImportSectionCountOverflow => 63
-    GlobalSectionCountOverflow => 64
-    FunctionSectionCountOverflow => 65
-    MemorySectionCountOverflow => 66
-    ElementSectionCountOverflow => 67
-    DataSectionCountOverflow => 68
-    TagSectionCountOverflow => 69
-    MalformedTagTypeIndexUleb => 70
-    MalformedLocalIndexUleb => 71
-    MalformedGlobalIndexUleb => 72
-    MalformedI32ConstSleb => 73
-    MalformedI64ConstSleb => 74
-    MalformedCallFuncIndexUleb => 75
-    MalformedCallIndirectTypeIndexUleb => 76
-    MalformedBrLabelIndexUleb => 77
-    MalformedBrTableTargetCountUleb => 78
-    MalformedTableIndexUleb => 79
-    MalformedSelectTypeCountUleb => 80
-    MalformedStartFuncIndexUleb => 81
-    MalformedDataCountUleb => 82
-    SimdShuffleLaneOverflow => 83
-    SimdLoadLaneIndexOverflow => 84
-    MalformedDataIndexUleb => 85
-    MalformedElemIndexUleb => 86
-    InvalidNameSectionFuncNameUtf8 => 87
-    InvalidNameSectionLocalNameUtf8 => 88
-    InvalidNameSectionModuleNameUtf8 => 89
-    InvalidNameSectionTypeNameUtf8 => 90
-    InvalidNameSectionTableNameUtf8 => 91
-    InvalidNameSectionMemoryNameUtf8 => 92
-    InvalidNameSectionGlobalNameUtf8 => 93
-    InvalidNameSectionTagNameUtf8 => 94
-    InvalidFuncTypeByte => 95
-    InvalidCodeLocalValTypeByte => 96
-    TypeSectionCountUnderflow => 97
-    CodeSectionCountUnderflow => 98
-    ImportSectionCountUnderflow => 99
-    ExportSectionCountUnderflow => 100
-    TableSectionCountUnderflow => 101
-    MemorySectionCountUnderflow => 102
-    GlobalSectionCountUnderflow => 103
-    FunctionSectionCountUnderflow => 104
-    ElementSectionCountUnderflow => 105
-    DataSectionCountUnderflow => 106
-    TagSectionCountUnderflow => 107
-    TypeSectionSizeUnderflow => 108
-    CodeBodySizeUnderflow => 109
-    ImportSectionSizeUnderflow => 110
-    ExportSectionSizeUnderflow => 111
-    TableSectionSizeUnderflow => 112
-    MemorySectionSizeUnderflow => 113
-    GlobalSectionSizeUnderflow => 114
-    FunctionSectionSizeUnderflow => 115
-    ElementSectionSizeUnderflow => 116
-    DataSectionSizeUnderflow => 117
-    TagSectionSizeUnderflow => 118
-    SimdStoreLaneIndexOverflow => 119
-    SimdReplaceLaneIndexOverflow => 120
+  let registry = validate_invalid_binary_registry()
+  let mut i = 0
+  while i < registry.length() {
+    if registry[i].id == id {
+      return i
+    }
+    i += 1
   }
+  registry.length()
 }
 
 ///|
@@ -2291,6 +2195,56 @@ fn validate_invalid_binary_mutate_malformed_memarg_immediate(
         (0x41).to_byte(),
         (0x00).to_byte(),
         (0x28).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_load_memarg_offset_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedLoadMemargOffsetUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x41).to_byte(),
+        (0x00).to_byte(),
+        (0x28).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_store_memarg_offset_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedStoreMemargOffsetUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x41).to_byte(),
+        (0x00).to_byte(),
+        (0x41).to_byte(),
+        (0x00).to_byte(),
+        (0x36).to_byte(),
+        (0x00).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -4994,6 +4948,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(base)
     MalformedMemargImmediate =>
       validate_invalid_binary_mutate_malformed_memarg_immediate(base)
+    MalformedLoadMemargOffsetUleb =>
+      validate_invalid_binary_mutate_malformed_load_memarg_offset_uleb(base)
+    MalformedStoreMemargOffsetUleb =>
+      validate_invalid_binary_mutate_malformed_store_memarg_offset_uleb(base)
     MalformedBlocktypeImmediate =>
       validate_invalid_binary_mutate_malformed_blocktype_immediate(base)
     InvalidExportNameUtf8 =>
