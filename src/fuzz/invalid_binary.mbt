@@ -122,6 +122,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionLocalNameUtf8
   InvalidNameSectionModuleNameUtf8
   InvalidNameSectionTypeNameUtf8
+  InvalidNameSectionTableNameUtf8
+  InvalidNameSectionGlobalNameUtf8
   InvalidFuncTypeByte
   InvalidCodeLocalValTypeByte
   TypeSectionCountUnderflow
@@ -516,6 +518,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidNameSectionLocalNameUtf8 => "invalid-name-section-local-name-utf8"
     InvalidNameSectionModuleNameUtf8 => "invalid-name-section-module-name-utf8"
     InvalidNameSectionTypeNameUtf8 => "invalid-name-section-type-name-utf8"
+    InvalidNameSectionTableNameUtf8 => "invalid-name-section-table-name-utf8"
+    InvalidNameSectionGlobalNameUtf8 => "invalid-name-section-global-name-utf8"
     InvalidFuncTypeByte => "invalid-functype-byte"
     InvalidCodeLocalValTypeByte => "invalid-code-local-valtype-byte"
     TypeSectionCountUnderflow => "type-section-count-underflow"
@@ -1171,6 +1175,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      InvalidNameSectionTableNameUtf8,
+      "invalid-name-section-table-name-utf8",
+      "name section table-name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidNameSectionGlobalNameUtf8,
+      "invalid-name-section-global-name-utf8",
+      "name section global-name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       InvalidFuncTypeByte,
       "invalid-functype-byte",
       "type section entry with an invalid function-type byte",
@@ -1323,12 +1341,14 @@ fn validate_invalid_binary_strategy_index(
     InvalidNameSectionLocalNameUtf8 => 88
     InvalidNameSectionModuleNameUtf8 => 89
     InvalidNameSectionTypeNameUtf8 => 90
-    InvalidFuncTypeByte => 91
-    InvalidCodeLocalValTypeByte => 92
-    TypeSectionCountUnderflow => 93
-    CodeSectionCountUnderflow => 94
-    TypeSectionSizeUnderflow => 95
-    CodeBodySizeUnderflow => 96
+    InvalidNameSectionTableNameUtf8 => 91
+    InvalidNameSectionGlobalNameUtf8 => 92
+    InvalidFuncTypeByte => 93
+    InvalidCodeLocalValTypeByte => 94
+    TypeSectionCountUnderflow => 95
+    CodeSectionCountUnderflow => 96
+    TypeSectionSizeUnderflow => 97
+    CodeBodySizeUnderflow => 98
   }
 }
 
@@ -2534,6 +2554,23 @@ fn validate_invalid_binary_module_with_invalid_name_section_module_name_utf8() -
 
 ///|
 fn validate_invalid_binary_module_with_invalid_name_section_type_name_utf8() -> Bytes {
+  validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(0x04)
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_name_section_table_name_utf8() -> Bytes {
+  validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(0x05)
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_name_section_global_name_utf8() -> Bytes {
+  validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(0x07)
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(
+  subsection_id : Int,
+) -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
     (0x61).to_byte(),
@@ -2550,7 +2587,7 @@ fn validate_invalid_binary_module_with_invalid_name_section_type_name_utf8() -> 
     (0x61).to_byte(),
     (0x6d).to_byte(),
     (0x65).to_byte(),
-    (0x04).to_byte(),
+    subsection_id.to_byte(),
     (0x05).to_byte(),
     (0x01).to_byte(),
     (0x00).to_byte(),
@@ -2611,6 +2648,34 @@ fn validate_invalid_binary_mutate_invalid_name_section_type_name_utf8(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_name_section_type_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_name_section_table_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidNameSectionTableNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_name_section_table_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_name_section_global_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidNameSectionGlobalNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_name_section_global_name_utf8(),
     ),
   )
 }
@@ -4028,6 +4093,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_name_section_module_name_utf8(base)
     InvalidNameSectionTypeNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_type_name_utf8(base)
+    InvalidNameSectionTableNameUtf8 =>
+      validate_invalid_binary_mutate_invalid_name_section_table_name_utf8(base)
+    InvalidNameSectionGlobalNameUtf8 =>
+      validate_invalid_binary_mutate_invalid_name_section_global_name_utf8(base)
     InvalidFuncTypeByte =>
       validate_invalid_binary_mutate_invalid_functype_byte(base)
     InvalidCodeLocalValTypeByte =>
