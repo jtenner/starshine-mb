@@ -8240,6 +8240,14 @@ fn dae_instr_is_nontrapping_pure_unary(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2Splat
     | @lib.F32x4Splat
     | @lib.F64x2Splat
+    | @lib.I8x16ExtractLaneS(_)
+    | @lib.I8x16ExtractLaneU(_)
+    | @lib.I16x8ExtractLaneS(_)
+    | @lib.I16x8ExtractLaneU(_)
+    | @lib.I32x4ExtractLane(_)
+    | @lib.I64x2ExtractLane(_)
+    | @lib.F32x4ExtractLane(_)
+    | @lib.F64x2ExtractLane(_)
     | @lib.I8x16Abs
     | @lib.I8x16Neg
     | @lib.I8x16Popcnt
@@ -8421,6 +8429,12 @@ fn dae_instr_is_nontrapping_pure_binary(instr : @lib.Instruction) -> Bool {
     | @lib.V128Xor
     | @lib.I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | @lib.I8x16Swizzle
+    | @lib.I8x16ReplaceLane(_)
+    | @lib.I16x8ReplaceLane(_)
+    | @lib.I32x4ReplaceLane(_)
+    | @lib.I64x2ReplaceLane(_)
+    | @lib.F32x4ReplaceLane(_)
+    | @lib.F64x2ReplaceLane(_)
     | @lib.I8x16Eq
     | @lib.I8x16Ne
     | @lib.I8x16LtS
