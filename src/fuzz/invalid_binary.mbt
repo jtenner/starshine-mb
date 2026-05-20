@@ -116,6 +116,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedDataCountUleb
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
+  SimdStoreLaneIndexOverflow
+  SimdReplaceLaneIndexOverflow
   MalformedDataIndexUleb
   MalformedElemIndexUleb
   InvalidNameSectionFuncNameUtf8
@@ -532,6 +534,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedDataCountUleb => "malformed-datacount-uleb"
     SimdShuffleLaneOverflow => "simd-shuffle-lane-overflow"
     SimdLoadLaneIndexOverflow => "simd-load-lane-index-overflow"
+    SimdStoreLaneIndexOverflow => "simd-store-lane-index-overflow"
+    SimdReplaceLaneIndexOverflow => "simd-replace-lane-index-overflow"
     MalformedDataIndexUleb => "malformed-data-index-uleb"
     MalformedElemIndexUleb => "malformed-elem-index-uleb"
     InvalidNameSectionFuncNameUtf8 => "invalid-name-section-func-name-utf8"
@@ -1173,6 +1177,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      SimdStoreLaneIndexOverflow,
+      "simd-store-lane-index-overflow",
+      "SIMD lane store instruction with an out-of-range lane immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      SimdReplaceLaneIndexOverflow,
+      "simd-replace-lane-index-overflow",
+      "SIMD replace_lane instruction with an out-of-range lane immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedDataIndexUleb,
       "malformed-data-index-uleb",
       "data.drop instruction with a malformed data-index ULEB immediate",
@@ -1549,6 +1567,8 @@ fn validate_invalid_binary_strategy_index(
     ElementSectionSizeUnderflow => 116
     DataSectionSizeUnderflow => 117
     TagSectionSizeUnderflow => 118
+    SimdStoreLaneIndexOverflow => 119
+    SimdReplaceLaneIndexOverflow => 120
   }
 }
 
@@ -2621,6 +2641,44 @@ fn validate_invalid_binary_mutate_simd_load_lane_index_overflow(
         (0x54).to_byte(),
         (0x00).to_byte(),
         (0x00).to_byte(),
+        (0x10).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_simd_store_lane_index_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      SimdStoreLaneIndexOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfd).to_byte(),
+        (0x58).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x10).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_simd_replace_lane_index_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      SimdReplaceLaneIndexOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfd).to_byte(),
+        (0x17).to_byte(),
         (0x10).to_byte(),
       ]),
     ),
@@ -5016,6 +5074,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_simd_shuffle_lane_overflow(base)
     SimdLoadLaneIndexOverflow =>
       validate_invalid_binary_mutate_simd_load_lane_index_overflow(base)
+    SimdStoreLaneIndexOverflow =>
+      validate_invalid_binary_mutate_simd_store_lane_index_overflow(base)
+    SimdReplaceLaneIndexOverflow =>
+      validate_invalid_binary_mutate_simd_replace_lane_index_overflow(base)
     MalformedDataIndexUleb =>
       validate_invalid_binary_mutate_malformed_data_index_uleb(base)
     MalformedElemIndexUleb =>
