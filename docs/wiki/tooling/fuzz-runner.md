@@ -46,7 +46,7 @@ The live suite inventory is owned by [`fuzz_active_suite_names()`](../../../src/
 | `validate-invalid-ast` | AST-level invalid mutation coverage. |
 | `validate-invalid-binary` | Byte-level invalid or validator-rejected binary coverage. |
 | `validate-invalid-text` | Inline malformed/invalid/unlinkable text coverage. |
-| `validate-invalid-spec-seed` | Curated `tests/spec` assertion replay coverage. |
+| `validate-invalid-spec-seed` | Curated `tests/spec` assertion replay coverage in smoke; dynamic committed-spec static-assertion sampling in CI/stress. |
 | `binary-roundtrip` | Binary decode/encode stability coverage. |
 | `cmd-harness` | Command-pipeline harness coverage. |
 
@@ -73,7 +73,7 @@ Important invariants:
 - `--seed-count <n>` performs a deterministic seed sweep from the resolved base seed through `base + n - 1` using wrapping `UInt64` arithmetic mapped back to signed `Int64` output.
 - `--shard-index <i> --shard-count <n>` runs only seed ordinals where `ordinal % shard_count == shard_index`; defaults are `0/1`, and `shard_index` must be less than `shard_count`.
 - Text output lines keep the single-seed contract `suite=<name> profile=<profile> seed=<seed> attempts=<n> pass=true elapsed_ms=<ms>`. Sweep/sharded runs append `seed_index`, `seed_count`, `shard_index`, and `shard_count` fields.
-- JSONL output emits one JSON object per suite result, including sweep/shard metadata. Suites with first-class ledgers also include a `details` object: `validate-valid` reports validated count, generator config label, feature counters, and configured feature floors; invalid AST/binary/text/spec-seed suites report per-strategy or per-seed counters with stable ids and expected-rejection counts.
+- JSONL output emits one JSON object per suite result, including sweep/shard metadata. Suites with first-class ledgers also include a `details` object: `validate-valid` reports validated count, generator config label, feature counters, and configured feature floors; invalid AST/binary/text/spec-seed suites report per-strategy or per-seed counters with stable ids and expected-rejection counts. `validate-invalid-spec-seed` also includes a `dynamic` details object with scanned/attempted/matched counts and matched feature-family names for CI/stress dynamic spec sampling.
 - `--report-json <path>` writes a single summary object with `suite`, `profile`, `base_seed`, sweep/shard configuration, aggregate `run_count`, and the per-suite `runs` array. The same `details` objects used by JSONL are embedded per run. The path must be explicit; the runner does not create a standard output directory for ordinary fuzz runs yet.
 
 Preserve this result contract when adding suites so CI logs, repro reports, and long-running compare tasks can remain machine-readable.

@@ -1202,6 +1202,13 @@ pub struct ValidateInvalidSpecSeedFuzzStats {
   attempts : Int
   required_seeds : Array[ValidateInvalidSpecSeedId]
   seed_stats : Array[ValidateInvalidSpecSeedStats]
+  dynamic_scanned : Int
+  dynamic_attempted : Int
+  dynamic_matched_expected : Int
+  dynamic_malformed_matched : Int
+  dynamic_invalid_matched : Int
+  dynamic_unlinkable_matched : Int
+  dynamic_feature_families_matched : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -2020,6 +2027,113 @@ fn validate_invalid_spec_seed_required_failure_messages(
 }
 
 ///|
+fn validate_invalid_spec_seed_profile_uses_dynamic_scan(
+  normalized : String,
+) -> Bool {
+  normalized == "ci" || normalized == "stress"
+}
+
+///|
+fn validate_invalid_spec_seed_dynamic_family_push_unique(
+  families : Array[String],
+  family : String,
+) -> Unit {
+  if !families.any(fn(existing) { existing == family }) {
+    families.push(family)
+  }
+}
+
+///|
+fn validate_invalid_spec_seed_dynamic_floors_met(
+  malformed : Int,
+  invalid : Int,
+  unlinkable : Int,
+  families : Array[String],
+) -> Bool {
+  malformed > 0 && invalid > 0 && unlinkable > 0 && families.length() >= 3
+}
+
+///|
+fn run_validate_invalid_dynamic_spec_seed_fuzz(
+  normalized : String,
+  seed : UInt64,
+  attempts : Int,
+) -> Result[(Int, Int, Int, Int, Int, Int, Array[String]), String] {
+  if !validate_invalid_spec_seed_profile_uses_dynamic_scan(normalized) {
+    return Ok((0, 0, 0, 0, 0, 0, []))
+  }
+  let scanned = match validate_invalid_spec_seed_scan_directory("tests/spec") {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if scanned.is_empty() {
+    return Err("dynamic spec-seed scan found no tests/spec/*.wast assertions")
+  }
+  let dynamic_attempt_budget = if scanned.length() > attempts {
+    scanned.length()
+  } else {
+    attempts
+  }
+  let start_idx = (seed % scanned.length().to_uint64()).to_int()
+  let families : Array[String] = []
+  let mut dynamic_attempted = 0
+  let mut dynamic_matched_expected = 0
+  let mut dynamic_malformed_matched = 0
+  let mut dynamic_invalid_matched = 0
+  let mut dynamic_unlinkable_matched = 0
+  while dynamic_attempted < dynamic_attempt_budget {
+    let item = scanned[(start_idx + dynamic_attempted) % scanned.length()]
+    dynamic_attempted += 1
+    let stage = match
+      evaluate_validate_invalid_text_assertion_source(
+        item.assertion_source,
+        item.path,
+        item.assertion_kind,
+      ) {
+      Ok(v) => v
+      Err(_) => continue
+    }
+    if stage == item.expected_stage {
+      dynamic_matched_expected += 1
+      validate_invalid_spec_seed_dynamic_family_push_unique(
+        families,
+        item.feature_family,
+      )
+      match item.assertion_kind {
+        MalformedTextAssertion => dynamic_malformed_matched += 1
+        InvalidTextAssertion => dynamic_invalid_matched += 1
+        UnlinkableTextAssertion => dynamic_unlinkable_matched += 1
+      }
+      if validate_invalid_spec_seed_dynamic_floors_met(
+          dynamic_malformed_matched, dynamic_invalid_matched, dynamic_unlinkable_matched,
+          families,
+        ) {
+        break
+      }
+    }
+  }
+  if !validate_invalid_spec_seed_dynamic_floors_met(
+      dynamic_malformed_matched, dynamic_invalid_matched, dynamic_unlinkable_matched,
+      families,
+    ) {
+    return Err(
+      "validate-invalid-spec-seed dynamic floors failed: profile=\{normalized} seed=\{seed} scanned=\{scanned.length()} attempted=\{dynamic_attempted} matched=\{dynamic_matched_expected} malformed=\{dynamic_malformed_matched} invalid=\{dynamic_invalid_matched} unlinkable=\{dynamic_unlinkable_matched} families=\{families.length()}",
+    )
+  }
+  Ok(
+    (
+      scanned.length(),
+      dynamic_attempted,
+      dynamic_matched_expected,
+      dynamic_malformed_matched,
+      dynamic_invalid_matched,
+      dynamic_unlinkable_matched,
+      families,
+    ),
+  )
+}
+
+///|
 pub fn run_validate_invalid_spec_seed_fuzz(
   profile : String,
   seed : UInt64,
@@ -2086,5 +2200,31 @@ pub fn run_validate_invalid_spec_seed_fuzz(
       "validate-invalid-spec-seed required seed floors failed: profile=\{normalized} seed=\{seed} \{joined_failures}",
     )
   }
-  Ok({ profile: normalized, seed, attempts, required_seeds, seed_stats: stats })
+  let (
+    dynamic_scanned,
+    dynamic_attempted,
+    dynamic_matched_expected,
+    dynamic_malformed_matched,
+    dynamic_invalid_matched,
+    dynamic_unlinkable_matched,
+    dynamic_feature_families_matched,
+  ) = match
+    run_validate_invalid_dynamic_spec_seed_fuzz(normalized, seed, attempts) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  Ok({
+    profile: normalized,
+    seed,
+    attempts,
+    required_seeds,
+    seed_stats: stats,
+    dynamic_scanned,
+    dynamic_attempted,
+    dynamic_matched_expected,
+    dynamic_malformed_matched,
+    dynamic_invalid_matched,
+    dynamic_unlinkable_matched,
+    dynamic_feature_families_matched,
+  })
 }

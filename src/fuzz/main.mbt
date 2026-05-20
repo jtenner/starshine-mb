@@ -1377,7 +1377,21 @@ fn format_invalid_spec_seed_details_json(
     )
     i += 1
   }
-  out.write_string("]}")
+  out.write_string("],\"dynamic\":{")
+  out.write_string(
+    "\"scanned\":\{stats.dynamic_scanned},\"attempted\":\{stats.dynamic_attempted},\"matched_expected\":\{stats.dynamic_matched_expected},\"malformed_matched\":\{stats.dynamic_malformed_matched},\"invalid_matched\":\{stats.dynamic_invalid_matched},\"unlinkable_matched\":\{stats.dynamic_unlinkable_matched},\"feature_families_matched\":[",
+  )
+  let mut family_idx = 0
+  while family_idx < stats.dynamic_feature_families_matched.length() {
+    if family_idx > 0 {
+      out.write_char(',')
+    }
+    out.write_string(
+      "\"\{fuzz_json_escape(stats.dynamic_feature_families_matched[family_idx])}\"",
+    )
+    family_idx += 1
+  }
+  out.write_string("]}}")
   out.to_string()
 }
 

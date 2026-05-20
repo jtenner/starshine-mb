@@ -993,6 +993,7 @@ test "run_validate_invalid_spec_seed_fuzz returns deterministic fixed-seed seed 
   }
   assert_true(first == second)
   @debug.assert_eq(first.attempts, 39)
+  @debug.assert_eq(first.dynamic_attempted, 0)
   let mut saw_parse_or_lower = false
   let mut saw_validate = false
   let mut saw_valid_before_link = false
@@ -1013,4 +1014,21 @@ test "run_validate_invalid_spec_seed_fuzz returns deterministic fixed-seed seed 
   assert_true(saw_parse_or_lower)
   assert_true(saw_validate)
   assert_true(saw_valid_before_link)
+}
+
+///|
+test "ci spec-seed fuzz samples dynamic scanned assertions by kind and family" {
+  let stats = match run_validate_invalid_spec_seed_fuzz("ci", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(
+    stats.dynamic_scanned > validate_invalid_spec_seed_registry().length(),
+  )
+  assert_true(stats.dynamic_attempted > 0)
+  assert_true(stats.dynamic_matched_expected > 0)
+  assert_true(stats.dynamic_malformed_matched > 0)
+  assert_true(stats.dynamic_invalid_matched > 0)
+  assert_true(stats.dynamic_unlinkable_matched > 0)
+  assert_true(stats.dynamic_feature_families_matched.length() >= 3)
 }

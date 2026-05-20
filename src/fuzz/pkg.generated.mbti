@@ -401,6 +401,13 @@ pub struct ValidateInvalidSpecSeedFuzzStats {
   attempts : Int
   required_seeds : Array[ValidateInvalidSpecSeedId]
   seed_stats : Array[ValidateInvalidSpecSeedStats]
+  dynamic_scanned : Int
+  dynamic_attempted : Int
+  dynamic_matched_expected : Int
+  dynamic_malformed_matched : Int
+  dynamic_invalid_matched : Int
+  dynamic_unlinkable_matched : Int
+  dynamic_feature_families_matched : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub enum ValidateInvalidSpecSeedId {

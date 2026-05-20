@@ -808,17 +808,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: deterministic mutation tests for missing parens, bad opcode, bad type token, duplicate export, mutable global const init, bad lane, bad memarg; fuzz-runner suite tests.
   - Exit Criteria: text invalid fuzz can discover new parser/lowerer/validator failures from generated valid text, not just replay known inline strings.
 
-- [FUZ]1024 - Dynamic Spec-Seed Sampler
-  - Status: IN PROGRESS (cron 23, 2026-05-20) - dynamic scanner and selector API landed; next resume should wire dynamic scanned inventories into CI/stress spec-seed sampling floors or document a deliberate library-only boundary.
-  - Goal: sample committed `tests/spec/*.wast` assertions by file, assertion kind, occurrence, and feature family.
-  - Why: the current spec-seed registry is curated and fixed. CI/stress should be able to cover more official malformed/invalid/unlinkable assertions without hand-adding every case.
-  - Deliverables: add a scanner/registry builder for selected spec files; classify `assert_malformed`, `assert_invalid`, and `assert_unlinkable`; keep curated smoke seeds; add CI/stress floors by assertion kind and optionally by file/family.
-  - Required APIs: `src/fuzz/invalid_text.mbt`, `validate_invalid_text_extract_assertion_source_from_spec(...)`, WAST static assertion evaluator, file IO.
-  - Invariants: full dynamic sampling must tolerate known unsupported spec cases through explicit skip policy; smoke should stay deterministic and small.
-  - Dependencies: none, but [FUZ]1025 artifact metadata should include scanned source path/occurrence.
-  - Suggested Tests: scanner tests on small fixture files, occurrence extraction tests, stage/floor tests, docs updates for skip policy.
-  - Exit Criteria: adding a new committed spec file can increase fuzz coverage without manually enumerating every assertion in code.
-
 - [FUZ]1025 - Invalid Repro Metadata, Variant Recording, And Actual Specimen Shrinking
   - Goal: make invalid repros record more context and shrink the actual generated failing specimen, not only the strategy's known minimal form.
   - Why: current repros are useful but reduction often jumps to a canned minimal artifact. Agents also need variant id, seed profile, generator config, feature facts, exact issue kind, and shrink lineage.
@@ -1115,7 +1104,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Deliverables: generate WAST scripts with multiple modules, module names, register commands, import/export wiring, `assert_unlinkable`, valid linked pairs, and intentionally missing or type-mismatched imports.
   - Required APIs: WAST arbitrary generator, static assertion evaluator, text parser/lowerer, import/export planning.
   - Invariants: unlinkable cases must be classified separately from invalid modules; unsupported WAST script commands should be skipped with explicit counters.
-  - Dependencies: [FUZ]1024 dynamic spec-seed sampler and [FUZ]1027 WAST reporting.
+  - Dependencies: landed dynamic spec-seed scanner/CI floors and [FUZ]1027 WAST reporting.
   - Suggested Tests: two-module valid link fixture, missing-import unlinkable fixture, type-mismatch unlinkable fixture, register command fixture.
   - Exit Criteria: WAST fuzzing can exercise link-time behavior without conflating it with validation failures.
 
