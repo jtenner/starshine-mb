@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/node/2026-05-20-node-package-export-boundary.md
+  - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/research/0110-2026-04-18-node-package-api-audit.md
   - ../../../node/package.json
@@ -20,6 +21,7 @@ sources:
 related:
   - ./fuzz-runner.md
   - ./cli-command-and-dispatcher.md
+  - ./moonbit-workspace-package-map.md
   - ./cli-startup-path.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
@@ -57,8 +59,8 @@ That split is the main invariant for maintainers: **do not assume `npm run build
 | `./validate` | Module validation and selected validator helpers | Intentionally partial; still the largest missing high-value surface. |
 | `./wast` / `./wat` | Text parsing, printing, and spec helpers | Mostly covered; `wast.evaluate_wast_static_assertion(...)` remains absent from Node. |
 
-Active MoonBit packages under [`src/`](../../../src/) currently include `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
-Node deliberately omits several of those (`bitset`, `cli-benchmarks`, `diff`, `fs`, `fuzz`, `ir`, `passes`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`).
+The MoonBit workspace/package topology is cataloged in [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md). Active MoonBit package surfaces under [`src/`](../../../src/) include `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
+Node deliberately omits several of those (`bitset`, `cli-benchmarks`, `diff`, `fs`, `fuzz`, `ir`, `passes`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`), and the package map owns the `moon.pkg` / `is-main` / generated-interface distinction behind that statement.
 That omission is acceptable only while the README and tests keep the package framed as a partial host boundary, not as the whole Starshine implementation surface.
 
 ## What Changed Since The 2026-04-18 Audit
@@ -150,4 +152,5 @@ The comparison must start from the `exports` allowlist, not from every file in `
 - Runtime command contract: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
 - Validator diagnostics/repro contract: [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
 - WAST static assertion stage model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
+- MoonBit workspace/package map: [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md), [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
 - MoonBit source signatures: [`../../../src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti), [`../../../src/cmd/pkg.generated.mbti`](../../../src/cmd/pkg.generated.mbti), [`../../../src/validate/pkg.generated.mbti`](../../../src/validate/pkg.generated.mbti), [`../../../src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti)

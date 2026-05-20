@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
+  - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/moonbit/2026-05-13-formal-verification-docs.md
   - ../raw/research/0077-2026-04-10-moonbit-prove-strategy.md
   - ../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md
@@ -24,6 +25,7 @@ sources:
   - ../../../src/validate_proof/suffix_index.mbt
 related:
   - ../tooling/validation-gates.md
+  - ../tooling/moonbit-workspace-package-map.md
   - ../validate/fuzz-hardening.md
   - ../../../src/validate/env_tests.mbt
   - ../../../src/validate/typecheck_negative_tests.mbt
@@ -38,7 +40,7 @@ related:
 
 MoonBit verification is useful in Starshine when a small executable helper has a crisp arithmetic, bounds, or stack-shape postcondition that can be expressed in `.mbtp` predicates. It is **not** a replacement for validator tests, fuzzing, binary roundtrip tests, or pass parity checks. The current project boundary is deliberately narrow: keep the required proof gate in the low-dependency `src/validate_proof` package, then import only stable helpers into `src/validate` after executable tests already describe the behavior.
 
-Official MoonBit docs frame verification as a Why3-backed workflow driven by `moon prove`, with package opt-in through `proof-enabled`, solver setup around Why3 plus solvers such as Z3, CVC5, or Alt-Ergo, executable `where` contracts, and proof-only companion material such as `.mbtp` predicates. The 2026-05-20 refresh adds one policy-relevant emphasis: MoonBit also exposes richer proof-only and trusted/axiomatized surfaces that Starshine does **not** use in committed `src/` code today, so adopting those constructs would widen the trust boundary and must be documented deliberately. Starshine's local policy follows the upstream package model but keeps the broad validator package optional because the PRV006 audit showed direct `src/validate` file targets are not isolated enough for the required gate in this workspace. See the 2026-05-20 command/trust refresh in [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md), the earlier official-doc manifest in [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md), the local PRV006 audit in [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md), and the shared validation-gate map in [`../tooling/validation-gates.md`](../tooling/validation-gates.md).
+Official MoonBit docs frame verification as a Why3-backed workflow driven by `moon prove`, with package opt-in through `proof-enabled`, solver setup around Why3 plus solvers such as Z3, CVC5, or Alt-Ergo, executable `where` contracts, and proof-only companion material such as `.mbtp` predicates. The broader package-topology map in [`../tooling/moonbit-workspace-package-map.md`](../tooling/moonbit-workspace-package-map.md) owns the general `moon.pkg` / `is-main` / generated-interface rules; this page owns only proof policy and trust boundaries. The 2026-05-20 refresh adds one policy-relevant emphasis: MoonBit also exposes richer proof-only and trusted/axiomatized surfaces that Starshine does **not** use in committed `src/` code today, so adopting those constructs would widen the trust boundary and must be documented deliberately. Starshine's local policy follows the upstream package model but keeps the broad validator package optional because the PRV006 audit showed direct `src/validate` file targets are not isolated enough for the required gate in this workspace. See the 2026-05-20 command/trust refresh in [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md), the earlier official-doc manifest in [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md), the local PRV006 audit in [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md), and the shared validation-gate map in [`../tooling/validation-gates.md`](../tooling/validation-gates.md).
 
 ## Durable Conclusions
 
@@ -128,6 +130,7 @@ The important maintenance rule is to distinguish **proved/exported** from **wire
 - Official Moon command-manual source: <https://github.com/moonbitlang/moon/blob/main/docs/manual/src/commands.md>
 - Official MoonBit v0.9.1 formal-verification blog post: <https://www.moonbitlang.com/blog/first-class-formal-verification>
 - 2026-05-20 command/trust manifest: [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md)
+- Workspace/package map: [`../tooling/moonbit-workspace-package-map.md`](../tooling/moonbit-workspace-package-map.md), [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
 - 2026-05-13 official-source manifest: [`../raw/moonbit/2026-05-13-formal-verification-docs.md`](../raw/moonbit/2026-05-13-formal-verification-docs.md)
 - Original investigation: [`../raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](../raw/research/0077-2026-04-10-moonbit-prove-strategy.md)
 - PRV006 boundary audit: [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md)

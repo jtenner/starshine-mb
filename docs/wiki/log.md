@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | MoonBit package-map backlink hygiene
+
+- During the post-update whole-wiki health pass, searched `moon.pkg`, `pkg.generated.mbti`, `moon info`, `proof-enabled`, `is-main`, Node package, validation-gate, and proof-policy references across tooling, validation, index, raw-source, and pass pages.
+- Updated [`tooling/node-package-surface.md`](tooling/node-package-surface.md) so the active MoonBit package roster and omitted-Node-subpath discussion route package-topology details through [`tooling/moonbit-workspace-package-map.md`](tooling/moonbit-workspace-package-map.md) instead of keeping Node API parity as the only package map.
+- Updated [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md) so proof readers route general `moon.pkg`, `is-main`, generated-interface, and package-local proof-enable facts through the shared workspace/package map while this page remains focused on proof policy and trust boundaries.
+- Updated [`index.md`](index.md) to expose those new backlinks from the Node-package and proof-policy catalog entries.
+
 ## [2026-05-20] tooling | MoonBit workspace and package map
 
 - Added [`raw/moonbit/2026-05-20-workspace-package-surface.md`](raw/moonbit/2026-05-20-workspace-package-surface.md) after checking current official MoonBit module/package/proof documentation plus Starshine [`../../moon.mod.json`](../../moon.mod.json), `src/*/moon.pkg`, `src/*/pkg.generated.mbti`, validation-gate, Node-package, and proof-policy evidence.
