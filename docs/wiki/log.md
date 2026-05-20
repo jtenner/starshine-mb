@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-19] health | validator fuzz data-segment backlinks
+
+- During the post-update whole-wiki health pass, searched active data offset, data-segment range, data-count, and data-backed GC array references for pages that still routed WAST authors only through the binary section guide.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so broad `gen-valid` data-segment, passive-data, non-constant-active-data-offset, and data-count coverage claims point at [`wast/data-segment-authoring.md`](wast/data-segment-authoring.md) for WAST fixture semantics while retaining the binary section guide for core/data-count section rules.
+
 ## [2026-05-19] wast | data segment authoring
 
 - Added [`wast/data-segment-authoring.md`](wast/data-segment-authoring.md) as the focused WAST guide for active and passive `(data ...)` fields: optional memory use, `(offset ...)` wrappers, string-payload concatenation, Starshine `DataMode` lowering, conservative WAST-emitted `DataCntSec`, current printer/inline memory-data abbreviation caveats, and pass/generator rewrite guidance for data-index users.
