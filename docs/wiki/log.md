@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | parametric drop/select authoring
+
+- Added [`wast/parametric-instruction-authoring.md`](wast/parametric-instruction-authoring.md) as the focused guide for `drop`, untyped `select`, and typed `select (result ...)`, including stack order, binary opcodes `0x1A` / `0x1B` / `0x1C`, typed reference-select authoring, local multi-value typed-select support, and the portability caveats around current official validation text.
+- Added [`raw/wasm/2026-05-20-wast-parametric-select-sources.md`](raw/wasm/2026-05-20-wast-parametric-select-sources.md) after rechecking current official WebAssembly syntax, text, binary, validation, and execution instruction pages plus Starshine WAST/parser/lowerer/printer, core instruction, binary codec, validator, generator, and WAST arbitrary surfaces.
+- Updated [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so `select` claims route through the focused parametric guide instead of being folded into ordinary branch-label mechanics.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/match.mbt`](../../src/validate/match.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt).
+
 ## [2026-05-20] health | exception generator backlink hygiene
 
 - During the post-update whole-wiki health pass, searched exception, `throw_ref`, `catch_ref`, `catch_all_ref`, nullable `exnref`, generator, and WAST arbitrary references for stale wording that could conflate nullable `throw_ref` operands with non-null catch-ref branch payloads.

@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
+  - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -19,6 +20,7 @@ related:
   - tail-call-authoring.md
   - exception-tag-authoring.md
   - reference-instruction-authoring.md
+  - parametric-instruction-authoring.md
   - table-instruction-authoring.md
   - gc-type-authoring.md
   - ../validate/module-validation-phases.md
@@ -39,7 +41,7 @@ Use this page when writing, reducing, or widening WAST fixtures that use ordinar
 - terminators: `return` and `unreachable`;
 - nearby parametric control value selection: untyped and typed `select`.
 
-Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). Shared `(type $sig)` and inline function-signature type-use rules for block types live in [`gc-type-authoring.md`](gc-type-authoring.md). This page focuses on the label stack, branch payloads, fallthrough, and stack-polymorphic unreachable code shared by the ordinary control family.
+Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). Shared `(type $sig)` and inline function-signature type-use rules for block types live in [`gc-type-authoring.md`](gc-type-authoring.md). Detailed `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select caveats live in [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md). This page focuses on the label stack, branch payloads, fallthrough, and stack-polymorphic unreachable code shared by the ordinary control family.
 
 The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md).
 
@@ -86,7 +88,7 @@ Starshine mirrors that split in [`typecheck_block(...)`](../../../src/validate/t
 | `br_table l* ldefault` | target payload plus `i32` selector | no local fallthrough | every table target and default target must have equivalent payload types; final text label is the default. |
 | `return` | function result payload | no local fallthrough | consumes current function results and exits. |
 | `unreachable` | none | following code is stack-polymorphic | marks the local continuation unreachable. |
-| `select` | `v1`, `v2`, `i32` condition | pushes selected value(s) | untyped operands must be the same type; typed `select (result ...)` uses the annotation. |
+| `select` | `v1`, `v2`, `i32` condition | pushes selected value(s) | use [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md) for typed-vs-untyped, reference-type, and local multi-value typed-select caveats. |
 
 ### `br_if` does not consume branch values on fallthrough
 
@@ -191,9 +193,9 @@ When a pass, generator, or fixture change touches ordinary control flow:
 
 ## Source Map
 
-- Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md)
+- Primary-source and local-code manifests: [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md), [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and CFG: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)
 - Generator and WAST arbitrary: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md), [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md)
-- Related WAST guides: [`tail-call-authoring.md`](tail-call-authoring.md), [`exception-tag-authoring.md`](exception-tag-authoring.md), [`table-instruction-authoring.md`](table-instruction-authoring.md), [`reference-instruction-authoring.md`](reference-instruction-authoring.md)
+- Related WAST guides: [`tail-call-authoring.md`](tail-call-authoring.md), [`exception-tag-authoring.md`](exception-tag-authoring.md), [`table-instruction-authoring.md`](table-instruction-authoring.md), [`reference-instruction-authoring.md`](reference-instruction-authoring.md), [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md)
