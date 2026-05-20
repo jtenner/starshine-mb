@@ -110,6 +110,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBrLabelIndexUleb
   MalformedTableIndexUleb
   MalformedSelectTypeCountUleb
+  MalformedStartFuncIndexUleb
+  MalformedDataCountUleb
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
 } derive(Eq, Debug)
@@ -487,6 +489,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
     MalformedTableIndexUleb => "malformed-table-index-uleb"
     MalformedSelectTypeCountUleb => "malformed-select-type-count-uleb"
+    MalformedStartFuncIndexUleb => "malformed-start-func-index-uleb"
+    MalformedDataCountUleb => "malformed-datacount-uleb"
     SimdShuffleLaneOverflow => "simd-shuffle-lane-overflow"
     SimdLoadLaneIndexOverflow => "simd-load-lane-index-overflow"
   }
@@ -1054,6 +1058,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedStartFuncIndexUleb,
+      "malformed-start-func-index-uleb",
+      "start section with a malformed function-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedDataCountUleb,
+      "malformed-datacount-uleb",
+      "data count section with a malformed count ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       SimdShuffleLaneOverflow,
       "simd-shuffle-lane-overflow",
       "i8x16.shuffle instruction with an out-of-range lane immediate",
@@ -1166,8 +1184,10 @@ fn validate_invalid_binary_strategy_index(
     MalformedBrLabelIndexUleb => 76
     MalformedTableIndexUleb => 77
     MalformedSelectTypeCountUleb => 78
-    SimdShuffleLaneOverflow => 79
-    SimdLoadLaneIndexOverflow => 80
+    MalformedStartFuncIndexUleb => 79
+    MalformedDataCountUleb => 80
+    SimdShuffleLaneOverflow => 81
+    SimdLoadLaneIndexOverflow => 82
   }
 }
 
@@ -2079,6 +2099,66 @@ fn validate_invalid_binary_mutate_malformed_select_type_count_uleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x1c).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_start_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedStartFuncIndexUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x08).to_byte(),
+        (0x05).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_datacount_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedDataCountUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x0c).to_byte(),
+        (0x05).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -3290,6 +3370,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_table_index_uleb(base)
     MalformedSelectTypeCountUleb =>
       validate_invalid_binary_mutate_malformed_select_type_count_uleb(base)
+    MalformedStartFuncIndexUleb =>
+      validate_invalid_binary_mutate_malformed_start_func_index_uleb(base)
+    MalformedDataCountUleb =>
+      validate_invalid_binary_mutate_malformed_datacount_uleb(base)
     SimdShuffleLaneOverflow =>
       validate_invalid_binary_mutate_simd_shuffle_lane_overflow(base)
     SimdLoadLaneIndexOverflow =>
