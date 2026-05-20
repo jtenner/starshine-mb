@@ -998,6 +998,24 @@ fn sgo_flow_arm_result_taint_and_reads(
         stack.push(block_tainted)
         continue
       }
+      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
+        match sgo_flow_pop(stack) {
+          Some(false) => ()
+          _ => return (false, reads, false)
+        }
+        let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
+          then_body, idx,
+        )
+        let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
+          else_body, idx,
+        )
+        reads = reads + then_reads + else_reads
+        if !then_ok || !else_ok || reads > 1 {
+          return (false, reads, false)
+        }
+        stack.push(then_tainted || else_tainted)
+        continue
+      }
       @lib.Call(_) => {
         if sgo_flow_stack_has_taint(stack) {
           return (false, reads, false)

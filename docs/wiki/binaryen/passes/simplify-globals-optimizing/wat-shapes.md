@@ -315,6 +315,8 @@ A side-effecting condition can also hide the candidate read in a nested `if (res
 
 Binaryen promotes this family because the call decides which arm runs, while `$once` only flows out to the final branch condition. Starshine's current subset accepts one or more transparent block-result wrappers for supported pure post-consumers like `i32.eqz` and for the supported clean-sibling `select` value form, and it preserves the neighboring negative where the block-wrapped post-consumer is a trapping `i32.load` whose address comes from the global-derived value.
 
+The 2026-05-20 if-wrapper follow-up covers another adjacent FlowScanner parent-walk family: a clean value-producing `if` arm can itself contain the supported nested-if arm-flow result, then yield to a supported pure post-consumer or clean-sibling `select` before the outer same-global write guard. Starshine preserves the paired negatives where the wrapper result feeds a trapping `i32.load` or the candidate `global.get` steers the inner wrapper condition.
+
 ### No-op const/drop condition-prefix variation
 
 A block-wrapped condition can also contain side-effect-free constant/drop pairs before the yielded self-guard read:
