@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | research archive move checklist
+
+- Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
+- Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+
 ## [2026-05-20] wast | GC aggregate initializer boundary
 
 - Added [`raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) after rechecking current WebAssembly Core 3.0 aggregate instruction text/syntax/binary/validation sources plus Starshine WAST keyword/parser, core instruction, typechecker, constant-expression validator, and generator evidence.

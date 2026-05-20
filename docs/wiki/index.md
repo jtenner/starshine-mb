@@ -7,7 +7,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`../../AGENTS.md`](../../AGENTS.md) - Compact repo essentials, always-follow workflow rules, and task-specific guidance for repo work and wiki maintenance.
 - [`../README.md`](../README.md) - Canonical docs and wiki schema, now split into high-signal repo rules plus lower-frequency reference details.
 - [`raw/README.md`](raw/README.md) - Rules for committed raw sources, including immutable source captures, numbered research notes, and topic raw-source directories such as `raw/binaryen/`, `raw/ir2/`, `raw/moonbit/`, `raw/node/`, `raw/validation/`, and `raw/wasm/`.
-- [`raw/research/README.md`](raw/research/README.md) - Rules for the archived numbered research notes moved out of `docs/`.
+- [`raw/research/README.md`](raw/research/README.md) - Rules and move checklist for archived numbered research notes moved out of `docs/`, including stable filenames, live-reference repointing, internal-link repair, log handling, duplicate/stub cleanup, and edit limits for archived source material.
 
 ## Concepts
 
