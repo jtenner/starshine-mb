@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | LEB size-model backlink hygiene
+
+- During the post-update whole-wiki health pass, searched `LEB128`, `signed-LEB`, `ULEB`, `binary-leb128.wast`, and `malformed-section-size-uleb` references across binary, validation, pass, raw-source, index, and log pages.
+- Updated [`binaryen/passes/const-hoisting/size-model-and-boundaries.md`](binaryen/passes/const-hoisting/size-model-and-boundaries.md), [`binaryen/passes/const-hoisting/starshine-port-readiness-and-validation.md`](binaryen/passes/const-hoisting/starshine-port-readiness-and-validation.md), [`binaryen/passes/reorder-globals/size-model-and-dependency-order.md`](binaryen/passes/reorder-globals/size-model-and-dependency-order.md), [`binaryen/passes/reorder-globals/starshine-strategy.md`](binaryen/passes/reorder-globals/starshine-strategy.md), and [`index.md`](index.md) so pass-side signed/unsigned LEB size-model claims route through [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) instead of leaving byte-cost caveats scattered in pass dossiers.
+
 ## [2026-05-20] binary | LEB128 integer encoding contract
 
 - Added [`raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md) after rechecking current WebAssembly Core binary values/conventions, the upstream `binary-leb128.wast` fixture, and Starshine binary decode/encode/test/fuzz/static-harness evidence.

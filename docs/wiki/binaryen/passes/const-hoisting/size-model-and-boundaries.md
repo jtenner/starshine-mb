@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
+  - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
@@ -18,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-port-readiness-and-validation.md
+  - ../../../binary/leb128-and-integer-encoding.md
 ---
 
 # `const-hoisting` size model and boundaries
@@ -26,7 +28,7 @@ This page focuses on the easiest part of `const-hoisting` to mis-teach:
 
 - why some repeated constants are hoisted and others are not
 
-For the Starshine test ladder that turns these thresholds into first-slice fixtures, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+For the Starshine test ladder that turns these thresholds into first-slice fixtures, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). For the shared WebAssembly/Starshine byte-layer contract behind signed-LEB widths, including valid overlong decode behavior versus encoder size accounting, see [`../../../binary/leb128-and-integer-encoding.md`](../../../binary/leb128-and-integer-encoding.md).
 
 ## The real cost model
 
@@ -88,7 +90,7 @@ That table explains almost every surprising test outcome.
 
 ### Not profitable
 
-These stay inline because their signed-LEB payloads are tiny:
+These stay inline because their signed-LEB payloads are tiny under the real encoder-size model:
 
 - `i32.const 0`
 - `i32.const 63`

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-08
 sources:
   - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
+  - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -25,6 +26,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./size-model-and-dependency-order.md
   - ./wat-shapes.md
+  - ../../../binary/leb128-and-integer-encoding.md
   - ../string-gathering/index.md
   - ../reorder-globals-always/index.md
   - ../directize/index.md
@@ -106,7 +108,7 @@ The implementation:
 - counts `global.get` and `global.set` uses in functions and module-level expression code
 - builds initializer dependency edges from defined-global initializer `global.get`s
 - tries the zero/raw/summed-dependent/exponential-dependent candidate families
-- scores candidates using true observed counts and estimated ULEB global-index byte widths
+- scores candidates using true observed counts and estimated ULEB global-index byte widths; the shared binary byte-layer caveat is [`../../../binary/leb128-and-integer-encoding.md`](../../../binary/leb128-and-integer-encoding.md), while this pass uses encoder-size thresholds for profitability
 - keeps imported globals before defined globals
 - reorders the defined `global_sec` entries and remaps numeric global references across module/code/name surfaces
 

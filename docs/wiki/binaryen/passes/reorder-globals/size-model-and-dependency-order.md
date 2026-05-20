@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-04-25
 sources:
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
+  - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
@@ -13,6 +14,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ../../../binary/leb128-and-integer-encoding.md
   - ../string-gathering/index.md
 ---
 
@@ -42,9 +44,9 @@ If you keep that model in mind, most of the weird-looking test cases make sense.
 
 ## What counts as “cost” here
 
-The pass is trying to shrink the bytes used to encode global indices.
+The pass is trying to shrink the bytes used to encode global indices. The byte-layer LEB contract, including why official-compatible overlong input decoding is separate from encoder size accounting, lives in [`../../../binary/leb128-and-integer-encoding.md`](../../../binary/leb128-and-integer-encoding.md).
 
-In ordinary production mode, the important LEB-size thresholds are:
+In ordinary production mode, the important encoder-size thresholds are:
 
 | Global index range | Estimated encoded size |
 | --- | --- |
@@ -53,7 +55,7 @@ In ordinary production mode, the important LEB-size thresholds are:
 | later ranges | more bytes as needed |
 
 So moving a frequently used global from index `130` to index `10` can matter.
-Moving a global from index `10` to index `40` does not change the real encoded size at all, because both are still one-byte ULEBs.
+Moving a global from index `10` to index `40` does not change the real encoded size at all, because both are still one-byte ULEBs under the encoder-size model.
 
 That is why the production pass has a hard cutoff at `128` globals.
 

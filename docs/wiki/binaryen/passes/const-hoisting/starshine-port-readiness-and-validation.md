@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md
+  - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
@@ -27,6 +28,7 @@ related:
   - ./literal-bit-identity-zero-signs-and-nan-payloads.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ../../../binary/leb128-and-integer-encoding.md
   - ../precompute/index.md
   - ../optimize-added-constants/index.md
   - ../tracker.md
@@ -91,8 +93,9 @@ Implementation rule: create one fresh local per profitable literal bucket, prese
 ### Byte-size accounting surface
 
 - [`src/binary/encode.mbt`](../../../../../src/binary/encode.mbt): signed-LEB emission helpers and scalar-const encoding are the local ingredients for Binaryen-compatible thresholds.
+- [`binary/leb128-and-integer-encoding.md`](../../../binary/leb128-and-integer-encoding.md): shared Starshine contract for bounded LEB byte widths, valid overlong decode behavior, and the `size_signed(...)` / `size_unsigned(...)` helper model.
 
-Implementation rule: do not approximate integer widths from value ranges by hand unless tests prove exact parity with signed-LEB emission. The pass is a binary-size pass, so byte accounting is part of correctness.
+Implementation rule: do not approximate integer widths from value ranges by hand unless tests prove exact parity with signed-LEB emission. The pass is a binary-size pass, so byte accounting is part of correctness, and the shared LEB page owns the byte-layer caveats rather than this pass dossier.
 
 ## First useful implementation slice
 
