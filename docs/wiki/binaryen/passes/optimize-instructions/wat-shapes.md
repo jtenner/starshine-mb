@@ -10,6 +10,7 @@ related:
   - ./binaryen-strategy.md
   - ./gc-casts-call_ref-and-trap-sensitive-rewrites.md
   - ./starshine-strategy.md
+  - ../../../wast/code-metadata-and-function-annotations.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -692,7 +693,7 @@ This exists so branch-hint fuzzing does not become invalid when:
 - code with different hints would fold together, or
 - a branch hint would move earlier than a trap and start executing in a new place
 
-That is a very specific but very real bailout family.
+That is a very specific but very real bailout family. For Starshine's current lack of expression-level branch-hint/code-metadata support, use [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md) instead of treating Binaryen branch-hint examples as local WAST parser evidence.
 
 ## Cast removal is deliberately conservative
 

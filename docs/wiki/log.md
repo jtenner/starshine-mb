@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | code-metadata backlink hygiene
+
+- During the post-update whole-wiki health pass, searched `FuncAnnotationSec`, `func_annotation_sec`, `metadata.code.inline`, `metadata.code.branch_hint`, `function annotations`, `codeAnnotations`, `branch hints`, and `toolchain annotations` across the wiki.
+- Updated [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md) so tail-call `FuncIdx` remap guidance routes function-annotation details through [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md) instead of leaving the annotation carrier implicit.
+- Updated [`binaryen/passes/optimize-instructions/wat-shapes.md`](binaryen/passes/optimize-instructions/wat-shapes.md) so Binaryen branch-hint bailout guidance distinguishes upstream expression-level branch-hint examples from Starshine's current function/import-only annotation surface.
+
 ## [2026-05-20] wast | code metadata and function annotations
 
 - Added [`raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md) after rechecking current WebAssembly custom-section/code-metadata binary and text formats, the branch-hinting proposal, Starshine WAST parser/lowerer/core function-annotation, binary codec, no-inline, inlining, duplicate-function-elimination, duplicate-import-elimination, and remove-unused-module-elements evidence.

@@ -22,6 +22,7 @@ related:
   - gc-type-authoring.md
   - exception-tag-authoring.md
   - reference-instruction-authoring.md
+  - code-metadata-and-function-annotations.md
   - ../ir2/cfg-contract.md
   - ../binary/instruction-and-expression-encoding.md
   - ../binary/function-import-export-and-code-sections.md
@@ -159,7 +160,7 @@ A tail call in a protected region is still a return-position transfer for normal
 
 When a pass, generator, or fixture change touches tail calls, use this checklist:
 
-1. **Function remaps:** update direct `FuncIdx` carriers in `return_call` along with `call`, `ref.func`, start, exports, element payloads, function names, and function annotations. The full function-index map lives in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
+1. **Function remaps:** update direct `FuncIdx` carriers in `return_call` along with `call`, `ref.func`, start, exports, element payloads, function names, and function annotations. The full function-index map lives in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md); Starshine's `FuncAnnotationSec` boundary lives in [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md).
 2. **Type remaps:** update `TypeIdx` carriers in `return_call_indirect` and `return_call_ref` when rewriting function types, rec groups, or signature tables. For WAST-origin fixtures, also keep named and inline type-use behavior aligned with [`gc-type-authoring.md`](gc-type-authoring.md).
 3. **Table remaps:** update the `TableIdx` carrier in `return_call_indirect`; the table side of this contract is shared with [`table-instruction-authoring.md`](table-instruction-authoring.md).
 4. **Signature rewrites:** if a pass changes callee parameter or result types, revalidate all tail callsites. Dropping or changing a result is more constrained than for ordinary calls because the target results must equal the current function returns.
