@@ -8889,15 +8889,19 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           )
         }
       }
-      @lib.Loop(block_type, @lib.Expr(body)) =>
-        out.push(
-          @lib.Instruction::loop_(
-            block_type,
-            @lib.Expr::new(
-              dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec),
-            ),
-          ),
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let rewritten_body = dae_strip_nops_and_dropped_pure_leaf_instrs(
+          body, type_sec,
         )
+        if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
+          rewritten_body.length() == 0 {
+          ()
+        } else {
+          out.push(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        }
+      }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
         out.push(
           @lib.Instruction::try_table(
