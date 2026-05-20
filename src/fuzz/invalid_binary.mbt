@@ -170,6 +170,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   TableSectionSizeOverflow
   MemorySectionSizeOverflow
   GlobalSectionSizeOverflow
+  FunctionSectionSizeOverflow
+  ElementSectionSizeOverflow
+  DataSectionSizeOverflow
+  TagSectionSizeOverflow
 } derive(Eq, Debug)
 
 ///|
@@ -607,6 +611,10 @@ fn validate_invalid_binary_strategy_label(
     TableSectionSizeOverflow => "table-section-size-overflow"
     MemorySectionSizeOverflow => "memory-section-size-overflow"
     GlobalSectionSizeOverflow => "global-section-size-overflow"
+    FunctionSectionSizeOverflow => "function-section-size-overflow"
+    ElementSectionSizeOverflow => "element-section-size-overflow"
+    DataSectionSizeOverflow => "data-section-size-overflow"
+    TagSectionSizeOverflow => "tag-section-size-overflow"
   }
 }
 
@@ -1588,6 +1596,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       GlobalSectionSizeOverflow,
       "global-section-size-overflow",
       "global section whose declared payload size extends past the available payload bytes",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      FunctionSectionSizeOverflow,
+      "function-section-size-overflow",
+      "function section whose declared payload size extends past the available type-index bytes",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      ElementSectionSizeOverflow,
+      "element-section-size-overflow",
+      "element section whose declared payload size extends past the available segment bytes",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DataSectionSizeOverflow,
+      "data-section-size-overflow",
+      "data section whose declared payload size extends past the available segment bytes",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      TagSectionSizeOverflow,
+      "tag-section-size-overflow",
+      "tag section whose declared payload size extends past the available tag bytes",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4446,6 +4482,147 @@ fn validate_invalid_binary_mutate_global_section_size_overflow(
 }
 
 ///|
+fn validate_invalid_binary_module_with_function_section_size_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_element_section_size_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x09).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_data_section_size_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_tag_section_size_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0d).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_function_section_size_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      FunctionSectionSizeOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_function_section_size_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_element_section_size_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      ElementSectionSizeOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_element_section_size_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_data_section_size_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      DataSectionSizeOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_data_section_size_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_tag_section_size_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TagSectionSizeOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_tag_section_size_overflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -5781,6 +5958,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_memory_section_size_overflow(base)
     GlobalSectionSizeOverflow =>
       validate_invalid_binary_mutate_global_section_size_overflow(base)
+    FunctionSectionSizeOverflow =>
+      validate_invalid_binary_mutate_function_section_size_overflow(base)
+    ElementSectionSizeOverflow =>
+      validate_invalid_binary_mutate_element_section_size_overflow(base)
+    DataSectionSizeOverflow =>
+      validate_invalid_binary_mutate_data_section_size_overflow(base)
+    TagSectionSizeOverflow =>
+      validate_invalid_binary_mutate_tag_section_size_overflow(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
