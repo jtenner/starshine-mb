@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | no-DWARF optimize path source refresh
+
+- Updated [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) so the canonical optimize-path page now cites the 2026-05-19 late-tail neighborhood baseline and public preset scheduling research notes alongside the older archived 0066 source. Its frontmatter `last_reviewed` is now `2026-05-20`, matching the new accepted public `optimize` / `shrink` suffix evidence already recorded in the body.
+- No external source was needed; the repo-authored 0571/0572 research notes and existing scheduler docs were sufficient.
+
 ## [2026-05-20] wiki | directize public suffix reconciliation
 
 - Reworked the `directize` dossier and catalog summaries so they now reflect the accepted public `optimize` / `shrink` late-tail suffix from [`raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md) and the supporting 0571 neighborhood proof, while keeping `directize-initial-contents-immutable` and any broader widening as the remaining follow-up.

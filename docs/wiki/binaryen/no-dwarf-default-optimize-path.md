@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-11
+last_reviewed: 2026-05-20
 sources:
   - ../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
+  - ../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
+  - ../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
 related:
   - ../../../agent-todo.md
   - ../../../src/passes/optimize.mbt
