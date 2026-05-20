@@ -21,6 +21,7 @@ sources:
 related:
   - ./fuzz-runner.md
   - ./cli-command-and-dispatcher.md
+  - ./release-process.md
   - ./moonbit-workspace-package-map.md
   - ./cli-startup-path.md
   - ../validate/fuzz-hardening.md
@@ -119,7 +120,7 @@ Use these checks when touching the Node package or documenting its surface:
 2. **Smoke behavior:** keep [`node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs) green for binary/text validation, `cmd` adapter hooks, differential validation, fuzz-report persistence, closed-world summary precedence, and WASI startup.
 3. **Examples:** keep [`node/test/examples.test.mjs`](../../../node/test/examples.test.mjs) green so the checked-in published examples still exercise the public API.
 4. **Build boundary:** remember that [`npm run build`](../../../node/package.json) rebuilds the WASI CLI artifact through [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), but does not regenerate every JS/TS wrapper from MoonBit.
-5. **Docs truthfulness:** when adding a wrapper, update [`node/README.md`](../../../node/README.md), this page, and any relevant top-level API docs together.
+5. **Docs truthfulness:** when adding a wrapper, update [`node/README.md`](../../../node/README.md), this page, the release checklist in [`release-process.md`](release-process.md) if package contents or versioning change, and any relevant top-level API docs together.
 
 A future stronger parity test should compare:
 
@@ -150,6 +151,7 @@ The comparison must start from the `exports` allowlist, not from every file in `
 - Current Node parity and smoke tests: [`../../../node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/test/examples.test.mjs`](../../../node/test/examples.test.mjs)
 - Build/generation boundary: [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs)
 - Runtime command contract: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
+- Release/package publication checklist: [`./release-process.md`](release-process.md)
 - Validator diagnostics/repro contract: [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
 - WAST static assertion stage model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - MoonBit workspace/package map: [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md), [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)

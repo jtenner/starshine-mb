@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] tooling | release process source-backed checklist
+
+- Added [`raw/release/2026-05-20-starshine-release-process-sources.md`](raw/release/2026-05-20-starshine-release-process-sources.md) after checking current npm package metadata, publish, pack, and lifecycle-script docs plus local `AGENTS.md`, `docs/README.md`, `moon.mod.json`, `node/package.json`, Node build/generation scripts, validation gates, and existing MoonBit/Node raw source bridges.
+- Added [`tooling/release-process.md`](tooling/release-process.md) as the release-prep checklist for semver/version synchronization across MoonBit and Node package metadata, generated-interface review, Node `exports` / `files` / `prepack` package inspection, validation-ladder choices, source-backed release notes, and the human-controlled boundary for npm publish, git tags, and pushes.
+- Updated [`raw/README.md`](raw/README.md), [`index.md`](index.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), and [`tooling/moonbit-workspace-package-map.md`](tooling/moonbit-workspace-package-map.md) so release, validation, package-topology, and Node-publication guidance route through the shared release workflow instead of scattered policy bullets.
+- Grounded the local code/doc map in [`../../AGENTS.md`](../../AGENTS.md), [`../README.md`](../README.md), [`../../moon.mod.json`](../../moon.mod.json), [`../../node/package.json`](../../node/package.json), [`../../node/README.md`](../../node/README.md), [`../../scripts/lib/validate-task.ts`](../../scripts/lib/validate-task.ts), [`../../scripts/lib/build-node-package.mjs`](../../scripts/lib/build-node-package.mjs), and [`../../scripts/lib/generate-node-package.mjs`](../../scripts/lib/generate-node-package.mjs).
+
 ## [2026-05-20] health | name-section label subsection correction
 
 - During the whole-wiki health pass, rechecked the current WebAssembly custom-section appendix while reviewing code-metadata sources and found that the earlier 2026-05-20 name-section refresh still overclaimed standard label-name subsection id `3`.

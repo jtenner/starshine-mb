@@ -11,6 +11,7 @@ sources:
   - ../../../src/*/pkg.generated.mbti
 related:
   - ./validation-gates.md
+  - ./release-process.md
   - ./node-package-surface.md
   - ../validation/moonbit-prove-strategy.md
   - ../ir2/architecture-rules.md
@@ -48,7 +49,7 @@ The official MoonBit package documentation distinguishes the module file from pa
 | `readme` | `README.mbt.md` | Public package readme metadata; keep API-sync docs pointed at this root. |
 | `license` | `Apache-2.0` | Module metadata, not per-package behavior. |
 
-Starshine does not currently set module-level `preferred-target` or `supported-targets`. Target-specific validation policy instead lives in [`validation-gates.md`](validation-gates.md), where the local full gate uses `bun validate full --profile ci --target wasm-gc`.
+Starshine does not currently set module-level `preferred-target` or `supported-targets`. Target-specific validation policy instead lives in [`validation-gates.md`](validation-gates.md), where the local full gate uses `bun validate full --profile ci --target wasm-gc`. Release-prep version synchronization between this module metadata and the Node package metadata lives in [`release-process.md`](release-process.md).
 
 ## Package-Level Contract
 
@@ -129,7 +130,7 @@ When adding or reshaping a package:
 
 1. Add or update `src/<package>/moon.pkg` first: imports, aliases, `is-main`, proof, and link options belong there.
 2. Add implementation and package-local tests beside the code.
-3. Run `moon info` so `pkg.generated.mbti` drift is visible, then review the `.mbti` diff for public API changes.
+3. Run `moon info` so `pkg.generated.mbti` drift is visible, then review the `.mbti` diff for public API changes. If the change is release-prep work, also verify the version and package-surface checklist in [`release-process.md`](release-process.md).
 4. Run `moon fmt`; expect `moon.pkg` formatting to be normalized.
 5. Run focused `moon test src/<package>` plus the normal wiki/validation gate for the change kind.
 6. Update this page, [`validation-gates.md`](validation-gates.md), Node/package docs, proof docs, or IR2/pass docs when package topology affects how developers build, import, run, or validate the repo.
