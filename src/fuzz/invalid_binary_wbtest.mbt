@@ -77,7 +77,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-data-index-uleb", "malformed-elem-index-uleb", "invalid-name-section-func-name-utf8",
     "invalid-name-section-local-name-utf8", "invalid-name-section-module-name-utf8",
     "invalid-name-section-type-name-utf8", "invalid-name-section-table-name-utf8",
-    "invalid-name-section-global-name-utf8", "invalid-functype-byte", "invalid-code-local-valtype-byte",
+    "invalid-name-section-memory-name-utf8", "invalid-name-section-global-name-utf8",
+    "invalid-name-section-tag-name-utf8", "invalid-functype-byte", "invalid-code-local-valtype-byte",
     "type-section-count-underflow", "code-section-count-underflow", "import-section-count-underflow",
     "export-section-count-underflow", "type-section-size-underflow", "code-body-size-underflow",
   ])
@@ -101,7 +102,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -994,7 +995,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "simd-load-lane-index-overflow", "malformed-data-index-uleb", "malformed-elem-index-uleb",
       "invalid-name-section-func-name-utf8", "invalid-name-section-local-name-utf8",
       "invalid-name-section-module-name-utf8", "invalid-name-section-type-name-utf8",
-      "invalid-name-section-table-name-utf8", "invalid-name-section-global-name-utf8",
+      "invalid-name-section-table-name-utf8", "invalid-name-section-memory-name-utf8",
+      "invalid-name-section-global-name-utf8", "invalid-name-section-tag-name-utf8",
       "invalid-functype-byte", "invalid-code-local-valtype-byte", "type-section-count-underflow",
       "code-section-count-underflow", "import-section-count-underflow", "export-section-count-underflow",
       "type-section-size-underflow", "code-body-size-underflow",
