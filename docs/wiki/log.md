@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | reference branch validation refresh
+
+- Added [`raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](raw/wasm/2026-05-20-reference-branch-validation-refresh.md) after rechecking current WebAssembly Core 3.0 instruction validation/syntax/text/binary sources, proposal lineage pages, and Starshine WAST keyword/parser, core instruction, binary codec, validator, negative-test, and valid-generator evidence.
+- Refreshed [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md) with the branch-path versus fallthrough-path type split for `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`, plus the `CastOp` source/target nullability caveat and direct links to local typechecker anchors.
+- Updated [`wast/index.md`](wast/index.md), [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), and [`index.md`](index.md) so WAST navigation and ordinary control-flow guidance route reference-branch stack refinements through the focused reference page and raw refresh instead of leaving them as a generic `br_on_*` text gap.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
+
 ## [2026-05-20] tooling | Node package export boundary refresh
 
 - Added [`raw/node/2026-05-20-node-package-export-boundary.md`](raw/node/2026-05-20-node-package-export-boundary.md) after checking current Node package `exports` documentation, TypeScript package-resolution documentation, and the local `node/package.json`, build/generation scripts, wrappers, generated MoonBit signatures, and parity tests.
