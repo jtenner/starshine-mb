@@ -78,6 +78,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidPrefixSubopcodeByte
   MalformedMemargImmediate
   MalformedBlocktypeImmediate
+  InvalidExportNameUtf8
+  InvalidImportModuleNameUtf8
 } derive(Eq, Debug)
 
 ///|
@@ -421,6 +423,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidPrefixSubopcodeByte => "invalid-prefix-subopcode-byte"
     MalformedMemargImmediate => "malformed-memarg-immediate"
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
+    InvalidExportNameUtf8 => "invalid-export-name-utf8"
+    InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
   }
 }
 
@@ -761,6 +765,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidExportNameUtf8,
+      "invalid-export-name-utf8",
+      "export section with an invalid UTF-8 export name",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportModuleNameUtf8,
+      "invalid-import-module-name-utf8",
+      "import section with an invalid UTF-8 module name",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -828,6 +846,8 @@ fn validate_invalid_binary_strategy_index(
     InvalidPrefixSubopcodeByte => 44
     MalformedMemargImmediate => 45
     MalformedBlocktypeImmediate => 46
+    InvalidExportNameUtf8 => 47
+    InvalidImportModuleNameUtf8 => 48
   }
 }
 
@@ -1582,6 +1602,100 @@ fn validate_invalid_binary_mutate_malformed_blocktype_immediate(
 }
 
 ///|
+fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x07).to_byte(),
+    (0x05).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_import_module_name_utf8() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x02).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x80).to_byte(),
+    (0x01).to_byte(),
+    (0x78).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_export_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidExportNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_export_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_import_module_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidImportModuleNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_import_module_name_utf8(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1753,6 +1867,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_memarg_immediate(base)
     MalformedBlocktypeImmediate =>
       validate_invalid_binary_mutate_malformed_blocktype_immediate(base)
+    InvalidExportNameUtf8 =>
+      validate_invalid_binary_mutate_invalid_export_name_utf8(base)
+    InvalidImportModuleNameUtf8 =>
+      validate_invalid_binary_mutate_invalid_import_module_name_utf8(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

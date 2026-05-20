@@ -356,6 +356,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidPrefixSubopcodeByte
   MalformedMemargImmediate
   MalformedBlocktypeImmediate
+  InvalidExportNameUtf8
+  InvalidImportModuleNameUtf8
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
