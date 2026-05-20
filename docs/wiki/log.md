@@ -9,6 +9,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so `starshine spec`, spec-seed fuzzing, and the catalog preserve pass/skip/fail distinctions and point at the shared skip-policy contract.
 - Grounded the local code map in [`../../src/wast/spec_harness.mbt`](../../src/wast/spec_harness.mbt), [`../../src/spec_runner/spec_runner.mbt`](../../src/spec_runner/spec_runner.mbt), [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and [`../../src/cmd/cmd_wbtest.mbt`](../../src/cmd/cmd_wbtest.mbt).
 
+## [2026-05-20] health | custom descriptor static-harness backlink
+
+- During the post-update whole-wiki health pass, searched spec-runner, static-harness, skip-policy, and custom-descriptor pages for places that could still imply skipped runtime or whole-file spec results are descriptor conformance evidence.
+- Updated [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md) and [`index.md`](index.md) so `descriptors.wast` / `exact.wast` route through the refreshed pass/skip/fail policy in [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) and the new raw skip-policy refresh.
+
 ## [2026-05-20] binary | name-section subsection source correction
 
 - Added [`raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md) after rechecking the current WebAssembly Core custom-section appendix and binary module pages against Starshine's `NameSec` code.
