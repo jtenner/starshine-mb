@@ -38,7 +38,7 @@ This is the owner file. It defines:
 - the GC feature gate,
 - the `news` allocation-site collection,
 - the `disallowedTypes` exact-observation collection,
-- the module-code/global/element scanning surface,
+- the module-code/global/element scanning surface, with table initializers explicitly left as a TODO in the current source,
 - `ChildTyper`-based child exactness checks,
 - the `isInteresting(...)` filter,
 - `modifyNews(...)` fresh subtype / rec-group creation,

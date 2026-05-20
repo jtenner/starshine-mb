@@ -76,7 +76,7 @@ The analyzer records allocation sites in a `news` list. The important candidate 
 - `array.new_elem`,
 - `array.new_fixed`.
 
-It skips imported functions for function-body analysis but also scans module code, globals, and element segments so allocation sites outside ordinary defined function bodies are not missed.
+It skips imported functions for function-body analysis but also scans module code, globals, and element segments so allocation sites outside ordinary defined function bodies are not missed; table initializers remain a documented TODO surface in the reviewed source, so they are not part of the currently source-backed positive scan surface.
 
 ### 3. Record exact-observation blockers
 
@@ -139,7 +139,7 @@ The pass comments describe the optimization as likely most useful in closed-worl
 
 ## Current-main drift check
 
-The 2026-04-26 source correction and the 2026-05-06 freshness recheck both rechecked current `main`. No teaching-relevant drift was found from the corrected `version_129` allocation-subtype contract. The latest bridge keeps the same port-facing reading: candidate discovery is still allocation-site based, exact-observation blockers still gate fresh subtype creation, and refinalization remains part of the post-rewrite contract.
+The 2026-04-26 source correction and the 2026-05-06 freshness recheck both rechecked current `main`. No teaching-relevant drift was found from the corrected `version_129` allocation-subtype contract, including the still-open table-initializer TODO boundary. The latest bridge keeps the same port-facing reading: candidate discovery is still allocation-site based, exact-observation blockers still gate fresh subtype creation, and refinalization remains part of the post-rewrite contract.
 
 ## What the older dossier got wrong
 

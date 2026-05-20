@@ -71,6 +71,7 @@ It is **not** ordinary SSA construction, and it is **not** a local-flow pass ove
 - It is GC-gated.
 - The 2026-05-06 current-main recheck found no teaching-relevant drift on the reviewed surfaces.
 - It analyzes module-visible exact-observation surfaces before rewriting allocation types.
+- The reviewed source also scans module code, globals, and element segments; table initializers remain an open TODO surface rather than a confirmed positive scan path.
 - Candidate allocation sites include:
   - `struct.new`,
   - `array.new`,

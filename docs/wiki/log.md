@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | type-ssa table-initializer caveat alignment
+
+- Clarified the corrected Binaryen `type-ssa` dossier so the living pages now mention the still-open table-initializer TODO alongside the module-code/global/element allocation scan surface, matching the 2026-05-06 current-main freshness manifest rather than leaving that edge only in the raw capture.
+- Updated [`binaryen/passes/type-ssa/binaryen-strategy.md`](binaryen/passes/type-ssa/binaryen-strategy.md), [`binaryen/passes/type-ssa/implementation-structure-and-tests.md`](binaryen/passes/type-ssa/implementation-structure-and-tests.md), [`binaryen/passes/type-ssa/index.md`](binaryen/passes/type-ssa/index.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), and [`index.md`](index.md) so the caveat is visible from the focused dossier and both catalogs.
+
 ## [2026-05-20] health | raw-binaryen sibling-link depth cleanup
 
 - Repaired the sibling links in the five current-main Binaryen raw-manifest files that still pointed one directory too high for their local `raw/binaryen/` and `raw/research/` neighbors: [`raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md`](raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md), [`raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md), [`raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md), [`raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](raw/binaryen/2026-05-05-precompute-current-main-recheck.md), and [`raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md). The old targets resolved into `docs/raw/...`; the repaired paths now stay inside `docs/wiki/raw/` so the provenance chain is navigable from the living dossiers.
