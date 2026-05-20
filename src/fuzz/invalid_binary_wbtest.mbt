@@ -83,6 +83,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-name-section-local-name-utf8", "invalid-name-section-module-name-utf8",
     "invalid-name-section-type-name-utf8", "invalid-name-section-table-name-utf8",
     "invalid-name-section-memory-name-utf8", "invalid-name-section-global-name-utf8",
+    "invalid-name-section-elem-name-utf8", "invalid-name-section-data-name-utf8",
+    "invalid-name-section-field-name-utf8", "invalid-name-section-label-name-utf8",
     "invalid-name-section-tag-name-utf8", "invalid-functype-byte", "invalid-code-local-valtype-byte",
     "type-section-count-underflow", "code-section-count-underflow", "import-section-count-underflow",
     "export-section-count-underflow", "table-section-count-underflow", "memory-section-count-underflow",
@@ -121,7 +123,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1020,7 +1022,9 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "invalid-name-section-func-name-utf8", "invalid-name-section-local-name-utf8",
       "invalid-name-section-module-name-utf8", "invalid-name-section-type-name-utf8",
       "invalid-name-section-table-name-utf8", "invalid-name-section-memory-name-utf8",
-      "invalid-name-section-global-name-utf8", "invalid-name-section-tag-name-utf8",
+      "invalid-name-section-global-name-utf8", "invalid-name-section-elem-name-utf8",
+      "invalid-name-section-data-name-utf8", "invalid-name-section-field-name-utf8",
+      "invalid-name-section-label-name-utf8", "invalid-name-section-tag-name-utf8",
       "invalid-functype-byte", "invalid-code-local-valtype-byte", "type-section-count-underflow",
       "code-section-count-underflow", "import-section-count-underflow", "export-section-count-underflow",
       "table-section-count-underflow", "memory-section-count-underflow", "global-section-count-underflow",
