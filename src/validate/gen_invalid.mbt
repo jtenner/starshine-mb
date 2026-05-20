@@ -47,13 +47,7 @@ pub struct GenInvalidAstParams {
 
 ///|
 pub fn gen_invalid_coverage_seed_generator_config() -> GenValidConfig {
-  GenValidConfig::{
-    ..GenValidConfig::coverage_forced_default(),
-    max_type_defs: 6,
-    max_tables: 2,
-    max_globals: 3,
-    max_locals: 4,
-  }
+  GenValidConfig::for_profile(MutationSeedRichProfile)
 }
 
 ///|

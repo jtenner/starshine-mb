@@ -955,6 +955,24 @@ test "gen_invalid_ast_generate supports datacount mismatch too-large strategy" {
 }
 
 ///|
+test "gen_invalid seed helpers reuse named gen-valid profiles" {
+  @debug.assert_eq(
+    gen_invalid_coverage_seed_generator_config(),
+    GenValidConfig::for_profile(MutationSeedRichProfile),
+  )
+  @debug.assert_eq(
+    GenInvalidAstParams::small_natural_seed(DuplicateExportName).generator_config,
+    GenValidConfig::for_profile(MutationSeedSmallProfile),
+  )
+  @debug.assert_eq(
+    GenInvalidAstParams::repro_seed(DuplicateExportName).generator_config,
+    gen_invalid_small_gen_valid_config(
+      GenValidConfig::for_profile(MutationSeedRichProfile),
+    ),
+  )
+}
+
+///|
 test "gen_invalid_ast_params_profile_name identifies named and custom profiles" {
   @debug.assert_eq(
     gen_invalid_ast_params_profile_name(

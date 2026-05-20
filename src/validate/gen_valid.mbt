@@ -348,6 +348,266 @@ pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> GenValidConf
 }
 
 ///|
+pub enum GenValidProfile {
+  NaturalSmallProfile
+  NaturalWideProfile
+  NaturalDeepProfile
+  CoverageForcedPortableProfile
+  CoverageForcedAllFeaturesProfile
+  BinaryenOraclePortableProfile
+  MutationSeedSmallProfile
+  MutationSeedRichProfile
+  PassFuzzStressProfile
+  ValidatorStressProfile
+  NoImportsProfile
+  ImportsHeavyProfile
+  GcHeavyProfile
+  SimdHeavyProfile
+  MemoryHeavyProfile
+  ControlHeavyProfile
+} derive(Eq, Debug)
+
+///|
+pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
+  match profile {
+    NaturalSmallProfile => "natural-small"
+    NaturalWideProfile => "natural-wide"
+    NaturalDeepProfile => "natural-deep"
+    CoverageForcedPortableProfile => "coverage-forced-portable"
+    CoverageForcedAllFeaturesProfile => "coverage-forced-all-features"
+    BinaryenOraclePortableProfile => "binaryen-oracle-portable"
+    MutationSeedSmallProfile => "mutation-seed-small"
+    MutationSeedRichProfile => "mutation-seed-rich"
+    PassFuzzStressProfile => "pass-fuzz-stress"
+    ValidatorStressProfile => "validator-stress"
+    NoImportsProfile => "no-imports"
+    ImportsHeavyProfile => "imports-heavy"
+    GcHeavyProfile => "gc-heavy"
+    SimdHeavyProfile => "simd-heavy"
+    MemoryHeavyProfile => "memory-heavy"
+    ControlHeavyProfile => "control-heavy"
+  }
+}
+
+///|
+pub fn gen_valid_profiles() -> Array[GenValidProfile] {
+  [
+    NaturalSmallProfile,
+    NaturalWideProfile,
+    NaturalDeepProfile,
+    CoverageForcedPortableProfile,
+    CoverageForcedAllFeaturesProfile,
+    BinaryenOraclePortableProfile,
+    MutationSeedSmallProfile,
+    MutationSeedRichProfile,
+    PassFuzzStressProfile,
+    ValidatorStressProfile,
+    NoImportsProfile,
+    ImportsHeavyProfile,
+    GcHeavyProfile,
+    SimdHeavyProfile,
+    MemoryHeavyProfile,
+    ControlHeavyProfile,
+  ]
+}
+
+///|
+pub fn gen_valid_profile_names() -> Array[String] {
+  gen_valid_profiles().map(gen_valid_profile_name)
+}
+
+///|
+fn gen_valid_join_profile_names(names : Array[String]) -> String {
+  let out = StringBuilder::new()
+  for i = 0; i < names.length(); i = i + 1 {
+    if i > 0 {
+      out.write_string("|")
+    }
+    out.write_string(names[i])
+  }
+  out.to_string()
+}
+
+///|
+fn gen_valid_normalize_profile_name(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else if c == '_' || c == ' ' {
+      out.write_char('-')
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+pub fn gen_valid_profile_by_name(
+  name : String,
+) -> Result[GenValidProfile, String] {
+  let normalized = gen_valid_normalize_profile_name(name.trim().to_owned())
+  for profile in gen_valid_profiles() {
+    if normalized == gen_valid_profile_name(profile) {
+      return Ok(profile)
+    }
+  }
+  match normalized {
+    "natural" => Ok(NaturalWideProfile)
+    "coverage-forced" => Ok(CoverageForcedAllFeaturesProfile)
+    "portable-coverage-forced" => Ok(CoverageForcedPortableProfile)
+    "binaryen-oracle-coverage-forced" => Ok(BinaryenOraclePortableProfile)
+    _ =>
+      Err(
+        "unknown gen-valid profile '\{name}'; expected \{gen_valid_join_profile_names(gen_valid_profile_names())}",
+      )
+  }
+}
+
+///|
+pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig {
+  match profile {
+    NaturalSmallProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::natural_default(),
+        max_type_defs: 4,
+        max_imports: 2,
+        max_defined_funcs: 2,
+        max_tables: 1,
+        max_mems: 1,
+        max_globals: 2,
+        max_tags: 1,
+        max_elems: 1,
+        max_datas: 1,
+        max_params: 1,
+        max_locals: 3,
+        max_body_statements: 4,
+      }
+    NaturalWideProfile => GenValidConfig::natural_default()
+    NaturalDeepProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::natural_default(),
+        max_defined_funcs: 8,
+        max_params: 4,
+        max_results: 2,
+        max_locals: 8,
+        max_body_statements: 16,
+        max_body_depth: 4,
+      }
+    CoverageForcedPortableProfile =>
+      GenValidConfig::portable_coverage_forced_default()
+    CoverageForcedAllFeaturesProfile =>
+      GenValidConfig::coverage_forced_default()
+    BinaryenOraclePortableProfile =>
+      GenValidConfig::binaryen_oracle_coverage_forced_default()
+    MutationSeedSmallProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::natural_default(),
+        max_type_defs: 2,
+        max_imports: 1,
+        max_defined_funcs: 2,
+        max_tables: 1,
+        max_mems: 1,
+        max_globals: 1,
+        max_tags: 1,
+        max_elems: 1,
+        max_datas: 1,
+        max_params: 1,
+        max_results: 1,
+        max_locals: 1,
+        max_body_statements: 3,
+        max_body_depth: 1,
+      }
+    MutationSeedRichProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        max_type_defs: 6,
+        max_tables: 2,
+        max_globals: 3,
+        max_locals: 4,
+      }
+    PassFuzzStressProfile =>
+      GenValidConfig::binaryen_oracle_coverage_forced_default()
+    ValidatorStressProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        max_type_defs: 6,
+        max_defined_funcs: 6,
+        max_globals: 4,
+        max_params: 3,
+        max_results: 2,
+        max_locals: 5,
+        max_body_statements: 10,
+        max_body_depth: 3,
+      }
+    NoImportsProfile => {
+      let base = GenValidConfig::natural_default()
+      GenValidConfig::{
+        ..base,
+        max_imports: 0,
+        section_bias: GenValidSectionBias::{
+          ..base.section_bias,
+          imports_percent: 0,
+        },
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+        },
+      }
+    }
+    ImportsHeavyProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::natural_default(),
+        max_imports: 12,
+        section_bias: GenValidSectionBias::{
+          ..GenValidSectionBias::natural_default(),
+          imports_percent: 100,
+        },
+      }
+    GcHeavyProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        max_type_defs: 24,
+        max_defined_funcs: 6,
+      }
+    SimdHeavyProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        features: GenValidFeatureToggles::{
+          ..GenValidFeatureToggles::coverage_forced_default(),
+          allow_v128: true,
+        },
+      }
+    MemoryHeavyProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        max_mems: 4,
+        max_datas: 8,
+      }
+    ControlHeavyProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        max_body_statements: 16,
+        max_body_depth: 4,
+        features: GenValidFeatureToggles::{
+          ..GenValidFeatureToggles::coverage_forced_default(),
+          allow_branch_heavy_control: true,
+          allow_tail_calls: true,
+        },
+      }
+  }
+}
+
+///|
+pub fn GenValidConfig::profile(name : String) -> Result[GenValidConfig, String] {
+  match gen_valid_profile_by_name(name) {
+    Ok(profile) => Ok(GenValidConfig::for_profile(profile))
+    Err(msg) => Err(msg)
+  }
+}
+
+///|
 pub fn default_gen_valid_config() -> GenValidConfig {
   GenValidConfig::natural_default()
 }
@@ -433,6 +693,11 @@ pub fn gen_valid_config_label(config : GenValidConfig) -> String {
   } else if config == GenValidConfig::natural_default() {
     "natural"
   } else {
+    for profile in gen_valid_profiles() {
+      if config == GenValidConfig::for_profile(profile) {
+        return gen_valid_profile_name(profile)
+      }
+    }
     match config.mode {
       Natural => "custom-natural"
       CoverageForced => "custom-coverage-forced"

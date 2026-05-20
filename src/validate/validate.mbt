@@ -3918,27 +3918,16 @@ pub fn validate_valid_run_config(
       )
   }
   let generator_config = match normalized {
-    "smoke" => GenValidConfig::coverage_forced_default()
+    "smoke" => GenValidConfig::for_profile(CoverageForcedAllFeaturesProfile)
     "ci" =>
       GenValidConfig::{
-        ..GenValidConfig::coverage_forced_default(),
+        ..GenValidConfig::for_profile(CoverageForcedAllFeaturesProfile),
         max_defined_funcs: 5,
         max_globals: 3,
         max_body_statements: 8,
         max_locals: 4,
       }
-    "stress" =>
-      GenValidConfig::{
-        ..GenValidConfig::coverage_forced_default(),
-        max_type_defs: 6,
-        max_defined_funcs: 6,
-        max_globals: 4,
-        max_params: 3,
-        max_results: 2,
-        max_locals: 5,
-        max_body_statements: 10,
-        max_body_depth: 3,
-      }
+    "stress" => GenValidConfig::for_profile(ValidatorStressProfile)
     _ => abort("unreachable validate-valid profile")
   }
   let feature_floors = validate_valid_feature_floors_for_profile(normalized)
@@ -4918,7 +4907,10 @@ test "validate_valid_run_config returns profile attempts and generator config" {
   @debug.assert_eq(smoke.attempts, 128)
   @debug.assert_eq(ci.attempts, 5000)
   @debug.assert_eq(stress.attempts, 100000)
-  @debug.assert_eq(smoke.generator_config.mode, CoverageForced)
+  @debug.assert_eq(
+    smoke.generator_config,
+    GenValidConfig::for_profile(CoverageForcedAllFeaturesProfile),
+  )
   assert_true(
     ci.generator_config.max_defined_funcs >=
     smoke.generator_config.max_defined_funcs,

@@ -608,16 +608,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
-- [FUZ]1001 - Explicit GenValid Profile Taxonomy
-  - Goal: replace implicit config aliases with named, documented generator profiles.
-  - Why: today `Natural`, `CoverageForced`, binary-oracle coverage, small invalid seeds, and repro seeds are spread across config constructors and helper wrappers. Agents need clear names for the intended behavior before widening generation.
-  - Deliverables: introduce profile names or constructors for natural-small, natural-wide, natural-deep, coverage-forced-portable, coverage-forced-all-features, binaryen-oracle-portable, mutation-seed-small, mutation-seed-rich, pass-fuzz-stress, validator-stress, no-imports, imports-heavy, GC-heavy, SIMD-heavy, memory-heavy, and control-heavy as appropriate.
-  - Required APIs: `GenValidConfig`, `GenValidFeatureToggles`, `GenValidSectionBias`, `validate_valid_run_config(...)`, invalid seed helpers in `src/validate/gen_invalid.mbt` and `src/fuzz/invalid_binary.mbt`.
-  - Invariants: existing profile names `smoke`, `ci`, and `stress` must keep their current externally visible behavior unless docs/tests are updated; Binaryen-oracle profile must remain intentionally portable.
-  - Dependencies: [FUZ]1000 recommended but not required.
-  - Suggested Tests: config equality tests for old constructors, profile lookup tests, invalid profile diagnostics, README/wiki updates, `moon test src/validate`, `moon test src/fuzz`.
-  - Exit Criteria: future fuzz tasks can select a named generator profile without reverse-engineering a large struct literal.
-
 - [FUZ]1002 - Typed Stack-Aware GenValid Body Generator
   - Goal: add a typed expression/body generator that tracks operand stack, labels, reachability, locals, globals, funcs, tables, memories, tags, and type information while emitting instructions.
   - Why: the current body generation relies heavily on hand-picked drop-wrapped preludes and `append_value_instrs(...)`. It proves surfaces exist but does not generate enough structurally diverse valid programs.

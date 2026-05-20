@@ -56,6 +56,14 @@ pub fn gen_valid_module_with_config(@splitmix.RandomState, GenValidConfig) -> @l
 
 pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType
 
+pub fn gen_valid_profile_by_name(String) -> Result[GenValidProfile, String]
+
+pub fn gen_valid_profile_name(GenValidProfile) -> String
+
+pub fn gen_valid_profile_names() -> Array[String]
+
+pub fn gen_valid_profiles() -> Array[GenValidProfile]
+
 pub fn gen_valid_tfunc(GenValidContext, Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
 
 pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
@@ -280,8 +288,10 @@ pub struct GenValidConfig {
 } derive(Eq, @debug.Debug)
 pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> Self
 pub fn GenValidConfig::coverage_forced_default() -> Self
+pub fn GenValidConfig::for_profile(GenValidProfile) -> Self
 pub fn GenValidConfig::natural_default() -> Self
 pub fn GenValidConfig::portable_coverage_forced_default() -> Self
+pub fn GenValidConfig::profile(String) -> Result[Self, String]
 pub impl Show for GenValidConfig
 
 type GenValidContext
@@ -441,6 +451,25 @@ pub enum GenValidMode {
   CoverageForced
 } derive(Eq, @debug.Debug)
 pub impl Show for GenValidMode
+
+pub enum GenValidProfile {
+  NaturalSmallProfile
+  NaturalWideProfile
+  NaturalDeepProfile
+  CoverageForcedPortableProfile
+  CoverageForcedAllFeaturesProfile
+  BinaryenOraclePortableProfile
+  MutationSeedSmallProfile
+  MutationSeedRichProfile
+  PassFuzzStressProfile
+  ValidatorStressProfile
+  NoImportsProfile
+  ImportsHeavyProfile
+  GcHeavyProfile
+  SimdHeavyProfile
+  MemoryHeavyProfile
+  ControlHeavyProfile
+} derive(Eq, @debug.Debug)
 
 pub struct GenValidSectionBias {
   imports_percent : Int

@@ -1157,6 +1157,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 
+## [2026-05-20] fuzzing | explicit GenValid profile taxonomy
+
+- Added named GenValid generator profiles in [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), including natural, coverage-forced, Binaryen-oracle, mutation-seed, pass-fuzz, validator-stress, and feature-heavy profile families, plus compatibility aliases for the previous implicit labels.
+- Updated valid-fuzz and invalid-seed wiring in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt) and [`../../src/validate/gen_invalid.mbt`](../../src/validate/gen_invalid.mbt) so existing `smoke`/`ci`/`stress` suite behavior and invalid seed helpers remain externally compatible while future FUZ work can select a stable generator profile by name.
+- Refreshed [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) to distinguish runner suite profiles from reusable GenValid generator profiles.
+
 ## [2026-05-20] health | LEB size-model backlink hygiene
 
 - During the post-update whole-wiki health pass, searched `LEB128`, `signed-LEB`, `ULEB`, `binary-leb128.wast`, and `malformed-section-size-uleb` references across binary, validation, pass, raw-source, index, and log pages.
