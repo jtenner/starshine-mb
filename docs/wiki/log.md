@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-20] binaryen | SGO nested-if post-consumer FlowScanner slice
+
+- Extended `[SGO]003` nested-if arm-flow coverage so a candidate `global.get` may flow out through a value arm and then through a supported pure post-if consumer such as `i32.eqz` before the outer same-global write guard.
+- Added the neighboring negative where that nested-if result becomes an operand to a post-if call, preserving the Binaryen `FlowScanner` rule that the global-derived value must not reach an unremovable side-effect consumer.
+- Recorded validation evidence from `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-post-if-pure-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+- Grounded the change in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-05-20] binaryen | SGO recursive nested-pattern FlowScanner slice
 
 - Extended the SGO `[SGO]003` FlowScanner breadth notes for the Binaryen lit recursive nested-pattern carveout: Starshine now accepts the two-layer `$nested-pattern` and three-layer `$nested-pattern-thrice` no-else same-global shapes while preserving the `else` and extra dropped-read negatives.

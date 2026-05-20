@@ -942,6 +942,28 @@ fn sgo_flow_arm_result_taint_and_reads(
 }
 
 ///|
+fn sgo_nested_if_arm_flow_outer_if_index(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+) -> Int? {
+  if pos + 1 >= instrs.length() {
+    return None
+  }
+  let mut depth = 1
+  for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
+    match instrs[scan] {
+      @lib.If(_, _, _) => return if depth == 1 { Some(scan) } else { None }
+      instr =>
+        match sgo_external_condition_stack_after(instr, depth) {
+          Some(next_depth) => depth = next_depth
+          None => return None
+        }
+    }
+  }
+  None
+}
+
+///|
 fn sgo_count_nested_if_arm_flow_read(
   instrs : Array[@lib.Instruction],
   pos : Int,
@@ -952,7 +974,11 @@ fn sgo_count_nested_if_arm_flow_read(
   }
   match instrs[pos] {
     @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-      let idx = match instrs[pos + 1] {
+      let if_index = match sgo_nested_if_arm_flow_outer_if_index(instrs, pos) {
+        Some(index) => index
+        None => return
+      }
+      let idx = match instrs[if_index] {
         @lib.If(_, outer_then, None) =>
           match sgo_single_const_global_set_idx(outer_then) {
             Some(set_idx) => set_idx
