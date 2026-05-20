@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-19
 sources:
+  - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../raw/wasm/2026-05-13-data-element-and-datacount-sources.md
@@ -21,6 +22,7 @@ related:
   - type-table-memory-global-tag-sections.md
   - custom-and-name-sections.md
   - ../wast/gc-type-authoring.md
+  - ../wast/gc-aggregate-instruction-authoring.md
   - ../wast/element-segment-authoring.md
   - ../wast/data-segment-authoring.md
   - ../wast/memory-instruction-authoring.md
@@ -83,7 +85,7 @@ Starshine enforces two separate rules in [`src/validate/validate.mbt`](../../../
 1. [`validate_datacnt(...)`](../../../src/validate/validate.mbt) accepts absent data count, but when present it must equal the length of `DataSec`; `DataCntSec(0)` without a data section is accepted, while a nonzero count without `DataSec` is rejected.
 2. `validate_bulk_memory_data_count_requirement(...)` rejects a module with no data-count section when any defined function body contains `memory.init` or `data.drop`.
 
-This split is useful for diagnostics: a mismatched count is a section-level `datacnt` problem, while missing data count for a bulk-memory instruction is reported against the function body that required it. The instruction/immediate side of `memory.init`, `data.drop`, `table.init`, and `elem.drop` lives in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md); the runtime memory stack/data-count side lives in [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), while WAST text defaults and `table.init` table/element ordering live in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md).
+This split is useful for diagnostics: a mismatched count is a section-level `datacnt` problem, while missing data count for a bulk-memory instruction is reported against the function body that required it. The instruction/immediate side of `memory.init`, `data.drop`, `table.init`, and `elem.drop` lives in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md); the runtime memory stack/data-count side lives in [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), while WAST text defaults and `table.init` table/element ordering live in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). Core GC array instructions (`array.new_data`, `array.init_data`, `array.new_elem`, `array.init_elem`) also carry data or element indices; their WAST/core split and constant-expression caveats live in [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md).
 
 ## WAST Authoring Examples
 
@@ -162,7 +164,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 
 ## Sources
 
-- Primary-source snapshots: [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md), [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md); WAST data companion: [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md); WAST runtime memory companion: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md)
+- Primary-source snapshots: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md), [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md); WAST data companion: [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md); WAST runtime memory companion: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md); aggregate instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - WAST parse/lower/print evidence and declarative-mode caveat: [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-20
 sources:
   - ../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md
+  - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../raw/wasm/2026-05-13-data-element-and-datacount-sources.md
   - ../../../src/wast/parser.mbt
@@ -28,6 +29,7 @@ related:
   - table-instruction-authoring.md
   - resource-declaration-authoring.md
   - gc-type-authoring.md
+  - gc-aggregate-instruction-authoring.md
   - reference-instruction-authoring.md
   - static-assertion-harness.md
   - ../../../src/wast/parser.mbt
@@ -114,7 +116,7 @@ The offset expression makes the segment active. Starshine resolves `$f` through 
     (elem.drop $e)))
 ```
 
-Use passive segments for runtime element payloads. `table.init` and `elem.drop` syntax, stack order, table/element immediate ordering, and table64 caveats live in [`table-instruction-authoring.md`](table-instruction-authoring.md).
+Use passive segments for runtime element payloads. `table.init` and `elem.drop` syntax, stack order, table/element immediate ordering, and table64 caveats live in [`table-instruction-authoring.md`](table-instruction-authoring.md). Core `array.new_elem` and `array.init_elem` are also element-index users, but they are not current Starshine high-level WAST text forms; route aggregate fixture-format and initializer caveats through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 
 ### Passive typed empty element segment
 
@@ -213,6 +215,7 @@ A faithful text fix should be test-first:
 ## Source Map
 
 - Focused current-source refresh: [`../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md`](../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md)
+- Aggregate/initializer boundary: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Earlier element-source refresh: [`../raw/wasm/2026-05-19-wast-element-segment-sources.md`](../raw/wasm/2026-05-19-wast-element-segment-sources.md)
 - Broader data/element/data-count source snapshot: [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md)
 - WAST parser AST and element parser: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)

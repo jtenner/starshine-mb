@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wast | GC aggregate initializer boundary
+
+- Added [`raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) after rechecking current WebAssembly Core 3.0 aggregate instruction text/syntax/binary/validation sources plus Starshine WAST keyword/parser, core instruction, typechecker, constant-expression validator, and generator evidence.
+- Refreshed [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) so the existing WAST/core split now also records the separate initializer boundary: official WebAssembly allows `array.new`, `array.new_default`, and `array.new_fixed` in constant expressions, while Starshine's current `validate_const_instr(...)` gate admits struct constructors and local descriptor constructors but not array constructors.
+- Updated [`validate/constant-expressions.md`](validate/constant-expressions.md), [`wast/data-segment-authoring.md`](wast/data-segment-authoring.md), [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so data/element-backed GC array users route through the aggregate fixture-format guide and initializer eligibility stays centralized in the focused validator page.
+- Grounded the local code map in [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt).
+
 ## [2026-05-20] health | MoonBit package-map backlink hygiene
 
 - During the post-update whole-wiki health pass, searched `moon.pkg`, `pkg.generated.mbti`, `moon info`, `proof-enabled`, `is-main`, Node package, validation-gate, and proof-policy references across tooling, validation, index, raw-source, and pass pages.

@@ -132,6 +132,8 @@ If Starshine adds the abbreviation later, update this page and [`resource-declar
 
 A data segment can be valid even when the module has no `memory.init` or `data.drop`. Data-count is a separate section whose count must match the number of data segments when present. It is also required before code when a function body contains `memory.init` or `data.drop`.
 
+GC array instructions add a second kind of data-index user. Starshine core/binary/validator surfaces support `array.new_data` and `array.init_data`, but the current high-level WAST text path does not expose official `array.*` instruction keywords, and current Starshine constant expressions do not admit official array constructor forms. Route aggregate fixture-format decisions through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and initializer eligibility through [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
+
 Starshine keeps those checks separate in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt):
 
 1. [`validate_datasec(...)`](../../../src/validate/validate.mbt) validates active data modes and pushes data entries into the validation environment.
@@ -176,6 +178,7 @@ When a pass, fixture generator, or printer changes data segments:
 ## Sources
 
 - Source manifest: [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md)
+- Aggregate/initializer boundary: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Broader segment/data-count manifest: [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Starshine implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
