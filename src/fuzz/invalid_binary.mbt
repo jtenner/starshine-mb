@@ -117,6 +117,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedGlobalSetIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
+  MalformedF32ConstImmediate
+  MalformedF64ConstImmediate
   MalformedCallFuncIndexUleb
   MalformedReturnCallFuncIndexUleb
   MalformedRefFuncIndexUleb
@@ -567,6 +569,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedGlobalSetIndexUleb => "malformed-global-set-index-uleb"
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
     MalformedI64ConstSleb => "malformed-i64-const-sleb"
+    MalformedF32ConstImmediate => "malformed-f32-const-immediate"
+    MalformedF64ConstImmediate => "malformed-f64-const-immediate"
     MalformedCallFuncIndexUleb => "malformed-call-func-index-uleb"
     MalformedReturnCallFuncIndexUleb => "malformed-return-call-func-index-uleb"
     MalformedRefFuncIndexUleb => "malformed-ref-func-index-uleb"
@@ -1245,6 +1249,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedI64ConstSleb,
       "malformed-i64-const-sleb",
       "i64.const instruction with a malformed signed LEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedF32ConstImmediate,
+      "malformed-f32-const-immediate",
+      "f32.const instruction with a truncated fixed-width immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedF64ConstImmediate,
+      "malformed-f64-const-immediate",
+      "f64.const instruction with a truncated fixed-width immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2812,6 +2830,48 @@ fn validate_invalid_binary_mutate_malformed_i64_const_sleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_f32_const_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedF32ConstImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x43).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_f64_const_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedF64ConstImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x44).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
       ]),
     ),
   )
@@ -6204,6 +6264,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_i32_const_sleb(base)
     MalformedI64ConstSleb =>
       validate_invalid_binary_mutate_malformed_i64_const_sleb(base)
+    MalformedF32ConstImmediate =>
+      validate_invalid_binary_mutate_malformed_f32_const_immediate(base)
+    MalformedF64ConstImmediate =>
+      validate_invalid_binary_mutate_malformed_f64_const_immediate(base)
     MalformedCallFuncIndexUleb =>
       validate_invalid_binary_mutate_malformed_call_func_index_uleb(base)
     MalformedReturnCallFuncIndexUleb =>
