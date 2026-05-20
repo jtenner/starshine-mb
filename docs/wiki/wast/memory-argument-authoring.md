@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-05-19
 sources:
   - ../raw/wasm/2026-05-19-wast-memory-argument-sources.md
+  - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/wast/module_wast.mbt
@@ -119,7 +120,7 @@ Implication: if a test must prove nonzero memory-index behavior today, use a dir
 
 ### Bulk memory and active data offsets are adjacent, not identical
 
-Bulk-memory instructions carry resource indices separately from scalar/SIMD `MemArg`:
+Bulk-memory instructions carry resource indices separately from scalar/SIMD `MemArg`. Their stack operand widths are also positional, not family-wide; the focused 2026-05-20 refresh in [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) records the exact matrix. In short, `memory.init` keeps data-segment source offset and length as `i32`, mixed-width `memory.copy` uses the minimum address type for length, and `memory.fill` should use the selected memory address type for both destination and length even though current Starshine still hard-codes the length slot to `i32`.
 
 ```wat
 (module
@@ -167,11 +168,12 @@ When changing memory-argument text, binary, or validation behavior:
 - WAST printing emits `align=` in byte-alignment form and does not show explicit memory indices for ordinary memory arguments.
 - Generator and binary coverage are broader than WAST text coverage for multi-memory. Keep those layers distinct when writing signoff claims.
 - `memory.copy` length typing uses the minimum address type of the two memories locally. Mixed memory32/memory64 fixtures are therefore better validator tests than simple one-memory examples.
-- Current Starshine validation still types `memory.fill` length as `i32` for memory64; [`memory-instruction-authoring.md`](memory-instruction-authoring.md) records this as a local/spec divergence rather than an intended long-term contract.
+- Current Starshine validation still types `memory.fill` length as `i32` for memory64; [`memory-instruction-authoring.md`](memory-instruction-authoring.md) and [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) record this as a local/spec divergence rather than an intended long-term contract.
 
 ## Sources
 
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md)
+- Memory64 bulk-memory validation refresh: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/_download/WebAssembly.pdf>
 - Official proposal surfaces checked for non-MVP shape: <https://webassembly.github.io/multi-memory/core/text/modules.html>, <https://webassembly.github.io/memory64/core/>
 - Starshine implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/eq.mbt`](../../../src/lib/eq.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)

@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
+  - ../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/decode.mbt
@@ -38,7 +39,8 @@ The local code has enough wasm64/table64 representation to plan a port, but not 
 - `src/lib/types.mbt:162` through `:177` define `Limits`, `MemType`, and `TableType`, including `I64Limits`.
 - `src/lib/types.mbt:1263` maps limits to address value types, and `src/lib/types.mbt:1366` models mixed-width copy length selection.
 - `src/validate/typecheck.mbt:1538` through `:1577` already rejects high static memory-operation `offset=` immediates for i32 memories.
-- `src/validate/typecheck.mbt:2408` through `:2480` derives memory `size`, `grow`, `init`, and `copy` stack types from memory limits.
+- `src/validate/typecheck.mbt:2408` through `:2498` derives memory `size`, `grow`, `init`, and `copy` stack types from memory limits.
+- `src/validate/typecheck.mbt:2502` derives `memory.fill` destination width from memory limits but still hard-codes the length operand to `i32`; the focused refresh in [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) records this local/spec divergence.
 - `src/validate/typecheck.mbt:587`, `:602`, `:625`, and `:635` still hard-code `i32` for `table.get`, `table.set`, `table.size`, and `table.grow`.
 
 ## Port goal
@@ -106,12 +108,15 @@ Exit criteria:
 ### Slice 4: bulk memory, SIMD, and atomics
 
 - Lower `memory.init`, `memory.fill`, and `memory.copy` operands positionally.
+- Preserve the official `memory.init` split: destination follows the selected memory address type, while passive-data source offset and length stay `i32`.
 - Preserve the Binaryen rule that copy length becomes i64 only when both participating memories are 64-bit before lowering; mixed-width cases are positional.
+- Treat `memory.fill` as destination `at`, byte value `i32`, length `at`; fix the current local validator length caveat before using Starshine validation as positive evidence for memory64 `memory.fill`.
 - Add SIMD and atomic address operand wrapping after scalar memory tests are green.
 
 Exit criteria:
 
 - Mixed memory32/memory64 copy fixtures match Binaryen.
+- Memory64 `memory.init` and `memory.fill` fixtures prove destination/source/value/length positions independently.
 - SIMD and atomic fixtures prove address-width changes do not accidentally rewrite payload/result vector or integer types.
 - Existing memory-packing / instrument-memory tests still validate after the new pass is registered.
 
@@ -151,6 +156,7 @@ For every Starshine fixture, compare:
 - Do not optimize address arithmetic.
 - Do not infer dynamic in-range facts.
 - Do not fold dynamic `i64.const` address operands into static high-offset traps; Binaryen's corrected contract wraps stack operands and reserves the high-offset trap family for static `MemArg.offset` immediates.
+- Do not advertise full local memory64 bulk-memory validation until the `memory.fill` length caveat is resolved.
 - Do not advertise table64 parity until table operation typechecking is coherent.
 
 ## Open questions

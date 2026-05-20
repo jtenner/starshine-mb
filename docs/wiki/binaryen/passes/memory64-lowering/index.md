@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
+  - ../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -48,7 +49,7 @@ The advanced version:
 - active data/element offset expressions are lowered to the new 32-bit address type; the reviewed source does not prove a high-active-offset trap special case;
 - former `i64` size results become `i64.extend_i32_u(...)` around the lowered operation;
 - former `i64` grow results need failure-sentinel repair: the lowered grow result is checked for `i32 -1`, successful lowered `i32` results are zero-extended, and failed grows map back to the 64-bit failure sentinel;
-- bulk memory/table operations have destination/source/length width rules that depend on both participating memories or tables;
+- bulk memory/table operations have positional width rules: `memory.init` keeps passive-data source offset and length as `i32`, `memory.copy` length depends on both participating memories, and `memory.fill` destination plus length follow the selected memory address type while the byte value stays `i32`;
 - active data and element offsets are part of the transform, not a function-body-only detail; use [`../../../binary/data-element-and-datacount-sections.md`](../../../binary/data-element-and-datacount-sections.md) for the underlying Starshine segment and data-count representation.
 
 ## Inputs and outputs
@@ -78,7 +79,7 @@ The output module has:
 - **Type preservation:** every rewritten instruction must match the wasm32 operation signature after declarations are lowered.
 - **Unsigned result repair:** size results and successful grow results must use zero-extension, not sign-extension.
 - **Grow failure repair:** wasm32 grow returns `i32 -1` on failure, but wasm64 callers expect the 64-bit failure sentinel; lowered grows need explicit sentinel repair.
-- **Bulk-operation width selection:** `copy`/`init`/`fill` operands are not all the same width. Destination, source, and length positions must be handled independently.
+- **Bulk-operation width selection:** `copy`/`init`/`fill` operands are not all the same width. Destination, source, value, and length positions must be handled independently, and current Starshine validation still has a memory64 `memory.fill` length caveat recorded in [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md).
 - **Segment offset repair:** active data and element offsets are observable initialization behavior and cannot be left at the old address type; the reviewed source lowers those offset expressions to 32-bit form rather than proving the static-memarg high-offset trap rule for active segments.
 - **Limit caveat:** max limits above the 32-bit maximum are clamped, but the reviewed source asserts that min limits fit after lowering instead of exposing a polished user-facing diagnostic contract.
 
@@ -107,7 +108,7 @@ For a future Starshine port, add tests in this order:
 5. one static high-`offset=` scalar load/store case that becomes `unreachable` with child effects preserved;
 6. `memory.size` unsigned result repair;
 7. `memory.grow` operand wrapping plus failure-sentinel result repair;
-8. `memory.copy` mixed-width cases;
+8. `memory.init`, `memory.copy`, and `memory.fill` positional width cases, including the validator follow-up for memory64 `memory.fill` length;
 9. table64 `table.get` / `table.set` / `table.size` / `table.grow` after local typechecking is made coherent;
 10. table copy/fill/init mixed-width cases;
 11. SIMD and atomic address wrapping plus high static `offset=` replacement.
@@ -133,5 +134,6 @@ The future Starshine sequencing is spelled out in [`starshine-port-readiness-and
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
+- [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>
 - Binaryen registration source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

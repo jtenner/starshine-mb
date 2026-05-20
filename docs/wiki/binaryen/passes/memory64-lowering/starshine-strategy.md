@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
+  - ../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/decode.mbt
@@ -79,7 +80,9 @@ Together these exact locations make current request behavior an unknown-pass cas
 - `src/validate/typecheck.mbt:1538` defines `memarg_check(...)`; lines `1570`-`1577` reject a static memarg offset at or above `2^32` for i32 memories.
 - `src/validate/typecheck.mbt:1591` / `1610` feed `memarg_check(...)` into scalar load/store address typing; the same pattern appears for atomics and SIMD memory helpers.
 - `src/validate/typecheck.mbt:2408` and `2417` derive `memory.size` and `memory.grow` types from `mem_at_of(...)`.
+- `src/validate/typecheck.mbt:2433` derives `memory.init` destination width from the selected memory while keeping passive-data source and length as `i32`.
 - `src/validate/typecheck.mbt:2468` derives `memory.copy` destination, source, and length widths from the participating memories.
+- `src/validate/typecheck.mbt:2502` derives the `memory.fill` destination width from the selected memory but still hard-codes the length operand to `i32`; [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) records this local/spec divergence.
 - `src/validate/typecheck.mbt:1437`, `1470`, and `1501` use table limits for `table.copy`, `table.init`, and `table.fill`.
 - `src/validate/typecheck.mbt:587`, `602`, `625`, and `635` still hard-code `i32` for `table.get`, `table.set`, `table.size`, and `table.grow`, so table64 support is not coherent enough to advertise a faithful `table64-lowering` port yet.
 
@@ -108,6 +111,8 @@ Recommended implementation phases:
    - Handle scalar, SIMD, atomic, bulk-memory, and table instructions.
 5. **Mixed-width copy/fill/init tests**
    - Copy operations need independent destination, source, and length rules.
+   - `memory.init` keeps passive-data source offset and length as `i32`, even when the destination memory is memory64.
+   - `memory.fill` needs independent destination/value/length assertions: destination and length are selected-memory address width, while the byte value is `i32`. Current Starshine validation still needs a memory64-length fix before local positive tests can prove the full rule.
 6. **Validation cleanup**
    - Audit table64 typechecking first, especially the hard-coded `i32` table operations.
 
@@ -134,7 +139,9 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 - Static high `offset=` immediates become `unreachable` with child/effect preservation.
 - `memory.size` receives unsigned result repair.
 - `memory.grow` receives delta lowering plus failure-sentinel-aware result repair.
+- `memory.init` destination versus data-offset/length widths are tested.
 - `memory.copy` mixed-width cases match Binaryen.
+- `memory.fill` destination/value/length rules match the official memory64 matrix after the local validator length caveat is resolved.
 - `table64-lowering` is either implemented or explicitly rejected with a clear sibling-status message.
 - Table64 typechecking is made coherent before table lowering is advertised.
 - Binaryen lit files are mirrored as local fixtures or pass-fuzz seeds.
@@ -142,6 +149,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 ## Current uncertainty
 
 - The 2026-04-25 static-offset correction narrowed earlier wording: static high `offset=` immediates are the clear high-offset `unreachable` family, while dynamic operand constants wrap, active offsets lower as expressions, and grow deltas are handled through lowered-grow result repair. Impossible min-limit behavior is still a source-level assertion rather than a documented user-facing diagnostic contract.
+- The 2026-05-20 memory64 bulk-memory refresh narrows local-readiness wording: Starshine already has the representation and most validation helpers for memory64 bulk memory, but `memory.fill` length is still locally typed as `i32`; do not claim full memory64 `memory.fill` validation until that is fixed.
 - Starshine's table64 model exists at the `TableType` level, but table instruction typechecking is partly hard-coded to `i32`, so a table64-lowering port has a prerequisite validation cleanup.
 
 ## Sources
@@ -154,6 +162,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
+- [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
 - [`../../../../../src/binary/decode.mbt`](../../../../../src/binary/decode.mbt)

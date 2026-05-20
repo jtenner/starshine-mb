@@ -8,6 +8,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
+  - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../../README.md
 related:
   - function-call-and-module-authoring.md
@@ -70,7 +71,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 ### Memory, tables, data, and elements
 
 - [`memory-argument-authoring.md`](memory-argument-authoring.md) — `offset=`, text-byte `align=`, selected memory index behavior, memory32/memory64 address widths, and the current text nonzero-memory-index gap.
-- [`memory-instruction-authoring.md`](memory-instruction-authoring.md) — scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`.
+- [`memory-instruction-authoring.md`](memory-instruction-authoring.md) — scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, `data.drop`, and the positional memory64 bulk-memory operand matrix.
 - [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md) — threads-proposal atomic loads/stores/RMW/wait/notify/fence; core/binary/validator/generator support with a current WAST keyword/parser gap.
 - [`table-instruction-authoring.md`](table-instruction-authoring.md) — `call_indirect`, table get/set/size/grow/fill/copy/init, `elem.drop`, and table64 caveats.
 - [`data-segment-authoring.md`](data-segment-authoring.md) — active/passive `(data ...)`, offsets, string payloads, conservative emitted `DataCntSec`, and pass guidance for data-index users.
@@ -89,7 +90,7 @@ The WAST pages deliberately keep text-surface gaps visible instead of smoothing 
 - **Reference branch and cast text:** ordinary `ref.test`, `ref.cast`, and `br_on_*` forms are core/binary/validator/generator-visible but not all human-authored WAST text forms are available; route through [`reference-instruction-authoring.md`](reference-instruction-authoring.md).
 - **Aggregate instruction text:** many official `array.*` and `struct.set` families currently need core/binary/generator fixtures; route through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 - **Atomic text:** `0xFE` atomic instructions are core/binary/validator/generator-visible, while WAST keywords/parser cases are still absent; route through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md).
-- **Memory and table widths:** memory64/table64 behavior is often best proved at the core/binary layer until declaration and validation widening lands; route through [`memory-argument-authoring.md`](memory-argument-authoring.md), [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and [`table-instruction-authoring.md`](table-instruction-authoring.md).
+- **Memory and table widths:** memory64/table64 behavior is often best proved at the core/binary layer until declaration and validation widening lands; route `offset=` / selected-memory-index questions through [`memory-argument-authoring.md`](memory-argument-authoring.md), runtime bulk-memory stack widths through [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and table address-width caveats through [`table-instruction-authoring.md`](table-instruction-authoring.md).
 - **Declarative elements:** direct core/binary/generator paths preserve declarative mode, but current text lowering has a declarative-mode preservation gap and typed declarative text is not a proven WAST surface; route through [`element-segment-authoring.md`](element-segment-authoring.md).
 - **Constant expressions:** official and Starshine-local initializer/offset allow-lists differ; route through [`../validate/constant-expressions.md`](../validate/constant-expressions.md) instead of duplicating the list here.
 
