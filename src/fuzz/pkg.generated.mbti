@@ -410,6 +410,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   CodeSectionCountUnderflow
   ImportSectionCountUnderflow
   ExportSectionCountUnderflow
+  TableSectionCountUnderflow
+  MemorySectionCountUnderflow
+  GlobalSectionCountUnderflow
   TypeSectionSizeUnderflow
   CodeBodySizeUnderflow
 } derive(Eq, @debug.Debug)
