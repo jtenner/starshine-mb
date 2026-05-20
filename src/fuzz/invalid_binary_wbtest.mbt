@@ -81,7 +81,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-name-section-tag-name-utf8", "invalid-functype-byte", "invalid-code-local-valtype-byte",
     "type-section-count-underflow", "code-section-count-underflow", "import-section-count-underflow",
     "export-section-count-underflow", "table-section-count-underflow", "memory-section-count-underflow",
-    "global-section-count-underflow", "type-section-size-underflow", "code-body-size-underflow",
+    "global-section-count-underflow", "function-section-count-underflow", "element-section-count-underflow",
+    "data-section-count-underflow", "tag-section-count-underflow", "type-section-size-underflow",
+    "code-body-size-underflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -103,7 +105,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1001,7 +1004,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "invalid-functype-byte", "invalid-code-local-valtype-byte", "type-section-count-underflow",
       "code-section-count-underflow", "import-section-count-underflow", "export-section-count-underflow",
       "table-section-count-underflow", "memory-section-count-underflow", "global-section-count-underflow",
-      "type-section-size-underflow", "code-body-size-underflow",
+      "function-section-count-underflow", "element-section-count-underflow", "data-section-count-underflow",
+      "tag-section-count-underflow", "type-section-size-underflow", "code-body-size-underflow",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()

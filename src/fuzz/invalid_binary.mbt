@@ -135,6 +135,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   TableSectionCountUnderflow
   MemorySectionCountUnderflow
   GlobalSectionCountUnderflow
+  FunctionSectionCountUnderflow
+  ElementSectionCountUnderflow
+  DataSectionCountUnderflow
+  TagSectionCountUnderflow
   TypeSectionSizeUnderflow
   CodeBodySizeUnderflow
 } derive(Eq, Debug)
@@ -538,6 +542,10 @@ fn validate_invalid_binary_strategy_label(
     TableSectionCountUnderflow => "table-section-count-underflow"
     MemorySectionCountUnderflow => "memory-section-count-underflow"
     GlobalSectionCountUnderflow => "global-section-count-underflow"
+    FunctionSectionCountUnderflow => "function-section-count-underflow"
+    ElementSectionCountUnderflow => "element-section-count-underflow"
+    DataSectionCountUnderflow => "data-section-count-underflow"
+    TagSectionCountUnderflow => "tag-section-count-underflow"
     TypeSectionSizeUnderflow => "type-section-size-underflow"
     CodeBodySizeUnderflow => "code-body-size-underflow"
   }
@@ -1280,6 +1288,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      FunctionSectionCountUnderflow,
+      "function-section-count-underflow",
+      "function section whose vector count is smaller than its payload type indices",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      ElementSectionCountUnderflow,
+      "element-section-count-underflow",
+      "element section whose vector count is smaller than its payload segments",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DataSectionCountUnderflow,
+      "data-section-count-underflow",
+      "data section whose vector count is smaller than its payload segments",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      TagSectionCountUnderflow,
+      "tag-section-count-underflow",
+      "tag section whose vector count is smaller than its payload tags",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       TypeSectionSizeUnderflow,
       "type-section-size-underflow",
       "type section whose declared payload size ends inside a function type",
@@ -1417,8 +1453,12 @@ fn validate_invalid_binary_strategy_index(
     TableSectionCountUnderflow => 101
     MemorySectionCountUnderflow => 102
     GlobalSectionCountUnderflow => 103
-    TypeSectionSizeUnderflow => 104
-    CodeBodySizeUnderflow => 105
+    FunctionSectionCountUnderflow => 104
+    ElementSectionCountUnderflow => 105
+    DataSectionCountUnderflow => 106
+    TagSectionCountUnderflow => 107
+    TypeSectionSizeUnderflow => 108
+    CodeBodySizeUnderflow => 109
   }
 }
 
@@ -3171,6 +3211,158 @@ fn validate_invalid_binary_mutate_global_section_count_underflow(
 }
 
 ///|
+fn validate_invalid_binary_module_with_function_section_count_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_element_section_count_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x09).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_data_section_count_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x05).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_tag_section_count_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0d).to_byte(),
+    (0x05).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_function_section_count_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      FunctionSectionCountUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_function_section_count_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_element_section_count_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      ElementSectionCountUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_element_section_count_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_data_section_count_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      DataSectionCountUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_data_section_count_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_tag_section_count_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TagSectionCountUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_tag_section_count_underflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_type_section_size_underflow() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -4444,6 +4636,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_memory_section_count_underflow(base)
     GlobalSectionCountUnderflow =>
       validate_invalid_binary_mutate_global_section_count_underflow(base)
+    FunctionSectionCountUnderflow =>
+      validate_invalid_binary_mutate_function_section_count_underflow(base)
+    ElementSectionCountUnderflow =>
+      validate_invalid_binary_mutate_element_section_count_underflow(base)
+    DataSectionCountUnderflow =>
+      validate_invalid_binary_mutate_data_section_count_underflow(base)
+    TagSectionCountUnderflow =>
+      validate_invalid_binary_mutate_tag_section_count_underflow(base)
     TypeSectionSizeUnderflow =>
       validate_invalid_binary_mutate_type_section_size_underflow(base)
     CodeBodySizeUnderflow =>
