@@ -213,8 +213,57 @@ fn rg_test_late_tail_fixture() -> String {
   out.write_string("    i32.const 0\n")
   out.write_string("    call_indirect (type 1)\n")
   out.write_string("    drop)\n")
+  out.write_string("  (export \"run\" (func $run))\n")
   out.write_string(")\n")
   out.to_string()
+}
+
+///|
+fn rg_assert_late_tail_replay(optimized : @lib.Module) -> Unit raise {
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected late-tail replay module to validate, got \{err}")
+  }
+
+  match optimized.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      let mut found_hot = false
+      for export_ in exports {
+        match export_ {
+          @lib.Export(
+            @lib.Name("hot"),
+            @lib.GlobalExternIdx(@lib.GlobalIdx(idx))
+          ) => {
+            @debug.assert_eq(idx, 0U)
+            found_hot = true
+          }
+          _ => ()
+        }
+      }
+      assert_true(found_hot, msg="expected hot global export")
+    }
+    other =>
+      fail(
+        "expected hot export after late-tail replay, got \{@debug.to_string(other)}",
+      )
+  }
+
+  let mut run_idx = 1U
+  match optimized.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(@lib.Name("run"), @lib.FuncExternIdx(@lib.FuncIdx(idx))) =>
+            run_idx = idx
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(run_idx))
+  assert_false(pretty.contains("string.const"), msg=pretty)
+  assert_true(pretty.contains("call (Func"), msg=pretty)
+  assert_false(pretty.contains("call_indirect"), msg=pretty)
 }
 
 ///|
@@ -229,25 +278,43 @@ test "string-gathering reorder-globals directize preserve late-tail order" {
         "expected string-gathering/reorder-globals/directize success, got \{err}",
       )
   }
+  try! rg_assert_late_tail_replay(optimized)
+}
+
+///|
+test "sgo rume prefix preserves rooted late-tail replay module" {
+  let optimized = match
+    pass_test_run_pipeline(rg_test_late_tail_fixture(), [
+      "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
+      "reorder-globals", "directize",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected full late-tail neighborhood success, got \{err}")
+  }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
-    Err(err) => fail("expected late-tail replay module to validate, got \{err}")
+    Err(err) =>
+      fail("expected full late-tail neighborhood to validate, got \{err}")
   }
-
   match optimized.export_sec {
-    Some(
-      @lib.ExportSec(
-        [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx)))]
-      )
-    ) => @debug.assert_eq(idx, 0U)
+    Some(@lib.ExportSec(exports)) => {
+      let mut found_hot = false
+      let mut found_run = false
+      for export_ in exports {
+        match export_ {
+          @lib.Export(@lib.Name("hot"), @lib.GlobalExternIdx(_)) =>
+            found_hot = true
+          @lib.Export(@lib.Name("run"), @lib.FuncExternIdx(_)) =>
+            found_run = true
+          _ => ()
+        }
+      }
+      assert_true(found_hot, msg="expected hot global export")
+      assert_true(found_run, msg="expected run function export")
+    }
     other =>
       fail(
-        "expected hot export after late-tail replay, got \{@debug.to_string(other)}",
+        "expected exports after full late-tail replay, got \{@debug.to_string(other)}",
       )
   }
-
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_false(pretty.contains("string.const"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_false(pretty.contains("call_indirect"), msg=pretty)
 }

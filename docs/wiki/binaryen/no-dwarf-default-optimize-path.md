@@ -50,6 +50,7 @@ related:
 - The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against `version_129` source first.
 - The local workspace `wasm-opt` now reports `version_129`, so command-based parity evidence can be rerun under the same upstream oracle.
 - Earlier command-based evidence tied to `version_125` remains historical until rerun under `version_129`.
+- The post-SGO late-tail neighborhood `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` is executable and has a green 1k ordered-neighborhood fuzz smoke, but public preset widening is still deferred: the debug-artifact replay first differs at the SGO-fed RUME function-retention / numeric-index layout boundary before the later string/reorder/directize tail changes anything. See [`../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md).
 - `scripts/self-optimize-compare.ts` now runs `moon build --target native --release --package jtenner/starshine/cmd` and invokes the built `_build/native/release/build/cmd/cmd.exe` by default, so recorded Starshine command timings measure the native CLI rather than a `moon run` wrapper unless `--starshine-bin` overrides it.
 
 ## Sources

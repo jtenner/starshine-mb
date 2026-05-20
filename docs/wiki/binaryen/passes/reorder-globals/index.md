@@ -100,7 +100,7 @@ That is much closer to the real pass than either:
   - `reorder-globals-always` remains a boundary-only tracked name
 - The active pass implements the public production policy, including the `<128` total-global no-op, dependency-aware candidate ordering, true ULEB-size scoring, import-prefix preservation, and numeric `GlobalIdx` remapping across module/code/name surfaces.
 - On 2026-05-06, refreshed direct-pass signoff in `.tmp/pass-fuzz-reorder-globals` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
-- The public optimize/shrink presets still do not schedule the late-tail slot, but the inner `string-gathering -> reorder-globals -> directize` triple now has explicit regression coverage plus a current-head debug-artifact replay at [`../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`](../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md). Remaining preset gating is now the missing earlier late-tail neighbors, not the triple itself.
+- The public optimize/shrink presets still do not schedule the late-tail slot. The inner `string-gathering -> reorder-globals -> directize` triple has explicit regression coverage plus a current-head debug-artifact replay at [`../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`](../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md). The broader `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` neighborhood is now executable and has a green 1k ordered-neighborhood fuzz smoke, but preset widening remains gated on classifying the SGO-fed RUME function-retention / numeric-index artifact drift; see [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md).
 
 Keep preserving the distinction between the public pass and the `always` helper instead of collapsing them accidentally.
 
@@ -120,7 +120,7 @@ Keep preserving the distinction between the public pass and the `always` helper 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `reorder-globals` research and port planning.
-- Keep it marked as an active direct Starshine module pass, while keeping `reorder-globals-always` boundary-only and public late-tail preset scheduling deferred until the remaining earlier postpass neighbors land.
+- Keep it marked as an active direct Starshine module pass, while keeping `reorder-globals-always` boundary-only and public late-tail preset scheduling deferred until the SGO-fed RUME artifact frontier is classified and the full late-tail neighborhood has standard signoff.
 - Keep the strategy page, implementation/test-map page, size/dependency page, and Starshine strategy page in sync whenever new evidence changes the answer to either:
   - “what does the pass actually optimize for?”
   - “when does Binaryen deliberately do nothing?”

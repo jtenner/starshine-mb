@@ -64,6 +64,8 @@ After the module-expression coverage commit, the regenerated debug artifact was 
 
 Remaining readiness is optional broader decoder breadth, optional compare-normalization breadth, and optional combined-tail performance work, not direct-pass existence, preset-order wiring, or artifact parity. The first decoder-breadth slice accepts bare `0x64` stringref value types when the explicit non-null-reference form cannot be completed, with focused binary tests for direct value-type decode and type-section decode.
 
+Remaining readiness is late-tail scheduling acceptance, not direct-pass existence. The broader five-pass late-tail neighborhood is executable and fuzz-smoke green, but preset widening remains blocked on classifying the SGO-fed RUME function-retention / numeric-index artifact drift recorded in [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md).
+
 ## Slice 0: make the public pass spelling honest — landed
 
 ### Goal

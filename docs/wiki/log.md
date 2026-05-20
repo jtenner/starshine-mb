@@ -395,6 +395,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-17] passes | SGO compare-const read-only-to-write self guards
 
+## [2026-05-19] passes | late-tail five-pass neighborhood baseline
+
+- Added [`raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md) and updated [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/string-gathering/starshine-port-readiness-and-validation.md`](binaryen/passes/string-gathering/starshine-port-readiness-and-validation.md), [`binaryen/passes/reorder-globals/index.md`](binaryen/passes/reorder-globals/index.md), and [`../../agent-todo.md`](../../agent-todo.md) with the post-SGO late-tail baseline.
+- Added focused five-pass regression coverage in [`../../src/passes/reorder_globals_test.mbt`](../../src/passes/reorder_globals_test.mbt) for `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`; TDD first exposed that an unexported `$run` body is legitimately pruned by RUME, so the fixture now roots `$run` before validating the composed neighborhood.
+- Direct debug-artifact evidence at `.tmp/sg-tail-neighborhood-baseline` validates and stays smaller than Binaryen (`2,856,748` vs `2,861,120` bytes), but canonical compare remains red at `defined=39 abs=60`; prefix runs show the same first diff appears immediately after `simplify-globals-optimizing -> remove-unused-module-elements`, before the later string/reorder/directize tail.
+- Validation/evidence: `moon test src/passes` passed (`1260/1260`), and `.tmp/pass-fuzz-sg-tail-neighborhood-1000` reported `998/1000` compared, `998` normalized matches, `0` mismatches, `0` validation failures, and `2` Binaryen/tool command failures. Public `optimize` / `shrink` remain unchanged until the SGO-fed RUME function-retention / numeric-index frontier is classified and the full neighborhood has standard signoff.
+
 ## [2026-05-19] passes | SGO nested cleanup runtime pruning
 
 - Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt) so SGO's nested cleanup uses an artifact-tuned pass list: `optimize-instructions -> local-cse -> pick-load-signs -> merge-blocks -> remove-unused-names -> merge-blocks -> coalesce-locals -> reorder-locals -> redundant-set-elimination -> vacuum`. This omits several ordinary default-function slots whose direct artifact experiments mostly added wrapper/raw-skip/candidate-scan cost without improving the current size frontier.
