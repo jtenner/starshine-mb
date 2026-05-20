@@ -8,6 +8,11 @@ using @lib {trace_elapsed_ms, trace_now_ms, trace_now_us}
 using @validate {
   type GenValidConfig,
   type GenValidFeatureFacts,
+  type GenValidFeatureStats,
+  type ValidateInvalidAstFuzzStats,
+  type ValidateValidFeatureFloor,
+  type ValidateValidFuzzStats,
+  gen_valid_config_label,
   gen_valid_module,
   gen_valid_module_result,
   gen_valid_module_with_config,

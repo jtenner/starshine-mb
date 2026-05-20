@@ -179,6 +179,7 @@ pub struct FuzzSuiteResult {
   seed_count : Int
   shard_index : Int
   shard_count : Int
+  details_json : String?
 } derive(Eq, @debug.Debug)
 
 pub struct GenInvalidBinaryGenerated {

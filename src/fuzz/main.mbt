@@ -76,6 +76,7 @@ pub struct FuzzSuiteResult {
   seed_count : Int
   shard_index : Int
   shard_count : Int
+  details_json : String?
 } derive(Eq, Debug)
 
 ///|
@@ -162,10 +163,10 @@ fn validate_valid_text_companion_requirements(
 }
 
 ///|
-fn run_validate_valid_suite(
+fn run_validate_valid_suite_detailed(
   profile : String,
   seed : UInt64,
-) -> Result[Int, String] {
+) -> Result[(Int, String?), String] {
   let run_config = match validate_valid_run_config(profile) {
     Ok(config) => config
     Err(e) => return Err(e)
@@ -212,7 +213,7 @@ fn run_validate_valid_suite(
       "validate-valid fuzz produced too few stable text roundtrips: profile=\{normalized} seed=\{seed} stable=\{stable} min=\{min_text_stable}",
     )
   }
-  Ok(attempts)
+  Ok((attempts, Some(format_validate_valid_details_json(direct_stats))))
 }
 
 ///|
@@ -989,58 +990,62 @@ fn run_single_suite(
 ) -> Result[FuzzSuiteResult, String] {
   let seed = seed_i64.reinterpret_as_uint64()
   let start_ms = trace_now_ms()
-  let attempts = match suite {
+  let (attempts, details_json) = match suite {
     "binary-roundtrip" =>
       match run_binary_roundtrip_fuzz(profile, seed) {
-        Ok(stats) => stats.attempts
+        Ok(stats) => (stats.attempts, None)
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "wast-roundtrip" =>
       match run_wast_roundtrip_fuzz(profile, seed) {
-        Ok(stats) => stats.attempts
+        Ok(stats) => (stats.attempts, None)
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "wat-roundtrip" =>
       match run_wat_roundtrip_fuzz(profile, seed) {
-        Ok(stats) => stats.attempts
+        Ok(stats) => (stats.attempts, None)
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "validate-valid" =>
-      match run_validate_valid_suite(profile, seed) {
-        Ok(attempts) => attempts
+      match run_validate_valid_suite_detailed(profile, seed) {
+        Ok(v) => v
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "validate-invalid-ast" =>
       match run_validate_invalid_ast_fuzz(profile, seed) {
-        Ok(stats) => stats.attempts
+        Ok(stats) =>
+          (stats.attempts, Some(format_invalid_ast_details_json(stats)))
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "validate-invalid-binary" =>
       match run_validate_invalid_binary_fuzz(profile, seed) {
-        Ok(stats) => stats.attempts
+        Ok(stats) =>
+          (stats.attempts, Some(format_invalid_binary_details_json(stats)))
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "validate-invalid-text" =>
       match run_validate_invalid_text_fuzz(profile, seed) {
-        Ok(stats) => stats.attempts
+        Ok(stats) =>
+          (stats.attempts, Some(format_invalid_text_details_json(stats)))
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "validate-invalid-spec-seed" =>
       match run_validate_invalid_spec_seed_fuzz(profile, seed) {
-        Ok(stats) => stats.attempts
+        Ok(stats) =>
+          (stats.attempts, Some(format_invalid_spec_seed_details_json(stats)))
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "cmd-harness" =>
       match run_fuzz_cmd_harness_profile(profile, seed) {
-        Ok(attempts) => attempts
+        Ok(attempts) => (attempts, None)
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
@@ -1056,6 +1061,7 @@ fn run_single_suite(
     seed_count: 1,
     shard_index: 0,
     shard_count: 1,
+    details_json,
   })
 }
 
@@ -1261,6 +1267,121 @@ fn fuzz_seed_add(base : Int64, offset : Int) -> Int64 {
 }
 
 ///|
+fn format_gen_valid_feature_stats_json(stats : GenValidFeatureStats) -> String {
+  "{\"mode\":\"\{fuzz_json_escape(@debug.to_string(stats.mode))}\",\"modules\":\{stats.modules},\"imports\":\{stats.imports},\"func_exports\":\{stats.func_exports},\"tables\":\{stats.tables},\"mems\":\{stats.mems},\"globals\":\{stats.globals},\"tags\":\{stats.tags},\"elems\":\{stats.elems},\"datas\":\{stats.datas},\"data_count\":\{stats.data_count},\"ref_types\":\{stats.ref_types},\"v128\":\{stats.v128},\"calls\":\{stats.calls},\"call_indirect\":\{stats.call_indirect},\"branch_heavy_control\":\{stats.branch_heavy_control},\"numeric_full_ops\":\{stats.numeric_full_ops},\"br_table\":\{stats.br_table},\"local_tee\":\{stats.local_tee},\"typed_select\":\{stats.typed_select},\"tail_calls\":\{stats.tail_calls},\"atomics\":\{stats.atomics},\"gc_constructors\":\{stats.gc_constructors},\"gc_accessors\":\{stats.gc_accessors},\"string_ops\":\{stats.string_ops},\"exception_try_table_matrix\":\{stats.exception_try_table_matrix},\"subtyping_topology\":\{stats.subtyping_topology},\"import_export_topology\":\{stats.import_export_topology}}"
+}
+
+///|
+fn format_validate_valid_feature_floors_json(
+  floors : Array[ValidateValidFeatureFloor],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let mut i = 0
+  while i < floors.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let floor = floors[i]
+    out.write_string(
+      "{\"key\":\"\{fuzz_json_escape(@debug.to_string(floor.key))}\",\"min_count\":\{floor.min_count}}",
+    )
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
+fn format_validate_valid_details_json(stats : ValidateValidFuzzStats) -> String {
+  "{\"validated\":\{stats.validated},\"generator_config\":\"\{fuzz_json_escape(gen_valid_config_label(stats.generator_config))}\",\"feature_stats\":\{format_gen_valid_feature_stats_json(stats.feature_stats)},\"feature_floors\":\{format_validate_valid_feature_floors_json(stats.feature_floors)}}"
+}
+
+///|
+fn format_invalid_ast_details_json(
+  stats : ValidateInvalidAstFuzzStats,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("{\"strategy_stats\":[")
+  let mut i = 0
+  while i < stats.strategy_stats.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let item = stats.strategy_stats[i]
+    out.write_string(
+      "{\"stable_id\":\"\{fuzz_json_escape(item.stable_id)}\",\"attempted\":\{item.attempted},\"applicable\":\{item.applicable},\"mutated\":\{item.mutated},\"rejected\":\{item.rejected},\"rejected_expected\":\{item.rejected_expected}}",
+    )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
+fn format_invalid_binary_details_json(
+  stats : ValidateInvalidBinaryFuzzStats,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("{\"strategy_stats\":[")
+  let mut i = 0
+  while i < stats.strategy_stats.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let item = stats.strategy_stats[i]
+    out.write_string(
+      "{\"stable_id\":\"\{fuzz_json_escape(item.stable_id)}\",\"attempted\":\{item.attempted},\"applicable\":\{item.applicable},\"mutated\":\{item.mutated},\"decode_rejected\":\{item.decode_rejected},\"validate_rejected\":\{item.validate_rejected},\"rejected_expected\":\{item.rejected_expected},\"accepted\":\{item.accepted}}",
+    )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
+fn format_invalid_text_details_json(
+  stats : ValidateInvalidTextFuzzStats,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("{\"strategy_stats\":[")
+  let mut i = 0
+  while i < stats.strategy_stats.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let item = stats.strategy_stats[i]
+    out.write_string(
+      "{\"stable_id\":\"\{fuzz_json_escape(item.stable_id)}\",\"attempted\":\{item.attempted},\"applicable\":\{item.applicable},\"parse_or_lower_rejected\":\{item.parse_or_lower_rejected},\"validate_rejected\":\{item.validate_rejected},\"valid_before_link\":\{item.valid_before_link},\"matched_expected\":\{item.matched_expected}}",
+    )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
+fn format_invalid_spec_seed_details_json(
+  stats : ValidateInvalidSpecSeedFuzzStats,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("{\"seed_stats\":[")
+  let mut i = 0
+  while i < stats.seed_stats.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let item = stats.seed_stats[i]
+    out.write_string(
+      "{\"stable_id\":\"\{fuzz_json_escape(item.stable_id)}\",\"path\":\"\{fuzz_json_escape(item.path)}\",\"attempted\":\{item.attempted},\"applicable\":\{item.applicable},\"parse_or_lower_rejected\":\{item.parse_or_lower_rejected},\"validate_rejected\":\{item.validate_rejected},\"valid_before_link\":\{item.valid_before_link},\"matched_expected\":\{item.matched_expected}}",
+    )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
 fn fuzz_suite_result_with_sweep_metadata(
   result : FuzzSuiteResult,
   seed_index : Int,
@@ -1278,6 +1399,7 @@ fn fuzz_suite_result_with_sweep_metadata(
     seed_count,
     shard_index,
     shard_count,
+    details_json: result.details_json,
   }
 }
 
@@ -1365,8 +1487,13 @@ pub fn format_fuzz_suite_result(
   match output_mode {
     FuzzOutputMode::Text =>
       "suite=\{result.suite} profile=\{result.profile} seed=\{result.seed} attempts=\{result.attempts} pass=true elapsed_ms=\{result.elapsed_ms}\{sweep_suffix}"
-    FuzzOutputMode::Jsonl =>
-      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"attempts\":\{result.attempts},\"pass\":true,\"elapsed_ms\":\{result.elapsed_ms},\"seed_index\":\{result.seed_index},\"seed_count\":\{result.seed_count},\"shard_index\":\{result.shard_index},\"shard_count\":\{result.shard_count}}"
+    FuzzOutputMode::Jsonl => {
+      let details_suffix = match result.details_json {
+        Some(details) => ",\"details\":\{details}"
+        None => ""
+      }
+      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"attempts\":\{result.attempts},\"pass\":true,\"elapsed_ms\":\{result.elapsed_ms},\"seed_index\":\{result.seed_index},\"seed_count\":\{result.seed_count},\"shard_index\":\{result.shard_index},\"shard_count\":\{result.shard_count}\{details_suffix}}"
+    }
   }
 }
 

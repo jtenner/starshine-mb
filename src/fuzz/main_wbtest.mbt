@@ -110,6 +110,37 @@ test "format_fuzz_run_report_json summarizes sweep results" {
 }
 
 ///|
+test "format_fuzz_run_report_json includes detailed suite ledgers" {
+  let valid_results = match
+    run_fuzz_suite_sweep("validate-valid", "smoke", 3L, 1, 0, 1) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let valid_report = format_fuzz_run_report_json(
+    "validate-valid", "smoke", 3L, 1, 0, 1, valid_results,
+  )
+  assert_true(valid_report.contains("\"details\":{"))
+  assert_true(valid_report.contains("\"validated\":"))
+  assert_true(valid_report.contains("\"feature_stats\":{"))
+  assert_true(valid_report.contains("\"modules\":"))
+  assert_true(valid_report.contains("\"calls\":"))
+  assert_true(valid_report.contains("\"feature_floors\":["))
+
+  let invalid_results = match
+    run_fuzz_suite_sweep("validate-invalid-ast", "smoke", 4L, 1, 0, 1) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let invalid_report = format_fuzz_run_report_json(
+    "validate-invalid-ast", "smoke", 4L, 1, 0, 1, invalid_results,
+  )
+  assert_true(invalid_report.contains("\"details\":{"))
+  assert_true(invalid_report.contains("\"strategy_stats\":["))
+  assert_true(invalid_report.contains("\"stable_id\":"))
+  assert_true(invalid_report.contains("\"rejected_expected\":"))
+}
+
+///|
 test "parse_fuzz_cli_command detects control commands" {
   match parse_fuzz_cli_command(["--help"]) {
     Help => ()
