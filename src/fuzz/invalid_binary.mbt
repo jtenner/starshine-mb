@@ -82,6 +82,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportModuleNameUtf8
   InvalidTableRefTypeByte
   MalformedRefNullHeaptypeImmediate
+  InvalidGlobalValTypeByte
+  InvalidExportKindByte
 } derive(Eq, Debug)
 
 ///|
@@ -429,6 +431,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
     InvalidTableRefTypeByte => "invalid-table-reftype-byte"
     MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
+    InvalidGlobalValTypeByte => "invalid-global-valtype-byte"
+    InvalidExportKindByte => "invalid-export-kind-byte"
   }
 }
 
@@ -797,6 +801,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidGlobalValTypeByte,
+      "invalid-global-valtype-byte",
+      "global section with an invalid value type byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidExportKindByte,
+      "invalid-export-kind-byte",
+      "export section with an invalid export kind byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -868,6 +886,8 @@ fn validate_invalid_binary_strategy_index(
     InvalidImportModuleNameUtf8 => 48
     InvalidTableRefTypeByte => 49
     MalformedRefNullHeaptypeImmediate => 50
+    InvalidGlobalValTypeByte => 51
+    InvalidExportKindByte => 52
   }
 }
 
@@ -1771,6 +1791,93 @@ fn validate_invalid_binary_mutate_malformed_ref_null_heaptype_immediate(
 }
 
 ///|
+fn validate_invalid_binary_module_with_invalid_global_valtype_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x06).to_byte(),
+    (0x06).to_byte(),
+    (0x01).to_byte(),
+    (0xff).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_global_valtype_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidGlobalValTypeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_global_valtype_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_invalid_export_kind_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x07).to_byte(),
+    (0x06).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x78).to_byte(),
+    (0xff).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_export_kind_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidExportKindByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_export_kind_byte(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1950,6 +2057,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_table_reftype_byte(base)
     MalformedRefNullHeaptypeImmediate =>
       validate_invalid_binary_mutate_malformed_ref_null_heaptype_immediate(base)
+    InvalidGlobalValTypeByte =>
+      validate_invalid_binary_mutate_invalid_global_valtype_byte(base)
+    InvalidExportKindByte =>
+      validate_invalid_binary_mutate_invalid_export_kind_byte(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

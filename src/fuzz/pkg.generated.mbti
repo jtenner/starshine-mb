@@ -360,6 +360,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportModuleNameUtf8
   InvalidTableRefTypeByte
   MalformedRefNullHeaptypeImmediate
+  InvalidGlobalValTypeByte
+  InvalidExportKindByte
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
