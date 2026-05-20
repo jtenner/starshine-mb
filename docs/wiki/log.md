@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | function local-model backlink hygiene
+
+- During the post-update whole-wiki health pass, searched function/code-section, body-ordinal, `FuncSec`/`CodeSec`, and function-call authoring references for stale wording that still routed binary code-entry details only through the older 2026-05-13 source snapshot or said code bodies contain generic `locals` without the parameter-local split.
+- Updated [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`binary/module-section-map.md`](binary/module-section-map.md), and [`validate/module-validation-phases.md`](validate/module-validation-phases.md) so WAST, section-map, and validation-phase readers route code-entry/local-run details through [`raw/wasm/2026-05-20-function-code-section-source-refresh.md`](raw/wasm/2026-05-20-function-code-section-source-refresh.md) and [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md).
+
 ## [2026-05-20] binary | function code-body local model refresh
 
 - Added [`raw/wasm/2026-05-20-function-code-section-source-refresh.md`](raw/wasm/2026-05-20-function-code-section-source-refresh.md) after rechecking the current WebAssembly 3.0 syntax, binary, validation, and text module sources plus Starshine core module, binary codec, validator, proof-helper, and WAST lowering evidence.

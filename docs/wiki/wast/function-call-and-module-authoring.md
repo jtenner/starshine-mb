@@ -49,9 +49,9 @@ Neighbor pages own the parts that are easy to conflate with this topic:
 - [`tail-call-authoring.md`](tail-call-authoring.md) owns `return_call`, `return_call_indirect`, and `return_call_ref` because tail calls are also return-family terminators.
 - [`gc-type-authoring.md`](gc-type-authoring.md) owns WAST type definitions, rec groups, subtypes, and shared type-use rules for `(type $sig)` and inline `(param ...)` / `(result ...)` signatures.
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) own `ref.func`, declaration sources, and the current start-section declaration divergence.
-- [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md) owns binary section ids, imported-prefix function index spaces, `FuncSec`/`CodeSec` parallelism, and module-pass remap checklists.
+- [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md) owns binary section ids, imported-prefix function index spaces, `FuncSec`/`CodeSec` parallelism, the parameter-local versus encoded-body-local split, and module-pass remap checklists.
 
-The current primary-source and local-code manifest for the ordinary reference-call split is [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader WAST function/import/export/start source snapshot remains [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md), narrowing the binary-section baseline in [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md).
+The current primary-source and local-code manifest for the ordinary reference-call split is [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader WAST function/import/export/start source snapshot remains [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md), while binary code-entry/local-run details now route through [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md).
 
 ## Beginner Model: Names Become Absolute Function Indices
 
@@ -216,6 +216,7 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 
 - Focused `call_ref` source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - Focused function/import/export/start snapshot: [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md)
+- Binary code-entry/local-run refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
 - Broader function-section snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - WAST parser/lowerer/printer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)
 - Core, binary, and validation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
