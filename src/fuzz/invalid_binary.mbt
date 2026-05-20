@@ -143,6 +143,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   CodeBodySizeUnderflow
   ImportSectionSizeUnderflow
   ExportSectionSizeUnderflow
+  TableSectionSizeUnderflow
+  MemorySectionSizeUnderflow
+  GlobalSectionSizeUnderflow
 } derive(Eq, Debug)
 
 ///|
@@ -552,6 +555,9 @@ fn validate_invalid_binary_strategy_label(
     CodeBodySizeUnderflow => "code-body-size-underflow"
     ImportSectionSizeUnderflow => "import-section-size-underflow"
     ExportSectionSizeUnderflow => "export-section-size-underflow"
+    TableSectionSizeUnderflow => "table-section-size-underflow"
+    MemorySectionSizeUnderflow => "memory-section-size-underflow"
+    GlobalSectionSizeUnderflow => "global-section-size-underflow"
   }
 }
 
@@ -1347,6 +1353,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      TableSectionSizeUnderflow,
+      "table-section-size-underflow",
+      "table section whose declared payload size ends inside a table limit",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MemorySectionSizeUnderflow,
+      "memory-section-size-underflow",
+      "memory section whose declared payload size ends inside a memory limit",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      GlobalSectionSizeUnderflow,
+      "global-section-size-underflow",
+      "global section whose declared payload size ends inside a global initializer",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -1479,6 +1506,9 @@ fn validate_invalid_binary_strategy_index(
     CodeBodySizeUnderflow => 109
     ImportSectionSizeUnderflow => 110
     ExportSectionSizeUnderflow => 111
+    TableSectionSizeUnderflow => 112
+    MemorySectionSizeUnderflow => 113
+    GlobalSectionSizeUnderflow => 114
   }
 }
 
@@ -3545,6 +3575,109 @@ fn validate_invalid_binary_mutate_export_section_size_underflow(
 }
 
 ///|
+fn validate_invalid_binary_module_with_table_section_size_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x04).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x70).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_memory_section_size_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x05).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_global_section_size_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x06).to_byte(),
+    (0x05).to_byte(),
+    (0x01).to_byte(),
+    (0x7f).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_table_section_size_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TableSectionSizeUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_table_section_size_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_memory_section_size_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MemorySectionSizeUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_memory_section_size_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_global_section_size_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      GlobalSectionSizeUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_global_section_size_underflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -4758,6 +4891,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_import_section_size_underflow(base)
     ExportSectionSizeUnderflow =>
       validate_invalid_binary_mutate_export_section_size_underflow(base)
+    TableSectionSizeUnderflow =>
+      validate_invalid_binary_mutate_table_section_size_underflow(base)
+    MemorySectionSizeUnderflow =>
+      validate_invalid_binary_mutate_memory_section_size_underflow(base)
+    GlobalSectionSizeUnderflow =>
+      validate_invalid_binary_mutate_global_section_size_underflow(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

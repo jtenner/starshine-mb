@@ -421,6 +421,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   CodeBodySizeUnderflow
   ImportSectionSizeUnderflow
   ExportSectionSizeUnderflow
+  TableSectionSizeUnderflow
+  MemorySectionSizeUnderflow
+  GlobalSectionSizeUnderflow
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
