@@ -72,7 +72,7 @@ This is why command-level inlining policy can match ordinary WAT function identi
     (local.get $tmp)))
 ```
 
-The lowerer builds a per-function local-id map from `type_use.param_ids` and local declarations, then resolves `local.get`, `local.set`, and `local.tee` operands to numeric local indices before constructing the core function body. Current WAST lowering does **not** create a name-section local-name subsection from `$x` or `$tmp`. The exact stack and rewrite rules for these operands live in [`variable-instruction-authoring.md`](variable-instruction-authoring.md).
+The lowerer builds a per-function local-id map from `type_use.param_ids` and local declarations, then resolves `local.get`, `local.set`, and `local.tee` operands to numeric local indices before constructing the core function body. The shared type-use rules that create those parameter ids live in [`gc-type-authoring.md`](gc-type-authoring.md). Current WAST lowering does **not** create a name-section local-name subsection from `$x` or `$tmp`. The exact stack and rewrite rules for these operands live in [`variable-instruction-authoring.md`](variable-instruction-authoring.md).
 
 That distinction matters for passes. A pass that rewrites locals must keep validation correct even if no local-name metadata exists; if it does preserve or create local names, it must update the function-scoped map when indices change. The local-name repair topic is why [`../binaryen/passes/reorder-locals/index.md`](../binaryen/passes/reorder-locals/index.md), [`variable-instruction-authoring.md`](variable-instruction-authoring.md), and the custom/name guide all call out stale local-name metadata.
 
@@ -110,7 +110,7 @@ Do not infer official text `@custom` placement support from this. The official c
 
 1. **Parse text.** [`parse_index(...)`](../../../src/wast/parser.mbt) keeps numeric and symbolic references distinct. Entity parsers store optional ids directly on WAST AST nodes.
 2. **Build definition maps.** [`wt_lower_module(...)`](../../../src/wast/lower_to_lib.mbt) pre-collects type ids, then walks imports and definitions to assign the imported-prefix index spaces used by the core module model.
-3. **Resolve references.** Instruction, type, element, data, export, start, and initializer lowering convert `Index::Id(...)` references into numeric `TypeIdx`, `FuncIdx`, `TableIdx`, `MemIdx`, `GlobalIdx`, `TagIdx`, element indices, data indices, or local indices.
+3. **Resolve references.** Instruction, type, element, data, export, start, and initializer lowering convert `Index::Id(...)` references into numeric `TypeIdx`, `FuncIdx`, `TableIdx`, `MemIdx`, `GlobalIdx`, `TagIdx`, element indices, data indices, or local indices. For function type-use ids and rec-group flat type-index caveats, use [`gc-type-authoring.md`](gc-type-authoring.md).
 4. **Emit metadata selectively.** Function ids are copied into `NameSec.func_names`; function annotations become `func_annotation_sec`; other ids remain source-level unless a specific lowering path says otherwise.
 5. **Validate after lowering.** The core validator checks numeric index spaces and structured name-section maps. The final name-section phase is documented in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md) and the binary metadata page.
 

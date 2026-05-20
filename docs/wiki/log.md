@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | WAST identifier type-use backlink
+
+- During the post-update whole-wiki health pass, searched WAST pages for remaining `type use`, `TypeIdx`, and `(type $sig)` guidance that did not route through the refreshed GC type authoring page.
+- Updated [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md) so local-id lowering from `type_use.param_ids` and broader type-id resolution point at [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md) instead of leaving type-use parameter ids as an implicit parser detail.
+
 ## [2026-05-20] wast | GC type-use and subtype authoring
 
 - Refreshed [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md) with a source-backed type-use/subtype expansion: `sub` / `final` authoring, shared `(type $sig)` and inline-signature type-use rules, flat rec-group index accounting, implicit function-type insertion, examples, and validation/signoff guidance.
