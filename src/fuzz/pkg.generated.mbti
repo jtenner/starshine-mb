@@ -392,6 +392,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedLocalSetIndexUleb
   MalformedLocalTeeIndexUleb
   MalformedGlobalIndexUleb
+  MalformedGlobalSetIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
   MalformedCallFuncIndexUleb
@@ -399,6 +400,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedRefFuncIndexUleb
   MalformedCallIndirectTypeIndexUleb
   MalformedBrLabelIndexUleb
+  MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
   MalformedTableIndexUleb
   MalformedSelectTypeCountUleb

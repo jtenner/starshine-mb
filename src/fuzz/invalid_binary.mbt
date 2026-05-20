@@ -114,6 +114,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedLocalSetIndexUleb
   MalformedLocalTeeIndexUleb
   MalformedGlobalIndexUleb
+  MalformedGlobalSetIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
   MalformedCallFuncIndexUleb
@@ -121,6 +122,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedRefFuncIndexUleb
   MalformedCallIndirectTypeIndexUleb
   MalformedBrLabelIndexUleb
+  MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
   MalformedTableIndexUleb
   MalformedSelectTypeCountUleb
@@ -562,6 +564,7 @@ fn validate_invalid_binary_strategy_label(
     MalformedLocalSetIndexUleb => "malformed-local-set-index-uleb"
     MalformedLocalTeeIndexUleb => "malformed-local-tee-index-uleb"
     MalformedGlobalIndexUleb => "malformed-global-index-uleb"
+    MalformedGlobalSetIndexUleb => "malformed-global-set-index-uleb"
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
     MalformedI64ConstSleb => "malformed-i64-const-sleb"
     MalformedCallFuncIndexUleb => "malformed-call-func-index-uleb"
@@ -570,6 +573,7 @@ fn validate_invalid_binary_strategy_label(
     MalformedCallIndirectTypeIndexUleb =>
       "malformed-call-indirect-type-index-uleb"
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
+    MalformedBrIfLabelIndexUleb => "malformed-br-if-label-index-uleb"
     MalformedBrTableTargetCountUleb => "malformed-br-table-target-count-uleb"
     MalformedTableIndexUleb => "malformed-table-index-uleb"
     MalformedSelectTypeCountUleb => "malformed-select-type-count-uleb"
@@ -1224,6 +1228,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedGlobalSetIndexUleb,
+      "malformed-global-set-index-uleb",
+      "global.set instruction with a malformed global-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedI32ConstSleb,
       "malformed-i32-const-sleb",
       "i32.const instruction with a malformed signed LEB immediate",
@@ -1269,6 +1280,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedBrLabelIndexUleb,
       "malformed-br-label-index-uleb",
       "br instruction with a malformed label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedBrIfLabelIndexUleb,
+      "malformed-br-if-label-index-uleb",
+      "br_if instruction with a malformed label-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2737,6 +2755,27 @@ fn validate_invalid_binary_mutate_malformed_global_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_global_set_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedGlobalSetIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x24).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_i32_const_sleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -2873,6 +2912,27 @@ fn validate_invalid_binary_mutate_malformed_br_label_index_uleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x0c).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_br_if_label_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedBrIfLabelIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x0d).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -6138,6 +6198,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_local_tee_index_uleb(base)
     MalformedGlobalIndexUleb =>
       validate_invalid_binary_mutate_malformed_global_index_uleb(base)
+    MalformedGlobalSetIndexUleb =>
+      validate_invalid_binary_mutate_malformed_global_set_index_uleb(base)
     MalformedI32ConstSleb =>
       validate_invalid_binary_mutate_malformed_i32_const_sleb(base)
     MalformedI64ConstSleb =>
@@ -6154,6 +6216,8 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     MalformedBrLabelIndexUleb =>
       validate_invalid_binary_mutate_malformed_br_label_index_uleb(base)
+    MalformedBrIfLabelIndexUleb =>
+      validate_invalid_binary_mutate_malformed_br_if_label_index_uleb(base)
     MalformedBrTableTargetCountUleb =>
       validate_invalid_binary_mutate_malformed_br_table_target_count_uleb(base)
     MalformedTableIndexUleb =>
