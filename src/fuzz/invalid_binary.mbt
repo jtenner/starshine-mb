@@ -114,6 +114,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedDataCountUleb
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
+  MalformedDataIndexUleb
+  MalformedElemIndexUleb
 } derive(Eq, Debug)
 
 ///|
@@ -493,6 +495,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedDataCountUleb => "malformed-datacount-uleb"
     SimdShuffleLaneOverflow => "simd-shuffle-lane-overflow"
     SimdLoadLaneIndexOverflow => "simd-load-lane-index-overflow"
+    MalformedDataIndexUleb => "malformed-data-index-uleb"
+    MalformedElemIndexUleb => "malformed-elem-index-uleb"
   }
 }
 
@@ -1085,6 +1089,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
       required_in_smoke=false,
     ),
+    validate_invalid_binary_strategy_spec(
+      MalformedDataIndexUleb,
+      "malformed-data-index-uleb",
+      "data.drop instruction with a malformed data-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedElemIndexUleb,
+      "malformed-elem-index-uleb",
+      "elem.drop instruction with a malformed element-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -1188,6 +1206,8 @@ fn validate_invalid_binary_strategy_index(
     MalformedDataCountUleb => 80
     SimdShuffleLaneOverflow => 81
     SimdLoadLaneIndexOverflow => 82
+    MalformedDataIndexUleb => 83
+    MalformedElemIndexUleb => 84
   }
 }
 
@@ -2219,6 +2239,50 @@ fn validate_invalid_binary_mutate_simd_load_lane_index_overflow(
         (0x00).to_byte(),
         (0x00).to_byte(),
         (0x10).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_data_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedDataIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x09).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_elem_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedElemIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x0d).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
       ]),
     ),
   )
@@ -3378,6 +3442,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_simd_shuffle_lane_overflow(base)
     SimdLoadLaneIndexOverflow =>
       validate_invalid_binary_mutate_simd_load_lane_index_overflow(base)
+    MalformedDataIndexUleb =>
+      validate_invalid_binary_mutate_malformed_data_index_uleb(base)
+    MalformedElemIndexUleb =>
+      validate_invalid_binary_mutate_malformed_elem_index_uleb(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

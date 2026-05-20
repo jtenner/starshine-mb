@@ -73,7 +73,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-i32-const-sleb", "malformed-i64-const-sleb", "malformed-call-func-index-uleb",
     "malformed-br-label-index-uleb", "malformed-table-index-uleb", "malformed-select-type-count-uleb",
     "malformed-start-func-index-uleb", "malformed-datacount-uleb", "simd-shuffle-lane-overflow",
-    "simd-load-lane-index-overflow",
+    "simd-load-lane-index-overflow", "malformed-data-index-uleb", "malformed-elem-index-uleb",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -92,7 +92,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -981,7 +982,7 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-i32-const-sleb", "malformed-i64-const-sleb", "malformed-call-func-index-uleb",
       "malformed-br-label-index-uleb", "malformed-table-index-uleb", "malformed-select-type-count-uleb",
       "malformed-start-func-index-uleb", "malformed-datacount-uleb", "simd-shuffle-lane-overflow",
-      "simd-load-lane-index-overflow",
+      "simd-load-lane-index-overflow", "malformed-data-index-uleb", "malformed-elem-index-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()
