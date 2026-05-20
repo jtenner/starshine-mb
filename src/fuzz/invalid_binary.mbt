@@ -178,6 +178,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   ElementSectionSizeOverflow
   DataSectionSizeOverflow
   TagSectionSizeOverflow
+  StartSectionSizeUnderflow
+  DataCountSectionSizeUnderflow
+  StartSectionSizeOverflow
+  DataCountSectionSizeOverflow
 } derive(Eq, Debug)
 
 ///|
@@ -623,6 +627,10 @@ fn validate_invalid_binary_strategy_label(
     ElementSectionSizeOverflow => "element-section-size-overflow"
     DataSectionSizeOverflow => "data-section-size-overflow"
     TagSectionSizeOverflow => "tag-section-size-overflow"
+    StartSectionSizeUnderflow => "start-section-size-underflow"
+    DataCountSectionSizeUnderflow => "datacount-section-size-underflow"
+    StartSectionSizeOverflow => "start-section-size-overflow"
+    DataCountSectionSizeOverflow => "datacount-section-size-overflow"
   }
 }
 
@@ -1660,6 +1668,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       TagSectionSizeOverflow,
       "tag-section-size-overflow",
       "tag section whose declared payload size extends past the available tag bytes",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      StartSectionSizeUnderflow,
+      "start-section-size-underflow",
+      "start section whose declared payload size ends before its function index",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DataCountSectionSizeUnderflow,
+      "datacount-section-size-underflow",
+      "datacount section whose declared payload size ends before its count",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      StartSectionSizeOverflow,
+      "start-section-size-overflow",
+      "start section whose declared payload size extends past the available function-index bytes",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DataCountSectionSizeOverflow,
+      "datacount-section-size-overflow",
+      "datacount section whose declared payload size extends past the available count bytes",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4759,6 +4795,128 @@ fn validate_invalid_binary_mutate_tag_section_size_overflow(
 }
 
 ///|
+fn validate_invalid_binary_module_with_start_section_size_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x08).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_datacount_section_size_underflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0c).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_start_section_size_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x08).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_datacount_section_size_overflow() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0c).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_start_section_size_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      StartSectionSizeUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_start_section_size_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_datacount_section_size_underflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      DataCountSectionSizeUnderflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_datacount_section_size_underflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_start_section_size_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      StartSectionSizeOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_start_section_size_overflow(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_datacount_section_size_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      DataCountSectionSizeOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_datacount_section_size_overflow(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -6110,6 +6268,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_data_section_size_overflow(base)
     TagSectionSizeOverflow =>
       validate_invalid_binary_mutate_tag_section_size_overflow(base)
+    StartSectionSizeUnderflow =>
+      validate_invalid_binary_mutate_start_section_size_underflow(base)
+    DataCountSectionSizeUnderflow =>
+      validate_invalid_binary_mutate_datacount_section_size_underflow(base)
+    StartSectionSizeOverflow =>
+      validate_invalid_binary_mutate_start_section_size_overflow(base)
+    DataCountSectionSizeOverflow =>
+      validate_invalid_binary_mutate_datacount_section_size_overflow(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
