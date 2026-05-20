@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-20
 sources:
   - ../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
@@ -16,6 +16,8 @@ sources:
   - ../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../../../../src/passes/registry_test.mbt
   - ./late-pipeline-dispatch.md
+  - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
+  - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
   - ../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
@@ -458,7 +460,7 @@ related:
 
 ## Tail Dispatch Notes
 
-- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that Debian/docs.rs/README package surfaces are all incomplete in different ways, that official GitHub release pages through `version_129` plus the Chromium refs listing still anchor the current public release horizon, that the current `main` changelog on both Chromium and official GitHub still lacks a newer documented optimization-pass addition, and that the living ordered-audit summary now records the full retirement of the generated-artifact hard-corruption set instead of an open late-pass blocker cluster.
+- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording the accepted public `optimize` / `shrink` late-tail suffix from the 2026-05-19 neighborhood baseline, the separate broader-widening follow-up, the Debian/docs.rs/README surface-lag caveats, the official GitHub/Chromium release-horizon baseline through `version_129`, and the fully retired generated-artifact hard-corruption set.
 
 ## Current Maintenance Rule
 
