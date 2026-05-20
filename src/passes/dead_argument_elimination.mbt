@@ -8820,6 +8820,17 @@ fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit 
 }
 
 ///|
+fn dae_strip_or_drop_condition(
+  out : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Unit {
+  match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
+    Some(start) => dae_truncate_instrs(out, start)
+    None => out.push(@lib.Instruction::drop())
+  }
+}
+
+///|
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
@@ -8912,20 +8923,29 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
             ),
           ),
         )
-      @lib.If(block_type, then_body, else_body) =>
-        out.push(
-          @lib.Instruction::if_(
-            block_type,
-            dae_strip_nops_and_dropped_pure_leaf_instrs(then_body, type_sec),
-            match else_body {
-              Some(body) =>
-                Some(
-                  dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec),
-                )
-              None => None
-            },
-          ),
+      @lib.If(block_type, then_body, else_body) => {
+        let rewritten_then = dae_strip_nops_and_dropped_pure_leaf_instrs(
+          then_body, type_sec,
         )
+        let rewritten_else = match else_body {
+          Some(body) =>
+            Some(dae_strip_nops_and_dropped_pure_leaf_instrs(body, type_sec))
+          None => None
+        }
+        let else_empty = match rewritten_else {
+          Some(body) => body.length() == 0
+          None => true
+        }
+        if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
+          rewritten_then.length() == 0 &&
+          else_empty {
+          dae_strip_or_drop_condition(out, type_sec)
+        } else {
+          out.push(
+            @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+          )
+        }
+      }
       _ => out.push(instrs[idx])
     }
     idx += 1
