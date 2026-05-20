@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] tooling | MoonBit workspace and package map
+
+- Added [`raw/moonbit/2026-05-20-workspace-package-surface.md`](raw/moonbit/2026-05-20-workspace-package-surface.md) after checking current official MoonBit module/package/proof documentation plus Starshine [`../../moon.mod.json`](../../moon.mod.json), `src/*/moon.pkg`, `src/*/pkg.generated.mbti`, validation-gate, Node-package, and proof-policy evidence.
+- Added [`tooling/moonbit-workspace-package-map.md`](tooling/moonbit-workspace-package-map.md) as the focused guide for module metadata, package imports and aliases, `options("is-main")`, proof-enabled packages, generated-interface review, package-family roles, and the maintenance checklist for adding or reshaping MoonBit packages.
+- Updated [`tooling/validation-gates.md`](tooling/validation-gates.md) and [`index.md`](index.md) so `moon info`, `.mbti` review, package topology, and proof/package boundaries route through one shared workspace/package map instead of remaining scattered across AGENTS, validation, Node-package, and proof pages.
+
 ## [2026-05-20] validate | fuzz-hardening reader map and plan supersession
 
 - Refreshed [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so beginner and advanced readers now start from a concise runner/generator/invalid-strategy/spec-seed/compare-pass map before the dense durable-conclusions ledger.
