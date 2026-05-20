@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
@@ -10,6 +10,7 @@ sources:
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
+  - ../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/binary/encode.mbt
@@ -117,7 +118,7 @@ The current local code already has the key representational split a future port 
 - `src/validate/typecheck.mbt:1538-1577` validates static `MemArg.offset` separately from stack operand typing.
 - `src/validate/typecheck.mbt:2408-2426` derives `memory.size` / `memory.grow` operand and result types from memory limits.
 - `src/validate/typecheck.mbt:2468-2488` already models `memory.copy` positions independently.
-- `src/validate/typecheck.mbt:587-635` still hard-codes `table.get`, `table.set`, `table.size`, and `table.grow` to `i32`, so table64 validation cleanup remains a prerequisite.
+- `src/validate/typecheck.mbt` still hard-codes `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` table index/result positions to `i32`; `table.fill` is only destination-width-aware and still types length as `i32`. The targeted table64 correction is [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md), so table64 validation cleanup remains a prerequisite.
 - `src/binary/encode.mbt:1208-1284` encodes the existing limit forms; a lowering pass must rewrite declarations before encoding.
 
 ## Minimum reduced tests for this corrected slice
@@ -130,7 +131,7 @@ A future Starshine port should add at least these tests before calling the out-o
 4. active data offset expression lowers to a 32-bit expression without assuming the static-memarg trap rule;
 5. dynamic `memory.grow` delta wraps and the result gets failure-sentinel repair;
 6. `memory.size` remains the simpler unsigned result-extension case;
-7. the same distinctions are repeated for table64 once table operation typechecking is coherent.
+7. the same distinctions are repeated for table64 once table operation typechecking is coherent, including the `table.fill` length rule.
 
 ## Sources
 
@@ -141,6 +142,7 @@ A future Starshine port should add at least these tests before calling the out-o
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
+- [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/memory64-lowering.wast>
 - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/table64-lowering.wast>

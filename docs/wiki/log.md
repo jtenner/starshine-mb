@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | memory64/table64 catalog caveat alignment
+
+- During the post-update whole-wiki health pass, searched table64, `table.fill`, table typechecker, and `memory64-lowering` catalog references for summaries that still mentioned only get/set/size/grow cleanup or only the memory64 `memory.fill` length caveat.
+- Updated [`binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md`](binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), and [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md) so the catalog and focused mechanics page include the 2026-05-20 table64 `table.fill` length correction and route readers to the new raw source refresh.
+
 ## [2026-05-20] validation | table64 table.fill width correction
 
 - Added [`raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md) after rechecking the current WebAssembly 3.0 table-instruction validation, text, and binary sources plus Starshine `Limits`, table typechecker, table-section validator, WAST parser, and lowerer evidence.
