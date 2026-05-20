@@ -897,6 +897,38 @@ fn sgo_flow_arm_result_taint_and_reads(
         sgo_flow_push_clean(stack)
         continue
       }
+      @lib.LocalTee(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return (false, reads, false)
+        }
+      @lib.I32Load(_) =>
+        match sgo_flow_pop(stack) {
+          Some(false) => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return (false, reads, false)
+        }
+      @lib.Drop =>
+        match sgo_flow_pop(stack) {
+          Some(false) => continue
+          _ => return (false, reads, false)
+        }
+      @lib.Block(_, @lib.Expr(body)) => {
+        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
+          body, idx,
+        )
+        reads = reads + block_reads
+        if !block_ok || reads > 1 {
+          return (false, reads, false)
+        }
+        stack.push(block_tainted)
+        continue
+      }
       @lib.Call(_) => {
         if sgo_flow_stack_has_taint(stack) {
           return (false, reads, false)
