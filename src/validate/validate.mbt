@@ -7047,6 +7047,325 @@ test "gen_valid coverage-forced emits rich GC field plans" {
 }
 
 ///|
+priv struct ValidateTestExceptionMatrixFacts {
+  imported_tags : Int
+  defined_tags : Int
+  param_tag_types : Int
+  catch_tags : Int
+  catch_ref_tags : Int
+  catch_all : Int
+  catch_all_ref : Int
+  catch_label_depth_gt0 : Int
+  max_catches : Int
+  try_tables : Int
+  nested_try_tables : Int
+  numeric_result_try_tables : Int
+  ref_result_try_tables : Int
+  throws : Int
+  throw_refs : Int
+  block_sourced_throw_refs : Int
+  local_sourced_throw_refs : Int
+}
+
+///|
+fn validate_test_exception_matrix_empty() -> ValidateTestExceptionMatrixFacts {
+  {
+    imported_tags: 0,
+    defined_tags: 0,
+    param_tag_types: 0,
+    catch_tags: 0,
+    catch_ref_tags: 0,
+    catch_all: 0,
+    catch_all_ref: 0,
+    catch_label_depth_gt0: 0,
+    max_catches: 0,
+    try_tables: 0,
+    nested_try_tables: 0,
+    numeric_result_try_tables: 0,
+    ref_result_try_tables: 0,
+    throws: 0,
+    throw_refs: 0,
+    block_sourced_throw_refs: 0,
+    local_sourced_throw_refs: 0,
+  }
+}
+
+///|
+fn validate_test_exception_matrix_merge(
+  a : ValidateTestExceptionMatrixFacts,
+  b : ValidateTestExceptionMatrixFacts,
+) -> ValidateTestExceptionMatrixFacts {
+  {
+    imported_tags: a.imported_tags + b.imported_tags,
+    defined_tags: a.defined_tags + b.defined_tags,
+    param_tag_types: a.param_tag_types + b.param_tag_types,
+    catch_tags: a.catch_tags + b.catch_tags,
+    catch_ref_tags: a.catch_ref_tags + b.catch_ref_tags,
+    catch_all: a.catch_all + b.catch_all,
+    catch_all_ref: a.catch_all_ref + b.catch_all_ref,
+    catch_label_depth_gt0: a.catch_label_depth_gt0 + b.catch_label_depth_gt0,
+    max_catches: if a.max_catches > b.max_catches {
+      a.max_catches
+    } else {
+      b.max_catches
+    },
+    try_tables: a.try_tables + b.try_tables,
+    nested_try_tables: a.nested_try_tables + b.nested_try_tables,
+    numeric_result_try_tables: a.numeric_result_try_tables +
+    b.numeric_result_try_tables,
+    ref_result_try_tables: a.ref_result_try_tables + b.ref_result_try_tables,
+    throws: a.throws + b.throws,
+    throw_refs: a.throw_refs + b.throw_refs,
+    block_sourced_throw_refs: a.block_sourced_throw_refs +
+    b.block_sourced_throw_refs,
+    local_sourced_throw_refs: a.local_sourced_throw_refs +
+    b.local_sourced_throw_refs,
+  }
+}
+
+///|
+fn validate_test_exception_matrix_facts_expr(
+  expr : Expr,
+  inside_try? : Bool = false,
+) -> ValidateTestExceptionMatrixFacts {
+  let Expr(instrs) = expr
+  let mut facts = validate_test_exception_matrix_empty()
+  let mut previous_was_exn_block = false
+  let mut previous_was_exn_local_get = false
+  for instr in instrs {
+    match instr {
+      TryTable(bt, catches, body) => {
+        let mut catch_tags = 0
+        let mut catch_ref_tags = 0
+        let mut catch_all = 0
+        let mut catch_all_ref = 0
+        let mut deep_labels = 0
+        for catch_ in catches {
+          match catch_ {
+            Catch(_, LabelIdx(depth)) => {
+              catch_tags += 1
+              if depth > 0U {
+                deep_labels += 1
+              }
+            }
+            CatchRef(_, LabelIdx(depth)) => {
+              catch_ref_tags += 1
+              if depth > 0U {
+                deep_labels += 1
+              }
+            }
+            CatchAll(LabelIdx(depth)) => {
+              catch_all += 1
+              if depth > 0U {
+                deep_labels += 1
+              }
+            }
+            CatchAllRef(LabelIdx(depth)) => {
+              catch_all_ref += 1
+              if depth > 0U {
+                deep_labels += 1
+              }
+            }
+          }
+        }
+        let (numeric_result, ref_result) = match bt {
+          ValTypeBlockType(vt) =>
+            (
+              vt == ValType::i32(),
+              match vt {
+                RefTypeValType(_) => true
+                _ => false
+              },
+            )
+          TypeIdxBlockType(_) => (true, false)
+          _ => (false, false)
+        }
+        facts = validate_test_exception_matrix_merge(facts, {
+          ..validate_test_exception_matrix_empty(),
+          catch_tags,
+          catch_ref_tags,
+          catch_all,
+          catch_all_ref,
+          catch_label_depth_gt0: deep_labels,
+          max_catches: catches.length(),
+          try_tables: 1,
+          nested_try_tables: if inside_try {
+            1
+          } else {
+            0
+          },
+          numeric_result_try_tables: if numeric_result {
+            1
+          } else {
+            0
+          },
+          ref_result_try_tables: if ref_result {
+            1
+          } else {
+            0
+          },
+        })
+        facts = validate_test_exception_matrix_merge(
+          facts,
+          validate_test_exception_matrix_facts_expr(body, inside_try=true),
+        )
+        previous_was_exn_block = false
+        previous_was_exn_local_get = false
+      }
+      Block(bt, body) | Loop(bt, body) => {
+        facts = validate_test_exception_matrix_merge(
+          facts,
+          validate_test_exception_matrix_facts_expr(body, inside_try~),
+        )
+        previous_was_exn_block = bt ==
+          BlockType::val_type(ValType::ref_null_exn())
+        previous_was_exn_local_get = false
+      }
+      If(_, then_body, else_body) => {
+        facts = validate_test_exception_matrix_merge(
+          facts,
+          validate_test_exception_matrix_facts_expr(
+            Expr::new(then_body),
+            inside_try~,
+          ),
+        )
+        match else_body {
+          Some(branch) =>
+            facts = validate_test_exception_matrix_merge(
+              facts,
+              validate_test_exception_matrix_facts_expr(
+                Expr::new(branch),
+                inside_try~,
+              ),
+            )
+          None => ()
+        }
+        previous_was_exn_block = false
+        previous_was_exn_local_get = false
+      }
+      Throw(_) => {
+        facts = validate_test_exception_matrix_merge(facts, {
+          ..validate_test_exception_matrix_empty(),
+          throws: 1,
+        })
+        previous_was_exn_block = false
+        previous_was_exn_local_get = false
+      }
+      ThrowRef => {
+        facts = validate_test_exception_matrix_merge(facts, {
+          ..validate_test_exception_matrix_empty(),
+          throw_refs: 1,
+          block_sourced_throw_refs: if previous_was_exn_block {
+            1
+          } else {
+            0
+          },
+          local_sourced_throw_refs: if previous_was_exn_local_get {
+            1
+          } else {
+            0
+          },
+        })
+        previous_was_exn_block = false
+        previous_was_exn_local_get = false
+      }
+      LocalGet(_) => {
+        previous_was_exn_block = false
+        previous_was_exn_local_get = true
+      }
+      _ => {
+        previous_was_exn_block = false
+        previous_was_exn_local_get = false
+      }
+    }
+  }
+  facts
+}
+
+///|
+fn validate_test_exception_matrix_subtype_at(
+  types : Array[RecType],
+  idx : Int,
+) -> SubType? {
+  let mut cursor = 0
+  for rec_type in types {
+    match rec_type {
+      SingleRecType(subtype) => {
+        if cursor == idx {
+          return Some(subtype)
+        }
+        cursor += 1
+      }
+      GroupRecType(group) =>
+        for subtype in group {
+          if cursor == idx {
+            return Some(subtype)
+          }
+          cursor += 1
+        }
+    }
+  }
+  None
+}
+
+///|
+fn validate_test_exception_matrix_facts_module(
+  mod : Module,
+) -> ValidateTestExceptionMatrixFacts {
+  let mut facts = validate_test_exception_matrix_empty()
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        let Import(_, _, extern_type) = import_
+        match extern_type {
+          TagExternType(_) =>
+            facts = { ..facts, imported_tags: facts.imported_tags + 1 }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let mut tag_types : Array[TagType] = []
+  match mod.tag_sec {
+    Some(TagSec(tags)) => {
+      facts = { ..facts, defined_tags: tags.length() }
+      tag_types = tags.copy()
+    }
+    None => ()
+  }
+  match mod.type_sec {
+    Some(TypeSec(types)) =>
+      for tag_type in tag_types {
+        let TagType(type_idx) = tag_type
+        let idx = match type_idx {
+          TypeIdx(u) | RecIdx(u) => u.reinterpret_as_int()
+        }
+        match validate_test_exception_matrix_subtype_at(types, idx) {
+          Some(SubType(_, _, _, FuncCompType(params, _)))
+          | Some(CompTypeSubType(_, FuncCompType(params, _))) =>
+            if !params.is_empty() {
+              facts = { ..facts, param_tag_types: facts.param_tag_types + 1 }
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        facts = validate_test_exception_matrix_merge(
+          facts,
+          validate_test_exception_matrix_facts_expr(body),
+        )
+      }
+    None => ()
+  }
+  facts
+}
+
+///|
 test "gen_valid coverage-forced emits exception try_table matrix surface" {
   let config = GenValidConfig::coverage_forced_default()
   let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26013UL), config)
@@ -7067,6 +7386,24 @@ test "gen_valid coverage-forced emits exception try_table matrix surface" {
     ]),
     [],
   )
+  let matrix = validate_test_exception_matrix_facts_module(mod)
+  assert_true(matrix.imported_tags >= 1)
+  assert_true(matrix.defined_tags >= 2)
+  assert_true(matrix.param_tag_types >= 1)
+  assert_true(matrix.catch_tags >= 2)
+  assert_true(matrix.catch_ref_tags >= 1)
+  assert_true(matrix.catch_all >= 1)
+  assert_true(matrix.catch_all_ref >= 1)
+  assert_true(matrix.catch_label_depth_gt0 >= 1)
+  assert_true(matrix.max_catches >= 3)
+  assert_true(matrix.try_tables >= 5)
+  assert_true(matrix.nested_try_tables >= 1)
+  assert_true(matrix.numeric_result_try_tables >= 1)
+  assert_true(matrix.ref_result_try_tables >= 1)
+  assert_true(matrix.throws >= 3)
+  assert_true(matrix.throw_refs >= 3)
+  assert_true(matrix.block_sourced_throw_refs >= 1)
+  assert_true(matrix.local_sourced_throw_refs >= 1)
 }
 
 ///|

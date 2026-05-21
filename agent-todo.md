@@ -608,16 +608,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
-- [FUZ]1008 - GenValid Exception, Tag, Throw, ThrowRef, And TryTable Widening
-  - Goal: generate a broader matrix of exception/tag and `try_table` shapes.
-  - Why: current exception coverage proves mixed catch lists exist, but not enough tag payload, result type, nesting, and label-depth variation is exercised.
-  - Deliverables: generate multiple imported/defined tags, tags with params, throws with nontrivial operands, `throw_ref` from catch-ref/local/block sources, void/numeric/ref result `try_table`, nested `try_table`, mixed catch/catch_all and catch_ref/catch_all_ref lists, multiple catch tags, and varied catch label depths.
-  - Required APIs: `TagType`, `Catch`, `TryTable`, `Throw`, `ThrowRef`, typed body generator and label stack.
-  - Invariants: generated catch targets must have valid payload arities; nullable `throw_ref` traps are runtime behavior, not validation failures; invalid nullability belongs in invalid lanes.
-  - Dependencies: [FUZ]1002 and [FUZ]1005.
-  - Suggested Tests: focused validation for each catch topology, feature facts for exact catch-list combinations, WAST mirror tests where parser support exists.
-  - Exit Criteria: exception-heavy profiles produce more than the single deterministic matrix currently used by coverage-forced generation.
-
 - [FUZ]1010 - GenValid SIMD Exact Opcode And Relaxed-SIMD Widening
   - Goal: extend SIMD generation from phase-level coverage to exact opcode and relaxed-SIMD coverage.
   - Why: the AST appears to represent relaxed SIMD, but current GenValid docs note relaxed SIMD is not emitted. Phase counters are too coarse to detect missing individual SIMD op families.

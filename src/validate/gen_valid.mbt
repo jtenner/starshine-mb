@@ -5617,6 +5617,17 @@ fn gen_valid_try_table_has_exception_matrix(catches : Array[Catch]) -> Bool {
 }
 
 ///|
+fn gen_valid_first_payload_tag(tags : Array[TagType]) -> TagIdx? {
+  for i = 0; i < tags.length(); i = i + 1 {
+    let TagType(candidate) = tags[i]
+    if candidate != TypeIdx::new(0U) {
+      return Some(TagIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  None
+}
+
+///|
 fn gen_valid_append_exception_try_table_matrix_ops(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -5626,8 +5637,16 @@ fn gen_valid_append_exception_try_table_matrix_ops(
     return
   }
   let tag_idx = TagIdx::new(0U)
+  let payload_tag_idx = match gen_valid_first_payload_tag(env.tags) {
+    Some(idx) => idx
+    None => tag_idx
+  }
   let exnref = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let exn_local = gen_matching_local_idx(
+    env.local_types,
+    ValType::ref_null_exn(),
   )
   out.push(
     Instruction::block(
@@ -5670,6 +5689,103 @@ fn gen_valid_append_exception_try_table_matrix_ops(
     ),
   )
   out.push(Instruction::drop())
+  if payload_tag_idx != tag_idx {
+    out.push(
+      Instruction::block(
+        BlockType::val_type(ValType::i32()),
+        Expr::new([
+          Instruction::try_table(
+            BlockType::void_(),
+            [Catch::new(payload_tag_idx, LabelIdx::new(0U))],
+            Expr::new([
+              Instruction::i32_const(I32(42)),
+              Instruction::throw_(payload_tag_idx),
+            ]),
+          ),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+    out.push(
+      Instruction::block(
+        BlockType::val_type(ValType::i32()),
+        Expr::new([
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::try_table(
+                BlockType::void_(),
+                [
+                  Catch::new(tag_idx, LabelIdx::new(0U)),
+                  Catch::all(LabelIdx::new(0U)),
+                  Catch::new(payload_tag_idx, LabelIdx::new(1U)),
+                ],
+                Expr::new([
+                  Instruction::i32_const(I32(77)),
+                  Instruction::throw_(payload_tag_idx),
+                ]),
+              ),
+            ]),
+          ),
+          Instruction::i32_const(I32(0)),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+  }
+  out.push(
+    Instruction::try_table(
+      BlockType::val_type(ValType::i32()),
+      [],
+      Expr::new([Instruction::i32_const(I32(5))]),
+    ),
+  )
+  out.push(Instruction::drop())
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::try_table(
+          BlockType::void_(),
+          [Catch::all(LabelIdx::new(0U))],
+          Expr::new([
+            Instruction::try_table(
+              BlockType::void_(),
+              [Catch::new(tag_idx, LabelIdx::new(0U))],
+              Expr::new([Instruction::throw_(tag_idx)]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::block(
+          BlockType::val_type(ValType::ref_null_exn()),
+          Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::exn()))]),
+        ),
+        Instruction::throw_ref(),
+      ]),
+    ),
+  )
+  match exn_local {
+    Some(local_idx) =>
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+            Instruction::local_set(local_idx),
+            Instruction::local_get(local_idx),
+            Instruction::throw_ref(),
+          ]),
+        ),
+      )
+    None => ()
+  }
 }
 
 ///|
@@ -6548,6 +6664,15 @@ fn gen_valid_build_func(
         None => ()
       }
     }
+    if ctx.config.features.allow_ref_types &&
+      !tags.is_empty() &&
+      gen_matching_local_idx(
+        gen_all_local_types(accepts, locals),
+        ValType::ref_null_exn(),
+      )
+      is None {
+      locals.push(ValType::ref_null_exn())
+    }
   }
   if ctx.config.mode == Natural {
     for vt in returns {
@@ -6908,6 +7033,23 @@ fn gen_valid_table_init_expr(
 }
 
 ///|
+fn gen_valid_rec_type_flat_count(rec_type : RecType) -> Int {
+  match rec_type {
+    SingleRecType(_) => 1
+    GroupRecType(group) => group.length()
+  }
+}
+
+///|
+fn gen_valid_rec_types_flat_count(rec_types : Array[RecType]) -> Int {
+  let mut count = 0
+  for rec_type in rec_types {
+    count += gen_valid_rec_type_flat_count(rec_type)
+  }
+  count
+}
+
+///|
 fn gen_valid_pick_type_idx(ctx : GenValidContext, type_count : Int) -> TypeIdx {
   TypeIdx::new(ctx.random_int(type_count).reinterpret_as_uint())
 }
@@ -7149,6 +7291,17 @@ fn gen_valid_module_once_with_config(
     ctx, func_type_count, remaining_type_budget,
   )
 
+  let payload_tag_type_idx = if ctx.config.mode == CoverageForced &&
+    config.features.allow_tags &&
+    total_tag_count > 1 {
+    Some(
+      TypeIdx::new(
+        (func_type_count + gen_valid_rec_types_flat_count(gc_type_defs)).reinterpret_as_uint(),
+      ),
+    )
+  } else {
+    None
+  }
   let type_defs : Array[RecType] = []
   let type_params : Array[Array[ValType]] = []
   let type_results : Array[Array[ValType]] = []
@@ -7192,6 +7345,16 @@ fn gen_valid_module_once_with_config(
   }
   for rec_type in gc_type_defs {
     type_defs.push(rec_type)
+  }
+  match payload_tag_type_idx {
+    Some(_) => {
+      type_defs.push(
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      )
+      type_params.push([ValType::i32()])
+      type_results.push([])
+    }
+    None => ()
   }
 
   let imports : Array[Import] = []
@@ -7279,7 +7442,15 @@ fn gen_valid_module_once_with_config(
       ),
     )
   }
+  let imported_tag_types : Array[TagType] = []
   for i = 0; i < import_tag_count; i = i + 1 {
+    let tag_type = TagType::new(
+      match payload_tag_type_idx {
+        Some(payload_idx) if i == 1 => payload_idx
+        _ => TypeIdx::new(0U)
+      },
+    )
+    imported_tag_types.push(tag_type)
     imports.push(
       Import::new(
         gen_valid_import_module_name(
@@ -7291,7 +7462,7 @@ fn gen_valid_module_once_with_config(
           i,
         ),
         Name::new("imported_tag_\{i}"),
-        ExternType::tag(TagType::new(TypeIdx::new(0U))),
+        ExternType::tag(tag_type),
       ),
     )
   }
@@ -7445,8 +7616,19 @@ fn gen_valid_module_once_with_config(
     None
   }
   let tags : Array[TagType] = []
-  for _ in 0..<defined_tag_count {
-    tags.push(TagType::new(TypeIdx::new(0U)))
+  for i = 0; i < defined_tag_count; i = i + 1 {
+    tags.push(
+      TagType::new(
+        match payload_tag_type_idx {
+          Some(payload_idx) if i == 1 => payload_idx
+          _ => TypeIdx::new(0U)
+        },
+      ),
+    )
+  }
+  let all_tags = imported_tag_types.copy()
+  for tag in tags {
+    all_tags.push(tag)
   }
 
   let elems : Array[Elem] = []
@@ -7737,7 +7919,7 @@ fn gen_valid_module_once_with_config(
         global_types,
         table_types,
         mems,
-        tags,
+        all_tags,
         func_sigs,
         data_idxs,
         elem_idxs,
