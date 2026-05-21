@@ -6487,6 +6487,59 @@ fn gen_valid_append_memory_table_global_template_ops(
 }
 
 ///|
+fn gen_valid_append_simd_template_group(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !ctx.config.features.allow_v128 {
+    return
+  }
+  let has_memory_phase = !env.mems.is_empty()
+  let order_key = match env.current_func_idx {
+    Some(func_idx) => gen_valid_func_idx_to_int(func_idx)
+    None => env.local_types.length() + env.tables.length() + env.mems.length()
+  }
+  let order_mod = if has_memory_phase { 6 } else { 2 }
+  match order_key % order_mod {
+    0 => {
+      gen_valid_append_simd_phase1_ops(out)
+      gen_valid_append_simd_phase2_ops(out)
+      if has_memory_phase {
+        gen_valid_append_simd_phase3_ops(out)
+      }
+    }
+    1 => {
+      gen_valid_append_simd_phase2_ops(out)
+      gen_valid_append_simd_phase1_ops(out)
+      if has_memory_phase {
+        gen_valid_append_simd_phase3_ops(out)
+      }
+    }
+    2 => {
+      gen_valid_append_simd_phase1_ops(out)
+      gen_valid_append_simd_phase3_ops(out)
+      gen_valid_append_simd_phase2_ops(out)
+    }
+    3 => {
+      gen_valid_append_simd_phase2_ops(out)
+      gen_valid_append_simd_phase3_ops(out)
+      gen_valid_append_simd_phase1_ops(out)
+    }
+    4 => {
+      gen_valid_append_simd_phase3_ops(out)
+      gen_valid_append_simd_phase1_ops(out)
+      gen_valid_append_simd_phase2_ops(out)
+    }
+    _ => {
+      gen_valid_append_simd_phase3_ops(out)
+      gen_valid_append_simd_phase2_ops(out)
+      gen_valid_append_simd_phase1_ops(out)
+    }
+  }
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -6505,13 +6558,7 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_call_ref_source_variants(out, ctx, env)
   gen_valid_append_nested_tail_call_variants(out, ctx, env, returns)
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
-  if ctx.config.features.allow_v128 {
-    gen_valid_append_simd_phase1_ops(out)
-    gen_valid_append_simd_phase2_ops(out)
-    if !env.mems.is_empty() {
-      gen_valid_append_simd_phase3_ops(out)
-    }
-  }
+  gen_valid_append_simd_template_group(out, ctx, env)
   if ctx.config.features.allow_atomics {
     match gen_valid_atomic_shared_mem_idx(env) {
       Some(mem_idx) => gen_valid_append_atomic_ops(out, mem_idx)
@@ -9462,10 +9509,14 @@ fn gen_valid_instr_template_signature_label(instr : Instruction) -> String {
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
     return "numeric"
   }
-  if gen_valid_instr_is_simd_phase1(instr) ||
-    gen_valid_instr_is_simd_phase2(instr) ||
-    gen_valid_instr_is_simd_phase3(instr) {
-    return "simd"
+  if gen_valid_instr_is_simd_phase1(instr) {
+    return "simd1"
+  }
+  if gen_valid_instr_is_simd_phase2(instr) {
+    return "simd2"
+  }
+  if gen_valid_instr_is_simd_phase3(instr) {
+    return "simd3"
   }
   if gen_valid_instr_is_atomic(instr) {
     return "atomic"

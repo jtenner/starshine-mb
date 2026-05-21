@@ -100,6 +100,46 @@ test "coverage-forced prelude varies memory and table template order by seed" {
 }
 
 ///|
+test "coverage-forced prelude varies SIMD template phase order by seed" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mut saw_simd1_before_simd2 = false
+  let mut saw_simd2_before_simd1 = false
+  for offset in 0..<24 {
+    let generated = match
+      gen_valid_module_result(
+        @splitmix.new(seed=0xf1a0UL + offset.to_uint64()),
+        config,
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected randomized SIMD coverage-forced generated module to validate, got \{validation_error_message(err)}",
+        )
+    }
+    let sig = gen_valid_coverage_template_signature(generated.wasm_module)
+    if sig.contains("simd1|simd2") {
+      saw_simd1_before_simd2 = true
+    }
+    if sig.contains("simd2|simd1") {
+      saw_simd2_before_simd1 = true
+    }
+    assert_true(generated.facts.uses_v128)
+  }
+  assert_true(
+    saw_simd1_before_simd2,
+    msg="coverage-forced SIMD prelude should retain phase1-before-phase2 ordering for some seeds",
+  )
+  assert_true(
+    saw_simd2_before_simd1,
+    msg="coverage-forced SIMD prelude should also emit phase2-before-phase1 ordering for some seeds",
+  )
+}
+
+///|
 test "gen_valid named profiles expose stable labels and compatibility aliases" {
   @debug.assert_eq(
     gen_valid_profile_name(CoverageForcedAllFeaturesProfile),
