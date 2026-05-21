@@ -96,6 +96,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBlocktypeImmediate
   MalformedMemoryMinUleb
   MalformedTableMinUleb
+  MalformedMemoryMaxUleb
+  MalformedTableMaxUleb
   InvalidExportNameUtf8
   InvalidImportModuleNameUtf8
   InvalidImportFieldNameUtf8
@@ -104,6 +106,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedImportTagTypeIndexUleb
   MalformedImportMemoryMinUleb
   MalformedImportTableMinUleb
+  MalformedImportMemoryMaxUleb
+  MalformedImportTableMaxUleb
   InvalidImportTableRefTypeByte
   InvalidImportMemoryLimitsFlagByte
   InvalidImportGlobalValTypeByte
@@ -591,6 +595,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
     MalformedMemoryMinUleb => "malformed-memory-min-uleb"
     MalformedTableMinUleb => "malformed-table-min-uleb"
+    MalformedMemoryMaxUleb => "malformed-memory-max-uleb"
+    MalformedTableMaxUleb => "malformed-table-max-uleb"
     InvalidExportNameUtf8 => "invalid-export-name-utf8"
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
     InvalidImportFieldNameUtf8 => "invalid-import-field-name-utf8"
@@ -599,6 +605,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedImportTagTypeIndexUleb => "malformed-import-tag-type-index-uleb"
     MalformedImportMemoryMinUleb => "malformed-import-memory-min-uleb"
     MalformedImportTableMinUleb => "malformed-import-table-min-uleb"
+    MalformedImportMemoryMaxUleb => "malformed-import-memory-max-uleb"
+    MalformedImportTableMaxUleb => "malformed-import-table-max-uleb"
     InvalidImportTableRefTypeByte => "invalid-import-table-reftype-byte"
     InvalidImportMemoryLimitsFlagByte =>
       "invalid-import-memory-limits-flag-byte"
@@ -1201,6 +1209,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedMemoryMaxUleb,
+      "malformed-memory-max-uleb",
+      "memory section limits with a malformed maximum-size ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableMaxUleb,
+      "malformed-table-max-uleb",
+      "table section limits with a malformed maximum-size ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       InvalidExportNameUtf8,
       "invalid-export-name-utf8",
       "export section with an invalid UTF-8 export name",
@@ -1253,6 +1275,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedImportTableMinUleb,
       "malformed-import-table-min-uleb",
       "table import descriptor limits with a malformed minimum-size ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedImportMemoryMaxUleb,
+      "malformed-import-memory-max-uleb",
+      "memory import descriptor limits with a malformed maximum-size ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedImportTableMaxUleb,
+      "malformed-import-table-max-uleb",
+      "table import descriptor limits with a malformed maximum-size ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3254,6 +3290,73 @@ fn validate_invalid_binary_mutate_malformed_table_min_uleb(
         (0x08).to_byte(),
         (0x01).to_byte(),
         (0x70).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_memory_max_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedMemoryMaxUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x05).to_byte(),
+        (0x08).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_table_max_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTableMaxUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x04).to_byte(),
+        (0x09).to_byte(),
+        (0x01).to_byte(),
+        (0x70).to_byte(),
+        (0x01).to_byte(),
         (0x00).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -6295,6 +6398,83 @@ fn validate_invalid_binary_mutate_malformed_import_table_min_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_import_memory_max_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedImportMemoryMaxUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x0d).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x78).to_byte(),
+        (0x02).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_import_table_max_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedImportTableMaxUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x0e).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x74).to_byte(),
+        (0x01).to_byte(),
+        (0x70).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_import_memory_limits_flag_byte(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -7615,6 +7795,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_memory_min_uleb(base)
     MalformedTableMinUleb =>
       validate_invalid_binary_mutate_malformed_table_min_uleb(base)
+    MalformedMemoryMaxUleb =>
+      validate_invalid_binary_mutate_malformed_memory_max_uleb(base)
+    MalformedTableMaxUleb =>
+      validate_invalid_binary_mutate_malformed_table_max_uleb(base)
     InvalidExportNameUtf8 =>
       validate_invalid_binary_mutate_invalid_export_name_utf8(base)
     InvalidImportModuleNameUtf8 =>
@@ -7631,6 +7815,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_import_memory_min_uleb(base)
     MalformedImportTableMinUleb =>
       validate_invalid_binary_mutate_malformed_import_table_min_uleb(base)
+    MalformedImportMemoryMaxUleb =>
+      validate_invalid_binary_mutate_malformed_import_memory_max_uleb(base)
+    MalformedImportTableMaxUleb =>
+      validate_invalid_binary_mutate_malformed_import_table_max_uleb(base)
     InvalidImportTableRefTypeByte =>
       validate_invalid_binary_mutate_invalid_import_table_reftype_byte(base)
     InvalidImportMemoryLimitsFlagByte =>
