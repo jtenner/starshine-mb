@@ -111,18 +111,24 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-elem-index-uleb", "malformed-table-init-elem-index-uleb", "malformed-table-init-table-index-uleb",
     "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
     "malformed-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
-    "malformed-name-section-func-name-length-uleb", "invalid-name-section-local-name-utf8",
-    "malformed-name-section-local-name-length-uleb", "invalid-name-section-module-name-utf8",
-    "malformed-name-section-module-name-length-uleb", "invalid-name-section-type-name-utf8",
-    "malformed-name-section-type-name-length-uleb", "invalid-name-section-table-name-utf8",
-    "malformed-name-section-table-name-length-uleb", "invalid-name-section-memory-name-utf8",
-    "malformed-name-section-memory-name-length-uleb", "invalid-name-section-global-name-utf8",
-    "malformed-name-section-global-name-length-uleb", "invalid-name-section-elem-name-utf8",
-    "malformed-name-section-elem-name-length-uleb", "invalid-name-section-data-name-utf8",
-    "malformed-name-section-data-name-length-uleb", "invalid-name-section-field-name-utf8",
-    "malformed-name-section-field-name-length-uleb", "invalid-name-section-label-name-utf8",
-    "malformed-name-section-label-name-length-uleb", "invalid-name-section-tag-name-utf8",
-    "malformed-name-section-tag-name-length-uleb", "invalid-functype-byte", "malformed-functype-param-count-uleb",
+    "malformed-name-section-func-name-length-uleb", "overwide-name-section-func-name-length-uleb",
+    "invalid-name-section-local-name-utf8", "malformed-name-section-local-name-length-uleb",
+    "overwide-name-section-local-name-length-uleb", "invalid-name-section-module-name-utf8",
+    "malformed-name-section-module-name-length-uleb", "overwide-name-section-module-name-length-uleb",
+    "invalid-name-section-type-name-utf8", "malformed-name-section-type-name-length-uleb",
+    "overwide-name-section-type-name-length-uleb", "invalid-name-section-table-name-utf8",
+    "malformed-name-section-table-name-length-uleb", "overwide-name-section-table-name-length-uleb",
+    "invalid-name-section-memory-name-utf8", "malformed-name-section-memory-name-length-uleb",
+    "overwide-name-section-memory-name-length-uleb", "invalid-name-section-global-name-utf8",
+    "malformed-name-section-global-name-length-uleb", "overwide-name-section-global-name-length-uleb",
+    "invalid-name-section-elem-name-utf8", "malformed-name-section-elem-name-length-uleb",
+    "overwide-name-section-elem-name-length-uleb", "invalid-name-section-data-name-utf8",
+    "malformed-name-section-data-name-length-uleb", "overwide-name-section-data-name-length-uleb",
+    "invalid-name-section-field-name-utf8", "malformed-name-section-field-name-length-uleb",
+    "overwide-name-section-field-name-length-uleb", "invalid-name-section-label-name-utf8",
+    "malformed-name-section-label-name-length-uleb", "overwide-name-section-label-name-length-uleb",
+    "invalid-name-section-tag-name-utf8", "malformed-name-section-tag-name-length-uleb",
+    "overwide-name-section-tag-name-length-uleb", "invalid-functype-byte", "malformed-functype-param-count-uleb",
     "malformed-functype-result-count-uleb", "overwide-functype-param-count-uleb",
     "overwide-functype-result-count-uleb", "invalid-functype-param-valtype-byte",
     "invalid-functype-result-valtype-byte", "invalid-code-local-valtype-byte", "malformed-code-local-decl-count-uleb",
@@ -179,7 +185,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1386,6 +1394,24 @@ test "invalid binary FZG025 decodes name section name-map length malformed ULEBs
 }
 
 ///|
+test "invalid binary FZG025 decodes name section length overwide ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-name-section-func-name-length-uleb", "overwide-name-section-local-name-length-uleb",
+      "overwide-name-section-module-name-length-uleb", "overwide-name-section-type-name-length-uleb",
+      "overwide-name-section-table-name-length-uleb", "overwide-name-section-memory-name-length-uleb",
+      "overwide-name-section-global-name-length-uleb", "overwide-name-section-elem-name-length-uleb",
+      "overwide-name-section-data-name-length-uleb", "overwide-name-section-field-name-length-uleb",
+      "overwide-name-section-label-name-length-uleb", "overwide-name-section-tag-name-length-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f3aUL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
   for
     strategy in [
@@ -1443,17 +1469,23 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-table-init-table-index-uleb", "malformed-data-segment-memory-index-uleb",
       "malformed-element-segment-table-index-uleb", "malformed-element-segment-func-index-uleb",
       "invalid-name-section-func-name-utf8", "malformed-name-section-func-name-length-uleb",
-      "invalid-name-section-local-name-utf8", "malformed-name-section-local-name-length-uleb",
+      "overwide-name-section-func-name-length-uleb", "invalid-name-section-local-name-utf8",
+      "malformed-name-section-local-name-length-uleb", "overwide-name-section-local-name-length-uleb",
       "invalid-name-section-module-name-utf8", "malformed-name-section-module-name-length-uleb",
-      "invalid-name-section-type-name-utf8", "malformed-name-section-type-name-length-uleb",
+      "overwide-name-section-module-name-length-uleb", "invalid-name-section-type-name-utf8",
+      "malformed-name-section-type-name-length-uleb", "overwide-name-section-type-name-length-uleb",
       "invalid-name-section-table-name-utf8", "malformed-name-section-table-name-length-uleb",
-      "invalid-name-section-memory-name-utf8", "malformed-name-section-memory-name-length-uleb",
+      "overwide-name-section-table-name-length-uleb", "invalid-name-section-memory-name-utf8",
+      "malformed-name-section-memory-name-length-uleb", "overwide-name-section-memory-name-length-uleb",
       "invalid-name-section-global-name-utf8", "malformed-name-section-global-name-length-uleb",
-      "invalid-name-section-elem-name-utf8", "malformed-name-section-elem-name-length-uleb",
+      "overwide-name-section-global-name-length-uleb", "invalid-name-section-elem-name-utf8",
+      "malformed-name-section-elem-name-length-uleb", "overwide-name-section-elem-name-length-uleb",
       "invalid-name-section-data-name-utf8", "malformed-name-section-data-name-length-uleb",
-      "invalid-name-section-field-name-utf8", "malformed-name-section-field-name-length-uleb",
+      "overwide-name-section-data-name-length-uleb", "invalid-name-section-field-name-utf8",
+      "malformed-name-section-field-name-length-uleb", "overwide-name-section-field-name-length-uleb",
       "invalid-name-section-label-name-utf8", "malformed-name-section-label-name-length-uleb",
-      "invalid-name-section-tag-name-utf8", "malformed-name-section-tag-name-length-uleb",
+      "overwide-name-section-label-name-length-uleb", "invalid-name-section-tag-name-utf8",
+      "malformed-name-section-tag-name-length-uleb", "overwide-name-section-tag-name-length-uleb",
       "invalid-functype-byte", "malformed-functype-param-count-uleb", "malformed-functype-result-count-uleb",
       "overwide-functype-param-count-uleb", "overwide-functype-result-count-uleb",
       "invalid-functype-param-valtype-byte", "invalid-functype-result-valtype-byte",

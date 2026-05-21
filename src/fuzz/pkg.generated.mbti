@@ -488,28 +488,40 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedElementSegmentFuncIndexUleb
   InvalidNameSectionFuncNameUtf8
   MalformedNameSectionFuncNameLengthUleb
+  OverwideNameSectionFuncNameLengthUleb
   InvalidNameSectionLocalNameUtf8
   MalformedNameSectionLocalNameLengthUleb
+  OverwideNameSectionLocalNameLengthUleb
   InvalidNameSectionModuleNameUtf8
   MalformedNameSectionModuleNameLengthUleb
+  OverwideNameSectionModuleNameLengthUleb
   InvalidNameSectionTypeNameUtf8
   MalformedNameSectionTypeNameLengthUleb
+  OverwideNameSectionTypeNameLengthUleb
   InvalidNameSectionTableNameUtf8
   MalformedNameSectionTableNameLengthUleb
+  OverwideNameSectionTableNameLengthUleb
   InvalidNameSectionMemoryNameUtf8
   MalformedNameSectionMemoryNameLengthUleb
+  OverwideNameSectionMemoryNameLengthUleb
   InvalidNameSectionGlobalNameUtf8
   MalformedNameSectionGlobalNameLengthUleb
+  OverwideNameSectionGlobalNameLengthUleb
   InvalidNameSectionElemNameUtf8
   MalformedNameSectionElemNameLengthUleb
+  OverwideNameSectionElemNameLengthUleb
   InvalidNameSectionDataNameUtf8
   MalformedNameSectionDataNameLengthUleb
+  OverwideNameSectionDataNameLengthUleb
   InvalidNameSectionFieldNameUtf8
   MalformedNameSectionFieldNameLengthUleb
+  OverwideNameSectionFieldNameLengthUleb
   InvalidNameSectionLabelNameUtf8
   MalformedNameSectionLabelNameLengthUleb
+  OverwideNameSectionLabelNameLengthUleb
   InvalidNameSectionTagNameUtf8
   MalformedNameSectionTagNameLengthUleb
+  OverwideNameSectionTagNameLengthUleb
   InvalidFuncTypeByte
   MalformedFuncTypeParamCountUleb
   MalformedFuncTypeResultCountUleb
