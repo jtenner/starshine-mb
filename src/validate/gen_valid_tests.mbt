@@ -373,6 +373,22 @@ fn gen_valid_test_has_nonzero_memory_copy(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_nonzero_memory_init(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_nonzero_memory_init(body) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_instrs_have_nonzero_table_copy_or_fill(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -394,6 +410,62 @@ fn gen_valid_test_instrs_have_nonzero_table_copy_or_fill(
           Some(body) if gen_valid_test_instrs_have_nonzero_table_copy_or_fill(
               body,
             ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_nonzero_memory_init(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      MemoryInit(_, mem_idx) if gen_valid_test_idx_is_nonzero_mem(mem_idx) =>
+        return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_nonzero_memory_init(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_nonzero_memory_init(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_nonzero_memory_init(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_nonzero_table_init(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      TableInit(_, table_idx) if gen_valid_test_idx_is_nonzero_table(table_idx) =>
+        return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_nonzero_table_init(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_nonzero_table_init(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_nonzero_table_init(body) =>
+            return true
           _ => ()
         }
       }
@@ -459,6 +531,22 @@ fn gen_valid_test_has_nonzero_table_copy_or_fill(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_nonzero_table_init(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_nonzero_table_init(body) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_has_all_nonzero_table_accesses(mod_ : Module) -> Bool {
   let saw_get = Ref::new(false)
   let saw_set = Ref::new(false)
@@ -498,6 +586,10 @@ test "memory-heavy profile emits nonzero memory bulk and segment operators" {
     msg="memory-heavy profile should emit memory.copy coverage over a nonzero memory index",
   )
   assert_true(
+    gen_valid_test_has_nonzero_memory_init(generated.wasm_module),
+    msg="memory-heavy profile should emit memory.init coverage over a nonzero memory index",
+  )
+  assert_true(
     gen_valid_test_has_scalar_memory_over_nonzero_mem(generated.wasm_module),
     msg="memory-heavy profile should emit scalar memory coverage over a nonzero memory index",
   )
@@ -522,6 +614,10 @@ test "topology-heavy profile emits nonzero table bulk and element operators" {
   assert_true(
     gen_valid_test_has_nonzero_table_copy_or_fill(generated.wasm_module),
     msg="topology-heavy profile should emit table.fill or table.copy coverage over a nonzero table index",
+  )
+  assert_true(
+    gen_valid_test_has_nonzero_table_init(generated.wasm_module),
+    msg="topology-heavy profile should emit table.init coverage over a nonzero table index",
   )
   assert_true(
     gen_valid_test_has_all_nonzero_table_accesses(generated.wasm_module),

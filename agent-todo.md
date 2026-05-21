@@ -608,17 +608,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
-- [FUZ]1007 - GenValid Memory, Table, Data, And Element Segment Widening
-  - Status: IN PROGRESS (cron 23, 2026-05-21). Current slices landed nonzero bulk and scalar/table-resource body coverage: the shared GenValid bulk-memory prelude emits `memory.copy` / `memory.fill` over the first nonzero i32 memory index and uses a second passive data index for `memory.init` / `data.drop` when available; the scalar-memory prelude now emits representative load/store `MemArg`s with explicit nonzero memory indices; the table prelude emits `table.size`, `table.set`, `table.get`, `table.grow`, `table.fill`, and `table.copy` over the first nonzero table index without consuming RNG. Focused anchors: `memory-heavy profile emits nonzero memory bulk and segment operators` and `topology-heavy profile emits nonzero table bulk and element operators`; latest focused validation was `moon test src/validate`. Resume here for the remaining matrix: broader `memory.init` / `table.init` compatibility matching over varied data/elem indices and target tables, memory64/shared variants, and final compare-pass/profile signoff before removing this task.
-  - Goal: expand valid resource and segment generation beyond current first-memory/first-table-heavy shapes.
-  - Why: memory/table/data/elem bugs often require nonzero indices, mixed active/passive/declarative segments, memory64/shared variants, typed tables, and bulk operations over varied targets.
-  - Deliverables: generate nonzero memory/table operations, mixed memory32/memory64 modules, multiple shared memories, active data on different memories, passive data payload variety, `memory.copy` across different memories, `memory.init` over different data indices, multiple `data.drop`, table get/set/grow/size/fill/copy/init over nonzero tables, typed element expressions, nonzero active table targets, and table initializer expressions.
-  - Required APIs: memory/table/data/elem section builders, `MemArg`, `MemType`, `TableType`, `Data`, `Elem`, bulk memory/table instructions.
-  - Invariants: preserve Binaryen-oracle portability by gating memory64/shared/non-funcref table combinations; keep all offsets and payloads valid for validation even if runtime traps would occur.
-  - Dependencies: [FUZ]1001 profiles recommended.
-  - Suggested Tests: feature facts for nonzero memory/table/segment ranges, validation tests for memory64/shared/table typed variants, pass-fuzz compare for `memory-packing`, `remove-unused-module-elements`, `heap-store-optimization`, and table-sensitive passes.
-  - Exit Criteria: memory-heavy and table-heavy profiles reliably produce validated modules with nonzero resource indices and mixed segment modes.
-
 - [FUZ]1008 - GenValid Exception, Tag, Throw, ThrowRef, And TryTable Widening
   - Goal: generate a broader matrix of exception/tag and `try_table` shapes.
   - Why: current exception coverage proves mixed catch lists exist, but not enough tag payload, result type, nesting, and label-depth variation is exercised.

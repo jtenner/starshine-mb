@@ -2059,6 +2059,7 @@ priv struct GenValidBodyEnv {
   return_types : Array[ValType]
   data_idxs : Array[DataIdx]
   passive_elem_idxs : Array[ElemIdx]
+  passive_elem_ref_types : Array[RefType]
   bulk_elem_seed_idx : ElemIdx?
   gc_type_plan : GenValidGcTypePlan
   declared_ref_func_idx : FuncIdx?
@@ -2434,8 +2435,12 @@ fn gen_valid_append_memory_bulk_ops(
       out.push(Instruction::i32_const(I32(7)))
       out.push(Instruction::i32_const(I32(0)))
       out.push(Instruction::memory_fill(nonzero_mem_idx))
-      if env.data_idxs.length() > 1 {
-        let data_idx = env.data_idxs[1]
+      if !env.data_idxs.is_empty() {
+        let data_idx = if env.data_idxs.length() > 1 {
+          env.data_idxs[1]
+        } else {
+          env.data_idxs[0]
+        }
         out.push(Instruction::i32_const(I32(0)))
         out.push(Instruction::i32_const(I32(0)))
         out.push(Instruction::i32_const(I32(0)))
@@ -2635,6 +2640,44 @@ fn gen_valid_first_nonzero_table_idx(tables : Array[TableType]) -> TableIdx? {
 }
 
 ///|
+fn gen_valid_table_init_ref_types_compatible(
+  elem_rt : RefType,
+  table_rt : RefType,
+) -> Bool {
+  elem_rt == table_rt ||
+  (
+    elem_rt.is_nullable() == table_rt.is_nullable() &&
+    elem_rt.get_heap_type() == table_rt.get_heap_type()
+  )
+}
+
+///|
+fn gen_valid_nonzero_table_init_pair(
+  env : GenValidBodyEnv,
+) -> (ElemIdx, TableIdx)? {
+  if env.passive_elem_idxs.is_empty() {
+    return None
+  }
+  for table_i = 1; table_i < env.tables.length(); table_i = table_i + 1 {
+    let TableType(table_rt, _) = env.tables[table_i]
+    for elem_i = 0; elem_i < env.passive_elem_idxs.length(); elem_i = elem_i + 1 {
+      if gen_valid_table_init_ref_types_compatible(
+          env.passive_elem_ref_types[elem_i],
+          table_rt,
+        ) {
+        return Some(
+          (
+            env.passive_elem_idxs[elem_i],
+            TableIdx::new(table_i.reinterpret_as_uint()),
+          ),
+        )
+      }
+    }
+  }
+  None
+}
+
+///|
 fn gen_valid_append_nonzero_table_access_ops(
   out : Array[Instruction],
   env : GenValidBodyEnv,
@@ -2698,6 +2741,16 @@ fn gen_valid_append_table_bulk_ops(
       out.push(Instruction::i32_const(I32(0)))
       out.push(Instruction::i32_const(I32(0)))
       out.push(Instruction::table_copy(nonzero_table_idx, nonzero_table_idx))
+    }
+    None => ()
+  }
+  match gen_valid_nonzero_table_init_pair(env) {
+    Some((elem_idx, table_idx)) => {
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::table_init(elem_idx, table_idx))
+      out.push(Instruction::elem_drop(elem_idx))
     }
     None => ()
   }
@@ -5951,6 +6004,7 @@ fn gen_valid_build_func(
   data_idxs : Array[DataIdx],
   _elem_idxs : Array[ElemIdx],
   passive_elem_idxs : Array[ElemIdx],
+  passive_elem_ref_types : Array[RefType],
   bulk_elem_seed_idx : ElemIdx?,
   gc_type_plan : GenValidGcTypePlan,
   declared_ref_func_idx : FuncIdx?,
@@ -6054,6 +6108,7 @@ fn gen_valid_build_func(
     return_types: returns,
     data_idxs,
     passive_elem_idxs,
+    passive_elem_ref_types,
     bulk_elem_seed_idx,
     gc_type_plan,
     declared_ref_func_idx,
@@ -6103,6 +6158,7 @@ pub fn gen_valid_tfunc(
     ctx,
     accepts,
     returns,
+    [],
     [],
     [],
     [],
@@ -7094,6 +7150,7 @@ fn gen_valid_module_once_with_config(
   }
   let elem_idxs : Array[ElemIdx] = []
   let passive_elem_idxs : Array[ElemIdx] = []
+  let passive_elem_ref_types : Array[RefType] = []
   let mut bulk_elem_seed_idx : ElemIdx? = None
   for i = 0; i < elems.length(); i = i + 1 {
     let elem_idx = ElemIdx::new(i.reinterpret_as_uint())
@@ -7103,6 +7160,7 @@ fn gen_valid_module_once_with_config(
       Passive => {
         elem_idxs.push(elem_idx)
         passive_elem_idxs.push(elem_idx)
+        passive_elem_ref_types.push(elems[i].reftype())
         match (bulk_elem_seed_idx, gc_type_plan.bulk_elem_ref_type, kind) {
           (None, Some(seed_rt), TypedExprsElemKind(rt, _)) if rt == seed_rt =>
             bulk_elem_seed_idx = Some(elem_idx)
@@ -7195,6 +7253,7 @@ fn gen_valid_module_once_with_config(
         data_idxs,
         elem_idxs,
         passive_elem_idxs,
+        passive_elem_ref_types,
         bulk_elem_seed_idx,
         gc_type_plan,
         Some(first_defined_func_idx),
