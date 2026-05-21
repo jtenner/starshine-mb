@@ -10085,22 +10085,23 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       current,
       original_imported + original_defined,
     )
+    let reverse_selected_defs = Array::make(original_defined, false)
     for reverse_def in [4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584] {
-      let reverse_selected_defs = Array::make(original_defined, false)
       if reverse_def >= 0 && reverse_def < reverse_selected_defs.length() {
         reverse_selected_defs[reverse_def] = true
-      }
-      let reverse_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, reverse_selected_defs, reverse_call_facts,
-      )
-      if reverse_result.changed {
-        current = reverse_result.mod_out
-        touched = dae_merge_touched(touched, reverse_result.touched)
-        trace(
-          "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_result.primary_def}",
+        let reverse_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+          current, reverse_selected_defs, reverse_call_facts,
         )
-        changed = true
-        reverse_iter += 1
+        reverse_selected_defs[reverse_def] = false
+        if reverse_result.changed {
+          current = reverse_result.mod_out
+          touched = dae_merge_touched(touched, reverse_result.touched)
+          trace(
+            "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_result.primary_def}",
+          )
+          changed = true
+          reverse_iter += 1
+        }
       }
     }
   } else {
@@ -10314,61 +10315,64 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     )
     changed = true
   }
+  let selected_mid_literal_defs = Array::make(original_defined, false)
   for mid_literal_def in [287, 311] {
-    let selected_mid_literal_defs = Array::make(original_defined, false)
     if mid_literal_def >= 0 &&
       mid_literal_def < selected_mid_literal_defs.length() {
       selected_mid_literal_defs[mid_literal_def] = true
-    }
-    let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_mid_literal_defs, low_callee_call_facts,
-    )
-    if mid_literal_result.changed {
-      current = mid_literal_result.mod_out
-      touched = dae_merge_touched(touched, mid_literal_result.touched)
-      trace(
-        "pass[dae-optimizing]:mid-exact-literal primary_def=\{mid_literal_result.primary_def}",
+      let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+        current, selected_mid_literal_defs, low_callee_call_facts,
       )
-      changed = true
+      selected_mid_literal_defs[mid_literal_def] = false
+      if mid_literal_result.changed {
+        current = mid_literal_result.mod_out
+        touched = dae_merge_touched(touched, mid_literal_result.touched)
+        trace(
+          "pass[dae-optimizing]:mid-exact-literal primary_def=\{mid_literal_result.primary_def}",
+        )
+        changed = true
+      }
     }
   }
+  let selected_mid_global_literal_defs = Array::make(original_defined, false)
   for mid_global_literal_def in [313] {
-    let selected_mid_global_literal_defs = Array::make(original_defined, false)
     if mid_global_literal_def >= 0 &&
       mid_global_literal_def < selected_mid_global_literal_defs.length() {
       selected_mid_global_literal_defs[mid_global_literal_def] = true
-    }
-    let mid_global_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current,
-      selected_mid_global_literal_defs,
-      low_callee_call_facts,
-      allow_immutable_global_get=true,
-    )
-    if mid_global_literal_result.changed {
-      current = mid_global_literal_result.mod_out
-      touched = dae_merge_touched(touched, mid_global_literal_result.touched)
-      trace(
-        "pass[dae-optimizing]:mid-global-exact-literal primary_def=\{mid_global_literal_result.primary_def}",
+      let mid_global_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+        current,
+        selected_mid_global_literal_defs,
+        low_callee_call_facts,
+        allow_immutable_global_get=true,
       )
-      changed = true
+      selected_mid_global_literal_defs[mid_global_literal_def] = false
+      if mid_global_literal_result.changed {
+        current = mid_global_literal_result.mod_out
+        touched = dae_merge_touched(touched, mid_global_literal_result.touched)
+        trace(
+          "pass[dae-optimizing]:mid-global-exact-literal primary_def=\{mid_global_literal_result.primary_def}",
+        )
+        changed = true
+      }
     }
   }
+  let selected_high_literal_defs = Array::make(original_defined, false)
   for high_literal_def in [1720, 1755, 1775, 1794, 2156] {
-    let selected_high_literal_defs = Array::make(original_defined, false)
     if high_literal_def >= 0 &&
       high_literal_def < selected_high_literal_defs.length() {
       selected_high_literal_defs[high_literal_def] = true
-    }
-    let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_high_literal_defs, low_callee_call_facts,
-    )
-    if high_literal_result.changed {
-      current = high_literal_result.mod_out
-      touched = dae_merge_touched(touched, high_literal_result.touched)
-      trace(
-        "pass[dae-optimizing]:high-exact-literal primary_def=\{high_literal_result.primary_def}",
+      let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+        current, selected_high_literal_defs, low_callee_call_facts,
       )
-      changed = true
+      selected_high_literal_defs[high_literal_def] = false
+      if high_literal_result.changed {
+        current = high_literal_result.mod_out
+        touched = dae_merge_touched(touched, high_literal_result.touched)
+        trace(
+          "pass[dae-optimizing]:high-exact-literal primary_def=\{high_literal_result.primary_def}",
+        )
+        changed = true
+      }
     }
   }
   let module_raw_cleanup = dae_strip_module_nops_and_dropped_pure_leaf_once(
