@@ -1237,6 +1237,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added five decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `overwide-export-func-index-uleb`, `overwide-export-table-index-uleb`, `overwide-export-memory-index-uleb`, `overwide-export-global-index-uleb`, and `overwide-export-tag-index-uleb` keep the export section frame and descriptor kind byte well-formed while corrupting each export descriptor index payload with a six-byte unsigned LEB that exceeds the `u32` byte budget.
 - Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so overwide export descriptor index corruption is tracked beside malformed export descriptor index and import/export string-length corruption.
 
+## [2026-05-21] fuzzing | custom section name length overwide-ULEB invalid-binary coverage
+
+- Added one decode-rejected binary-invalid strategy for [`[FUZ]1021`](../../agent-todo.md): `overwide-custom-section-name-length-uleb` keeps the custom-section frame well-formed while corrupting the custom-section name-length payload with a six-byte unsigned LEB that exceeds the `u32` byte budget.
+- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md), [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so custom-section overwide name-length corruption is tracked beside the existing malformed custom-section name-length carrier.
+
 ## [2026-05-21] fuzzing | import/export name length overwide-ULEB invalid-binary coverage
 
 - Added three decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `overwide-export-name-length-uleb`, `overwide-import-module-name-length-uleb`, and `overwide-import-field-name-length-uleb` keep export/import section frames well-formed while corrupting each nested string-length payload with a six-byte unsigned LEB that exceeds the `u32` byte budget.

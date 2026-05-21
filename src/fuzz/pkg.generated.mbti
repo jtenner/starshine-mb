@@ -363,6 +363,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
   MalformedCustomSectionNameLengthUleb
+  OverwideCustomSectionNameLengthUleb
   MalformedNameSubsectionSizeUleb
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte

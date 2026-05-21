@@ -85,6 +85,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
   MalformedCustomSectionNameLengthUleb
+  OverwideCustomSectionNameLengthUleb
   MalformedNameSubsectionSizeUleb
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte
@@ -729,6 +730,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
     MalformedCustomSectionNameLengthUleb =>
       "malformed-custom-section-name-length-uleb"
+    OverwideCustomSectionNameLengthUleb =>
+      "overwide-custom-section-name-length-uleb"
     MalformedNameSubsectionSizeUleb => "malformed-name-subsection-size-uleb"
     InvalidOpcodeByte => "invalid-opcode-byte"
     InvalidPrefixSubopcodeByte => "invalid-prefix-subopcode-byte"
@@ -1473,6 +1476,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedCustomSectionNameLengthUleb,
       "malformed-custom-section-name-length-uleb",
       "custom section with malformed name-length ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideCustomSectionNameLengthUleb,
+      "overwide-custom-section-name-length-uleb",
+      "custom section with overwide name-length ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4366,6 +4376,28 @@ fn validate_invalid_binary_module_with_malformed_custom_section_name_length_uleb
 }
 
 ///|
+fn validate_invalid_binary_module_with_overwide_custom_section_name_length_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x06).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
 fn validate_invalid_binary_module_with_malformed_name_subsection_size_uleb() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -4401,6 +4433,20 @@ fn validate_invalid_binary_mutate_malformed_custom_section_name_length_uleb(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_malformed_custom_section_name_length_uleb(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_custom_section_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideCustomSectionNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_custom_section_name_length_uleb(),
     ),
   )
 }
@@ -12852,6 +12898,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_custom_section_payload(base)
     MalformedCustomSectionNameLengthUleb =>
       validate_invalid_binary_mutate_malformed_custom_section_name_length_uleb(
+        base,
+      )
+    OverwideCustomSectionNameLengthUleb =>
+      validate_invalid_binary_mutate_overwide_custom_section_name_length_uleb(
         base,
       )
     MalformedNameSubsectionSizeUleb =>
