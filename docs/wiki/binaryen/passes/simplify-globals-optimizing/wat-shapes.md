@@ -323,6 +323,8 @@ The numeric post-consumer follow-up applies the same rule to nontrapping numeric
 
 The size-query follow-up treats `memory.size` and `table.size` as clean nullary values in the same stack/value-flow scanner, so a direct self-guard or nested-if arm result may combine the candidate read with those size queries before the final branch. The paired guardrails keep `memory.grow` and `table.grow` conservative when the global-derived value determines the size-changing side effect.
 
+The SIMD follow-up admits a narrow parser-backed nontrapping subset: `i32` candidates can flow through `i32x4.splat` and then `i32x4.all_true`, `i32x4.extract_lane`, or a clean `i32x4.add` chain before the final branch; `v128` candidates can flow through `i32x4.neg` and `i32x4.all_true`. Starshine preserves the paired negatives where the SIMD boolean feeds a post-consumer call, or where the global-derived value is a SIMD load address.
+
 ### No-op const/drop condition-prefix variation
 
 A block-wrapped condition can also contain side-effect-free constant/drop pairs before the yielded self-guard read:

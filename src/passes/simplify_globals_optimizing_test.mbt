@@ -4479,6 +4479,176 @@ test "simplify-globals-optimizing keeps table grow fed by the global" {
 }
 
 ///|
+test "simplify-globals-optimizing removes read-only-to-write guards through simd splat all-true" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i32x4.splat
+      #|    i32x4.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes read-only-to-write guards through simd binary op" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i32x4.splat
+      #|    v128.const i32x4 1 1 1 1
+      #|    i32x4.add
+      #|    i32x4.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes read-only-to-write guards through simd extract lane" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i32x4.splat
+      #|    i32x4.extract_lane 0
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes v128 read-only-to-write guards through simd unary op" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut v128) (v128.const i32x4 0 0 0 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i32x4.neg
+      #|    i32x4.all_true
+      #|    if
+      #|      v128.const i32x4 1 1 1 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::v128(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps simd value flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i32x4.splat
+      #|    i32x4.all_true
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps simd load fed by the global" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    v128.load
+      #|    i32x4.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("v128.load"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps numeric conversion arm flow into post-consumer call" {
   let optimized = sgo_test_run(
     (

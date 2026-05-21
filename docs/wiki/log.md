@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-20] binaryen | SGO SIMD FlowScanner slice
+
+- Extended `[SGO]003` read-only-to-write FlowScanner coverage for a narrow nontrapping SIMD consumer subset: `i32x4.splat`, `i32x4.neg`, `i32x4.add`, `i32x4.all_true`, and `i32x4.extract_lane`.
+- Added focused positives for `i32` candidates through SIMD splat/all-true, splat/add/all-true, and splat/extract-lane/eqz chains, plus a `v128` candidate through `i32x4.neg`/`i32x4.all_true`; neighboring negatives preserve post-consumer calls and global-derived SIMD loads.
+- Recorded validation evidence from `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-simd-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+- Grounded the change in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-05-20] binaryen | SGO size-query FlowScanner slice
 
 - Extended `[SGO]003` read-only-to-write FlowScanner coverage so clean nullary `memory.size` / `table.size` values may appear in direct and nested-if arm-flow condition paths before the outer same-global write guard.

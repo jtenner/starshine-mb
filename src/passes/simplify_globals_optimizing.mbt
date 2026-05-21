@@ -741,7 +741,11 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I64TruncSatF32S
     | @lib.I64TruncSatF32U
     | @lib.I64TruncSatF64S
-    | @lib.I64TruncSatF64U => true
+    | @lib.I64TruncSatF64U
+    | @lib.I32x4Splat
+    | @lib.I32x4Neg
+    | @lib.I32x4AllTrue
+    | @lib.I32x4ExtractLane(_) => true
     _ => false
   }
 }
@@ -817,7 +821,8 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64Min
     | @lib.F64Max
     | @lib.F64Copysign
-    | @lib.F64Div => true
+    | @lib.F64Div
+    | @lib.I32x4Add => true
     _ => false
   }
 }
