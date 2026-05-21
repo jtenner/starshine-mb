@@ -1313,6 +1313,57 @@ test "dae raw cleanup canonicalizes live integer zero comparisons" {
 }
 
 ///|
+test "dae raw cleanup strips double eqz from live if conditions" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let then_body = [@lib.Instruction::unreachable_()]
+  let mod_ = @lib.Module::new()
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_eqz(),
+            @lib.Instruction::i32_eqz(),
+            @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_load(memarg),
+            @lib.Instruction::i32_eqz(),
+            @lib.Instruction::i32_eqz(),
+            @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_eqz(),
+            @lib.Instruction::i32_eqz(),
+            @lib.Instruction::return_(),
+          ]),
+        ),
+      ]),
+    )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      assert_eq(cleaned, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_load(memarg),
+        @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_eqz(),
+        @lib.Instruction::i32_eqz(),
+        @lib.Instruction::return_(),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae raw cleanup canonicalizes live integer and ref self comparisons" {
   let mod_ = @lib.Module::new().with_code_sec(
     @lib.CodeSec::new([

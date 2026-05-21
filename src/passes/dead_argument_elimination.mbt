@@ -9081,6 +9081,23 @@ fn dae_strip_or_drop_condition(
 }
 
 ///|
+fn dae_simplify_live_if_condition(out : Array[@lib.Instruction]) -> Unit {
+  // Wasm `if` treats any nonzero i32 as true. A condition stack ending in
+  // `i32.eqz; i32.eqz` therefore has the same branch behavior as the original
+  // i32 producer while preserving producer evaluation, traps, and effects.
+  while out.length() >= 2 {
+    let last_idx = out.length() - 1
+    if out[last_idx] == @lib.Instruction::i32_eqz() &&
+      out[last_idx - 1] == @lib.Instruction::i32_eqz() {
+      ignore(out.pop())
+      ignore(out.pop())
+      continue
+    }
+    break
+  }
+}
+
+///|
 fn dae_strip_dropped_nontrapping_pure_wrapper_suffix(
   out : Array[@lib.Instruction],
 ) -> Bool {
@@ -9474,6 +9491,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           else_empty {
           dae_strip_or_drop_condition(out, type_sec)
         } else {
+          dae_simplify_live_if_condition(out)
           out.push(
             @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
           )
