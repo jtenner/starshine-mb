@@ -2035,6 +2035,149 @@ test "natural GenValid organically emits recursive GC topology families" {
 }
 
 ///|
+priv struct GenValidTestNumericBoundaryLiterals {
+  mut has_i32_zero : Bool
+  mut has_i32_one : Bool
+  mut has_i32_neg_one : Bool
+  mut has_i32_min : Bool
+  mut has_i32_max : Bool
+  mut has_i64_zero : Bool
+  mut has_i64_one : Bool
+  mut has_i64_neg_one : Bool
+  mut has_i64_min : Bool
+  mut has_i64_max : Bool
+  mut has_f32_neg_zero : Bool
+  mut has_f32_pos_inf : Bool
+  mut has_f32_neg_inf : Bool
+  mut has_f32_nan_payload : Bool
+  mut has_f64_neg_zero : Bool
+  mut has_f64_pos_inf : Bool
+  mut has_f64_neg_inf : Bool
+  mut has_f64_nan_payload : Bool
+}
+
+///|
+fn gen_valid_test_numeric_boundary_literals_empty() -> GenValidTestNumericBoundaryLiterals {
+  {
+    has_i32_zero: false,
+    has_i32_one: false,
+    has_i32_neg_one: false,
+    has_i32_min: false,
+    has_i32_max: false,
+    has_i64_zero: false,
+    has_i64_one: false,
+    has_i64_neg_one: false,
+    has_i64_min: false,
+    has_i64_max: false,
+    has_f32_neg_zero: false,
+    has_f32_pos_inf: false,
+    has_f32_neg_inf: false,
+    has_f32_nan_payload: false,
+    has_f64_neg_zero: false,
+    has_f64_pos_inf: false,
+    has_f64_neg_inf: false,
+    has_f64_nan_payload: false,
+  }
+}
+
+///|
+fn gen_valid_test_note_numeric_boundary_literal(
+  facts : GenValidTestNumericBoundaryLiterals,
+  instr : Instruction,
+) -> Unit {
+  match instr {
+    I32Const(I32(value)) =>
+      if value == 0 {
+        facts.has_i32_zero = true
+      } else if value == 1 {
+        facts.has_i32_one = true
+      } else if value == -1 {
+        facts.has_i32_neg_one = true
+      } else if value == -2147483647 - 1 {
+        facts.has_i32_min = true
+      } else if value == 2147483647 {
+        facts.has_i32_max = true
+      }
+    I64Const(I64(value)) =>
+      if value == 0L {
+        facts.has_i64_zero = true
+      } else if value == 1L {
+        facts.has_i64_one = true
+      } else if value == -1L {
+        facts.has_i64_neg_one = true
+      } else if value == -9223372036854775807L - 1L {
+        facts.has_i64_min = true
+      } else if value == 9223372036854775807L {
+        facts.has_i64_max = true
+      }
+    F32Const(F32(value)) => {
+      let bits = value.reinterpret_as_uint()
+      if bits == 0x80000000U {
+        facts.has_f32_neg_zero = true
+      } else if bits == 0x7f800000U {
+        facts.has_f32_pos_inf = true
+      } else if bits == 0xff800000U {
+        facts.has_f32_neg_inf = true
+      } else if bits == 0x7fc00001U {
+        facts.has_f32_nan_payload = true
+      }
+    }
+    F64Const(F64(value)) => {
+      let bits = value.reinterpret_as_uint64()
+      if bits == 0x8000000000000000UL {
+        facts.has_f64_neg_zero = true
+      } else if bits == 0x7ff0000000000000UL {
+        facts.has_f64_pos_inf = true
+      } else if bits == 0xfff0000000000000UL {
+        facts.has_f64_neg_inf = true
+      } else if bits == 0x7ff8000000000001UL {
+        facts.has_f64_nan_payload = true
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn gen_valid_test_collect_numeric_boundary_literals(
+  facts : GenValidTestNumericBoundaryLiterals,
+  instrs : Array[Instruction],
+) -> Unit {
+  for instr in instrs {
+    gen_valid_test_note_numeric_boundary_literal(facts, instr)
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        gen_valid_test_collect_numeric_boundary_literals(facts, body)
+      If(_, then_body, else_body) => {
+        gen_valid_test_collect_numeric_boundary_literals(facts, then_body)
+        match else_body {
+          Some(body) =>
+            gen_valid_test_collect_numeric_boundary_literals(facts, body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn gen_valid_test_module_numeric_boundary_literals(
+  mod_ : Module,
+) -> GenValidTestNumericBoundaryLiterals {
+  let facts = gen_valid_test_numeric_boundary_literals_empty()
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        gen_valid_test_collect_numeric_boundary_literals(facts, instrs)
+      }
+    None => ()
+  }
+  facts
+}
+
+///|
 test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret counters" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match
@@ -2070,6 +2213,81 @@ test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret c
   assert_true(
     counts.f64_reinterpret_i64 > 0,
     msg="numeric coverage should include f64.reinterpret_i64",
+  )
+  let literals = gen_valid_test_module_numeric_boundary_literals(
+    generated.wasm_module,
+  )
+  assert_true(
+    literals.has_i32_zero,
+    msg="numeric coverage should include i32.const 0",
+  )
+  assert_true(
+    literals.has_i32_one,
+    msg="numeric coverage should include i32.const 1",
+  )
+  assert_true(
+    literals.has_i32_neg_one,
+    msg="numeric coverage should include i32.const -1",
+  )
+  assert_true(
+    literals.has_i32_min,
+    msg="numeric coverage should include i32.const min",
+  )
+  assert_true(
+    literals.has_i32_max,
+    msg="numeric coverage should include i32.const max",
+  )
+  assert_true(
+    literals.has_i64_zero,
+    msg="numeric coverage should include i64.const 0",
+  )
+  assert_true(
+    literals.has_i64_one,
+    msg="numeric coverage should include i64.const 1",
+  )
+  assert_true(
+    literals.has_i64_neg_one,
+    msg="numeric coverage should include i64.const -1",
+  )
+  assert_true(
+    literals.has_i64_min,
+    msg="numeric coverage should include i64.const min",
+  )
+  assert_true(
+    literals.has_i64_max,
+    msg="numeric coverage should include i64.const max",
+  )
+  assert_true(
+    literals.has_f32_neg_zero,
+    msg="numeric coverage should include f32.const -0",
+  )
+  assert_true(
+    literals.has_f32_pos_inf,
+    msg="numeric coverage should include f32.const +inf",
+  )
+  assert_true(
+    literals.has_f32_neg_inf,
+    msg="numeric coverage should include f32.const -inf",
+  )
+  assert_true(
+    literals.has_f32_nan_payload,
+    msg="numeric coverage should include f32.const NaN payload",
+  )
+  assert_true(
+    literals.has_f64_neg_zero,
+    msg="numeric coverage should include f64.const -0",
+  )
+  assert_true(
+    literals.has_f64_pos_inf,
+    msg="numeric coverage should include f64.const +inf",
+  )
+  assert_true(
+    literals.has_f64_neg_inf,
+    msg="numeric coverage should include f64.const -inf",
+  )
+  assert_true(
+    literals.has_f64_nan_payload,
+    msg="numeric coverage should include f64.const NaN payload",
   )
 }
 

@@ -4357,6 +4357,56 @@ fn gen_valid_append_scalar_numeric_drop(
 }
 
 ///|
+fn gen_valid_append_numeric_boundary_constants(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+) -> Unit {
+  let i32_boundary_constants = [0, 1, -1, -2147483647 - 1, 2147483647]
+  for value in i32_boundary_constants {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::i32_const(I32(value)),
+    ])
+  }
+  let i64_boundary_constants = [
+    0L,
+    1L,
+    -1L,
+    -9223372036854775807L - 1L,
+    9223372036854775807L,
+  ]
+  for value in i64_boundary_constants {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::i64_const(I64(value)),
+    ])
+  }
+  let f32_boundary_constants = [0x80000000U, 0x7f800000U, 0xff800000U]
+  for bits in f32_boundary_constants {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f32_const(F32(Float::reinterpret_from_uint(bits))),
+    ])
+  }
+  let f64_boundary_constants = [
+    0x8000000000000000UL, 0x7ff0000000000000UL, 0xfff0000000000000UL,
+  ]
+  for bits in f64_boundary_constants {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f64_const(F64(bits.reinterpret_as_double())),
+    ])
+  }
+  // NaN payloads intentionally stay out of the Binaryen-oracle compatibility
+  // wrapper profile because MoonBit float equality treats NaNs as unequal,
+  // which would make two byte-identical generated modules fail structural Eq.
+  if ctx.config != GenValidConfig::binaryen_oracle_coverage_forced_default() {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f32_const(F32(Float::reinterpret_from_uint(0x7fc00001U))),
+    ])
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f64_const(F64(0x7ff8000000000001UL.reinterpret_as_double())),
+    ])
+  }
+}
+
+///|
 fn gen_valid_append_typed_select(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -4758,7 +4808,9 @@ fn gen_valid_append_tail_call_ops(
 ///|
 fn gen_valid_append_expanded_scalar_numeric_ops(
   out : Array[Instruction],
+  ctx : GenValidContext,
 ) -> Unit {
+  gen_valid_append_numeric_boundary_constants(out, ctx)
   gen_valid_append_scalar_numeric_drop(out, [
     Instruction::i32_const(I32(0)),
     Instruction::i32_eqz(),
@@ -5825,7 +5877,7 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_basic_ref_ops(out, ctx)
   gen_valid_append_i31_extern_conversion_ops(out, ctx)
   gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
-  gen_valid_append_expanded_scalar_numeric_ops(out)
+  gen_valid_append_expanded_scalar_numeric_ops(out, ctx)
   gen_valid_append_core_control_ops(out, ctx, env)
   gen_valid_append_direct_call_graph_variants(out, ctx, env)
   gen_valid_append_call_indirect_variants(out, ctx, env)
