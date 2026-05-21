@@ -454,10 +454,30 @@ pub struct GenValidExactOpcodeCounts {
   return_call_ref : Int
   v128_const : Int
   i8x16_splat : Int
+  i16x8_splat : Int
+  i32x4_splat : Int
+  i64x2_splat : Int
+  f32x4_splat : Int
+  f64x2_splat : Int
   i8x16_extract_lane_s : Int
+  i8x16_extract_lane_u : Int
   i8x16_replace_lane : Int
+  i16x8_extract_lane_s : Int
+  i16x8_extract_lane_u : Int
+  i16x8_replace_lane : Int
+  i32x4_extract_lane : Int
+  i32x4_replace_lane : Int
+  i64x2_extract_lane : Int
+  i64x2_replace_lane : Int
+  f32x4_extract_lane : Int
+  f32x4_replace_lane : Int
+  f64x2_extract_lane : Int
+  f64x2_replace_lane : Int
   v128_not : Int
   v128_and : Int
+  v128_andnot : Int
+  v128_or : Int
+  v128_xor : Int
   v128_bitselect : Int
   v128_any_true : Int
   i8x16_eq : Int

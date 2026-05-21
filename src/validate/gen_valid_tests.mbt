@@ -2461,7 +2461,19 @@ fn gen_valid_test_module_has_numeric_expression_tree(mod_ : Module) -> Bool {
 
 ///|
 test "coverage-forced GenValid emits standard SIMD representative exact opcode counters" {
-  let config = GenValidConfig::coverage_forced_default()
+  let base = GenValidConfig::coverage_forced_default()
+  let config = GenValidConfig::{
+    ..base,
+    max_imports: 0,
+    section_bias: GenValidSectionBias::{
+      ..base.section_bias,
+      imports_percent: 0,
+    },
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_typed_body_generator: true,
+    },
+  }
   let generated = match
     gen_valid_module_result(@splitmix.new(seed=0xf71009UL), config) {
     Ok(v) => v
@@ -2488,8 +2500,76 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include i8x16.splat",
   )
   assert_true(
+    counts.i16x8_splat > 0,
+    msg="SIMD exact coverage should include i16x8.splat",
+  )
+  assert_true(
+    counts.i32x4_splat > 0,
+    msg="SIMD exact coverage should include i32x4.splat",
+  )
+  assert_true(
+    counts.i64x2_splat > 0,
+    msg="SIMD exact coverage should include i64x2.splat",
+  )
+  assert_true(
+    counts.f32x4_splat > 0,
+    msg="SIMD exact coverage should include f32x4.splat",
+  )
+  assert_true(
+    counts.f64x2_splat > 0,
+    msg="SIMD exact coverage should include f64x2.splat",
+  )
+  assert_true(
     counts.i8x16_extract_lane_s > 0,
     msg="SIMD exact coverage should include i8x16.extract_lane_s",
+  )
+  assert_true(
+    counts.i8x16_extract_lane_u > 0,
+    msg="SIMD exact coverage should include i8x16.extract_lane_u",
+  )
+  assert_true(
+    counts.i16x8_extract_lane_s > 0,
+    msg="SIMD exact coverage should include i16x8.extract_lane_s",
+  )
+  assert_true(
+    counts.i16x8_extract_lane_u > 0,
+    msg="SIMD exact coverage should include i16x8.extract_lane_u",
+  )
+  assert_true(
+    counts.i16x8_replace_lane > 0,
+    msg="SIMD exact coverage should include i16x8.replace_lane",
+  )
+  assert_true(
+    counts.i32x4_extract_lane > 0,
+    msg="SIMD exact coverage should include i32x4.extract_lane",
+  )
+  assert_true(
+    counts.i32x4_replace_lane > 0,
+    msg="SIMD exact coverage should include i32x4.replace_lane",
+  )
+  assert_true(
+    counts.i64x2_extract_lane > 0,
+    msg="SIMD exact coverage should include i64x2.extract_lane",
+  )
+  assert_true(
+    counts.i64x2_replace_lane > 0,
+    msg="SIMD exact coverage should include i64x2.replace_lane",
+  )
+  assert_true(
+    counts.f32x4_extract_lane > 0,
+    msg="SIMD exact coverage should include f32x4.extract_lane",
+  )
+  assert_true(
+    counts.f32x4_replace_lane > 0,
+    msg="SIMD exact coverage should include f32x4.replace_lane",
+  )
+  assert_true(
+    counts.f64x2_extract_lane > 0,
+    msg="SIMD exact coverage should include f64x2.extract_lane",
+  )
+  assert_true(
+    counts.f64x2_replace_lane > 0,
+    msg="SIMD exact coverage should include f64x2.replace_lane",
   )
   assert_true(
     counts.i8x16_replace_lane > 0,
@@ -2502,6 +2582,18 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
   assert_true(
     counts.v128_and > 0,
     msg="SIMD exact coverage should include v128.and",
+  )
+  assert_true(
+    counts.v128_andnot > 0,
+    msg="SIMD exact coverage should include v128.andnot",
+  )
+  assert_true(
+    counts.v128_or > 0,
+    msg="SIMD exact coverage should include v128.or",
+  )
+  assert_true(
+    counts.v128_xor > 0,
+    msg="SIMD exact coverage should include v128.xor",
   )
   assert_true(
     counts.v128_bitselect > 0,

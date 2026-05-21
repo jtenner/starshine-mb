@@ -6538,7 +6538,19 @@ fn validate_test_simd_phase1_forms_module(
 
 ///|
 test "gen_valid coverage-forced emits simd phase 1 surface" {
-  let config = GenValidConfig::coverage_forced_default()
+  let base = GenValidConfig::coverage_forced_default()
+  let config = GenValidConfig::{
+    ..base,
+    max_imports: 0,
+    section_bias: GenValidSectionBias::{
+      ..base.section_bias,
+      imports_percent: 0,
+    },
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_typed_body_generator: true,
+    },
+  }
   let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26014UL), config)
   match validate_module(mod) {
     Ok(_) => ()

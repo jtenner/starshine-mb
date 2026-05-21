@@ -1229,10 +1229,30 @@ pub struct GenValidExactOpcodeCounts {
   return_call_ref : Int
   v128_const : Int
   i8x16_splat : Int
+  i16x8_splat : Int
+  i32x4_splat : Int
+  i64x2_splat : Int
+  f32x4_splat : Int
+  f64x2_splat : Int
   i8x16_extract_lane_s : Int
+  i8x16_extract_lane_u : Int
   i8x16_replace_lane : Int
+  i16x8_extract_lane_s : Int
+  i16x8_extract_lane_u : Int
+  i16x8_replace_lane : Int
+  i32x4_extract_lane : Int
+  i32x4_replace_lane : Int
+  i64x2_extract_lane : Int
+  i64x2_replace_lane : Int
+  f32x4_extract_lane : Int
+  f32x4_replace_lane : Int
+  f64x2_extract_lane : Int
+  f64x2_replace_lane : Int
   v128_not : Int
   v128_and : Int
+  v128_andnot : Int
+  v128_or : Int
+  v128_xor : Int
   v128_bitselect : Int
   v128_any_true : Int
   i8x16_eq : Int
@@ -1449,10 +1469,30 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     return_call_ref: 0,
     v128_const: 0,
     i8x16_splat: 0,
+    i16x8_splat: 0,
+    i32x4_splat: 0,
+    i64x2_splat: 0,
+    f32x4_splat: 0,
+    f64x2_splat: 0,
     i8x16_extract_lane_s: 0,
+    i8x16_extract_lane_u: 0,
     i8x16_replace_lane: 0,
+    i16x8_extract_lane_s: 0,
+    i16x8_extract_lane_u: 0,
+    i16x8_replace_lane: 0,
+    i32x4_extract_lane: 0,
+    i32x4_replace_lane: 0,
+    i64x2_extract_lane: 0,
+    i64x2_replace_lane: 0,
+    f32x4_extract_lane: 0,
+    f32x4_replace_lane: 0,
+    f64x2_extract_lane: 0,
+    f64x2_replace_lane: 0,
     v128_not: 0,
     v128_and: 0,
+    v128_andnot: 0,
+    v128_or: 0,
+    v128_xor: 0,
     v128_bitselect: 0,
     v128_any_true: 0,
     i8x16_eq: 0,
@@ -1630,10 +1670,30 @@ pub fn GenValidExactOpcodeCounts::add(
     return_call_ref: self.return_call_ref + other.return_call_ref,
     v128_const: self.v128_const + other.v128_const,
     i8x16_splat: self.i8x16_splat + other.i8x16_splat,
+    i16x8_splat: self.i16x8_splat + other.i16x8_splat,
+    i32x4_splat: self.i32x4_splat + other.i32x4_splat,
+    i64x2_splat: self.i64x2_splat + other.i64x2_splat,
+    f32x4_splat: self.f32x4_splat + other.f32x4_splat,
+    f64x2_splat: self.f64x2_splat + other.f64x2_splat,
     i8x16_extract_lane_s: self.i8x16_extract_lane_s + other.i8x16_extract_lane_s,
+    i8x16_extract_lane_u: self.i8x16_extract_lane_u + other.i8x16_extract_lane_u,
     i8x16_replace_lane: self.i8x16_replace_lane + other.i8x16_replace_lane,
+    i16x8_extract_lane_s: self.i16x8_extract_lane_s + other.i16x8_extract_lane_s,
+    i16x8_extract_lane_u: self.i16x8_extract_lane_u + other.i16x8_extract_lane_u,
+    i16x8_replace_lane: self.i16x8_replace_lane + other.i16x8_replace_lane,
+    i32x4_extract_lane: self.i32x4_extract_lane + other.i32x4_extract_lane,
+    i32x4_replace_lane: self.i32x4_replace_lane + other.i32x4_replace_lane,
+    i64x2_extract_lane: self.i64x2_extract_lane + other.i64x2_extract_lane,
+    i64x2_replace_lane: self.i64x2_replace_lane + other.i64x2_replace_lane,
+    f32x4_extract_lane: self.f32x4_extract_lane + other.f32x4_extract_lane,
+    f32x4_replace_lane: self.f32x4_replace_lane + other.f32x4_replace_lane,
+    f64x2_extract_lane: self.f64x2_extract_lane + other.f64x2_extract_lane,
+    f64x2_replace_lane: self.f64x2_replace_lane + other.f64x2_replace_lane,
     v128_not: self.v128_not + other.v128_not,
     v128_and: self.v128_and + other.v128_and,
+    v128_andnot: self.v128_andnot + other.v128_andnot,
+    v128_or: self.v128_or + other.v128_or,
+    v128_xor: self.v128_xor + other.v128_xor,
     v128_bitselect: self.v128_bitselect + other.v128_bitselect,
     v128_any_true: self.v128_any_true + other.v128_any_true,
     i8x16_eq: self.i8x16_eq + other.i8x16_eq,
@@ -8893,12 +8953,44 @@ fn gen_valid_exact_opcode_counts_for_instr(
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       GenValidExactOpcodeCounts::{ ..zero, v128_const: 1 }
     I8x16Splat => GenValidExactOpcodeCounts::{ ..zero, i8x16_splat: 1 }
+    I16x8Splat => GenValidExactOpcodeCounts::{ ..zero, i16x8_splat: 1 }
+    I32x4Splat => GenValidExactOpcodeCounts::{ ..zero, i32x4_splat: 1 }
+    I64x2Splat => GenValidExactOpcodeCounts::{ ..zero, i64x2_splat: 1 }
+    F32x4Splat => GenValidExactOpcodeCounts::{ ..zero, f32x4_splat: 1 }
+    F64x2Splat => GenValidExactOpcodeCounts::{ ..zero, f64x2_splat: 1 }
     I8x16ExtractLaneS(_) =>
       GenValidExactOpcodeCounts::{ ..zero, i8x16_extract_lane_s: 1 }
+    I8x16ExtractLaneU(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i8x16_extract_lane_u: 1 }
     I8x16ReplaceLane(_) =>
       GenValidExactOpcodeCounts::{ ..zero, i8x16_replace_lane: 1 }
+    I16x8ExtractLaneS(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_extract_lane_s: 1 }
+    I16x8ExtractLaneU(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_extract_lane_u: 1 }
+    I16x8ReplaceLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_replace_lane: 1 }
+    I32x4ExtractLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_extract_lane: 1 }
+    I32x4ReplaceLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_replace_lane: 1 }
+    I64x2ExtractLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i64x2_extract_lane: 1 }
+    I64x2ReplaceLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i64x2_replace_lane: 1 }
+    F32x4ExtractLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_extract_lane: 1 }
+    F32x4ReplaceLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_replace_lane: 1 }
+    F64x2ExtractLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_extract_lane: 1 }
+    F64x2ReplaceLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_replace_lane: 1 }
     V128Not => GenValidExactOpcodeCounts::{ ..zero, v128_not: 1 }
     V128And => GenValidExactOpcodeCounts::{ ..zero, v128_and: 1 }
+    V128Andnot => GenValidExactOpcodeCounts::{ ..zero, v128_andnot: 1 }
+    V128Or => GenValidExactOpcodeCounts::{ ..zero, v128_or: 1 }
+    V128Xor => GenValidExactOpcodeCounts::{ ..zero, v128_xor: 1 }
     V128Bitselect => GenValidExactOpcodeCounts::{ ..zero, v128_bitselect: 1 }
     V128AnyTrue => GenValidExactOpcodeCounts::{ ..zero, v128_any_true: 1 }
     I8x16Eq => GenValidExactOpcodeCounts::{ ..zero, i8x16_eq: 1 }
@@ -9323,6 +9415,12 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) => true
         _ => false
       },
+      uses_v128: gen_valid_instr_is_simd_phase1(instr) ||
+      gen_valid_instr_is_simd_phase2(instr) ||
+      gen_valid_instr_is_simd_phase3(instr),
+      has_simd_phase1: gen_valid_instr_is_simd_phase1(instr),
+      has_simd_phase2: gen_valid_instr_is_simd_phase2(instr),
+      has_simd_phase3: gen_valid_instr_is_simd_phase3(instr),
       exact_opcode_counts,
     }
   }
