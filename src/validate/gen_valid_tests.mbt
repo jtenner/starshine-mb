@@ -2674,6 +2674,53 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
 }
 
 ///|
+test "relaxed SIMD profile emits explicit relaxed SIMD exact opcode counters" {
+  let config = GenValidConfig::for_profile(RelaxedSimdProfile)
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71010UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected relaxed-SIMD generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  let counts = generated.facts.exact_opcode_counts
+  assert_true(generated.facts.uses_v128)
+  assert_true(
+    counts.i8x16_relaxed_swizzle > 0,
+    msg="relaxed SIMD exact coverage should include i8x16.relaxed_swizzle",
+  )
+  assert_true(
+    counts.i8x16_relaxed_laneselect > 0,
+    msg="relaxed SIMD exact coverage should include i8x16.relaxed_laneselect",
+  )
+  assert_true(
+    counts.i32x4_relaxed_trunc_f32x4_s > 0,
+    msg="relaxed SIMD exact coverage should include i32x4.relaxed_trunc_f32x4_s",
+  )
+  assert_true(
+    counts.f32x4_relaxed_madd > 0,
+    msg="relaxed SIMD exact coverage should include f32x4.relaxed_madd",
+  )
+  assert_true(
+    counts.f64x2_relaxed_min > 0,
+    msg="relaxed SIMD exact coverage should include f64x2.relaxed_min",
+  )
+  assert_true(
+    counts.i16x8_relaxed_dot_i8x16_i7x16_s > 0,
+    msg="relaxed SIMD exact coverage should include i16x8.relaxed_dot_i8x16_i7x16_s",
+  )
+  assert_true(
+    counts.i32x4_relaxed_dot_i8x16_i7x16_add_s > 0,
+    msg="relaxed SIMD exact coverage should include i32x4.relaxed_dot_i8x16_i7x16_add_s",
+  )
+}
+
+///|
 test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret counters" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match

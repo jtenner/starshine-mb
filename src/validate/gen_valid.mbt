@@ -85,6 +85,7 @@ pub struct GenValidFeatureToggles {
   allow_datas : Bool
   allow_ref_types : Bool
   allow_v128 : Bool
+  allow_relaxed_simd : Bool
   allow_calls : Bool
   allow_call_indirect : Bool
   allow_tail_calls : Bool
@@ -122,6 +123,8 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_ref_types.output(logger)
   logger.write_string(", allow_v128:")
   self.allow_v128.output(logger)
+  logger.write_string(", allow_relaxed_simd:")
+  self.allow_relaxed_simd.output(logger)
   logger.write_string(", allow_calls:")
   self.allow_calls.output(logger)
   logger.write_string(", allow_call_indirect:")
@@ -163,6 +166,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_datas: true,
     allow_ref_types: true,
     allow_v128: true,
+    allow_relaxed_simd: false,
     allow_calls: true,
     allow_call_indirect: true,
     allow_tail_calls: true,
@@ -338,6 +342,7 @@ pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> GenValidConf
       allow_datas: false,
       allow_ref_types: false,
       allow_v128: false,
+      allow_relaxed_simd: false,
       allow_call_indirect: false,
       allow_tail_calls: false,
       allow_memory_limit_variants: false,
@@ -367,6 +372,7 @@ pub enum GenValidProfile {
   ImportsHeavyProfile
   GcHeavyProfile
   SimdHeavyProfile
+  RelaxedSimdProfile
   MemoryHeavyProfile
   ControlHeavyProfile
   TopologyHeavyProfile
@@ -389,6 +395,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ImportsHeavyProfile => "imports-heavy"
     GcHeavyProfile => "gc-heavy"
     SimdHeavyProfile => "simd-heavy"
+    RelaxedSimdProfile => "relaxed-simd"
     MemoryHeavyProfile => "memory-heavy"
     ControlHeavyProfile => "control-heavy"
     TopologyHeavyProfile => "topology-heavy"
@@ -412,6 +419,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ImportsHeavyProfile,
     GcHeavyProfile,
     SimdHeavyProfile,
+    RelaxedSimdProfile,
     MemoryHeavyProfile,
     ControlHeavyProfile,
     TopologyHeavyProfile,
@@ -584,6 +592,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         features: GenValidFeatureToggles::{
           ..GenValidFeatureToggles::coverage_forced_default(),
           allow_v128: true,
+        },
+      }
+    RelaxedSimdProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        features: GenValidFeatureToggles::{
+          ..GenValidFeatureToggles::coverage_forced_default(),
+          allow_v128: true,
+          allow_relaxed_simd: true,
+          allow_typed_body_generator: true,
         },
       }
     MemoryHeavyProfile =>
@@ -1334,6 +1352,26 @@ pub struct GenValidExactOpcodeCounts {
   i8x16_narrow_i16x8_s : Int
   i32x4_dot_i16x8_s : Int
   f32x4_demote_f64x2_zero : Int
+  i8x16_relaxed_swizzle : Int
+  i32x4_relaxed_trunc_f32x4_s : Int
+  i32x4_relaxed_trunc_f32x4_u : Int
+  i32x4_relaxed_trunc_zero_f64x2_s : Int
+  i32x4_relaxed_trunc_zero_f64x2_u : Int
+  f32x4_relaxed_madd : Int
+  f32x4_relaxed_nmadd : Int
+  f64x2_relaxed_madd : Int
+  f64x2_relaxed_nmadd : Int
+  i8x16_relaxed_laneselect : Int
+  i16x8_relaxed_laneselect : Int
+  i32x4_relaxed_laneselect : Int
+  i64x2_relaxed_laneselect : Int
+  f32x4_relaxed_min : Int
+  f32x4_relaxed_max : Int
+  f64x2_relaxed_min : Int
+  f64x2_relaxed_max : Int
+  i16x8_relaxed_q15mulr_s : Int
+  i16x8_relaxed_dot_i8x16_i7x16_s : Int
+  i32x4_relaxed_dot_i8x16_i7x16_add_s : Int
 } derive(Eq, Debug)
 
 ///|
@@ -1636,6 +1674,26 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i8x16_narrow_i16x8_s: 0,
     i32x4_dot_i16x8_s: 0,
     f32x4_demote_f64x2_zero: 0,
+    i8x16_relaxed_swizzle: 0,
+    i32x4_relaxed_trunc_f32x4_s: 0,
+    i32x4_relaxed_trunc_f32x4_u: 0,
+    i32x4_relaxed_trunc_zero_f64x2_s: 0,
+    i32x4_relaxed_trunc_zero_f64x2_u: 0,
+    f32x4_relaxed_madd: 0,
+    f32x4_relaxed_nmadd: 0,
+    f64x2_relaxed_madd: 0,
+    f64x2_relaxed_nmadd: 0,
+    i8x16_relaxed_laneselect: 0,
+    i16x8_relaxed_laneselect: 0,
+    i32x4_relaxed_laneselect: 0,
+    i64x2_relaxed_laneselect: 0,
+    f32x4_relaxed_min: 0,
+    f32x4_relaxed_max: 0,
+    f64x2_relaxed_min: 0,
+    f64x2_relaxed_max: 0,
+    i16x8_relaxed_q15mulr_s: 0,
+    i16x8_relaxed_dot_i8x16_i7x16_s: 0,
+    i32x4_relaxed_dot_i8x16_i7x16_add_s: 0,
   }
 }
 
@@ -1905,6 +1963,38 @@ pub fn GenValidExactOpcodeCounts::add(
     i32x4_dot_i16x8_s: self.i32x4_dot_i16x8_s + other.i32x4_dot_i16x8_s,
     f32x4_demote_f64x2_zero: self.f32x4_demote_f64x2_zero +
     other.f32x4_demote_f64x2_zero,
+    i8x16_relaxed_swizzle: self.i8x16_relaxed_swizzle +
+    other.i8x16_relaxed_swizzle,
+    i32x4_relaxed_trunc_f32x4_s: self.i32x4_relaxed_trunc_f32x4_s +
+    other.i32x4_relaxed_trunc_f32x4_s,
+    i32x4_relaxed_trunc_f32x4_u: self.i32x4_relaxed_trunc_f32x4_u +
+    other.i32x4_relaxed_trunc_f32x4_u,
+    i32x4_relaxed_trunc_zero_f64x2_s: self.i32x4_relaxed_trunc_zero_f64x2_s +
+    other.i32x4_relaxed_trunc_zero_f64x2_s,
+    i32x4_relaxed_trunc_zero_f64x2_u: self.i32x4_relaxed_trunc_zero_f64x2_u +
+    other.i32x4_relaxed_trunc_zero_f64x2_u,
+    f32x4_relaxed_madd: self.f32x4_relaxed_madd + other.f32x4_relaxed_madd,
+    f32x4_relaxed_nmadd: self.f32x4_relaxed_nmadd + other.f32x4_relaxed_nmadd,
+    f64x2_relaxed_madd: self.f64x2_relaxed_madd + other.f64x2_relaxed_madd,
+    f64x2_relaxed_nmadd: self.f64x2_relaxed_nmadd + other.f64x2_relaxed_nmadd,
+    i8x16_relaxed_laneselect: self.i8x16_relaxed_laneselect +
+    other.i8x16_relaxed_laneselect,
+    i16x8_relaxed_laneselect: self.i16x8_relaxed_laneselect +
+    other.i16x8_relaxed_laneselect,
+    i32x4_relaxed_laneselect: self.i32x4_relaxed_laneselect +
+    other.i32x4_relaxed_laneselect,
+    i64x2_relaxed_laneselect: self.i64x2_relaxed_laneselect +
+    other.i64x2_relaxed_laneselect,
+    f32x4_relaxed_min: self.f32x4_relaxed_min + other.f32x4_relaxed_min,
+    f32x4_relaxed_max: self.f32x4_relaxed_max + other.f32x4_relaxed_max,
+    f64x2_relaxed_min: self.f64x2_relaxed_min + other.f64x2_relaxed_min,
+    f64x2_relaxed_max: self.f64x2_relaxed_max + other.f64x2_relaxed_max,
+    i16x8_relaxed_q15mulr_s: self.i16x8_relaxed_q15mulr_s +
+    other.i16x8_relaxed_q15mulr_s,
+    i16x8_relaxed_dot_i8x16_i7x16_s: self.i16x8_relaxed_dot_i8x16_i7x16_s +
+    other.i16x8_relaxed_dot_i8x16_i7x16_s,
+    i32x4_relaxed_dot_i8x16_i7x16_add_s: self.i32x4_relaxed_dot_i8x16_i7x16_add_s +
+    other.i32x4_relaxed_dot_i8x16_i7x16_add_s,
   }
 }
 
@@ -6155,6 +6245,54 @@ fn gen_valid_append_v128_unary_op(
 }
 
 ///|
+fn gen_valid_append_v128_ternary_op(
+  out : Array[Instruction],
+  instr : Instruction,
+) -> Unit {
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  out.push(instr)
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_relaxed_simd_ops(out : Array[Instruction]) -> Unit {
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_relaxed_swizzle())
+  gen_valid_append_v128_ternary_op(out, Instruction::i8x16_relaxed_laneselect())
+  gen_valid_append_v128_ternary_op(out, Instruction::i16x8_relaxed_laneselect())
+  gen_valid_append_v128_ternary_op(out, Instruction::i32x4_relaxed_laneselect())
+  gen_valid_append_v128_ternary_op(out, Instruction::i64x2_relaxed_laneselect())
+  gen_valid_append_v128_unary_op(out, Instruction::i32x4_relaxed_trunc_f32x4s())
+  gen_valid_append_v128_unary_op(out, Instruction::i32x4_relaxed_trunc_f32x4u())
+  gen_valid_append_v128_unary_op(
+    out,
+    Instruction::i32x4_relaxed_trunc_zero_f64x2s(),
+  )
+  gen_valid_append_v128_unary_op(
+    out,
+    Instruction::i32x4_relaxed_trunc_zero_f64x2u(),
+  )
+  gen_valid_append_v128_ternary_op(out, Instruction::f32x4_relaxed_madd())
+  gen_valid_append_v128_ternary_op(out, Instruction::f32x4_relaxed_nmadd())
+  gen_valid_append_v128_ternary_op(out, Instruction::f64x2_relaxed_madd())
+  gen_valid_append_v128_ternary_op(out, Instruction::f64x2_relaxed_nmadd())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_relaxed_min())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_relaxed_max())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_relaxed_min())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_relaxed_max())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_relaxed_q15mulr_s())
+  gen_valid_append_v128_binary_op(
+    out,
+    Instruction::i16x8_relaxed_dot_i8x16i7x16s(),
+  )
+  gen_valid_append_v128_ternary_op(
+    out,
+    Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(),
+  )
+}
+
+///|
 fn gen_valid_append_simd_phase1_ops(out : Array[Instruction]) -> Unit {
   gen_valid_append_v128_zero(out)
   out.push(Instruction::drop())
@@ -6829,6 +6967,9 @@ fn gen_valid_append_simd_template_group(
 ) -> Unit {
   if !ctx.config.features.allow_v128 {
     return
+  }
+  if ctx.config.features.allow_relaxed_simd {
+    gen_valid_append_relaxed_simd_ops(out)
   }
   let has_memory_phase = !env.mems.is_empty()
   let order_key = match env.current_func_idx {
@@ -9293,6 +9434,49 @@ fn gen_valid_exact_opcode_counts_for_instr(
       GenValidExactOpcodeCounts::{ ..zero, i32x4_dot_i16x8_s: 1 }
     F32x4DemoteF64x2Zero =>
       GenValidExactOpcodeCounts::{ ..zero, f32x4_demote_f64x2_zero: 1 }
+    I8x16RelaxedSwizzle =>
+      GenValidExactOpcodeCounts::{ ..zero, i8x16_relaxed_swizzle: 1 }
+    I32x4RelaxedTruncF32x4S =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_relaxed_trunc_f32x4_s: 1 }
+    I32x4RelaxedTruncF32x4U =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_relaxed_trunc_f32x4_u: 1 }
+    I32x4RelaxedTruncZeroF64x2S =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_relaxed_trunc_zero_f64x2_s: 1 }
+    I32x4RelaxedTruncZeroF64x2U =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_relaxed_trunc_zero_f64x2_u: 1 }
+    F32x4RelaxedMadd =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_relaxed_madd: 1 }
+    F32x4RelaxedNmadd =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_relaxed_nmadd: 1 }
+    F64x2RelaxedMadd =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_relaxed_madd: 1 }
+    F64x2RelaxedNmadd =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_relaxed_nmadd: 1 }
+    I8x16RelaxedLaneselect =>
+      GenValidExactOpcodeCounts::{ ..zero, i8x16_relaxed_laneselect: 1 }
+    I16x8RelaxedLaneselect =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_relaxed_laneselect: 1 }
+    I32x4RelaxedLaneselect =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_relaxed_laneselect: 1 }
+    I64x2RelaxedLaneselect =>
+      GenValidExactOpcodeCounts::{ ..zero, i64x2_relaxed_laneselect: 1 }
+    F32x4RelaxedMin =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_relaxed_min: 1 }
+    F32x4RelaxedMax =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_relaxed_max: 1 }
+    F64x2RelaxedMin =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_relaxed_min: 1 }
+    F64x2RelaxedMax =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_relaxed_max: 1 }
+    I16x8RelaxedQ15mulrS =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_relaxed_q15mulr_s: 1 }
+    I16x8RelaxedDotI8x16I7x16S =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_relaxed_dot_i8x16_i7x16_s: 1 }
+    I32x4RelaxedDotI8x16I7x16AddS =>
+      GenValidExactOpcodeCounts::{
+        ..zero,
+        i32x4_relaxed_dot_i8x16_i7x16_add_s: 1,
+      }
     _ => zero
   }
 }

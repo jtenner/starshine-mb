@@ -559,6 +559,26 @@ pub struct GenValidExactOpcodeCounts {
   i8x16_narrow_i16x8_s : Int
   i32x4_dot_i16x8_s : Int
   f32x4_demote_f64x2_zero : Int
+  i8x16_relaxed_swizzle : Int
+  i32x4_relaxed_trunc_f32x4_s : Int
+  i32x4_relaxed_trunc_f32x4_u : Int
+  i32x4_relaxed_trunc_zero_f64x2_s : Int
+  i32x4_relaxed_trunc_zero_f64x2_u : Int
+  f32x4_relaxed_madd : Int
+  f32x4_relaxed_nmadd : Int
+  f64x2_relaxed_madd : Int
+  f64x2_relaxed_nmadd : Int
+  i8x16_relaxed_laneselect : Int
+  i16x8_relaxed_laneselect : Int
+  i32x4_relaxed_laneselect : Int
+  i64x2_relaxed_laneselect : Int
+  f32x4_relaxed_min : Int
+  f32x4_relaxed_max : Int
+  f64x2_relaxed_min : Int
+  f64x2_relaxed_max : Int
+  i16x8_relaxed_q15mulr_s : Int
+  i16x8_relaxed_dot_i8x16_i7x16_s : Int
+  i32x4_relaxed_dot_i8x16_i7x16_add_s : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidExactOpcodeCounts::add(Self, Self) -> Self
 pub fn GenValidExactOpcodeCounts::empty() -> Self
@@ -703,6 +723,7 @@ pub struct GenValidFeatureToggles {
   allow_datas : Bool
   allow_ref_types : Bool
   allow_v128 : Bool
+  allow_relaxed_simd : Bool
   allow_calls : Bool
   allow_call_indirect : Bool
   allow_tail_calls : Bool
@@ -750,6 +771,7 @@ pub enum GenValidProfile {
   ImportsHeavyProfile
   GcHeavyProfile
   SimdHeavyProfile
+  RelaxedSimdProfile
   MemoryHeavyProfile
   ControlHeavyProfile
   TopologyHeavyProfile
