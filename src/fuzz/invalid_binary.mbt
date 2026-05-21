@@ -104,6 +104,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedImportTagTypeIndexUleb
   InvalidImportTableRefTypeByte
   InvalidImportMemoryLimitsFlagByte
+  InvalidImportGlobalValTypeByte
+  InvalidImportGlobalMutabilityByte
   InvalidTableRefTypeByte
   InvalidTableLimitsFlagByte
   MalformedRefNullHeaptypeImmediate
@@ -596,6 +598,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidImportTableRefTypeByte => "invalid-import-table-reftype-byte"
     InvalidImportMemoryLimitsFlagByte =>
       "invalid-import-memory-limits-flag-byte"
+    InvalidImportGlobalValTypeByte => "invalid-import-global-valtype-byte"
+    InvalidImportGlobalMutabilityByte => "invalid-import-global-mutability-byte"
     InvalidTableRefTypeByte => "invalid-table-reftype-byte"
     InvalidTableLimitsFlagByte => "invalid-table-limits-flag-byte"
     MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
@@ -1245,6 +1249,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidImportMemoryLimitsFlagByte,
       "invalid-import-memory-limits-flag-byte",
       "memory import descriptor with an invalid limits flag byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportGlobalValTypeByte,
+      "invalid-import-global-valtype-byte",
+      "global import descriptor with an invalid value type byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportGlobalMutabilityByte,
+      "invalid-import-global-mutability-byte",
+      "global import descriptor with an invalid mutability byte",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -6216,6 +6234,72 @@ fn validate_invalid_binary_mutate_invalid_import_memory_limits_flag_byte(
 }
 
 ///|
+fn validate_invalid_binary_mutate_invalid_import_global_valtype_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidImportGlobalValTypeByte,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x08).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x67).to_byte(),
+        (0x03).to_byte(),
+        (0xff).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_import_global_mutability_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidImportGlobalMutabilityByte,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x08).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x67).to_byte(),
+        (0x03).to_byte(),
+        (0x7f).to_byte(),
+        (0xff).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_import_tag_type_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -7456,6 +7540,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_import_memory_limits_flag_byte(
         base,
       )
+    InvalidImportGlobalValTypeByte =>
+      validate_invalid_binary_mutate_invalid_import_global_valtype_byte(base)
+    InvalidImportGlobalMutabilityByte =>
+      validate_invalid_binary_mutate_invalid_import_global_mutability_byte(base)
     InvalidTableRefTypeByte =>
       validate_invalid_binary_mutate_invalid_table_reftype_byte(base)
     InvalidTableLimitsFlagByte =>

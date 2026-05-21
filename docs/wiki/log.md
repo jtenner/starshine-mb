@@ -1159,8 +1159,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-20] fuzzing | import descriptor byte invalid-binary coverage
 
-- Added two decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `invalid-import-table-reftype-byte` corrupts the reference-type byte inside a table import descriptor, and `invalid-import-memory-limits-flag-byte` corrupts the limits flag byte inside a memory import descriptor.
-- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the binary-invalid strategy summary distinguishes import descriptor table/memory byte corruption from same-shaped table and memory section entries.
+- Added two more decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `invalid-import-global-valtype-byte` corrupts the value-type byte inside a global import descriptor, and `invalid-import-global-mutability-byte` corrupts the mutability byte inside a global import descriptor.
+- Earlier in the same slice, added `invalid-import-table-reftype-byte` for the reference-type byte inside a table import descriptor and `invalid-import-memory-limits-flag-byte` for the limits flag byte inside a memory import descriptor.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the binary-invalid strategy summary distinguishes import descriptor table/memory/global byte corruption from same-shaped table, memory, and global section entries.
 
 ## [2026-05-20] fuzzing | typed-select valtype invalid-binary coverage
 
