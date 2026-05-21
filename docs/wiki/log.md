@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-21] binaryen | SGO fact-sensitive i31 FlowScanner slice
+
+- Extended `[SGO]003` read-only-to-write FlowScanner from a taint-only stack to a small fact stack that remembers values produced by `ref.i31`, so `i31.get_s`, `i31.get_u`, `ref.as_non_null`, and typed `select` results are accepted only when the consumed operand is proven to be that non-null i31 reference (both value operands for `select`).
+- Added focused positives for `ref.i31`-fed signed/unsigned i31 gets, `ref.i31; ref.as_non_null; i31.get_s`, and both-arms-proven typed `select`, plus negatives for nullable `i31ref` operands, mixed nullable selects, and post-consumer calls. Binaryen v129 probes promoted the fact-sensitive positives and preserved both negative neighbors.
+- Also fixed validation to accept `ref.as_non_null` on already non-null references, matching the Binaryen-accepted non-null operand shape needed by this FlowScanner slice.
+- Recorded validation evidence from Binaryen v129 WAT probes, `moon test src/validate`, `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-i31-get-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-21] binaryen | SGO ordinary ref.test FlowScanner slice
 
 - Added WAT parsing/lowering and `[SGO]003` read-only-to-write FlowScanner coverage for ordinary `ref.test` reftype immediates as nontrapping unary condition consumers.

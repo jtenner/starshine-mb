@@ -6491,6 +6491,136 @@ test "simplify-globals-optimizing keeps ref.test flow into post-consumers or tra
 }
 
 ///|
+test "simplify-globals-optimizing removes ref.i31-fed i31.get read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $signed (mut i32) (i32.const 0))
+      #|  (global $unsigned (mut i32) (i32.const 0))
+      #|  (global $nonnull (mut i32) (i32.const 0))
+      #|  (global $select (mut i32) (i32.const 0))
+      #|  (func (export "signed")
+      #|    global.get $signed
+      #|    ref.i31
+      #|    i31.get_s
+      #|    if
+      #|      i32.const 1
+      #|      global.set $signed
+      #|    end)
+      #|  (func (export "unsigned")
+      #|    global.get $unsigned
+      #|    ref.i31
+      #|    i31.get_u
+      #|    if
+      #|      i32.const 1
+      #|      global.set $unsigned
+      #|    end)
+      #|  (func (export "nonnull")
+      #|    global.get $nonnull
+      #|    ref.i31
+      #|    ref.as_non_null
+      #|    i31.get_s
+      #|    if
+      #|      i32.const 1
+      #|      global.set $nonnull
+      #|    end)
+      #|  (func (export "select")
+      #|    global.get $select
+      #|    ref.i31
+      #|    i32.const 7
+      #|    ref.i31
+      #|    i32.const 1
+      #|    select (result i31ref)
+      #|    i31.get_s
+      #|    if
+      #|      i32.const 1
+      #|      global.set $select
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 4; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+  }
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U) +
+    optimized.pretty_print_defined_func(3U)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps nullable or post-consumer i31.get guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $nullable (mut i31ref) (ref.null i31))
+      #|  (global $call (mut i32) (i32.const 0))
+      #|  (global $mixed (mut i32) (i32.const 0))
+      #|  (func (export "nullable")
+      #|    global.get $nullable
+      #|    i31.get_s
+      #|    if
+      #|      i32.const 1
+      #|      ref.i31
+      #|      global.set $nullable
+      #|    end)
+      #|  (func (export "call")
+      #|    global.get $call
+      #|    ref.i31
+      #|    i31.get_s
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $call
+      #|    end)
+      #|  (func (export "mixed")
+      #|    global.get $mixed
+      #|    ref.i31
+      #|    ref.null i31
+      #|    i32.const 0
+      #|    select (result i31ref)
+      #|    i31.get_s
+      #|    if
+      #|      i32.const 1
+      #|      global.set $mixed
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+      ),
+      true,
+    ),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U)
+  assert_true(pretty.contains("i31.get_s"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes wrapped simd extension guards" {
   let optimized = sgo_test_run(
     (

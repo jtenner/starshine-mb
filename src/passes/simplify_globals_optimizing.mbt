@@ -37,6 +37,12 @@ priv struct SgoPassResult {
 }
 
 ///|
+priv struct SgoFlowValue {
+  tainted : Bool
+  i31_ref : Bool
+}
+
+///|
 fn sgo_global_idx_slot(idx : @lib.GlobalIdx) -> Int {
   let @lib.GlobalIdx(raw) = idx
   raw.reinterpret_as_int()
@@ -616,36 +622,70 @@ fn sgo_if_is_read_only_to_write_set(
 }
 
 ///|
-fn sgo_flow_pop(stack : Array[Bool]) -> Bool? {
+fn sgo_flow_plain(tainted : Bool) -> SgoFlowValue {
+  SgoFlowValue::{ tainted, i31_ref: false }
+}
+
+///|
+fn sgo_flow_i31_ref(tainted : Bool) -> SgoFlowValue {
+  SgoFlowValue::{ tainted, i31_ref: true }
+}
+
+///|
+fn sgo_flow_pop(stack : Array[SgoFlowValue]) -> SgoFlowValue? {
   stack.pop()
 }
 
 ///|
-fn sgo_flow_push_clean(stack : Array[Bool]) -> Unit {
-  stack.push(false)
+fn sgo_flow_push_clean(stack : Array[SgoFlowValue]) -> Unit {
+  stack.push(sgo_flow_plain(false))
 }
 
 ///|
-fn sgo_flow_push_tainted(stack : Array[Bool]) -> Unit {
-  stack.push(true)
+fn sgo_flow_push_tainted(stack : Array[SgoFlowValue]) -> Unit {
+  stack.push(sgo_flow_plain(true))
 }
 
 ///|
-fn sgo_flow_apply_unary(stack : Array[Bool]) -> Bool {
+fn sgo_flow_apply_unary(
+  stack : Array[SgoFlowValue],
+  instr : @lib.Instruction,
+) -> Bool {
   match sgo_flow_pop(stack) {
-    Some(tainted) => {
-      stack.push(tainted)
-      true
-    }
+    Some(value) =>
+      match instr {
+        @lib.RefI31 => {
+          stack.push(sgo_flow_i31_ref(value.tainted))
+          true
+        }
+        @lib.I31GetS | @lib.I31GetU =>
+          if value.i31_ref {
+            stack.push(sgo_flow_plain(value.tainted))
+            true
+          } else {
+            false
+          }
+        @lib.RefAsNonNull =>
+          if value.i31_ref {
+            stack.push(value)
+            true
+          } else {
+            false
+          }
+        _ => {
+          stack.push(sgo_flow_plain(value.tainted))
+          true
+        }
+      }
     None => false
   }
 }
 
 ///|
-fn sgo_flow_apply_binary(stack : Array[Bool]) -> Bool {
+fn sgo_flow_apply_binary(stack : Array[SgoFlowValue]) -> Bool {
   match (sgo_flow_pop(stack), sgo_flow_pop(stack)) {
     (Some(rhs), Some(lhs)) => {
-      stack.push(lhs || rhs)
+      stack.push(sgo_flow_plain(lhs.tainted || rhs.tainted))
       true
     }
     _ => false
@@ -653,12 +693,20 @@ fn sgo_flow_apply_binary(stack : Array[Bool]) -> Bool {
 }
 
 ///|
-fn sgo_flow_stack_has_taint(stack : Array[Bool]) -> Bool {
-  stack.any(fn(tainted) { tainted })
+fn sgo_flow_stack_has_taint(stack : Array[SgoFlowValue]) -> Bool {
+  stack.any(fn(value) { value.tainted })
 }
 
 ///|
-fn sgo_flow_clear_stack(stack : Array[Bool]) -> Unit {
+fn sgo_flow_stack_single_taint(stack : Array[SgoFlowValue]) -> Bool {
+  match stack {
+    [value] => value.tainted
+    _ => false
+  }
+}
+
+///|
+fn sgo_flow_clear_stack(stack : Array[SgoFlowValue]) -> Unit {
   while stack.length() > 0 {
     ignore(stack.pop())
   }
@@ -673,10 +721,13 @@ fn sgo_is_flowscanner_nullary_pure_instr(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn sgo_flow_apply_select(stack : Array[Bool]) -> Bool {
+fn sgo_flow_apply_select(stack : Array[SgoFlowValue]) -> Bool {
   match (sgo_flow_pop(stack), sgo_flow_pop(stack), sgo_flow_pop(stack)) {
     (Some(condition), Some(second), Some(first)) => {
-      stack.push(first || second || condition)
+      stack.push(SgoFlowValue::{
+        tainted: first.tainted || second.tainted || condition.tainted,
+        i31_ref: first.i31_ref && second.i31_ref,
+      })
       true
     }
     _ => false
@@ -688,6 +739,9 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.RefIsNull
     | @lib.RefTest(_, _)
+    | @lib.RefAsNonNull
+    | @lib.I31GetS
+    | @lib.I31GetU
     | @lib.AnyConvertExtern
     | @lib.ExternConvertAny
     | @lib.RefI31
@@ -1040,8 +1094,8 @@ fn sgo_flow_scan_prefix_until(
   instrs : Array[@lib.Instruction],
   end_ : Int,
   idx : @lib.GlobalIdx,
-) -> (Bool, Int, Array[Bool]) {
-  let stack : Array[Bool] = []
+) -> (Bool, Int, Array[SgoFlowValue]) {
+  let stack : Array[SgoFlowValue] = []
   let mut reads = 0
   for scan = 0; scan < end_; scan = scan + 1 {
     let instr = instrs[scan]
@@ -1066,7 +1120,7 @@ fn sgo_flow_scan_prefix_until(
       }
       @lib.LocalTee(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1074,7 +1128,7 @@ fn sgo_flow_scan_prefix_until(
         }
       @lib.I32Load(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1082,7 +1136,7 @@ fn sgo_flow_scan_prefix_until(
         }
       @lib.Drop =>
         match sgo_flow_pop(stack) {
-          Some(false) => continue
+          Some(value) if !value.tainted => continue
           _ => return (false, reads, stack)
         }
       @lib.Call(_) => {
@@ -1101,7 +1155,7 @@ fn sgo_flow_scan_prefix_until(
       }
       @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
         match sgo_flow_pop(stack) {
-          Some(false) => ()
+          Some(value) if !value.tainted => ()
           _ => return (false, reads, stack)
         }
         let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
@@ -1114,12 +1168,12 @@ fn sgo_flow_scan_prefix_until(
         if !then_ok || !else_ok || reads > 1 {
           return (false, reads, stack)
         }
-        stack.push(then_tainted || else_tainted)
+        stack.push(sgo_flow_plain(then_tainted || else_tainted))
         continue
       }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack) {
+          if !sgo_flow_apply_unary(stack, instr) {
             return (false, reads, stack)
           }
           continue
@@ -1141,8 +1195,8 @@ fn sgo_flow_scan_prefix_until(
 fn sgo_flow_scan_clean_prefix_until(
   instrs : Array[@lib.Instruction],
   end_ : Int,
-) -> (Bool, Array[Bool]) {
-  let stack : Array[Bool] = []
+) -> (Bool, Array[SgoFlowValue]) {
+  let stack : Array[SgoFlowValue] = []
   for scan = 0; scan < end_; scan = scan + 1 {
     let instr = instrs[scan]
     if sgo_const_instr(instr) != None ||
@@ -1157,7 +1211,7 @@ fn sgo_flow_scan_clean_prefix_until(
       }
       @lib.LocalTee(_) | @lib.I32Load(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1165,7 +1219,7 @@ fn sgo_flow_scan_clean_prefix_until(
         }
       @lib.Drop =>
         match sgo_flow_pop(stack) {
-          Some(false) => continue
+          Some(value) if !value.tainted => continue
           _ => return (false, stack)
         }
       @lib.Call(_) => {
@@ -1184,7 +1238,7 @@ fn sgo_flow_scan_clean_prefix_until(
       }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack) {
+          if !sgo_flow_apply_unary(stack, instr) {
             return (false, stack)
           }
           continue
@@ -1207,7 +1261,7 @@ fn sgo_flow_arm_result_taint_and_reads(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
 ) -> (Bool, Int, Bool) {
-  let stack : Array[Bool] = []
+  let stack : Array[SgoFlowValue] = []
   let mut reads = 0
   for scan = 0; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
@@ -1235,7 +1289,7 @@ fn sgo_flow_arm_result_taint_and_reads(
       }
       @lib.LocalTee(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1243,7 +1297,7 @@ fn sgo_flow_arm_result_taint_and_reads(
         }
       @lib.I32Load(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1251,7 +1305,7 @@ fn sgo_flow_arm_result_taint_and_reads(
         }
       @lib.Drop =>
         match sgo_flow_pop(stack) {
-          Some(false) => continue
+          Some(value) if !value.tainted => continue
           _ => return (false, reads, false)
         }
       @lib.Block(_, @lib.Expr(body)) => {
@@ -1262,12 +1316,12 @@ fn sgo_flow_arm_result_taint_and_reads(
         if !block_ok || reads > 1 {
           return (false, reads, false)
         }
-        stack.push(block_tainted)
+        stack.push(sgo_flow_plain(block_tainted))
         continue
       }
       @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
         match sgo_flow_pop(stack) {
-          Some(false) => ()
+          Some(value) if !value.tainted => ()
           _ => return (false, reads, false)
         }
         let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
@@ -1280,7 +1334,7 @@ fn sgo_flow_arm_result_taint_and_reads(
         if !then_ok || !else_ok || reads > 1 {
           return (false, reads, false)
         }
-        stack.push(then_tainted || else_tainted)
+        stack.push(sgo_flow_plain(then_tainted || else_tainted))
         continue
       }
       @lib.Call(_) => {
@@ -1306,7 +1360,7 @@ fn sgo_flow_arm_result_taint_and_reads(
       }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack) {
+          if !sgo_flow_apply_unary(stack, instr) {
             return (false, reads, false)
           }
           continue
@@ -1322,7 +1376,7 @@ fn sgo_flow_arm_result_taint_and_reads(
     }
   }
   match stack {
-    [tainted] => (true, reads, tainted)
+    [value] => (true, reads, value.tainted)
     _ => (false, reads, false)
   }
 }
@@ -1331,12 +1385,12 @@ fn sgo_flow_arm_result_taint_and_reads(
 fn sgo_nested_if_arm_flow_outer_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
-  prefix_stack : Array[Bool],
+  prefix_stack : Array[SgoFlowValue],
 ) -> Int? {
   if pos + 1 >= instrs.length() || prefix_stack.length() == 0 {
     return None
   }
-  let stack : Array[Bool] = []
+  let stack : Array[SgoFlowValue] = []
   for i = 0; i + 1 < prefix_stack.length(); i = i + 1 {
     stack.push(prefix_stack[i])
   }
@@ -1349,14 +1403,19 @@ fn sgo_nested_if_arm_flow_outer_if_index(
       continue
     }
     match instr {
-      @lib.If(_, _, _) => return if stack == [true] { Some(scan) } else { None }
+      @lib.If(_, _, _) =>
+        return if sgo_flow_stack_single_taint(stack) {
+          Some(scan)
+        } else {
+          None
+        }
       @lib.LocalGet(_) => {
         sgo_flow_push_clean(stack)
         continue
       }
       @lib.LocalTee(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1364,7 +1423,7 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         }
       @lib.I32Load(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1372,7 +1431,7 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         }
       @lib.Drop =>
         match sgo_flow_pop(stack) {
-          Some(false) => continue
+          Some(value) if !value.tainted => continue
           _ => return None
         }
       @lib.Call(_) => {
@@ -1391,7 +1450,7 @@ fn sgo_nested_if_arm_flow_outer_if_index(
       }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack) {
+          if !sgo_flow_apply_unary(stack, instr) {
             return None
           }
           continue
@@ -1414,7 +1473,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
 ) -> (Bool, Int, Bool) {
-  let stack : Array[Bool] = []
+  let stack : Array[SgoFlowValue] = []
   let mut reads = 0
   for scan = 0; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
@@ -1437,7 +1496,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
       }
       @lib.LocalTee(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1445,7 +1504,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         }
       @lib.I32Load(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1453,7 +1512,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         }
       @lib.Drop =>
         match sgo_flow_pop(stack) {
-          Some(false) => continue
+          Some(value) if !value.tainted => continue
           _ => return (false, reads, false)
         }
       @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
@@ -1464,12 +1523,12 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         if !block_ok || reads > 1 {
           return (false, reads, false)
         }
-        stack.push(block_tainted)
+        stack.push(sgo_flow_plain(block_tainted))
         continue
       }
       @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
         match sgo_flow_pop(stack) {
-          Some(false) => ()
+          Some(value) if !value.tainted => ()
           _ => return (false, reads, false)
         }
         let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
@@ -1482,7 +1541,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         if !then_ok || !else_ok || reads > 1 {
           return (false, reads, false)
         }
-        stack.push(then_tainted || else_tainted)
+        stack.push(sgo_flow_plain(then_tainted || else_tainted))
         continue
       }
       @lib.Call(_) => {
@@ -1501,7 +1560,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
       }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack) {
+          if !sgo_flow_apply_unary(stack, instr) {
             return (false, reads, false)
           }
           continue
@@ -1517,7 +1576,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
     }
   }
   match stack {
-    [tainted] => (true, reads, tainted)
+    [value] => (true, reads, value.tainted)
     _ => (false, reads, false)
   }
 }
@@ -1613,7 +1672,7 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
   pos : Int,
   idx : @lib.GlobalIdx,
 ) -> Bool {
-  let stack : Array[Bool] = []
+  let stack : Array[SgoFlowValue] = []
   for scan = 0; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
     if scan == pos {
@@ -1644,7 +1703,7 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
       }
       @lib.LocalTee(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1652,7 +1711,7 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
         }
       @lib.I32Load(_) =>
         match sgo_flow_pop(stack) {
-          Some(false) => {
+          Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
             continue
           }
@@ -1660,7 +1719,7 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
         }
       @lib.Drop =>
         match sgo_flow_pop(stack) {
-          Some(false) => continue
+          Some(value) if !value.tainted => continue
           _ => return false
         }
       @lib.Select(_) | @lib.V128Bitselect => {
@@ -1671,13 +1730,14 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
       }
       @lib.If(_, _, _) =>
         match sgo_flow_pop(stack) {
-          Some(true) => return sgo_if_is_read_only_to_write_set(instr, idx)
-          Some(false) => return false
-          None => return false
+          Some(value) if value.tainted =>
+            return sgo_if_is_read_only_to_write_set(instr, idx)
+          Some(value) if !value.tainted => return false
+          _ => return false
         }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack) {
+          if !sgo_flow_apply_unary(stack, instr) {
             return false
           }
           continue
@@ -2294,7 +2354,7 @@ fn sgo_block_condition_flow_scanner_read_matches(
     return false
   }
   let (ok, reads, stack) = sgo_flow_scan_prefix_until(flat, flat.length(), idx)
-  ok && reads == 1 && stack == [true]
+  ok && reads == 1 && sgo_flow_stack_single_taint(stack)
 }
 
 ///|
