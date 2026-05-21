@@ -86,8 +86,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-f64-const-immediate", "malformed-call-func-index-uleb", "malformed-return-call-func-index-uleb",
     "malformed-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb", "malformed-call-indirect-table-index-uleb",
     "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
-    "malformed-br-table-default-label-index-uleb", "malformed-table-index-uleb",
-    "malformed-memory-copy-dst-index-uleb", "malformed-memory-copy-src-index-uleb",
+    "malformed-br-table-target-label-index-uleb", "malformed-br-table-default-label-index-uleb",
+    "malformed-table-index-uleb", "malformed-memory-copy-dst-index-uleb", "malformed-memory-copy-src-index-uleb",
     "malformed-table-copy-dst-index-uleb", "malformed-table-copy-src-index-uleb",
     "malformed-select-type-count-uleb", "malformed-start-func-index-uleb", "malformed-datacount-uleb",
     "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow", "simd-store-lane-index-overflow",
@@ -143,7 +143,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1080,6 +1080,17 @@ test "invalid binary FZG031 decodes malformed ref test heaptype immediate as inv
   match
     invalid_binary_expect_strategy_rejects(
       "malformed-ref-test-heaptype-immediate", 0x5f16UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid binary FZG032 decodes malformed br_table target-label ULEB as invalid" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "malformed-br-table-target-label-index-uleb", 0x5f17UL, "decode",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

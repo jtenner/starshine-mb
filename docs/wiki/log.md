@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-20] fuzzing | br_table target-label LEB invalid-binary coverage
+
+- Added one decode-rejected binary-invalid strategy for [`[FUZ]1021`](../../agent-todo.md): `malformed-br-table-target-label-index-uleb` emits a one-target `br_table` whose target label-index immediate is an unterminated ULEB.
+- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the malformed-byte matrix distinguishes the `br_table` target-count, target-label, and default-label immediate carriers.
+
 ## [2026-05-20] fuzzing | ref.test/ref.cast heaptype invalid-binary coverage
 
 - Added two decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `malformed-ref-cast-heaptype-immediate` corrupts the heaptype immediate on the `0xFB 0x16` `ref.cast` binary carrier with an unterminated LEB, and `malformed-ref-test-heaptype-immediate` now covers the sibling `0xFB 0x14` `ref.test` carrier.

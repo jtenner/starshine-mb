@@ -427,6 +427,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
+  MalformedBrTableTargetLabelIndexUleb
   MalformedBrTableDefaultLabelIndexUleb
   MalformedTableIndexUleb
   MalformedMemoryCopyDstIndexUleb

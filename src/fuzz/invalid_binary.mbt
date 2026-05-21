@@ -149,6 +149,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
+  MalformedBrTableTargetLabelIndexUleb
   MalformedBrTableDefaultLabelIndexUleb
   MalformedTableIndexUleb
   MalformedMemoryCopyDstIndexUleb
@@ -634,6 +635,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
     MalformedBrIfLabelIndexUleb => "malformed-br-if-label-index-uleb"
     MalformedBrTableTargetCountUleb => "malformed-br-table-target-count-uleb"
+    MalformedBrTableTargetLabelIndexUleb =>
+      "malformed-br-table-target-label-index-uleb"
     MalformedBrTableDefaultLabelIndexUleb =>
       "malformed-br-table-default-label-index-uleb"
     MalformedTableIndexUleb => "malformed-table-index-uleb"
@@ -1538,6 +1541,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedBrTableTargetCountUleb,
       "malformed-br-table-target-count-uleb",
       "br_table instruction with a malformed target-count ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedBrTableTargetLabelIndexUleb,
+      "malformed-br-table-target-label-index-uleb",
+      "br_table instruction with a malformed target label-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3499,6 +3509,28 @@ fn validate_invalid_binary_mutate_malformed_br_table_target_count_uleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x0e).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_br_table_target_label_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedBrTableTargetLabelIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x0e).to_byte(),
+        (0x01).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -7246,6 +7278,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_br_if_label_index_uleb(base)
     MalformedBrTableTargetCountUleb =>
       validate_invalid_binary_mutate_malformed_br_table_target_count_uleb(base)
+    MalformedBrTableTargetLabelIndexUleb =>
+      validate_invalid_binary_mutate_malformed_br_table_target_label_index_uleb(
+        base,
+      )
     MalformedBrTableDefaultLabelIndexUleb =>
       validate_invalid_binary_mutate_malformed_br_table_default_label_index_uleb(
         base,
