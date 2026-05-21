@@ -693,6 +693,14 @@ fn sgo_flow_apply_binary(stack : Array[SgoFlowValue]) -> Bool {
 }
 
 ///|
+fn sgo_flow_pop_clean_pair(stack : Array[SgoFlowValue]) -> Bool {
+  match (sgo_flow_pop(stack), sgo_flow_pop(stack)) {
+    (Some(rhs), Some(lhs)) => !rhs.tainted && !lhs.tainted
+    _ => false
+  }
+}
+
+///|
 fn sgo_flow_stack_has_taint(stack : Array[SgoFlowValue]) -> Bool {
   stack.any(fn(value) { value.tainted })
 }
@@ -1140,6 +1148,12 @@ fn sgo_flow_scan_prefix_until(
         sgo_flow_push_clean(stack)
         continue
       }
+      @lib.TableSet(_) =>
+        if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return (false, reads, stack)
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1236,6 +1250,12 @@ fn sgo_flow_scan_clean_prefix_until(
         sgo_flow_push_clean(stack)
         continue
       }
+      @lib.TableSet(_) =>
+        if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return (false, stack)
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1327,6 +1347,12 @@ fn sgo_flow_arm_result_taint_and_reads(
         sgo_flow_push_clean(stack)
         continue
       }
+      @lib.TableSet(_) =>
+        if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return (false, reads, false)
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1458,6 +1484,12 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         sgo_flow_push_clean(stack)
         continue
       }
+      @lib.TableSet(_) =>
+        if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return None
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1544,6 +1576,12 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         sgo_flow_push_clean(stack)
         continue
       }
+      @lib.TableSet(_) =>
+        if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return (false, reads, false)
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1756,6 +1794,12 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
         sgo_flow_push_clean(stack)
         continue
       }
+      @lib.TableSet(_) =>
+        if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return false
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
