@@ -9,6 +9,7 @@ sources:
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
+  - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/gen_valid.mbt
 related:
@@ -73,7 +74,7 @@ That split creates the current local caveat: **WAST-origin SIMD lanes are strict
 | --- | --- | --- |
 | WAST parse | Parses natural lane tokens and fixed shuffle lane lists. | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) |
 | WAST lower | Checks `i8x16.shuffle` lanes with `0..31`; checks single-lane forms with exact maxima `15`, `7`, `3`, or `1`. | [`wt_shuffle_lane`](../../../src/wast/lower_to_lib.mbt), [`wt_lane_idx`](../../../src/wast/lower_to_lib.mbt) |
-| Binary decode | Generic single-lane decoder accepts any lane byte below `16`; shuffle has a separate below-`32` decoder. | [`Decode for LaneIdx`](../../../src/binary/decode.mbt), [`decode_i8x16_shuffle_lanes`](../../../src/binary/decode.mbt) |
+| Binary decode | Generic single-lane decoder accepts any lane byte below `16`; shuffle has a separate below-`32` decoder. Decode-stage invalid-binary fuzz now locks the coarse overflow boundary for shuffle plus single-lane extract, replace, load-lane, and store-lane fixtures. | [`Decode for LaneIdx`](../../../src/binary/decode.mbt), [`decode_i8x16_shuffle_lanes`](../../../src/binary/decode.mbt), [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt) |
 | Typecheck | Checks stack types, scalar result/value types, selected memory, and alignment/address rules; it does not currently re-check lane bounds by instruction shape. | [`typecheck_lane_extract`](../../../src/validate/typecheck.mbt), [`typecheck_lane_replace`](../../../src/validate/typecheck.mbt), [`typecheck_v128_load_lane`](../../../src/validate/typecheck.mbt), [`typecheck_v128_store_lane`](../../../src/validate/typecheck.mbt) |
 | Valid generator | Emits positive valid SIMD coverage rows; do not treat this as invalid lane-bound rejection proof. | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) |
 
@@ -120,7 +121,7 @@ A binary payload can encode the same semantic mistake as a raw lane byte. Today,
 
 ## Pass, Fuzzer, And Test Guidance
 
-1. **Do not use WAST negative tests as proof of binary validation.** WAST lowering already rejects shape-invalid lanes. Add binary or validator-invalid tests when hardening binary-origin behavior.
+1. **Do not use WAST negative tests as proof of binary validation.** WAST lowering already rejects shape-invalid lanes. Add binary or validator-invalid tests when hardening binary-origin behavior. The current binary-invalid decode fixtures prove only coarse byte-overflow rejection, not every shape-specific upper bound.
 2. **Keep shuffle separate.** `i8x16.shuffle` has sixteen immediates and an upper bound of `31`; ordinary `i8x16.extract_lane_*` has one immediate and an upper bound of `15`.
 3. **When mutating SIMD instructions, preserve the shape-lane relation.** A pass that changes `i32x4.extract_lane 3` into `i64x2.extract_lane 3` creates an invalid module even though the lane byte still decodes.
 4. **For memory-lane instructions, validate both lane and memory facts.** The lane bound depends on load/store lane width; the address stack type, memory existence, alignment, offset width, and memory64 caveats are shared with [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).

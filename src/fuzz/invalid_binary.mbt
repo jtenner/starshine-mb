@@ -157,6 +157,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
   SimdStoreLaneIndexOverflow
+  SimdExtractLaneIndexOverflow
   SimdReplaceLaneIndexOverflow
   MalformedDataIndexUleb
   MalformedMemoryInitMemoryIndexUleb
@@ -638,6 +639,7 @@ fn validate_invalid_binary_strategy_label(
     SimdShuffleLaneOverflow => "simd-shuffle-lane-overflow"
     SimdLoadLaneIndexOverflow => "simd-load-lane-index-overflow"
     SimdStoreLaneIndexOverflow => "simd-store-lane-index-overflow"
+    SimdExtractLaneIndexOverflow => "simd-extract-lane-index-overflow"
     SimdReplaceLaneIndexOverflow => "simd-replace-lane-index-overflow"
     MalformedDataIndexUleb => "malformed-data-index-uleb"
     MalformedMemoryInitMemoryIndexUleb =>
@@ -1584,6 +1586,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       SimdStoreLaneIndexOverflow,
       "simd-store-lane-index-overflow",
       "SIMD lane store instruction with an out-of-range lane immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      SimdExtractLaneIndexOverflow,
+      "simd-extract-lane-index-overflow",
+      "SIMD extract_lane instruction with an out-of-range lane immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3682,6 +3691,24 @@ fn validate_invalid_binary_mutate_simd_store_lane_index_overflow(
         (0x58).to_byte(),
         (0x00).to_byte(),
         (0x00).to_byte(),
+        (0x10).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_simd_extract_lane_index_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      SimdExtractLaneIndexOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfd).to_byte(),
+        (0x15).to_byte(),
         (0x10).to_byte(),
       ]),
     ),
@@ -7092,6 +7119,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_simd_load_lane_index_overflow(base)
     SimdStoreLaneIndexOverflow =>
       validate_invalid_binary_mutate_simd_store_lane_index_overflow(base)
+    SimdExtractLaneIndexOverflow =>
+      validate_invalid_binary_mutate_simd_extract_lane_index_overflow(base)
     SimdReplaceLaneIndexOverflow =>
       validate_invalid_binary_mutate_simd_replace_lane_index_overflow(base)
     MalformedDataIndexUleb =>
