@@ -305,6 +305,14 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideSimdStoreMemargAlignUleb
   OverwideSimdLoadMemargOffsetUleb
   OverwideSimdStoreMemargOffsetUleb
+  MalformedSimdLoadLaneMemargAlignUleb
+  MalformedSimdStoreLaneMemargAlignUleb
+  MalformedSimdLoadLaneMemargOffsetUleb
+  MalformedSimdStoreLaneMemargOffsetUleb
+  OverwideSimdLoadLaneMemargAlignUleb
+  OverwideSimdStoreLaneMemargAlignUleb
+  OverwideSimdLoadLaneMemargOffsetUleb
+  OverwideSimdStoreLaneMemargOffsetUleb
   MalformedDataIndexUleb
   OverwideDataIndexUleb
   MalformedDataSegmentByteCountUleb
@@ -1054,6 +1062,22 @@ fn validate_invalid_binary_strategy_label(
     OverwideSimdLoadMemargOffsetUleb => "overwide-simd-load-memarg-offset-uleb"
     OverwideSimdStoreMemargOffsetUleb =>
       "overwide-simd-store-memarg-offset-uleb"
+    MalformedSimdLoadLaneMemargAlignUleb =>
+      "malformed-simd-load-lane-memarg-align-uleb"
+    MalformedSimdStoreLaneMemargAlignUleb =>
+      "malformed-simd-store-lane-memarg-align-uleb"
+    MalformedSimdLoadLaneMemargOffsetUleb =>
+      "malformed-simd-load-lane-memarg-offset-uleb"
+    MalformedSimdStoreLaneMemargOffsetUleb =>
+      "malformed-simd-store-lane-memarg-offset-uleb"
+    OverwideSimdLoadLaneMemargAlignUleb =>
+      "overwide-simd-load-lane-memarg-align-uleb"
+    OverwideSimdStoreLaneMemargAlignUleb =>
+      "overwide-simd-store-lane-memarg-align-uleb"
+    OverwideSimdLoadLaneMemargOffsetUleb =>
+      "overwide-simd-load-lane-memarg-offset-uleb"
+    OverwideSimdStoreLaneMemargOffsetUleb =>
+      "overwide-simd-store-lane-memarg-offset-uleb"
     MalformedDataIndexUleb => "malformed-data-index-uleb"
     OverwideDataIndexUleb => "overwide-data-index-uleb"
     MalformedDataSegmentByteCountUleb =>
@@ -3142,6 +3166,62 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideSimdStoreMemargOffsetUleb,
       "overwide-simd-store-memarg-offset-uleb",
       "v128.store instruction with an overwide memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSimdLoadLaneMemargAlignUleb,
+      "malformed-simd-load-lane-memarg-align-uleb",
+      "SIMD lane load instruction with a malformed memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSimdStoreLaneMemargAlignUleb,
+      "malformed-simd-store-lane-memarg-align-uleb",
+      "SIMD lane store instruction with a malformed memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSimdLoadLaneMemargOffsetUleb,
+      "malformed-simd-load-lane-memarg-offset-uleb",
+      "SIMD lane load instruction with a malformed memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSimdStoreLaneMemargOffsetUleb,
+      "malformed-simd-store-lane-memarg-offset-uleb",
+      "SIMD lane store instruction with a malformed memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideSimdLoadLaneMemargAlignUleb,
+      "overwide-simd-load-lane-memarg-align-uleb",
+      "SIMD lane load instruction with an overwide memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideSimdStoreLaneMemargAlignUleb,
+      "overwide-simd-store-lane-memarg-align-uleb",
+      "SIMD lane store instruction with an overwide memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideSimdLoadLaneMemargOffsetUleb,
+      "overwide-simd-load-lane-memarg-offset-uleb",
+      "SIMD lane load instruction with an overwide memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideSimdStoreLaneMemargOffsetUleb,
+      "overwide-simd-store-lane-memarg-offset-uleb",
+      "SIMD lane store instruction with an overwide memarg offset ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -8196,6 +8276,17 @@ fn validate_invalid_binary_simd_memarg_prefix(is_store : Bool) -> Array[Byte] {
 }
 
 ///|
+fn validate_invalid_binary_simd_lane_memarg_prefix(
+  is_store : Bool,
+) -> Array[Byte] {
+  if is_store {
+    [(0xfd).to_byte(), (0x58).to_byte()]
+  } else {
+    [(0xfd).to_byte(), (0x54).to_byte()]
+  }
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_simd_memarg_align_uleb(
   kind : ValidateInvalidBinaryStrategyId,
   is_store : Bool,
@@ -8268,6 +8359,91 @@ fn validate_invalid_binary_mutate_overwide_simd_memarg_offset_uleb(
   let instr = validate_invalid_binary_simd_memarg_prefix(is_store)
   instr.push((0x00).to_byte())
   instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      kind,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_simd_lane_memarg_align_uleb(
+  kind : ValidateInvalidBinaryStrategyId,
+  is_store : Bool,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr = validate_invalid_binary_simd_lane_memarg_prefix(is_store)
+  instr.append([
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+  Ok(
+    validate_invalid_binary_mutation(
+      kind,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_simd_lane_memarg_offset_uleb(
+  kind : ValidateInvalidBinaryStrategyId,
+  is_store : Bool,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr = validate_invalid_binary_simd_lane_memarg_prefix(is_store)
+  instr.append([
+    (0x00).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+  Ok(
+    validate_invalid_binary_mutation(
+      kind,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_simd_lane_memarg_align_uleb(
+  kind : ValidateInvalidBinaryStrategyId,
+  is_store : Bool,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr = validate_invalid_binary_simd_lane_memarg_prefix(is_store)
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  instr.push((0x00).to_byte())
+  instr.push((0x00).to_byte())
+  Ok(
+    validate_invalid_binary_mutation(
+      kind,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_simd_lane_memarg_offset_uleb(
+  kind : ValidateInvalidBinaryStrategyId,
+  is_store : Bool,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr = validate_invalid_binary_simd_lane_memarg_prefix(is_store)
+  instr.push((0x00).to_byte())
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  instr.push((0x00).to_byte())
   Ok(
     validate_invalid_binary_mutation(
       kind,
@@ -14799,6 +14975,38 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     OverwideSimdStoreMemargOffsetUleb =>
       validate_invalid_binary_mutate_overwide_simd_memarg_offset_uleb(
+        strategy, true,
+      )
+    MalformedSimdLoadLaneMemargAlignUleb =>
+      validate_invalid_binary_mutate_malformed_simd_lane_memarg_align_uleb(
+        strategy, false,
+      )
+    MalformedSimdStoreLaneMemargAlignUleb =>
+      validate_invalid_binary_mutate_malformed_simd_lane_memarg_align_uleb(
+        strategy, true,
+      )
+    MalformedSimdLoadLaneMemargOffsetUleb =>
+      validate_invalid_binary_mutate_malformed_simd_lane_memarg_offset_uleb(
+        strategy, false,
+      )
+    MalformedSimdStoreLaneMemargOffsetUleb =>
+      validate_invalid_binary_mutate_malformed_simd_lane_memarg_offset_uleb(
+        strategy, true,
+      )
+    OverwideSimdLoadLaneMemargAlignUleb =>
+      validate_invalid_binary_mutate_overwide_simd_lane_memarg_align_uleb(
+        strategy, false,
+      )
+    OverwideSimdStoreLaneMemargAlignUleb =>
+      validate_invalid_binary_mutate_overwide_simd_lane_memarg_align_uleb(
+        strategy, true,
+      )
+    OverwideSimdLoadLaneMemargOffsetUleb =>
+      validate_invalid_binary_mutate_overwide_simd_lane_memarg_offset_uleb(
+        strategy, false,
+      )
+    OverwideSimdStoreLaneMemargOffsetUleb =>
+      validate_invalid_binary_mutate_overwide_simd_lane_memarg_offset_uleb(
         strategy, true,
       )
     MalformedDataIndexUleb =>
