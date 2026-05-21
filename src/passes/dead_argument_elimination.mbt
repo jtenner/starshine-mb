@@ -8744,6 +8744,53 @@ fn dae_push_instrs(
 }
 
 ///|
+fn dae_instrs_read_same_local_or_global(
+  lhs : @lib.Instruction,
+  rhs : @lib.Instruction,
+) -> Bool {
+  match (lhs, rhs) {
+    (@lib.LocalGet(a), @lib.LocalGet(b)) => dae_local_idx_equal(a, b)
+    (@lib.GlobalGet(a), @lib.GlobalGet(b)) => dae_global_idx_equal(a, b)
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_self_comparison_replacement(
+  lhs : @lib.Instruction,
+  rhs : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  if !dae_instrs_read_same_local_or_global(lhs, rhs) {
+    return None
+  }
+  match instr {
+    @lib.I32Eq
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I64Eq
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.RefEq => Some(@lib.Instruction::i32_const(@lib.I32(1)))
+    @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU => Some(@lib.Instruction::i32_const(@lib.I32(0)))
+    _ => None
+  }
+}
+
+///|
 fn dae_block_type_is_zero_param_single_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -9122,6 +9169,20 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
     }
     if out.length() > 0 && idx + 1 < instrs.length() {
       let last_idx = out.length() - 1
+      match
+        dae_instr_self_comparison_replacement(
+          out[last_idx],
+          instrs[idx],
+          instrs[idx + 1],
+        ) {
+        Some(replacement) => {
+          ignore(out.pop())
+          out.push(replacement)
+          idx += 2
+          continue
+        }
+        None => ()
+      }
       if dae_instr_is_stack_neutral_value_leaf(instrs[idx]) {
         match
           dae_instr_integer_zero_compare_replacement(

@@ -1348,6 +1348,63 @@ test "dae raw cleanup canonicalizes live integer zero comparisons" {
 }
 
 ///|
+test "dae raw cleanup canonicalizes live integer and ref self comparisons" {
+  let mod_ = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::i32_eq(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::i32_ne(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::i32_le_s(),
+          @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::i64_gt_u(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::ref_eq(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::i32_eq(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+          @lib.Instruction::f32_eq(),
+          @lib.Instruction::return_(),
+        ]),
+      ),
+    ]),
+  )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      assert_eq(cleaned, [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_eq(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::f32_eq(),
+        @lib.Instruction::return_(),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae raw cleanup strips dropped pure value loops" {
   let pure_typeidx_loop_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
