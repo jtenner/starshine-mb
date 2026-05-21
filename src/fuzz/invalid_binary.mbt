@@ -105,6 +105,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidTableRefTypeByte
   InvalidTableLimitsFlagByte
   MalformedRefNullHeaptypeImmediate
+  MalformedRefCastHeaptypeImmediate
   InvalidGlobalValTypeByte
   InvalidExportKindByte
   InvalidMemoryLimitsFlagByte
@@ -586,6 +587,7 @@ fn validate_invalid_binary_strategy_label(
     InvalidTableRefTypeByte => "invalid-table-reftype-byte"
     InvalidTableLimitsFlagByte => "invalid-table-limits-flag-byte"
     MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
+    MalformedRefCastHeaptypeImmediate => "malformed-ref-cast-heaptype-immediate"
     InvalidGlobalValTypeByte => "invalid-global-valtype-byte"
     InvalidExportKindByte => "invalid-export-kind-byte"
     InvalidMemoryLimitsFlagByte => "invalid-memory-limits-flag-byte"
@@ -1226,6 +1228,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedRefNullHeaptypeImmediate,
       "malformed-ref-null-heaptype-immediate",
       "ref.null instruction with a malformed heaptype immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedRefCastHeaptypeImmediate,
+      "malformed-ref-cast-heaptype-immediate",
+      "ref.cast instruction with a malformed heaptype immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -6021,6 +6030,28 @@ fn validate_invalid_binary_mutate_malformed_ref_null_heaptype_immediate(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_ref_cast_heaptype_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedRefCastHeaptypeImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfb).to_byte(),
+        (0x16).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_global_valtype_byte() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -7092,6 +7123,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_table_limits_flag_byte(base)
     MalformedRefNullHeaptypeImmediate =>
       validate_invalid_binary_mutate_malformed_ref_null_heaptype_immediate(base)
+    MalformedRefCastHeaptypeImmediate =>
+      validate_invalid_binary_mutate_malformed_ref_cast_heaptype_immediate(base)
     InvalidGlobalValTypeByte =>
       validate_invalid_binary_mutate_invalid_global_valtype_byte(base)
     InvalidExportKindByte =>
