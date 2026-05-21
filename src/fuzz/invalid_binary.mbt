@@ -379,6 +379,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionTypeNameUtf8
   MalformedNameSectionTypeNameLengthUleb
   OverwideNameSectionTypeNameLengthUleb
+  MalformedNameSectionTypeNameCountUleb
+  OverwideNameSectionTypeNameCountUleb
   InvalidNameSectionTableNameUtf8
   MalformedNameSectionTableNameLengthUleb
   OverwideNameSectionTableNameLengthUleb
@@ -1228,6 +1230,10 @@ fn validate_invalid_binary_strategy_label(
       "malformed-name-section-type-name-length-uleb"
     OverwideNameSectionTypeNameLengthUleb =>
       "overwide-name-section-type-name-length-uleb"
+    MalformedNameSectionTypeNameCountUleb =>
+      "malformed-name-section-type-name-count-uleb"
+    OverwideNameSectionTypeNameCountUleb =>
+      "overwide-name-section-type-name-count-uleb"
     InvalidNameSectionTableNameUtf8 => "invalid-name-section-table-name-utf8"
     MalformedNameSectionTableNameLengthUleb =>
       "malformed-name-section-table-name-length-uleb"
@@ -3785,6 +3791,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideNameSectionTypeNameLengthUleb,
       "overwide-name-section-type-name-length-uleb",
       "name section type-name payload with an overwide name-length ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedNameSectionTypeNameCountUleb,
+      "malformed-name-section-type-name-count-uleb",
+      "name section type-name map with a malformed count ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideNameSectionTypeNameCountUleb,
+      "overwide-name-section-type-name-count-uleb",
+      "name section type-name map with an overwide count ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -10465,6 +10485,81 @@ fn validate_invalid_binary_module_with_overwide_name_section_module_name_length_
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_name_section_name_map_count_uleb(
+  subsection_id : Int,
+) -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0c).to_byte(),
+    (0x04).to_byte(),
+    (0x6e).to_byte(),
+    (0x61).to_byte(),
+    (0x6d).to_byte(),
+    (0x65).to_byte(),
+    subsection_id.to_byte(),
+    (0x05).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_overwide_name_section_name_map_count_uleb(
+  subsection_id : Int,
+) -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0d).to_byte(),
+    (0x04).to_byte(),
+    (0x6e).to_byte(),
+    (0x61).to_byte(),
+    (0x6d).to_byte(),
+    (0x65).to_byte(),
+    subsection_id.to_byte(),
+    (0x06).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_name_section_type_name_count_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_count_uleb(
+    0x04,
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_overwide_name_section_type_name_count_uleb() -> Bytes {
+  validate_invalid_binary_module_with_overwide_name_section_name_map_count_uleb(
+    0x04,
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_overwide_name_section_name_map_length_uleb(
   subsection_id : Int,
 ) -> Bytes {
@@ -16218,6 +16313,16 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_decode_rejected_bytes(
         OverwideNameSectionTypeNameLengthUleb,
         validate_invalid_binary_module_with_overwide_name_section_type_name_length_uleb(),
+      )
+    MalformedNameSectionTypeNameCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedNameSectionTypeNameCountUleb,
+        validate_invalid_binary_module_with_malformed_name_section_type_name_count_uleb(),
+      )
+    OverwideNameSectionTypeNameCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideNameSectionTypeNameCountUleb,
+        validate_invalid_binary_module_with_overwide_name_section_type_name_count_uleb(),
       )
     InvalidNameSectionTableNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_table_name_utf8(base)

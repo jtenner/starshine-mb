@@ -186,7 +186,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "overwide-name-section-local-name-count-uleb", "invalid-name-section-module-name-utf8",
     "malformed-name-section-module-name-length-uleb", "overwide-name-section-module-name-length-uleb",
     "invalid-name-section-type-name-utf8", "malformed-name-section-type-name-length-uleb",
-    "overwide-name-section-type-name-length-uleb", "invalid-name-section-table-name-utf8",
+    "overwide-name-section-type-name-length-uleb", "malformed-name-section-type-name-count-uleb",
+    "overwide-name-section-type-name-count-uleb", "invalid-name-section-table-name-utf8",
     "malformed-name-section-table-name-length-uleb", "overwide-name-section-table-name-length-uleb",
     "invalid-name-section-memory-name-utf8", "malformed-name-section-memory-name-length-uleb",
     "overwide-name-section-memory-name-length-uleb", "invalid-name-section-global-name-utf8",
@@ -289,7 +290,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1568,6 +1569,19 @@ test "invalid binary FZG025 decodes name section type-name length malformed ULEB
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid binary FZG025 decodes name section type-name count ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-name-section-type-name-count-uleb", "overwide-name-section-type-name-count-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f42UL, "decode") {
+      Ok(_) => ()
+      Err(message) => fail(message)
+    }
   }
 }
 
