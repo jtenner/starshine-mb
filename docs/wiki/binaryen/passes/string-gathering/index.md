@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
+  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
+  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
@@ -131,7 +133,7 @@ That is much closer to the real pass than either:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT and module-shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status and code-map page: the active direct module pass, public preset-tail scheduling, the existing `string.const` / `stringrefs` encode-decode plumbing, and the still-separate late-tail boundary with `reorder-globals`.
+  Exact current Starshine status and code-map page: the active direct module pass, public preset-tail scheduling, the existing `string.const` / `stringrefs` encode-decode plumbing, and the accepted public late-tail suffix before `reorder-globals`.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Current validation ledger: landed registry/module-pass/direct-site collection work, focused reduced tests, direct Binaryen oracle evidence, public preset-order coverage, and the remaining decoder / artifact-replay caveat.
 

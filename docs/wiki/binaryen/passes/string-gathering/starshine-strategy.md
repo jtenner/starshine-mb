@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-05-20
 sources:
+  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
+  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
@@ -38,7 +40,7 @@ related:
 # Starshine Strategy For `string-gathering`
 
 Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for remaining late-tail work. For the validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for the accepted public late-tail suffix and any broader widening beyond it. For the validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
 
@@ -256,7 +258,7 @@ That is a much clearer local plan than “compare with Binaryen later,” becaus
 
 ## Bottom line
 
-Current Starshine `string-gathering` strategy is direct-pass-landed with late-tail proof still pending:
+Current Starshine `string-gathering` strategy is direct-pass-landed with the accepted public late-tail suffix already scheduled, while broader widening still pending:
 
 - the encoder, decoder, and tests preserve the literal identity the pass depends on
 - the active module pass hoists and rewrites direct string constants

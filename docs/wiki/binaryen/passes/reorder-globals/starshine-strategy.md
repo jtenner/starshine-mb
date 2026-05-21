@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-05-20
 sources:
+  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
+  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
   - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -35,7 +37,7 @@ related:
 # Starshine Strategy For `reorder-globals`
 
 Use this page together with the current-main source bridge in [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that now own the direct pass, and the concrete neighboring implementation areas the late-tail preset still has to hook into.
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that now own the direct pass, and the concrete neighboring implementation areas around the accepted public late-tail suffix and any broader widening beyond it.
 
 ## The honest current status
 
@@ -48,8 +50,8 @@ The current local strategy is direct public-pass support plus explicit late-tail
 - preserve Binaryen's public `<128` total-global no-op
 - count whole-module global traffic and initializer dependencies
 - apply a declaration reorder plus Starshine-specific numeric `GlobalIdx` remapping
-- keep the canonical no-DWARF late-tail slot documented but out of presets until the earlier scheduled neighbors also exist locally
-- keep refreshed direct 10000-case oracle proof recorded and the inner `string-gathering -> reorder-globals -> directize` replay explicit while the broader preset tail stays deferred
+- keep the accepted public late-tail suffix documented alongside the no-DWARF order, with any broader widening beyond it still gated on fresh evidence
+- keep refreshed direct 10000-case oracle proof recorded and the inner `string-gathering -> reorder-globals -> directize` replay explicit while broader widening beyond the accepted public suffix stays deferred
 
 So this page is now an **implementation status and late-tail follow-up** page.
 
@@ -85,11 +87,11 @@ The fastest read-along path through the current Starshine status is:
     - HOT lift stores `GlobalGet` / `GlobalSet` operands as numeric global indices, confirming this is not a HOT-only peephole
 - backlog and delivery plan
   - [`agent-todo.md`](../../../../../agent-todo.md)
-    - the dedicated `RG` replay blocker is closed; remaining preset gating now lives under shared late-tail scheduling work
+    - the dedicated `RG` replay blocker is closed; remaining broader-widening gating now lives under shared late-tail scheduling work
 - canonical scheduler context
   - [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
     - the canonical late-tail slot `string-gathering -> reorder-globals -> directize`
-- neighboring living dossiers the late-tail preset still must line up with
+- neighboring living dossiers the accepted public late-tail suffix still must line up with
   - [`../string-gathering/index.md`](../string-gathering/index.md)
   - [`../reorder-globals-always/index.md`](../reorder-globals-always/index.md)
   - [`../directize/index.md`](../directize/index.md)
@@ -148,7 +150,7 @@ So the local strategy should be thought of as:
 4. keep reduced export/name/dependency coverage green
 5. validate string users, startup/global-initializer correctness, and final artifact parity in the real late-tail neighborhood once surrounding passes exist
 
-In other words, the direct port has landed, while its preset slot still belongs to the documented late optimization ecosystem.
+In other words, the direct port has landed, while any broader widening beyond the accepted public suffix still belongs to the documented late optimization ecosystem.
 
 ## The most important local dependency map
 
@@ -162,7 +164,7 @@ Why it matters locally:
 
 - the no-DWARF scheduler docs already place `reorder-globals` immediately after `string-gathering`
 - the `string-gathering` dossier already teaches that its own internal reorder is only a validity repair for defining globals
-- Starshine should keep the same division of labor explicit when the late-tail preset lands: string gathering first for validity/canonicalization, final global layout second for size and declaration order
+- Starshine should keep the same division of labor explicit when any broader widening beyond the accepted public suffix lands: string gathering first for validity/canonicalization, final global layout second for size and declaration order
 
 That boundary is easy to blur if readers only remember that both passes can move globals.
 
@@ -214,14 +216,14 @@ A future contributor should be careful not to overread the current local surface
 Starshine does **not** currently have:
 
 - a `reorder-globals-always` implementation
-- public optimize/shrink preset scheduling for the broader no-DWARF late tail that still starts earlier at `simplify-globals-optimizing -> remove-unused-module-elements`
+- public optimize/shrink scheduling is already landed for the accepted late-tail suffix; any broader widening that still starts earlier at `simplify-globals-optimizing -> remove-unused-module-elements` remains future work
 - a replay of that broader scheduled late tail once the remaining earlier neighbors exist locally
 
 So the current repo status is best summarized as:
 
 - direct public transform landed
 - `always` sibling still boundary-only
-- late-tail preset integration deferred behind missing earlier neighbors
+- broader late-tail widening deferred behind missing earlier neighbors
 - reduced tests and explicit triple-neighborhood replay landed
 - refreshed direct oracle proof recorded; remaining proof debt is now the broader scheduled late tail, not the inner triple
 
@@ -258,7 +260,7 @@ Current Starshine `reorder-globals` strategy is direct public-pass support plus 
 - the pass implementation lives in [`src/passes/reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt)
 - focused coverage lives in [`src/passes/reorder_globals_test.mbt`](../../../../../src/passes/reorder_globals_test.mbt)
 - `reorder-globals` is registered as an active module pass while `reorder-globals-always` remains boundary-only
-- [`agent-todo.md`](../../../../../agent-todo.md) records the remaining late-tail preset blocker under shared scheduling work rather than a dedicated `RG` replay item
+- [`agent-todo.md`](../../../../../agent-todo.md) records the remaining broader-widening follow-up under shared scheduling work rather than a dedicated `RG` replay item
 - the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
 - the surrounding [`string-gathering`](../string-gathering/index.md), [`reorder-globals-always`](../reorder-globals-always/index.md), and [`directize`](../directize/index.md) dossiers define the remaining landing zone
 
@@ -266,6 +268,6 @@ So the right mental model today is:
 
 - **public transform landed**
 - **`always` sibling deferred**
-- **late-tail preset scheduling deferred**
+- **broader late-tail widening deferred**
 - **reduced reindexing tests landed**
 - **refreshed direct 10000-case compare evidence recorded; inner late-tail triple replay proven**

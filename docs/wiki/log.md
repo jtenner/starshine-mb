@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | string/reorder late-tail source citation hygiene
+
+- Added the missing accepted-public-suffix research citations from [`raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md) and [`raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md) to the live `string-gathering` and `reorder-globals` dossier pages, including their Starshine strategy / port-readiness companions.
+- Synced the lingering `reorder-globals` folder index review date to `2026-05-20` so the folder catalog matches the newly cited late-tail scheduling evidence, and kept the root wiki catalog entry aligned with the accepted public suffix wording.
+- No new external source was needed; the repo-authored neighborhood baseline and preset-scheduling notes were sufficient for the citation repair.
+
 ## [2026-05-20] wiki | late-pipeline dispatch public suffix reconciliation
 
 - Updated [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) and [`binaryen/passes/index.md`](binaryen/passes/index.md) so the late-tail roster page and the binaryen-pass catalog now cite the 2026-05-19 neighborhood baseline and public preset scheduling research notes, bump `last_reviewed` to `2026-05-20`, and state the accepted public `optimize` / `shrink` suffix directly in the durable conclusions and catalog summary.
