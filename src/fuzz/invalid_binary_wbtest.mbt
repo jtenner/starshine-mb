@@ -115,9 +115,11 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "overwide-try-table-catch-count-uleb", "overwide-try-table-catch-tag-index-uleb",
     "overwide-try-table-catch-label-index-uleb", "malformed-struct-new-type-index-uleb",
     "malformed-struct-get-field-index-uleb", "malformed-array-new-data-type-index-uleb",
-    "malformed-array-new-data-index-uleb", "overwide-struct-new-type-index-uleb",
+    "malformed-array-new-data-index-uleb", "malformed-array-new-elem-type-index-uleb",
+    "malformed-array-new-elem-elem-index-uleb", "overwide-struct-new-type-index-uleb",
     "overwide-struct-get-field-index-uleb", "overwide-array-new-data-type-index-uleb",
-    "overwide-array-new-data-index-uleb", "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb",
+    "overwide-array-new-data-index-uleb", "overwide-array-new-elem-type-index-uleb",
+    "overwide-array-new-elem-elem-index-uleb", "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb",
     "malformed-br-table-target-count-uleb", "malformed-br-table-target-label-index-uleb",
     "malformed-br-table-default-label-index-uleb", "overwide-br-label-index-uleb",
     "overwide-br-if-label-index-uleb", "overwide-br-table-target-count-uleb", "overwide-br-table-target-label-index-uleb",
@@ -224,7 +226,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1224,6 +1226,7 @@ test "invalid binary decodes malformed GC instruction index immediates as invali
     strategy in [
       "malformed-struct-new-type-index-uleb", "malformed-struct-get-field-index-uleb",
       "malformed-array-new-data-type-index-uleb", "malformed-array-new-data-index-uleb",
+      "malformed-array-new-elem-type-index-uleb", "malformed-array-new-elem-elem-index-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x6c9cUL, "decode") {
       Ok(_) => ()
@@ -1614,7 +1617,8 @@ test "invalid binary FZG031 decodes overwide exception and GC instruction index 
       "overwide-throw-tag-index-uleb", "overwide-try-table-catch-count-uleb", "overwide-try-table-catch-tag-index-uleb",
       "overwide-try-table-catch-label-index-uleb", "overwide-struct-new-type-index-uleb",
       "overwide-struct-get-field-index-uleb", "overwide-array-new-data-type-index-uleb",
-      "overwide-array-new-data-index-uleb",
+      "overwide-array-new-data-index-uleb", "overwide-array-new-elem-type-index-uleb",
+      "overwide-array-new-elem-elem-index-uleb",
     ] {
     match
       invalid_binary_expect_strategy_rejects(stable_id, 0x5f21UL, "decode") {
@@ -1705,6 +1709,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-array-new-data-type-index-uleb", "malformed-array-new-data-index-uleb",
       "overwide-struct-new-type-index-uleb", "overwide-struct-get-field-index-uleb",
       "overwide-array-new-data-type-index-uleb", "overwide-array-new-data-index-uleb",
+      "malformed-array-new-elem-type-index-uleb", "malformed-array-new-elem-elem-index-uleb",
+      "overwide-array-new-elem-type-index-uleb", "overwide-array-new-elem-elem-index-uleb",
       "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
       "malformed-br-table-default-label-index-uleb", "overwide-br-label-index-uleb",
       "overwide-br-if-label-index-uleb", "overwide-br-table-target-count-uleb", "overwide-br-table-target-label-index-uleb",

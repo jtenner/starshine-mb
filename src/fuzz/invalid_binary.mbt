@@ -221,10 +221,14 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedStructGetFieldIndexUleb
   MalformedArrayNewDataTypeIndexUleb
   MalformedArrayNewDataIndexUleb
+  MalformedArrayNewElemTypeIndexUleb
+  MalformedArrayNewElemElemIndexUleb
   OverwideStructNewTypeIndexUleb
   OverwideStructGetFieldIndexUleb
   OverwideArrayNewDataTypeIndexUleb
   OverwideArrayNewDataIndexUleb
+  OverwideArrayNewElemTypeIndexUleb
+  OverwideArrayNewElemElemIndexUleb
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
@@ -873,11 +877,19 @@ fn validate_invalid_binary_strategy_label(
     MalformedArrayNewDataTypeIndexUleb =>
       "malformed-array-new-data-type-index-uleb"
     MalformedArrayNewDataIndexUleb => "malformed-array-new-data-index-uleb"
+    MalformedArrayNewElemTypeIndexUleb =>
+      "malformed-array-new-elem-type-index-uleb"
+    MalformedArrayNewElemElemIndexUleb =>
+      "malformed-array-new-elem-elem-index-uleb"
     OverwideStructNewTypeIndexUleb => "overwide-struct-new-type-index-uleb"
     OverwideStructGetFieldIndexUleb => "overwide-struct-get-field-index-uleb"
     OverwideArrayNewDataTypeIndexUleb =>
       "overwide-array-new-data-type-index-uleb"
     OverwideArrayNewDataIndexUleb => "overwide-array-new-data-index-uleb"
+    OverwideArrayNewElemTypeIndexUleb =>
+      "overwide-array-new-elem-type-index-uleb"
+    OverwideArrayNewElemElemIndexUleb =>
+      "overwide-array-new-elem-elem-index-uleb"
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
     MalformedBrIfLabelIndexUleb => "malformed-br-if-label-index-uleb"
     MalformedBrTableTargetCountUleb => "malformed-br-table-target-count-uleb"
@@ -2395,6 +2407,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedArrayNewElemTypeIndexUleb,
+      "malformed-array-new-elem-type-index-uleb",
+      "array.new_elem instruction with a malformed type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedArrayNewElemElemIndexUleb,
+      "malformed-array-new-elem-elem-index-uleb",
+      "array.new_elem instruction with a malformed elem-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       OverwideStructNewTypeIndexUleb,
       "overwide-struct-new-type-index-uleb",
       "struct.new instruction with an overwide type-index ULEB immediate",
@@ -2419,6 +2445,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideArrayNewDataIndexUleb,
       "overwide-array-new-data-index-uleb",
       "array.new_data instruction with an overwide data-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideArrayNewElemTypeIndexUleb,
+      "overwide-array-new-elem-type-index-uleb",
+      "array.new_elem instruction with an overwide type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideArrayNewElemElemIndexUleb,
+      "overwide-array-new-elem-elem-index-uleb",
+      "array.new_elem instruction with an overwide elem-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5789,6 +5829,51 @@ fn validate_invalid_binary_mutate_malformed_array_new_data_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_array_new_elem_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedArrayNewElemTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfb).to_byte(),
+        (0x0a).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_array_new_elem_elem_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedArrayNewElemElemIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfb).to_byte(),
+        (0x0a).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_overwide_throw_tag_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -5928,6 +6013,42 @@ fn validate_invalid_binary_mutate_overwide_array_new_data_index_uleb(
   Ok(
     validate_invalid_binary_mutation(
       OverwideArrayNewDataIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_array_new_elem_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xfb).to_byte(), (0x0a).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideArrayNewElemTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_array_new_elem_elem_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0xfb).to_byte(),
+    (0x0a).to_byte(),
+    (0x00).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideArrayNewElemElemIndexUleb,
       DecodeRejected,
       true,
       validate_invalid_binary_minimal_code_with_instr(instr),
@@ -12779,6 +12900,14 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     MalformedArrayNewDataIndexUleb =>
       validate_invalid_binary_mutate_malformed_array_new_data_index_uleb(base)
+    MalformedArrayNewElemTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_array_new_elem_type_index_uleb(
+        base,
+      )
+    MalformedArrayNewElemElemIndexUleb =>
+      validate_invalid_binary_mutate_malformed_array_new_elem_elem_index_uleb(
+        base,
+      )
     OverwideStructNewTypeIndexUleb =>
       validate_invalid_binary_mutate_overwide_struct_new_type_index_uleb(base)
     OverwideStructGetFieldIndexUleb =>
@@ -12789,6 +12918,14 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     OverwideArrayNewDataIndexUleb =>
       validate_invalid_binary_mutate_overwide_array_new_data_index_uleb(base)
+    OverwideArrayNewElemTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_array_new_elem_type_index_uleb(
+        base,
+      )
+    OverwideArrayNewElemElemIndexUleb =>
+      validate_invalid_binary_mutate_overwide_array_new_elem_elem_index_uleb(
+        base,
+      )
     MalformedBrLabelIndexUleb =>
       validate_invalid_binary_mutate_malformed_br_label_index_uleb(base)
     MalformedBrIfLabelIndexUleb =>

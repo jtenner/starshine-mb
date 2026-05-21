@@ -499,10 +499,14 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedStructGetFieldIndexUleb
   MalformedArrayNewDataTypeIndexUleb
   MalformedArrayNewDataIndexUleb
+  MalformedArrayNewElemTypeIndexUleb
+  MalformedArrayNewElemElemIndexUleb
   OverwideStructNewTypeIndexUleb
   OverwideStructGetFieldIndexUleb
   OverwideArrayNewDataTypeIndexUleb
   OverwideArrayNewDataIndexUleb
+  OverwideArrayNewElemTypeIndexUleb
+  OverwideArrayNewElemElemIndexUleb
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
