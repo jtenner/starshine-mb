@@ -136,6 +136,8 @@ Do not audit instruction coverage by one-byte opcodes only. Starshine's current 
 
 String and custom-descriptor instructions have additional proposal/local caveats; see [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md), [`../strings/string-const-surface.md`](../strings/string-const-surface.md), [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), and [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the local `StringRefsSec` caveat.
 
+The binary-invalid lane now has focused malformed-subopcode ULEB fixtures for the supported `0xFB`, `0xFC`, and `0xFD` prefixed spaces (`malformed-gc-prefix-subopcode-uleb`, `malformed-bulk-prefix-subopcode-uleb`, and `malformed-simd-prefix-subopcode-uleb`) in addition to the existing invalid assigned subopcode fixture.
+
 ## Validation Contract
 
 After decode, module validation supplies the environment needed for instruction typing. The full phase order is in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md); instruction validation depends on that page because code bodies are typechecked only after types, imports, function declarations, tables, memories, tags, globals, elements, data, start/export checks, and `ref.func` declaration bookkeeping are ready.
