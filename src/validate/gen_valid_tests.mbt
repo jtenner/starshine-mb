@@ -1031,6 +1031,14 @@ test "control-heavy profile uses typed GenValid body generator slice" {
       )
   }
   assert_true(generated.facts.has_branch_heavy_control)
+  assert_true(
+    generated.facts.has_payload_control_flow,
+    msg="control-heavy facts should distinguish payload-bearing control from simple branch-heavy control",
+  )
+  assert_true(
+    generated.facts.has_multivalue_control_flow,
+    msg="control-heavy facts should distinguish multi-value control from simple branch-heavy control",
+  )
   assert_true(generated.facts.has_local_tee)
   assert_true(generated.facts.exact_opcode_counts.local_tee > 0)
   assert_true(

@@ -661,6 +661,8 @@ pub struct GenValidFeatureFacts {
   has_call : Bool
   has_call_indirect : Bool
   has_branch_heavy_control : Bool
+  has_payload_control_flow : Bool
+  has_multivalue_control_flow : Bool
   has_numeric_full_ops : Bool
   has_br_table : Bool
   has_standalone_unreachable : Bool
@@ -760,6 +762,8 @@ pub struct GenValidFeatureStats {
   calls : Int
   call_indirect : Int
   branch_heavy_control : Int
+  payload_control_flow : Int
+  multivalue_control_flow : Int
   numeric_full_ops : Int
   br_table : Int
   standalone_unreachable : Int
@@ -840,6 +844,10 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.call_indirect.output(logger)
   logger.write_string(", branch_heavy_control: ")
   self.branch_heavy_control.output(logger)
+  logger.write_string(", payload_control_flow: ")
+  self.payload_control_flow.output(logger)
+  logger.write_string(", multivalue_control_flow: ")
+  self.multivalue_control_flow.output(logger)
   logger.write_string(", numeric_full_ops: ")
   self.numeric_full_ops.output(logger)
   logger.write_string(", br_table: ")
@@ -932,6 +940,8 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     calls: 0,
     call_indirect: 0,
     branch_heavy_control: 0,
+    payload_control_flow: 0,
+    multivalue_control_flow: 0,
     numeric_full_ops: 0,
     br_table: 0,
     standalone_unreachable: 0,
@@ -1000,6 +1010,10 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_call_indirect),
     branch_heavy_control: self.branch_heavy_control +
     gen_valid_bool_count(facts.has_branch_heavy_control),
+    payload_control_flow: self.payload_control_flow +
+    gen_valid_bool_count(facts.has_payload_control_flow),
+    multivalue_control_flow: self.multivalue_control_flow +
+    gen_valid_bool_count(facts.has_multivalue_control_flow),
     numeric_full_ops: self.numeric_full_ops +
     gen_valid_bool_count(facts.has_numeric_full_ops),
     br_table: self.br_table + gen_valid_bool_count(facts.has_br_table),
@@ -1109,6 +1123,8 @@ priv struct GenValidInstrFacts {
   has_call_indirect : Bool
   has_numeric_full_ops : Bool
   has_br_table : Bool
+  has_payload_control_flow : Bool
+  has_multivalue_control_flow : Bool
   has_standalone_unreachable : Bool
   has_local_tee : Bool
   has_typed_select : Bool
@@ -1274,6 +1290,8 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_call_indirect: false,
     has_numeric_full_ops: false,
     has_br_table: false,
+    has_payload_control_flow: false,
+    has_multivalue_control_flow: false,
     has_standalone_unreachable: false,
     has_local_tee: false,
     has_typed_select: false,
@@ -7054,6 +7072,10 @@ fn gen_valid_merge_instr_facts(
     has_numeric_full_ops: left.has_numeric_full_ops ||
     right.has_numeric_full_ops,
     has_br_table: left.has_br_table || right.has_br_table,
+    has_payload_control_flow: left.has_payload_control_flow ||
+    right.has_payload_control_flow,
+    has_multivalue_control_flow: left.has_multivalue_control_flow ||
+    right.has_multivalue_control_flow,
     has_standalone_unreachable: left.has_standalone_unreachable ||
     right.has_standalone_unreachable,
     has_local_tee: left.has_local_tee || right.has_local_tee,
@@ -7086,6 +7108,33 @@ fn gen_valid_merge_instr_facts(
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
+}
+
+///|
+fn gen_valid_block_type_can_produce_values(bt : BlockType) -> Bool {
+  match bt {
+    VoidBlockType => false
+    ValTypeBlockType(_) | TypeIdxBlockType(_) => true
+  }
+}
+
+///|
+fn gen_valid_instr_array_has_top_level_branch(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Br(_) | BrIf(_) | BrTable(_, _) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_expr_has_top_level_branch(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  gen_valid_instr_array_has_top_level_branch(instrs)
 }
 
 ///|
@@ -7681,6 +7730,12 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         ..body_facts,
         uses_ref_types: body_facts.uses_ref_types || has_ref,
         uses_v128: body_facts.uses_v128 || has_v128,
+        has_payload_control_flow: body_facts.has_payload_control_flow ||
+        (
+          gen_valid_block_type_can_produce_values(bt) &&
+          gen_valid_expr_has_top_level_branch(body)
+        ),
+        has_multivalue_control_flow: body_facts.has_multivalue_control_flow,
         control_nodes: body_facts.control_nodes + 1,
       }
     }
@@ -7690,6 +7745,8 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         ..GenValidInstrFacts::empty(),
         uses_ref_types: has_ref,
         uses_v128: has_v128,
+        has_payload_control_flow: false,
+        has_multivalue_control_flow: false,
         control_nodes: 1,
         branch_ops: 1,
       }
@@ -7705,6 +7762,17 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
           )
         None => ()
       }
+      let else_has_top_level_branch = match else_body {
+        Some(body) => gen_valid_instr_array_has_top_level_branch(body)
+        None => false
+      }
+      if gen_valid_block_type_can_produce_values(bt) &&
+        (
+          gen_valid_instr_array_has_top_level_branch(then_body) ||
+          else_has_top_level_branch
+        ) {
+        facts = GenValidInstrFacts::{ ..facts, has_payload_control_flow: true }
+      }
       facts
     }
     TryTable(bt, catches, body) => {
@@ -7714,6 +7782,12 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         ..body_facts,
         uses_ref_types: body_facts.uses_ref_types || has_ref,
         uses_v128: body_facts.uses_v128 || has_v128,
+        has_payload_control_flow: body_facts.has_payload_control_flow ||
+        (
+          gen_valid_block_type_can_produce_values(bt) &&
+          gen_valid_expr_has_top_level_branch(body)
+        ),
+        has_multivalue_control_flow: body_facts.has_multivalue_control_flow,
         has_exception_try_table_matrix: body_facts.has_exception_try_table_matrix ||
         gen_valid_try_table_has_exception_matrix(catches),
         control_nodes: body_facts.control_nodes + 1,
@@ -7786,6 +7860,100 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
 }
 
 ///|
+fn gen_valid_module_typeidx_has_multiple_results(
+  mod : Module,
+  wanted : TypeIdx,
+) -> Bool {
+  match mod.type_sec {
+    Some(TypeSec(rec_types)) => {
+      let mut cursor = 0U
+      for rec_type in rec_types {
+        match rec_type {
+          SingleRecType(sub_type) => {
+            match sub_type {
+              CompTypeSubType(_, FuncCompType(_, results)) if TypeIdx::new(
+                  cursor,
+                ) ==
+                wanted => return results.length() > 1
+              _ => ()
+            }
+            cursor += 1
+          }
+          GroupRecType(group) =>
+            for sub_type in group {
+              match sub_type {
+                CompTypeSubType(_, FuncCompType(_, results)) if TypeIdx::new(
+                    cursor,
+                  ) ==
+                  wanted => return results.length() > 1
+                _ => ()
+              }
+              cursor += 1
+            }
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_expr_has_multivalue_control_flow(
+  mod : Module,
+  expr : Expr,
+) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      Block(TypeIdxBlockType(type_idx), body)
+      | Loop(TypeIdxBlockType(type_idx), body)
+      | TryTable(TypeIdxBlockType(type_idx), _, body) => {
+        if gen_valid_module_typeidx_has_multiple_results(mod, type_idx) {
+          return true
+        }
+        if gen_valid_expr_has_multivalue_control_flow(mod, body) {
+          return true
+        }
+      }
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_expr_has_multivalue_control_flow(mod, body) {
+          return true
+        }
+      If(TypeIdxBlockType(type_idx), then_body, else_body) => {
+        if gen_valid_module_typeidx_has_multiple_results(mod, type_idx) {
+          return true
+        }
+        if gen_valid_expr_has_multivalue_control_flow(mod, Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_expr_has_multivalue_control_flow(
+              mod,
+              Expr::new(body),
+            ) => return true
+          _ => ()
+        }
+      }
+      If(_, then_body, else_body) => {
+        if gen_valid_expr_has_multivalue_control_flow(mod, Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_expr_has_multivalue_control_flow(
+              mod,
+              Expr::new(body),
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 pub fn gen_valid_feature_facts(
   mod : Module,
   mode : GenValidMode,
@@ -7810,6 +7978,8 @@ pub fn gen_valid_feature_facts(
   let mut has_call_indirect = false
   let mut has_numeric_full_ops = false
   let mut has_br_table = false
+  let mut has_payload_control_flow = false
+  let mut has_multivalue_control_flow = false
   let mut has_standalone_unreachable = false
   let mut has_local_tee = false
   let mut has_typed_select = false
@@ -8312,6 +8482,11 @@ pub fn gen_valid_feature_facts(
         has_numeric_full_ops = has_numeric_full_ops ||
           facts.has_numeric_full_ops
         has_br_table = has_br_table || facts.has_br_table
+        has_payload_control_flow = has_payload_control_flow ||
+          facts.has_payload_control_flow
+        has_multivalue_control_flow = has_multivalue_control_flow ||
+          facts.has_multivalue_control_flow ||
+          gen_valid_expr_has_multivalue_control_flow(mod, expr)
         has_standalone_unreachable = has_standalone_unreachable ||
           facts.has_standalone_unreachable
         has_local_tee = has_local_tee || facts.has_local_tee
@@ -8371,6 +8546,8 @@ pub fn gen_valid_feature_facts(
     has_call,
     has_call_indirect,
     has_branch_heavy_control: branch_ops > 0 || control_nodes >= 2,
+    has_payload_control_flow,
+    has_multivalue_control_flow,
     has_numeric_full_ops,
     has_br_table,
     has_standalone_unreachable,

@@ -3352,6 +3352,8 @@ pub enum ValidateValidFeatureKey {
   Calls
   CallIndirect
   BranchHeavyControl
+  PayloadControlFlow
+  MultivalueControlFlow
   NumericFullOps
   BrTable
   StandaloneUnreachable
@@ -3411,6 +3413,8 @@ pub impl Show for ValidateValidFeatureKey with output(self, logger) {
     Calls => logger.write_string("Calls")
     CallIndirect => logger.write_string("CallIndirect")
     BranchHeavyControl => logger.write_string("BranchHeavyControl")
+    PayloadControlFlow => logger.write_string("PayloadControlFlow")
+    MultivalueControlFlow => logger.write_string("MultivalueControlFlow")
     NumericFullOps => logger.write_string("NumericFullOps")
     BrTable => logger.write_string("BrTable")
     StandaloneUnreachable => logger.write_string("StandaloneUnreachable")
@@ -3570,6 +3574,8 @@ pub fn validate_valid_feature_actual_count(
     Calls => stats.calls
     CallIndirect => stats.call_indirect
     BranchHeavyControl => stats.branch_heavy_control
+    PayloadControlFlow => stats.payload_control_flow
+    MultivalueControlFlow => stats.multivalue_control_flow
     NumericFullOps => stats.numeric_full_ops
     BrTable => stats.br_table
     StandaloneUnreachable => stats.standalone_unreachable
@@ -3630,6 +3636,8 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     Calls,
     CallIndirect,
     BranchHeavyControl,
+    PayloadControlFlow,
+    MultivalueControlFlow,
     NumericFullOps,
     BrTable,
     StandaloneUnreachable,
@@ -3745,6 +3753,8 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     Calls => "calls"
     CallIndirect => "call_indirect"
     BranchHeavyControl => "branch_heavy_control"
+    PayloadControlFlow => "payload_control_flow"
+    MultivalueControlFlow => "multivalue_control_flow"
     NumericFullOps => "numeric_full_ops"
     BrTable => "br_table"
     StandaloneUnreachable => "standalone_unreachable"

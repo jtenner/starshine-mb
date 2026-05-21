@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | control-heavy payload facts
+
+- Continued [`[FUZ]1005`](../../agent-todo.md) by adding `has_payload_control_flow` and `has_multivalue_control_flow` facts/stats/ledger keys so GenValid reports can distinguish ordinary branch-heavy modules from payload-bearing and multi-value control-flow modules.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) to describe the new control-heavy observability alongside the existing typed branch-payload, value-loop, nested-return, and multi-value block guarantees.
+
 ## [2026-05-21] fuzzing | topology-heavy FUZ1003 closeout
 
 - Completed [`[FUZ]1003`](../../agent-todo.md) by extending the `topology-heavy` GenValid profile's fixed topology seed to prove nonzero active element/data segment targets and multiple binary-supported leading non-name custom sections in addition to the earlier high-index import/export topology, nonzero resource exports, imported-function re-exports, no-`main`, and no-export variants.

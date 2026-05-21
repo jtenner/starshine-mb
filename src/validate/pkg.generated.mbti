@@ -365,6 +365,8 @@ pub struct GenValidFeatureFacts {
   has_call : Bool
   has_call_indirect : Bool
   has_branch_heavy_control : Bool
+  has_payload_control_flow : Bool
+  has_multivalue_control_flow : Bool
   has_numeric_full_ops : Bool
   has_br_table : Bool
   has_standalone_unreachable : Bool
@@ -422,6 +424,8 @@ pub struct GenValidFeatureStats {
   calls : Int
   call_indirect : Int
   branch_heavy_control : Int
+  payload_control_flow : Int
+  multivalue_control_flow : Int
   numeric_full_ops : Int
   br_table : Int
   standalone_unreachable : Int
@@ -702,6 +706,8 @@ pub enum ValidateValidFeatureKey {
   Calls
   CallIndirect
   BranchHeavyControl
+  PayloadControlFlow
+  MultivalueControlFlow
   NumericFullOps
   BrTable
   StandaloneUnreachable
