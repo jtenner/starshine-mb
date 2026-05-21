@@ -46,6 +46,8 @@ pub fn gen_invalid_small_gen_valid_config(GenValidConfig) -> GenValidConfig
 
 pub fn gen_valid_config_label(GenValidConfig) -> String
 
+pub fn gen_valid_coverage_template_signature(@lib.Module) -> String
+
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module

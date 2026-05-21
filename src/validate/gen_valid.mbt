@@ -6512,20 +6512,29 @@ fn gen_valid_append_coverage_prelude(
       None => ()
     }
   }
+  let branch_first = ctx.random_bool()
   let branch_block_body = [
-    Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+    Instruction::i32_const(I32(if branch_first { 1 } else { 0 })),
     Instruction::br_if(LabelIdx::new(0U)),
   ]
-  out.push(Instruction::block(BlockType::void_(), Expr::new(branch_block_body)))
-  out.push(
-    Instruction::loop_(
-      BlockType::void_(),
-      Expr::new([
-        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
-        Instruction::br_if(LabelIdx::new(0U)),
-      ]),
-    ),
+  let branch_loop = Instruction::loop_(
+    BlockType::void_(),
+    Expr::new([
+      Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+      Instruction::br_if(LabelIdx::new(0U)),
+    ]),
   )
+  let branch_block = Instruction::block(
+    BlockType::void_(),
+    Expr::new(branch_block_body),
+  )
+  if branch_first {
+    out.push(branch_block)
+    out.push(branch_loop)
+  } else {
+    out.push(branch_loop)
+    out.push(branch_block)
+  }
   out.push(Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })))
   out.push(
     Instruction::if_(
@@ -9390,6 +9399,166 @@ fn gen_valid_expr_has_multivalue_control_flow(
     }
   }
   false
+}
+
+///|
+fn gen_valid_template_signature_push(
+  seen : Array[String],
+  label : String,
+) -> Unit {
+  if label.length() > 0 {
+    seen.push(label)
+  }
+}
+
+///|
+fn gen_valid_instr_template_signature_label(instr : Instruction) -> String {
+  if gen_valid_instr_is_expanded_scalar_numeric(instr) {
+    return "numeric"
+  }
+  if gen_valid_instr_is_simd_phase1(instr) ||
+    gen_valid_instr_is_simd_phase2(instr) ||
+    gen_valid_instr_is_simd_phase3(instr) {
+    return "simd"
+  }
+  if gen_valid_instr_is_atomic(instr) {
+    return "atomic"
+  }
+  match instr {
+    Block(_, _) => "block"
+    Loop(_, _) => "loop"
+    If(_, _, _) => "if"
+    TryTable(_, _, _) => "try_table"
+    Br(_) | BrIf(_) | BrTable(_, _) => "branch"
+    Call(_)
+    | CallIndirect(_, _)
+    | CallRef(_)
+    | ReturnCall(_)
+    | ReturnCallIndirect(_, _)
+    | ReturnCallRef(_) => "call"
+    RefNull(_)
+    | RefIsNull
+    | RefFunc(_)
+    | RefI31
+    | I31GetS
+    | I31GetU
+    | AnyConvertExtern
+    | ExternConvertAny
+    | RefTest(_, _)
+    | RefCast(_, _)
+    | BrOnCast(_, _, _, _)
+    | BrOnCastFail(_, _, _, _) => "ref"
+    MemorySize(_)
+    | MemoryGrow(_)
+    | MemoryInit(_, _)
+    | DataDrop(_)
+    | MemoryCopy(_, _)
+    | MemoryFill(_)
+    | I32Load(_)
+    | I64Load(_)
+    | F32Load(_)
+    | F64Load(_)
+    | I32Store(_)
+    | I64Store(_)
+    | F32Store(_)
+    | F64Store(_)
+    | I32Load8S(_)
+    | I32Load8U(_)
+    | I32Load16S(_)
+    | I32Load16U(_)
+    | I64Load8S(_)
+    | I64Load8U(_)
+    | I64Load16S(_)
+    | I64Load16U(_)
+    | I64Load32S(_)
+    | I64Load32U(_)
+    | I32Store8(_)
+    | I32Store16(_)
+    | I64Store8(_)
+    | I64Store16(_)
+    | I64Store32(_) => "memory"
+    TableSize(_)
+    | TableGet(_)
+    | TableSet(_)
+    | TableGrow(_)
+    | TableFill(_)
+    | TableCopy(_, _)
+    | TableInit(_, _)
+    | ElemDrop(_) => "table"
+    GlobalGet(_) | GlobalSet(_) => "global"
+    _ => ""
+  }
+}
+
+///|
+fn gen_valid_collect_template_signature_instr(
+  seen : Array[String],
+  instr : Instruction,
+) -> Unit {
+  gen_valid_template_signature_push(
+    seen,
+    gen_valid_instr_template_signature_label(instr),
+  )
+  match instr {
+    Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+      gen_valid_collect_template_signature_expr(seen, body)
+    If(_, then_body, else_body) => {
+      gen_valid_collect_template_signature_instrs(seen, then_body)
+      match else_body {
+        Some(body) => gen_valid_collect_template_signature_instrs(seen, body)
+        None => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn gen_valid_collect_template_signature_instrs(
+  seen : Array[String],
+  instrs : Array[Instruction],
+) -> Unit {
+  for instr in instrs {
+    gen_valid_collect_template_signature_instr(seen, instr)
+  }
+}
+
+///|
+fn gen_valid_collect_template_signature_expr(
+  seen : Array[String],
+  expr : Expr,
+) -> Unit {
+  let Expr(instrs) = expr
+  gen_valid_collect_template_signature_instrs(seen, instrs)
+}
+
+///|
+fn gen_valid_join_template_signature(seen : Array[String]) -> String {
+  let out = StringBuilder::new()
+  let mut first = true
+  for label in seen {
+    if first {
+      first = false
+    } else {
+      out.write_string("|")
+    }
+    out.write_string(label)
+  }
+  out.to_string()
+}
+
+///|
+pub fn gen_valid_coverage_template_signature(mod : Module) -> String {
+  let seen : Array[String] = []
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, expr) = func
+        gen_valid_collect_template_signature_expr(seen, expr)
+      }
+    None => ()
+  }
+  gen_valid_join_template_signature(seen)
 }
 
 ///|

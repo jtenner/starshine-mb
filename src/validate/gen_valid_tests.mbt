@@ -23,6 +23,42 @@ test "gen_valid_module_result reports success diagnostics" {
 }
 
 ///|
+test "coverage-forced prelude records deterministic randomized template order" {
+  let config = GenValidConfig::coverage_forced_default()
+  let left = match
+    gen_valid_module_result(@splitmix.new(seed=0xf001UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let right = match
+    gen_valid_module_result(@splitmix.new(seed=0xf002UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let left_again = match
+    gen_valid_module_result(@splitmix.new(seed=0xf001UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let left_sig = gen_valid_coverage_template_signature(left.wasm_module)
+  let right_sig = gen_valid_coverage_template_signature(right.wasm_module)
+  @debug.assert_eq(
+    left_sig,
+    gen_valid_coverage_template_signature(left_again.wasm_module),
+  )
+  assert_true(left_sig.length() > 0)
+  assert_true(right_sig.length() > 0)
+  assert_true(
+    left_sig != right_sig,
+    msg="different seeds should vary coverage-forced template ordering",
+  )
+  assert_true(left.facts.has_numeric_full_ops)
+  assert_true(right.facts.has_numeric_full_ops)
+  assert_true(left.facts.has_branch_heavy_control)
+  assert_true(right.facts.has_branch_heavy_control)
+}
+
+///|
 test "gen_valid named profiles expose stable labels and compatibility aliases" {
   @debug.assert_eq(
     gen_valid_profile_name(CoverageForcedAllFeaturesProfile),
