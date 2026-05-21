@@ -1640,44 +1640,6 @@ fn gen_valid_gc_type_defs(
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(cross_ref_idx))
   }
 
-  let want_mutual_struct_array_group = ctx.config.features.allow_subtyping_topology &&
-    ctx.config.mode == CoverageForced &&
-    remaining_type_budget - (type_idx_cursor - next_type_idx) >= 2
-  if want_mutual_struct_array_group {
-    let struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
-    let array_idx = TypeIdx::new((type_idx_cursor + 1).reinterpret_as_uint())
-    defs.push(
-      RecType::group([
-        SubType::comp_type(
-          CompType::struct_([
-            FieldType::new(
-              StorageType::val_type(
-                ValType::ref_type(RefType::new(true, HeapType::new(array_idx))),
-              ),
-              Var,
-            ),
-          ]),
-        ),
-        SubType::comp_type(
-          CompType::array(
-            FieldType::new(
-              StorageType::val_type(
-                ValType::ref_type(RefType::new(true, HeapType::new(struct_idx))),
-              ),
-              Var,
-            ),
-          ),
-        ),
-      ]),
-    )
-    plan = { ..plan, rec_group_count: plan.rec_group_count + 1 }
-    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(struct_idx))
-    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(array_idx))
-    plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(struct_idx))
-    plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(array_idx))
-    type_idx_cursor += 2
-  }
-
   if want_struct && defs.length() < remaining_type_budget {
     let struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
     defs.push(
@@ -1861,6 +1823,44 @@ fn gen_valid_gc_type_defs(
       plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(descriptor_idx))
       type_idx_cursor += 2
     }
+  }
+
+  let want_mutual_struct_array_group = ctx.config.features.allow_subtyping_topology &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) &&
+    remaining_type_budget - (type_idx_cursor - next_type_idx) >= 2
+  if want_mutual_struct_array_group {
+    let struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let array_idx = TypeIdx::new((type_idx_cursor + 1).reinterpret_as_uint())
+    defs.push(
+      RecType::group([
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(
+              StorageType::val_type(
+                ValType::ref_type(RefType::new(true, HeapType::new(array_idx))),
+              ),
+              Var,
+            ),
+          ]),
+        ),
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(
+              StorageType::val_type(
+                ValType::ref_type(RefType::new(true, HeapType::new(struct_idx))),
+              ),
+              Var,
+            ),
+          ),
+        ),
+      ]),
+    )
+    plan = { ..plan, rec_group_count: plan.rec_group_count + 1 }
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(struct_idx))
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(array_idx))
+    plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(struct_idx))
+    plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(array_idx))
+    type_idx_cursor += 2
   }
 
   if want_elem_array && defs.length() < remaining_type_budget {

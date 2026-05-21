@@ -707,6 +707,49 @@ test "coverage-forced GenValid emits mutually recursive struct and array topolog
 }
 
 ///|
+test "natural GenValid organically emits recursive GC topology families" {
+  let config = GenValidConfig::natural_default()
+  let mut saw_subtyping_topology = false
+  let mut saw_mutual_struct_array = false
+  let mut saw_descriptor_matrix = false
+  for offset in 0..<128 {
+    let generated = match
+      gen_valid_module_result(
+        @splitmix.new(seed=0xf71040UL + offset.to_uint64()),
+        config,
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected natural recursive-topology generated module to validate, got \{validation_error_message(err)}",
+        )
+    }
+    saw_subtyping_topology = saw_subtyping_topology ||
+      generated.facts.has_subtyping_topology
+    saw_mutual_struct_array = saw_mutual_struct_array ||
+      gen_valid_test_has_mutual_struct_array_group(generated.wasm_module)
+    saw_descriptor_matrix = saw_descriptor_matrix ||
+      gen_valid_test_has_descriptor_final_open_matrix(generated.wasm_module)
+  }
+  assert_true(
+    saw_subtyping_topology,
+    msg="natural generation should organically produce subtype topology over a bounded seed lane",
+  )
+  assert_true(
+    saw_mutual_struct_array,
+    msg="natural generation should organically produce mutually recursive struct/array rec groups, not only coverage-forced preludes",
+  )
+  assert_true(
+    saw_descriptor_matrix,
+    msg="natural generation should organically produce descriptor/describes subtype matrices, not only coverage-forced preludes",
+  )
+}
+
+///|
 test "coverage-forced GenValid routes exact refs through locals and block results" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match
