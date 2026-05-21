@@ -697,6 +697,11 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F32Trunc
     | @lib.F32Nearest
     | @lib.F32Sqrt
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
     | @lib.F64Abs
     | @lib.F64Neg
     | @lib.F64Ceil
@@ -704,6 +709,11 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64Trunc
     | @lib.F64Nearest
     | @lib.F64Sqrt
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
     | @lib.I32WrapI64
     | @lib.I64ExtendI32S
     | @lib.I64ExtendI32U
@@ -715,7 +725,15 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I32Extend16S
     | @lib.I64Extend8S
     | @lib.I64Extend16S
-    | @lib.I64Extend32S => true
+    | @lib.I64Extend32S
+    | @lib.I32TruncSatF32S
+    | @lib.I32TruncSatF32U
+    | @lib.I32TruncSatF64S
+    | @lib.I32TruncSatF64U
+    | @lib.I64TruncSatF32S
+    | @lib.I64TruncSatF32U
+    | @lib.I64TruncSatF64S
+    | @lib.I64TruncSatF64U => true
     _ => false
   }
 }
@@ -778,6 +796,7 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F32Min
     | @lib.F32Max
     | @lib.F32Copysign
+    | @lib.F32Div
     | @lib.F64Eq
     | @lib.F64Ne
     | @lib.F64Lt
@@ -789,7 +808,8 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64Mul
     | @lib.F64Min
     | @lib.F64Max
-    | @lib.F64Copysign => true
+    | @lib.F64Copysign
+    | @lib.F64Div => true
     _ => false
   }
 }

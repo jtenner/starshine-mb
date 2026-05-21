@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-20] binaryen | SGO numeric conversion nested-arm FlowScanner slice
+
+- Extended `[SGO]003` nested-if arm-flow coverage so candidate reads may flow through nontrapping numeric post-consumers before the outer same-global write guard: int-to-float conversions, `f32.demote_f64`, `f64.promote_f32`, saturating float-to-int truncations, and `f32.div` / `f64.div`.
+- Added focused positives for int-to-float, block-wrapped demote-plus-float-div, and saturating truncation, plus neighboring negatives where a regular float-to-int truncation may trap or the numeric conversion result feeds a post-consumer call before the final branch.
+- Recorded validation evidence from `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-numeric-convert-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+- Grounded the change in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-05-20] binaryen | SGO ref-conversion nested-arm FlowScanner slice
 
 - Extended `[SGO]003` nested-if arm-flow coverage so candidate reads may flow through the nontrapping `ref.i31`, `extern.convert_any`, and `any.convert_extern` reference/GC conversion consumers before the outer same-global write guard.

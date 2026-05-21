@@ -319,6 +319,8 @@ The 2026-05-20 if-wrapper follow-up covers another adjacent FlowScanner parent-w
 
 The reference-typed post-consumer slices admit the same nested-if arm flow when a `funcref` candidate flows through nontrapping `ref.is_null`, an `eqref` candidate flows through nontrapping `ref.eq`, an `i32` candidate flows through nontrapping `ref.i31` and then `ref.eq`, or an `anyref` candidate flows through nontrapping `extern.convert_any` / `any.convert_extern` / `ref.is_null`, with transparent result-block wrappers around the supported conversion chain when covered, before the outer same-global write guard. The paired negatives keep the global mutable when the reference-test boolean result feeds a post-consumer call before the final branch, and preserve nullable `i31.get_s` because it can trap. The `ref.eq` / conversion fixtures use `ref.i31` initializers or non-null-to-null writes where needed so the tests prove read-only-to-write FlowScanner behavior instead of same-as-init null cleanup.
 
+The numeric post-consumer follow-up applies the same rule to nontrapping numeric conversions and float arithmetic: int-to-float conversions, `f32.demote_f64`, `f64.promote_f32`, saturating float-to-int truncations, and `f32.div` / `f64.div` may sit between the nested-if arm result and the final branch condition. Starshine still preserves regular float-to-int truncations such as `i32.trunc_f32_s`, because they can trap before the final branch and therefore cannot be treated as removable condition-only flow.
+
 ### No-op const/drop condition-prefix variation
 
 A block-wrapped condition can also contain side-effect-free constant/drop pairs before the yielded self-guard read:

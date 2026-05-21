@@ -4218,6 +4218,181 @@ test "simplify-globals-optimizing keeps nullable i31-get arm flow conservative" 
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow through int-to-float conversion" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    f64.convert_i32_s
+      #|    f64.const 0
+      #|    f64.ne
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm flow through demote and float div" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut f64) (f64.const 0))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      call $cond
+      #|      if (result f64)
+      #|        f64.const 0
+      #|      else
+      #|        global.get $guard
+      #|      end
+      #|      f32.demote_f64
+      #|      f32.const 2
+      #|      f32.div
+      #|      f32.const 0
+      #|      f32.ne
+      #|    end
+      #|    if
+      #|      f64.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::f64(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm flow through saturating float truncation" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut f32) (f32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result f32)
+      #|      f32.const 0
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    i32.trunc_sat_f32_s
+      #|    i32.eqz
+      #|    if
+      #|      f32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::f32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps trapping float truncation arm flow conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut f32) (f32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result f32)
+      #|      f32.const 0
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    i32.trunc_f32_s
+      #|    i32.eqz
+      #|    if
+      #|      f32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::f32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps numeric conversion arm flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $cond
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    f64.convert_i32_s
+      #|    f64.const 0
+      #|    f64.ne
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps nested-if call operands derived from the global" {
   let optimized = sgo_test_run(
     (
