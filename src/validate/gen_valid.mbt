@@ -6540,6 +6540,38 @@ fn gen_valid_append_simd_template_group(
 }
 
 ///|
+fn gen_valid_append_call_template_group(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  returns : Array[ValType],
+) -> Unit {
+  let order_key = match env.current_func_idx {
+    Some(func_idx) => gen_valid_func_idx_to_int(func_idx)
+    None => env.local_types.length() + env.tables.length() + env.funcs.length()
+  }
+  match order_key % 3 {
+    0 => {
+      gen_valid_append_direct_call_graph_variants(out, ctx, env)
+      gen_valid_append_call_indirect_variants(out, ctx, env)
+      gen_valid_append_call_ref_source_variants(out, ctx, env)
+    }
+    1 => {
+      gen_valid_append_call_indirect_variants(out, ctx, env)
+      gen_valid_append_direct_call_graph_variants(out, ctx, env)
+      gen_valid_append_call_ref_source_variants(out, ctx, env)
+    }
+    _ => {
+      gen_valid_append_call_ref_source_variants(out, ctx, env)
+      gen_valid_append_direct_call_graph_variants(out, ctx, env)
+      gen_valid_append_call_indirect_variants(out, ctx, env)
+    }
+  }
+  gen_valid_append_nested_tail_call_variants(out, ctx, env, returns)
+  gen_valid_append_tail_call_ops(out, ctx, env, returns)
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -6553,11 +6585,7 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
   gen_valid_append_expanded_scalar_numeric_ops(out, ctx)
   gen_valid_append_core_control_ops(out, ctx, env)
-  gen_valid_append_direct_call_graph_variants(out, ctx, env)
-  gen_valid_append_call_indirect_variants(out, ctx, env)
-  gen_valid_append_call_ref_source_variants(out, ctx, env)
-  gen_valid_append_nested_tail_call_variants(out, ctx, env, returns)
-  gen_valid_append_tail_call_ops(out, ctx, env, returns)
+  gen_valid_append_call_template_group(out, ctx, env, returns)
   gen_valid_append_simd_template_group(out, ctx, env)
   if ctx.config.features.allow_atomics {
     match gen_valid_atomic_shared_mem_idx(env) {
@@ -9527,12 +9555,10 @@ fn gen_valid_instr_template_signature_label(instr : Instruction) -> String {
     If(_, _, _) => "if"
     TryTable(_, _, _) => "try_table"
     Br(_) | BrIf(_) | BrTable(_, _) => "branch"
-    Call(_)
-    | CallIndirect(_, _)
-    | CallRef(_)
-    | ReturnCall(_)
-    | ReturnCallIndirect(_, _)
-    | ReturnCallRef(_) => "call"
+    Call(_) => "direct_call"
+    CallIndirect(_, _) => "call_indirect"
+    CallRef(_) => "call_ref"
+    ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) => "tail_call"
     RefNull(_)
     | RefIsNull
     | RefFunc(_)

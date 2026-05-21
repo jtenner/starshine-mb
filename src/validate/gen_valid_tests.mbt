@@ -140,6 +140,55 @@ test "coverage-forced prelude varies SIMD template phase order by seed" {
 }
 
 ///|
+test "coverage-forced prelude varies direct indirect and ref call template order by seed" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mut saw_direct_before_indirect = false
+  let mut saw_indirect_before_direct = false
+  let mut saw_ref_before_direct = false
+  for offset in 0..<24 {
+    let generated = match
+      gen_valid_module_result(
+        @splitmix.new(seed=0xf1d0UL + offset.to_uint64()),
+        config,
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected randomized call coverage-forced generated module to validate, got \{validation_error_message(err)}",
+        )
+    }
+    let sig = gen_valid_coverage_template_signature(generated.wasm_module)
+    if sig.contains("direct_call|call_indirect") {
+      saw_direct_before_indirect = true
+    }
+    if sig.contains("call_indirect|direct_call") {
+      saw_indirect_before_direct = true
+    }
+    if sig.contains("call_ref|direct_call") {
+      saw_ref_before_direct = true
+    }
+    assert_true(generated.facts.has_call)
+    assert_true(generated.facts.has_call_indirect)
+  }
+  assert_true(
+    saw_direct_before_indirect,
+    msg="coverage-forced call prelude should retain direct-call-before-indirect ordering for some seeds",
+  )
+  assert_true(
+    saw_indirect_before_direct,
+    msg="coverage-forced call prelude should also emit indirect-call-before-direct ordering for some seeds",
+  )
+  assert_true(
+    saw_ref_before_direct,
+    msg="coverage-forced call prelude should sometimes move call_ref templates before direct-call templates",
+  )
+}
+
+///|
 test "gen_valid named profiles expose stable labels and compatibility aliases" {
   @debug.assert_eq(
     gen_valid_profile_name(CoverageForcedAllFeaturesProfile),
