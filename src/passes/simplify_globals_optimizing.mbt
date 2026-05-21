@@ -748,13 +748,24 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2Splat
     | @lib.F32x4Splat
     | @lib.F64x2Splat
+    | @lib.I8x16Abs
+    | @lib.I8x16Neg
     | @lib.I8x16Popcnt
     | @lib.I8x16Bitmask
     | @lib.I8x16AllTrue
+    | @lib.F32x4Ceil
+    | @lib.F32x4Floor
+    | @lib.F32x4Trunc
+    | @lib.F32x4Nearest
+    | @lib.F64x2Ceil
+    | @lib.F64x2Floor
+    | @lib.F64x2Trunc
+    | @lib.F64x2Nearest
     | @lib.I16x8Abs
     | @lib.I16x8Neg
     | @lib.I16x8AllTrue
     | @lib.I16x8Bitmask
+    | @lib.I32x4Abs
     | @lib.I32x4Neg
     | @lib.I32x4AllTrue
     | @lib.I32x4Bitmask
@@ -764,6 +775,7 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I16x8ExtractLaneU(_)
     | @lib.I32x4ExtractLane(_)
     | @lib.I64x2ExtractLane(_)
+    | @lib.I64x2Abs
     | @lib.F32x4ExtractLane(_)
     | @lib.F64x2ExtractLane(_)
     | @lib.I64x2Neg
@@ -773,7 +785,8 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F32x4Neg
     | @lib.F32x4Sqrt
     | @lib.F64x2Abs
-    | @lib.F64x2Neg => true
+    | @lib.F64x2Neg
+    | @lib.F64x2Sqrt => true
     _ => false
   }
 }
@@ -912,13 +925,59 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2ShrS
     | @lib.I64x2ShrU
     | @lib.I8x16Add
+    | @lib.I8x16AddSatS
+    | @lib.I8x16AddSatU
+    | @lib.I8x16Sub
+    | @lib.I8x16SubSatS
+    | @lib.I8x16SubSatU
+    | @lib.I8x16MinS
+    | @lib.I8x16MinU
+    | @lib.I8x16MaxS
+    | @lib.I8x16MaxU
+    | @lib.I8x16AvgrU
+    | @lib.I16x8Add
+    | @lib.I16x8AddSatS
+    | @lib.I16x8AddSatU
+    | @lib.I16x8Sub
+    | @lib.I16x8SubSatS
+    | @lib.I16x8SubSatU
+    | @lib.I16x8Mul
+    | @lib.I16x8MinS
+    | @lib.I16x8MinU
+    | @lib.I16x8MaxS
+    | @lib.I16x8MaxU
+    | @lib.I16x8AvgrU
+    | @lib.I16x8Q15mulrSatS
     | @lib.I16x8Eq
     | @lib.I32x4Add
+    | @lib.I32x4Sub
+    | @lib.I32x4Mul
+    | @lib.I32x4MinS
+    | @lib.I32x4MinU
+    | @lib.I32x4MaxS
+    | @lib.I32x4MaxU
     | @lib.I32x4Eq
+    | @lib.I64x2Add
+    | @lib.I64x2Sub
+    | @lib.I64x2Mul
     | @lib.I64x2Eq
+    | @lib.F32x4Add
+    | @lib.F32x4Sub
+    | @lib.F32x4Mul
     | @lib.F32x4Div
+    | @lib.F32x4Min
+    | @lib.F32x4Max
+    | @lib.F32x4Pmin
+    | @lib.F32x4Pmax
     | @lib.F32x4Ne
     | @lib.F64x2Add
+    | @lib.F64x2Sub
+    | @lib.F64x2Mul
+    | @lib.F64x2Div
+    | @lib.F64x2Min
+    | @lib.F64x2Max
+    | @lib.F64x2Pmin
+    | @lib.F64x2Pmax
     | @lib.F64x2Ne => true
     _ => false
   }

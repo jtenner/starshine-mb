@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-21] binaryen | SGO SIMD arithmetic FlowScanner slice
+
+- Extended `[SGO]003` read-only-to-write FlowScanner coverage for basic nontrapping SIMD arithmetic/unary ops (integer lane abs/neg, saturating add/sub, sub/mul/min/max/avgr, `i64x2.add`/`sub`/`mul`, f32/f64 ceil/floor/trunc/nearest/sqrt and add/sub/mul/div/min/max/pmin/pmax).
+- Added focused positives for direct SIMD unary, integer arithmetic, and float arithmetic self-guards, block-wrapped `if return; set`, and clean if-wrapper arithmetic guards, plus neighboring post-consumer-call negatives.
+- Recorded validation evidence from Binaryen v129 WAT probes, `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-simd-arithmetic-breadth-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+- Grounded the change in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-05-21] binaryen | SGO SIMD comparison FlowScanner slice
 
 - Extended `[SGO]003` read-only-to-write FlowScanner coverage for parser-backed nontrapping SIMD comparison operators across integer and float lanes: the remaining `i8x16`, `i16x8`, `i32x4`, `i64x2`, `f32x4`, and `f64x2` comparison forms not already covered by earlier slices.
