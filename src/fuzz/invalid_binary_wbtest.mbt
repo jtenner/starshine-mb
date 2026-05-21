@@ -70,6 +70,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-memory-min-uleb", "malformed-table-min-uleb", "invalid-export-name-utf8",
     "invalid-import-module-name-utf8", "invalid-import-field-name-utf8", "invalid-import-kind-byte",
     "malformed-import-func-type-index-uleb", "malformed-import-tag-type-index-uleb",
+    "invalid-import-table-reftype-byte", "invalid-import-memory-limits-flag-byte",
     "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
     "malformed-ref-cast-heaptype-immediate", "malformed-ref-test-heaptype-immediate",
     "invalid-global-valtype-byte", "invalid-export-kind-byte", "invalid-memory-limits-flag-byte",
@@ -146,7 +147,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1125,6 +1126,19 @@ test "invalid binary FZG035 decodes invalid typed select valtype byte as invalid
 }
 
 ///|
+test "invalid binary FZG036 decodes invalid import descriptor bytes as invalid" {
+  for
+    strategy in [
+      "invalid-import-table-reftype-byte", "invalid-import-memory-limits-flag-byte",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f21UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG033 decodes malformed active segment index ULEBs as invalid" {
   for
     strategy in [
@@ -1163,6 +1177,7 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-blocktype-immediate", "malformed-memory-min-uleb", "malformed-table-min-uleb",
       "invalid-export-name-utf8", "invalid-import-module-name-utf8", "invalid-import-field-name-utf8",
       "invalid-import-kind-byte", "malformed-import-func-type-index-uleb", "malformed-import-tag-type-index-uleb",
+      "invalid-import-table-reftype-byte", "invalid-import-memory-limits-flag-byte",
       "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
       "malformed-ref-cast-heaptype-immediate", "malformed-ref-test-heaptype-immediate",
       "invalid-global-valtype-byte", "invalid-export-kind-byte", "invalid-memory-limits-flag-byte",
