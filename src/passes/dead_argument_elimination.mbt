@@ -8716,6 +8716,34 @@ fn dae_instr_is_integer_left_constant_identity(
 }
 
 ///|
+fn dae_instr_integer_zero_compare_replacement(
+  zero : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> Array[@lib.Instruction]? {
+  match (zero, instr) {
+    (@lib.I32Const(@lib.I32(0)), @lib.I32Eq) =>
+      Some([@lib.Instruction::i32_eqz()])
+    (@lib.I32Const(@lib.I32(0)), @lib.I32Ne) =>
+      Some([@lib.Instruction::i32_eqz(), @lib.Instruction::i32_eqz()])
+    (@lib.I64Const(@lib.I64(0L)), @lib.I64Eq) =>
+      Some([@lib.Instruction::i64_eqz()])
+    (@lib.I64Const(@lib.I64(0L)), @lib.I64Ne) =>
+      Some([@lib.Instruction::i64_eqz(), @lib.Instruction::i32_eqz()])
+    _ => None
+  }
+}
+
+///|
+fn dae_push_instrs(
+  out : Array[@lib.Instruction],
+  instrs : Array[@lib.Instruction],
+) -> Unit {
+  for instr in instrs {
+    out.push(instr)
+  }
+}
+
+///|
 fn dae_block_type_is_zero_param_single_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -9074,13 +9102,42 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         _ => ()
       }
     }
-    if idx + 1 < instrs.length() &&
-      dae_instr_is_integer_right_constant_identity(instrs[idx], instrs[idx + 1]) {
-      idx += 2
-      continue
+    if idx + 1 < instrs.length() {
+      match
+        dae_instr_integer_zero_compare_replacement(instrs[idx], instrs[idx + 1]) {
+        Some(replacement) => {
+          dae_push_instrs(out, replacement)
+          idx += 2
+          continue
+        }
+        None => ()
+      }
+      if dae_instr_is_integer_right_constant_identity(
+          instrs[idx],
+          instrs[idx + 1],
+        ) {
+        idx += 2
+        continue
+      }
     }
     if out.length() > 0 && idx + 1 < instrs.length() {
       let last_idx = out.length() - 1
+      if dae_instr_is_stack_neutral_value_leaf(instrs[idx]) {
+        match
+          dae_instr_integer_zero_compare_replacement(
+            out[last_idx],
+            instrs[idx + 1],
+          ) {
+          Some(replacement) => {
+            ignore(out.pop())
+            out.push(instrs[idx])
+            dae_push_instrs(out, replacement)
+            idx += 2
+            continue
+          }
+          None => ()
+        }
+      }
       if dae_instr_is_stack_neutral_value_leaf(instrs[idx]) &&
         dae_instr_is_integer_left_constant_identity(
           out[last_idx],
