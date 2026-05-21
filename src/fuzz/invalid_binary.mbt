@@ -214,13 +214,20 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionTypeNameUtf8
   MalformedNameSectionTypeNameLengthUleb
   InvalidNameSectionTableNameUtf8
+  MalformedNameSectionTableNameLengthUleb
   InvalidNameSectionMemoryNameUtf8
+  MalformedNameSectionMemoryNameLengthUleb
   InvalidNameSectionGlobalNameUtf8
+  MalformedNameSectionGlobalNameLengthUleb
   InvalidNameSectionElemNameUtf8
+  MalformedNameSectionElemNameLengthUleb
   InvalidNameSectionDataNameUtf8
+  MalformedNameSectionDataNameLengthUleb
   InvalidNameSectionFieldNameUtf8
+  MalformedNameSectionFieldNameLengthUleb
   InvalidNameSectionLabelNameUtf8
   InvalidNameSectionTagNameUtf8
+  MalformedNameSectionTagNameLengthUleb
   InvalidFuncTypeByte
   InvalidCodeLocalValTypeByte
   MalformedCodeLocalDeclCountUleb
@@ -766,13 +773,27 @@ fn validate_invalid_binary_strategy_label(
     MalformedNameSectionTypeNameLengthUleb =>
       "malformed-name-section-type-name-length-uleb"
     InvalidNameSectionTableNameUtf8 => "invalid-name-section-table-name-utf8"
+    MalformedNameSectionTableNameLengthUleb =>
+      "malformed-name-section-table-name-length-uleb"
     InvalidNameSectionMemoryNameUtf8 => "invalid-name-section-memory-name-utf8"
+    MalformedNameSectionMemoryNameLengthUleb =>
+      "malformed-name-section-memory-name-length-uleb"
     InvalidNameSectionGlobalNameUtf8 => "invalid-name-section-global-name-utf8"
+    MalformedNameSectionGlobalNameLengthUleb =>
+      "malformed-name-section-global-name-length-uleb"
     InvalidNameSectionElemNameUtf8 => "invalid-name-section-elem-name-utf8"
+    MalformedNameSectionElemNameLengthUleb =>
+      "malformed-name-section-elem-name-length-uleb"
     InvalidNameSectionDataNameUtf8 => "invalid-name-section-data-name-utf8"
+    MalformedNameSectionDataNameLengthUleb =>
+      "malformed-name-section-data-name-length-uleb"
     InvalidNameSectionFieldNameUtf8 => "invalid-name-section-field-name-utf8"
+    MalformedNameSectionFieldNameLengthUleb =>
+      "malformed-name-section-field-name-length-uleb"
     InvalidNameSectionLabelNameUtf8 => "invalid-name-section-label-name-utf8"
     InvalidNameSectionTagNameUtf8 => "invalid-name-section-tag-name-utf8"
+    MalformedNameSectionTagNameLengthUleb =>
+      "malformed-name-section-tag-name-length-uleb"
     InvalidFuncTypeByte => "invalid-functype-byte"
     InvalidCodeLocalValTypeByte => "invalid-code-local-valtype-byte"
     MalformedCodeLocalDeclCountUleb => "malformed-code-local-decl-count-uleb"
@@ -2108,9 +2129,23 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedNameSectionTableNameLengthUleb,
+      "malformed-name-section-table-name-length-uleb",
+      "name section table-name payload with a malformed name-length ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       InvalidNameSectionMemoryNameUtf8,
       "invalid-name-section-memory-name-utf8",
       "name section memory-name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedNameSectionMemoryNameLengthUleb,
+      "malformed-name-section-memory-name-length-uleb",
+      "name section memory-name payload with a malformed name-length ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2122,9 +2157,23 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedNameSectionGlobalNameLengthUleb,
+      "malformed-name-section-global-name-length-uleb",
+      "name section global-name payload with a malformed name-length ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       InvalidNameSectionElemNameUtf8,
       "invalid-name-section-elem-name-utf8",
       "name section element segment name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedNameSectionElemNameLengthUleb,
+      "malformed-name-section-elem-name-length-uleb",
+      "name section element segment name payload with a malformed name-length ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2136,9 +2185,23 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedNameSectionDataNameLengthUleb,
+      "malformed-name-section-data-name-length-uleb",
+      "name section data segment name payload with a malformed name-length ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       InvalidNameSectionFieldNameUtf8,
       "invalid-name-section-field-name-utf8",
       "name section field name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedNameSectionFieldNameLengthUleb,
+      "malformed-name-section-field-name-length-uleb",
+      "name section field name payload with a malformed name-length ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2153,6 +2216,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidNameSectionTagNameUtf8,
       "invalid-name-section-tag-name-utf8",
       "name section tag-name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedNameSectionTagNameLengthUleb,
+      "malformed-name-section-tag-name-length-uleb",
+      "name section tag-name payload with a malformed name-length ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5247,8 +5317,22 @@ fn validate_invalid_binary_module_with_invalid_name_section_table_name_utf8() ->
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_name_section_table_name_length_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+    0x05,
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_name_section_memory_name_utf8() -> Bytes {
   validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(0x06)
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_name_section_memory_name_length_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+    0x06,
+  )
 }
 
 ///|
@@ -5257,8 +5341,22 @@ fn validate_invalid_binary_module_with_invalid_name_section_global_name_utf8() -
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_name_section_global_name_length_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+    0x07,
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_name_section_elem_name_utf8() -> Bytes {
   validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(0x08)
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_name_section_elem_name_length_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+    0x08,
+  )
 }
 
 ///|
@@ -5267,8 +5365,22 @@ fn validate_invalid_binary_module_with_invalid_name_section_data_name_utf8() -> 
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_name_section_data_name_length_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+    0x09,
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_name_section_field_name_utf8() -> Bytes {
   validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(0x0a)
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_name_section_field_name_length_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+    0x0a,
+  )
 }
 
 ///|
@@ -5303,6 +5415,13 @@ fn validate_invalid_binary_module_with_invalid_name_section_label_name_utf8() ->
 ///|
 fn validate_invalid_binary_module_with_invalid_name_section_tag_name_utf8() -> Bytes {
   validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(0x0b)
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_name_section_tag_name_length_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+    0x0b,
+  )
 }
 
 ///|
@@ -5493,6 +5612,20 @@ fn validate_invalid_binary_mutate_invalid_name_section_table_name_utf8(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_name_section_table_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionTableNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_table_name_length_uleb(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_name_section_memory_name_utf8(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -5502,6 +5635,20 @@ fn validate_invalid_binary_mutate_invalid_name_section_memory_name_utf8(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_name_section_memory_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_name_section_memory_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionMemoryNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_memory_name_length_uleb(),
     ),
   )
 }
@@ -5521,6 +5668,20 @@ fn validate_invalid_binary_mutate_invalid_name_section_global_name_utf8(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_name_section_global_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionGlobalNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_global_name_length_uleb(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_name_section_elem_name_utf8(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -5530,6 +5691,20 @@ fn validate_invalid_binary_mutate_invalid_name_section_elem_name_utf8(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_name_section_elem_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_name_section_elem_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionElemNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_elem_name_length_uleb(),
     ),
   )
 }
@@ -5549,6 +5724,20 @@ fn validate_invalid_binary_mutate_invalid_name_section_data_name_utf8(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_name_section_data_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionDataNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_data_name_length_uleb(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_name_section_field_name_utf8(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -5558,6 +5747,20 @@ fn validate_invalid_binary_mutate_invalid_name_section_field_name_utf8(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_name_section_field_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_name_section_field_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionFieldNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_field_name_length_uleb(),
     ),
   )
 }
@@ -5586,6 +5789,20 @@ fn validate_invalid_binary_mutate_invalid_name_section_tag_name_utf8(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_name_section_tag_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_name_section_tag_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionTagNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_tag_name_length_uleb(),
     ),
   )
 }
@@ -9266,20 +9483,48 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     InvalidNameSectionTableNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_table_name_utf8(base)
+    MalformedNameSectionTableNameLengthUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_table_name_length_uleb(
+        base,
+      )
     InvalidNameSectionMemoryNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_memory_name_utf8(base)
+    MalformedNameSectionMemoryNameLengthUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_memory_name_length_uleb(
+        base,
+      )
     InvalidNameSectionGlobalNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_global_name_utf8(base)
+    MalformedNameSectionGlobalNameLengthUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_global_name_length_uleb(
+        base,
+      )
     InvalidNameSectionElemNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_elem_name_utf8(base)
+    MalformedNameSectionElemNameLengthUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_elem_name_length_uleb(
+        base,
+      )
     InvalidNameSectionDataNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_data_name_utf8(base)
+    MalformedNameSectionDataNameLengthUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_data_name_length_uleb(
+        base,
+      )
     InvalidNameSectionFieldNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_field_name_utf8(base)
+    MalformedNameSectionFieldNameLengthUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_field_name_length_uleb(
+        base,
+      )
     InvalidNameSectionLabelNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_label_name_utf8(base)
     InvalidNameSectionTagNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_tag_name_utf8(base)
+    MalformedNameSectionTagNameLengthUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_tag_name_length_uleb(
+        base,
+      )
     InvalidFuncTypeByte =>
       validate_invalid_binary_mutate_invalid_functype_byte(base)
     InvalidCodeLocalValTypeByte =>
