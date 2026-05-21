@@ -529,12 +529,89 @@ fn gen_valid_test_instrs_have_scalar_memory_over_nonzero_mem(
 }
 
 ///|
+fn gen_valid_test_instr_is_simd_memory_over_nonzero_mem(
+  instr : Instruction,
+) -> Bool {
+  match instr {
+    V128Load(ma)
+    | V128Store(ma)
+    | V128Load8x8S(ma)
+    | V128Load8x8U(ma)
+    | V128Load16x4S(ma)
+    | V128Load16x4U(ma)
+    | V128Load32x2S(ma)
+    | V128Load32x2U(ma)
+    | V128Load8Splat(ma)
+    | V128Load16Splat(ma)
+    | V128Load32Splat(ma)
+    | V128Load64Splat(ma)
+    | V128Load32Zero(ma)
+    | V128Load64Zero(ma) => gen_valid_test_memarg_has_nonzero_mem(ma)
+    V128Load8Lane(ma, _)
+    | V128Load16Lane(ma, _)
+    | V128Load32Lane(ma, _)
+    | V128Load64Lane(ma, _)
+    | V128Store8Lane(ma, _)
+    | V128Store16Lane(ma, _)
+    | V128Store32Lane(ma, _)
+    | V128Store64Lane(ma, _) => gen_valid_test_memarg_has_nonzero_mem(ma)
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_test_instrs_have_simd_memory_over_nonzero_mem(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    if gen_valid_test_instr_is_simd_memory_over_nonzero_mem(instr) {
+      return true
+    }
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_simd_memory_over_nonzero_mem(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_simd_memory_over_nonzero_mem(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_simd_memory_over_nonzero_mem(
+              body,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_has_scalar_memory_over_nonzero_mem(mod_ : Module) -> Bool {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
       for func in funcs {
         let Func(_, Expr(body)) = func
         if gen_valid_test_instrs_have_scalar_memory_over_nonzero_mem(body) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_simd_memory_over_nonzero_mem(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_simd_memory_over_nonzero_mem(body) {
           return true
         }
       }
@@ -2670,6 +2747,29 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
   assert_true(
     counts.f32x4_demote_f64x2_zero > 0,
     msg="SIMD exact coverage should include f32x4.demote_f64x2_zero",
+  )
+}
+
+///|
+test "SIMD-heavy profile emits SIMD memory coverage over nonzero memory indices" {
+  let base = GenValidConfig::for_profile(SimdHeavyProfile)
+  let config = GenValidConfig::{ ..base, max_mems: 4 }
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71011UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected SIMD-heavy generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_simd_phase3)
+  assert_true(
+    gen_valid_test_has_simd_memory_over_nonzero_mem(generated.wasm_module),
+    msg="SIMD-heavy profile should emit SIMD memory coverage over a nonzero memory index",
   )
 }
 

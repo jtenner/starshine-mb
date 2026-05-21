@@ -2906,6 +2906,18 @@ fn gen_valid_memarg_varied(align_pow : UInt, offset : UInt64) -> MemArg {
 }
 
 ///|
+fn gen_valid_simd_memarg_varied(
+  nonzero_mem_idx : MemIdx?,
+  align_pow : UInt,
+  offset : UInt64,
+) -> MemArg {
+  match nonzero_mem_idx {
+    Some(mem_idx) => MemArg::new(U32(align_pow), Some(mem_idx), U64(offset))
+    None => gen_valid_memarg_varied(align_pow, offset)
+  }
+}
+
+///|
 fn gen_valid_memarg_for_mem(
   mem_idx : MemIdx,
   align_pow : UInt,
@@ -6668,118 +6680,149 @@ fn gen_valid_append_atomic_ops(
 }
 
 ///|
-fn gen_valid_append_simd_phase3_ops(out : Array[Instruction]) -> Unit {
+fn gen_valid_append_simd_phase3_ops(
+  out : Array[Instruction],
+  nonzero_mem_idx : MemIdx?,
+) -> Unit {
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load(gen_valid_memarg_varied(4U, 96UL)),
+    Instruction::v128_load(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 4U, 96UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load8x8s(gen_valid_memarg_varied(3U, 112UL)),
+    Instruction::v128_load8x8s(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 112UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load8x8u(gen_valid_memarg_varied(3U, 120UL)),
+    Instruction::v128_load8x8u(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 120UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load16x4s(gen_valid_memarg_varied(3U, 128UL)),
+    Instruction::v128_load16x4s(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 128UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load16x4u(gen_valid_memarg_varied(3U, 136UL)),
+    Instruction::v128_load16x4u(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 136UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load32x2s(gen_valid_memarg_varied(3U, 144UL)),
+    Instruction::v128_load32x2s(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 144UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load32x2u(gen_valid_memarg_varied(3U, 152UL)),
+    Instruction::v128_load32x2u(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 152UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load8_splat(gen_valid_memarg_varied(0U, 160UL)),
+    Instruction::v128_load8_splat(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 0U, 160UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load16_splat(gen_valid_memarg_varied(1U, 162UL)),
+    Instruction::v128_load16_splat(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 1U, 162UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load32_splat(gen_valid_memarg_varied(2U, 164UL)),
+    Instruction::v128_load32_splat(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 2U, 164UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load64_splat(gen_valid_memarg_varied(3U, 168UL)),
+    Instruction::v128_load64_splat(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 168UL),
+    ),
   )
   gen_valid_append_simd_memory_store(
     out,
-    Instruction::v128_store(gen_valid_memarg_varied(4U, 176UL)),
+    Instruction::v128_store(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 4U, 176UL),
+    ),
   )
   gen_valid_append_simd_memory_lane_load_drop(
     out,
     Instruction::v128_load8_lane(
-      gen_valid_memarg_varied(0U, 192UL),
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 0U, 192UL),
       LaneIdx::new(3),
     ),
   )
   gen_valid_append_simd_memory_lane_load_drop(
     out,
     Instruction::v128_load16_lane(
-      gen_valid_memarg_varied(1U, 194UL),
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 1U, 194UL),
       LaneIdx::new(2),
     ),
   )
   gen_valid_append_simd_memory_lane_load_drop(
     out,
     Instruction::v128_load32_lane(
-      gen_valid_memarg_varied(2U, 196UL),
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 2U, 196UL),
       LaneIdx::new(1),
     ),
   )
   gen_valid_append_simd_memory_lane_load_drop(
     out,
     Instruction::v128_load64_lane(
-      gen_valid_memarg_varied(3U, 200UL),
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 200UL),
       LaneIdx::new(0),
     ),
   )
   gen_valid_append_simd_memory_store(
     out,
     Instruction::v128_store8_lane(
-      gen_valid_memarg_varied(0U, 208UL),
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 0U, 208UL),
       LaneIdx::new(4),
     ),
   )
   gen_valid_append_simd_memory_store(
     out,
     Instruction::v128_store16_lane(
-      gen_valid_memarg_varied(1U, 210UL),
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 1U, 210UL),
       LaneIdx::new(5),
     ),
   )
   gen_valid_append_simd_memory_store(
     out,
     Instruction::v128_store32_lane(
-      gen_valid_memarg_varied(2U, 212UL),
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 2U, 212UL),
       LaneIdx::new(2),
     ),
   )
   gen_valid_append_simd_memory_store(
     out,
     Instruction::v128_store64_lane(
-      gen_valid_memarg_varied(3U, 216UL),
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 216UL),
       LaneIdx::new(1),
     ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load32_zero(gen_valid_memarg_varied(2U, 224UL)),
+    Instruction::v128_load32_zero(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 2U, 224UL),
+    ),
   )
   gen_valid_append_simd_memory_load_drop(
     out,
-    Instruction::v128_load64_zero(gen_valid_memarg_varied(3U, 232UL)),
+    Instruction::v128_load64_zero(
+      gen_valid_simd_memarg_varied(nonzero_mem_idx, 3U, 232UL),
+    ),
   )
   gen_valid_append_v128_binary_op(
     out,
@@ -6972,6 +7015,7 @@ fn gen_valid_append_simd_template_group(
     gen_valid_append_relaxed_simd_ops(out)
   }
   let has_memory_phase = !env.mems.is_empty()
+  let simd_nonzero_mem_idx = gen_valid_first_nonzero_i32_mem_idx(env.mems)
   let order_key = match env.current_func_idx {
     Some(func_idx) => gen_valid_func_idx_to_int(func_idx)
     None => env.local_types.length() + env.tables.length() + env.mems.length()
@@ -6982,33 +7026,33 @@ fn gen_valid_append_simd_template_group(
       gen_valid_append_simd_phase1_ops(out)
       gen_valid_append_simd_phase2_ops(out)
       if has_memory_phase {
-        gen_valid_append_simd_phase3_ops(out)
+        gen_valid_append_simd_phase3_ops(out, simd_nonzero_mem_idx)
       }
     }
     1 => {
       gen_valid_append_simd_phase2_ops(out)
       gen_valid_append_simd_phase1_ops(out)
       if has_memory_phase {
-        gen_valid_append_simd_phase3_ops(out)
+        gen_valid_append_simd_phase3_ops(out, simd_nonzero_mem_idx)
       }
     }
     2 => {
       gen_valid_append_simd_phase1_ops(out)
-      gen_valid_append_simd_phase3_ops(out)
+      gen_valid_append_simd_phase3_ops(out, simd_nonzero_mem_idx)
       gen_valid_append_simd_phase2_ops(out)
     }
     3 => {
       gen_valid_append_simd_phase2_ops(out)
-      gen_valid_append_simd_phase3_ops(out)
+      gen_valid_append_simd_phase3_ops(out, simd_nonzero_mem_idx)
       gen_valid_append_simd_phase1_ops(out)
     }
     4 => {
-      gen_valid_append_simd_phase3_ops(out)
+      gen_valid_append_simd_phase3_ops(out, simd_nonzero_mem_idx)
       gen_valid_append_simd_phase1_ops(out)
       gen_valid_append_simd_phase2_ops(out)
     }
     _ => {
-      gen_valid_append_simd_phase3_ops(out)
+      gen_valid_append_simd_phase3_ops(out, simd_nonzero_mem_idx)
       gen_valid_append_simd_phase2_ops(out)
       gen_valid_append_simd_phase1_ops(out)
     }
