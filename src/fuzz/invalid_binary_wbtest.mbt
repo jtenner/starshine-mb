@@ -93,6 +93,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow", "simd-store-lane-index-overflow",
     "simd-extract-lane-index-overflow", "simd-replace-lane-index-overflow", "malformed-data-index-uleb",
     "malformed-memory-init-memory-index-uleb", "malformed-elem-index-uleb", "malformed-table-init-table-index-uleb",
+    "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
     "invalid-name-section-func-name-utf8", "invalid-name-section-local-name-utf8",
     "invalid-name-section-module-name-utf8", "invalid-name-section-type-name-utf8",
     "invalid-name-section-table-name-utf8", "invalid-name-section-memory-name-utf8",
@@ -143,7 +144,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1098,6 +1100,19 @@ test "invalid binary FZG032 decodes malformed br_table target-label ULEB as inva
 }
 
 ///|
+test "invalid binary FZG033 decodes malformed active segment index ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f18UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG028 decodes SIMD extract-lane overflow as invalid" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -1147,6 +1162,7 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow", "simd-store-lane-index-overflow",
       "simd-extract-lane-index-overflow", "simd-replace-lane-index-overflow", "malformed-data-index-uleb",
       "malformed-memory-init-memory-index-uleb", "malformed-elem-index-uleb", "malformed-table-init-table-index-uleb",
+      "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
       "invalid-name-section-func-name-utf8", "invalid-name-section-local-name-utf8",
       "invalid-name-section-module-name-utf8", "invalid-name-section-type-name-utf8",
       "invalid-name-section-table-name-utf8", "invalid-name-section-memory-name-utf8",

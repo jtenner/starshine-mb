@@ -168,6 +168,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedMemoryInitMemoryIndexUleb
   MalformedElemIndexUleb
   MalformedTableInitTableIndexUleb
+  MalformedDataSegmentMemoryIndexUleb
+  MalformedElementSegmentTableIndexUleb
   InvalidNameSectionFuncNameUtf8
   InvalidNameSectionLocalNameUtf8
   InvalidNameSectionModuleNameUtf8
@@ -657,6 +659,10 @@ fn validate_invalid_binary_strategy_label(
       "malformed-memory-init-memory-index-uleb"
     MalformedElemIndexUleb => "malformed-elem-index-uleb"
     MalformedTableInitTableIndexUleb => "malformed-table-init-table-index-uleb"
+    MalformedDataSegmentMemoryIndexUleb =>
+      "malformed-data-segment-memory-index-uleb"
+    MalformedElementSegmentTableIndexUleb =>
+      "malformed-element-segment-table-index-uleb"
     InvalidNameSectionFuncNameUtf8 => "invalid-name-section-func-name-utf8"
     InvalidNameSectionLocalNameUtf8 => "invalid-name-section-local-name-utf8"
     InvalidNameSectionModuleNameUtf8 => "invalid-name-section-module-name-utf8"
@@ -1674,6 +1680,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedTableInitTableIndexUleb,
       "malformed-table-init-table-index-uleb",
       "table.init instruction with a malformed table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedDataSegmentMemoryIndexUleb,
+      "malformed-data-segment-memory-index-uleb",
+      "active data segment with a malformed memory-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedElementSegmentTableIndexUleb,
+      "malformed-element-segment-table-index-uleb",
+      "active element segment with a malformed table-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3952,6 +3972,80 @@ fn validate_invalid_binary_mutate_malformed_table_init_table_index_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_data_segment_memory_index_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_element_segment_table_index_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x09).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_data_segment_memory_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedDataSegmentMemoryIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_data_segment_memory_index_uleb(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_element_segment_table_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedElementSegmentTableIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_element_segment_table_index_uleb(),
     ),
   )
 }
@@ -7322,6 +7416,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_elem_index_uleb(base)
     MalformedTableInitTableIndexUleb =>
       validate_invalid_binary_mutate_malformed_table_init_table_index_uleb(base)
+    MalformedDataSegmentMemoryIndexUleb =>
+      validate_invalid_binary_mutate_malformed_data_segment_memory_index_uleb(
+        base,
+      )
+    MalformedElementSegmentTableIndexUleb =>
+      validate_invalid_binary_mutate_malformed_element_segment_table_index_uleb(
+        base,
+      )
     InvalidNameSectionFuncNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_func_name_utf8(base)
     InvalidNameSectionLocalNameUtf8 =>
