@@ -244,8 +244,15 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTableSizeIndexUleb
   MalformedTableGrowIndexUleb
   MalformedTableFillIndexUleb
+  OverwideTableIndexUleb
+  OverwideTableSetIndexUleb
+  OverwideTableSizeIndexUleb
+  OverwideTableGrowIndexUleb
+  OverwideTableFillIndexUleb
   MalformedMemorySizeMemoryIndexUleb
   MalformedMemoryGrowMemoryIndexUleb
+  OverwideMemorySizeMemoryIndexUleb
+  OverwideMemoryGrowMemoryIndexUleb
   MalformedMemoryCopyDstIndexUleb
   MalformedMemoryCopySrcIndexUleb
   MalformedTableCopyDstIndexUleb
@@ -909,10 +916,19 @@ fn validate_invalid_binary_strategy_label(
     MalformedTableSizeIndexUleb => "malformed-table-size-index-uleb"
     MalformedTableGrowIndexUleb => "malformed-table-grow-index-uleb"
     MalformedTableFillIndexUleb => "malformed-table-fill-index-uleb"
+    OverwideTableIndexUleb => "overwide-table-index-uleb"
+    OverwideTableSetIndexUleb => "overwide-table-set-index-uleb"
+    OverwideTableSizeIndexUleb => "overwide-table-size-index-uleb"
+    OverwideTableGrowIndexUleb => "overwide-table-grow-index-uleb"
+    OverwideTableFillIndexUleb => "overwide-table-fill-index-uleb"
     MalformedMemorySizeMemoryIndexUleb =>
       "malformed-memory-size-memory-index-uleb"
     MalformedMemoryGrowMemoryIndexUleb =>
       "malformed-memory-grow-memory-index-uleb"
+    OverwideMemorySizeMemoryIndexUleb =>
+      "overwide-memory-size-memory-index-uleb"
+    OverwideMemoryGrowMemoryIndexUleb =>
+      "overwide-memory-grow-memory-index-uleb"
     MalformedMemoryCopyDstIndexUleb => "malformed-memory-copy-dst-index-uleb"
     MalformedMemoryCopySrcIndexUleb => "malformed-memory-copy-src-index-uleb"
     MalformedTableCopyDstIndexUleb => "malformed-table-copy-dst-index-uleb"
@@ -2568,6 +2584,41 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideTableIndexUleb,
+      "overwide-table-index-uleb",
+      "table.get instruction with an overwide table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTableSetIndexUleb,
+      "overwide-table-set-index-uleb",
+      "table.set instruction with an overwide table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTableSizeIndexUleb,
+      "overwide-table-size-index-uleb",
+      "table.size instruction with an overwide table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTableGrowIndexUleb,
+      "overwide-table-grow-index-uleb",
+      "table.grow instruction with an overwide table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTableFillIndexUleb,
+      "overwide-table-fill-index-uleb",
+      "table.fill instruction with an overwide table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedMemorySizeMemoryIndexUleb,
       "malformed-memory-size-memory-index-uleb",
       "memory.size instruction with a malformed memory-index ULEB immediate",
@@ -2578,6 +2629,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedMemoryGrowMemoryIndexUleb,
       "malformed-memory-grow-memory-index-uleb",
       "memory.grow instruction with a malformed memory-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideMemorySizeMemoryIndexUleb,
+      "overwide-memory-size-memory-index-uleb",
+      "memory.size instruction with an overwide memory-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideMemoryGrowMemoryIndexUleb,
+      "overwide-memory-grow-memory-index-uleb",
+      "memory.grow instruction with an overwide memory-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -6352,6 +6417,86 @@ fn validate_invalid_binary_mutate_malformed_table_fill_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_overwide_table_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x25).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTableIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_table_set_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x26).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTableSetIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_table_size_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xfc).to_byte(), (0x10).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTableSizeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_table_grow_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xfc).to_byte(), (0x0f).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTableGrowIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_table_fill_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xfc).to_byte(), (0x11).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTableFillIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_memory_size_memory_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -6391,6 +6536,42 @@ fn validate_invalid_binary_mutate_malformed_memory_grow_memory_index_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_memory_size_memory_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x3f).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideMemorySizeMemoryIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_memory_grow_memory_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x40).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideMemoryGrowMemoryIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
     ),
   )
 }
@@ -12964,12 +13145,30 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_table_grow_index_uleb(base)
     MalformedTableFillIndexUleb =>
       validate_invalid_binary_mutate_malformed_table_fill_index_uleb(base)
+    OverwideTableIndexUleb =>
+      validate_invalid_binary_mutate_overwide_table_index_uleb(base)
+    OverwideTableSetIndexUleb =>
+      validate_invalid_binary_mutate_overwide_table_set_index_uleb(base)
+    OverwideTableSizeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_table_size_index_uleb(base)
+    OverwideTableGrowIndexUleb =>
+      validate_invalid_binary_mutate_overwide_table_grow_index_uleb(base)
+    OverwideTableFillIndexUleb =>
+      validate_invalid_binary_mutate_overwide_table_fill_index_uleb(base)
     MalformedMemorySizeMemoryIndexUleb =>
       validate_invalid_binary_mutate_malformed_memory_size_memory_index_uleb(
         base,
       )
     MalformedMemoryGrowMemoryIndexUleb =>
       validate_invalid_binary_mutate_malformed_memory_grow_memory_index_uleb(
+        base,
+      )
+    OverwideMemorySizeMemoryIndexUleb =>
+      validate_invalid_binary_mutate_overwide_memory_size_memory_index_uleb(
+        base,
+      )
+    OverwideMemoryGrowMemoryIndexUleb =>
+      validate_invalid_binary_mutate_overwide_memory_grow_memory_index_uleb(
         base,
       )
     MalformedMemoryCopyDstIndexUleb =>

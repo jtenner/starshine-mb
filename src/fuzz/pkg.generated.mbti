@@ -522,8 +522,15 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTableSizeIndexUleb
   MalformedTableGrowIndexUleb
   MalformedTableFillIndexUleb
+  OverwideTableIndexUleb
+  OverwideTableSetIndexUleb
+  OverwideTableSizeIndexUleb
+  OverwideTableGrowIndexUleb
+  OverwideTableFillIndexUleb
   MalformedMemorySizeMemoryIndexUleb
   MalformedMemoryGrowMemoryIndexUleb
+  OverwideMemorySizeMemoryIndexUleb
+  OverwideMemoryGrowMemoryIndexUleb
   MalformedMemoryCopyDstIndexUleb
   MalformedMemoryCopySrcIndexUleb
   MalformedTableCopyDstIndexUleb
