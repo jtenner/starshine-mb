@@ -317,7 +317,9 @@ Binaryen promotes this family because the call decides which arm runs, while `$o
 
 The 2026-05-21 indirect-call and call-ref follow-ups extend the independent nested-if condition family to `call_indirect` and ordinary `call_ref` when all call operands are clean; they preserve global-derived indirect-call parameter/index operands and global-derived `call_ref` parameters because the call may trap or execute different code before the final guard.
 
-The clean local-set follow-up extends the same stack/value-flow accounting to `local.set` when the stored value is independent of the candidate global. The local write/read may remain in the output, but the fake global read/write state is removed. Starshine preserves neighboring shapes where the candidate global is stored through `local.set`, because that tainted local can carry the global-derived value to later consumers.
+A `br_if` probe on 2026-05-21 did not become a Starshine rule: Binaryen preserved direct `global.get; br_if; global.set` and block/return variants, so branch-target control remains outside the current FlowScanner subset.
+
+The clean local/global-set follow-ups extend the same stack/value-flow accounting to `local.set` and non-candidate `global.set` when the stored value is independent of the candidate global. The local/global write and later read may remain in the output, but the fake candidate-global read/write state is removed. Starshine preserves neighboring shapes where the candidate global is stored through `local.set` or another `global.set`, because that tainted storage can carry the global-derived value to later consumers.
 
 The clean trapping-read follow-up extends the same stack/value-flow accounting from `i32.load` to source-backed scalar memory loads and `table.get` when their address or table index is independent of the candidate global. The load or table read remains in the output, but the fake global read/write state is removed. Starshine preserves neighboring shapes where the candidate global supplies the load address or `table.get` index, because that value may decide whether a trap occurs before the final guard.
 
