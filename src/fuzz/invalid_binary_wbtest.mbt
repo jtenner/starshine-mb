@@ -87,7 +87,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb", "malformed-call-indirect-table-index-uleb",
     "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
     "malformed-br-table-target-label-index-uleb", "malformed-br-table-default-label-index-uleb",
-    "malformed-table-index-uleb", "malformed-memory-copy-dst-index-uleb", "malformed-memory-copy-src-index-uleb",
+    "malformed-table-index-uleb", "malformed-memory-size-memory-index-uleb", "malformed-memory-grow-memory-index-uleb",
+    "malformed-memory-copy-dst-index-uleb", "malformed-memory-copy-src-index-uleb",
     "malformed-table-copy-dst-index-uleb", "malformed-table-copy-src-index-uleb",
     "malformed-select-type-count-uleb", "malformed-start-func-index-uleb", "malformed-datacount-uleb",
     "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow", "simd-store-lane-index-overflow",
@@ -145,7 +146,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1100,6 +1101,19 @@ test "invalid binary FZG032 decodes malformed br_table target-label ULEB as inva
 }
 
 ///|
+test "invalid binary FZG034 decodes malformed memory size and grow index ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-memory-size-memory-index-uleb", "malformed-memory-grow-memory-index-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f19UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG033 decodes malformed active segment index ULEBs as invalid" {
   for
     strategy in [
@@ -1156,6 +1170,7 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-call-indirect-table-index-uleb", "malformed-br-label-index-uleb",
       "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
       "malformed-br-table-default-label-index-uleb", "malformed-table-index-uleb",
+      "malformed-memory-size-memory-index-uleb", "malformed-memory-grow-memory-index-uleb",
       "malformed-memory-copy-dst-index-uleb", "malformed-memory-copy-src-index-uleb",
       "malformed-table-copy-dst-index-uleb", "malformed-table-copy-src-index-uleb",
       "malformed-select-type-count-uleb", "malformed-start-func-index-uleb", "malformed-datacount-uleb",
