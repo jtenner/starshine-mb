@@ -93,7 +93,7 @@ For a concrete future implementation sequence and validation ladder, use [`./sta
   - Owns the current Starshine `dae-optimizing` implementation, including the integer identity raw-cleanup slice and the frontier-tracing hooks.
 
 - [`src/passes/dead_argument_elimination_wbtest.mbt`](../../../../../src/passes/dead_argument_elimination_wbtest.mbt)
-  - Focused raw-cleanup regression coverage for right- and guarded left-constant integer identity tails.
+  - Focused raw-cleanup regression coverage for live integer identity tails, including guarded left-constant forms.
 
 - [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt)
   - Frontier, nested-cleanup, and artifact regressions for the current DAE002 scheduler story.

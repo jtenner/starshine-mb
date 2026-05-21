@@ -8,10 +8,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Tightened [`raw/research/README.md`](raw/research/README.md) so the move checklist now explicitly says same-directory research-note links should stay `./...`, making the archive-link repair rule easier to follow on future moves.
 - No new external source was needed; this was a repo-local archive-link hygiene fix.
 
-## [2026-05-20] wiki | dae-optimizing right-constant cleanup refresh
+## [2026-05-20] wiki | dae-optimizing integer identity cleanup refresh
 
-- Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) so the current Starshine `dae-optimizing` status and readiness pages now cite the implementation file plus the focused wbtest and scheduler regression files, and now describe the right-constant integer identity raw-cleanup slice instead of only the older right-zero wording.
-- Updated [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), and the root [`index.md`](index.md) so the living catalogs point at the current right-constant cleanup slice and its focused `dead_argument_elimination_wbtest` regression.
+- Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) so the current Starshine `dae-optimizing` status and readiness pages now cite the implementation file plus the focused wbtest and scheduler regression files, and now describe the live integer identity raw-cleanup slice, including guarded left-constant forms, instead of only the older right-zero wording.
+- Updated [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), and the root [`index.md`](index.md) so the living catalogs point at the current integer identity cleanup slice and its focused `dead_argument_elimination_wbtest` regression.
 - No new external source was needed; the repo-local implementation and test files, plus the existing Binaryen source manifests, were sufficient for the wiki refresh.
 
 ## [2026-05-20] wiki | string/reorder late-tail source citation hygiene
