@@ -641,6 +641,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   TypeSectionSizeUnderflow
   CodeBodySizeUnderflow
   MalformedCodeBodySizeUleb
+  OverwideCodeBodySizeUleb
   ImportSectionSizeUnderflow
   ExportSectionSizeUnderflow
   TableSectionSizeUnderflow

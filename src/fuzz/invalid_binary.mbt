@@ -363,6 +363,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   TypeSectionSizeUnderflow
   CodeBodySizeUnderflow
   MalformedCodeBodySizeUleb
+  OverwideCodeBodySizeUleb
   ImportSectionSizeUnderflow
   ExportSectionSizeUnderflow
   TableSectionSizeUnderflow
@@ -1085,6 +1086,7 @@ fn validate_invalid_binary_strategy_label(
     TypeSectionSizeUnderflow => "type-section-size-underflow"
     CodeBodySizeUnderflow => "code-body-size-underflow"
     MalformedCodeBodySizeUleb => "malformed-code-body-size-uleb"
+    OverwideCodeBodySizeUleb => "overwide-code-body-size-uleb"
     ImportSectionSizeUnderflow => "import-section-size-underflow"
     ExportSectionSizeUnderflow => "export-section-size-underflow"
     TableSectionSizeUnderflow => "table-section-size-underflow"
@@ -3441,6 +3443,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedCodeBodySizeUleb,
       "malformed-code-body-size-uleb",
       "code section body whose declared size ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideCodeBodySizeUleb,
+      "overwide-code-body-size-uleb",
+      "code section body whose declared size ULEB exceeds the u32 byte budget",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -9954,6 +9963,39 @@ fn validate_invalid_binary_mutate_malformed_code_body_size_uleb(
 }
 
 ///|
+fn validate_invalid_binary_module_with_overwide_code_body_size_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
 fn validate_invalid_binary_module_with_import_section_size_underflow() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -13955,6 +13997,11 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_code_body_size_underflow(base)
     MalformedCodeBodySizeUleb =>
       validate_invalid_binary_mutate_malformed_code_body_size_uleb(base)
+    OverwideCodeBodySizeUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideCodeBodySizeUleb,
+        validate_invalid_binary_module_with_overwide_code_body_size_uleb(),
+      )
     ImportSectionSizeUnderflow =>
       validate_invalid_binary_mutate_import_section_size_underflow(base)
     ExportSectionSizeUnderflow =>

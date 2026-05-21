@@ -177,14 +177,15 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "memory-section-count-underflow", "global-section-count-underflow", "function-section-count-underflow",
     "element-section-count-underflow", "data-section-count-underflow", "tag-section-count-underflow",
     "type-section-size-underflow", "code-body-size-underflow", "malformed-code-body-size-uleb",
-    "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
-    "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
-    "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
-    "type-section-size-overflow", "code-section-size-overflow", "import-section-size-overflow",
-    "export-section-size-overflow", "table-section-size-overflow", "memory-section-size-overflow",
-    "global-section-size-overflow", "function-section-size-overflow", "element-section-size-overflow",
-    "data-section-size-overflow", "tag-section-size-overflow", "start-section-size-underflow",
-    "datacount-section-size-underflow", "start-section-size-overflow", "datacount-section-size-overflow",
+    "overwide-code-body-size-uleb", "import-section-size-underflow", "export-section-size-underflow",
+    "table-section-size-underflow", "memory-section-size-underflow", "global-section-size-underflow",
+    "function-section-size-underflow", "element-section-size-underflow", "data-section-size-underflow",
+    "tag-section-size-underflow", "type-section-size-overflow", "code-section-size-overflow",
+    "import-section-size-overflow", "export-section-size-overflow", "table-section-size-overflow",
+    "memory-section-size-overflow", "global-section-size-overflow", "function-section-size-overflow",
+    "element-section-size-overflow", "data-section-size-overflow", "tag-section-size-overflow",
+    "start-section-size-underflow", "datacount-section-size-underflow", "start-section-size-overflow",
+    "datacount-section-size-overflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -238,6 +239,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1638,6 +1640,17 @@ test "invalid binary FZG037 decodes overwide data segment ULEBs as invalid" {
 }
 
 ///|
+test "invalid binary FZG038 decodes overwide code body-size ULEB as invalid" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "overwide-code-body-size-uleb", 0x5f2dUL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid binary FZG030 decodes overwide table and memory index ULEBs as invalid" {
   for
     strategy in [
@@ -1882,14 +1895,15 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "memory-section-count-underflow", "global-section-count-underflow", "function-section-count-underflow",
       "element-section-count-underflow", "data-section-count-underflow", "tag-section-count-underflow",
       "type-section-size-underflow", "code-body-size-underflow", "malformed-code-body-size-uleb",
-      "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
-      "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
-      "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
-      "type-section-size-overflow", "code-section-size-overflow", "import-section-size-overflow",
-      "export-section-size-overflow", "table-section-size-overflow", "memory-section-size-overflow",
-      "global-section-size-overflow", "function-section-size-overflow", "element-section-size-overflow",
-      "data-section-size-overflow", "tag-section-size-overflow", "start-section-size-underflow",
-      "datacount-section-size-underflow", "start-section-size-overflow", "datacount-section-size-overflow",
+      "overwide-code-body-size-uleb", "import-section-size-underflow", "export-section-size-underflow",
+      "table-section-size-underflow", "memory-section-size-underflow", "global-section-size-underflow",
+      "function-section-size-underflow", "element-section-size-underflow", "data-section-size-underflow",
+      "tag-section-size-underflow", "type-section-size-overflow", "code-section-size-overflow",
+      "import-section-size-overflow", "export-section-size-overflow", "table-section-size-overflow",
+      "memory-section-size-overflow", "global-section-size-overflow", "function-section-size-overflow",
+      "element-section-size-overflow", "data-section-size-overflow", "tag-section-size-overflow",
+      "start-section-size-underflow", "datacount-section-size-underflow", "start-section-size-overflow",
+      "datacount-section-size-overflow",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()
