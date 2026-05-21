@@ -907,6 +907,24 @@ fn sgo_flow_scan_prefix_until(
         }
         continue
       }
+      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
+        match sgo_flow_pop(stack) {
+          Some(false) => ()
+          _ => return (false, reads, stack)
+        }
+        let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
+          then_body, idx,
+        )
+        let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
+          else_body, idx,
+        )
+        reads = reads + then_reads + else_reads
+        if !then_ok || !else_ok || reads > 1 {
+          return (false, reads, stack)
+        }
+        stack.push(then_tainted || else_tainted)
+        continue
+      }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
           if !sgo_flow_apply_unary(stack) {
@@ -1330,7 +1348,10 @@ fn sgo_count_block_wrapped_nested_if_arm_flow_read(
       let (ok, reads, tainted) = sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         body, idx,
       )
-      if ok && reads == 1 && tainted {
+      if ok &&
+        reads == 1 &&
+        tainted &&
+        !sgo_block_condition_flow_scanner_read_matches(body, idx) {
         sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       }
     }

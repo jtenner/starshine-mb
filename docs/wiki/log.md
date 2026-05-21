@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-20] binaryen | SGO clean if-wrapper block-condition FlowScanner slice
+
+- Extended `[SGO]003` read-only-to-write FlowScanner coverage so clean value-producing `if` wrappers inside block-yielded conditions can yield supported size-query/SIMD chains to direct self-guards and exact `if return; set` bodies.
+- Added focused positives for clean if-wrapper `memory.size`, nested block-wrapped SIMD, size-query `if return; set`, and SIMD `if return; block-wrapped set` guards, plus a tainted-load wrapper negative.
+- Recorded validation evidence from `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-if-wrapper-blockconds-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+- Grounded the change in [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-05-20] binaryen | SGO if-return block-yield FlowScanner slice
 
 - Extended `[SGO]003` read-only-to-write FlowScanner coverage so supported block-yielded size-query/SIMD chains can guard exact `if return; set` bodies, including external `i32.eqz` and block-wrapped-set variants.
