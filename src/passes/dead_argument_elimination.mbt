@@ -9579,8 +9579,11 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
     let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
       body,
       mod_.type_sec,
-      allow_live_local_copy_cleanup=def_idx < touched_defs.length() &&
-        touched_defs[def_idx],
+      // Live local-copy folding preserves producer evaluation and every local
+      // write by replacing immediate set/get copy chains with tee chains. Keep
+      // it module-wide after any DAE touch so the cheap raw cleanup can also
+      // shrink untouched artifact frontier bodies such as Func16.
+      allow_live_local_copy_cleanup=true,
     )
     if rewritten != body {
       let next_func = @lib.Func::new(locals, @lib.Expr::new(rewritten))

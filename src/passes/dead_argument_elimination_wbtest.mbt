@@ -1483,29 +1483,33 @@ test "dae raw cleanup folds live integer self binary operations" {
 
 ///|
 test "dae raw cleanup folds pure local copy chains" {
+  let copy_chain_body = [
+    @lib.Instruction::i32_const(@lib.I32(41)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::return_(),
+  ]
   let mod_ = @lib.Module::new().with_code_sec(
     @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(copy_chain_body)),
       @lib.Func::new(
         @lib.Locals::empty(),
-        @lib.Expr::new([
-          @lib.Instruction::i32_const(@lib.I32(41)),
-          @lib.Instruction::i32_const(@lib.I32(1)),
-          @lib.Instruction::i32_add(),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-          @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
-          @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
-          @lib.Instruction::return_(),
-        ]),
+        @lib.Expr::new([@lib.Instruction::nop()]),
       ),
     ]),
   )
-  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [
+    false, true,
+  ])
   assert_true(result.changed)
   match result.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -1522,6 +1526,8 @@ test "dae raw cleanup folds pure local copy chains" {
         @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
         @lib.Instruction::return_(),
       ])
+      let @lib.Func(_, @lib.Expr(touched_cleaned)) = funcs[1]
+      assert_eq(touched_cleaned, [])
     }
     None => fail("expected rewritten code section")
   }
