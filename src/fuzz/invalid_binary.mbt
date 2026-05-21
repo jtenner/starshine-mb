@@ -102,6 +102,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportKindByte
   MalformedImportFuncTypeIndexUleb
   MalformedImportTagTypeIndexUleb
+  MalformedImportMemoryMinUleb
+  MalformedImportTableMinUleb
   InvalidImportTableRefTypeByte
   InvalidImportMemoryLimitsFlagByte
   InvalidImportGlobalValTypeByte
@@ -595,6 +597,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidImportKindByte => "invalid-import-kind-byte"
     MalformedImportFuncTypeIndexUleb => "malformed-import-func-type-index-uleb"
     MalformedImportTagTypeIndexUleb => "malformed-import-tag-type-index-uleb"
+    MalformedImportMemoryMinUleb => "malformed-import-memory-min-uleb"
+    MalformedImportTableMinUleb => "malformed-import-table-min-uleb"
     InvalidImportTableRefTypeByte => "invalid-import-table-reftype-byte"
     InvalidImportMemoryLimitsFlagByte =>
       "invalid-import-memory-limits-flag-byte"
@@ -1235,6 +1239,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedImportTagTypeIndexUleb,
       "malformed-import-tag-type-index-uleb",
       "tag import descriptor with a malformed type-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedImportMemoryMinUleb,
+      "malformed-import-memory-min-uleb",
+      "memory import descriptor limits with a malformed minimum-size ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedImportTableMinUleb,
+      "malformed-import-table-min-uleb",
+      "table import descriptor limits with a malformed minimum-size ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -6202,6 +6220,81 @@ fn validate_invalid_binary_mutate_invalid_import_table_reftype_byte(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_import_memory_min_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedImportMemoryMinUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x0c).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x78).to_byte(),
+        (0x02).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_import_table_min_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedImportTableMinUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x0d).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x74).to_byte(),
+        (0x01).to_byte(),
+        (0x70).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_import_memory_limits_flag_byte(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -7534,6 +7627,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_import_func_type_index_uleb(base)
     MalformedImportTagTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_import_tag_type_index_uleb(base)
+    MalformedImportMemoryMinUleb =>
+      validate_invalid_binary_mutate_malformed_import_memory_min_uleb(base)
+    MalformedImportTableMinUleb =>
+      validate_invalid_binary_mutate_malformed_import_table_min_uleb(base)
     InvalidImportTableRefTypeByte =>
       validate_invalid_binary_mutate_invalid_import_table_reftype_byte(base)
     InvalidImportMemoryLimitsFlagByte =>
