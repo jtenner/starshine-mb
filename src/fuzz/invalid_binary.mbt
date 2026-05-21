@@ -233,6 +233,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionTagNameUtf8
   MalformedNameSectionTagNameLengthUleb
   InvalidFuncTypeByte
+  MalformedFuncTypeParamCountUleb
+  MalformedFuncTypeResultCountUleb
   InvalidFuncTypeParamValTypeByte
   InvalidFuncTypeResultValTypeByte
   InvalidCodeLocalValTypeByte
@@ -808,6 +810,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedNameSectionTagNameLengthUleb =>
       "malformed-name-section-tag-name-length-uleb"
     InvalidFuncTypeByte => "invalid-functype-byte"
+    MalformedFuncTypeParamCountUleb => "malformed-functype-param-count-uleb"
+    MalformedFuncTypeResultCountUleb => "malformed-functype-result-count-uleb"
     InvalidFuncTypeParamValTypeByte => "invalid-functype-param-valtype-byte"
     InvalidFuncTypeResultValTypeByte => "invalid-functype-result-valtype-byte"
     InvalidCodeLocalValTypeByte => "invalid-code-local-valtype-byte"
@@ -2273,6 +2277,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidFuncTypeByte,
       "invalid-functype-byte",
       "type section entry with an invalid function-type byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedFuncTypeParamCountUleb,
+      "malformed-functype-param-count-uleb",
+      "type section function signature with a malformed parameter-count ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedFuncTypeResultCountUleb,
+      "malformed-functype-result-count-uleb",
+      "type section function signature with a malformed result-count ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5931,6 +5949,53 @@ fn validate_invalid_binary_module_with_invalid_functype_byte() -> Bytes {
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_functype_param_count_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_functype_result_count_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x08).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_functype_param_valtype_byte() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -6014,6 +6079,34 @@ fn validate_invalid_binary_mutate_invalid_functype_byte(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_functype_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_functype_param_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedFuncTypeParamCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_functype_param_count_uleb(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_functype_result_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedFuncTypeResultCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_functype_result_count_uleb(),
     ),
   )
 }
@@ -9824,6 +9917,10 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     InvalidFuncTypeByte =>
       validate_invalid_binary_mutate_invalid_functype_byte(base)
+    MalformedFuncTypeParamCountUleb =>
+      validate_invalid_binary_mutate_malformed_functype_param_count_uleb(base)
+    MalformedFuncTypeResultCountUleb =>
+      validate_invalid_binary_mutate_malformed_functype_result_count_uleb(base)
     InvalidFuncTypeParamValTypeByte =>
       validate_invalid_binary_mutate_invalid_functype_param_valtype_byte(base)
     InvalidFuncTypeResultValTypeByte =>

@@ -511,6 +511,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionTagNameUtf8
   MalformedNameSectionTagNameLengthUleb
   InvalidFuncTypeByte
+  MalformedFuncTypeParamCountUleb
+  MalformedFuncTypeResultCountUleb
   InvalidFuncTypeParamValTypeByte
   InvalidFuncTypeResultValTypeByte
   InvalidCodeLocalValTypeByte

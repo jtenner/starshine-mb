@@ -122,7 +122,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-name-section-data-name-length-uleb", "invalid-name-section-field-name-utf8",
     "malformed-name-section-field-name-length-uleb", "invalid-name-section-label-name-utf8",
     "malformed-name-section-label-name-length-uleb", "invalid-name-section-tag-name-utf8",
-    "malformed-name-section-tag-name-length-uleb", "invalid-functype-byte", "invalid-functype-param-valtype-byte",
+    "malformed-name-section-tag-name-length-uleb", "invalid-functype-byte", "malformed-functype-param-count-uleb",
+    "malformed-functype-result-count-uleb", "invalid-functype-param-valtype-byte",
     "invalid-functype-result-valtype-byte", "invalid-code-local-valtype-byte", "malformed-code-local-decl-count-uleb",
     "malformed-code-local-run-count-uleb", "type-section-count-underflow", "code-section-count-underflow",
     "import-section-count-underflow", "export-section-count-underflow", "table-section-count-underflow",
@@ -176,7 +177,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1262,6 +1263,19 @@ test "invalid binary FZG025 decodes code local-run count malformed ULEBs as inva
 }
 
 ///|
+test "invalid binary FZG025 decodes functype count malformed ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-functype-param-count-uleb", "malformed-functype-result-count-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f37UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG025 decodes data segment byte-count malformed ULEBs as invalid" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -1412,7 +1426,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "invalid-name-section-field-name-utf8", "malformed-name-section-field-name-length-uleb",
       "invalid-name-section-label-name-utf8", "malformed-name-section-label-name-length-uleb",
       "invalid-name-section-tag-name-utf8", "malformed-name-section-tag-name-length-uleb",
-      "invalid-functype-byte", "invalid-functype-param-valtype-byte", "invalid-functype-result-valtype-byte",
+      "invalid-functype-byte", "malformed-functype-param-count-uleb", "malformed-functype-result-count-uleb",
+      "invalid-functype-param-valtype-byte", "invalid-functype-result-valtype-byte",
       "invalid-code-local-valtype-byte", "malformed-code-local-run-count-uleb", "type-section-count-underflow",
       "code-section-count-underflow", "import-section-count-underflow", "export-section-count-underflow",
       "table-section-count-underflow", "memory-section-count-underflow", "global-section-count-underflow",
