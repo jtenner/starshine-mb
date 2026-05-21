@@ -10030,13 +10030,13 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     original_dead_suffix_mutual_calls,
   )
   let mut iter = 0
+  // No caller in the fixed core loop marks defs as already rewritten between
+  // scans; an empty skip bitmap is equivalent to a freshly allocated all-false
+  // defined-sized bitmap and avoids per-iteration large-module allocation churn.
+  let no_already_rewritten_defs : Array[Bool] = []
   while iter < 8 {
-    let already_rewritten_defs = Array::make(
-      dae_defined_func_count(current),
-      false,
-    )
     let result = dae_run_core_once(
-      current, already_rewritten_defs, original_param_counts, original_large_unreachable_prefixes,
+      current, no_already_rewritten_defs, original_param_counts, original_large_unreachable_prefixes,
       original_call_counts, original_prior_call_counts, original_prior_undropped_call_counts,
       original_active_nonself_call_counts, original_active_parameterized_nonself_call_counts,
       original_active_parameterized_result_nonself_call_counts, original_nonself_undropped_call_counts,
