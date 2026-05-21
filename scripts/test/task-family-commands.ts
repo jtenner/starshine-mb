@@ -281,12 +281,18 @@ process.exit(0);
       "0x5eed",
       "--out-dir",
       fuzzBatchOutDir,
+      "--gen-valid-profile",
+      "coverage-forced",
+      "--require-feature=v128",
+      "--exclude-feature",
+      "imports",
+      "--max-attempts=12",
     ],
     env,
   );
   const actualFuzzBatch = fs.readFileSync(logPath, "utf8").trim();
   assert(
-    actualFuzzBatch === `run --target wasm-gc src/fuzz -- --emit-gen-valid-batch --count 3 --seed 0x5eed --out-dir ${fuzzBatchOutDir}`,
+    actualFuzzBatch === `run --target wasm-gc src/fuzz -- --emit-gen-valid-batch --count 3 --seed 0x5eed --out-dir ${fuzzBatchOutDir} --gen-valid-profile coverage-forced --require-feature v128 --exclude-feature imports --max-attempts 12`,
     `unexpected fuzz batch command log:\n${actualFuzzBatch}`,
   );
 

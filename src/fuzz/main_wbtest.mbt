@@ -171,6 +171,33 @@ test "parse_fuzz_cli_command detects emit-gen-valid-batch command" {
       @debug.assert_eq(args.count, 2)
       @debug.assert_eq(args.seed, 0x5eedUL)
       @debug.assert_eq(args.out_dir, "tmp/gen-valid")
+      @debug.assert_eq(args.profile, "binaryen-oracle-portable")
+      @debug.assert_eq(args.required_features.length(), 0)
+      @debug.assert_eq(args.excluded_features.length(), 0)
+      @debug.assert_eq(args.max_attempts, 2)
+    }
+    _ => fail("expected emit-gen-valid-batch command")
+  }
+}
+
+///|
+test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters" {
+  match
+    parse_fuzz_cli_command([
+      "--emit-gen-valid-batch", "--count=3", "--seed=0xf71004", "--out-dir=tmp/gen-valid",
+      "--gen-valid-profile=coverage-forced", "--require-feature", "v128", "--require-feature=mems:2",
+      "--exclude-feature=imports", "--max-attempts", "12",
+    ]) {
+    EmitGenValidBatch(args) => {
+      @debug.assert_eq(args.count, 3)
+      @debug.assert_eq(args.seed, 0xf71004UL)
+      @debug.assert_eq(args.out_dir, "tmp/gen-valid")
+      @debug.assert_eq(args.profile, "coverage-forced")
+      @debug.assert_eq(args.required_features.length(), 2)
+      @debug.assert_eq(args.required_features[0].min_count, 1)
+      @debug.assert_eq(args.required_features[1].min_count, 2)
+      @debug.assert_eq(args.excluded_features.length(), 1)
+      @debug.assert_eq(args.max_attempts, 12)
     }
     _ => fail("expected emit-gen-valid-batch command")
   }
@@ -295,6 +322,36 @@ test "emit_gen_valid_batch_artifacts_until_features reports unmet floors" {
       assert_true(msg.contains("mems actual=0 min=1"))
     }
   }
+}
+
+///|
+test "emit_gen_valid_batch_to_dir creates the output directory for selected modules" {
+  let v128_floor = match
+    @validate.validate_valid_feature_floor_by_label("v128", 1) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  let out_dir = ".tmp/fuzz-main-wbtest-gen-valid-batch"
+  let selection = match
+    emit_gen_valid_batch_to_dir(
+      EmitGenValidBatchArgs::new(
+        1,
+        0xf71004UL,
+        out_dir,
+        profile="coverage-forced",
+        required_features=[v128_floor],
+        max_attempts=8,
+      ),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected directory-backed gen-valid selection, got \{e}")
+  }
+  @debug.assert_eq(selection.selected, 1)
+  let files = match list_files_recursive(out_dir) {
+    Ok(v) => v
+    Err(e) => fail("expected output directory to exist, got \{e}")
+  }
+  assert_true(files.length() >= 1)
 }
 
 ///|

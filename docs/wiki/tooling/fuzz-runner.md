@@ -85,15 +85,21 @@ Preserve this result contract when adding suites so CI logs, repro reports, and 
 `--emit-gen-valid-batch` emits deterministic validated `.wasm` files named `gen-valid-000001.wasm`, `gen-valid-000002.wasm`, and so on:
 
 ```text
-moon run src/fuzz -- --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>
-bun fuzz run --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>
+moon run src/fuzz -- --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> \
+  [--gen-valid-profile <profile>] [--require-feature <label[:min]>] \
+  [--exclude-feature <label>] [--max-attempts <n>]
+bun fuzz run --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> \
+  [--gen-valid-profile <profile>] [--require-feature <label[:min]>] \
+  [--exclude-feature <label>] [--max-attempts <n>]
 ```
 
-The batch config is [`GenValidConfig::binaryen_oracle_coverage_forced_default()`](../../../src/fuzz/main.mbt), now also named by the `binaryen-oracle-portable` / `pass-fuzz-stress` GenValid profiles, not the default natural generator. This makes the emitted corpus useful for Binaryen-oracle pass comparison while keeping imports, memories, tables, globals, tags, elems, datas, SIMD, ref-types, and similar features constrained to the current portable comparison subset.
+The default batch config is [`GenValidConfig::binaryen_oracle_coverage_forced_default()`](../../../src/fuzz/main.mbt), now also named by the `binaryen-oracle-portable` / `pass-fuzz-stress` GenValid profiles, not the default natural generator. This makes the emitted corpus useful for Binaryen-oracle pass comparison while keeping imports, memories, tables, globals, tags, elems, datas, SIMD, ref-types, and similar features constrained to the current portable comparison subset. The batch writer creates `--out-dir` before writing artifacts.
+
+`--gen-valid-profile` selects any named GenValid profile, `--require-feature` keeps only selected modules that advance the requested feature floor, `--exclude-feature` skips candidates that contain the named feature key, and `--max-attempts` bounds the candidate stream. Feature labels use the stable coverage-ledger strings accepted by [`validate_valid_feature_floor_by_label(...)`](../../../src/validate/validate.mbt), such as `v128` or `mems:2`.
 
 Callers that need generation diagnostics can use [`gen_valid_module_result(...)`](../../../src/validate/gen_valid.mbt) instead of the compatibility `Module`-only wrapper. The result-bearing API reports the stable config label, retry attempt count, feature facts for successful modules, and the last validation message/candidate on failure. The fuzz package also exposes [`emit_gen_valid_batch_artifacts_with_manifest(...)`](../../../src/fuzz/main.mbt), which preserves the existing `.wasm` artifact names while returning an in-memory manifest with file name, seed, index, config label, attempts, validation status, and feature facts for each generated input.
 
-For local coverage-guided selection, [`emit_gen_valid_batch_artifacts_until_features(...)`](../../../src/fuzz/main.mbt) generates a bounded candidate stream from an explicit `GenValidConfig`, keeps only modules that contribute to required feature floors and do not hit excluded feature keys, and returns the selected artifacts, manifest entries, aggregate `GenValidFeatureStats`, floor failures, attempt count, and skipped-candidate count. Use [`validate_valid_feature_floor_by_label(...)`](../../../src/validate/validate.mbt) and [`validate_valid_feature_actual_count_by_label(...)`](../../../src/validate/validate.mbt) when a caller needs stable string labels such as `v128` or `mems` instead of constructing ledger enum values directly.
+For local coverage-guided selection, [`emit_gen_valid_batch_artifacts_until_features(...)`](../../../src/fuzz/main.mbt) generates a bounded candidate stream from an explicit `GenValidConfig`, keeps only modules that contribute to required feature floors and do not hit excluded feature keys, and returns the selected artifacts, manifest entries, aggregate `GenValidFeatureStats`, floor failures, attempt count, and skipped-candidate count. Use [`validate_valid_feature_floor_by_label(...)`](../../../src/validate/validate.mbt) and [`validate_valid_feature_actual_count_by_label(...)`](../../../src/validate/validate.mbt) when a caller needs stable string labels instead of constructing ledger enum values directly.
 
 ### Invalid repro bundles
 
@@ -117,7 +123,7 @@ It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...
 
 - `--target <target>` / `--target=<target>` (default `wasm-gc`).
 - `--moon <path>` / `--moon=<path>`.
-- `--suite`, `--profile`, `--seed`, `--seed-count`, `--shard-index`, `--shard-count`, `--report-json`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding.
+- `--suite`, `--profile`, `--seed`, `--seed-count`, `--shard-index`, `--shard-count`, `--report-json`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding, including batch `--gen-valid-profile`, `--require-feature`, `--exclude-feature`, and `--max-attempts` options.
 
 `bun fuzz compare-pass ...` is a sibling entrypoint, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine, `wasm-tools`, and Binaryen.
 

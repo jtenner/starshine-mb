@@ -1162,6 +1162,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Started [`[FUZ]1014`](../../agent-todo.md) by adding an in-memory bounded selector, `emit_gen_valid_batch_artifacts_until_features(...)`, that generates from an explicit `GenValidConfig`, skips excluded feature keys, keeps only modules that advance missing required feature floors, and reports selected artifacts, manifest rows, aggregate stats, floor failures, attempts, and skipped candidates.
 - Added string-label feature-floor helpers in `validate.mbt` for harness-facing filters, plus focused `src/fuzz` tests for successful `v128` selection and an impossible `mems` floor on the Binaryen-oracle batch config. Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the new API contract.
+- Finished the user-facing batch-filter surface by wiring Moon and Bun `--emit-gen-valid-batch` through `--gen-valid-profile`, `--require-feature`, `--exclude-feature`, and `--max-attempts`, creating the output directory before artifact writes, and documenting the filter flags in the runner page and index.
 
 ## [2026-05-21] fuzzing | FUZ1012 randomized coverage templates
 

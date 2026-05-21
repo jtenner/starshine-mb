@@ -628,24 +628,13 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: per-opcode atomic counter tests, validation fixtures for each op family, invalid-lane follow-ups for non-shared/invalid alignment, pass-fuzz compare on memory-heavy profiles.
   - Exit Criteria: atomic-heavy profiles can prove every represented atomic family is generated at least once over a bounded run.
 
-- [FUZ]1014 - Coverage-Guided GenValid Selection
-  - Status: IN PROGRESS (cron 23, 2026-05-21). First API slice landed: `emit_gen_valid_batch_artifacts_until_features(...)` generates from an explicit config, skips excluded feature keys, keeps candidates that advance required floors, and returns artifacts, manifest rows, aggregate stats, floor failures, attempts, and skipped-candidate counts. `validate_valid_feature_floor_by_label(...)` / `validate_valid_feature_actual_count_by_label(...)` expose stable label-based floor/count helpers. Focused tests first failed on the missing selector, then `moon test src/fuzz` and `moon test src/validate` passed after implementation. Next run should finish the user-facing/profile-filter side, especially wiring `--gen-valid-profile`, `--require-feature`, `--exclude-feature`, and manifest/batch emission around this helper or explicitly splitting that CLI work into FUZ1015 if scope is narrowed.
-  - Goal: add a local coverage-guided generation loop that keeps modules which satisfy missing feature floors.
-  - Why: hardcoded forced preludes do not scale to every future family. A generate-measure-select loop can target feature floors without hand-authoring every combination.
-  - Deliverables: implement a helper like `generate_until_features(config, required_floors, max_attempts)`; support profile filters such as require/exclude feature; return selected modules plus coverage ledger and skipped-candidate stats.
-  - Required APIs: generator diagnostics from [FUZ]1000, exact ledger from [FUZ]1013, `emit_gen_valid_batch_artifacts(...)`.
-  - Invariants: deterministic for seed/config/filter; bounded attempts; clear failure message listing unmet floors.
-  - Dependencies: [FUZ]1000 and [FUZ]1013.
-  - Suggested Tests: synthetic floor selection tests, failure tests for impossible floors, batch emission using require/exclude filters, `moon test src/fuzz`.
-  - Exit Criteria: agents can request “give me N modules with feature X and without feature Y” without manually tweaking generator internals.
-
 - [FUZ]1015 - GenValid Batch Profiles, Feature Filters, And Input Manifests
   - Goal: make `--emit-gen-valid-batch` useful beyond the current Binaryen-oracle portable corpus.
   - Why: pass-fuzz compare and validator fuzzing need different valid-generator profiles, and every saved `.wasm` should carry its config and feature facts.
-  - Deliverables: add `--gen-valid-profile`, `--require-feature`, `--exclude-feature`, and manifest emission for generated batches; write per-input records with file name, seed, index, config/profile, feature facts, and validation result.
+  - Deliverables: add opt-in manifest emission for generated batches; write per-input records with file name, seed, index, config/profile, feature facts, and validation result; thread the saved manifest into downstream generated-input consumers. Profile selection plus `--require-feature` / `--exclude-feature` / `--max-attempts` filters landed with completed `[FUZ]1014` and should be preserved rather than reimplemented.
   - Required APIs: `src/fuzz/main.mbt` parser, `scripts/lib/fuzz-task.ts` forwarding, feature ledger APIs, docs/tooling pages.
   - Invariants: default batch behavior and file names remain compatible; manifest emission should be opt-in or backward-compatible; invalid generated candidates must never be written as successful batch artifacts.
-  - Dependencies: [FUZ]1001 and [FUZ]1013; [FUZ]1014 for filters if implemented first.
+  - Dependencies: [FUZ]1001, [FUZ]1013, and completed [FUZ]1014 filters.
   - Suggested Tests: CLI parse tests, deterministic artifact/manifest tests, wrapper forwarding tests, `moon test src/fuzz`, script tests for `bun fuzz run --emit-gen-valid-batch`.
   - Exit Criteria: every generated batch can be replayed and understood from its manifest without regenerating feature facts.
 

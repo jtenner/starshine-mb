@@ -22,6 +22,10 @@ pub struct EmitGenValidBatchArgs {
   count : Int
   seed : UInt64
   out_dir : String
+  profile : String
+  required_features : Array[ValidateValidFeatureFloor]
+  excluded_features : Array[ValidateValidFeatureKey]
+  max_attempts : Int
 } derive(Eq, Debug)
 
 ///|
@@ -29,8 +33,20 @@ pub fn EmitGenValidBatchArgs::new(
   count : Int,
   seed : UInt64,
   out_dir : String,
+  profile? : String = "binaryen-oracle-portable",
+  required_features? : Array[ValidateValidFeatureFloor] = [],
+  excluded_features? : Array[ValidateValidFeatureKey] = [],
+  max_attempts? : Int = count,
 ) -> EmitGenValidBatchArgs {
-  { count, seed, out_dir }
+  {
+    count,
+    seed,
+    out_dir,
+    profile,
+    required_features,
+    excluded_features,
+    max_attempts,
+  }
 }
 
 ///|
@@ -414,12 +430,56 @@ fn fuzz_parse_non_negative_decimal_or_abort(
 }
 
 ///|
+fn fuzz_parse_feature_floor_or_abort(raw : String) -> ValidateValidFeatureFloor {
+  let parts : Array[String] = []
+  for part in raw.split(":") {
+    parts.push(part.to_owned())
+  }
+  if parts.length() > 2 {
+    abort(
+      "invalid --require-feature '\{raw}'; expected <label> or <label>:<min>",
+    )
+  }
+  let label = parts[0].trim().to_owned()
+  if label.length() == 0 {
+    abort("--require-feature label must not be empty")
+  }
+  let min_count = if parts.length() == 1 {
+    1
+  } else {
+    fuzz_parse_non_negative_decimal_or_abort(
+      "require-feature min_count",
+      parts[1],
+    )
+  }
+  if min_count <= 0 {
+    abort("--require-feature min_count must be greater than zero")
+  }
+  match validate_valid_feature_floor_by_label(label, min_count) {
+    Ok(v) => v
+    Err(e) => abort(e)
+  }
+}
+
+///|
+fn fuzz_parse_feature_key_or_abort(raw : String) -> ValidateValidFeatureKey {
+  match validate_valid_feature_floor_by_label(raw, 1) {
+    Ok(v) => v.key
+    Err(e) => abort(e)
+  }
+}
+
+///|
 fn fuzz_parse_emit_gen_valid_batch_args(
   args : Array[String],
 ) -> EmitGenValidBatchArgs {
   let mut count : Int? = None
   let mut seed : UInt64? = None
   let mut out_dir : String? = None
+  let mut profile : String? = None
+  let required_features : Array[ValidateValidFeatureFloor] = []
+  let excluded_features : Array[ValidateValidFeatureKey] = []
+  let mut max_attempts : Int? = None
   let mut i = 1
   while i < args.length() {
     let arg = args[i].trim().to_owned()
@@ -487,6 +547,81 @@ fn fuzz_parse_emit_gen_valid_batch_args(
       i += 1
       continue
     }
+    if arg == "--gen-valid-profile" {
+      if i + 1 >= args.length() {
+        abort("missing value for --gen-valid-profile")
+      }
+      if profile is Some(_) {
+        abort("duplicate --gen-valid-profile flag")
+      }
+      profile = Some(args[i + 1])
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--gen-valid-profile=") {
+      if profile is Some(_) {
+        abort("duplicate --gen-valid-profile flag")
+      }
+      profile = Some(fuzz_tail_string(arg, 20))
+      i += 1
+      continue
+    }
+    if arg == "--require-feature" {
+      if i + 1 >= args.length() {
+        abort("missing value for --require-feature")
+      }
+      required_features.push(fuzz_parse_feature_floor_or_abort(args[i + 1]))
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--require-feature=") {
+      required_features.push(
+        fuzz_parse_feature_floor_or_abort(fuzz_tail_string(arg, 18)),
+      )
+      i += 1
+      continue
+    }
+    if arg == "--exclude-feature" {
+      if i + 1 >= args.length() {
+        abort("missing value for --exclude-feature")
+      }
+      excluded_features.push(fuzz_parse_feature_key_or_abort(args[i + 1]))
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--exclude-feature=") {
+      excluded_features.push(
+        fuzz_parse_feature_key_or_abort(fuzz_tail_string(arg, 18)),
+      )
+      i += 1
+      continue
+    }
+    if arg == "--max-attempts" {
+      if i + 1 >= args.length() {
+        abort("missing value for --max-attempts")
+      }
+      if max_attempts is Some(_) {
+        abort("duplicate --max-attempts flag")
+      }
+      max_attempts = Some(
+        fuzz_parse_non_negative_decimal_or_abort("max-attempts", args[i + 1]),
+      )
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--max-attempts=") {
+      if max_attempts is Some(_) {
+        abort("duplicate --max-attempts flag")
+      }
+      max_attempts = Some(
+        fuzz_parse_non_negative_decimal_or_abort(
+          "max-attempts",
+          fuzz_tail_string(arg, 15),
+        ),
+      )
+      i += 1
+      continue
+    }
     abort("unknown flag '\{arg}'")
   }
   let resolved_count = match count {
@@ -506,7 +641,23 @@ fn fuzz_parse_emit_gen_valid_batch_args(
       }
     None => abort("missing required --out-dir for --emit-gen-valid-batch")
   }
-  EmitGenValidBatchArgs::new(resolved_count, resolved_seed, resolved_out_dir)
+  let resolved_profile = match profile {
+    Some(v) => v
+    None => "binaryen-oracle-portable"
+  }
+  let resolved_max_attempts = match max_attempts {
+    Some(v) => v
+    None => resolved_count
+  }
+  EmitGenValidBatchArgs::new(
+    resolved_count,
+    resolved_seed,
+    resolved_out_dir,
+    profile=resolved_profile,
+    required_features~,
+    excluded_features~,
+    max_attempts=resolved_max_attempts,
+  )
 }
 
 ///|
@@ -1442,21 +1593,44 @@ pub fn emit_gen_valid_batch_artifacts(
 }
 
 ///|
-fn emit_gen_valid_batch_to_dir(
+fn emit_gen_valid_batch_selection(
   args : EmitGenValidBatchArgs,
-) -> Result[Int, String] {
-  let artifacts = match emit_gen_valid_batch_artifacts(args.count, args.seed) {
+) -> Result[GenValidCoverageSelection, String] {
+  let config = match GenValidConfig::profile(args.profile) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
-  for artifact in artifacts {
+  emit_gen_valid_batch_artifacts_until_features(
+    args.count,
+    args.seed,
+    config,
+    args.required_features,
+    args.excluded_features,
+    args.max_attempts,
+  )
+}
+
+///|
+fn emit_gen_valid_batch_to_dir(
+  args : EmitGenValidBatchArgs,
+) -> Result[GenValidCoverageSelection, String] {
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  match create_dir(args.out_dir) {
+    Ok(_) => ()
+    Err(e) =>
+      return Err("failed to create gen-valid output dir \{args.out_dir}: \{e}")
+  }
+  for artifact in selection.artifacts {
     let path = fuzz_join_path(args.out_dir, artifact.0)
     match write_file_bytes(path, artifact.1) {
       Ok(_) => ()
       Err(e) => return Err("failed to write gen-valid artifact \{path}: \{e}")
     }
   }
-  Ok(args.count)
+  Ok(selection)
 }
 
 ///|
@@ -1840,9 +2014,9 @@ fn main {
       }
     FuzzCliCommand::EmitGenValidBatch(args) =>
       match emit_gen_valid_batch_to_dir(args) {
-        Ok(count) =>
+        Ok(selection) =>
           println(
-            "generated=\{count} seed=\{args.seed} out_dir=\{args.out_dir}",
+            "generated=\{selection.selected} seed=\{args.seed} out_dir=\{args.out_dir} profile=\{args.profile} attempts=\{selection.attempts} skipped=\{selection.skipped_candidates}",
           )
         Err(e) => abort(e)
       }

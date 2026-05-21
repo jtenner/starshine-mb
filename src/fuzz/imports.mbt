@@ -22,6 +22,7 @@ using @validate {
   run_validate_invalid_ast_fuzz,
   run_validate_valid_fuzz,
   validate_valid_feature_actual_count,
+  validate_valid_feature_floor_by_label,
   validate_valid_run_config,
   check_validate_valid_feature_floors,
   validate_module,
