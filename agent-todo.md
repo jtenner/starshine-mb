@@ -609,6 +609,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
 - [FUZ]1006 - GenValid Call, Reference Call, Indirect Call, Recursion, And Tail-Call Widening
+  - Status: IN PROGRESS (cron 23, 2026-05-21) - first callable-reference source-variant slice landed; resume remaining call graph / indirect / recursion / tail-call widening.
   - Goal: generate diverse valid call graphs and callable-reference flows.
   - Why: call-related optimizer bugs depend on direct calls, imported calls, recursion, call_indirect tables, call_ref values, and tail-call terminal placement. Current coverage is useful but too narrow.
   - Deliverables: generate recursive and mutually recursive functions, imported calls, multi-param/multi-result calls, calls with ref/v128 params/results, `call_indirect` through populated tables and nonzero table indices, `call_ref` from locals/globals/ref.func/block values, and direct/indirect/ref tail calls in deeper terminal positions.
@@ -616,6 +617,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Invariants: every call target must have a matching signature; tail calls must appear only in valid terminal contexts; keep `ref.func` declaration requirements satisfied.
   - Dependencies: [FUZ]1002 and [FUZ]1007 for table-backed indirect-call diversity.
   - Suggested Tests: generated direct-call, recursive-call, call_indirect, call_ref, and return_call fixtures; pass-fuzz compare for `inlining`, `inlining-optimizing`, `dae-optimizing`, and `directize` on call-heavy profiles.
+  - Current evidence: the 2026-05-21 callable-reference source-variant slice makes coverage-forced modules reserve a typed function-reference local for the declared callable and emit validated ordinary `call_ref` forms fed by both `ref.func -> local.set -> local.get` and a typed function-reference `block` result. Focused TDD: `moon test src/validate` first failed on missing `coverage-forced GenValid routes call_ref through locals and block results`, then passed after implementation. Remaining work still includes broader direct/imported recursion, mutually recursive call graphs, richer `call_indirect` table diversity, `call_ref` from globals/table/control values, and deeper valid tail-call terminal placement.
   - Exit Criteria: call-heavy generation exercises direct, indirect, ref, and tail-call surfaces in multiple structurally distinct ways.
 
 - [FUZ]1007 - GenValid Memory, Table, Data, And Element Segment Widening

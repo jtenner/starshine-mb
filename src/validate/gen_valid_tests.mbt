@@ -895,6 +895,109 @@ fn gen_valid_test_module_has_exact_ref_local_flow_block(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_local_call_ref_source(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 3 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+      (RefFunc(_), LocalSet(set_idx), LocalGet(get_idx), CallRef(_)) if set_idx ==
+        get_idx => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_local_call_ref_source(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_local_call_ref_source(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_local_call_ref_source(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_block_returns_callable_ref(instr : Instruction) -> Bool {
+  match instr {
+    Block(ValTypeBlockType(RefTypeValType(_)), Expr(body)) =>
+      for child in body {
+        match child {
+          RefFunc(_) => return true
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_block_return_call_ref_source(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 1 < instrs.length(); i = i + 1 {
+    if gen_valid_test_block_returns_callable_ref(instrs[i]) {
+      match instrs[i + 1] {
+        CallRef(_) | ReturnCallRef(_) => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_block_return_call_ref_source(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_block_return_call_ref_source(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_block_return_call_ref_source(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_call_ref_source_variants(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut has_local_source = false
+      let mut has_block_source = false
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_has_local_call_ref_source(instrs) {
+          has_local_source = true
+        }
+        if gen_valid_test_has_block_return_call_ref_source(instrs) {
+          has_block_source = true
+        }
+      }
+      has_local_source && has_block_source
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_has_mutual_struct_array_group(mod_ : Module) -> Bool {
   match mod_.type_sec {
     Some(TypeSec(types)) => {
@@ -1129,6 +1232,28 @@ test "coverage-forced GenValid routes exact refs through locals and block result
   assert_true(
     gen_valid_test_module_has_exact_ref_local_flow_block(generated.wasm_module),
     msg="coverage-forced GC topology should route an exact reference through local.set/local.get inside an exact block result",
+  )
+}
+
+///|
+test "coverage-forced GenValid routes call_ref through locals and block results" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0x71006UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected call-ref coverage-forced generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_call)
+  assert_true(
+    gen_valid_test_module_has_call_ref_source_variants(generated.wasm_module),
+    msg="coverage-forced call-ref generation should include callable references sourced through a typed function-reference local and block result",
   )
 }
 

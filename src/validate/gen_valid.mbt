@@ -4219,6 +4219,49 @@ fn gen_valid_append_core_control_ops(
 }
 
 ///|
+fn gen_valid_append_call_ref_source_variants(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !ctx.config.features.allow_ref_types {
+    return
+  }
+  match env.declared_ref_func_idx {
+    Some(func_idx) =>
+      match gen_valid_callable_by_idx(env.funcs, func_idx) {
+        Some(target) => {
+          let fref = ValType::ref_type(
+            RefType::new(true, HeapType::new(target.type_idx)),
+          )
+          match gen_matching_local_idx(env.local_types, fref) {
+            Some(local_idx) => {
+              gen_valid_append_call_args(out, ctx, env, target.params)
+              out.push(Instruction::ref_func(target.idx))
+              out.push(Instruction::local_set(local_idx))
+              out.push(Instruction::local_get(local_idx))
+              out.push(Instruction::call_ref(target.type_idx))
+              gen_valid_append_call_result_drops(out, target.results)
+            }
+            None => ()
+          }
+          gen_valid_append_call_args(out, ctx, env, target.params)
+          out.push(
+            Instruction::block(
+              BlockType::val_type(fref),
+              Expr::new([Instruction::ref_func(target.idx)]),
+            ),
+          )
+          out.push(Instruction::call_ref(target.type_idx))
+          gen_valid_append_call_result_drops(out, target.results)
+        }
+        None => ()
+      }
+    None => ()
+  }
+}
+
+///|
 fn gen_valid_append_tail_call_ops(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -5309,6 +5352,7 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
   gen_valid_append_expanded_scalar_numeric_ops(out)
   gen_valid_append_core_control_ops(out, ctx, env)
+  gen_valid_append_call_ref_source_variants(out, ctx, env)
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
   if ctx.config.features.allow_v128 {
     gen_valid_append_simd_phase1_ops(out)
@@ -5536,6 +5580,27 @@ fn gen_valid_build_func(
       )
       is None {
       locals.push(ValType::i64())
+    }
+    if ctx.config.features.allow_ref_types {
+      match declared_ref_func_idx {
+        Some(func_idx) =>
+          match gen_valid_callable_by_idx(funcs, func_idx) {
+            Some(target) => {
+              let fref = ValType::ref_type(
+                RefType::new(true, HeapType::new(target.type_idx)),
+              )
+              if gen_matching_local_idx(
+                  gen_all_local_types(accepts, locals),
+                  fref,
+                )
+                is None {
+                locals.push(fref)
+              }
+            }
+            None => ()
+          }
+        None => ()
+      }
     }
   }
   if ctx.config.mode == Natural {
