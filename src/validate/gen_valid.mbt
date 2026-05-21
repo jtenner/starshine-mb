@@ -6546,10 +6546,7 @@ fn gen_valid_append_call_template_group(
   env : GenValidBodyEnv,
   returns : Array[ValType],
 ) -> Unit {
-  let order_key = match env.current_func_idx {
-    Some(func_idx) => gen_valid_func_idx_to_int(func_idx)
-    None => env.local_types.length() + env.tables.length() + env.funcs.length()
-  }
+  let order_key = gen_valid_template_order_key(env)
   match order_key % 3 {
     0 => {
       gen_valid_append_direct_call_graph_variants(out, ctx, env)
@@ -6572,17 +6569,67 @@ fn gen_valid_append_call_template_group(
 }
 
 ///|
+fn gen_valid_template_order_key(env : GenValidBodyEnv) -> Int {
+  match env.current_func_idx {
+    Some(func_idx) => gen_valid_func_idx_to_int(func_idx)
+    None =>
+      env.local_types.length() +
+      env.tables.length() +
+      env.mems.length() +
+      env.funcs.length()
+  }
+}
+
+///|
+fn gen_valid_append_ref_template_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  gen_valid_append_exact_ref_local_flow(out, env)
+  gen_valid_append_basic_ref_ops(out, ctx)
+  gen_valid_append_i31_extern_conversion_ops(out, ctx)
+}
+
+///|
+fn gen_valid_append_ref_gc_exception_template_group(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  let order_key = gen_valid_template_order_key(env)
+  match order_key % 4 {
+    0 => {
+      gen_valid_append_gc_prelude(out, ctx, env)
+      gen_valid_append_ref_template_ops(out, ctx, env)
+      gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
+    }
+    1 => {
+      gen_valid_append_ref_template_ops(out, ctx, env)
+      gen_valid_append_gc_prelude(out, ctx, env)
+      gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
+    }
+    2 => {
+      gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
+      gen_valid_append_gc_prelude(out, ctx, env)
+      gen_valid_append_ref_template_ops(out, ctx, env)
+    }
+    _ => {
+      gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
+      gen_valid_append_ref_template_ops(out, ctx, env)
+      gen_valid_append_gc_prelude(out, ctx, env)
+    }
+  }
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
   env : GenValidBodyEnv,
   returns : Array[ValType],
 ) -> Unit {
-  gen_valid_append_gc_prelude(out, ctx, env)
-  gen_valid_append_exact_ref_local_flow(out, env)
-  gen_valid_append_basic_ref_ops(out, ctx)
-  gen_valid_append_i31_extern_conversion_ops(out, ctx)
-  gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
+  gen_valid_append_ref_gc_exception_template_group(out, ctx, env)
   gen_valid_append_expanded_scalar_numeric_ops(out, ctx)
   gen_valid_append_core_control_ops(out, ctx, env)
   gen_valid_append_call_template_group(out, ctx, env, returns)
@@ -9537,6 +9584,10 @@ fn gen_valid_instr_template_signature_label(instr : Instruction) -> String {
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
     return "numeric"
   }
+  if gen_valid_instr_is_gc_constructor(instr) ||
+    gen_valid_instr_is_gc_accessor(instr) {
+    return "gc"
+  }
   if gen_valid_instr_is_simd_phase1(instr) {
     return "simd1"
   }
@@ -9559,14 +9610,10 @@ fn gen_valid_instr_template_signature_label(instr : Instruction) -> String {
     CallIndirect(_, _) => "call_indirect"
     CallRef(_) => "call_ref"
     ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) => "tail_call"
+    RefI31 | I31GetS | I31GetU | AnyConvertExtern | ExternConvertAny => "i31"
     RefNull(_)
     | RefIsNull
     | RefFunc(_)
-    | RefI31
-    | I31GetS
-    | I31GetU
-    | AnyConvertExtern
-    | ExternConvertAny
     | RefTest(_, _)
     | RefCast(_, _)
     | BrOnCast(_, _, _, _)

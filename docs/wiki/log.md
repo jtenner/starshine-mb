@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-21] fuzzing | FUZ1012 randomized coverage templates
+
+- Completed [`[FUZ]1012`](../../agent-todo.md) by grouping coverage-forced reference, GC, and exception prelude helpers behind the same deterministic function-shape ordering scheme used by the memory/table, SIMD, and call template slices, closing the remaining major forced-family template-variation gap.
+- Extended `gen_valid_coverage_template_signature(...)` with GC and i31 labels so validation anchors can distinguish ref/GC order drift, and updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the new ref/GC/exception randomized-template evidence.
+
 ## [2026-05-21] fuzzing | FUZ1009 scalar numeric closeout
 
 - Completed [`[FUZ]1009`](../../agent-todo.md) by making coverage-forced GenValid emit and exact-count the remaining scalar numeric matrix: float unary/binary opcodes beyond add, safe regular conversions, sign-extension opcodes, plus the already-covered integer arithmetic/bitwise/shift/rotate, comparisons, saturating conversions, and reinterpret forms.

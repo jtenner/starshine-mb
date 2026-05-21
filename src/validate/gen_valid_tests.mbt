@@ -189,6 +189,56 @@ test "coverage-forced prelude varies direct indirect and ref call template order
 }
 
 ///|
+test "coverage-forced prelude varies ref gc and exception template order by seed" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mut saw_gc_before_ref = false
+  let mut saw_ref_before_gc = false
+  let mut saw_exception_template = false
+  for offset in 0..<32 {
+    let generated = match
+      gen_valid_module_result(
+        @splitmix.new(seed=0xf230UL + offset.to_uint64()),
+        config,
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected randomized ref/GC/exception coverage-forced generated module to validate, got \{validation_error_message(err)}",
+        )
+    }
+    let sig = gen_valid_coverage_template_signature(generated.wasm_module)
+    if sig.contains("gc|ref") {
+      saw_gc_before_ref = true
+    }
+    if sig.contains("ref|gc") {
+      saw_ref_before_gc = true
+    }
+    if sig.contains("try_table") {
+      saw_exception_template = true
+    }
+    assert_true(generated.facts.uses_ref_types)
+    assert_true(generated.facts.has_gc_constructors)
+    assert_true(generated.facts.has_exception_try_table_matrix)
+  }
+  assert_true(
+    saw_gc_before_ref,
+    msg="coverage-forced ref/GC prelude should retain GC-before-ref ordering for some seeds",
+  )
+  assert_true(
+    saw_ref_before_gc,
+    msg="coverage-forced ref/GC prelude should also emit ref-before-GC ordering for some seeds",
+  )
+  assert_true(
+    saw_exception_template,
+    msg="coverage-forced ref/GC randomized template runs should retain exception templates",
+  )
+}
+
+///|
 test "gen_valid named profiles expose stable labels and compatibility aliases" {
   @debug.assert_eq(
     gen_valid_profile_name(CoverageForcedAllFeaturesProfile),
