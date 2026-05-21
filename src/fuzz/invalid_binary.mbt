@@ -163,6 +163,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBrTableDefaultLabelIndexUleb
   MalformedTableIndexUleb
   MalformedTableSetIndexUleb
+  MalformedTableSizeIndexUleb
+  MalformedTableGrowIndexUleb
+  MalformedTableFillIndexUleb
   MalformedMemorySizeMemoryIndexUleb
   MalformedMemoryGrowMemoryIndexUleb
   MalformedMemoryCopyDstIndexUleb
@@ -668,6 +671,9 @@ fn validate_invalid_binary_strategy_label(
       "malformed-br-table-default-label-index-uleb"
     MalformedTableIndexUleb => "malformed-table-index-uleb"
     MalformedTableSetIndexUleb => "malformed-table-set-index-uleb"
+    MalformedTableSizeIndexUleb => "malformed-table-size-index-uleb"
+    MalformedTableGrowIndexUleb => "malformed-table-grow-index-uleb"
+    MalformedTableFillIndexUleb => "malformed-table-fill-index-uleb"
     MalformedMemorySizeMemoryIndexUleb =>
       "malformed-memory-size-memory-index-uleb"
     MalformedMemoryGrowMemoryIndexUleb =>
@@ -1676,6 +1682,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedTableSetIndexUleb,
       "malformed-table-set-index-uleb",
       "table.set instruction with a malformed table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableSizeIndexUleb,
+      "malformed-table-size-index-uleb",
+      "table.size instruction with a malformed table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableGrowIndexUleb,
+      "malformed-table-grow-index-uleb",
+      "table.grow instruction with a malformed table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableFillIndexUleb,
+      "malformed-table-fill-index-uleb",
+      "table.fill instruction with a malformed table-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3811,6 +3838,72 @@ fn validate_invalid_binary_mutate_malformed_table_set_index_uleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x26).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_table_size_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTableSizeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x10).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_table_grow_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTableGrowIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x0f).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_table_fill_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTableFillIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x11).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -7969,6 +8062,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_table_index_uleb(base)
     MalformedTableSetIndexUleb =>
       validate_invalid_binary_mutate_malformed_table_set_index_uleb(base)
+    MalformedTableSizeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_table_size_index_uleb(base)
+    MalformedTableGrowIndexUleb =>
+      validate_invalid_binary_mutate_malformed_table_grow_index_uleb(base)
+    MalformedTableFillIndexUleb =>
+      validate_invalid_binary_mutate_malformed_table_fill_index_uleb(base)
     MalformedMemorySizeMemoryIndexUleb =>
       validate_invalid_binary_mutate_malformed_memory_size_memory_index_uleb(
         base,
