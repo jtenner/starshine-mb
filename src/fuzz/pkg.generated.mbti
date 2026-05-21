@@ -508,6 +508,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   TagSectionCountUnderflow
   TypeSectionSizeUnderflow
   CodeBodySizeUnderflow
+  MalformedCodeBodySizeUleb
   ImportSectionSizeUnderflow
   ExportSectionSizeUnderflow
   TableSectionSizeUnderflow
