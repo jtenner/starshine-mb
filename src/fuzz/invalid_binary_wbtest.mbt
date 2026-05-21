@@ -147,7 +147,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-table-init-elem-index-uleb", "malformed-table-init-table-index-uleb",
     "overwide-table-init-elem-index-uleb", "overwide-table-init-table-index-uleb",
     "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
-    "malformed-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
+    "malformed-element-segment-func-index-uleb", "overwide-element-segment-table-index-uleb",
+    "overwide-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
     "malformed-name-section-func-name-length-uleb", "overwide-name-section-func-name-length-uleb",
     "invalid-name-section-local-name-utf8", "malformed-name-section-local-name-length-uleb",
     "overwide-name-section-local-name-length-uleb", "invalid-name-section-module-name-utf8",
@@ -235,7 +236,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1608,6 +1609,20 @@ test "invalid binary FZG035 decodes invalid blocktype valtype byte as invalid" {
 }
 
 ///|
+test "invalid binary FZG036 decodes overwide element segment index ULEBs as invalid" {
+  for
+    stable_id in [
+      "overwide-element-segment-table-index-uleb", "overwide-element-segment-func-index-uleb",
+    ] {
+    match
+      invalid_binary_expect_strategy_rejects(stable_id, 0x5f2bUL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{stable_id}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG030 decodes overwide table and memory index ULEBs as invalid" {
   for
     strategy in [
@@ -1822,7 +1837,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-table-init-elem-index-uleb", "malformed-table-init-table-index-uleb",
       "overwide-table-init-elem-index-uleb", "overwide-table-init-table-index-uleb",
       "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
-      "malformed-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
+      "malformed-element-segment-func-index-uleb", "overwide-element-segment-table-index-uleb",
+      "overwide-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
       "malformed-name-section-func-name-length-uleb", "overwide-name-section-func-name-length-uleb",
       "invalid-name-section-local-name-utf8", "malformed-name-section-local-name-length-uleb",
       "overwide-name-section-local-name-length-uleb", "invalid-name-section-module-name-utf8",

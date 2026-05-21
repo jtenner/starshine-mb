@@ -297,6 +297,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedDataSegmentMemoryIndexUleb
   MalformedElementSegmentTableIndexUleb
   MalformedElementSegmentFuncIndexUleb
+  OverwideElementSegmentTableIndexUleb
+  OverwideElementSegmentFuncIndexUleb
   InvalidNameSectionFuncNameUtf8
   MalformedNameSectionFuncNameLengthUleb
   OverwideNameSectionFuncNameLengthUleb
@@ -988,6 +990,10 @@ fn validate_invalid_binary_strategy_label(
       "malformed-element-segment-table-index-uleb"
     MalformedElementSegmentFuncIndexUleb =>
       "malformed-element-segment-func-index-uleb"
+    OverwideElementSegmentTableIndexUleb =>
+      "overwide-element-segment-table-index-uleb"
+    OverwideElementSegmentFuncIndexUleb =>
+      "overwide-element-segment-func-index-uleb"
     InvalidNameSectionFuncNameUtf8 => "invalid-name-section-func-name-utf8"
     MalformedNameSectionFuncNameLengthUleb =>
       "malformed-name-section-func-name-length-uleb"
@@ -2968,6 +2974,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedElementSegmentFuncIndexUleb,
       "malformed-element-segment-func-index-uleb",
       "element segment with a malformed function-index ULEB payload",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideElementSegmentTableIndexUleb,
+      "overwide-element-segment-table-index-uleb",
+      "active element segment with an overwide table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideElementSegmentFuncIndexUleb,
+      "overwide-element-segment-func-index-uleb",
+      "element segment with an overwide function-index ULEB payload",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -7714,6 +7734,78 @@ fn validate_invalid_binary_mutate_malformed_element_segment_func_index_uleb(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_malformed_element_segment_func_index_uleb(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_overwide_element_segment_table_index_uleb() -> Bytes {
+  let bytes : Array[Byte] = [
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x09).to_byte(),
+    (0x0d).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+  ]
+  bytes.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Bytes::from_array(bytes)
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_element_segment_table_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideElementSegmentTableIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_element_segment_table_index_uleb(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_overwide_element_segment_func_index_uleb() -> Bytes {
+  let bytes : Array[Byte] = [
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x09).to_byte(),
+    (0x11).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x01).to_byte(),
+  ]
+  bytes.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Bytes::from_array(bytes)
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_element_segment_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideElementSegmentFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_element_segment_func_index_uleb(),
     ),
   )
 }
@@ -13579,6 +13671,14 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     MalformedElementSegmentFuncIndexUleb =>
       validate_invalid_binary_mutate_malformed_element_segment_func_index_uleb(
+        base,
+      )
+    OverwideElementSegmentTableIndexUleb =>
+      validate_invalid_binary_mutate_overwide_element_segment_table_index_uleb(
+        base,
+      )
+    OverwideElementSegmentFuncIndexUleb =>
+      validate_invalid_binary_mutate_overwide_element_segment_func_index_uleb(
         base,
       )
     InvalidNameSectionFuncNameUtf8 =>
