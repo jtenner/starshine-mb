@@ -7886,8 +7886,176 @@ test "gen_valid_feature_facts records exact scalar and control opcode counts" {
             Instruction::i64_eqz(),
             Instruction::drop(),
             Instruction::f32_const(1.0),
+            Instruction::f32_abs(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_neg(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_ceil(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_floor(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_trunc(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_nearest(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_sqrt(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
             Instruction::f32_const(2.0),
             Instruction::f32_eq(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_const(2.0),
+            Instruction::f32_sub(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_const(2.0),
+            Instruction::f32_mul(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_const(2.0),
+            Instruction::f32_div(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_const(2.0),
+            Instruction::f32_min(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_const(2.0),
+            Instruction::f32_max(),
+            Instruction::drop(),
+            Instruction::f32_const(1.0),
+            Instruction::f32_const(2.0),
+            Instruction::f32_copysign(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_abs(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_neg(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_ceil(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_floor(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_trunc(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_nearest(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_sqrt(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_const(2.0),
+            Instruction::f64_sub(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_const(2.0),
+            Instruction::f64_mul(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_const(2.0),
+            Instruction::f64_div(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_const(2.0),
+            Instruction::f64_min(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_const(2.0),
+            Instruction::f64_max(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f64_const(2.0),
+            Instruction::f64_copysign(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(7L)),
+            Instruction::i32_wrap_i64(),
+            Instruction::drop(),
+            Instruction::f32_const(4.0),
+            Instruction::i32_trunc_f32s(),
+            Instruction::drop(),
+            Instruction::f32_const(4.0),
+            Instruction::i32_trunc_f32u(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::i32_trunc_f64s(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::i32_trunc_f64u(),
+            Instruction::drop(),
+            Instruction::i32_const(I32(7)),
+            Instruction::i64_extend_i32s(),
+            Instruction::drop(),
+            Instruction::i32_const(I32(7)),
+            Instruction::i64_extend_i32u(),
+            Instruction::drop(),
+            Instruction::f32_const(4.0),
+            Instruction::i64_trunc_f32s(),
+            Instruction::drop(),
+            Instruction::f32_const(4.0),
+            Instruction::i64_trunc_f32u(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::i64_trunc_f64s(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::i64_trunc_f64u(),
+            Instruction::drop(),
+            Instruction::i32_const(I32(7)),
+            Instruction::f32_convert_i32s(),
+            Instruction::drop(),
+            Instruction::i32_const(I32(7)),
+            Instruction::f32_convert_i32u(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(7L)),
+            Instruction::f32_convert_i64s(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(7L)),
+            Instruction::f32_convert_i64u(),
+            Instruction::drop(),
+            Instruction::f64_const(4.0),
+            Instruction::f32_demote_f64(),
+            Instruction::drop(),
+            Instruction::i32_const(I32(7)),
+            Instruction::f64_convert_i32s(),
+            Instruction::drop(),
+            Instruction::i32_const(I32(7)),
+            Instruction::f64_convert_i32u(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(7L)),
+            Instruction::f64_convert_i64s(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(7L)),
+            Instruction::f64_convert_i64u(),
+            Instruction::drop(),
+            Instruction::f32_const(4.0),
+            Instruction::f64_promote_f32(),
+            Instruction::drop(),
+            Instruction::i32_const(I32(0x7f)),
+            Instruction::i32_extend8s(),
+            Instruction::drop(),
+            Instruction::i32_const(I32(0x7fff)),
+            Instruction::i32_extend16s(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(0x7fL)),
+            Instruction::i64_extend8s(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(0x7fffL)),
+            Instruction::i64_extend16s(),
+            Instruction::drop(),
+            Instruction::i64_const(I64(0x7fffffffL)),
+            Instruction::i64_extend32s(),
             Instruction::drop(),
             Instruction::f64_const(4.0),
             Instruction::i64_trunc_sat_f64u(),
@@ -7904,13 +8072,65 @@ test "gen_valid_feature_facts records exact scalar and control opcode counts" {
     )
   let facts = gen_valid_feature_facts(mod, CoverageForced)
   let exact = facts.exact_opcode_counts
-  @debug.assert_eq(exact.i32_const, 2)
+  @debug.assert_eq(exact.i32_const, 10)
   @debug.assert_eq(exact.i32_add, 1)
-  @debug.assert_eq(exact.i64_const, 1)
+  @debug.assert_eq(exact.i64_const, 9)
   @debug.assert_eq(exact.i64_eqz, 1)
-  @debug.assert_eq(exact.f32_const, 2)
+  @debug.assert_eq(exact.f32_const, 26)
+  @debug.assert_eq(exact.f32_abs, 1)
+  @debug.assert_eq(exact.f32_neg, 1)
+  @debug.assert_eq(exact.f32_ceil, 1)
+  @debug.assert_eq(exact.f32_floor, 1)
+  @debug.assert_eq(exact.f32_trunc, 1)
+  @debug.assert_eq(exact.f32_nearest, 1)
+  @debug.assert_eq(exact.f32_sqrt, 1)
   @debug.assert_eq(exact.f32_eq, 1)
-  @debug.assert_eq(exact.f64_const, 1)
+  @debug.assert_eq(exact.f32_sub, 1)
+  @debug.assert_eq(exact.f32_mul, 1)
+  @debug.assert_eq(exact.f32_div, 1)
+  @debug.assert_eq(exact.f32_min, 1)
+  @debug.assert_eq(exact.f32_max, 1)
+  @debug.assert_eq(exact.f32_copysign, 1)
+  @debug.assert_eq(exact.f64_const, 25)
+  @debug.assert_eq(exact.f64_abs, 1)
+  @debug.assert_eq(exact.f64_neg, 1)
+  @debug.assert_eq(exact.f64_ceil, 1)
+  @debug.assert_eq(exact.f64_floor, 1)
+  @debug.assert_eq(exact.f64_trunc, 1)
+  @debug.assert_eq(exact.f64_nearest, 1)
+  @debug.assert_eq(exact.f64_sqrt, 1)
+  @debug.assert_eq(exact.f64_sub, 1)
+  @debug.assert_eq(exact.f64_mul, 1)
+  @debug.assert_eq(exact.f64_div, 1)
+  @debug.assert_eq(exact.f64_min, 1)
+  @debug.assert_eq(exact.f64_max, 1)
+  @debug.assert_eq(exact.f64_copysign, 1)
+  @debug.assert_eq(exact.i32_wrap_i64, 1)
+  @debug.assert_eq(exact.i32_trunc_f32s, 1)
+  @debug.assert_eq(exact.i32_trunc_f32u, 1)
+  @debug.assert_eq(exact.i32_trunc_f64s, 1)
+  @debug.assert_eq(exact.i32_trunc_f64u, 1)
+  @debug.assert_eq(exact.i64_extend_i32s, 1)
+  @debug.assert_eq(exact.i64_extend_i32u, 1)
+  @debug.assert_eq(exact.i64_trunc_f32s, 1)
+  @debug.assert_eq(exact.i64_trunc_f32u, 1)
+  @debug.assert_eq(exact.i64_trunc_f64s, 1)
+  @debug.assert_eq(exact.i64_trunc_f64u, 1)
+  @debug.assert_eq(exact.f32_convert_i32s, 1)
+  @debug.assert_eq(exact.f32_convert_i32u, 1)
+  @debug.assert_eq(exact.f32_convert_i64s, 1)
+  @debug.assert_eq(exact.f32_convert_i64u, 1)
+  @debug.assert_eq(exact.f32_demote_f64, 1)
+  @debug.assert_eq(exact.f64_convert_i32s, 1)
+  @debug.assert_eq(exact.f64_convert_i32u, 1)
+  @debug.assert_eq(exact.f64_convert_i64s, 1)
+  @debug.assert_eq(exact.f64_convert_i64u, 1)
+  @debug.assert_eq(exact.f64_promote_f32, 1)
+  @debug.assert_eq(exact.i32_extend8s, 1)
+  @debug.assert_eq(exact.i32_extend16s, 1)
+  @debug.assert_eq(exact.i64_extend8s, 1)
+  @debug.assert_eq(exact.i64_extend16s, 1)
+  @debug.assert_eq(exact.i64_extend32s, 1)
   @debug.assert_eq(exact.i64_trunc_sat_f64u, 1)
   @debug.assert_eq(exact.local_tee, 1)
   @debug.assert_eq(exact.typed_select, 1)
@@ -7919,7 +8139,7 @@ test "gen_valid_feature_facts records exact scalar and control opcode counts" {
   let stats = GenValidFeatureStats::empty(CoverageForced)
     .record(facts)
     .record(facts)
-  @debug.assert_eq(stats.exact_opcode_counts.i32_const, 4)
+  @debug.assert_eq(stats.exact_opcode_counts.i32_const, 20)
   @debug.assert_eq(stats.exact_opcode_counts.i64_trunc_sat_f64u, 2)
   @debug.assert_eq(stats.exact_opcode_counts.local_tee, 2)
   @debug.assert_eq(stats.exact_opcode_counts.br_table, 2)

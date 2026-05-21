@@ -371,8 +371,60 @@ pub struct GenValidExactOpcodeCounts {
   i64_shr_u : Int
   i64_rotl : Int
   i64_rotr : Int
+  f32_abs : Int
+  f32_neg : Int
+  f32_ceil : Int
+  f32_floor : Int
+  f32_trunc : Int
+  f32_nearest : Int
+  f32_sqrt : Int
   f32_add : Int
+  f32_sub : Int
+  f32_mul : Int
+  f32_div : Int
+  f32_min : Int
+  f32_max : Int
+  f32_copysign : Int
+  f64_abs : Int
+  f64_neg : Int
+  f64_ceil : Int
+  f64_floor : Int
+  f64_trunc : Int
+  f64_nearest : Int
+  f64_sqrt : Int
   f64_add : Int
+  f64_sub : Int
+  f64_mul : Int
+  f64_div : Int
+  f64_min : Int
+  f64_max : Int
+  f64_copysign : Int
+  i32_wrap_i64 : Int
+  i32_trunc_f32s : Int
+  i32_trunc_f32u : Int
+  i32_trunc_f64s : Int
+  i32_trunc_f64u : Int
+  i64_extend_i32s : Int
+  i64_extend_i32u : Int
+  i64_trunc_f32s : Int
+  i64_trunc_f32u : Int
+  i64_trunc_f64s : Int
+  i64_trunc_f64u : Int
+  f32_convert_i32s : Int
+  f32_convert_i32u : Int
+  f32_convert_i64s : Int
+  f32_convert_i64u : Int
+  f32_demote_f64 : Int
+  f64_convert_i32s : Int
+  f64_convert_i32u : Int
+  f64_convert_i64s : Int
+  f64_convert_i64u : Int
+  f64_promote_f32 : Int
+  i32_extend8s : Int
+  i32_extend16s : Int
+  i64_extend8s : Int
+  i64_extend16s : Int
+  i64_extend32s : Int
   i32_trunc_sat_f32s : Int
   i32_trunc_sat_f32u : Int
   i32_trunc_sat_f64s : Int

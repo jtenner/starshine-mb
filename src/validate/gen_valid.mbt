@@ -1154,8 +1154,60 @@ pub struct GenValidExactOpcodeCounts {
   i64_shr_u : Int
   i64_rotl : Int
   i64_rotr : Int
+  f32_abs : Int
+  f32_neg : Int
+  f32_ceil : Int
+  f32_floor : Int
+  f32_trunc : Int
+  f32_nearest : Int
+  f32_sqrt : Int
   f32_add : Int
+  f32_sub : Int
+  f32_mul : Int
+  f32_div : Int
+  f32_min : Int
+  f32_max : Int
+  f32_copysign : Int
+  f64_abs : Int
+  f64_neg : Int
+  f64_ceil : Int
+  f64_floor : Int
+  f64_trunc : Int
+  f64_nearest : Int
+  f64_sqrt : Int
   f64_add : Int
+  f64_sub : Int
+  f64_mul : Int
+  f64_div : Int
+  f64_min : Int
+  f64_max : Int
+  f64_copysign : Int
+  i32_wrap_i64 : Int
+  i32_trunc_f32s : Int
+  i32_trunc_f32u : Int
+  i32_trunc_f64s : Int
+  i32_trunc_f64u : Int
+  i64_extend_i32s : Int
+  i64_extend_i32u : Int
+  i64_trunc_f32s : Int
+  i64_trunc_f32u : Int
+  i64_trunc_f64s : Int
+  i64_trunc_f64u : Int
+  f32_convert_i32s : Int
+  f32_convert_i32u : Int
+  f32_convert_i64s : Int
+  f32_convert_i64u : Int
+  f32_demote_f64 : Int
+  f64_convert_i32s : Int
+  f64_convert_i32u : Int
+  f64_convert_i64s : Int
+  f64_convert_i64u : Int
+  f64_promote_f32 : Int
+  i32_extend8s : Int
+  i32_extend16s : Int
+  i64_extend8s : Int
+  i64_extend16s : Int
+  i64_extend32s : Int
   i32_trunc_sat_f32s : Int
   i32_trunc_sat_f32u : Int
   i32_trunc_sat_f64s : Int
@@ -1297,8 +1349,60 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i64_shr_u: 0,
     i64_rotl: 0,
     i64_rotr: 0,
+    f32_abs: 0,
+    f32_neg: 0,
+    f32_ceil: 0,
+    f32_floor: 0,
+    f32_trunc: 0,
+    f32_nearest: 0,
+    f32_sqrt: 0,
     f32_add: 0,
+    f32_sub: 0,
+    f32_mul: 0,
+    f32_div: 0,
+    f32_min: 0,
+    f32_max: 0,
+    f32_copysign: 0,
+    f64_abs: 0,
+    f64_neg: 0,
+    f64_ceil: 0,
+    f64_floor: 0,
+    f64_trunc: 0,
+    f64_nearest: 0,
+    f64_sqrt: 0,
     f64_add: 0,
+    f64_sub: 0,
+    f64_mul: 0,
+    f64_div: 0,
+    f64_min: 0,
+    f64_max: 0,
+    f64_copysign: 0,
+    i32_wrap_i64: 0,
+    i32_trunc_f32s: 0,
+    i32_trunc_f32u: 0,
+    i32_trunc_f64s: 0,
+    i32_trunc_f64u: 0,
+    i64_extend_i32s: 0,
+    i64_extend_i32u: 0,
+    i64_trunc_f32s: 0,
+    i64_trunc_f32u: 0,
+    i64_trunc_f64s: 0,
+    i64_trunc_f64u: 0,
+    f32_convert_i32s: 0,
+    f32_convert_i32u: 0,
+    f32_convert_i64s: 0,
+    f32_convert_i64u: 0,
+    f32_demote_f64: 0,
+    f64_convert_i32s: 0,
+    f64_convert_i32u: 0,
+    f64_convert_i64s: 0,
+    f64_convert_i64u: 0,
+    f64_promote_f32: 0,
+    i32_extend8s: 0,
+    i32_extend16s: 0,
+    i64_extend8s: 0,
+    i64_extend16s: 0,
+    i64_extend32s: 0,
     i32_trunc_sat_f32s: 0,
     i32_trunc_sat_f32u: 0,
     i32_trunc_sat_f64s: 0,
@@ -1401,8 +1505,60 @@ pub fn GenValidExactOpcodeCounts::add(
     i64_shr_u: self.i64_shr_u + other.i64_shr_u,
     i64_rotl: self.i64_rotl + other.i64_rotl,
     i64_rotr: self.i64_rotr + other.i64_rotr,
+    f32_abs: self.f32_abs + other.f32_abs,
+    f32_neg: self.f32_neg + other.f32_neg,
+    f32_ceil: self.f32_ceil + other.f32_ceil,
+    f32_floor: self.f32_floor + other.f32_floor,
+    f32_trunc: self.f32_trunc + other.f32_trunc,
+    f32_nearest: self.f32_nearest + other.f32_nearest,
+    f32_sqrt: self.f32_sqrt + other.f32_sqrt,
     f32_add: self.f32_add + other.f32_add,
+    f32_sub: self.f32_sub + other.f32_sub,
+    f32_mul: self.f32_mul + other.f32_mul,
+    f32_div: self.f32_div + other.f32_div,
+    f32_min: self.f32_min + other.f32_min,
+    f32_max: self.f32_max + other.f32_max,
+    f32_copysign: self.f32_copysign + other.f32_copysign,
+    f64_abs: self.f64_abs + other.f64_abs,
+    f64_neg: self.f64_neg + other.f64_neg,
+    f64_ceil: self.f64_ceil + other.f64_ceil,
+    f64_floor: self.f64_floor + other.f64_floor,
+    f64_trunc: self.f64_trunc + other.f64_trunc,
+    f64_nearest: self.f64_nearest + other.f64_nearest,
+    f64_sqrt: self.f64_sqrt + other.f64_sqrt,
     f64_add: self.f64_add + other.f64_add,
+    f64_sub: self.f64_sub + other.f64_sub,
+    f64_mul: self.f64_mul + other.f64_mul,
+    f64_div: self.f64_div + other.f64_div,
+    f64_min: self.f64_min + other.f64_min,
+    f64_max: self.f64_max + other.f64_max,
+    f64_copysign: self.f64_copysign + other.f64_copysign,
+    i32_wrap_i64: self.i32_wrap_i64 + other.i32_wrap_i64,
+    i32_trunc_f32s: self.i32_trunc_f32s + other.i32_trunc_f32s,
+    i32_trunc_f32u: self.i32_trunc_f32u + other.i32_trunc_f32u,
+    i32_trunc_f64s: self.i32_trunc_f64s + other.i32_trunc_f64s,
+    i32_trunc_f64u: self.i32_trunc_f64u + other.i32_trunc_f64u,
+    i64_extend_i32s: self.i64_extend_i32s + other.i64_extend_i32s,
+    i64_extend_i32u: self.i64_extend_i32u + other.i64_extend_i32u,
+    i64_trunc_f32s: self.i64_trunc_f32s + other.i64_trunc_f32s,
+    i64_trunc_f32u: self.i64_trunc_f32u + other.i64_trunc_f32u,
+    i64_trunc_f64s: self.i64_trunc_f64s + other.i64_trunc_f64s,
+    i64_trunc_f64u: self.i64_trunc_f64u + other.i64_trunc_f64u,
+    f32_convert_i32s: self.f32_convert_i32s + other.f32_convert_i32s,
+    f32_convert_i32u: self.f32_convert_i32u + other.f32_convert_i32u,
+    f32_convert_i64s: self.f32_convert_i64s + other.f32_convert_i64s,
+    f32_convert_i64u: self.f32_convert_i64u + other.f32_convert_i64u,
+    f32_demote_f64: self.f32_demote_f64 + other.f32_demote_f64,
+    f64_convert_i32s: self.f64_convert_i32s + other.f64_convert_i32s,
+    f64_convert_i32u: self.f64_convert_i32u + other.f64_convert_i32u,
+    f64_convert_i64s: self.f64_convert_i64s + other.f64_convert_i64s,
+    f64_convert_i64u: self.f64_convert_i64u + other.f64_convert_i64u,
+    f64_promote_f32: self.f64_promote_f32 + other.f64_promote_f32,
+    i32_extend8s: self.i32_extend8s + other.i32_extend8s,
+    i32_extend16s: self.i32_extend16s + other.i32_extend16s,
+    i64_extend8s: self.i64_extend8s + other.i64_extend8s,
+    i64_extend16s: self.i64_extend16s + other.i64_extend16s,
+    i64_extend32s: self.i64_extend32s + other.i64_extend32s,
     i32_trunc_sat_f32s: self.i32_trunc_sat_f32s + other.i32_trunc_sat_f32s,
     i32_trunc_sat_f32u: self.i32_trunc_sat_f32u + other.i32_trunc_sat_f32u,
     i32_trunc_sat_f64s: self.i32_trunc_sat_f64s + other.i32_trunc_sat_f64s,
@@ -4547,7 +4703,7 @@ fn gen_valid_append_numeric_boundary_constants(
   out : Array[Instruction],
   ctx : GenValidContext,
 ) -> Unit {
-  let i32_boundary_constants = [0, 1, -1, -2147483647 - 1, 2147483647]
+  let i32_boundary_constants = [0, 1, -1, -2147483647 - 1, 2147483647, 1024]
   for value in i32_boundary_constants {
     gen_valid_append_scalar_numeric_drop(out, [
       Instruction::i32_const(I32(value)),
@@ -4559,6 +4715,7 @@ fn gen_valid_append_numeric_boundary_constants(
     -1L,
     -9223372036854775807L - 1L,
     9223372036854775807L,
+    1099511627776L,
   ]
   for value in i64_boundary_constants {
     gen_valid_append_scalar_numeric_drop(out, [
@@ -5125,6 +5282,8 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
   }
 
   let f32_unary_ops = [
+    Instruction::f32_abs(),
+    Instruction::f32_neg(),
     Instruction::f32_ceil(),
     Instruction::f32_floor(),
     Instruction::f32_trunc(),
@@ -5170,6 +5329,8 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
   }
 
   let f64_unary_ops = [
+    Instruction::f64_abs(),
+    Instruction::f64_neg(),
     Instruction::f64_ceil(),
     Instruction::f64_floor(),
     Instruction::f64_trunc(),
@@ -5215,21 +5376,42 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
   }
 
   let conversion_ops = [
+    [Instruction::i64_const(I64(12L)), Instruction::i32_wrap_i64()],
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::i32_trunc_f32s(),
+    ],
     [
       Instruction::f32_const(F32(Float::from_double(12.0))),
       Instruction::i32_trunc_f32u(),
     ],
+    [Instruction::f64_const(F64(12.0)), Instruction::i32_trunc_f64s()],
     [Instruction::f64_const(F64(12.0)), Instruction::i32_trunc_f64u()],
+    [Instruction::i32_const(I32(12)), Instruction::i64_extend_i32s()],
     [Instruction::i32_const(I32(12)), Instruction::i64_extend_i32u()],
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::i64_trunc_f32s(),
+    ],
     [
       Instruction::f32_const(F32(Float::from_double(12.0))),
       Instruction::i64_trunc_f32u(),
     ],
+    [Instruction::f64_const(F64(12.0)), Instruction::i64_trunc_f64s()],
     [Instruction::f64_const(F64(12.0)), Instruction::i64_trunc_f64u()],
+    [Instruction::i32_const(I32(12)), Instruction::f32_convert_i32s()],
     [Instruction::i32_const(I32(12)), Instruction::f32_convert_i32u()],
+    [Instruction::i64_const(I64(12L)), Instruction::f32_convert_i64s()],
     [Instruction::i64_const(I64(12L)), Instruction::f32_convert_i64u()],
+    [Instruction::f64_const(F64(12.0)), Instruction::f32_demote_f64()],
+    [Instruction::i32_const(I32(12)), Instruction::f64_convert_i32s()],
     [Instruction::i32_const(I32(12)), Instruction::f64_convert_i32u()],
+    [Instruction::i64_const(I64(12L)), Instruction::f64_convert_i64s()],
     [Instruction::i64_const(I64(12L)), Instruction::f64_convert_i64u()],
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::f64_promote_f32(),
+    ],
     [Instruction::i32_const(I32(0x7f)), Instruction::i32_extend8s()],
     [Instruction::i32_const(I32(0x7fff)), Instruction::i32_extend16s()],
     [Instruction::i64_const(I64(0x7fL)), Instruction::i64_extend8s()],
@@ -5272,6 +5454,20 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
   for instrs in conversion_ops {
     gen_valid_append_scalar_numeric_drop(out, instrs)
   }
+  gen_valid_append_scalar_numeric_drop(out, [
+    Instruction::i32_const(I32(6)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_add(),
+    Instruction::i32_const(I32(3)),
+    Instruction::i32_mul(),
+  ])
+  gen_valid_append_scalar_numeric_drop(out, [
+    Instruction::f64_const(F64(6.5)),
+    Instruction::f64_const(F64(2.0)),
+    Instruction::f64_div(),
+    Instruction::f64_const(F64(1.5)),
+    Instruction::f64_sub(),
+  ])
 }
 
 ///|
@@ -8164,8 +8360,60 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I64ShrU => GenValidExactOpcodeCounts::{ ..zero, i64_shr_u: 1 }
     I64Rotl => GenValidExactOpcodeCounts::{ ..zero, i64_rotl: 1 }
     I64Rotr => GenValidExactOpcodeCounts::{ ..zero, i64_rotr: 1 }
+    F32Abs => GenValidExactOpcodeCounts::{ ..zero, f32_abs: 1 }
+    F32Neg => GenValidExactOpcodeCounts::{ ..zero, f32_neg: 1 }
+    F32Ceil => GenValidExactOpcodeCounts::{ ..zero, f32_ceil: 1 }
+    F32Floor => GenValidExactOpcodeCounts::{ ..zero, f32_floor: 1 }
+    F32Trunc => GenValidExactOpcodeCounts::{ ..zero, f32_trunc: 1 }
+    F32Nearest => GenValidExactOpcodeCounts::{ ..zero, f32_nearest: 1 }
+    F32Sqrt => GenValidExactOpcodeCounts::{ ..zero, f32_sqrt: 1 }
     F32Add => GenValidExactOpcodeCounts::{ ..zero, f32_add: 1 }
+    F32Sub => GenValidExactOpcodeCounts::{ ..zero, f32_sub: 1 }
+    F32Mul => GenValidExactOpcodeCounts::{ ..zero, f32_mul: 1 }
+    F32Div => GenValidExactOpcodeCounts::{ ..zero, f32_div: 1 }
+    F32Min => GenValidExactOpcodeCounts::{ ..zero, f32_min: 1 }
+    F32Max => GenValidExactOpcodeCounts::{ ..zero, f32_max: 1 }
+    F32Copysign => GenValidExactOpcodeCounts::{ ..zero, f32_copysign: 1 }
+    F64Abs => GenValidExactOpcodeCounts::{ ..zero, f64_abs: 1 }
+    F64Neg => GenValidExactOpcodeCounts::{ ..zero, f64_neg: 1 }
+    F64Ceil => GenValidExactOpcodeCounts::{ ..zero, f64_ceil: 1 }
+    F64Floor => GenValidExactOpcodeCounts::{ ..zero, f64_floor: 1 }
+    F64Trunc => GenValidExactOpcodeCounts::{ ..zero, f64_trunc: 1 }
+    F64Nearest => GenValidExactOpcodeCounts::{ ..zero, f64_nearest: 1 }
+    F64Sqrt => GenValidExactOpcodeCounts::{ ..zero, f64_sqrt: 1 }
     F64Add => GenValidExactOpcodeCounts::{ ..zero, f64_add: 1 }
+    F64Sub => GenValidExactOpcodeCounts::{ ..zero, f64_sub: 1 }
+    F64Mul => GenValidExactOpcodeCounts::{ ..zero, f64_mul: 1 }
+    F64Div => GenValidExactOpcodeCounts::{ ..zero, f64_div: 1 }
+    F64Min => GenValidExactOpcodeCounts::{ ..zero, f64_min: 1 }
+    F64Max => GenValidExactOpcodeCounts::{ ..zero, f64_max: 1 }
+    F64Copysign => GenValidExactOpcodeCounts::{ ..zero, f64_copysign: 1 }
+    I32WrapI64 => GenValidExactOpcodeCounts::{ ..zero, i32_wrap_i64: 1 }
+    I32TruncF32S => GenValidExactOpcodeCounts::{ ..zero, i32_trunc_f32s: 1 }
+    I32TruncF32U => GenValidExactOpcodeCounts::{ ..zero, i32_trunc_f32u: 1 }
+    I32TruncF64S => GenValidExactOpcodeCounts::{ ..zero, i32_trunc_f64s: 1 }
+    I32TruncF64U => GenValidExactOpcodeCounts::{ ..zero, i32_trunc_f64u: 1 }
+    I64ExtendI32S => GenValidExactOpcodeCounts::{ ..zero, i64_extend_i32s: 1 }
+    I64ExtendI32U => GenValidExactOpcodeCounts::{ ..zero, i64_extend_i32u: 1 }
+    I64TruncF32S => GenValidExactOpcodeCounts::{ ..zero, i64_trunc_f32s: 1 }
+    I64TruncF32U => GenValidExactOpcodeCounts::{ ..zero, i64_trunc_f32u: 1 }
+    I64TruncF64S => GenValidExactOpcodeCounts::{ ..zero, i64_trunc_f64s: 1 }
+    I64TruncF64U => GenValidExactOpcodeCounts::{ ..zero, i64_trunc_f64u: 1 }
+    F32ConvertI32S => GenValidExactOpcodeCounts::{ ..zero, f32_convert_i32s: 1 }
+    F32ConvertI32U => GenValidExactOpcodeCounts::{ ..zero, f32_convert_i32u: 1 }
+    F32ConvertI64S => GenValidExactOpcodeCounts::{ ..zero, f32_convert_i64s: 1 }
+    F32ConvertI64U => GenValidExactOpcodeCounts::{ ..zero, f32_convert_i64u: 1 }
+    F32DemoteF64 => GenValidExactOpcodeCounts::{ ..zero, f32_demote_f64: 1 }
+    F64ConvertI32S => GenValidExactOpcodeCounts::{ ..zero, f64_convert_i32s: 1 }
+    F64ConvertI32U => GenValidExactOpcodeCounts::{ ..zero, f64_convert_i32u: 1 }
+    F64ConvertI64S => GenValidExactOpcodeCounts::{ ..zero, f64_convert_i64s: 1 }
+    F64ConvertI64U => GenValidExactOpcodeCounts::{ ..zero, f64_convert_i64u: 1 }
+    F64PromoteF32 => GenValidExactOpcodeCounts::{ ..zero, f64_promote_f32: 1 }
+    I32Extend8S => GenValidExactOpcodeCounts::{ ..zero, i32_extend8s: 1 }
+    I32Extend16S => GenValidExactOpcodeCounts::{ ..zero, i32_extend16s: 1 }
+    I64Extend8S => GenValidExactOpcodeCounts::{ ..zero, i64_extend8s: 1 }
+    I64Extend16S => GenValidExactOpcodeCounts::{ ..zero, i64_extend16s: 1 }
+    I64Extend32S => GenValidExactOpcodeCounts::{ ..zero, i64_extend32s: 1 }
     I32TruncSatF32S =>
       GenValidExactOpcodeCounts::{ ..zero, i32_trunc_sat_f32s: 1 }
     I32TruncSatF32U =>

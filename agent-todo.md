@@ -618,19 +618,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: focused validation for each catch topology, feature facts for exact catch-list combinations, WAST mirror tests where parser support exists.
   - Exit Criteria: exception-heavy profiles produce more than the single deterministic matrix currently used by coverage-forced generation.
 
-- [FUZ]1009 - GenValid Numeric Constants, Arithmetic, Conversion, And Trap-Safe Cleanup Surfaces
-  - Status: IN PROGRESS (cron 23, 2026-05-21) - arithmetic/reinterpret, boundary-literal, integer exact-opcode, and comparison exact-counter slices landed; resume with float/conversion exact counters, powers-of-two literals, or expression-tree evidence.
-  - Latest evidence: coverage-forced GenValid now emits and exact-counts `i32.add`, `i64.add`, `f32.add`, `f64.add`, `i32.reinterpret_f32`, `i64.reinterpret_f64`, `f32.reinterpret_i32`, and `f64.reinterpret_i64`; it also emits tested boundary literals for integer `0`/`1`/`-1`/min/max and float `-0`, infinities, and explicit NaN payloads in non-Binaryen-oracle coverage-forced profiles. The 2026-05-21 integer exact-opcode slice added coverage-forced `i32`/`i64` `clz`, `ctz`, `popcnt`, `sub`, `mul`, `div_s`, `div_u`, `rem_s`, `rem_u`, `and`, `or`, `xor`, `shl`, `shr_s`, `shr_u`, `rotl`, and `rotr` emission plus exact counters. The 2026-05-21 comparison exact-counter slice added exact counters and tests for integer `ne`, signed/unsigned `lt`/`gt`/`le`/`ge`, and float `ne`/`lt`/`gt`/`le`/`ge` over the existing coverage-forced comparison prelude. The latest TDD failure was `moon test src/validate` failing because `GenValidExactOpcodeCounts` lacked `i32_ne` and sibling comparison opcode fields, then `moon test src/validate` passed after implementation. Full validation on 2026-05-21 after the comparison exact-counter slice: `moon info` passed with pre-existing DAE unused warnings, `moon fmt` passed, `moon test` passed (`3459` tests).
-  - Next steps: consider exact counters for float unary/binary opcodes beyond add, regular conversion/sign-extension opcodes beyond the current saturating/reinterpret subset, powers-of-two literals, and nontrivial expression-tree evidence before declaring the broad task complete.
-  - Goal: widen scalar numeric generation with safe boundary constants and operation combinations.
-  - Why: optimizers need arithmetic, comparisons, conversions, reinterprets, saturation, NaNs, signedness, and boundary constants in realistic expression trees, not only isolated drop-wrapped operations.
-  - Deliverables: generate full integer arithmetic and bit ops, shifts/rotates, comparisons, float unary/binary/comparison ops, reinterpret operations, sign-extension, saturating conversions, safe regular conversions, boundary constants (`0`, `1`, `-1`, min/max, powers of two), float `-0`, infinities, NaNs, and nontrivial expression trees.
-  - Required APIs: numeric instruction constructors, typed body generator, feature scanner exact opcode counters from [FUZ]1013.
-  - Invariants: valid generation must avoid compile-time invalidity; runtime-trapping operations may appear only if they are valid wasm and acceptable for the target lane; optimizer cleanup tests must preserve trap/effect ordering.
-  - Dependencies: [FUZ]1002 and [FUZ]1013 recommended.
-  - Suggested Tests: per-opcode coverage counters, validation of numeric-heavy modules, pass-fuzz compare for `precompute`, `optimize-instructions`, `pick-load-signs`, `dae-optimizing`.
-  - Exit Criteria: numeric-heavy profiles prove exact opcode diversity and boundary literal coverage.
-
 - [FUZ]1010 - GenValid SIMD Exact Opcode And Relaxed-SIMD Widening
   - Goal: extend SIMD generation from phase-level coverage to exact opcode and relaxed-SIMD coverage.
   - Why: the AST appears to represent relaxed SIMD, but current GenValid docs note relaxed SIMD is not emitted. Phase counters are too coarse to detect missing individual SIMD op families.

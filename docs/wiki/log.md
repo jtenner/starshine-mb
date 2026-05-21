@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-21] fuzzing | FUZ1009 scalar numeric closeout
+
+- Completed [`[FUZ]1009`](../../agent-todo.md) by making coverage-forced GenValid emit and exact-count the remaining scalar numeric matrix: float unary/binary opcodes beyond add, safe regular conversions, sign-extension opcodes, plus the already-covered integer arithmetic/bitwise/shift/rotate, comparisons, saturating conversions, and reinterpret forms.
+- Added power-of-two integer literal evidence and small nontrivial scalar expression-tree shapes, and updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so `[FZG]002` now describes the completed scalar numeric valid-generator surface.
+
 ## [2026-05-21] fuzzing | FUZ1007 nonzero scalar/table resources
 
 - Continued [`[FUZ]1007`](../../agent-todo.md) by widening the shared GenValid memory and table preludes again: `memory-heavy` fixed-seed coverage now emits scalar load/store `MemArg`s with explicit nonzero memory indices, and `topology-heavy` fixed-seed coverage now emits nonzero-index `table.size`, `table.set`, `table.get`, and `table.grow` in addition to the earlier nonzero bulk coverage.

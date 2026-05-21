@@ -2041,11 +2041,13 @@ priv struct GenValidTestNumericBoundaryLiterals {
   mut has_i32_neg_one : Bool
   mut has_i32_min : Bool
   mut has_i32_max : Bool
+  mut has_i32_power_two : Bool
   mut has_i64_zero : Bool
   mut has_i64_one : Bool
   mut has_i64_neg_one : Bool
   mut has_i64_min : Bool
   mut has_i64_max : Bool
+  mut has_i64_power_two : Bool
   mut has_f32_neg_zero : Bool
   mut has_f32_pos_inf : Bool
   mut has_f32_neg_inf : Bool
@@ -2064,11 +2066,13 @@ fn gen_valid_test_numeric_boundary_literals_empty() -> GenValidTestNumericBounda
     has_i32_neg_one: false,
     has_i32_min: false,
     has_i32_max: false,
+    has_i32_power_two: false,
     has_i64_zero: false,
     has_i64_one: false,
     has_i64_neg_one: false,
     has_i64_min: false,
     has_i64_max: false,
+    has_i64_power_two: false,
     has_f32_neg_zero: false,
     has_f32_pos_inf: false,
     has_f32_neg_inf: false,
@@ -2097,6 +2101,8 @@ fn gen_valid_test_note_numeric_boundary_literal(
         facts.has_i32_min = true
       } else if value == 2147483647 {
         facts.has_i32_max = true
+      } else if value == 1024 {
+        facts.has_i32_power_two = true
       }
     I64Const(I64(value)) =>
       if value == 0L {
@@ -2109,6 +2115,8 @@ fn gen_valid_test_note_numeric_boundary_literal(
         facts.has_i64_min = true
       } else if value == 9223372036854775807L {
         facts.has_i64_max = true
+      } else if value == 1099511627776L {
+        facts.has_i64_power_two = true
       }
     F32Const(F32(value)) => {
       let bits = value.reinterpret_as_uint()
@@ -2175,6 +2183,64 @@ fn gen_valid_test_module_numeric_boundary_literals(
     None => ()
   }
   facts
+}
+
+///|
+fn gen_valid_test_instrs_have_numeric_expression_tree(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut i = 0
+  while i + 5 < instrs.length() {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+      ) {
+      (I32Const(_), I32Const(_), I32Add, I32Const(_), I32Mul, Drop) =>
+        return true
+      (F64Const(_), F64Const(_), F64Div, F64Const(_), F64Sub, Drop) =>
+        return true
+      _ => ()
+    }
+    match instrs[i] {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_numeric_expression_tree(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_numeric_expression_tree(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_numeric_expression_tree(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+    i += 1
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_numeric_expression_tree(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_instrs_have_numeric_expression_tree(instrs) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
 }
 
 ///|
@@ -2362,6 +2428,172 @@ test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret c
     counts.i64_rotr > 0,
     msg="numeric coverage should include i64.rotr",
   )
+  assert_true(counts.f32_abs > 0, msg="numeric coverage should include f32.abs")
+  assert_true(counts.f32_neg > 0, msg="numeric coverage should include f32.neg")
+  assert_true(
+    counts.f32_ceil > 0,
+    msg="numeric coverage should include f32.ceil",
+  )
+  assert_true(
+    counts.f32_floor > 0,
+    msg="numeric coverage should include f32.floor",
+  )
+  assert_true(
+    counts.f32_trunc > 0,
+    msg="numeric coverage should include f32.trunc",
+  )
+  assert_true(
+    counts.f32_nearest > 0,
+    msg="numeric coverage should include f32.nearest",
+  )
+  assert_true(
+    counts.f32_sqrt > 0,
+    msg="numeric coverage should include f32.sqrt",
+  )
+  assert_true(counts.f32_sub > 0, msg="numeric coverage should include f32.sub")
+  assert_true(counts.f32_mul > 0, msg="numeric coverage should include f32.mul")
+  assert_true(counts.f32_div > 0, msg="numeric coverage should include f32.div")
+  assert_true(counts.f32_min > 0, msg="numeric coverage should include f32.min")
+  assert_true(counts.f32_max > 0, msg="numeric coverage should include f32.max")
+  assert_true(
+    counts.f32_copysign > 0,
+    msg="numeric coverage should include f32.copysign",
+  )
+  assert_true(counts.f64_abs > 0, msg="numeric coverage should include f64.abs")
+  assert_true(counts.f64_neg > 0, msg="numeric coverage should include f64.neg")
+  assert_true(
+    counts.f64_ceil > 0,
+    msg="numeric coverage should include f64.ceil",
+  )
+  assert_true(
+    counts.f64_floor > 0,
+    msg="numeric coverage should include f64.floor",
+  )
+  assert_true(
+    counts.f64_trunc > 0,
+    msg="numeric coverage should include f64.trunc",
+  )
+  assert_true(
+    counts.f64_nearest > 0,
+    msg="numeric coverage should include f64.nearest",
+  )
+  assert_true(
+    counts.f64_sqrt > 0,
+    msg="numeric coverage should include f64.sqrt",
+  )
+  assert_true(counts.f64_sub > 0, msg="numeric coverage should include f64.sub")
+  assert_true(counts.f64_mul > 0, msg="numeric coverage should include f64.mul")
+  assert_true(counts.f64_div > 0, msg="numeric coverage should include f64.div")
+  assert_true(counts.f64_min > 0, msg="numeric coverage should include f64.min")
+  assert_true(counts.f64_max > 0, msg="numeric coverage should include f64.max")
+  assert_true(
+    counts.f64_copysign > 0,
+    msg="numeric coverage should include f64.copysign",
+  )
+  assert_true(
+    counts.i32_wrap_i64 > 0,
+    msg="numeric coverage should include i32.wrap_i64",
+  )
+  assert_true(
+    counts.i32_trunc_f32s > 0,
+    msg="numeric coverage should include i32.trunc_f32_s",
+  )
+  assert_true(
+    counts.i32_trunc_f32u > 0,
+    msg="numeric coverage should include i32.trunc_f32_u",
+  )
+  assert_true(
+    counts.i32_trunc_f64s > 0,
+    msg="numeric coverage should include i32.trunc_f64_s",
+  )
+  assert_true(
+    counts.i32_trunc_f64u > 0,
+    msg="numeric coverage should include i32.trunc_f64_u",
+  )
+  assert_true(
+    counts.i64_extend_i32s > 0,
+    msg="numeric coverage should include i64.extend_i32_s",
+  )
+  assert_true(
+    counts.i64_extend_i32u > 0,
+    msg="numeric coverage should include i64.extend_i32_u",
+  )
+  assert_true(
+    counts.i64_trunc_f32s > 0,
+    msg="numeric coverage should include i64.trunc_f32_s",
+  )
+  assert_true(
+    counts.i64_trunc_f32u > 0,
+    msg="numeric coverage should include i64.trunc_f32_u",
+  )
+  assert_true(
+    counts.i64_trunc_f64s > 0,
+    msg="numeric coverage should include i64.trunc_f64_s",
+  )
+  assert_true(
+    counts.i64_trunc_f64u > 0,
+    msg="numeric coverage should include i64.trunc_f64_u",
+  )
+  assert_true(
+    counts.f32_convert_i32s > 0,
+    msg="numeric coverage should include f32.convert_i32_s",
+  )
+  assert_true(
+    counts.f32_convert_i32u > 0,
+    msg="numeric coverage should include f32.convert_i32_u",
+  )
+  assert_true(
+    counts.f32_convert_i64s > 0,
+    msg="numeric coverage should include f32.convert_i64_s",
+  )
+  assert_true(
+    counts.f32_convert_i64u > 0,
+    msg="numeric coverage should include f32.convert_i64_u",
+  )
+  assert_true(
+    counts.f32_demote_f64 > 0,
+    msg="numeric coverage should include f32.demote_f64",
+  )
+  assert_true(
+    counts.f64_convert_i32s > 0,
+    msg="numeric coverage should include f64.convert_i32_s",
+  )
+  assert_true(
+    counts.f64_convert_i32u > 0,
+    msg="numeric coverage should include f64.convert_i32_u",
+  )
+  assert_true(
+    counts.f64_convert_i64s > 0,
+    msg="numeric coverage should include f64.convert_i64_s",
+  )
+  assert_true(
+    counts.f64_convert_i64u > 0,
+    msg="numeric coverage should include f64.convert_i64_u",
+  )
+  assert_true(
+    counts.f64_promote_f32 > 0,
+    msg="numeric coverage should include f64.promote_f32",
+  )
+  assert_true(
+    counts.i32_extend8s > 0,
+    msg="numeric coverage should include i32.extend8_s",
+  )
+  assert_true(
+    counts.i32_extend16s > 0,
+    msg="numeric coverage should include i32.extend16_s",
+  )
+  assert_true(
+    counts.i64_extend8s > 0,
+    msg="numeric coverage should include i64.extend8_s",
+  )
+  assert_true(
+    counts.i64_extend16s > 0,
+    msg="numeric coverage should include i64.extend16_s",
+  )
+  assert_true(
+    counts.i64_extend32s > 0,
+    msg="numeric coverage should include i64.extend32_s",
+  )
   assert_true(
     counts.i32_reinterpret_f32 > 0,
     msg="numeric coverage should include i32.reinterpret_f32",
@@ -2402,6 +2634,10 @@ test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret c
     msg="numeric coverage should include i32.const max",
   )
   assert_true(
+    literals.has_i32_power_two,
+    msg="numeric coverage should include i32.const power-of-two literal",
+  )
+  assert_true(
     literals.has_i64_zero,
     msg="numeric coverage should include i64.const 0",
   )
@@ -2420,6 +2656,10 @@ test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret c
   assert_true(
     literals.has_i64_max,
     msg="numeric coverage should include i64.const max",
+  )
+  assert_true(
+    literals.has_i64_power_two,
+    msg="numeric coverage should include i64.const power-of-two literal",
   )
   assert_true(
     literals.has_f32_neg_zero,
@@ -2452,6 +2692,10 @@ test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret c
   assert_true(
     literals.has_f64_nan_payload,
     msg="numeric coverage should include f64.const NaN payload",
+  )
+  assert_true(
+    gen_valid_test_module_has_numeric_expression_tree(generated.wasm_module),
+    msg="numeric coverage should include nontrivial scalar expression trees, not only isolated drops",
   )
 }
 
