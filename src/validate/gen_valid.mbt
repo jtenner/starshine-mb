@@ -1087,9 +1087,37 @@ pub struct GenValidExactOpcodeCounts {
   i32_eqz : Int
   i64_eqz : Int
   i32_eq : Int
+  i32_ne : Int
+  i32_lt_s : Int
+  i32_lt_u : Int
+  i32_gt_s : Int
+  i32_gt_u : Int
+  i32_le_s : Int
+  i32_le_u : Int
+  i32_ge_s : Int
+  i32_ge_u : Int
   i64_eq : Int
+  i64_ne : Int
+  i64_lt_s : Int
+  i64_lt_u : Int
+  i64_gt_s : Int
+  i64_gt_u : Int
+  i64_le_s : Int
+  i64_le_u : Int
+  i64_ge_s : Int
+  i64_ge_u : Int
   f32_eq : Int
+  f32_ne : Int
+  f32_lt : Int
+  f32_gt : Int
+  f32_le : Int
+  f32_ge : Int
   f64_eq : Int
+  f64_ne : Int
+  f64_lt : Int
+  f64_gt : Int
+  f64_le : Int
+  f64_ge : Int
   i32_clz : Int
   i32_ctz : Int
   i32_popcnt : Int
@@ -1202,9 +1230,37 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i32_eqz: 0,
     i64_eqz: 0,
     i32_eq: 0,
+    i32_ne: 0,
+    i32_lt_s: 0,
+    i32_lt_u: 0,
+    i32_gt_s: 0,
+    i32_gt_u: 0,
+    i32_le_s: 0,
+    i32_le_u: 0,
+    i32_ge_s: 0,
+    i32_ge_u: 0,
     i64_eq: 0,
+    i64_ne: 0,
+    i64_lt_s: 0,
+    i64_lt_u: 0,
+    i64_gt_s: 0,
+    i64_gt_u: 0,
+    i64_le_s: 0,
+    i64_le_u: 0,
+    i64_ge_s: 0,
+    i64_ge_u: 0,
     f32_eq: 0,
+    f32_ne: 0,
+    f32_lt: 0,
+    f32_gt: 0,
+    f32_le: 0,
+    f32_ge: 0,
     f64_eq: 0,
+    f64_ne: 0,
+    f64_lt: 0,
+    f64_gt: 0,
+    f64_le: 0,
+    f64_ge: 0,
     i32_clz: 0,
     i32_ctz: 0,
     i32_popcnt: 0,
@@ -1278,9 +1334,37 @@ pub fn GenValidExactOpcodeCounts::add(
     i32_eqz: self.i32_eqz + other.i32_eqz,
     i64_eqz: self.i64_eqz + other.i64_eqz,
     i32_eq: self.i32_eq + other.i32_eq,
+    i32_ne: self.i32_ne + other.i32_ne,
+    i32_lt_s: self.i32_lt_s + other.i32_lt_s,
+    i32_lt_u: self.i32_lt_u + other.i32_lt_u,
+    i32_gt_s: self.i32_gt_s + other.i32_gt_s,
+    i32_gt_u: self.i32_gt_u + other.i32_gt_u,
+    i32_le_s: self.i32_le_s + other.i32_le_s,
+    i32_le_u: self.i32_le_u + other.i32_le_u,
+    i32_ge_s: self.i32_ge_s + other.i32_ge_s,
+    i32_ge_u: self.i32_ge_u + other.i32_ge_u,
     i64_eq: self.i64_eq + other.i64_eq,
+    i64_ne: self.i64_ne + other.i64_ne,
+    i64_lt_s: self.i64_lt_s + other.i64_lt_s,
+    i64_lt_u: self.i64_lt_u + other.i64_lt_u,
+    i64_gt_s: self.i64_gt_s + other.i64_gt_s,
+    i64_gt_u: self.i64_gt_u + other.i64_gt_u,
+    i64_le_s: self.i64_le_s + other.i64_le_s,
+    i64_le_u: self.i64_le_u + other.i64_le_u,
+    i64_ge_s: self.i64_ge_s + other.i64_ge_s,
+    i64_ge_u: self.i64_ge_u + other.i64_ge_u,
     f32_eq: self.f32_eq + other.f32_eq,
+    f32_ne: self.f32_ne + other.f32_ne,
+    f32_lt: self.f32_lt + other.f32_lt,
+    f32_gt: self.f32_gt + other.f32_gt,
+    f32_le: self.f32_le + other.f32_le,
+    f32_ge: self.f32_ge + other.f32_ge,
     f64_eq: self.f64_eq + other.f64_eq,
+    f64_ne: self.f64_ne + other.f64_ne,
+    f64_lt: self.f64_lt + other.f64_lt,
+    f64_gt: self.f64_gt + other.f64_gt,
+    f64_le: self.f64_le + other.f64_le,
+    f64_ge: self.f64_ge + other.f64_ge,
     i32_clz: self.i32_clz + other.i32_clz,
     i32_ctz: self.i32_ctz + other.i32_ctz,
     i32_popcnt: self.i32_popcnt + other.i32_popcnt,
@@ -8013,9 +8097,37 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I32Eqz => GenValidExactOpcodeCounts::{ ..zero, i32_eqz: 1 }
     I64Eqz => GenValidExactOpcodeCounts::{ ..zero, i64_eqz: 1 }
     I32Eq => GenValidExactOpcodeCounts::{ ..zero, i32_eq: 1 }
+    I32Ne => GenValidExactOpcodeCounts::{ ..zero, i32_ne: 1 }
+    I32LtS => GenValidExactOpcodeCounts::{ ..zero, i32_lt_s: 1 }
+    I32LtU => GenValidExactOpcodeCounts::{ ..zero, i32_lt_u: 1 }
+    I32GtS => GenValidExactOpcodeCounts::{ ..zero, i32_gt_s: 1 }
+    I32GtU => GenValidExactOpcodeCounts::{ ..zero, i32_gt_u: 1 }
+    I32LeS => GenValidExactOpcodeCounts::{ ..zero, i32_le_s: 1 }
+    I32LeU => GenValidExactOpcodeCounts::{ ..zero, i32_le_u: 1 }
+    I32GeS => GenValidExactOpcodeCounts::{ ..zero, i32_ge_s: 1 }
+    I32GeU => GenValidExactOpcodeCounts::{ ..zero, i32_ge_u: 1 }
     I64Eq => GenValidExactOpcodeCounts::{ ..zero, i64_eq: 1 }
+    I64Ne => GenValidExactOpcodeCounts::{ ..zero, i64_ne: 1 }
+    I64LtS => GenValidExactOpcodeCounts::{ ..zero, i64_lt_s: 1 }
+    I64LtU => GenValidExactOpcodeCounts::{ ..zero, i64_lt_u: 1 }
+    I64GtS => GenValidExactOpcodeCounts::{ ..zero, i64_gt_s: 1 }
+    I64GtU => GenValidExactOpcodeCounts::{ ..zero, i64_gt_u: 1 }
+    I64LeS => GenValidExactOpcodeCounts::{ ..zero, i64_le_s: 1 }
+    I64LeU => GenValidExactOpcodeCounts::{ ..zero, i64_le_u: 1 }
+    I64GeS => GenValidExactOpcodeCounts::{ ..zero, i64_ge_s: 1 }
+    I64GeU => GenValidExactOpcodeCounts::{ ..zero, i64_ge_u: 1 }
     F32Eq => GenValidExactOpcodeCounts::{ ..zero, f32_eq: 1 }
+    F32Ne => GenValidExactOpcodeCounts::{ ..zero, f32_ne: 1 }
+    F32Lt => GenValidExactOpcodeCounts::{ ..zero, f32_lt: 1 }
+    F32Gt => GenValidExactOpcodeCounts::{ ..zero, f32_gt: 1 }
+    F32Le => GenValidExactOpcodeCounts::{ ..zero, f32_le: 1 }
+    F32Ge => GenValidExactOpcodeCounts::{ ..zero, f32_ge: 1 }
     F64Eq => GenValidExactOpcodeCounts::{ ..zero, f64_eq: 1 }
+    F64Ne => GenValidExactOpcodeCounts::{ ..zero, f64_ne: 1 }
+    F64Lt => GenValidExactOpcodeCounts::{ ..zero, f64_lt: 1 }
+    F64Gt => GenValidExactOpcodeCounts::{ ..zero, f64_gt: 1 }
+    F64Le => GenValidExactOpcodeCounts::{ ..zero, f64_le: 1 }
+    F64Ge => GenValidExactOpcodeCounts::{ ..zero, f64_ge: 1 }
     I32Clz => GenValidExactOpcodeCounts::{ ..zero, i32_clz: 1 }
     I32Ctz => GenValidExactOpcodeCounts::{ ..zero, i32_ctz: 1 }
     I32Popcnt => GenValidExactOpcodeCounts::{ ..zero, i32_popcnt: 1 }

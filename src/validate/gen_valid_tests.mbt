@@ -2198,6 +2198,82 @@ test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret c
   assert_true(counts.i64_add > 0, msg="numeric coverage should include i64.add")
   assert_true(counts.f32_add > 0, msg="numeric coverage should include f32.add")
   assert_true(counts.f64_add > 0, msg="numeric coverage should include f64.add")
+  assert_true(counts.i32_ne > 0, msg="numeric coverage should include i32.ne")
+  assert_true(
+    counts.i32_lt_s > 0,
+    msg="numeric coverage should include i32.lt_s",
+  )
+  assert_true(
+    counts.i32_lt_u > 0,
+    msg="numeric coverage should include i32.lt_u",
+  )
+  assert_true(
+    counts.i32_gt_s > 0,
+    msg="numeric coverage should include i32.gt_s",
+  )
+  assert_true(
+    counts.i32_gt_u > 0,
+    msg="numeric coverage should include i32.gt_u",
+  )
+  assert_true(
+    counts.i32_le_s > 0,
+    msg="numeric coverage should include i32.le_s",
+  )
+  assert_true(
+    counts.i32_le_u > 0,
+    msg="numeric coverage should include i32.le_u",
+  )
+  assert_true(
+    counts.i32_ge_s > 0,
+    msg="numeric coverage should include i32.ge_s",
+  )
+  assert_true(
+    counts.i32_ge_u > 0,
+    msg="numeric coverage should include i32.ge_u",
+  )
+  assert_true(counts.i64_ne > 0, msg="numeric coverage should include i64.ne")
+  assert_true(
+    counts.i64_lt_s > 0,
+    msg="numeric coverage should include i64.lt_s",
+  )
+  assert_true(
+    counts.i64_lt_u > 0,
+    msg="numeric coverage should include i64.lt_u",
+  )
+  assert_true(
+    counts.i64_gt_s > 0,
+    msg="numeric coverage should include i64.gt_s",
+  )
+  assert_true(
+    counts.i64_gt_u > 0,
+    msg="numeric coverage should include i64.gt_u",
+  )
+  assert_true(
+    counts.i64_le_s > 0,
+    msg="numeric coverage should include i64.le_s",
+  )
+  assert_true(
+    counts.i64_le_u > 0,
+    msg="numeric coverage should include i64.le_u",
+  )
+  assert_true(
+    counts.i64_ge_s > 0,
+    msg="numeric coverage should include i64.ge_s",
+  )
+  assert_true(
+    counts.i64_ge_u > 0,
+    msg="numeric coverage should include i64.ge_u",
+  )
+  assert_true(counts.f32_ne > 0, msg="numeric coverage should include f32.ne")
+  assert_true(counts.f32_lt > 0, msg="numeric coverage should include f32.lt")
+  assert_true(counts.f32_gt > 0, msg="numeric coverage should include f32.gt")
+  assert_true(counts.f32_le > 0, msg="numeric coverage should include f32.le")
+  assert_true(counts.f32_ge > 0, msg="numeric coverage should include f32.ge")
+  assert_true(counts.f64_ne > 0, msg="numeric coverage should include f64.ne")
+  assert_true(counts.f64_lt > 0, msg="numeric coverage should include f64.lt")
+  assert_true(counts.f64_gt > 0, msg="numeric coverage should include f64.gt")
+  assert_true(counts.f64_le > 0, msg="numeric coverage should include f64.le")
+  assert_true(counts.f64_ge > 0, msg="numeric coverage should include f64.ge")
   assert_true(counts.i32_clz > 0, msg="numeric coverage should include i32.clz")
   assert_true(counts.i32_ctz > 0, msg="numeric coverage should include i32.ctz")
   assert_true(

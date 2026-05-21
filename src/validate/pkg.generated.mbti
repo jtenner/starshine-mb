@@ -304,9 +304,37 @@ pub struct GenValidExactOpcodeCounts {
   i32_eqz : Int
   i64_eqz : Int
   i32_eq : Int
+  i32_ne : Int
+  i32_lt_s : Int
+  i32_lt_u : Int
+  i32_gt_s : Int
+  i32_gt_u : Int
+  i32_le_s : Int
+  i32_le_u : Int
+  i32_ge_s : Int
+  i32_ge_u : Int
   i64_eq : Int
+  i64_ne : Int
+  i64_lt_s : Int
+  i64_lt_u : Int
+  i64_gt_s : Int
+  i64_gt_u : Int
+  i64_le_s : Int
+  i64_le_u : Int
+  i64_ge_s : Int
+  i64_ge_u : Int
   f32_eq : Int
+  f32_ne : Int
+  f32_lt : Int
+  f32_gt : Int
+  f32_le : Int
+  f32_ge : Int
   f64_eq : Int
+  f64_ne : Int
+  f64_lt : Int
+  f64_gt : Int
+  f64_le : Int
+  f64_ge : Int
   i32_clz : Int
   i32_ctz : Int
   i32_popcnt : Int
