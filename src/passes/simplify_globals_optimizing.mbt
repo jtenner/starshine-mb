@@ -665,6 +665,14 @@ fn sgo_flow_clear_stack(stack : Array[Bool]) -> Unit {
 }
 
 ///|
+fn sgo_is_flowscanner_nullary_pure_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.MemorySize(_) | @lib.TableSize(_) => true
+    _ => false
+  }
+}
+
+///|
 fn sgo_flow_apply_select(stack : Array[Bool]) -> Bool {
   match (sgo_flow_pop(stack), sgo_flow_pop(stack), sgo_flow_pop(stack)) {
     (Some(condition), Some(second), Some(first)) => {
@@ -824,7 +832,8 @@ fn sgo_flow_scan_prefix_until(
   let mut reads = 0
   for scan = 0; scan < end_; scan = scan + 1 {
     let instr = instrs[scan]
-    if sgo_const_instr(instr) != None {
+    if sgo_const_instr(instr) != None ||
+      sgo_is_flowscanner_nullary_pure_instr(instr) {
       sgo_flow_push_clean(stack)
       continue
     }
@@ -905,7 +914,8 @@ fn sgo_flow_scan_clean_prefix_until(
   let stack : Array[Bool] = []
   for scan = 0; scan < end_; scan = scan + 1 {
     let instr = instrs[scan]
-    if sgo_const_instr(instr) != None {
+    if sgo_const_instr(instr) != None ||
+      sgo_is_flowscanner_nullary_pure_instr(instr) {
       sgo_flow_push_clean(stack)
       continue
     }
@@ -970,7 +980,8 @@ fn sgo_flow_arm_result_taint_and_reads(
   let mut reads = 0
   for scan = 0; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
-    if sgo_const_instr(instr) != None {
+    if sgo_const_instr(instr) != None ||
+      sgo_is_flowscanner_nullary_pure_instr(instr) {
       sgo_flow_push_clean(stack)
       continue
     }
@@ -1101,7 +1112,8 @@ fn sgo_nested_if_arm_flow_outer_if_index(
   sgo_flow_push_tainted(stack)
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
-    if sgo_const_instr(instr) != None {
+    if sgo_const_instr(instr) != None ||
+      sgo_is_flowscanner_nullary_pure_instr(instr) {
       sgo_flow_push_clean(stack)
       continue
     }
@@ -1175,7 +1187,8 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
   let mut reads = 0
   for scan = 0; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
-    if sgo_const_instr(instr) != None {
+    if sgo_const_instr(instr) != None ||
+      sgo_is_flowscanner_nullary_pure_instr(instr) {
       sgo_flow_push_clean(stack)
       continue
     }
@@ -1378,7 +1391,8 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
         _ => return false
       }
     }
-    if sgo_const_instr(instr) != None {
+    if sgo_const_instr(instr) != None ||
+      sgo_is_flowscanner_nullary_pure_instr(instr) {
       sgo_flow_push_clean(stack)
       continue
     }

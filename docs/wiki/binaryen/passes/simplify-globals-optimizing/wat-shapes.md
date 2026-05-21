@@ -321,6 +321,8 @@ The reference-typed post-consumer slices admit the same nested-if arm flow when 
 
 The numeric post-consumer follow-up applies the same rule to nontrapping numeric conversions and float arithmetic: int-to-float conversions, `f32.demote_f64`, `f64.promote_f32`, saturating float-to-int truncations, and `f32.div` / `f64.div` may sit between the nested-if arm result and the final branch condition. Starshine still preserves regular float-to-int truncations such as `i32.trunc_f32_s`, because they can trap before the final branch and therefore cannot be treated as removable condition-only flow.
 
+The size-query follow-up treats `memory.size` and `table.size` as clean nullary values in the same stack/value-flow scanner, so a direct self-guard or nested-if arm result may combine the candidate read with those size queries before the final branch. The paired guardrails keep `memory.grow` and `table.grow` conservative when the global-derived value determines the size-changing side effect.
+
 ### No-op const/drop condition-prefix variation
 
 A block-wrapped condition can also contain side-effect-free constant/drop pairs before the yielded self-guard read:
