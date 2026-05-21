@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-05-21
 sources:
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -50,6 +50,7 @@ bun fuzz compare-pass \
   --pass <canonical-pass>|--<pass-flag> [--pass ...] \
   --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
   [--generator both|wasm-smith|gen-valid] \
+  [--gen-valid-profile <profile>] \
   [--min-compared <n>] \
   [--max-failures 20] \
   [--keep-going-after-command-failures] \
@@ -75,7 +76,9 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --case-index <n
 | --- | --- | --- | --- |
 | `both` | Alternates `wasm-smith` and Starshine `gen-valid` inputs. | Default broad signoff, especially for mature implemented passes. | Some cases may be tool/oracle failures rather than pass mismatches; classify them instead of hiding them. |
 | `wasm-smith` | Calls `wasm-tools smith -o <input>` with deterministic seed bytes. | External generator diversity and Binaryen parser/tool gap discovery. | Still validate every generated input; generator/tool failures are not Starshine semantic mismatches. |
-| `gen-valid` | Calls `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ... --manifest <out>/inputs/gen-valid/manifest.json`. | Starshine coverage-forced portable modules and focused regression lanes after FZG widening. | Uses the batch emitter's Binaryen-oracle-friendly config, not the ordinary natural `validate-valid` fuzz profile. |
+| `gen-valid` | Calls `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ... --manifest <out>/inputs/gen-valid/manifest.json`. | Starshine coverage-forced portable modules and focused regression lanes after FZG widening. | Uses the batch emitter's Binaryen-oracle-friendly config by default, not the ordinary natural `validate-valid` fuzz profile. |
+
+`--gen-valid-profile <profile>` forwards a named GenValid profile to that batch command and records the requested profile in `result.json` as `genValidProfile`. Omit it for the default Binaryen-oracle portable batch config; use it when a fuzzer slice needs a specific named profile such as `binaryen-oracle-portable`, `simd-heavy`, or `relaxed-simd`. Non-portable profiles may still be blocked by external tool support even when Starshine's own batch validator accepts them.
 
 The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) and [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt) even though compare-pass is not itself a MoonBit fuzz suite. Runs that generate Starshine inputs now keep `inputs/gen-valid/manifest.json` beside the saved `.wasm` files; this file records the requested profile, filters, aggregate feature stats, and per-input feature facts for replay triage.
 
@@ -83,9 +86,9 @@ The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../
 
 For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compare-task.ts) follows this validation and normalization ladder:
 
-1. **Input validation:** `wasm-tools validate input.wasm` must pass before the case can compare.
+1. **Input validation:** `wasm-tools validate --features all input.wasm` must pass before the case can compare.
 2. **Starshine run:** Starshine receives the requested pass flags and `--out <starshine.raw.wasm> <input.wasm>`.
-3. **Starshine output validation:** `wasm-tools validate starshine.raw.wasm` must pass. A failure here is a Starshine validation failure, not a Binaryen semantic mismatch.
+3. **Starshine output validation:** `wasm-tools validate --features all starshine.raw.wasm` must pass. A failure here is a Starshine validation failure, not a Binaryen semantic mismatch.
 4. **Binaryen oracle run:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output.
 5. **Canonicalization:** both raw outputs are passed through `wasm-opt --all-features --strip-debug -o <canonical.wasm>`.
 6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>`.
@@ -114,7 +117,7 @@ Use `--list-passes` before starting a long lane; it is the script-owned list, no
 
 Every run writes:
 
-- `result.json` - aggregate counts, pass flags, Binaryen flags, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
+- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, requested GenValid profile, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
 - `cases.jsonl` - one case record per attempted case, sorted by case index after the run.
 - `inputs/` - saved generator inputs for generated lanes.
 - `failures/case-<index>-<generator>/` - copied per-case workdir files for generator failures, validation failures, command failures, and normalized mismatches.

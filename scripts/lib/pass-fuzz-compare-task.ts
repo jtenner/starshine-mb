@@ -39,6 +39,7 @@ type PassFuzzCompareOptions = {
   wasmOptBin: string;
   wasmToolsBin: string;
   generator: GeneratorMode;
+  genValidProfile: string | null;
   maxFailures: number;
   keepGoingAfterCommandFailures: boolean;
   jobs: number;
@@ -91,6 +92,7 @@ type PassFuzzCompareSummary = {
   jobs: number;
   seed: string;
   generator: GeneratorMode;
+  genValidProfile: string | null;
   generatorCounts: {
     wasmSmith: number;
     genValid: number;
@@ -111,6 +113,7 @@ const RESERVED_OPTIONS = new Set([
   "--wasm-opt-bin",
   "--wasm-tools-bin",
   "--generator",
+  "--gen-valid-profile",
   "--max-failures",
   "--keep-going-after-command-failures",
   "--normalize",
@@ -181,6 +184,8 @@ const HELP_TEXT = [
   "  --min-compared <n>    Require at least this many successful comparisons",
   "  --out-dir <dir>       Output directory for artifacts and failures",
   "  --generator <mode>    both | wasm-smith | gen-valid. Default: both",
+  "  --gen-valid-profile <name>",
+  "                       Forward a named GenValid profile to batch generation",
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
@@ -417,7 +422,7 @@ async function runValidateAsync(
   wasmPath: string,
   repoRoot: string,
 ): Promise<{ ok: boolean; stderr: string }> {
-  const result = await runProcess(wasmToolsBin, ["validate", wasmPath], {
+  const result = await runProcess(wasmToolsBin, ["validate", "--features", "all", wasmPath], {
     cwd: repoRoot,
     env: makeRepoTmpEnv(repoRoot),
   });
@@ -1006,6 +1011,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let wasmOptBin = process.env.WASM_OPT_BIN || "wasm-opt";
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
   let generator: GeneratorMode = "both";
+  let genValidProfile: string | null = null;
   let maxFailures = 20;
   let keepGoingAfterCommandFailures = false;
   let jobs = 1;
@@ -1076,6 +1082,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         i += 2;
         break;
       }
+      case "--gen-valid-profile":
+        genValidProfile = argv[i + 1] ?? fail("missing value for --gen-valid-profile");
+        i += 2;
+        break;
       case "--max-failures":
         maxFailures = parseNonNegativeInt(
           "max-failures",
@@ -1117,6 +1127,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         i += 2;
         break;
       default:
+        if (token.startsWith("--gen-valid-profile=")) {
+          genValidProfile = token.substring("--gen-valid-profile=".length);
+          i += 1;
+          break;
+        }
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
         }
@@ -1160,6 +1175,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       wasmOptBin,
       wasmToolsBin,
       generator,
+      genValidProfile,
       maxFailures,
       keepGoingAfterCommandFailures,
       jobs,
@@ -1239,6 +1255,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         String(genValidCount),
         "--seed",
         seedHex(options.seed),
+        ...(options.genValidProfile === null ? [] : ["--gen-valid-profile", options.genValidProfile]),
         "--out-dir",
         genValidMoonDir,
         "--manifest",
@@ -1266,6 +1283,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     jobs: effectiveJobs,
     seed: seedHex(options.seed),
     generator: options.generator,
+    genValidProfile: options.genValidProfile,
     generatorCounts: {
       wasmSmith: 0,
       genValid: 0,

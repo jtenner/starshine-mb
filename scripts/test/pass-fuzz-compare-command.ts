@@ -130,6 +130,8 @@ process.exit(0);
       fakeWasmTools,
       "--jobs",
       "2",
+      "--gen-valid-profile",
+      "relaxed-simd",
       "--remove-unused-brs",
     ],
     {
@@ -158,6 +160,10 @@ process.exit(0);
     moonLogs[0].includes("--emit-gen-valid-batch"),
     `expected gen-valid batch invocation, got ${JSON.stringify(moonLogs[0], null, 2)}`,
   );
+  assert(
+    JSON.stringify(moonLogs[0]).includes('"--gen-valid-profile","relaxed-simd"'),
+    `expected gen-valid profile forwarding, got ${JSON.stringify(moonLogs[0], null, 2)}`,
+  );
 
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
     requestedCount: number;
@@ -166,6 +172,7 @@ process.exit(0);
     validationFailureCount: number;
     jobs: number;
     generatorCounts: { wasmSmith: number; genValid: number };
+    genValidProfile: string | null;
     passFlags: string[];
     binaryenPassFlags: string[];
   };
@@ -176,6 +183,7 @@ process.exit(0);
   assert(summary.jobs === 2, `expected 2 parallel jobs, got ${summary.jobs}`);
   assert(summary.generatorCounts.wasmSmith === 2, `unexpected wasm-smith count ${summary.generatorCounts.wasmSmith}`);
   assert(summary.generatorCounts.genValid === 2, `unexpected gen-valid count ${summary.generatorCounts.genValid}`);
+  assert(summary.genValidProfile === "relaxed-simd", `unexpected gen-valid profile ${summary.genValidProfile}`);
   assert(
     JSON.stringify(summary.passFlags) === JSON.stringify(["--remove-unused-brs"]),
     `unexpected pass flags ${JSON.stringify(summary.passFlags)}`,
@@ -193,6 +201,10 @@ process.exit(0);
   const validateCalls = wasmToolsLogs.filter((args) => args[0] === "validate");
   assert(smithCalls.length === 2, `expected 2 wasm-smith generations, got ${smithCalls.length}`);
   assert(validateCalls.length === 8, `expected baseline and Starshine validation for 4 cases, got ${validateCalls.length}`);
+  assert(
+    validateCalls.every((args) => JSON.stringify(args.slice(0, 3)) === JSON.stringify(["validate", "--features", "all"])),
+    `expected wasm-tools validation to enable all features, got ${JSON.stringify(validateCalls, null, 2)}`,
+  );
 }
 
 export function runPassFuzzCompareDropConstsNormalizerCommandTest(): void {
