@@ -758,7 +758,14 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I32x4Neg
     | @lib.I32x4AllTrue
     | @lib.I32x4Bitmask
+    | @lib.I8x16ExtractLaneS(_)
+    | @lib.I8x16ExtractLaneU(_)
+    | @lib.I16x8ExtractLaneS(_)
+    | @lib.I16x8ExtractLaneU(_)
     | @lib.I32x4ExtractLane(_)
+    | @lib.I64x2ExtractLane(_)
+    | @lib.F32x4ExtractLane(_)
+    | @lib.F64x2ExtractLane(_)
     | @lib.I64x2Neg
     | @lib.I64x2AllTrue
     | @lib.I64x2Bitmask
@@ -843,6 +850,24 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64Max
     | @lib.F64Copysign
     | @lib.F64Div
+    | @lib.I8x16ReplaceLane(_)
+    | @lib.I16x8ReplaceLane(_)
+    | @lib.I32x4ReplaceLane(_)
+    | @lib.I64x2ReplaceLane(_)
+    | @lib.F32x4ReplaceLane(_)
+    | @lib.F64x2ReplaceLane(_)
+    | @lib.I8x16Shl
+    | @lib.I8x16ShrS
+    | @lib.I8x16ShrU
+    | @lib.I16x8Shl
+    | @lib.I16x8ShrS
+    | @lib.I16x8ShrU
+    | @lib.I32x4Shl
+    | @lib.I32x4ShrS
+    | @lib.I32x4ShrU
+    | @lib.I64x2Shl
+    | @lib.I64x2ShrS
+    | @lib.I64x2ShrU
     | @lib.I8x16Add
     | @lib.I16x8Eq
     | @lib.I32x4Add

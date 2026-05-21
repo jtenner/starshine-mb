@@ -5020,6 +5020,386 @@ test "simplify-globals-optimizing removes clean if-wrapper simd binary guards" {
 }
 
 ///|
+test "simplify-globals-optimizing removes simd lane read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $i8 (mut i32) (i32.const 0))
+      #|  (global $i16 (mut i32) (i32.const 0))
+      #|  (global $i64 (mut i64) (i64.const 0))
+      #|  (global $f32 (mut f32) (f32.const 0))
+      #|  (global $f64 (mut f64) (f64.const 0))
+      #|  (func (export "i8")
+      #|    global.get $i8
+      #|    i8x16.splat
+      #|    i8x16.extract_lane_s 0
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i8
+      #|    end)
+      #|  (func (export "i16")
+      #|    global.get $i16
+      #|    i16x8.splat
+      #|    i16x8.extract_lane_u 1
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i16
+      #|    end)
+      #|  (func (export "i64")
+      #|    global.get $i64
+      #|    i64x2.splat
+      #|    i64x2.extract_lane 1
+      #|    i64.eqz
+      #|    if
+      #|      i64.const 1
+      #|      global.set $i64
+      #|    end)
+      #|  (func (export "f32")
+      #|    global.get $f32
+      #|    f32x4.splat
+      #|    f32x4.extract_lane 2
+      #|    f32.const 0
+      #|    f32.eq
+      #|    if
+      #|      f32.const 1
+      #|      global.set $f32
+      #|    end)
+      #|  (func (export "f64")
+      #|    global.get $f64
+      #|    f64x2.splat
+      #|    f64x2.extract_lane 1
+      #|    f64.const 0
+      #|    f64.eq
+      #|    if
+      #|      f64.const 1
+      #|      global.set $f64
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i64(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 3),
+    @lib.GlobalType::new(@lib.ValType::f32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 4),
+    @lib.GlobalType::new(@lib.ValType::f64(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U) +
+    optimized.pretty_print_defined_func(3U) +
+    optimized.pretty_print_defined_func(4U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes simd replace-lane read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $i8 (mut i32) (i32.const 0))
+      #|  (global $i32 (mut i32) (i32.const 0))
+      #|  (global $f32 (mut f32) (f32.const 0))
+      #|  (global $f64 (mut f64) (f64.const 0))
+      #|  (func (export "i8")
+      #|    v128.const i32x4 0 0 0 0
+      #|    global.get $i8
+      #|    i8x16.replace_lane 0
+      #|    i8x16.bitmask
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i8
+      #|    end)
+      #|  (func (export "i32")
+      #|    v128.const i32x4 0 0 0 0
+      #|    global.get $i32
+      #|    i32x4.replace_lane 2
+      #|    i32x4.bitmask
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i32
+      #|    end)
+      #|  (func (export "f32")
+      #|    v128.const f32x4 0 0 0 0
+      #|    global.get $f32
+      #|    f32x4.replace_lane 3
+      #|    v128.const f32x4 0 0 0 0
+      #|    f32x4.ne
+      #|    i32x4.all_true
+      #|    if
+      #|      f32.const 1
+      #|      global.set $f32
+      #|    end)
+      #|  (func (export "f64")
+      #|    v128.const f64x2 0 0
+      #|    global.get $f64
+      #|    f64x2.replace_lane 1
+      #|    v128.const f64x2 0 0
+      #|    f64x2.ne
+      #|    i64x2.all_true
+      #|    if
+      #|      f64.const 1
+      #|      global.set $f64
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::f32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 3),
+    @lib.GlobalType::new(@lib.ValType::f64(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U) +
+    optimized.pretty_print_defined_func(3U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes simd shift read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $i8 (mut i32) (i32.const 0))
+      #|  (global $i16 (mut i32) (i32.const 0))
+      #|  (global $i32 (mut i32) (i32.const 0))
+      #|  (global $i64 (mut i64) (i64.const 0))
+      #|  (func (export "i8")
+      #|    global.get $i8
+      #|    i8x16.splat
+      #|    i32.const 1
+      #|    i8x16.shl
+      #|    i8x16.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i8
+      #|    end)
+      #|  (func (export "i16")
+      #|    global.get $i16
+      #|    i16x8.splat
+      #|    i32.const 2
+      #|    i16x8.shr_s
+      #|    i16x8.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i16
+      #|    end)
+      #|  (func (export "i32")
+      #|    global.get $i32
+      #|    i32x4.splat
+      #|    i32.const 3
+      #|    i32x4.shr_u
+      #|    i32x4.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i32
+      #|    end)
+      #|  (func (export "i64")
+      #|    global.get $i64
+      #|    i64x2.splat
+      #|    i32.const 4
+      #|    i64x2.shl
+      #|    i64x2.bitmask
+      #|    if
+      #|      i64.const 1
+      #|      global.set $i64
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 3),
+    @lib.GlobalType::new(@lib.ValType::i64(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U) +
+    optimized.pretty_print_defined_func(3U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes block-wrapped simd shift if-return guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      global.get $guard
+      #|      i16x8.splat
+      #|      i32.const 2
+      #|      i16x8.shr_u
+      #|      i16x8.bitmask
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $guard))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes clean if-wrapper simd replace-lane guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut f64) (f64.const 0))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      call $cond
+      #|      if (result i32)
+      #|        v128.const f64x2 0 0
+      #|        global.get $guard
+      #|        f64x2.replace_lane 1
+      #|        v128.const f64x2 0 0
+      #|        f64x2.ne
+      #|        i64x2.all_true
+      #|      else
+      #|        i32.const 0
+      #|      end
+      #|    end
+      #|    if
+      #|      f64.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::f64(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps simd lane shift and replace-lane flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $lane (mut i32) (i32.const 0))
+      #|  (global $shift (mut i32) (i32.const 0))
+      #|  (global $replace (mut i32) (i32.const 0))
+      #|  (func (export "lane")
+      #|    global.get $lane
+      #|    i8x16.splat
+      #|    i8x16.extract_lane_s 0
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $lane
+      #|    end)
+      #|  (func (export "shift")
+      #|    global.get $shift
+      #|    i16x8.splat
+      #|    i32.const 2
+      #|    i16x8.shr_u
+      #|    i16x8.bitmask
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $shift
+      #|    end)
+      #|  (func (export "replace")
+      #|    v128.const i32x4 0 0 0 0
+      #|    global.get $replace
+      #|    i8x16.replace_lane 0
+      #|    i8x16.bitmask
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $replace
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps simd binary value flow into post-consumer call" {
   let optimized = sgo_test_run(
     (
