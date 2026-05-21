@@ -8679,6 +8679,43 @@ fn dae_instr_is_integer_right_constant_identity(
 }
 
 ///|
+fn dae_instr_is_stack_neutral_value_leaf(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_)
+    | @lib.RefNull(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.MemorySize(_)
+    | @lib.TableSize(_) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_is_integer_left_constant_identity(
+  lhs : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> Bool {
+  match (lhs, instr) {
+    (@lib.I32Const(@lib.I32(0)), @lib.I32Add)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32Or)
+    | (@lib.I32Const(@lib.I32(0)), @lib.I32Xor)
+    | (@lib.I32Const(@lib.I32(1)), @lib.I32Mul)
+    | (@lib.I32Const(@lib.I32(-1)), @lib.I32And)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Add)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Or)
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Xor)
+    | (@lib.I64Const(@lib.I64(1L)), @lib.I64Mul)
+    | (@lib.I64Const(@lib.I64(-1L)), @lib.I64And) => true
+    _ => false
+  }
+}
+
+///|
 fn dae_block_type_is_zero_param_single_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -9041,6 +9078,19 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       dae_instr_is_integer_right_constant_identity(instrs[idx], instrs[idx + 1]) {
       idx += 2
       continue
+    }
+    if out.length() > 0 && idx + 1 < instrs.length() {
+      let last_idx = out.length() - 1
+      if dae_instr_is_stack_neutral_value_leaf(instrs[idx]) &&
+        dae_instr_is_integer_left_constant_identity(
+          out[last_idx],
+          instrs[idx + 1],
+        ) {
+        ignore(out.pop())
+        out.push(instrs[idx])
+        idx += 2
+        continue
+      }
     }
     if allow_live_local_copy_cleanup && idx + 1 < instrs.length() {
       match (instrs[idx], instrs[idx + 1]) {
