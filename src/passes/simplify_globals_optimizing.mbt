@@ -850,6 +850,49 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64Max
     | @lib.F64Copysign
     | @lib.F64Div
+    | @lib.I8x16Eq
+    | @lib.I8x16Ne
+    | @lib.I8x16LtS
+    | @lib.I8x16LtU
+    | @lib.I8x16GtS
+    | @lib.I8x16GtU
+    | @lib.I8x16LeS
+    | @lib.I8x16LeU
+    | @lib.I8x16GeS
+    | @lib.I8x16GeU
+    | @lib.I16x8Ne
+    | @lib.I16x8LtS
+    | @lib.I16x8LtU
+    | @lib.I16x8GtS
+    | @lib.I16x8GtU
+    | @lib.I16x8LeS
+    | @lib.I16x8LeU
+    | @lib.I16x8GeS
+    | @lib.I16x8GeU
+    | @lib.I32x4Ne
+    | @lib.I32x4LtS
+    | @lib.I32x4LtU
+    | @lib.I32x4GtS
+    | @lib.I32x4GtU
+    | @lib.I32x4LeS
+    | @lib.I32x4LeU
+    | @lib.I32x4GeS
+    | @lib.I32x4GeU
+    | @lib.I64x2Ne
+    | @lib.I64x2LtS
+    | @lib.I64x2GtS
+    | @lib.I64x2LeS
+    | @lib.I64x2GeS
+    | @lib.F32x4Eq
+    | @lib.F32x4Lt
+    | @lib.F32x4Gt
+    | @lib.F32x4Le
+    | @lib.F32x4Ge
+    | @lib.F64x2Eq
+    | @lib.F64x2Lt
+    | @lib.F64x2Gt
+    | @lib.F64x2Le
+    | @lib.F64x2Ge
     | @lib.I8x16ReplaceLane(_)
     | @lib.I16x8ReplaceLane(_)
     | @lib.I32x4ReplaceLane(_)

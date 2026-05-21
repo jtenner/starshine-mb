@@ -5337,6 +5337,340 @@ test "simplify-globals-optimizing removes clean if-wrapper simd replace-lane gua
 }
 
 ///|
+test "simplify-globals-optimizing removes broader simd integer compare read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $i8_ne (mut i32) (i32.const 0))
+      #|  (global $i8_lt_u (mut i32) (i32.const 0))
+      #|  (global $i8_ge_s (mut i32) (i32.const 0))
+      #|  (global $i16_ne (mut i32) (i32.const 0))
+      #|  (global $i16_gt_u (mut i32) (i32.const 0))
+      #|  (global $i32_le_s (mut i32) (i32.const 0))
+      #|  (global $i32_ge_u (mut i32) (i32.const 0))
+      #|  (global $i64_ne (mut i64) (i64.const 0))
+      #|  (global $i64_lt_s (mut i64) (i64.const 0))
+      #|  (global $i64_ge_s (mut i64) (i64.const 0))
+      #|  (func (export "i8_ne")
+      #|    global.get $i8_ne
+      #|    i8x16.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i8x16.ne
+      #|    i8x16.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i8_ne
+      #|    end)
+      #|  (func (export "i8_lt_u")
+      #|    global.get $i8_lt_u
+      #|    i8x16.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i8x16.lt_u
+      #|    i8x16.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i8_lt_u
+      #|    end)
+      #|  (func (export "i8_ge_s")
+      #|    global.get $i8_ge_s
+      #|    i8x16.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i8x16.ge_s
+      #|    i8x16.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i8_ge_s
+      #|    end)
+      #|  (func (export "i16_ne")
+      #|    global.get $i16_ne
+      #|    i16x8.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i16x8.ne
+      #|    i16x8.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i16_ne
+      #|    end)
+      #|  (func (export "i16_gt_u")
+      #|    global.get $i16_gt_u
+      #|    i16x8.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i16x8.gt_u
+      #|    i16x8.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i16_gt_u
+      #|    end)
+      #|  (func (export "i32_le_s")
+      #|    global.get $i32_le_s
+      #|    i32x4.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i32x4.le_s
+      #|    i32x4.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i32_le_s
+      #|    end)
+      #|  (func (export "i32_ge_u")
+      #|    global.get $i32_ge_u
+      #|    i32x4.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i32x4.ge_u
+      #|    i32x4.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i32_ge_u
+      #|    end)
+      #|  (func (export "i64_ne")
+      #|    global.get $i64_ne
+      #|    i64x2.splat
+      #|    v128.const i64x2 0 0
+      #|    i64x2.ne
+      #|    i64x2.all_true
+      #|    if
+      #|      i64.const 1
+      #|      global.set $i64_ne
+      #|    end)
+      #|  (func (export "i64_lt_s")
+      #|    global.get $i64_lt_s
+      #|    i64x2.splat
+      #|    v128.const i64x2 0 0
+      #|    i64x2.lt_s
+      #|    i64x2.all_true
+      #|    if
+      #|      i64.const 1
+      #|      global.set $i64_lt_s
+      #|    end)
+      #|  (func (export "i64_ge_s")
+      #|    global.get $i64_ge_s
+      #|    i64x2.splat
+      #|    v128.const i64x2 0 0
+      #|    i64x2.ge_s
+      #|    i64x2.all_true
+      #|    if
+      #|      i64.const 1
+      #|      global.set $i64_ge_s
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 7; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+  }
+  for i = 7; i < 10; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i64(), false),
+    )
+  }
+  let pretty = optimized.to_string()
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes broader simd float compare read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $f32_eq (mut f32) (f32.const 0))
+      #|  (global $f32_lt (mut f32) (f32.const 0))
+      #|  (global $f32_ge (mut f32) (f32.const 0))
+      #|  (global $f64_eq (mut f64) (f64.const 0))
+      #|  (global $f64_gt (mut f64) (f64.const 0))
+      #|  (global $f64_le (mut f64) (f64.const 0))
+      #|  (func (export "f32_eq")
+      #|    global.get $f32_eq
+      #|    f32x4.splat
+      #|    v128.const f32x4 0 0 0 0
+      #|    f32x4.eq
+      #|    i32x4.all_true
+      #|    if
+      #|      f32.const 1
+      #|      global.set $f32_eq
+      #|    end)
+      #|  (func (export "f32_lt")
+      #|    global.get $f32_lt
+      #|    f32x4.splat
+      #|    v128.const f32x4 0 0 0 0
+      #|    f32x4.lt
+      #|    i32x4.all_true
+      #|    if
+      #|      f32.const 1
+      #|      global.set $f32_lt
+      #|    end)
+      #|  (func (export "f32_ge")
+      #|    global.get $f32_ge
+      #|    f32x4.splat
+      #|    v128.const f32x4 0 0 0 0
+      #|    f32x4.ge
+      #|    i32x4.all_true
+      #|    if
+      #|      f32.const 1
+      #|      global.set $f32_ge
+      #|    end)
+      #|  (func (export "f64_eq")
+      #|    global.get $f64_eq
+      #|    f64x2.splat
+      #|    v128.const f64x2 0 0
+      #|    f64x2.eq
+      #|    i64x2.all_true
+      #|    if
+      #|      f64.const 1
+      #|      global.set $f64_eq
+      #|    end)
+      #|  (func (export "f64_gt")
+      #|    global.get $f64_gt
+      #|    f64x2.splat
+      #|    v128.const f64x2 0 0
+      #|    f64x2.gt
+      #|    i64x2.all_true
+      #|    if
+      #|      f64.const 1
+      #|      global.set $f64_gt
+      #|    end)
+      #|  (func (export "f64_le")
+      #|    global.get $f64_le
+      #|    f64x2.splat
+      #|    v128.const f64x2 0 0
+      #|    f64x2.le
+      #|    i64x2.all_true
+      #|    if
+      #|      f64.const 1
+      #|      global.set $f64_le
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::f32(), false),
+    )
+  }
+  for i = 3; i < 6; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::f64(), false),
+    )
+  }
+  let pretty = optimized.to_string()
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes wrapped simd compare guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $i8 (mut i32) (i32.const 0))
+      #|  (global $f64 (mut f64) (f64.const 0))
+      #|  (func (export "block_return")
+      #|    block (result i32)
+      #|      global.get $i8
+      #|      i8x16.splat
+      #|      v128.const i32x4 0 0 0 0
+      #|      i8x16.ge_u
+      #|      i8x16.all_true
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $i8)
+      #|  (func (export "if_wrapper")
+      #|    block (result i32)
+      #|      call $cond
+      #|      if (result i32)
+      #|        global.get $f64
+      #|        f64x2.splat
+      #|        v128.const f64x2 0 0
+      #|        f64x2.le
+      #|        i64x2.all_true
+      #|      else
+      #|        i32.const 0
+      #|      end
+      #|    end
+      #|    if
+      #|      f64.const 1
+      #|      global.set $f64
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::f64(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps simd compare flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $i32 (mut i32) (i32.const 0))
+      #|  (global $f64 (mut f64) (f64.const 0))
+      #|  (func (export "i32")
+      #|    global.get $i32
+      #|    i32x4.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i32x4.ge_u
+      #|    i32x4.all_true
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i32
+      #|    end)
+      #|  (func (export "f64")
+      #|    global.get $f64
+      #|    f64x2.splat
+      #|    v128.const f64x2 0 0
+      #|    f64x2.le
+      #|    i64x2.all_true
+      #|    call $use
+      #|    if
+      #|      f64.const 1
+      #|      global.set $f64
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::f64(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps simd lane shift and replace-lane flow into post-consumer call" {
   let optimized = sgo_test_run(
     (
