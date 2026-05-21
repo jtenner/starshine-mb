@@ -2732,6 +2732,94 @@ fn gen_valid_typed_expr(
 }
 
 ///|
+fn gen_valid_append_typed_payload_control_blocks(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  vt : ValType,
+  fuel : Int,
+) -> Unit {
+  let child = gen_valid_body_env_child(env, add_void_label=true)
+  let payload_br_body : Array[Instruction] = []
+  for instr in gen_valid_typed_expr(ctx, child, [vt], fuel - 1) {
+    payload_br_body.push(instr)
+  }
+  payload_br_body.push(Instruction::br(LabelIdx::new(0U)))
+  payload_br_body.push(Instruction::unreachable_())
+  out.push(
+    Instruction::block(BlockType::val_type(vt), Expr::new(payload_br_body)),
+  )
+  out.push(Instruction::drop())
+
+  let payload_br_if_body : Array[Instruction] = []
+  for instr in gen_valid_typed_expr(ctx, child, [vt], fuel - 1) {
+    payload_br_if_body.push(instr)
+  }
+  payload_br_if_body.push(
+    Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+  )
+  payload_br_if_body.push(Instruction::br_if(LabelIdx::new(0U)))
+  out.push(
+    Instruction::block(BlockType::val_type(vt), Expr::new(payload_br_if_body)),
+  )
+  out.push(Instruction::drop())
+
+  let payload_br_table_body : Array[Instruction] = []
+  for instr in gen_valid_typed_expr(ctx, child, [vt], fuel - 1) {
+    payload_br_table_body.push(instr)
+  }
+  payload_br_table_body.push(Instruction::i32_const(I32(ctx.random_int(3))))
+  payload_br_table_body.push(
+    Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+  )
+  payload_br_table_body.push(Instruction::unreachable_())
+  out.push(
+    Instruction::block(
+      BlockType::val_type(vt),
+      Expr::new(payload_br_table_body),
+    ),
+  )
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_nested_payload_branch_block(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  vt : ValType,
+  fuel : Int,
+) -> Unit {
+  let child = gen_valid_body_env_child(env, add_void_label=true)
+  let inner_body : Array[Instruction] = []
+  for instr in gen_valid_typed_expr(ctx, child, [vt], fuel - 1) {
+    inner_body.push(instr)
+  }
+  let selector = ctx.random_int(3)
+  if selector == 0 {
+    inner_body.push(Instruction::br(LabelIdx::new(1U)))
+  } else if selector == 1 {
+    inner_body.push(
+      Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+    )
+    inner_body.push(Instruction::br_if(LabelIdx::new(1U)))
+    inner_body.push(Instruction::br(LabelIdx::new(1U)))
+  } else {
+    inner_body.push(Instruction::i32_const(I32(ctx.random_int(3))))
+    inner_body.push(
+      Instruction::br_table([LabelIdx::new(1U)], LabelIdx::new(1U)),
+    )
+  }
+  inner_body.push(Instruction::unreachable_())
+  let outer_body = [
+    Instruction::block(BlockType::void_(), Expr::new(inner_body)),
+    Instruction::unreachable_(),
+  ]
+  out.push(Instruction::block(BlockType::val_type(vt), Expr::new(outer_body)))
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_typed_stmt(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -2831,19 +2919,18 @@ fn gen_valid_typed_stmt(
     }
     None => ()
   }
-  let payload_block_body : Array[Instruction] = []
-  for instr in gen_valid_typed_expr(ctx, child, [ValType::i32()], fuel - 1) {
-    payload_block_body.push(instr)
+  for
+    vt in [
+      ValType::i32(),
+      ValType::i64(),
+      ValType::f32(),
+      ValType::f64(),
+      ValType::v128(),
+      ValType::funcref(),
+    ] {
+    gen_valid_append_typed_payload_control_blocks(out, ctx, env, vt, fuel)
+    gen_valid_append_nested_payload_branch_block(out, ctx, env, vt, fuel)
   }
-  payload_block_body.push(Instruction::br(LabelIdx::new(0U)))
-  payload_block_body.push(Instruction::unreachable_())
-  out.push(
-    Instruction::block(
-      BlockType::val_type(ValType::i32()),
-      Expr::new(payload_block_body),
-    ),
-  )
-  out.push(Instruction::drop())
   if !env.return_types.is_empty() {
     let return_block_body : Array[Instruction] = []
     for vt in env.return_types {
@@ -4070,6 +4157,19 @@ fn gen_valid_append_scalar_numeric_drop(
 }
 
 ///|
+fn gen_valid_append_typed_select(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  vt : ValType,
+) -> Unit {
+  out.push(gen_const_instr(ctx, vt))
+  out.push(gen_const_instr(ctx, vt))
+  out.push(Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })))
+  out.push(Instruction::select(types=Some([vt])))
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_append_core_control_ops(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -4105,11 +4205,17 @@ fn gen_valid_append_core_control_ops(
     None => ()
   }
 
-  out.push(Instruction::i32_const(I32(11)))
-  out.push(Instruction::i32_const(I32(22)))
-  out.push(Instruction::i32_const(I32(1)))
-  out.push(Instruction::select(types=Some([ValType::i32()])))
-  out.push(Instruction::drop())
+  for
+    vt in [
+      ValType::i32(),
+      ValType::i64(),
+      ValType::f32(),
+      ValType::f64(),
+      ValType::v128(),
+      ValType::funcref(),
+    ] {
+    gen_valid_append_typed_select(out, ctx, vt)
+  }
 }
 
 ///|

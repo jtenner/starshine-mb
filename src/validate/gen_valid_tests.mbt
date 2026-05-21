@@ -386,6 +386,45 @@ fn gen_valid_test_has_i64_const_local_set(instrs : Array[Instruction]) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_typed_payload_br_value_block(
+  instrs : Array[Instruction],
+  wanted : ValType,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(ValTypeBlockType(vt), Expr(body)) if vt == wanted => {
+        for i = 0; i + 1 < body.length(); i = i + 1 {
+          match body[i + 1] {
+            Br(label) if label == LabelIdx::new(0U) => return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_typed_payload_br_value_block(body, wanted) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_typed_payload_br_value_block(body, wanted) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_typed_payload_br_value_block(then_body, wanted) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_typed_payload_br_value_block(
+              body, wanted,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_has_i32_payload_br_value_block(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -493,6 +532,85 @@ fn gen_valid_test_has_i32_payload_br_table_value_block(
           Some(body) if gen_valid_test_has_i32_payload_br_table_value_block(
               body,
             ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_typed_select_for(
+  instrs : Array[Instruction],
+  wanted : ValType,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Select(Some(types)) if types.length() == 1 && types[0] == wanted =>
+        return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_typed_select_for(body, wanted) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_typed_select_for(then_body, wanted) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_typed_select_for(body, wanted) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_outer_payload_branch(
+  instrs : Array[Instruction],
+  wanted : ValType,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(ValTypeBlockType(vt), Expr(body)) if vt == wanted => {
+        for inner in body {
+          match inner {
+            Block(_, Expr(nested)) | Loop(_, Expr(nested)) =>
+              for nested_instr in nested {
+                match nested_instr {
+                  Br(label) | BrIf(label) if label == LabelIdx::new(1U) =>
+                    return true
+                  BrTable(targets, default_label) if default_label ==
+                    LabelIdx::new(1U) =>
+                    if targets.length() > 0 && targets[0] == LabelIdx::new(1U) {
+                      return true
+                    }
+                  _ => ()
+                }
+              }
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_outer_payload_branch(body, wanted) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_outer_payload_branch(body, wanted) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_outer_payload_branch(then_body, wanted) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_outer_payload_branch(body, wanted) =>
+            return true
           _ => ()
         }
       }
@@ -1055,12 +1173,59 @@ test "control-heavy profile uses typed GenValid body generator slice" {
       let mut has_payload_br_if = false
       let mut has_payload_br_table = false
       let mut has_multivalue_block = false
+      let mut has_i64_payload_br = false
+      let mut has_f32_payload_br = false
+      let mut has_f64_payload_br = false
+      let mut has_v128_payload_br = false
+      let mut has_funcref_payload_br = false
+      let mut has_outer_i32_payload_branch = false
+      let mut has_v128_typed_select = false
+      let mut has_funcref_typed_select = false
       let mut has_i32_result_loop = false
       let mut has_nested_return = false
       for func in funcs {
         let Func(_, Expr(instrs)) = func
         if gen_valid_test_has_i32_payload_br_value_block(instrs) {
           has_payload_br = true
+        }
+        if gen_valid_test_has_typed_payload_br_value_block(
+            instrs,
+            ValType::i64(),
+          ) {
+          has_i64_payload_br = true
+        }
+        if gen_valid_test_has_typed_payload_br_value_block(
+            instrs,
+            ValType::f32(),
+          ) {
+          has_f32_payload_br = true
+        }
+        if gen_valid_test_has_typed_payload_br_value_block(
+            instrs,
+            ValType::f64(),
+          ) {
+          has_f64_payload_br = true
+        }
+        if gen_valid_test_has_typed_payload_br_value_block(
+            instrs,
+            ValType::v128(),
+          ) {
+          has_v128_payload_br = true
+        }
+        if gen_valid_test_has_typed_payload_br_value_block(
+            instrs,
+            ValType::funcref(),
+          ) {
+          has_funcref_payload_br = true
+        }
+        if gen_valid_test_has_outer_payload_branch(instrs, ValType::i32()) {
+          has_outer_i32_payload_branch = true
+        }
+        if gen_valid_test_has_typed_select_for(instrs, ValType::v128()) {
+          has_v128_typed_select = true
+        }
+        if gen_valid_test_has_typed_select_for(instrs, ValType::funcref()) {
+          has_funcref_typed_select = true
         }
         if gen_valid_test_has_i32_payload_br_if_value_block(instrs) {
           has_payload_br_if = true
@@ -1092,6 +1257,38 @@ test "control-heavy profile uses typed GenValid body generator slice" {
       assert_true(
         has_payload_br_table,
         msg="typed body generator should emit a value block with br_table payload and matching target arities",
+      )
+      assert_true(
+        has_i64_payload_br,
+        msg="typed body generator should emit an i64 value block with a typed br payload",
+      )
+      assert_true(
+        has_f32_payload_br,
+        msg="typed body generator should emit an f32 value block with a typed br payload",
+      )
+      assert_true(
+        has_f64_payload_br,
+        msg="typed body generator should emit an f64 value block with a typed br payload",
+      )
+      assert_true(
+        has_v128_payload_br,
+        msg="typed body generator should emit a v128 value block with a typed br payload",
+      )
+      assert_true(
+        has_funcref_payload_br,
+        msg="typed body generator should emit a funcref value block with a typed br payload",
+      )
+      assert_true(
+        has_outer_i32_payload_branch,
+        msg="typed body generator should emit nested label-depth branch payload coverage",
+      )
+      assert_true(
+        has_v128_typed_select,
+        msg="control-heavy generation should emit typed select over v128 values",
+      )
+      assert_true(
+        has_funcref_typed_select,
+        msg="control-heavy generation should emit typed select over ref values",
       )
       assert_true(
         has_multivalue_block,

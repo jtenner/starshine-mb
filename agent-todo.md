@@ -608,17 +608,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
-- [FUZ]1005 - GenValid Control Flow, Multi-Value, And Branch Payloads
-  - Status: IN PROGRESS (cron 23, 2026-05-21). First branch-payload slice landed: `control-heavy` now forces a reusable empty-param multi-result function type, emits a multi-value `TypeIdxBlockType` block, and adds typed i32 value-block payload coverage for `br_if` and `br_table` alongside the existing `br` payload. A later slice added an explicit typed-body value-producing `i32` loop and a nested-control `return` in return-typed generated functions, with the body environment now carrying the active function result vector so nested returns can be stack-planned instead of guessed. The latest slice adds `has_payload_control_flow` and `has_multivalue_control_flow` facts/stats/ledger keys so coverage can distinguish simple branch-heavy modules from payload-bearing and multi-value control modules. Focused TDD evidence: `moon test src/validate` first failed because the new facts did not exist, then passed after implementation; latest validation covered `moon test src/validate`, `moon info`, `moon fmt`, `moon test`, `bun fuzz compare-pass --generator gen-valid --count 200 --min-compared 200 --pass remove-unused-brs --out-dir .tmp/pass-fuzz-fuz1005-control-facts-rub-200`, and `bun fuzz compare-pass --generator gen-valid --count 200 --min-compared 200 --pass code-folding --out-dir .tmp/pass-fuzz-fuz1005-control-facts-code-folding-200`, with both compare lanes reporting `200/200` compared, `200` normalized matches, and `0` validation/generator/command failures or mismatches. Still to resume: deeper randomized/nested label-depth variation and broader non-i32/ref/v128 payload combinations.
-  - Goal: generate varied valid control-flow bodies with typed block/loop/if results and branch payloads.
-  - Why: current branch-heavy coverage proves `br`, `br_if`, `br_table`, typed `select`, and wrappers exist, but not enough payload/result combinations are explored.
-  - Deliverables: add generation for multi-value blocks, value-producing loops where valid, `br` with payloads, `br_if` with payload and fallthrough values, `br_table` with matching result arities, nested labels, unreachable stack-polymorphic tails, returns from nested control, and typed `select` over numeric/ref/v128 where valid.
-  - Required APIs: typed body generator from [FUZ]1002, `BlockType`, `LabelIdx`, `Instruction::{Block,Loop,If,Br,BrIf,BrTable,Return,Select}`.
-  - Invariants: label-depth and payload typing must be proven by validation tests; avoid unbounded recursion; preserve deterministic seeds.
-  - Dependencies: [FUZ]1002.
-  - Suggested Tests: one focused fixture per branch payload family, generated-module validation across seeds, pass-fuzz smoke for branch-sensitive passes such as `code-folding`, `remove-unused-brs`, and `simplify-locals`.
-  - Exit Criteria: feature facts can distinguish simple branch-heavy coverage from payload-bearing multi-value control coverage.
-
 - [FUZ]1006 - GenValid Call, Reference Call, Indirect Call, Recursion, And Tail-Call Widening
   - Goal: generate diverse valid call graphs and callable-reference flows.
   - Why: call-related optimizer bugs depend on direct calls, imported calls, recursion, call_indirect tables, call_ref values, and tail-call terminal placement. Current coverage is useful but too narrow.
