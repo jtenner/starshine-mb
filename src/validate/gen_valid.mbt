@@ -2677,6 +2677,18 @@ fn gen_valid_typed_pick_local_set_target(
 }
 
 ///|
+fn gen_valid_typed_pick_multivalue_block_type(
+  funcs : Array[GenValidFuncSig],
+) -> (TypeIdx, Array[ValType])? {
+  for func in funcs {
+    if func.params.is_empty() && func.results.length() > 1 {
+      return Some((func.type_idx, func.results))
+    }
+  }
+  None
+}
+
+///|
 fn gen_valid_typed_expr(
   ctx : GenValidContext,
   env : GenValidBodyEnv,
@@ -2752,6 +2764,47 @@ fn gen_valid_typed_stmt(
       ]),
     ),
   )
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(ctx.random_int(1000))),
+        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+        Instruction::br_if(LabelIdx::new(0U)),
+      ]),
+    ),
+  )
+  out.push(Instruction::drop())
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(ctx.random_int(1000))),
+        Instruction::i32_const(I32(ctx.random_int(3))),
+        Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+        Instruction::unreachable_(),
+      ]),
+    ),
+  )
+  out.push(Instruction::drop())
+  match gen_valid_typed_pick_multivalue_block_type(env.funcs) {
+    Some((type_idx, results)) => {
+      let multivalue_body : Array[Instruction] = []
+      for vt in results {
+        multivalue_body.push(gen_const_instr(ctx, vt))
+      }
+      out.push(
+        Instruction::block(
+          BlockType::type_idx(type_idx),
+          Expr::new(multivalue_body),
+        ),
+      )
+      for _ in results {
+        out.push(Instruction::drop())
+      }
+    }
+    None => ()
+  }
   let payload_block_body : Array[Instruction] = []
   for instr in gen_valid_typed_expr(ctx, child, [ValType::i32()], fuel - 1) {
     payload_block_body.push(instr)
@@ -5921,11 +5974,16 @@ fn gen_valid_module_once_with_config(
   } else {
     1
   }
-  let func_type_count = if ctx.config.mode == CoverageForced &&
+  let mut func_type_count = if ctx.config.mode == CoverageForced &&
     total_type_users > 1 {
     1 + ctx.random_int(gen_valid_min_int(func_type_cap, total_type_users - 1))
   } else {
     1 + ctx.random_int(func_type_cap)
+  }
+  if ctx.config.features.allow_typed_body_generator &&
+    func_type_cap > 1 &&
+    func_type_count < 2 {
+    func_type_count = 2
   }
 
   let remaining_type_budget = max_type_defs - func_type_count
@@ -5950,11 +6008,15 @@ fn gen_valid_module_once_with_config(
   for i = 0; i < func_type_count; i = i + 1 {
     let params = if i == 0 && (has_start || total_tag_count > 0) {
       []
+    } else if ctx.config.features.allow_typed_body_generator && i == 1 {
+      []
     } else {
       gen_param_types(ctx)
     }
     let results = if i == 0 && (has_start || total_tag_count > 0) {
       []
+    } else if ctx.config.features.allow_typed_body_generator && i == 1 {
+      [ValType::i32(), ValType::i64()]
     } else if exact_result_slot == Some(i) {
       [
         gc_type_plan.exact_ref_types[ctx.random_int(
@@ -6144,6 +6206,10 @@ fn gen_valid_module_once_with_config(
     func_type_idxs.push(
       if i == 0 && has_start {
         TypeIdx::new(0U)
+      } else if ctx.config.features.allow_typed_body_generator &&
+        i == 1 &&
+        func_type_count > 1 {
+        TypeIdx::new(1U)
       } else {
         gen_valid_pick_type_idx(ctx, func_type_count)
       },

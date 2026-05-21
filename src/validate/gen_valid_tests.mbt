@@ -424,6 +424,85 @@ fn gen_valid_test_has_i32_payload_br_value_block(
 }
 
 ///|
+fn gen_valid_test_has_i32_payload_br_if_value_block(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(ValTypeBlockType(vt), Expr(body)) if vt == ValType::i32() => {
+        for i = 0; i + 2 < body.length(); i = i + 1 {
+          match (body[i], body[i + 1], body[i + 2]) {
+            (I32Const(_), I32Const(_), BrIf(label)) if label ==
+              LabelIdx::new(0U) => return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_i32_payload_br_if_value_block(body) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_i32_payload_br_if_value_block(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_i32_payload_br_if_value_block(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_i32_payload_br_if_value_block(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_i32_payload_br_table_value_block(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(ValTypeBlockType(vt), Expr(body)) if vt == ValType::i32() => {
+        for i = 0; i + 2 < body.length(); i = i + 1 {
+          match (body[i], body[i + 1], body[i + 2]) {
+            (I32Const(_), I32Const(_), BrTable(targets, default_label)) if default_label ==
+              LabelIdx::new(0U) &&
+              targets.length() > 0 &&
+              targets[0] == LabelIdx::new(0U) => return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_i32_payload_br_table_value_block(body) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_i32_payload_br_table_value_block(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_i32_payload_br_table_value_block(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_i32_payload_br_table_value_block(
+              body,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_module_local_set_count(mod_ : Module) -> Int {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
@@ -449,6 +528,85 @@ fn gen_valid_test_module_has_i64_const_local_set(mod_ : Module) -> Bool {
         }
       }
     None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_func_type_results(
+  mod_ : Module,
+  type_idx : TypeIdx,
+) -> Array[ValType]? {
+  let wanted = match type_idx {
+    TypeIdx(type_idx_u) | RecIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+  }
+  match mod_.type_sec {
+    Some(TypeSec(types)) => {
+      let mut cursor = 0
+      for rec_type in types {
+        match rec_type {
+          SingleRecType(SubType(_, _, _, FuncCompType(_, results)))
+          | SingleRecType(CompTypeSubType(_, FuncCompType(_, results))) =>
+            if cursor == wanted {
+              return Some(results)
+            }
+          GroupRecType(group) =>
+            for subtype in group {
+              match subtype {
+                SubType(_, _, _, FuncCompType(_, results))
+                | CompTypeSubType(_, FuncCompType(_, results)) =>
+                  if cursor == wanted {
+                    return Some(results)
+                  }
+                _ => ()
+              }
+              cursor += 1
+            }
+          _ => ()
+        }
+        match rec_type {
+          SingleRecType(_) => cursor += 1
+          GroupRecType(_) => ()
+        }
+      }
+      None
+    }
+    None => None
+  }
+}
+
+///|
+fn gen_valid_test_has_multivalue_typeidx_block(
+  mod_ : Module,
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(TypeIdxBlockType(type_idx), Expr(body)) => {
+        match gen_valid_test_func_type_results(mod_, type_idx) {
+          Some(results) if results.length() > 1 => return true
+          _ => ()
+        }
+        if gen_valid_test_has_multivalue_typeidx_block(mod_, body) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_multivalue_typeidx_block(mod_, body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_multivalue_typeidx_block(mod_, then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_multivalue_typeidx_block(mod_, body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
   }
   false
 }
@@ -806,15 +964,42 @@ test "control-heavy profile uses typed GenValid body generator slice" {
   match generated.wasm_module.code_sec {
     Some(CodeSec(funcs)) => {
       let mut has_payload_br = false
+      let mut has_payload_br_if = false
+      let mut has_payload_br_table = false
+      let mut has_multivalue_block = false
       for func in funcs {
         let Func(_, Expr(instrs)) = func
         if gen_valid_test_has_i32_payload_br_value_block(instrs) {
           has_payload_br = true
         }
+        if gen_valid_test_has_i32_payload_br_if_value_block(instrs) {
+          has_payload_br_if = true
+        }
+        if gen_valid_test_has_i32_payload_br_table_value_block(instrs) {
+          has_payload_br_table = true
+        }
+        if gen_valid_test_has_multivalue_typeidx_block(
+            generated.wasm_module,
+            instrs,
+          ) {
+          has_multivalue_block = true
+        }
       }
       assert_true(
         has_payload_br,
         msg="typed body generator should emit a value block with a typed br payload",
+      )
+      assert_true(
+        has_payload_br_if,
+        msg="typed body generator should emit a value block with br_if payload and fallthrough values",
+      )
+      assert_true(
+        has_payload_br_table,
+        msg="typed body generator should emit a value block with br_table payload and matching target arities",
+      )
+      assert_true(
+        has_multivalue_block,
+        msg="typed body generator should emit a multi-value TypeIdx block",
       )
     }
     None => fail("expected generated module to contain code bodies")
