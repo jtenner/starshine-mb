@@ -59,6 +59,47 @@ test "coverage-forced prelude records deterministic randomized template order" {
 }
 
 ///|
+test "coverage-forced prelude varies memory and table template order by seed" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mut saw_memory_before_table = false
+  let mut saw_table_before_memory = false
+  for offset in 0..<16 {
+    let generated = match
+      gen_valid_module_result(
+        @splitmix.new(seed=0xf120UL + offset.to_uint64()),
+        config,
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected coverage-forced generated module to validate, got \{validation_error_message(err)}",
+        )
+    }
+    let sig = gen_valid_coverage_template_signature(generated.wasm_module)
+    if sig.contains("memory|table") {
+      saw_memory_before_table = true
+    }
+    if sig.contains("table|memory") {
+      saw_table_before_memory = true
+    }
+    assert_true(generated.facts.has_mems)
+    assert_true(generated.facts.has_tables)
+  }
+  assert_true(
+    saw_memory_before_table,
+    msg="coverage-forced prelude should retain memory-before-table templates for some seeds",
+  )
+  assert_true(
+    saw_table_before_memory,
+    msg="coverage-forced prelude should also emit table-before-memory templates for some seeds",
+  )
+}
+
+///|
 test "gen_valid named profiles expose stable labels and compatibility aliases" {
   @debug.assert_eq(
     gen_valid_profile_name(CoverageForcedAllFeaturesProfile),

@@ -6386,6 +6386,107 @@ fn gen_valid_append_exact_ref_local_flow(
 }
 
 ///|
+fn gen_valid_append_memory_template_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !env.mems.is_empty() {
+    out.push(Instruction::memory_size(MemIdx::new(0U)))
+    out.push(Instruction::drop())
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::memory_grow(MemIdx::new(0U)))
+    out.push(Instruction::drop())
+    gen_valid_append_scalar_memory_ops(out)
+    match gen_valid_first_nonzero_i32_mem_idx(env.mems) {
+      Some(nonzero_mem_idx) =>
+        gen_valid_append_nonzero_scalar_memory_ops(out, nonzero_mem_idx)
+      None => ()
+    }
+    ignore(gen_valid_append_memory_bulk_ops(out, ctx, env))
+  }
+}
+
+///|
+fn gen_valid_append_table_template_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !env.tables.is_empty() {
+    let TableType(rt, _) = env.tables[0]
+    out.push(Instruction::table_size(TableIdx::new(0U)))
+    out.push(Instruction::drop())
+    out.push(Instruction::i32_const(I32(0)))
+    gen_valid_append_table_ref_value(out, ctx, env, rt)
+    out.push(Instruction::table_set(TableIdx::new(0U)))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::table_get(TableIdx::new(0U)))
+    out.push(Instruction::drop())
+    gen_valid_append_table_ref_value(out, ctx, env, rt)
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::table_grow(TableIdx::new(0U)))
+    out.push(Instruction::drop())
+    match gen_valid_first_nonzero_table_idx(env.tables) {
+      Some(nonzero_table_idx) =>
+        gen_valid_append_nonzero_table_access_ops(out, env, nonzero_table_idx)
+      None => ()
+    }
+    ignore(gen_valid_append_table_bulk_ops(out, ctx, env))
+  }
+}
+
+///|
+fn gen_valid_append_global_template_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !env.globals.is_empty() {
+    out.push(Instruction::global_get(GlobalIdx::new(0U)))
+    out.push(Instruction::drop())
+    let GlobalType(first_global_vt, _) = env.globals[0]
+    match
+      gen_matching_global_idx(env.globals, first_global_vt, mutable_only=true) {
+      Some(idx) => {
+        let GlobalIdx(idx_u) = idx
+        let GlobalType(vt, _) = env.globals[idx_u.reinterpret_as_int()]
+        append_value_instrs(
+          out,
+          ctx,
+          vt,
+          gen_valid_body_env_child(env),
+          prefer_local=false,
+        )
+        out.push(Instruction::global_set(idx))
+      }
+      None => ()
+    }
+  }
+}
+
+///|
+fn gen_valid_append_memory_table_global_template_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  let order_key = match env.current_func_idx {
+    Some(func_idx) => gen_valid_func_idx_to_int(func_idx)
+    None => env.local_types.length() + env.tables.length() + env.mems.length()
+  }
+  let table_first = order_key % 2 == 0
+  if table_first {
+    gen_valid_append_table_template_ops(out, ctx, env)
+    gen_valid_append_memory_template_ops(out, ctx, env)
+  } else {
+    gen_valid_append_memory_template_ops(out, ctx, env)
+    gen_valid_append_table_template_ops(out, ctx, env)
+  }
+  gen_valid_append_global_template_ops(out, ctx, env)
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -6456,62 +6557,7 @@ fn gen_valid_append_coverage_prelude(
       None => ()
     }
   }
-  if !env.mems.is_empty() {
-    out.push(Instruction::memory_size(MemIdx::new(0U)))
-    out.push(Instruction::drop())
-    out.push(Instruction::i32_const(I32(1)))
-    out.push(Instruction::memory_grow(MemIdx::new(0U)))
-    out.push(Instruction::drop())
-    gen_valid_append_scalar_memory_ops(out)
-    match gen_valid_first_nonzero_i32_mem_idx(env.mems) {
-      Some(nonzero_mem_idx) =>
-        gen_valid_append_nonzero_scalar_memory_ops(out, nonzero_mem_idx)
-      None => ()
-    }
-    ignore(gen_valid_append_memory_bulk_ops(out, ctx, env))
-  }
-  if !env.tables.is_empty() {
-    let TableType(rt, _) = env.tables[0]
-    out.push(Instruction::table_size(TableIdx::new(0U)))
-    out.push(Instruction::drop())
-    out.push(Instruction::i32_const(I32(0)))
-    gen_valid_append_table_ref_value(out, ctx, env, rt)
-    out.push(Instruction::table_set(TableIdx::new(0U)))
-    out.push(Instruction::i32_const(I32(0)))
-    out.push(Instruction::table_get(TableIdx::new(0U)))
-    out.push(Instruction::drop())
-    gen_valid_append_table_ref_value(out, ctx, env, rt)
-    out.push(Instruction::i32_const(I32(1)))
-    out.push(Instruction::table_grow(TableIdx::new(0U)))
-    out.push(Instruction::drop())
-    match gen_valid_first_nonzero_table_idx(env.tables) {
-      Some(nonzero_table_idx) =>
-        gen_valid_append_nonzero_table_access_ops(out, env, nonzero_table_idx)
-      None => ()
-    }
-    ignore(gen_valid_append_table_bulk_ops(out, ctx, env))
-  }
-  if !env.globals.is_empty() {
-    out.push(Instruction::global_get(GlobalIdx::new(0U)))
-    out.push(Instruction::drop())
-    let GlobalType(first_global_vt, _) = env.globals[0]
-    match
-      gen_matching_global_idx(env.globals, first_global_vt, mutable_only=true) {
-      Some(idx) => {
-        let GlobalIdx(idx_u) = idx
-        let GlobalType(vt, _) = env.globals[idx_u.reinterpret_as_int()]
-        append_value_instrs(
-          out,
-          ctx,
-          vt,
-          gen_valid_body_env_child(env),
-          prefer_local=false,
-        )
-        out.push(Instruction::global_set(idx))
-      }
-      None => ()
-    }
-  }
+  gen_valid_append_memory_table_global_template_ops(out, ctx, env)
   let branch_first = ctx.random_bool()
   let branch_block_body = [
     Instruction::i32_const(I32(if branch_first { 1 } else { 0 })),
