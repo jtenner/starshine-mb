@@ -8647,7 +8647,7 @@ fn dae_instr_is_const_safe_numeric_binary(
 }
 
 ///|
-fn dae_instr_is_integer_right_zero_identity(
+fn dae_instr_is_integer_right_constant_identity(
   rhs : @lib.Instruction,
   instr : @lib.Instruction,
 ) -> Bool {
@@ -8661,6 +8661,8 @@ fn dae_instr_is_integer_right_zero_identity(
     | (@lib.I32Const(@lib.I32(0)), @lib.I32ShrU)
     | (@lib.I32Const(@lib.I32(0)), @lib.I32Rotl)
     | (@lib.I32Const(@lib.I32(0)), @lib.I32Rotr)
+    | (@lib.I32Const(@lib.I32(1)), @lib.I32Mul)
+    | (@lib.I32Const(@lib.I32(-1)), @lib.I32And)
     | (@lib.I64Const(@lib.I64(0L)), @lib.I64Add)
     | (@lib.I64Const(@lib.I64(0L)), @lib.I64Sub)
     | (@lib.I64Const(@lib.I64(0L)), @lib.I64Or)
@@ -8669,7 +8671,9 @@ fn dae_instr_is_integer_right_zero_identity(
     | (@lib.I64Const(@lib.I64(0L)), @lib.I64ShrS)
     | (@lib.I64Const(@lib.I64(0L)), @lib.I64ShrU)
     | (@lib.I64Const(@lib.I64(0L)), @lib.I64Rotl)
-    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Rotr) => true
+    | (@lib.I64Const(@lib.I64(0L)), @lib.I64Rotr)
+    | (@lib.I64Const(@lib.I64(1L)), @lib.I64Mul)
+    | (@lib.I64Const(@lib.I64(-1L)), @lib.I64And) => true
     _ => false
   }
 }
@@ -9034,7 +9038,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       }
     }
     if idx + 1 < instrs.length() &&
-      dae_instr_is_integer_right_zero_identity(instrs[idx], instrs[idx + 1]) {
+      dae_instr_is_integer_right_constant_identity(instrs[idx], instrs[idx + 1]) {
       idx += 2
       continue
     }

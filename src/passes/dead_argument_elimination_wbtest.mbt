@@ -1128,7 +1128,7 @@ test "dae raw cleanup strips local and global self assignments and tees" {
 }
 
 ///|
-test "dae raw cleanup strips live integer right-zero identities" {
+test "dae raw cleanup strips live integer right-constant identities" {
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
   let mod_ = @lib.Module::new()
     .with_mem_sec(
@@ -1166,6 +1166,12 @@ test "dae raw cleanup strips live integer right-zero identities" {
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::i32_const(@lib.I32(0)),
             @lib.Instruction::i32_rotr(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_mul(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::i32_and(),
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
             @lib.Instruction::i64_const(@lib.I64(0L)),
             @lib.Instruction::i64_add(),
@@ -1175,6 +1181,12 @@ test "dae raw cleanup strips live integer right-zero identities" {
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
             @lib.Instruction::i64_const(@lib.I64(0L)),
             @lib.Instruction::i64_shr_u(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_const(@lib.I64(1L)),
+            @lib.Instruction::i64_mul(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_const(@lib.I64(-1L)),
+            @lib.Instruction::i64_and(),
             @lib.Instruction::i32_const(@lib.I32(0)),
             @lib.Instruction::i32_load(memarg),
             @lib.Instruction::i32_const(@lib.I32(0)),
@@ -1202,6 +1214,10 @@ test "dae raw cleanup strips live integer right-zero identities" {
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
