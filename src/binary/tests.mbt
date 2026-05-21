@@ -1251,6 +1251,100 @@ test "decode i8x16.shuffle preserves all 16 lane indices in order" {
 }
 
 ///|
+test "relaxed SIMD instructions use exact 0xFD subopcode roundtrips" {
+  let cases : Array[(String, Instruction, Bytes)] = [
+    (
+      "i8x16.relaxed_swizzle",
+      Instruction::i8x16_relaxed_swizzle(),
+      b"\xFD\x80\x02",
+    ),
+    (
+      "i32x4.relaxed_trunc_f32x4_s",
+      Instruction::i32x4_relaxed_trunc_f32x4s(),
+      b"\xFD\x81\x02",
+    ),
+    (
+      "i32x4.relaxed_trunc_f32x4_u",
+      Instruction::i32x4_relaxed_trunc_f32x4u(),
+      b"\xFD\x82\x02",
+    ),
+    (
+      "i32x4.relaxed_trunc_zero_f64x2_s",
+      Instruction::i32x4_relaxed_trunc_zero_f64x2s(),
+      b"\xFD\x83\x02",
+    ),
+    (
+      "i32x4.relaxed_trunc_zero_f64x2_u",
+      Instruction::i32x4_relaxed_trunc_zero_f64x2u(),
+      b"\xFD\x84\x02",
+    ),
+    ("f32x4.relaxed_madd", Instruction::f32x4_relaxed_madd(), b"\xFD\x85\x02"),
+    ("f32x4.relaxed_nmadd", Instruction::f32x4_relaxed_nmadd(), b"\xFD\x86\x02"),
+    ("f64x2.relaxed_madd", Instruction::f64x2_relaxed_madd(), b"\xFD\x87\x02"),
+    ("f64x2.relaxed_nmadd", Instruction::f64x2_relaxed_nmadd(), b"\xFD\x88\x02"),
+    (
+      "i8x16.relaxed_laneselect",
+      Instruction::i8x16_relaxed_laneselect(),
+      b"\xFD\x89\x02",
+    ),
+    (
+      "i16x8.relaxed_laneselect",
+      Instruction::i16x8_relaxed_laneselect(),
+      b"\xFD\x8A\x02",
+    ),
+    (
+      "i32x4.relaxed_laneselect",
+      Instruction::i32x4_relaxed_laneselect(),
+      b"\xFD\x8B\x02",
+    ),
+    (
+      "i64x2.relaxed_laneselect",
+      Instruction::i64x2_relaxed_laneselect(),
+      b"\xFD\x8C\x02",
+    ),
+    ("f32x4.relaxed_min", Instruction::f32x4_relaxed_min(), b"\xFD\x8D\x02"),
+    ("f32x4.relaxed_max", Instruction::f32x4_relaxed_max(), b"\xFD\x8E\x02"),
+    ("f64x2.relaxed_min", Instruction::f64x2_relaxed_min(), b"\xFD\x8F\x02"),
+    ("f64x2.relaxed_max", Instruction::f64x2_relaxed_max(), b"\xFD\x90\x02"),
+    (
+      "i16x8.relaxed_q15mulr_s",
+      Instruction::i16x8_relaxed_q15mulr_s(),
+      b"\xFD\x91\x02",
+    ),
+    (
+      "i16x8.relaxed_dot_i8x16_i7x16_s",
+      Instruction::i16x8_relaxed_dot_i8x16i7x16s(),
+      b"\xFD\x92\x02",
+    ),
+    (
+      "i32x4.relaxed_dot_i8x16_i7x16_add_s",
+      Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(),
+      b"\xFD\x93\x02",
+    ),
+  ]
+  for case in cases {
+    let (name, expected_instr, expected_bytes) = case
+    let buf = @buffer.new()
+    match Encode::encode(expected_instr, buf) {
+      Ok(_) => @debug.assert_eq(buf.to_bytes(), expected_bytes)
+      Err(e) =>
+        fail("expected relaxed SIMD encode success for \{name}, got \{e}")
+    }
+    match
+      (
+        Decode::decode(expected_bytes, 0) :
+        Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok((decoded, next)) => {
+        @debug.assert_eq(decoded, expected_instr)
+        @debug.assert_eq(next, expected_bytes.length())
+      }
+      Err(e) =>
+        fail("expected relaxed SIMD decode success for \{name}, got \{e}")
+    }
+  }
+}
+
+///|
 test "decode reports invalid atomic.fence immediate" {
   assert_decode_err_contains(
     (

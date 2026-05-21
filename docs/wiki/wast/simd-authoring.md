@@ -177,7 +177,7 @@ For pass work, keep the split with Binaryen's [`remove-relaxed-simd`](../binarye
 | WAST lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | `wt_v128_const_instr`, `wt_shuffle_lane`, `wt_lane_idx`, SIMD instruction lowering, and focused positive/negative tests. |
 | WAST printing | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | `render_v128_const`, shuffle lane rendering, and instruction text output. |
 | Core IR | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | `ValType::v128`, `V128Const`, SIMD instruction variants, and `LaneIdx`. |
-| Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | `0xFD` SIMD decode/encode, `v128.const` bytes, shuffle lane decoding, lane immediates, vector memargs, and relaxed SIMD opcodes. |
+| Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | `0xFD` SIMD decode/encode, `v128.const` bytes, shuffle lane decoding, lane immediates, vector memargs, and exact relaxed SIMD opcode roundtrips for subopcodes `256..275`. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Stack effects for vector constants, unary/binary/ternary ops, lane extract/replace, memory ops, and relaxed SIMD forms. |
 | Fuzz/generator coverage | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | `[FZG]014` through `[FZG]016` valid-generator SIMD feature rows plus the narrower WAST arbitrary prelude. |
 

@@ -130,7 +130,7 @@ Do not audit instruction coverage by one-byte opcodes only. Starshine's current 
 | Prefix | Family in Starshine | Examples |
 | ---: | --- | --- |
 | `0xFC` | Saturating conversion, bulk memory, and table operations | `i32.trunc_sat_f32_s`, `memory.init`, `data.drop`, `memory.copy`, `table.init`, `elem.drop` |
-| `0xFD` | SIMD | `v128.load`, `i8x16.shuffle`, lane extract/replace, relaxed SIMD forms; byte-level lane immediates must still satisfy the focused validation contract in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md), and WAST fixture rules live in [`../wast/simd-authoring.md`](../wast/simd-authoring.md). |
+| `0xFD` | SIMD | `v128.load`, `i8x16.shuffle`, lane extract/replace, relaxed SIMD forms; relaxed opcodes are fixture-locked at exact subopcodes `256..275`; byte-level lane immediates must still satisfy the focused validation contract in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md), and WAST fixture rules live in [`../wast/simd-authoring.md`](../wast/simd-authoring.md). |
 | `0xFE` | Atomics | atomic load/store/rmw/cmpxchg, wait/notify, fence; core/binary/generator support and the current WAST text gap live in [`../wast/atomic-memory-instruction-authoring.md`](../wast/atomic-memory-instruction-authoring.md). |
 | `0xFB` | GC/aggregate/reference/string-family local surface | `struct.new`, `struct.get`, `struct.set`, `array.new`, descriptor-aware operations, `string.const`, and Starshine's supported array-backed string helpers; WAST/core support boundaries live in [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md) and [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md). |
 
@@ -197,7 +197,7 @@ can become invalid if a pass deletes the default memory, changes an i64 memory t
 Before committing a pass, fuzzer change, or binary/WAST codec change that touches instructions:
 
 - Update both decode and encode paths for every new instruction variant; keep prefixed opcode families symmetric.
-- Add or refresh binary roundtrip coverage in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) for new immediates, lane arrays, memargs, or blocktypes.
+- Add or refresh binary roundtrip coverage in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) for new opcodes, immediates, lane arrays, memargs, or blocktypes.
 - Add validator/typechecker coverage for semantic stack effects, not just decode success.
 - If an instruction refers to functions, tables, memories, globals, tags, types, elements, data segments, locals, labels, or the local string pool, update the relevant section page's rewrite checklist.
 - For text support, update the WAST parser/lowerer/printer path as well as binary encode/decode.
