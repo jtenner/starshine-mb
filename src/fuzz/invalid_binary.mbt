@@ -355,6 +355,15 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideCodeLocalRunCountUleb
   MalformedTypeSectionCountUleb
   MalformedCodeSectionCountUleb
+  MalformedImportSectionCountUleb
+  MalformedExportSectionCountUleb
+  MalformedTableSectionCountUleb
+  MalformedMemorySectionCountUleb
+  MalformedGlobalSectionCountUleb
+  MalformedFunctionSectionCountUleb
+  MalformedElementSectionCountUleb
+  MalformedDataSectionCountUleb
+  MalformedTagSectionCountUleb
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
   ImportSectionCountUnderflow
@@ -1084,6 +1093,15 @@ fn validate_invalid_binary_strategy_label(
     OverwideCodeLocalRunCountUleb => "overwide-code-local-run-count-uleb"
     MalformedTypeSectionCountUleb => "malformed-type-section-count-uleb"
     MalformedCodeSectionCountUleb => "malformed-code-section-count-uleb"
+    MalformedImportSectionCountUleb => "malformed-import-section-count-uleb"
+    MalformedExportSectionCountUleb => "malformed-export-section-count-uleb"
+    MalformedTableSectionCountUleb => "malformed-table-section-count-uleb"
+    MalformedMemorySectionCountUleb => "malformed-memory-section-count-uleb"
+    MalformedGlobalSectionCountUleb => "malformed-global-section-count-uleb"
+    MalformedFunctionSectionCountUleb => "malformed-function-section-count-uleb"
+    MalformedElementSectionCountUleb => "malformed-element-section-count-uleb"
+    MalformedDataSectionCountUleb => "malformed-data-section-count-uleb"
+    MalformedTagSectionCountUleb => "malformed-tag-section-count-uleb"
     TypeSectionCountUnderflow => "type-section-count-underflow"
     CodeSectionCountUnderflow => "code-section-count-underflow"
     ImportSectionCountUnderflow => "import-section-count-underflow"
@@ -3399,6 +3417,69 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedCodeSectionCountUleb,
       "malformed-code-section-count-uleb",
       "code section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedImportSectionCountUleb,
+      "malformed-import-section-count-uleb",
+      "import section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedExportSectionCountUleb,
+      "malformed-export-section-count-uleb",
+      "export section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableSectionCountUleb,
+      "malformed-table-section-count-uleb",
+      "table section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedMemorySectionCountUleb,
+      "malformed-memory-section-count-uleb",
+      "memory section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedGlobalSectionCountUleb,
+      "malformed-global-section-count-uleb",
+      "global section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedFunctionSectionCountUleb,
+      "malformed-function-section-count-uleb",
+      "function section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedElementSectionCountUleb,
+      "malformed-element-section-count-uleb",
+      "element section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedDataSectionCountUleb,
+      "malformed-data-section-count-uleb",
+      "data section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTagSectionCountUleb,
+      "malformed-tag-section-count-uleb",
+      "tag section whose vector-count ULEB is malformed",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -9540,8 +9621,10 @@ fn validate_invalid_binary_mutate_overwide_code_local_run_count_uleb(
 }
 
 ///|
-fn validate_invalid_binary_module_with_malformed_type_section_count_uleb() -> Bytes {
-  Bytes::from_array([
+fn validate_invalid_binary_module_with_malformed_section_count_uleb(
+  section_id : Int,
+) -> Bytes {
+  let out : Array[Byte] = [
     (0x00).to_byte(),
     (0x61).to_byte(),
     (0x73).to_byte(),
@@ -9550,35 +9633,25 @@ fn validate_invalid_binary_module_with_malformed_type_section_count_uleb() -> By
     (0x00).to_byte(),
     (0x00).to_byte(),
     (0x00).to_byte(),
-    (0x01).to_byte(),
-    (0x05).to_byte(),
-    (0x80).to_byte(),
-    (0x80).to_byte(),
-    (0x80).to_byte(),
-    (0x80).to_byte(),
-    (0x80).to_byte(),
-  ])
+  ]
+  out.push(section_id.to_byte())
+  out.push((0x05).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x80).to_byte())
+  Bytes::from_array(out)
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_type_section_count_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_section_count_uleb(0x01)
 }
 
 ///|
 fn validate_invalid_binary_module_with_malformed_code_section_count_uleb() -> Bytes {
-  Bytes::from_array([
-    (0x00).to_byte(),
-    (0x61).to_byte(),
-    (0x73).to_byte(),
-    (0x6d).to_byte(),
-    (0x01).to_byte(),
-    (0x00).to_byte(),
-    (0x00).to_byte(),
-    (0x00).to_byte(),
-    (0x0a).to_byte(),
-    (0x05).to_byte(),
-    (0x80).to_byte(),
-    (0x80).to_byte(),
-    (0x80).to_byte(),
-    (0x80).to_byte(),
-    (0x80).to_byte(),
-  ])
+  validate_invalid_binary_module_with_malformed_section_count_uleb(0x0a)
 }
 
 ///|
@@ -14178,6 +14251,51 @@ pub fn apply_validate_invalid_binary_strategy(
         MalformedCodeSectionCountUleb,
         validate_invalid_binary_module_with_malformed_code_section_count_uleb(),
       )
+    MalformedImportSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedImportSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x02),
+      )
+    MalformedExportSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedExportSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x07),
+      )
+    MalformedTableSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedTableSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x04),
+      )
+    MalformedMemorySectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedMemorySectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x05),
+      )
+    MalformedGlobalSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedGlobalSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x06),
+      )
+    MalformedFunctionSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedFunctionSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x03),
+      )
+    MalformedElementSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedElementSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x09),
+      )
+    MalformedDataSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedDataSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x0b),
+      )
+    MalformedTagSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedTagSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_section_count_uleb(0x0d),
+      )
     TypeSectionCountUnderflow =>
       validate_invalid_binary_mutate_type_section_count_underflow(base)
     CodeSectionCountUnderflow =>
@@ -14893,7 +15011,13 @@ pub fn run_validate_invalid_binary_fuzz(
   let stats = validate_invalid_binary_empty_strategy_stats()
   let mut attempt = 0
   while attempt < attempts {
-    let spec = registry[attempt % registry.length()]
+    let spec = if attempt < required_strategies.length() {
+      registry[validate_invalid_binary_strategy_index(
+        required_strategies[attempt],
+      )]
+    } else {
+      registry[attempt % registry.length()]
+    }
     let stat_idx = validate_invalid_binary_strategy_index(spec.id)
     validate_invalid_binary_update_strategy_stats(
       stats,

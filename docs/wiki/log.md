@@ -1159,8 +1159,8 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | malformed section vector-count ULEBs
 
-- Added `malformed-type-section-count-uleb` and `malformed-code-section-count-uleb` for [`[FUZ]1021`](../../agent-todo.md) as decode-rejected, non-smoke binary-invalid strategies that keep section payload-size frames well formed while corrupting the type/code section vector-count ULEB payloads with unterminated encodings.
-- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so section vector-count coverage distinguishes malformed count LEBs from count underflow/overflow payload-shape cases.
+- Added `malformed-type-section-count-uleb`, `malformed-code-section-count-uleb`, and the follow-up malformed vector-count carriers for import, export, table, memory, global, function, element, data, and tag sections for [`[FUZ]1021`](../../agent-todo.md) as decode-rejected, non-smoke binary-invalid strategies that keep section payload-size frames well formed while corrupting section vector-count ULEB payloads with unterminated encodings.
+- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so section vector-count coverage distinguishes malformed count LEBs from count underflow/overflow payload-shape cases; the binary-invalid smoke scheduler now explicitly exercises every smoke-required strategy before cycling through optional registry entries.
 
 ## [2026-05-21] fuzzing | overwide section and prefixed subopcode ULEBs
 
