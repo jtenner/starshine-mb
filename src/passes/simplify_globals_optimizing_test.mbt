@@ -6129,6 +6129,266 @@ test "simplify-globals-optimizing keeps simd arithmetic flow into post-consumer 
 }
 
 ///|
+test "simplify-globals-optimizing removes simd extension and conversion read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $extend (mut i32) (i32.const 0))
+      #|  (global $demote (mut f64) (f64.const 1))
+      #|  (global $promote (mut f32) (f32.const 1))
+      #|  (global $convert (mut i32) (i32.const 0))
+      #|  (global $trunc (mut f32) (f32.const 1))
+      #|  (func (export "extend")
+      #|    global.get $extend
+      #|    i8x16.splat
+      #|    i16x8.extend_low_i8x16_s
+      #|    i16x8.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $extend
+      #|    end)
+      #|  (func (export "demote")
+      #|    global.get $demote
+      #|    f64x2.splat
+      #|    f32x4.demote_f64x2_zero
+      #|    v128.const f32x4 0 0 0 0
+      #|    f32x4.ne
+      #|    i32x4.all_true
+      #|    if
+      #|      f64.const 2
+      #|      global.set $demote
+      #|    end)
+      #|  (func (export "promote")
+      #|    global.get $promote
+      #|    f32x4.splat
+      #|    f64x2.promote_low_f32x4
+      #|    v128.const f64x2 0 0
+      #|    f64x2.ne
+      #|    i64x2.all_true
+      #|    if
+      #|      f32.const 2
+      #|      global.set $promote
+      #|    end)
+      #|  (func (export "convert")
+      #|    global.get $convert
+      #|    i32x4.splat
+      #|    f64x2.convert_low_i32x4_s
+      #|    v128.const f64x2 0 0
+      #|    f64x2.ne
+      #|    i64x2.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $convert
+      #|    end)
+      #|  (func (export "trunc")
+      #|    global.get $trunc
+      #|    f32x4.splat
+      #|    i32x4.trunc_sat_f32x4_u
+      #|    i32x4.bitmask
+      #|    if
+      #|      f32.const 2
+      #|      global.set $trunc
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::f64(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::f32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 3),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 4),
+    @lib.GlobalType::new(@lib.ValType::f32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U) +
+    optimized.pretty_print_defined_func(3U) +
+    optimized.pretty_print_defined_func(4U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes simd narrow extmul and dot read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $narrow8 (mut i32) (i32.const 0))
+      #|  (global $narrow16 (mut i32) (i32.const 0))
+      #|  (global $extmul16 (mut i32) (i32.const 0))
+      #|  (global $extmul64 (mut i64) (i64.const 0))
+      #|  (global $dot (mut i32) (i32.const 0))
+      #|  (func (export "narrow8")
+      #|    global.get $narrow8
+      #|    i16x8.splat
+      #|    v128.const i32x4 1 1 1 1
+      #|    i8x16.narrow_i16x8_s
+      #|    i8x16.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $narrow8
+      #|    end)
+      #|  (func (export "narrow16")
+      #|    global.get $narrow16
+      #|    i32x4.splat
+      #|    v128.const i32x4 1 1 1 1
+      #|    i16x8.narrow_i32x4_u
+      #|    i16x8.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $narrow16
+      #|    end)
+      #|  (func (export "extmul16")
+      #|    global.get $extmul16
+      #|    i8x16.splat
+      #|    v128.const i32x4 1 1 1 1
+      #|    i16x8.extmul_high_i8x16_u
+      #|    i16x8.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $extmul16
+      #|    end)
+      #|  (func (export "extmul64")
+      #|    global.get $extmul64
+      #|    i64x2.splat
+      #|    v128.const i32x4 1 1 1 1
+      #|    i64x2.extmul_low_i32x4_s
+      #|    i64x2.bitmask
+      #|    if
+      #|      i64.const 1
+      #|      global.set $extmul64
+      #|    end)
+      #|  (func (export "dot")
+      #|    global.get $dot
+      #|    i16x8.splat
+      #|    v128.const i32x4 1 1 1 1
+      #|    i32x4.dot_i16x8_s
+      #|    i32x4.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $dot
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+  }
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 3),
+    @lib.GlobalType::new(@lib.ValType::i64(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 4),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U) +
+    optimized.pretty_print_defined_func(3U) +
+    optimized.pretty_print_defined_func(4U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes wrapped simd extension guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $block (mut i32) (i32.const 0))
+      #|  (func (export "block")
+      #|    block (result i32)
+      #|      global.get $block
+      #|      i8x16.splat
+      #|      i16x8.extend_high_i8x16_u
+      #|      i16x8.bitmask
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    i32.const 1
+      #|    global.set $block))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps simd extension and conversion flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $extend (mut i32) (i32.const 0))
+      #|  (global $convert (mut f32) (f32.const 1))
+      #|  (func (export "extend")
+      #|    global.get $extend
+      #|    i8x16.splat
+      #|    i16x8.extend_low_i8x16_s
+      #|    i16x8.bitmask
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $extend
+      #|    end)
+      #|  (func (export "convert")
+      #|    global.get $convert
+      #|    f32x4.splat
+      #|    i32x4.trunc_sat_f32x4_s
+      #|    i32x4.bitmask
+      #|    call $use
+      #|    if
+      #|      f32.const 2
+      #|      global.set $convert
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::f32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps simd lane shift and replace-lane flow into post-consumer call" {
   let optimized = sgo_test_run(
     (

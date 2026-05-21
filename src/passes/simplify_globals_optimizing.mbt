@@ -769,6 +769,28 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I32x4Neg
     | @lib.I32x4AllTrue
     | @lib.I32x4Bitmask
+    | @lib.F32x4DemoteF64x2Zero
+    | @lib.F64x2PromoteLowF32x4
+    | @lib.I16x8ExtendLowI8x16S
+    | @lib.I16x8ExtendHighI8x16S
+    | @lib.I16x8ExtendLowI8x16U
+    | @lib.I16x8ExtendHighI8x16U
+    | @lib.I32x4ExtendLowI16x8S
+    | @lib.I32x4ExtendHighI16x8S
+    | @lib.I32x4ExtendLowI16x8U
+    | @lib.I32x4ExtendHighI16x8U
+    | @lib.I64x2ExtendLowI32x4S
+    | @lib.I64x2ExtendHighI32x4S
+    | @lib.I64x2ExtendLowI32x4U
+    | @lib.I64x2ExtendHighI32x4U
+    | @lib.I32x4TruncSatF32x4S
+    | @lib.I32x4TruncSatF32x4U
+    | @lib.I32x4TruncSatF64x2SZero
+    | @lib.I32x4TruncSatF64x2UZero
+    | @lib.F32x4ConvertI32x4S
+    | @lib.F32x4ConvertI32x4U
+    | @lib.F64x2ConvertLowI32x4S
+    | @lib.F64x2ConvertLowI32x4U
     | @lib.I8x16ExtractLaneS(_)
     | @lib.I8x16ExtractLaneU(_)
     | @lib.I16x8ExtractLaneS(_)
@@ -924,6 +946,22 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2Shl
     | @lib.I64x2ShrS
     | @lib.I64x2ShrU
+    | @lib.I8x16NarrowI16x8S
+    | @lib.I8x16NarrowI16x8U
+    | @lib.I16x8NarrowI32x4S
+    | @lib.I16x8NarrowI32x4U
+    | @lib.I16x8ExtmulLowI8x16S
+    | @lib.I16x8ExtmulHighI8x16S
+    | @lib.I16x8ExtmulLowI8x16U
+    | @lib.I16x8ExtmulHighI8x16U
+    | @lib.I32x4ExtmulLowI16x8S
+    | @lib.I32x4ExtmulHighI16x8S
+    | @lib.I32x4ExtmulLowI16x8U
+    | @lib.I32x4ExtmulHighI16x8U
+    | @lib.I64x2ExtmulLowI32x4S
+    | @lib.I64x2ExtmulHighI32x4S
+    | @lib.I64x2ExtmulLowI32x4U
+    | @lib.I64x2ExtmulHighI32x4U
     | @lib.I8x16Add
     | @lib.I8x16AddSatS
     | @lib.I8x16AddSatU
@@ -956,6 +994,7 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I32x4MinU
     | @lib.I32x4MaxS
     | @lib.I32x4MaxU
+    | @lib.I32x4DotI16x8S
     | @lib.I32x4Eq
     | @lib.I64x2Add
     | @lib.I64x2Sub
