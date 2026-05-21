@@ -184,6 +184,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedDataIndexUleb
   MalformedMemoryInitMemoryIndexUleb
   MalformedElemIndexUleb
+  MalformedTableInitElemIndexUleb
   MalformedTableInitTableIndexUleb
   MalformedDataSegmentMemoryIndexUleb
   MalformedElementSegmentTableIndexUleb
@@ -695,6 +696,7 @@ fn validate_invalid_binary_strategy_label(
     MalformedMemoryInitMemoryIndexUleb =>
       "malformed-memory-init-memory-index-uleb"
     MalformedElemIndexUleb => "malformed-elem-index-uleb"
+    MalformedTableInitElemIndexUleb => "malformed-table-init-elem-index-uleb"
     MalformedTableInitTableIndexUleb => "malformed-table-init-table-index-uleb"
     MalformedDataSegmentMemoryIndexUleb =>
       "malformed-data-segment-memory-index-uleb"
@@ -1829,6 +1831,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedElemIndexUleb,
       "malformed-elem-index-uleb",
       "elem.drop instruction with a malformed element-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableInitElemIndexUleb,
+      "malformed-table-init-elem-index-uleb",
+      "table.init instruction with a malformed element-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4315,6 +4324,28 @@ fn validate_invalid_binary_mutate_malformed_elem_index_uleb(
       validate_invalid_binary_minimal_code_with_instr([
         (0xfc).to_byte(),
         (0x0d).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_table_init_elem_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTableInitElemIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x0c).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -8110,6 +8141,8 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     MalformedElemIndexUleb =>
       validate_invalid_binary_mutate_malformed_elem_index_uleb(base)
+    MalformedTableInitElemIndexUleb =>
+      validate_invalid_binary_mutate_malformed_table_init_elem_index_uleb(base)
     MalformedTableInitTableIndexUleb =>
       validate_invalid_binary_mutate_malformed_table_init_table_index_uleb(base)
     MalformedDataSegmentMemoryIndexUleb =>
