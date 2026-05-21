@@ -159,6 +159,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTableCopyDstIndexUleb
   MalformedTableCopySrcIndexUleb
   MalformedSelectTypeCountUleb
+  InvalidTypedSelectValTypeByte
   MalformedStartFuncIndexUleb
   MalformedDataCountUleb
   SimdShuffleLaneOverflow
@@ -653,6 +654,7 @@ fn validate_invalid_binary_strategy_label(
     MalformedTableCopyDstIndexUleb => "malformed-table-copy-dst-index-uleb"
     MalformedTableCopySrcIndexUleb => "malformed-table-copy-src-index-uleb"
     MalformedSelectTypeCountUleb => "malformed-select-type-count-uleb"
+    InvalidTypedSelectValTypeByte => "invalid-typed-select-valtype-byte"
     MalformedStartFuncIndexUleb => "malformed-start-func-index-uleb"
     MalformedDataCountUleb => "malformed-datacount-uleb"
     SimdShuffleLaneOverflow => "simd-shuffle-lane-overflow"
@@ -1623,6 +1625,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedSelectTypeCountUleb,
       "malformed-select-type-count-uleb",
       "typed select instruction with a malformed type-count ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidTypedSelectValTypeByte,
+      "invalid-typed-select-valtype-byte",
+      "typed select instruction with an invalid valtype byte in its type vector",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3774,6 +3783,24 @@ fn validate_invalid_binary_mutate_malformed_select_type_count_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_typed_select_valtype_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidTypedSelectValTypeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x1c).to_byte(),
+        (0x01).to_byte(),
+        (0xff).to_byte(),
       ]),
     ),
   )
@@ -7464,6 +7491,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_table_copy_src_index_uleb(base)
     MalformedSelectTypeCountUleb =>
       validate_invalid_binary_mutate_malformed_select_type_count_uleb(base)
+    InvalidTypedSelectValTypeByte =>
+      validate_invalid_binary_mutate_invalid_typed_select_valtype_byte(base)
     MalformedStartFuncIndexUleb =>
       validate_invalid_binary_mutate_malformed_start_func_index_uleb(base)
     MalformedDataCountUleb =>
