@@ -341,6 +341,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   BadMagicHeader
   BadVersionHeader
   MalformedSectionSizeUleb
+  OverwideSectionSizeUleb
   SectionPayloadLengthOverflow
   CodeSecWithoutFuncSecModule
   InvalidTableNameSectionIndexModule
@@ -373,6 +374,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedGcPrefixSubopcodeUleb
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
+  OverwideGcPrefixSubopcodeUleb
+  OverwideBulkPrefixSubopcodeUleb
+  OverwideSimdPrefixSubopcodeUleb
   MalformedMemargImmediate
   MalformedLoadMemargAlignUleb
   MalformedStoreMemargAlignUleb

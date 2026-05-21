@@ -63,6 +63,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   BadMagicHeader
   BadVersionHeader
   MalformedSectionSizeUleb
+  OverwideSectionSizeUleb
   SectionPayloadLengthOverflow
   CodeSecWithoutFuncSecModule
   InvalidTableNameSectionIndexModule
@@ -95,6 +96,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedGcPrefixSubopcodeUleb
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
+  OverwideGcPrefixSubopcodeUleb
+  OverwideBulkPrefixSubopcodeUleb
+  OverwideSimdPrefixSubopcodeUleb
   MalformedMemargImmediate
   MalformedLoadMemargAlignUleb
   MalformedStoreMemargAlignUleb
@@ -709,6 +713,7 @@ fn validate_invalid_binary_strategy_label(
     BadMagicHeader => "bad-magic-header"
     BadVersionHeader => "bad-version-header"
     MalformedSectionSizeUleb => "malformed-section-size-uleb"
+    OverwideSectionSizeUleb => "overwide-section-size-uleb"
     SectionPayloadLengthOverflow => "section-payload-length-overflow"
     CodeSecWithoutFuncSecModule => "codesec-without-funcsec-module"
     InvalidTableNameSectionIndexModule =>
@@ -750,6 +755,9 @@ fn validate_invalid_binary_strategy_label(
     MalformedGcPrefixSubopcodeUleb => "malformed-gc-prefix-subopcode-uleb"
     MalformedBulkPrefixSubopcodeUleb => "malformed-bulk-prefix-subopcode-uleb"
     MalformedSimdPrefixSubopcodeUleb => "malformed-simd-prefix-subopcode-uleb"
+    OverwideGcPrefixSubopcodeUleb => "overwide-gc-prefix-subopcode-uleb"
+    OverwideBulkPrefixSubopcodeUleb => "overwide-bulk-prefix-subopcode-uleb"
+    OverwideSimdPrefixSubopcodeUleb => "overwide-simd-prefix-subopcode-uleb"
     MalformedMemargImmediate => "malformed-memarg-immediate"
     MalformedLoadMemargAlignUleb => "malformed-load-memarg-align-uleb"
     MalformedStoreMemargAlignUleb => "malformed-store-memarg-align-uleb"
@@ -1295,6 +1303,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       DecodeRejected,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideSectionSizeUleb,
+      "overwide-section-size-uleb",
+      "section size whose ULEB exceeds the u32 byte budget",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       SectionPayloadLengthOverflow,
       "section-payload-length-overflow",
       "section payload length that exceeds the module bytes",
@@ -1567,6 +1582,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedSimdPrefixSubopcodeUleb,
       "malformed-simd-prefix-subopcode-uleb",
       "SIMD-prefixed instruction with a malformed subopcode ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideGcPrefixSubopcodeUleb,
+      "overwide-gc-prefix-subopcode-uleb",
+      "GC-prefixed instruction with an overwide subopcode ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideBulkPrefixSubopcodeUleb,
+      "overwide-bulk-prefix-subopcode-uleb",
+      "bulk/table-prefixed instruction with an overwide subopcode ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideSimdPrefixSubopcodeUleb,
+      "overwide-simd-prefix-subopcode-uleb",
+      "SIMD-prefixed instruction with an overwide subopcode ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4233,6 +4269,44 @@ fn validate_invalid_binary_mutate_malformed_section_size_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_overwide_section_size_uleb(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let spans = match validate_invalid_binary_scan_sections(encoded) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if spans.is_empty() {
+    return Ok(
+      validate_invalid_binary_mutation(
+        OverwideSectionSizeUleb,
+        DecodeRejected,
+        false,
+        encoded,
+      ),
+    )
+  }
+  let target = spans[0]
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideSectionSizeUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_replace_range(
+        encoded,
+        target.header_start + 1,
+        target.payload_start,
+        validate_invalid_binary_overwide_u32_uleb_bytes(),
+      ),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_section_payload_length_overflow(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -4719,6 +4793,21 @@ fn validate_invalid_binary_malformed_prefix_subopcode_module(
 }
 
 ///|
+fn validate_invalid_binary_overwide_prefix_subopcode_module(
+  prefix : Byte,
+) -> Bytes {
+  validate_invalid_binary_minimal_code_with_instr([
+    prefix,
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_gc_prefix_subopcode_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -4762,6 +4851,48 @@ fn validate_invalid_binary_mutate_malformed_simd_prefix_subopcode_uleb(
       validate_invalid_binary_malformed_prefix_subopcode_module(
         (0xfd).to_byte(),
       ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_gc_prefix_subopcode_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideGcPrefixSubopcodeUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_overwide_prefix_subopcode_module((0xfb).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_bulk_prefix_subopcode_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideBulkPrefixSubopcodeUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_overwide_prefix_subopcode_module((0xfc).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_simd_prefix_subopcode_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideSimdPrefixSubopcodeUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_overwide_prefix_subopcode_module((0xfd).to_byte()),
     ),
   )
 }
@@ -13278,6 +13409,8 @@ pub fn apply_validate_invalid_binary_strategy(
     BadVersionHeader => validate_invalid_binary_mutate_bad_version_header(base)
     MalformedSectionSizeUleb =>
       validate_invalid_binary_mutate_malformed_section_size_uleb(base)
+    OverwideSectionSizeUleb =>
+      validate_invalid_binary_mutate_overwide_section_size_uleb(base)
     SectionPayloadLengthOverflow =>
       validate_invalid_binary_mutate_section_payload_length_overflow(base)
     ReservedSectionId =>
@@ -13316,6 +13449,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_bulk_prefix_subopcode_uleb(base)
     MalformedSimdPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_malformed_simd_prefix_subopcode_uleb(base)
+    OverwideGcPrefixSubopcodeUleb =>
+      validate_invalid_binary_mutate_overwide_gc_prefix_subopcode_uleb(base)
+    OverwideBulkPrefixSubopcodeUleb =>
+      validate_invalid_binary_mutate_overwide_bulk_prefix_subopcode_uleb(base)
+    OverwideSimdPrefixSubopcodeUleb =>
+      validate_invalid_binary_mutate_overwide_simd_prefix_subopcode_uleb(base)
     MalformedMemargImmediate =>
       validate_invalid_binary_mutate_malformed_memarg_immediate(base)
     MalformedLoadMemargAlignUleb =>

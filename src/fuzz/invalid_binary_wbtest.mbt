@@ -51,13 +51,13 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "duplicate-export-name-module", "funcsec-without-codesec-module", "datacount-without-data-sec-module",
     "invalid-name-section-func-index-module", "invalid-local-name-section-index-module",
     "invalid-label-name-section-index-module", "bad-magic-header", "bad-version-header",
-    "malformed-section-size-uleb", "section-payload-length-overflow", "codesec-without-funcsec-module",
-    "invalid-table-name-section-index-module", "invalid-global-name-section-index-module",
-    "reserved-section-id", "invalid-custom-section-name-utf8", "invalid-type-name-section-index-module",
-    "invalid-field-name-section-index-module", "invalid-elem-name-section-index-module",
-    "invalid-data-name-section-index-module", "invalid-export-table-index-module",
-    "invalid-export-global-index-module", "invalid-export-memory-index-module", "invalid-export-tag-index-module",
-    "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
+    "malformed-section-size-uleb", "overwide-section-size-uleb", "section-payload-length-overflow",
+    "codesec-without-funcsec-module", "invalid-table-name-section-index-module",
+    "invalid-global-name-section-index-module", "reserved-section-id", "invalid-custom-section-name-utf8",
+    "invalid-type-name-section-index-module", "invalid-field-name-section-index-module",
+    "invalid-elem-name-section-index-module", "invalid-data-name-section-index-module",
+    "invalid-export-table-index-module", "invalid-export-global-index-module", "invalid-export-memory-index-module",
+    "invalid-export-tag-index-module", "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
     "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
     "duplicate-import-section", "duplicate-export-section", "duplicate-table-section",
     "duplicate-memory-section", "duplicate-global-section", "duplicate-function-section",
@@ -68,6 +68,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
     "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
     "malformed-bulk-prefix-subopcode-uleb", "malformed-simd-prefix-subopcode-uleb",
+    "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
     "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
     "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb", "overwide-load-memarg-align-uleb",
     "overwide-store-memarg-align-uleb", "overwide-load-memarg-offset-uleb", "overwide-store-memarg-offset-uleb",
@@ -196,10 +197,10 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "validate-start", "validate-start", "validate-start", "validate-start", "validate-start",
       "validate-start", "validate-start", "validate-export", "validate-code", "validate-datacount",
       "validate-name", "validate-name", "validate-name", "decode", "decode", "decode",
-      "decode", "validate-code", "validate-name", "validate-name", "decode", "decode",
-      "validate-name", "validate-name", "validate-name", "validate-name", "validate-export",
-      "validate-export", "validate-export", "validate-export", "validate-name", "validate-import",
-      "validate-datacount", "validate-datacount", "decode", "decode", "decode", "decode",
+      "decode", "decode", "validate-code", "validate-name", "validate-name", "decode",
+      "decode", "validate-name", "validate-name", "validate-name", "validate-name",
+      "validate-export", "validate-export", "validate-export", "validate-export",
+      "validate-name", "validate-import", "validate-datacount", "validate-datacount",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
@@ -239,7 +240,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -450,6 +451,17 @@ test "malformed section size uleb binary strategy rejects at decode stage" {
   match
     invalid_binary_expect_strategy_rejects(
       "malformed-section-size-uleb", 0x5efa1UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid binary FZG039 decodes overwide section-size ULEB as invalid" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "overwide-section-size-uleb", 0x5f39UL, "decode",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
@@ -1566,6 +1578,20 @@ test "invalid binary FZG030 decodes malformed prefixed subopcode ULEBs as invali
 }
 
 ///|
+test "invalid binary FZG030 decodes overwide prefixed subopcode ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb",
+      "overwide-simd-prefix-subopcode-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f1cUL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG032 decodes custom-section overwide name length as invalid" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -1785,8 +1811,9 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
       "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
       "malformed-bulk-prefix-subopcode-uleb", "malformed-simd-prefix-subopcode-uleb",
-      "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
-      "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
+      "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb",
+      "overwide-simd-prefix-subopcode-uleb", "malformed-memarg-immediate", "malformed-load-memarg-align-uleb",
+      "malformed-store-memarg-align-uleb", "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
       "overwide-load-memarg-align-uleb", "overwide-store-memarg-align-uleb", "overwide-load-memarg-offset-uleb",
       "overwide-store-memarg-offset-uleb", "malformed-blocktype-immediate", "invalid-blocktype-valtype-byte",
       "overwide-blocktype-type-index-uleb", "malformed-memory-min-uleb", "malformed-table-min-uleb",

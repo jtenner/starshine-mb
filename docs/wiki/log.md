@@ -1157,6 +1157,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | overwide section and prefixed subopcode ULEBs
+
+- Added decode-rejected, non-smoke `overwide-section-size-uleb` coverage for section payload-size fields under [`[FUZ]1021`](../../agent-todo.md), complementing the existing malformed section-size ULEB strategy.
+- Added decode-rejected, non-smoke overwide subopcode ULEB strategies for the supported prefixed instruction spaces: `overwide-gc-prefix-subopcode-uleb`, `overwide-bulk-prefix-subopcode-uleb`, and `overwide-simd-prefix-subopcode-uleb`.
+- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so section-size and prefix-byte coverage track malformed and overwide LEB carriers separately from invalid assigned subopcode bytes.
+
 ## [2026-05-21] fuzzing | overwide code body-size ULEB
 
 - Added `overwide-code-body-size-uleb` for [`[FUZ]1021`](../../agent-todo.md) as a decode-rejected, non-smoke binary-invalid strategy that keeps the code-section payload length well formed while corrupting the function body-size field beyond the `u32` byte budget.
