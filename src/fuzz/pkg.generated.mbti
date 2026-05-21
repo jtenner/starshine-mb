@@ -491,10 +491,18 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTryTableCatchCountUleb
   MalformedTryTableCatchTagIndexUleb
   MalformedTryTableCatchLabelIndexUleb
+  OverwideThrowTagIndexUleb
+  OverwideTryTableCatchCountUleb
+  OverwideTryTableCatchTagIndexUleb
+  OverwideTryTableCatchLabelIndexUleb
   MalformedStructNewTypeIndexUleb
   MalformedStructGetFieldIndexUleb
   MalformedArrayNewDataTypeIndexUleb
   MalformedArrayNewDataIndexUleb
+  OverwideStructNewTypeIndexUleb
+  OverwideStructGetFieldIndexUleb
+  OverwideArrayNewDataTypeIndexUleb
+  OverwideArrayNewDataIndexUleb
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb

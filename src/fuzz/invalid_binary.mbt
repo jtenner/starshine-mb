@@ -213,10 +213,18 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTryTableCatchCountUleb
   MalformedTryTableCatchTagIndexUleb
   MalformedTryTableCatchLabelIndexUleb
+  OverwideThrowTagIndexUleb
+  OverwideTryTableCatchCountUleb
+  OverwideTryTableCatchTagIndexUleb
+  OverwideTryTableCatchLabelIndexUleb
   MalformedStructNewTypeIndexUleb
   MalformedStructGetFieldIndexUleb
   MalformedArrayNewDataTypeIndexUleb
   MalformedArrayNewDataIndexUleb
+  OverwideStructNewTypeIndexUleb
+  OverwideStructGetFieldIndexUleb
+  OverwideArrayNewDataTypeIndexUleb
+  OverwideArrayNewDataIndexUleb
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
@@ -854,11 +862,22 @@ fn validate_invalid_binary_strategy_label(
       "malformed-try-table-catch-tag-index-uleb"
     MalformedTryTableCatchLabelIndexUleb =>
       "malformed-try-table-catch-label-index-uleb"
+    OverwideThrowTagIndexUleb => "overwide-throw-tag-index-uleb"
+    OverwideTryTableCatchCountUleb => "overwide-try-table-catch-count-uleb"
+    OverwideTryTableCatchTagIndexUleb =>
+      "overwide-try-table-catch-tag-index-uleb"
+    OverwideTryTableCatchLabelIndexUleb =>
+      "overwide-try-table-catch-label-index-uleb"
     MalformedStructNewTypeIndexUleb => "malformed-struct-new-type-index-uleb"
     MalformedStructGetFieldIndexUleb => "malformed-struct-get-field-index-uleb"
     MalformedArrayNewDataTypeIndexUleb =>
       "malformed-array-new-data-type-index-uleb"
     MalformedArrayNewDataIndexUleb => "malformed-array-new-data-index-uleb"
+    OverwideStructNewTypeIndexUleb => "overwide-struct-new-type-index-uleb"
+    OverwideStructGetFieldIndexUleb => "overwide-struct-get-field-index-uleb"
+    OverwideArrayNewDataTypeIndexUleb =>
+      "overwide-array-new-data-type-index-uleb"
+    OverwideArrayNewDataIndexUleb => "overwide-array-new-data-index-uleb"
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
     MalformedBrIfLabelIndexUleb => "malformed-br-if-label-index-uleb"
     MalformedBrTableTargetCountUleb => "malformed-br-table-target-count-uleb"
@@ -2320,6 +2339,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideThrowTagIndexUleb,
+      "overwide-throw-tag-index-uleb",
+      "throw instruction with an overwide tag-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTryTableCatchCountUleb,
+      "overwide-try-table-catch-count-uleb",
+      "try_table instruction with an overwide catch-count ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTryTableCatchTagIndexUleb,
+      "overwide-try-table-catch-tag-index-uleb",
+      "try_table catch instruction with an overwide tag-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTryTableCatchLabelIndexUleb,
+      "overwide-try-table-catch-label-index-uleb",
+      "try_table catch instruction with an overwide label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedStructNewTypeIndexUleb,
       "malformed-struct-new-type-index-uleb",
       "struct.new instruction with a malformed type-index ULEB immediate",
@@ -2344,6 +2391,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedArrayNewDataIndexUleb,
       "malformed-array-new-data-index-uleb",
       "array.new_data instruction with a malformed data-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideStructNewTypeIndexUleb,
+      "overwide-struct-new-type-index-uleb",
+      "struct.new instruction with an overwide type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideStructGetFieldIndexUleb,
+      "overwide-struct-get-field-index-uleb",
+      "struct.get instruction with an overwide field-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideArrayNewDataTypeIndexUleb,
+      "overwide-array-new-data-type-index-uleb",
+      "array.new_data instruction with an overwide type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideArrayNewDataIndexUleb,
+      "overwide-array-new-data-index-uleb",
+      "array.new_data instruction with an overwide data-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5709,6 +5784,153 @@ fn validate_invalid_binary_mutate_malformed_array_new_data_index_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_throw_tag_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x08).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideThrowTagIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_try_table_catch_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x1f).to_byte(), (0x40).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTryTableCatchCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_try_table_catch_tag_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0x1f).to_byte(),
+    (0x40).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTryTableCatchTagIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_try_table_catch_label_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0x1f).to_byte(),
+    (0x40).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTryTableCatchLabelIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_struct_new_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xfb).to_byte(), (0x00).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideStructNewTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_struct_get_field_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0xfb).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideStructGetFieldIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_array_new_data_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xfb).to_byte(), (0x09).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideArrayNewDataTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_array_new_data_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0xfb).to_byte(),
+    (0x09).to_byte(),
+    (0x00).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideArrayNewDataIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
     ),
   )
 }
@@ -12535,6 +12757,18 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_try_table_catch_label_index_uleb(
         base,
       )
+    OverwideThrowTagIndexUleb =>
+      validate_invalid_binary_mutate_overwide_throw_tag_index_uleb(base)
+    OverwideTryTableCatchCountUleb =>
+      validate_invalid_binary_mutate_overwide_try_table_catch_count_uleb(base)
+    OverwideTryTableCatchTagIndexUleb =>
+      validate_invalid_binary_mutate_overwide_try_table_catch_tag_index_uleb(
+        base,
+      )
+    OverwideTryTableCatchLabelIndexUleb =>
+      validate_invalid_binary_mutate_overwide_try_table_catch_label_index_uleb(
+        base,
+      )
     MalformedStructNewTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_struct_new_type_index_uleb(base)
     MalformedStructGetFieldIndexUleb =>
@@ -12545,6 +12779,16 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     MalformedArrayNewDataIndexUleb =>
       validate_invalid_binary_mutate_malformed_array_new_data_index_uleb(base)
+    OverwideStructNewTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_struct_new_type_index_uleb(base)
+    OverwideStructGetFieldIndexUleb =>
+      validate_invalid_binary_mutate_overwide_struct_get_field_index_uleb(base)
+    OverwideArrayNewDataTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_array_new_data_type_index_uleb(
+        base,
+      )
+    OverwideArrayNewDataIndexUleb =>
+      validate_invalid_binary_mutate_overwide_array_new_data_index_uleb(base)
     MalformedBrLabelIndexUleb =>
       validate_invalid_binary_mutate_malformed_br_label_index_uleb(base)
     MalformedBrIfLabelIndexUleb =>

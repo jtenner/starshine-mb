@@ -111,9 +111,13 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "overwide-return-call-indirect-type-index-uleb", "overwide-return-call-indirect-table-index-uleb",
     "overwide-call-ref-type-index-uleb", "overwide-return-call-ref-type-index-uleb",
     "malformed-throw-tag-index-uleb", "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
-    "malformed-try-table-catch-label-index-uleb", "malformed-struct-new-type-index-uleb",
+    "malformed-try-table-catch-label-index-uleb", "overwide-throw-tag-index-uleb",
+    "overwide-try-table-catch-count-uleb", "overwide-try-table-catch-tag-index-uleb",
+    "overwide-try-table-catch-label-index-uleb", "malformed-struct-new-type-index-uleb",
     "malformed-struct-get-field-index-uleb", "malformed-array-new-data-type-index-uleb",
-    "malformed-array-new-data-index-uleb", "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb",
+    "malformed-array-new-data-index-uleb", "overwide-struct-new-type-index-uleb",
+    "overwide-struct-get-field-index-uleb", "overwide-array-new-data-type-index-uleb",
+    "overwide-array-new-data-index-uleb", "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb",
     "malformed-br-table-target-count-uleb", "malformed-br-table-target-label-index-uleb",
     "malformed-br-table-default-label-index-uleb", "overwide-br-label-index-uleb",
     "overwide-br-if-label-index-uleb", "overwide-br-table-target-count-uleb", "overwide-br-table-target-label-index-uleb",
@@ -184,6 +188,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "validate-name", "validate-name", "validate-name", "validate-name", "validate-export",
       "validate-export", "validate-export", "validate-export", "validate-name", "validate-import",
       "validate-datacount", "validate-datacount", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
@@ -1603,6 +1608,23 @@ test "invalid binary FZG031 decodes overwide typed select count ULEB as invalid"
 }
 
 ///|
+test "invalid binary FZG031 decodes overwide exception and GC instruction index ULEBs as invalid" {
+  for
+    stable_id in [
+      "overwide-throw-tag-index-uleb", "overwide-try-table-catch-count-uleb", "overwide-try-table-catch-tag-index-uleb",
+      "overwide-try-table-catch-label-index-uleb", "overwide-struct-new-type-index-uleb",
+      "overwide-struct-get-field-index-uleb", "overwide-array-new-data-type-index-uleb",
+      "overwide-array-new-data-index-uleb",
+    ] {
+    match
+      invalid_binary_expect_strategy_rejects(stable_id, 0x5f21UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail(msg)
+    }
+  }
+}
+
+///|
 test "invalid binary FZG031 decodes overwide bulk instruction index ULEBs as invalid" {
   for
     stable_id in [
@@ -1676,9 +1698,13 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "overwide-return-call-indirect-table-index-uleb", "overwide-call-ref-type-index-uleb",
       "overwide-return-call-ref-type-index-uleb", "malformed-throw-tag-index-uleb",
       "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
-      "malformed-try-table-catch-label-index-uleb", "invalid-import-tag-attribute-byte",
+      "malformed-try-table-catch-label-index-uleb", "overwide-throw-tag-index-uleb",
+      "overwide-try-table-catch-count-uleb", "overwide-try-table-catch-tag-index-uleb",
+      "overwide-try-table-catch-label-index-uleb", "invalid-import-tag-attribute-byte",
       "malformed-struct-new-type-index-uleb", "malformed-struct-get-field-index-uleb",
       "malformed-array-new-data-type-index-uleb", "malformed-array-new-data-index-uleb",
+      "overwide-struct-new-type-index-uleb", "overwide-struct-get-field-index-uleb",
+      "overwide-array-new-data-type-index-uleb", "overwide-array-new-data-index-uleb",
       "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
       "malformed-br-table-default-label-index-uleb", "overwide-br-label-index-uleb",
       "overwide-br-if-label-index-uleb", "overwide-br-table-target-count-uleb", "overwide-br-table-target-label-index-uleb",
