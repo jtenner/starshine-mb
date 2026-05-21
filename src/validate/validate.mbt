@@ -3541,7 +3541,7 @@ pub impl Show for ValidateValidFuzzStats with output(self, logger) {
 }
 
 ///|
-fn validate_valid_feature_floor(
+pub fn validate_valid_feature_floor(
   key : ValidateValidFeatureKey,
   min_count : Int,
 ) -> ValidateValidFeatureFloor {
@@ -3789,6 +3789,93 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     InvalidAstStrategies => "invalid_ast_strategies"
     InvalidBinaryStrategies => "invalid_binary_strategies"
     WastArbitraryParity => "wast_arbitrary_parity"
+  }
+}
+
+///|
+fn validate_valid_feature_key_from_label(
+  label : String,
+) -> ValidateValidFeatureKey? {
+  match validate_fuzz_ascii_lower(label.trim().to_owned()) {
+    "imports" => Some(Imports)
+    "func_exports" => Some(FuncExports)
+    "table_exports" => Some(TableExports)
+    "mem_exports" => Some(MemExports)
+    "global_exports" => Some(GlobalExports)
+    "tag_exports" => Some(TagExports)
+    "starts" => Some(Starts)
+    "lacks_start" => Some(LacksStart)
+    "tables" => Some(Tables)
+    "mems" => Some(Mems)
+    "globals" => Some(Globals)
+    "tags" => Some(Tags)
+    "elems" => Some(Elems)
+    "datas" => Some(Datas)
+    "data_count" => Some(DataCount)
+    "ref_types" => Some(RefTypes)
+    "v128" => Some(V128)
+    "calls" => Some(Calls)
+    "call_indirect" => Some(CallIndirect)
+    "branch_heavy_control" => Some(BranchHeavyControl)
+    "payload_control_flow" => Some(PayloadControlFlow)
+    "multivalue_control_flow" => Some(MultivalueControlFlow)
+    "numeric_full_ops" => Some(NumericFullOps)
+    "br_table" => Some(BrTable)
+    "standalone_unreachable" => Some(StandaloneUnreachable)
+    "local_tee" => Some(LocalTee)
+    "typed_select" => Some(TypedSelect)
+    "tail_calls" => Some(TailCalls)
+    "scalar_memory_widths" => Some(ScalarMemoryWidths)
+    "nonzero_memarg" => Some(NonzeroMemarg)
+    "memory_limit_variants" => Some(MemoryLimitVariants)
+    "table_limit_variants" => Some(TableLimitVariants)
+    "const_expr_variants" => Some(ConstExprVariants)
+    "basic_ref_instructions" => Some(BasicRefInstructions)
+    "i31_extern_conversions" => Some(I31ExternConversions)
+    "gc_constructors" => Some(GcConstructors)
+    "gc_accessors" => Some(GcAccessors)
+    "string_ops" => Some(StringOps)
+    "exception_try_table_matrix" => Some(ExceptionTryTableMatrix)
+    "simd_phase1" => Some(SimdPhase1)
+    "simd_phase2" => Some(SimdPhase2)
+    "simd_phase3" => Some(SimdPhase3)
+    "atomics" => Some(Atomics)
+    "subtyping_topology" => Some(SubtypingTopology)
+    "rich_gc_field_plans" => Some(RichGcFieldPlans)
+    "import_export_topology" => Some(ImportExportTopology)
+    "element_segment_range" => Some(ElementSegmentRange)
+    "data_segment_range" => Some(DataSegmentRange)
+    "name_custom_sections" => Some(NameCustomSections)
+    "gc_exception_combo" => Some(GcExceptionCombo)
+    "gc_tail_call_combo" => Some(GcTailCallCombo)
+    "shared_memory_atomics" => Some(SharedMemoryAtomics)
+    "imports_start_exports" => Some(ImportsStartExports)
+    "invalid_ast_strategies" => Some(InvalidAstStrategies)
+    "invalid_binary_strategies" => Some(InvalidBinaryStrategies)
+    "wast_arbitrary_parity" => Some(WastArbitraryParity)
+    _ => None
+  }
+}
+
+///|
+pub fn validate_valid_feature_floor_by_label(
+  label : String,
+  min_count : Int,
+) -> Result[ValidateValidFeatureFloor, String] {
+  match validate_valid_feature_key_from_label(label) {
+    Some(key) => Ok(validate_valid_feature_floor(key, min_count))
+    None => Err("unknown validate-valid feature label '\{label}'")
+  }
+}
+
+///|
+pub fn validate_valid_feature_actual_count_by_label(
+  stats : GenValidFeatureStats,
+  label : String,
+) -> Result[Int, String] {
+  match validate_valid_feature_key_from_label(label) {
+    Some(key) => Ok(validate_valid_feature_actual_count(stats, key))
+    None => Err("unknown validate-valid feature label '\{label}'")
   }
 }
 

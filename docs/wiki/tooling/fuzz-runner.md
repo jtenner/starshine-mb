@@ -93,6 +93,8 @@ The batch config is [`GenValidConfig::binaryen_oracle_coverage_forced_default()`
 
 Callers that need generation diagnostics can use [`gen_valid_module_result(...)`](../../../src/validate/gen_valid.mbt) instead of the compatibility `Module`-only wrapper. The result-bearing API reports the stable config label, retry attempt count, feature facts for successful modules, and the last validation message/candidate on failure. The fuzz package also exposes [`emit_gen_valid_batch_artifacts_with_manifest(...)`](../../../src/fuzz/main.mbt), which preserves the existing `.wasm` artifact names while returning an in-memory manifest with file name, seed, index, config label, attempts, validation status, and feature facts for each generated input.
 
+For local coverage-guided selection, [`emit_gen_valid_batch_artifacts_until_features(...)`](../../../src/fuzz/main.mbt) generates a bounded candidate stream from an explicit `GenValidConfig`, keeps only modules that contribute to required feature floors and do not hit excluded feature keys, and returns the selected artifacts, manifest entries, aggregate `GenValidFeatureStats`, floor failures, attempt count, and skipped-candidate count. Use [`validate_valid_feature_floor_by_label(...)`](../../../src/validate/validate.mbt) and [`validate_valid_feature_actual_count_by_label(...)`](../../../src/validate/validate.mbt) when a caller needs stable string labels such as `v128` or `mems` instead of constructing ledger enum values directly.
+
 ### Invalid repro bundles
 
 The MoonBit runner also exposes the shared invalid-repro builder:

@@ -240,6 +240,64 @@ test "emit_gen_valid_batch_artifacts_with_manifest returns deterministic diagnos
 }
 
 ///|
+test "emit_gen_valid_batch_artifacts_until_features selects bounded feature-covering modules" {
+  let v128_floor = match
+    @validate.validate_valid_feature_floor_by_label("v128", 1) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  let selected = match
+    emit_gen_valid_batch_artifacts_until_features(
+      1,
+      0xf71004UL,
+      GenValidConfig::coverage_forced_default(),
+      [v128_floor],
+      [],
+      8,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected feature-guided gen-valid batch success, got \{e}")
+  }
+  @debug.assert_eq(selected.artifacts.length(), 1)
+  @debug.assert_eq(selected.manifest.length(), 1)
+  @debug.assert_eq(selected.selected, 1)
+  assert_true(selected.attempts >= 1)
+  let v128_count = match
+    @validate.validate_valid_feature_actual_count_by_label(
+      selected.feature_stats,
+      "v128",
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  assert_true(v128_count >= 1)
+}
+
+///|
+test "emit_gen_valid_batch_artifacts_until_features reports unmet floors" {
+  let mems_floor = match
+    @validate.validate_valid_feature_floor_by_label("mems", 1) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  match
+    emit_gen_valid_batch_artifacts_until_features(
+      1,
+      0x5eedUL,
+      emit_gen_valid_batch_config(),
+      [mems_floor],
+      [],
+      3,
+    ) {
+    Ok(_) => fail("expected impossible feature floor to fail")
+    Err(msg) => {
+      assert_true(msg.contains("unmet feature floors after 3 attempts"))
+      assert_true(msg.contains("mems actual=0 min=1"))
+    }
+  }
+}
+
+///|
 test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files" {
   let first = match emit_gen_valid_batch_artifacts(2, 0x5eedUL) {
     Ok(v) => v

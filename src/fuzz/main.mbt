@@ -1118,6 +1118,248 @@ pub struct GenValidBatchArtifacts {
 } derive(Eq, Debug)
 
 ///|
+pub struct GenValidCoverageSelection {
+  artifacts : Array[(String, Bytes)]
+  manifest : Array[GenValidBatchManifestEntry]
+  feature_stats : GenValidFeatureStats
+  floor_failures : Array[ValidateValidFeatureFloorFailure]
+  selected : Int
+  attempts : Int
+  skipped_candidates : Int
+} derive(Eq, Debug)
+
+///|
+fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
+  match key {
+    @validate.ValidateValidFeatureKey::Imports => "imports"
+    @validate.ValidateValidFeatureKey::FuncExports => "func_exports"
+    @validate.ValidateValidFeatureKey::TableExports => "table_exports"
+    @validate.ValidateValidFeatureKey::MemExports => "mem_exports"
+    @validate.ValidateValidFeatureKey::GlobalExports => "global_exports"
+    @validate.ValidateValidFeatureKey::TagExports => "tag_exports"
+    @validate.ValidateValidFeatureKey::Starts => "starts"
+    @validate.ValidateValidFeatureKey::LacksStart => "lacks_start"
+    @validate.ValidateValidFeatureKey::Tables => "tables"
+    @validate.ValidateValidFeatureKey::Mems => "mems"
+    @validate.ValidateValidFeatureKey::Globals => "globals"
+    @validate.ValidateValidFeatureKey::Tags => "tags"
+    @validate.ValidateValidFeatureKey::Elems => "elems"
+    @validate.ValidateValidFeatureKey::Datas => "datas"
+    @validate.ValidateValidFeatureKey::DataCount => "data_count"
+    @validate.ValidateValidFeatureKey::RefTypes => "ref_types"
+    @validate.ValidateValidFeatureKey::V128 => "v128"
+    @validate.ValidateValidFeatureKey::Calls => "calls"
+    @validate.ValidateValidFeatureKey::CallIndirect => "call_indirect"
+    @validate.ValidateValidFeatureKey::BranchHeavyControl =>
+      "branch_heavy_control"
+    @validate.ValidateValidFeatureKey::PayloadControlFlow =>
+      "payload_control_flow"
+    @validate.ValidateValidFeatureKey::MultivalueControlFlow =>
+      "multivalue_control_flow"
+    @validate.ValidateValidFeatureKey::NumericFullOps => "numeric_full_ops"
+    @validate.ValidateValidFeatureKey::BrTable => "br_table"
+    @validate.ValidateValidFeatureKey::StandaloneUnreachable =>
+      "standalone_unreachable"
+    @validate.ValidateValidFeatureKey::LocalTee => "local_tee"
+    @validate.ValidateValidFeatureKey::TypedSelect => "typed_select"
+    @validate.ValidateValidFeatureKey::TailCalls => "tail_calls"
+    @validate.ValidateValidFeatureKey::ScalarMemoryWidths =>
+      "scalar_memory_widths"
+    @validate.ValidateValidFeatureKey::NonzeroMemarg => "nonzero_memarg"
+    @validate.ValidateValidFeatureKey::MemoryLimitVariants =>
+      "memory_limit_variants"
+    @validate.ValidateValidFeatureKey::TableLimitVariants =>
+      "table_limit_variants"
+    @validate.ValidateValidFeatureKey::ConstExprVariants =>
+      "const_expr_variants"
+    @validate.ValidateValidFeatureKey::BasicRefInstructions =>
+      "basic_ref_instructions"
+    @validate.ValidateValidFeatureKey::I31ExternConversions =>
+      "i31_extern_conversions"
+    @validate.ValidateValidFeatureKey::GcConstructors => "gc_constructors"
+    @validate.ValidateValidFeatureKey::GcAccessors => "gc_accessors"
+    @validate.ValidateValidFeatureKey::StringOps => "string_ops"
+    @validate.ValidateValidFeatureKey::ExceptionTryTableMatrix =>
+      "exception_try_table_matrix"
+    @validate.ValidateValidFeatureKey::SimdPhase1 => "simd_phase1"
+    @validate.ValidateValidFeatureKey::SimdPhase2 => "simd_phase2"
+    @validate.ValidateValidFeatureKey::SimdPhase3 => "simd_phase3"
+    @validate.ValidateValidFeatureKey::Atomics => "atomics"
+    @validate.ValidateValidFeatureKey::SubtypingTopology => "subtyping_topology"
+    @validate.ValidateValidFeatureKey::RichGcFieldPlans => "rich_gc_field_plans"
+    @validate.ValidateValidFeatureKey::ImportExportTopology =>
+      "import_export_topology"
+    @validate.ValidateValidFeatureKey::ElementSegmentRange =>
+      "element_segment_range"
+    @validate.ValidateValidFeatureKey::DataSegmentRange => "data_segment_range"
+    @validate.ValidateValidFeatureKey::NameCustomSections =>
+      "name_custom_sections"
+    @validate.ValidateValidFeatureKey::GcExceptionCombo => "gc_exception_combo"
+    @validate.ValidateValidFeatureKey::GcTailCallCombo => "gc_tail_call_combo"
+    @validate.ValidateValidFeatureKey::SharedMemoryAtomics =>
+      "shared_memory_atomics"
+    @validate.ValidateValidFeatureKey::ImportsStartExports =>
+      "imports_start_exports"
+    @validate.ValidateValidFeatureKey::InvalidAstStrategies =>
+      "invalid_ast_strategies"
+    @validate.ValidateValidFeatureKey::InvalidBinaryStrategies =>
+      "invalid_binary_strategies"
+    @validate.ValidateValidFeatureKey::WastArbitraryParity =>
+      "wast_arbitrary_parity"
+  }
+}
+
+///|
+fn gen_valid_coverage_floor_failures_message(
+  failures : Array[ValidateValidFeatureFloorFailure],
+) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < failures.length() {
+    if i > 0 {
+      out.write_string(", ")
+    }
+    let failure = failures[i]
+    out.write_string(
+      "\{gen_valid_coverage_feature_label(failure.key)} actual=\{failure.actual_count} min=\{failure.min_count}",
+    )
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn gen_valid_coverage_facts_has_excluded(
+  facts : GenValidFeatureFacts,
+  mode : GenValidMode,
+  excluded_features : Array[ValidateValidFeatureKey],
+) -> Bool {
+  if excluded_features.is_empty() {
+    return false
+  }
+  let candidate_stats = GenValidFeatureStats::empty(mode).record(facts)
+  for key in excluded_features {
+    if validate_valid_feature_actual_count(candidate_stats, key) > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_coverage_contributes(
+  current : GenValidFeatureStats,
+  next : GenValidFeatureStats,
+  required_floors : Array[ValidateValidFeatureFloor],
+) -> Bool {
+  if required_floors.is_empty() {
+    return true
+  }
+  for floor in required_floors {
+    let before = validate_valid_feature_actual_count(current, floor.key)
+    let after = validate_valid_feature_actual_count(next, floor.key)
+    if before < floor.min_count && after > before {
+      return true
+    }
+  }
+  false
+}
+
+///|
+pub fn emit_gen_valid_batch_artifacts_until_features(
+  count : Int,
+  seed : UInt64,
+  config : GenValidConfig,
+  required_floors : Array[ValidateValidFeatureFloor],
+  excluded_features : Array[ValidateValidFeatureKey],
+  max_attempts : Int,
+) -> Result[GenValidCoverageSelection, String] {
+  if count < 0 {
+    return Err("count must be non-negative")
+  }
+  if max_attempts < 0 {
+    return Err("max_attempts must be non-negative")
+  }
+  let rnd = @splitmix.new(seed~)
+  let artifacts : Array[(String, Bytes)] = []
+  let manifest : Array[GenValidBatchManifestEntry] = []
+  let mut feature_stats = GenValidFeatureStats::empty(config.mode)
+  let mut selected = 0
+  let mut attempts = 0
+  let mut skipped_candidates = 0
+  while attempts < max_attempts && selected < count {
+    attempts += 1
+    let generated = match gen_valid_module_result(rnd, config) {
+      Ok(v) => v
+      Err(failure) =>
+        return Err(
+          "gen-valid coverage selection failed at attempt \{attempts} after \{failure.attempts} generator attempts: \{failure.validation_error_message}",
+        )
+    }
+    if gen_valid_coverage_facts_has_excluded(
+        generated.facts,
+        config.mode,
+        excluded_features,
+      ) {
+      skipped_candidates += 1
+      continue
+    }
+    let next_stats = feature_stats.record(generated.facts)
+    if !gen_valid_coverage_contributes(
+        feature_stats, next_stats, required_floors,
+      ) {
+      skipped_candidates += 1
+      continue
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        return Err(
+          "gen-valid coverage selection produced invalid module at attempt \{attempts}: \{validation_error_message(err)}",
+        )
+    }
+    let bytes = match encode_module(generated.wasm_module) {
+      Ok(v) => v
+      Err(err) =>
+        return Err(
+          "gen-valid coverage selection encode failed at attempt \{attempts}: \{err}",
+        )
+    }
+    selected += 1
+    let file_name = "gen-valid-\{fuzz_zero_pad_decimal(selected, 6)}.wasm"
+    artifacts.push((file_name, bytes))
+    manifest.push({
+      file_name,
+      seed,
+      index: selected,
+      config_label: generated.config_label,
+      attempts: generated.attempts,
+      validated: true,
+      validation_error_message: None,
+      facts: generated.facts,
+    })
+    feature_stats = next_stats
+  }
+  let floor_failures = check_validate_valid_feature_floors(
+    feature_stats, required_floors,
+  )
+  if selected < count || !floor_failures.is_empty() {
+    return Err(
+      "gen-valid coverage selection unmet feature floors after \{attempts} attempts: selected=\{selected}/\{count} skipped=\{skipped_candidates} \{gen_valid_coverage_floor_failures_message(floor_failures)}",
+    )
+  }
+  Ok({
+    artifacts,
+    manifest,
+    feature_stats,
+    floor_failures,
+    selected,
+    attempts,
+    skipped_candidates,
+  })
+}
+
+///|
 pub fn emit_gen_valid_batch_artifacts_with_manifest(
   count : Int,
   seed : UInt64,

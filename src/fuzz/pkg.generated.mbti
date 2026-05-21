@@ -27,6 +27,8 @@ pub fn build_validate_invalid_binary_minimal_repro_by_stable_id(String) -> Resul
 
 pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
 
+pub fn emit_gen_valid_batch_artifacts_until_features(Int, UInt64, @validate.GenValidConfig, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int) -> Result[GenValidCoverageSelection, String]
+
 pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenValidBatchArtifacts, String]
 
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
@@ -229,6 +231,16 @@ pub struct GenValidBatchManifestEntry {
   validated : Bool
   validation_error_message : String?
   facts : @validate.GenValidFeatureFacts
+} derive(Eq, @debug.Debug)
+
+pub struct GenValidCoverageSelection {
+  artifacts : Array[(String, Bytes)]
+  manifest : Array[GenValidBatchManifestEntry]
+  feature_stats : @validate.GenValidFeatureStats
+  floor_failures : Array[@validate.ValidateValidFeatureFloorFailure]
+  selected : Int
+  attempts : Int
+  skipped_candidates : Int
 } derive(Eq, @debug.Debug)
 
 pub struct InvalidFuzzArtifact {

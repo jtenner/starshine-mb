@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-21] fuzzing | FUZ1014 coverage-guided GenValid selection
+
+- Started [`[FUZ]1014`](../../agent-todo.md) by adding an in-memory bounded selector, `emit_gen_valid_batch_artifacts_until_features(...)`, that generates from an explicit `GenValidConfig`, skips excluded feature keys, keeps only modules that advance missing required feature floors, and reports selected artifacts, manifest rows, aggregate stats, floor failures, attempts, and skipped candidates.
+- Added string-label feature-floor helpers in `validate.mbt` for harness-facing filters, plus focused `src/fuzz` tests for successful `v128` selection and an impossible `mems` floor on the Binaryen-oracle batch config. Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the new API contract.
+
 ## [2026-05-21] fuzzing | FUZ1012 randomized coverage templates
 
 - Completed [`[FUZ]1012`](../../agent-todo.md) by grouping coverage-forced reference, GC, and exception prelude helpers behind the same deterministic function-shape ordering scheme used by the memory/table, SIMD, and call template slices, closing the remaining major forced-family template-variation gap.

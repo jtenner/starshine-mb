@@ -146,6 +146,12 @@ pub fn validate_typesec(@lib.TypeSec?, Env) -> Result[Env, String]
 
 pub fn validate_valid_feature_actual_count(GenValidFeatureStats, ValidateValidFeatureKey) -> Int
 
+pub fn validate_valid_feature_actual_count_by_label(GenValidFeatureStats, String) -> Result[Int, String]
+
+pub fn validate_valid_feature_floor(ValidateValidFeatureKey, Int) -> ValidateValidFeatureFloor
+
+pub fn validate_valid_feature_floor_by_label(String, Int) -> Result[ValidateValidFeatureFloor, String]
+
 pub fn validate_valid_feature_ledger(GenValidFeatureStats, Array[ValidateValidFeatureFloor]) -> Array[ValidateValidFeatureLedgerEntry]
 
 pub fn validate_valid_run_config(String) -> Result[ValidateValidRunConfig, String]
