@@ -71,7 +71,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-atomic-prefix-subopcode-uleb", "invalid-atomic-prefix-subopcode-byte",
     "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
     "overwide-atomic-prefix-subopcode-uleb", "malformed-atomic-load-memarg-align-uleb",
-    "malformed-atomic-store-memarg-align-uleb", "malformed-memarg-immediate", "malformed-load-memarg-align-uleb",
+    "malformed-atomic-store-memarg-align-uleb", "malformed-atomic-load-memarg-offset-uleb",
+    "malformed-atomic-store-memarg-offset-uleb", "malformed-memarg-immediate", "malformed-load-memarg-align-uleb",
     "malformed-store-memarg-align-uleb", "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
     "overwide-load-memarg-align-uleb", "overwide-store-memarg-align-uleb", "overwide-load-memarg-offset-uleb",
     "overwide-store-memarg-offset-uleb", "malformed-blocktype-immediate", "invalid-blocktype-valtype-byte",
@@ -254,7 +255,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1643,6 +1644,19 @@ test "invalid binary FZG041 decodes malformed atomic memarg align ULEBs as inval
 }
 
 ///|
+test "invalid binary FZG041 decodes malformed atomic memarg offset ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-atomic-load-memarg-offset-uleb", "malformed-atomic-store-memarg-offset-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f43UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG032 decodes custom-section overwide name length as invalid" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -1900,6 +1914,7 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb",
       "overwide-simd-prefix-subopcode-uleb", "overwide-atomic-prefix-subopcode-uleb",
       "malformed-atomic-load-memarg-align-uleb", "malformed-atomic-store-memarg-align-uleb",
+      "malformed-atomic-load-memarg-offset-uleb", "malformed-atomic-store-memarg-offset-uleb",
       "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
       "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
       "overwide-load-memarg-align-uleb", "overwide-store-memarg-align-uleb", "overwide-load-memarg-offset-uleb",
