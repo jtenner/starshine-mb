@@ -7838,7 +7838,10 @@ fn dae_try_rewrite_reverse_exact_literal_once(
 ///|
 fn dae_merge_touched(dst : Array[Bool], src : Array[Bool]) -> Array[Bool] {
   if dst.length() == 0 {
-    return src.copy()
+    // `src` is the one-shot touched bitmap returned by a just-finished rewrite
+    // lane. Adopt it as the scheduler-local accumulator instead of allocating a
+    // full defined-function copy before the next merge mutates it in place.
+    return src
   }
   // `touched` is a scheduler-local accumulation bitmap. Mutate it in place so
   // large artifact lanes do not allocate and copy a full defined-function bitmap
