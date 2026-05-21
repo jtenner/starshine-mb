@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-18
+last_reviewed: 2026-05-20
 sources:
   - ../../../raw/research/0570-2026-05-18-dae002-func237-frontier-classification.md
   - ../../../raw/research/0567-2026-05-14-dae002-reverse-exact-literal-frontier-still-misses-4558.md
@@ -23,6 +23,9 @@ sources:
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/dead_argument_elimination.mbt
+  - ../../../../../src/passes/dead_argument_elimination_wbtest.mbt
+  - ../../../../../src/passes/dae_optimizing_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] wiki | dae-optimizing right-constant cleanup refresh
+
+- Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) so the current Starshine `dae-optimizing` status and readiness pages now cite the implementation file plus the focused wbtest and scheduler regression files, and now describe the right-constant integer identity raw-cleanup slice instead of only the older right-zero wording.
+- Updated [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), and the root [`index.md`](index.md) so the living catalogs point at the current right-constant cleanup slice and its focused `dead_argument_elimination_wbtest` regression.
+- No new external source was needed; the repo-local implementation and test files, plus the existing Binaryen source manifests, were sufficient for the wiki refresh.
+
 ## [2026-05-20] wiki | string/reorder late-tail source citation hygiene
 
 - Added the missing accepted-public-suffix research citations from [`raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md) and [`raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md) to the live `string-gathering` and `reorder-globals` dossier pages, including their Starshine strategy / port-readiness companions.
