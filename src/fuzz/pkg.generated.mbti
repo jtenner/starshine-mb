@@ -385,6 +385,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidTagAttributeByte
   InvalidGlobalMutabilityByte
   InvalidElementSegmentFlagByte
+  InvalidElementKindByte
   InvalidDataSegmentFlagByte
   TypeSectionCountOverflow
   CodeSectionCountOverflow

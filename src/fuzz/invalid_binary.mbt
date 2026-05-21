@@ -107,6 +107,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidTagAttributeByte
   InvalidGlobalMutabilityByte
   InvalidElementSegmentFlagByte
+  InvalidElementKindByte
   InvalidDataSegmentFlagByte
   TypeSectionCountOverflow
   CodeSectionCountOverflow
@@ -571,6 +572,7 @@ fn validate_invalid_binary_strategy_label(
     InvalidTagAttributeByte => "invalid-tag-attribute-byte"
     InvalidGlobalMutabilityByte => "invalid-global-mutability-byte"
     InvalidElementSegmentFlagByte => "invalid-element-segment-flag-byte"
+    InvalidElementKindByte => "invalid-element-kind-byte"
     InvalidDataSegmentFlagByte => "invalid-data-segment-flag-byte"
     TypeSectionCountOverflow => "type-section-count-overflow"
     CodeSectionCountOverflow => "code-section-count-overflow"
@@ -1205,6 +1207,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidElementSegmentFlagByte,
       "invalid-element-segment-flag-byte",
       "element section with an invalid segment flag byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidElementKindByte,
+      "invalid-element-kind-byte",
+      "element section passive/declarative segment with an invalid elemkind byte",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5795,6 +5804,39 @@ fn validate_invalid_binary_mutate_invalid_element_segment_flag_byte(
 }
 
 ///|
+fn validate_invalid_binary_module_with_invalid_element_kind_byte() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x09).to_byte(),
+    (0x03).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0xff).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_element_kind_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidElementKindByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_invalid_element_kind_byte(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_data_segment_flag_byte() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -6514,6 +6556,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_global_mutability_byte(base)
     InvalidElementSegmentFlagByte =>
       validate_invalid_binary_mutate_invalid_element_segment_flag_byte(base)
+    InvalidElementKindByte =>
+      validate_invalid_binary_mutate_invalid_element_kind_byte(base)
     InvalidDataSegmentFlagByte =>
       validate_invalid_binary_mutate_invalid_data_segment_flag_byte(base)
     TypeSectionCountOverflow =>
