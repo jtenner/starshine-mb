@@ -7840,13 +7840,15 @@ fn dae_merge_touched(dst : Array[Bool], src : Array[Bool]) -> Array[Bool] {
   if dst.length() == 0 {
     return src.copy()
   }
-  let out = dst.copy()
+  // `touched` is a scheduler-local accumulation bitmap. Mutate it in place so
+  // large artifact lanes do not allocate and copy a full defined-function bitmap
+  // after every selected rewrite.
   let mut idx = 0
-  while idx < src.length() && idx < out.length() {
-    out[idx] = out[idx] || src[idx]
+  while idx < src.length() && idx < dst.length() {
+    dst[idx] = dst[idx] || src[idx]
     idx += 1
   }
-  out
+  dst
 }
 
 ///|
@@ -9549,6 +9551,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
 fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   mod_ : @lib.Module,
   touched_defs : Array[Bool],
+  return_touched? : Bool = true,
 ) -> DaePassResult {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -9596,7 +9599,11 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
     Some(copy) =>
       {
         mod_out: mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec(),
-        touched: touched_defs.copy(),
+        touched: if return_touched {
+          touched_defs.copy()
+        } else {
+          []
+        },
         changed: true,
         primary_def,
       }
@@ -10452,11 +10459,15 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     }
   }
   let module_raw_cleanup = dae_strip_module_nops_and_dropped_pure_leaf_once(
-    current, touched,
+    current,
+    touched,
+    return_touched=false,
   )
   if module_raw_cleanup.changed {
     current = module_raw_cleanup.mod_out
-    touched = dae_merge_touched(touched, module_raw_cleanup.touched)
+    // The module raw cleanup rewrites bodies but does not discover new DAE
+    // candidate functions; keep the existing touched bitmap instead of copying
+    // and OR-ing it with an identical returned bitmap on large artifacts.
     trace(
       "pass[dae-optimizing]:module-raw-cleanup primary_def=\{module_raw_cleanup.primary_def}",
     )

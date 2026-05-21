@@ -686,6 +686,14 @@ test "dae raw cleanup strips nops and dropped pure leaves after any DAE touch" {
   assert_true(result.changed)
   assert_eq(result.primary_def, 0)
   assert_eq(result.touched, [true, false])
+  let no_return_touched_result = dae_strip_module_nops_and_dropped_pure_leaf_once(
+    mod_,
+    [true, false],
+    return_touched=false,
+  )
+  assert_true(no_return_touched_result.changed)
+  assert_eq(no_return_touched_result.primary_def, 0)
+  assert_eq(no_return_touched_result.touched, [])
   match result.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let @lib.Func(_, @lib.Expr(cleaned0)) = funcs[0]
