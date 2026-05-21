@@ -742,10 +742,24 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I64TruncSatF32U
     | @lib.I64TruncSatF64S
     | @lib.I64TruncSatF64U
+    | @lib.I8x16Splat
+    | @lib.I16x8Splat
     | @lib.I32x4Splat
+    | @lib.I64x2Splat
+    | @lib.F32x4Splat
+    | @lib.F64x2Splat
+    | @lib.I8x16Popcnt
+    | @lib.I8x16Bitmask
+    | @lib.I16x8Neg
+    | @lib.I16x8AllTrue
     | @lib.I32x4Neg
     | @lib.I32x4AllTrue
-    | @lib.I32x4ExtractLane(_) => true
+    | @lib.I32x4ExtractLane(_)
+    | @lib.I64x2Neg
+    | @lib.I64x2AllTrue
+    | @lib.I64x2Bitmask
+    | @lib.F32x4Abs
+    | @lib.F64x2Neg => true
     _ => false
   }
 }
@@ -822,7 +836,9 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64Max
     | @lib.F64Copysign
     | @lib.F64Div
-    | @lib.I32x4Add => true
+    | @lib.I32x4Add
+    | @lib.F32x4Ne
+    | @lib.F64x2Ne => true
     _ => false
   }
 }
@@ -2055,6 +2071,19 @@ fn sgo_block_condition_pure_read_matches(
 }
 
 ///|
+fn sgo_block_condition_flow_scanner_read_matches(
+  instrs : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let (ok, reads, stack) = sgo_flow_scan_prefix_until(
+    instrs,
+    instrs.length(),
+    idx,
+  )
+  ok && reads == 1 && stack == [true]
+}
+
+///|
 fn sgo_external_condition_stack_after(
   instr : @lib.Instruction,
   depth : Int,
@@ -2294,7 +2323,8 @@ fn sgo_count_block_condition_read_only_to_write_read(
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
       match sgo_single_const_global_set_idx(then_body) {
         Some(idx) if sgo_block_condition_final_read_matches(body, idx) ||
-          sgo_block_condition_pure_read_matches(body, idx) =>
+          sgo_block_condition_pure_read_matches(body, idx) ||
+          sgo_block_condition_flow_scanner_read_matches(body, idx) =>
           sgo_count_read_only_to_write_safe_read(idx, safe_reads)
         Some(idx) =>
           match sgo_block_condition_single_read_idx(body) {

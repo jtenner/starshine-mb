@@ -4590,6 +4590,202 @@ test "simplify-globals-optimizing removes v128 read-only-to-write guards through
 }
 
 ///|
+test "simplify-globals-optimizing removes read-only-to-write guards through i8x16 popcnt bitmask" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i8x16.splat
+      #|    i8x16.popcnt
+      #|    i8x16.bitmask
+      #|    i32.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes read-only-to-write guards through i16x8 all-true" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i16x8.splat
+      #|    i16x8.neg
+      #|    i16x8.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes read-only-to-write guards through i64x2 bitmask" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i64) (i64.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i64x2.splat
+      #|    i64x2.neg
+      #|    i64x2.bitmask
+      #|    i32.eqz
+      #|    if
+      #|      i64.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i64(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes read-only-to-write guards through float simd compares" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $f32 (mut f32) (f32.const 0))
+      #|  (global $f64 (mut f64) (f64.const 0))
+      #|  (func (export "run_f32")
+      #|    global.get $f32
+      #|    f32x4.splat
+      #|    f32x4.abs
+      #|    v128.const f32x4 0 0 0 0
+      #|    f32x4.ne
+      #|    i32x4.all_true
+      #|    if
+      #|      f32.const 1
+      #|      global.set $f32
+      #|    end)
+      #|  (func (export "run_f64")
+      #|    global.get $f64
+      #|    f64x2.splat
+      #|    f64x2.neg
+      #|    v128.const f64x2 0 0
+      #|    f64x2.ne
+      #|    i64x2.all_true
+      #|    if
+      #|      f64.const 1
+      #|      global.set $f64
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::f32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::f64(), false),
+  )
+  let pretty_f32 = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty_f32.contains("global.get"), msg=pretty_f32)
+  assert_false(pretty_f32.contains("global.set"), msg=pretty_f32)
+  let pretty_f64 = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty_f64.contains("global.get"), msg=pretty_f64)
+  assert_false(pretty_f64.contains("global.set"), msg=pretty_f64)
+}
+
+///|
+test "simplify-globals-optimizing removes block-wrapped simd read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      global.get $guard
+      #|      i8x16.splat
+      #|      i8x16.bitmask
+      #|      i32.eqz
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes block-wrapped size-query read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      global.get $guard
+      #|      memory.size
+      #|      i32.add
+      #|      i32.eqz
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps simd value flow into post-consumer call" {
   let optimized = sgo_test_run(
     (
