@@ -2634,6 +2634,19 @@ fn gen_valid_typed_stmt(
       ]),
     ),
   )
+  let payload_block_body : Array[Instruction] = []
+  for instr in gen_valid_typed_expr(ctx, child, [ValType::i32()], fuel - 1) {
+    payload_block_body.push(instr)
+  }
+  payload_block_body.push(Instruction::br(LabelIdx::new(0U)))
+  payload_block_body.push(Instruction::unreachable_())
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new(payload_block_body),
+    ),
+  )
+  out.push(Instruction::drop())
 }
 
 ///|

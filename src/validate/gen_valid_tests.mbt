@@ -131,6 +131,44 @@ fn gen_valid_test_has_i64_const_local_set(instrs : Array[Instruction]) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_i32_payload_br_value_block(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(ValTypeBlockType(vt), Expr(body)) if vt == ValType::i32() => {
+        for i = 0; i + 1 < body.length(); i = i + 1 {
+          match (body[i], body[i + 1]) {
+            (I32Const(_), Br(label)) if label == LabelIdx::new(0U) =>
+              return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_i32_payload_br_value_block(body) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_i32_payload_br_value_block(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_i32_payload_br_value_block(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_i32_payload_br_value_block(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_module_local_set_count(mod_ : Module) -> Int {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
@@ -187,4 +225,20 @@ test "control-heavy profile uses typed GenValid body generator slice" {
     gen_valid_test_module_has_i64_const_local_set(generated.wasm_module),
     msg="typed body generator should widen beyond the original i32-only local slice",
   )
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut has_payload_br = false
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_has_i32_payload_br_value_block(instrs) {
+          has_payload_br = true
+        }
+      }
+      assert_true(
+        has_payload_br,
+        msg="typed body generator should emit a value block with a typed br payload",
+      )
+    }
+    None => fail("expected generated module to contain code bodies")
+  }
 }

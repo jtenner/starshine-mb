@@ -608,19 +608,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
-- [FUZ]1002 - Typed Stack-Aware GenValid Body Generator
-  - Status: IN PROGRESS (cron 23, 2026-05-21) - typed GenValid body-generator slice now runs for `control-heavy` coverage-forced modules and has started widening beyond the initial i32 local/control subset.
-  - Current evidence: `allow_typed_body_generator` is enabled for `control-heavy`; `GenValidTypedStack` / `gen_valid_typed_expr(...)` / `gen_valid_typed_stmt(...)` emit a validated stack-planned `local.tee`, typed value block, typed value `if`, branch-bearing void block, and a stack-planned `local.set`. The coverage-forced typed-body path now guarantees an `i64` local when needed and emits an `i64.const; local.set` pair so the slice is observably beyond the former i32-only local subset. TDD failures included the original missing `allow_typed_body_generator` field and, in this cron run, missing stack-planned `local.set` coverage in `moon test src/validate`; after implementation `moon test src/validate`, `moon test src/fuzz`, `moon info`, `moon fmt`, `moon test`, and `moon run src/fuzz -- validate-valid smoke --seed 0x71002` pass. `bun fuzz run validate-valid --profile smoke --gen-valid-profile control-heavy` is not a supported wrapper option yet and failed before the corrected smoke command.
-  - Next steps: extend the typed generator into multi-result expressions, label/branch payload typing, richer local get/set/tee variants, and eventually globals/tables/memories/tags/GC/ref flows while keeping deterministic seeds and validator-backed tests.
-  - Goal: add a typed expression/body generator that tracks operand stack, labels, reachability, locals, globals, funcs, tables, memories, tags, and type information while emitting instructions.
-  - Why: the current body generation relies heavily on hand-picked drop-wrapped preludes and `append_value_instrs(...)`. It proves surfaces exist but does not generate enough structurally diverse valid programs.
-  - Deliverables: add a new internal generator path such as `gen_expr(expected_results, env, fuel)`, `gen_stmt(env, stack, label_stack, fuel)`, and `gen_value(type, env, fuel)`; initially use it for a small subset of numeric/control/local instructions, then expand behind config flags.
-  - Required APIs: `GenValidBodyEnv`, `Instruction`, `BlockType`, `ValType`, validator typechecking behavior in `src/validate/validate.mbt`.
-  - Invariants: generated modules must validate without relying on retry as the normal path; use bounded fuel to avoid runaway recursion; keep deterministic generation for a seed.
-  - Dependencies: [FUZ]1000 for diagnostics is strongly recommended.
-  - Suggested Tests: focused tests for typed block result generation, typed `if`, branch payloads, local get/set/tee, unreachable stack-polymorphic regions, and validation of generated modules across several seeds.
-  - Exit Criteria: at least one profile uses the typed generator for nontrivial bodies and records feature facts beyond the existing deterministic prelude.
-
 - [FUZ]1003 - GenValid Module Topology And High-Index Generation
   - Goal: widen valid module shape beyond small mostly-low-index modules.
   - Why: many validator and optimizer bugs appear only with high index spaces, many functions, repeated imports/exports, nonzero table/memory indices, or odd custom-section placement.
