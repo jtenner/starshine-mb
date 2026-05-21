@@ -417,6 +417,7 @@ pub enum Instruction {
   RefNull(ValueType)
   RefIsNull
   RefFunc(Index)
+  RefTest(ValueType)
   StringConst(Bytes)
   StringNewUtf8Array
   StringNewWtf16Array
@@ -1908,6 +1909,7 @@ fn WastParser::parse_opcode_instruction(
     StructNewDesc => StructNewDesc(self.parse_index())
     StructNewDefaultDesc => StructNewDefaultDesc(self.parse_index())
     RefGetDesc => RefGetDesc(self.parse_index())
+    RefTest => RefTest(self.parse_value_type())
     RefTestDesc => RefTestDesc(false, self.parse_index())
     RefTestDescNull => RefTestDesc(true, self.parse_index())
     RefCastDescEq => RefCastDescEq(false, self.parse_index())
@@ -5263,6 +5265,33 @@ test "parse ref test desc and cast desc eq" {
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
+}
+
+///|
+test "parse ordinary ref.test reftype immediates" {
+  let source =
+    #|(module
+    #|  (func (param eqref) (result i32)
+    #|    (drop (ref.test (ref i31) (local.get 0)))
+    #|    (drop (ref.test (ref null eq) (local.get 0)))
+    #|    (i32.const 0)))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [FuncField(func)] =>
+      @debug.assert_eq(func.body, [
+        LocalGet(Num(0U)),
+        RefTest(NonNullTypedFuncRef(HeapTypeRef::I31)),
+        Drop,
+        LocalGet(Num(0U)),
+        RefTest(TypedFuncRef(HeapTypeRef::Eq)),
+        Drop,
+        Const(I32Const, "0"),
+      ])
+    _ => fail("expected single function field in ref.test parse fixture")
+  }
 }
 
 ///|

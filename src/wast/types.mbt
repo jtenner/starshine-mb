@@ -229,6 +229,7 @@ pub enum Opcode {
   RefNull
   RefIsNull
   RefFunc
+  RefTest
   RefEq
   RefAsNonNull
   StringConst
@@ -764,6 +765,7 @@ pub impl Show for Opcode with output(self, logger) {
     RefNull => logger.write_string("RefNull")
     RefIsNull => logger.write_string("RefIsNull")
     RefFunc => logger.write_string("RefFunc")
+    RefTest => logger.write_string("RefTest")
     RefEq => logger.write_string("RefEq")
     RefAsNonNull => logger.write_string("RefAsNonNull")
     StringConst => logger.write_string("StringConst")

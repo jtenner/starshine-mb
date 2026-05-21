@@ -96,6 +96,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("ref.null", Opcode(RefNull))
   map.set("ref.is_null", Opcode(RefIsNull))
   map.set("ref.func", Opcode(RefFunc))
+  map.set("ref.test", Opcode(RefTest))
   map.set("ref.eq", Opcode(RefEq))
   map.set("ref.as_non_null", Opcode(RefAsNonNull))
   map.set("string.const", Opcode(StringConst))

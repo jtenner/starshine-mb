@@ -6404,6 +6404,93 @@ test "simplify-globals-optimizing keeps simd extadd pairwise flow into post-cons
 }
 
 ///|
+test "simplify-globals-optimizing removes ref.test read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $direct (mut eqref) (ref.i31 (i32.const 0)))
+      #|  (global $wrapped (mut eqref) (ref.i31 (i32.const 1)))
+      #|  (func (export "direct")
+      #|    global.get $direct
+      #|    ref.test (ref i31)
+      #|    if
+      #|      ref.null eq
+      #|      global.set $direct
+      #|    end)
+      #|  (func (export "wrapped")
+      #|    block (result i32)
+      #|      global.get $wrapped
+      #|      ref.test (ref i31)
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    ref.null eq
+      #|    global.set $wrapped))
+      #|,
+    ),
+  )
+
+  let eqref_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  for i = 0; i < 2; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(eqref_type, false),
+    )
+  }
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps ref.test flow into post-consumers or trapping operands" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $call (mut eqref) (ref.i31 (i32.const 0)))
+      #|  (global $nonnull (mut eqref) (ref.i31 (i32.const 1)))
+      #|  (func (export "call")
+      #|    global.get $call
+      #|    ref.test (ref i31)
+      #|    call $use
+      #|    if
+      #|      ref.null eq
+      #|      global.set $call
+      #|    end)
+      #|  (func (export "nonnull")
+      #|    global.get $nonnull
+      #|    ref.as_non_null
+      #|    ref.test (ref i31)
+      #|    if
+      #|      ref.null eq
+      #|      global.set $nonnull
+      #|    end))
+      #|,
+    ),
+  )
+
+  let eqref_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  for i = 0; i < 2; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(eqref_type, true),
+    )
+  }
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("ref.test"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes wrapped simd extension guards" {
   let optimized = sgo_test_run(
     (

@@ -2495,6 +2495,13 @@ fn wt_instr_to_lib(
         Ok(v) => Ok(@lib.Instruction::ref_get_desc(@lib.TypeIdx::new(v)))
         Err(e) => Err(e)
       }
+    RefTest(vt) =>
+      match wt_value_type(ctx, vt) {
+        Ok(@lib.RefTypeValType(rt)) =>
+          Ok(@lib.Instruction::ref_test(rt.is_nullable(), rt.get_heap_type()))
+        Ok(_) => Err("ref.test target must be a reference type")
+        Err(e) => Err(e)
+      }
     RefTestDesc(nullable, idx) | RefCastDescEq(nullable, idx) => {
       let ti = match
         wt_resolve_named_or_num_index(
@@ -4915,6 +4922,31 @@ test "wast_text_binary_roundtrip preserves descriptor instruction families" {
   assert_true(normalized.contains("ref.get_desc"))
   assert_true(normalized.contains("ref.test_desc 0"))
   assert_true(normalized.contains("ref.cast_desc_eq_null 0"))
+}
+
+///|
+test "wast_text_binary_roundtrip preserves ordinary ref.test immediates" {
+  let src =
+    #|(module
+    #|  (func (param eqref) (result i32)
+    #|    local.get 0
+    #|    ref.test (ref i31)
+    #|    drop
+    #|    local.get 0
+    #|    ref.test (ref null eq)
+    #|    drop
+    #|    (i32.const 0))
+    #|  (export "f" (func 0)))
+  let (normalized, _) = match
+    wast_text_binary_roundtrip(src, filename="roundtrip-ref-test.wast") {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected ref.test fixture full text/binary roundtrip to succeed: \{e}",
+      )
+  }
+  assert_true(normalized.contains("ref.test (ref i31)"))
+  assert_true(normalized.contains("ref.test (ref null eq)"))
 }
 
 ///|

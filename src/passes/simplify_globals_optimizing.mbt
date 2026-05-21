@@ -687,6 +687,7 @@ fn sgo_flow_apply_select(stack : Array[Bool]) -> Bool {
 fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.RefIsNull
+    | @lib.RefTest(_, _)
     | @lib.AnyConvertExtern
     | @lib.ExternConvertAny
     | @lib.RefI31
@@ -1951,6 +1952,7 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
   instr : @lib.Instruction,
 ) -> Bool {
   sgo_const_instr(instr) != None ||
+  instr is @lib.RefTest(_, _) ||
   sgo_is_i32_pure_condition_instr(instr) ||
   sgo_is_i64_pure_condition_instr(instr) ||
   sgo_is_float_compare_condition_instr(instr)
@@ -2312,7 +2314,8 @@ fn sgo_external_condition_stack_after(
     | @lib.I64Clz
     | @lib.I64Ctz
     | @lib.I64Popcnt
-    | @lib.I64Eqz => if depth >= 1 { Some(depth) } else { None }
+    | @lib.I64Eqz
+    | @lib.RefTest(_, _) => if depth >= 1 { Some(depth) } else { None }
     _ =>
       if sgo_is_read_only_to_write_pure_condition_instr(instr) && depth >= 2 {
         Some(depth - 1)
