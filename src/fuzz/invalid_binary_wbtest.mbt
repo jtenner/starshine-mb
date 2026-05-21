@@ -178,20 +178,23 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-table-section-count-uleb", "malformed-memory-section-count-uleb",
     "malformed-global-section-count-uleb", "malformed-function-section-count-uleb",
     "malformed-element-section-count-uleb", "malformed-data-section-count-uleb",
-    "malformed-tag-section-count-uleb", "type-section-count-underflow", "code-section-count-underflow",
-    "import-section-count-underflow", "export-section-count-underflow", "table-section-count-underflow",
-    "memory-section-count-underflow", "global-section-count-underflow", "function-section-count-underflow",
-    "element-section-count-underflow", "data-section-count-underflow", "tag-section-count-underflow",
-    "type-section-size-underflow", "code-body-size-underflow", "malformed-code-body-size-uleb",
-    "overwide-code-body-size-uleb", "import-section-size-underflow", "export-section-size-underflow",
-    "table-section-size-underflow", "memory-section-size-underflow", "global-section-size-underflow",
-    "function-section-size-underflow", "element-section-size-underflow", "data-section-size-underflow",
-    "tag-section-size-underflow", "type-section-size-overflow", "code-section-size-overflow",
-    "import-section-size-overflow", "export-section-size-overflow", "table-section-size-overflow",
-    "memory-section-size-overflow", "global-section-size-overflow", "function-section-size-overflow",
-    "element-section-size-overflow", "data-section-size-overflow", "tag-section-size-overflow",
-    "start-section-size-underflow", "datacount-section-size-underflow", "start-section-size-overflow",
-    "datacount-section-size-overflow",
+    "malformed-tag-section-count-uleb", "overwide-type-section-count-uleb", "overwide-code-section-count-uleb",
+    "overwide-import-section-count-uleb", "overwide-export-section-count-uleb", "overwide-table-section-count-uleb",
+    "overwide-memory-section-count-uleb", "overwide-global-section-count-uleb", "overwide-function-section-count-uleb",
+    "overwide-element-section-count-uleb", "overwide-data-section-count-uleb", "overwide-tag-section-count-uleb",
+    "type-section-count-underflow", "code-section-count-underflow", "import-section-count-underflow",
+    "export-section-count-underflow", "table-section-count-underflow", "memory-section-count-underflow",
+    "global-section-count-underflow", "function-section-count-underflow", "element-section-count-underflow",
+    "data-section-count-underflow", "tag-section-count-underflow", "type-section-size-underflow",
+    "code-body-size-underflow", "malformed-code-body-size-uleb", "overwide-code-body-size-uleb",
+    "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
+    "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
+    "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
+    "type-section-size-overflow", "code-section-size-overflow", "import-section-size-overflow",
+    "export-section-size-overflow", "table-section-size-overflow", "memory-section-size-overflow",
+    "global-section-size-overflow", "function-section-size-overflow", "element-section-size-overflow",
+    "data-section-size-overflow", "tag-section-size-overflow", "start-section-size-underflow",
+    "datacount-section-size-underflow", "start-section-size-overflow", "datacount-section-size-overflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -247,7 +250,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1694,6 +1698,23 @@ test "invalid binary FZG039 decodes malformed section vector-count ULEBs as inva
       "malformed-data-section-count-uleb", "malformed-tag-section-count-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f2eUL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
+test "invalid binary FZG040 decodes overwide section vector-count ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-type-section-count-uleb", "overwide-code-section-count-uleb", "overwide-import-section-count-uleb",
+      "overwide-export-section-count-uleb", "overwide-table-section-count-uleb",
+      "overwide-memory-section-count-uleb", "overwide-global-section-count-uleb",
+      "overwide-function-section-count-uleb", "overwide-element-section-count-uleb",
+      "overwide-data-section-count-uleb", "overwide-tag-section-count-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f2fUL, "decode") {
       Ok(_) => ()
       Err(msg) => fail("\{strategy}: \{msg}")
     }

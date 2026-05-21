@@ -364,6 +364,17 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedElementSectionCountUleb
   MalformedDataSectionCountUleb
   MalformedTagSectionCountUleb
+  OverwideTypeSectionCountUleb
+  OverwideCodeSectionCountUleb
+  OverwideImportSectionCountUleb
+  OverwideExportSectionCountUleb
+  OverwideTableSectionCountUleb
+  OverwideMemorySectionCountUleb
+  OverwideGlobalSectionCountUleb
+  OverwideFunctionSectionCountUleb
+  OverwideElementSectionCountUleb
+  OverwideDataSectionCountUleb
+  OverwideTagSectionCountUleb
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
   ImportSectionCountUnderflow
@@ -1102,6 +1113,17 @@ fn validate_invalid_binary_strategy_label(
     MalformedElementSectionCountUleb => "malformed-element-section-count-uleb"
     MalformedDataSectionCountUleb => "malformed-data-section-count-uleb"
     MalformedTagSectionCountUleb => "malformed-tag-section-count-uleb"
+    OverwideTypeSectionCountUleb => "overwide-type-section-count-uleb"
+    OverwideCodeSectionCountUleb => "overwide-code-section-count-uleb"
+    OverwideImportSectionCountUleb => "overwide-import-section-count-uleb"
+    OverwideExportSectionCountUleb => "overwide-export-section-count-uleb"
+    OverwideTableSectionCountUleb => "overwide-table-section-count-uleb"
+    OverwideMemorySectionCountUleb => "overwide-memory-section-count-uleb"
+    OverwideGlobalSectionCountUleb => "overwide-global-section-count-uleb"
+    OverwideFunctionSectionCountUleb => "overwide-function-section-count-uleb"
+    OverwideElementSectionCountUleb => "overwide-element-section-count-uleb"
+    OverwideDataSectionCountUleb => "overwide-data-section-count-uleb"
+    OverwideTagSectionCountUleb => "overwide-tag-section-count-uleb"
     TypeSectionCountUnderflow => "type-section-count-underflow"
     CodeSectionCountUnderflow => "code-section-count-underflow"
     ImportSectionCountUnderflow => "import-section-count-underflow"
@@ -3480,6 +3502,83 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedTagSectionCountUleb,
       "malformed-tag-section-count-uleb",
       "tag section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTypeSectionCountUleb,
+      "overwide-type-section-count-uleb",
+      "type section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideCodeSectionCountUleb,
+      "overwide-code-section-count-uleb",
+      "code section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideImportSectionCountUleb,
+      "overwide-import-section-count-uleb",
+      "import section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideExportSectionCountUleb,
+      "overwide-export-section-count-uleb",
+      "export section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTableSectionCountUleb,
+      "overwide-table-section-count-uleb",
+      "table section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideMemorySectionCountUleb,
+      "overwide-memory-section-count-uleb",
+      "memory section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideGlobalSectionCountUleb,
+      "overwide-global-section-count-uleb",
+      "global section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideFunctionSectionCountUleb,
+      "overwide-function-section-count-uleb",
+      "function section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideElementSectionCountUleb,
+      "overwide-element-section-count-uleb",
+      "element section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideDataSectionCountUleb,
+      "overwide-data-section-count-uleb",
+      "data section whose vector-count ULEB is overwide",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTagSectionCountUleb,
+      "overwide-tag-section-count-uleb",
+      "tag section whose vector-count ULEB is overwide",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -9655,6 +9754,31 @@ fn validate_invalid_binary_module_with_malformed_code_section_count_uleb() -> By
 }
 
 ///|
+fn validate_invalid_binary_module_with_overwide_section_count_uleb(
+  section_id : Int,
+) -> Bytes {
+  let out : Array[Byte] = [
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ]
+  out.push(section_id.to_byte())
+  out.push((0x06).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x80).to_byte())
+  out.push((0x00).to_byte())
+  Bytes::from_array(out)
+}
+
+///|
 fn validate_invalid_binary_module_with_type_section_count_underflow() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -14295,6 +14419,61 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_decode_rejected_bytes(
         MalformedTagSectionCountUleb,
         validate_invalid_binary_module_with_malformed_section_count_uleb(0x0d),
+      )
+    OverwideTypeSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideTypeSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x01),
+      )
+    OverwideCodeSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideCodeSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x0a),
+      )
+    OverwideImportSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideImportSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x02),
+      )
+    OverwideExportSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideExportSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x07),
+      )
+    OverwideTableSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideTableSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x04),
+      )
+    OverwideMemorySectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideMemorySectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x05),
+      )
+    OverwideGlobalSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideGlobalSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x06),
+      )
+    OverwideFunctionSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideFunctionSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x03),
+      )
+    OverwideElementSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideElementSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x09),
+      )
+    OverwideDataSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideDataSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x0b),
+      )
+    OverwideTagSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideTagSectionCountUleb,
+        validate_invalid_binary_module_with_overwide_section_count_uleb(0x0d),
       )
     TypeSectionCountUnderflow =>
       validate_invalid_binary_mutate_type_section_count_underflow(base)

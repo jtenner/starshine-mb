@@ -642,6 +642,17 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedElementSectionCountUleb
   MalformedDataSectionCountUleb
   MalformedTagSectionCountUleb
+  OverwideTypeSectionCountUleb
+  OverwideCodeSectionCountUleb
+  OverwideImportSectionCountUleb
+  OverwideExportSectionCountUleb
+  OverwideTableSectionCountUleb
+  OverwideMemorySectionCountUleb
+  OverwideGlobalSectionCountUleb
+  OverwideFunctionSectionCountUleb
+  OverwideElementSectionCountUleb
+  OverwideDataSectionCountUleb
+  OverwideTagSectionCountUleb
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
   ImportSectionCountUnderflow
