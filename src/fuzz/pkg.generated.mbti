@@ -516,6 +516,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedMemoryCopySrcIndexUleb
   MalformedTableCopyDstIndexUleb
   MalformedTableCopySrcIndexUleb
+  OverwideMemoryCopyDstIndexUleb
+  OverwideMemoryCopySrcIndexUleb
+  OverwideTableCopyDstIndexUleb
+  OverwideTableCopySrcIndexUleb
   MalformedSelectTypeCountUleb
   OverwideSelectTypeCountUleb
   InvalidTypedSelectValTypeByte
@@ -529,12 +533,18 @@ pub enum ValidateInvalidBinaryStrategyId {
   SimdExtractLaneIndexOverflow
   SimdReplaceLaneIndexOverflow
   MalformedDataIndexUleb
+  OverwideDataIndexUleb
   MalformedDataSegmentByteCountUleb
   MalformedMemoryInitDataIndexUleb
   MalformedMemoryInitMemoryIndexUleb
+  OverwideMemoryInitDataIndexUleb
+  OverwideMemoryInitMemoryIndexUleb
   MalformedElemIndexUleb
+  OverwideElemIndexUleb
   MalformedTableInitElemIndexUleb
   MalformedTableInitTableIndexUleb
+  OverwideTableInitElemIndexUleb
+  OverwideTableInitTableIndexUleb
   MalformedDataSegmentMemoryIndexUleb
   MalformedElementSegmentTableIndexUleb
   MalformedElementSegmentFuncIndexUleb
