@@ -126,7 +126,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-functype-result-count-uleb", "overwide-functype-param-count-uleb",
     "overwide-functype-result-count-uleb", "invalid-functype-param-valtype-byte",
     "invalid-functype-result-valtype-byte", "invalid-code-local-valtype-byte", "malformed-code-local-decl-count-uleb",
-    "malformed-code-local-run-count-uleb", "type-section-count-underflow", "code-section-count-underflow",
+    "malformed-code-local-run-count-uleb", "overwide-code-local-decl-count-uleb",
+    "overwide-code-local-run-count-uleb", "type-section-count-underflow", "code-section-count-underflow",
     "import-section-count-underflow", "export-section-count-underflow", "table-section-count-underflow",
     "memory-section-count-underflow", "global-section-count-underflow", "function-section-count-underflow",
     "element-section-count-underflow", "data-section-count-underflow", "tag-section-count-underflow",
@@ -178,7 +179,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1290,6 +1291,19 @@ test "invalid binary FZG025 decodes functype count overwide ULEBs as invalid" {
 }
 
 ///|
+test "invalid binary FZG025 decodes code local count overwide ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-code-local-decl-count-uleb", "overwide-code-local-run-count-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f39UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG025 decodes data segment byte-count malformed ULEBs as invalid" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -1443,20 +1457,20 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "invalid-functype-byte", "malformed-functype-param-count-uleb", "malformed-functype-result-count-uleb",
       "overwide-functype-param-count-uleb", "overwide-functype-result-count-uleb",
       "invalid-functype-param-valtype-byte", "invalid-functype-result-valtype-byte",
-      "invalid-code-local-valtype-byte", "malformed-code-local-run-count-uleb", "type-section-count-underflow",
-      "code-section-count-underflow", "import-section-count-underflow", "export-section-count-underflow",
-      "table-section-count-underflow", "memory-section-count-underflow", "global-section-count-underflow",
-      "function-section-count-underflow", "element-section-count-underflow", "data-section-count-underflow",
-      "tag-section-count-underflow", "type-section-size-underflow", "code-body-size-underflow",
-      "malformed-code-body-size-uleb", "import-section-size-underflow", "export-section-size-underflow",
-      "table-section-size-underflow", "memory-section-size-underflow", "global-section-size-underflow",
-      "function-section-size-underflow", "element-section-size-underflow", "data-section-size-underflow",
-      "tag-section-size-underflow", "type-section-size-overflow", "code-section-size-overflow",
-      "import-section-size-overflow", "export-section-size-overflow", "table-section-size-overflow",
-      "memory-section-size-overflow", "global-section-size-overflow", "function-section-size-overflow",
-      "element-section-size-overflow", "data-section-size-overflow", "tag-section-size-overflow",
-      "start-section-size-underflow", "datacount-section-size-underflow", "start-section-size-overflow",
-      "datacount-section-size-overflow",
+      "invalid-code-local-valtype-byte", "malformed-code-local-run-count-uleb", "overwide-code-local-decl-count-uleb",
+      "overwide-code-local-run-count-uleb", "type-section-count-underflow", "code-section-count-underflow",
+      "import-section-count-underflow", "export-section-count-underflow", "table-section-count-underflow",
+      "memory-section-count-underflow", "global-section-count-underflow", "function-section-count-underflow",
+      "element-section-count-underflow", "data-section-count-underflow", "tag-section-count-underflow",
+      "type-section-size-underflow", "code-body-size-underflow", "malformed-code-body-size-uleb",
+      "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
+      "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
+      "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
+      "type-section-size-overflow", "code-section-size-overflow", "import-section-size-overflow",
+      "export-section-size-overflow", "table-section-size-overflow", "memory-section-size-overflow",
+      "global-section-size-overflow", "function-section-size-overflow", "element-section-size-overflow",
+      "data-section-size-overflow", "tag-section-size-overflow", "start-section-size-underflow",
+      "datacount-section-size-underflow", "start-section-size-overflow", "datacount-section-size-overflow",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()

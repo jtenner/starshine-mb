@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-05-21
 sources:
   - ../raw/wasm/2026-05-20-function-code-section-source-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
@@ -134,7 +134,7 @@ For example:
     local.get $tmp))
 ```
 
-Lowering resolves `$tmp` to absolute `LocalIdx(1)`, but the binary code entry encodes one `i32` local in the local-run vector. During encoding, [`Encode for Func`](../../../src/binary/encode.mbt) serializes the local runs and expression into a temporary body payload, prefixes that payload length, and writes the raw body bytes. During decoding, [`Decode for Func`](../../../src/binary/decode.mbt) reads that length-framed body, decodes local runs, rejects expanded local counts above `2^32 - 1`, rejects malformed local value-type bytes, then decodes the expression. The binary-invalid lane locks that decode-stage surface with `invalid-code-local-valtype-byte`.
+Lowering resolves `$tmp` to absolute `LocalIdx(1)`, but the binary code entry encodes one `i32` local in the local-run vector. During encoding, [`Encode for Func`](../../../src/binary/encode.mbt) serializes the local runs and expression into a temporary body payload, prefixes that payload length, and writes the raw body bytes. During decoding, [`Decode for Func`](../../../src/binary/decode.mbt) reads that length-framed body, decodes local runs, rejects expanded local counts above `2^32 - 1`, rejects malformed local value-type bytes, then decodes the expression. The binary-invalid lane locks that decode-stage surface with `invalid-code-local-valtype-byte`, malformed local count ULEB carriers (`malformed-code-local-decl-count-uleb`, `malformed-code-local-run-count-uleb`), and overwide local count ULEB carriers (`overwide-code-local-decl-count-uleb`, `overwide-code-local-run-count-uleb`).
 
 This distinction matters for rewrites:
 
