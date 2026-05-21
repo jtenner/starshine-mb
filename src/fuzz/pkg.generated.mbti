@@ -385,6 +385,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedAtomicStoreMemargAlignUleb
   MalformedAtomicLoadMemargOffsetUleb
   MalformedAtomicStoreMemargOffsetUleb
+  OverwideAtomicLoadMemargAlignUleb
+  OverwideAtomicStoreMemargAlignUleb
+  OverwideAtomicLoadMemargOffsetUleb
+  OverwideAtomicStoreMemargOffsetUleb
   MalformedMemargImmediate
   MalformedLoadMemargAlignUleb
   MalformedStoreMemargAlignUleb
