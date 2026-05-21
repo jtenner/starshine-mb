@@ -230,6 +230,153 @@ fn gen_valid_test_non_name_custom_count(mod_ : Module) -> Int {
 }
 
 ///|
+fn gen_valid_test_idx_is_nonzero_mem(mem_idx : MemIdx) -> Bool {
+  let MemIdx(mem_idx_u) = mem_idx
+  mem_idx_u.reinterpret_as_int() > 0
+}
+
+///|
+fn gen_valid_test_idx_is_nonzero_table(table_idx : TableIdx) -> Bool {
+  let TableIdx(table_idx_u) = table_idx
+  table_idx_u.reinterpret_as_int() > 0
+}
+
+///|
+fn gen_valid_test_instrs_have_nonzero_memory_copy(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      MemoryCopy(dst, src) if gen_valid_test_idx_is_nonzero_mem(dst) ||
+        gen_valid_test_idx_is_nonzero_mem(src) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_nonzero_memory_copy(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_nonzero_memory_copy(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_nonzero_memory_copy(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_nonzero_memory_copy(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_nonzero_memory_copy(body) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_instrs_have_nonzero_table_copy_or_fill(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      TableFill(table_idx) if gen_valid_test_idx_is_nonzero_table(table_idx) =>
+        return true
+      TableCopy(dst, src) if gen_valid_test_idx_is_nonzero_table(dst) ||
+        gen_valid_test_idx_is_nonzero_table(src) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_nonzero_table_copy_or_fill(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_nonzero_table_copy_or_fill(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_nonzero_table_copy_or_fill(
+              body,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_nonzero_table_copy_or_fill(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_nonzero_table_copy_or_fill(body) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+test "memory-heavy profile emits nonzero memory bulk and segment operators" {
+  let config = GenValidConfig::for_profile(MemoryHeavyProfile)
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71007UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected memory-heavy generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_data_segment_range)
+  assert_true(
+    gen_valid_test_has_nonzero_memory_copy(generated.wasm_module),
+    msg="memory-heavy profile should emit memory.copy coverage over a nonzero memory index",
+  )
+}
+
+///|
+test "topology-heavy profile emits nonzero table bulk and element operators" {
+  let config = GenValidConfig::for_profile(TopologyHeavyProfile)
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71008UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected topology-heavy generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_element_segment_range)
+  assert_true(
+    gen_valid_test_has_nonzero_table_copy_or_fill(generated.wasm_module),
+    msg="topology-heavy profile should emit table.fill or table.copy coverage over a nonzero table index",
+  )
+}
+
+///|
 test "topology-heavy profile emits high-index import export topology" {
   let config = GenValidConfig::for_profile(TopologyHeavyProfile)
   assert_true(config.max_defined_funcs >= 16)

@@ -2369,6 +2369,25 @@ fn gen_valid_elem_ref_expr(
 }
 
 ///|
+fn gen_valid_mem_type_is_i32(mt : MemType) -> Bool {
+  let MemType(lim, _) = mt
+  match lim {
+    I32Limits(_, _) => true
+    I64Limits(_) => false
+  }
+}
+
+///|
+fn gen_valid_first_nonzero_i32_mem_idx(mems : Array[MemType]) -> MemIdx? {
+  for i = 1; i < mems.length(); i = i + 1 {
+    if gen_valid_mem_type_is_i32(mems[i]) {
+      return Some(MemIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  None
+}
+
+///|
 fn gen_valid_append_memory_bulk_ops(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -2395,6 +2414,27 @@ fn gen_valid_append_memory_bulk_ops(
     out.push(Instruction::i32_const(I32(0)))
     out.push(Instruction::memory_init(data_idx, mem_idx))
     out.push(Instruction::data_drop(data_idx))
+  }
+  match gen_valid_first_nonzero_i32_mem_idx(env.mems) {
+    Some(nonzero_mem_idx) => {
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::memory_copy(nonzero_mem_idx, mem_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(7)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::memory_fill(nonzero_mem_idx))
+      if env.data_idxs.length() > 1 {
+        let data_idx = env.data_idxs[1]
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::memory_init(data_idx, nonzero_mem_idx))
+        out.push(Instruction::data_drop(data_idx))
+      }
+    }
+    None => ()
   }
   ignore(ctx)
   true
@@ -2552,6 +2592,15 @@ fn gen_valid_append_scalar_memory_ops(out : Array[Instruction]) -> Unit {
 }
 
 ///|
+fn gen_valid_first_nonzero_table_idx(tables : Array[TableType]) -> TableIdx? {
+  if tables.length() > 1 {
+    Some(TableIdx::new(1U))
+  } else {
+    None
+  }
+}
+
+///|
 fn gen_valid_append_table_bulk_ops(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -2580,6 +2629,21 @@ fn gen_valid_append_table_bulk_ops(
     out.push(Instruction::i32_const(I32(0)))
     out.push(Instruction::table_init(elem_idx, table_idx))
     out.push(Instruction::elem_drop(elem_idx))
+  }
+  match gen_valid_first_nonzero_table_idx(env.tables) {
+    Some(nonzero_table_idx) => {
+      let TableIdx(nonzero_table_idx_u) = nonzero_table_idx
+      let TableType(nonzero_rt, _) = env.tables[nonzero_table_idx_u.reinterpret_as_int()]
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::ref_null(nonzero_rt.get_heap_type()))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::table_fill(nonzero_table_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::table_copy(nonzero_table_idx, nonzero_table_idx))
+    }
+    None => ()
   }
   true
 }

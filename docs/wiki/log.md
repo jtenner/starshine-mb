@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+
+- Continued [`[FUZ]1007`](../../agent-todo.md) by widening the shared GenValid bulk-memory and bulk-table preludes: `memory-heavy` fixed-seed coverage now emits `memory.copy` over a nonzero i32 memory index, and `topology-heavy` fixed-seed coverage now emits `table.fill` / `table.copy` over a nonzero table index.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with validation anchors for the new resource-index body coverage and left remaining FUZ1007 resource-op matrix work visible in the backlog.
+
 ## [2026-05-21] fuzzing | FUZ1006 indirect and nested-tail widening
 
 - Continued [`[FUZ]1006`](../../agent-todo.md) by making coverage-forced GenValid emit ordinary `call_indirect` through table `0` with both dynamic element indices `0` and `1`, plus a `return_call` nested inside a terminal control block.
