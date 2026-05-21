@@ -112,6 +112,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportMemoryLimitsFlagByte
   InvalidImportGlobalValTypeByte
   InvalidImportGlobalMutabilityByte
+  InvalidImportTagAttributeByte
   InvalidTableRefTypeByte
   InvalidTableLimitsFlagByte
   MalformedRefNullHeaptypeImmediate
@@ -630,6 +631,7 @@ fn validate_invalid_binary_strategy_label(
       "invalid-import-memory-limits-flag-byte"
     InvalidImportGlobalValTypeByte => "invalid-import-global-valtype-byte"
     InvalidImportGlobalMutabilityByte => "invalid-import-global-mutability-byte"
+    InvalidImportTagAttributeByte => "invalid-import-tag-attribute-byte"
     InvalidTableRefTypeByte => "invalid-table-reftype-byte"
     InvalidTableLimitsFlagByte => "invalid-table-limits-flag-byte"
     MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
@@ -1359,6 +1361,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidImportGlobalMutabilityByte,
       "invalid-import-global-mutability-byte",
       "global import descriptor with an invalid mutability byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportTagAttributeByte,
+      "invalid-import-tag-attribute-byte",
+      "tag import descriptor with an invalid attribute byte",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -7176,6 +7185,39 @@ fn validate_invalid_binary_mutate_malformed_import_tag_type_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_invalid_import_tag_attribute_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidImportTagAttributeByte,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x09).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x74).to_byte(),
+        (0x04).to_byte(),
+        (0xff).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_table_reftype_byte() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -8395,6 +8437,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_import_global_valtype_byte(base)
     InvalidImportGlobalMutabilityByte =>
       validate_invalid_binary_mutate_invalid_import_global_mutability_byte(base)
+    InvalidImportTagAttributeByte =>
+      validate_invalid_binary_mutate_invalid_import_tag_attribute_byte(base)
     InvalidTableRefTypeByte =>
       validate_invalid_binary_mutate_invalid_table_reftype_byte(base)
     InvalidTableLimitsFlagByte =>

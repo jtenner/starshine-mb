@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-20] fuzzing | import tag descriptor invalid-binary coverage
+
+- Added one decode-rejected binary-invalid strategy for [`[FUZ]1021`](../../agent-todo.md): `invalid-import-tag-attribute-byte` corrupts the attribute byte inside an imported tag descriptor while preserving the existing section-entry `invalid-tag-attribute-byte` carrier.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the binary-invalid strategy summary distinguishes import descriptor tag attribute corruption from tag-section descriptor corruption.
+
 ## [2026-05-20] fuzzing | GC instruction index invalid-binary coverage
 
 - Added four decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `malformed-struct-new-type-index-uleb`, `malformed-struct-get-field-index-uleb`, `malformed-array-new-data-type-index-uleb`, and `malformed-array-new-data-index-uleb` corrupt GC instruction type/field/data-index immediates with unterminated unsigned LEB payloads.

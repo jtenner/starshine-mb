@@ -73,25 +73,25 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-import-tag-type-index-uleb", "malformed-import-memory-min-uleb", "malformed-import-table-min-uleb",
     "malformed-import-memory-max-uleb", "malformed-import-table-max-uleb", "invalid-import-table-reftype-byte",
     "invalid-import-memory-limits-flag-byte", "invalid-import-global-valtype-byte",
-    "invalid-import-global-mutability-byte", "invalid-table-reftype-byte", "invalid-table-limits-flag-byte",
-    "malformed-ref-null-heaptype-immediate", "malformed-ref-cast-heaptype-immediate",
-    "malformed-ref-test-heaptype-immediate", "invalid-global-valtype-byte", "invalid-export-kind-byte",
-    "invalid-memory-limits-flag-byte", "invalid-tag-attribute-byte", "invalid-global-mutability-byte",
-    "malformed-export-func-index-uleb", "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb",
-    "malformed-export-global-index-uleb", "malformed-export-tag-index-uleb", "invalid-element-segment-flag-byte",
-    "invalid-element-kind-byte", "invalid-data-segment-flag-byte", "type-section-count-overflow",
-    "code-section-count-overflow", "table-section-count-overflow", "export-section-count-overflow",
-    "import-section-count-overflow", "global-section-count-overflow", "function-section-count-overflow",
-    "memory-section-count-overflow", "element-section-count-overflow", "data-section-count-overflow",
-    "tag-section-count-overflow", "malformed-tag-type-index-uleb", "malformed-local-index-uleb",
-    "malformed-local-set-index-uleb", "malformed-local-tee-index-uleb", "malformed-global-index-uleb",
-    "malformed-global-set-index-uleb", "malformed-i32-const-sleb", "malformed-i64-const-sleb",
-    "malformed-f32-const-immediate", "malformed-f64-const-immediate", "malformed-call-func-index-uleb",
-    "malformed-return-call-func-index-uleb", "malformed-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb",
-    "malformed-call-indirect-table-index-uleb", "malformed-return-call-indirect-type-index-uleb",
-    "malformed-return-call-indirect-table-index-uleb", "malformed-call-ref-type-index-uleb",
-    "malformed-return-call-ref-type-index-uleb", "malformed-throw-tag-index-uleb",
-    "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
+    "invalid-import-global-mutability-byte", "invalid-import-tag-attribute-byte",
+    "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
+    "malformed-ref-cast-heaptype-immediate", "malformed-ref-test-heaptype-immediate",
+    "invalid-global-valtype-byte", "invalid-export-kind-byte", "invalid-memory-limits-flag-byte",
+    "invalid-tag-attribute-byte", "invalid-global-mutability-byte", "malformed-export-func-index-uleb",
+    "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb", "malformed-export-global-index-uleb",
+    "malformed-export-tag-index-uleb", "invalid-element-segment-flag-byte", "invalid-element-kind-byte",
+    "invalid-data-segment-flag-byte", "type-section-count-overflow", "code-section-count-overflow",
+    "table-section-count-overflow", "export-section-count-overflow", "import-section-count-overflow",
+    "global-section-count-overflow", "function-section-count-overflow", "memory-section-count-overflow",
+    "element-section-count-overflow", "data-section-count-overflow", "tag-section-count-overflow",
+    "malformed-tag-type-index-uleb", "malformed-local-index-uleb", "malformed-local-set-index-uleb",
+    "malformed-local-tee-index-uleb", "malformed-global-index-uleb", "malformed-global-set-index-uleb",
+    "malformed-i32-const-sleb", "malformed-i64-const-sleb", "malformed-f32-const-immediate",
+    "malformed-f64-const-immediate", "malformed-call-func-index-uleb", "malformed-return-call-func-index-uleb",
+    "malformed-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb", "malformed-call-indirect-table-index-uleb",
+    "malformed-return-call-indirect-type-index-uleb", "malformed-return-call-indirect-table-index-uleb",
+    "malformed-call-ref-type-index-uleb", "malformed-return-call-ref-type-index-uleb",
+    "malformed-throw-tag-index-uleb", "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
     "malformed-try-table-catch-label-index-uleb", "malformed-struct-new-type-index-uleb",
     "malformed-struct-get-field-index-uleb", "malformed-array-new-data-type-index-uleb",
     "malformed-array-new-data-index-uleb", "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb",
@@ -162,6 +162,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1102,6 +1103,17 @@ test "invalid binary decodes malformed exception instruction immediates as inval
 }
 
 ///|
+test "invalid binary decodes invalid import tag attribute byte as invalid" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-import-tag-attribute-byte", 0x7426UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid binary decodes malformed GC instruction index immediates as invalid" {
   for
     strategy in [
@@ -1261,12 +1273,13 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-return-call-indirect-table-index-uleb", "malformed-call-ref-type-index-uleb",
       "malformed-return-call-ref-type-index-uleb", "malformed-throw-tag-index-uleb",
       "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
-      "malformed-try-table-catch-label-index-uleb", "malformed-struct-new-type-index-uleb",
-      "malformed-struct-get-field-index-uleb", "malformed-array-new-data-type-index-uleb",
-      "malformed-array-new-data-index-uleb", "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb",
-      "malformed-br-table-target-count-uleb", "malformed-br-table-default-label-index-uleb",
-      "malformed-table-index-uleb", "malformed-table-set-index-uleb", "malformed-table-size-index-uleb",
-      "malformed-table-grow-index-uleb", "malformed-table-fill-index-uleb", "malformed-memory-size-memory-index-uleb",
+      "malformed-try-table-catch-label-index-uleb", "invalid-import-tag-attribute-byte",
+      "malformed-struct-new-type-index-uleb", "malformed-struct-get-field-index-uleb",
+      "malformed-array-new-data-type-index-uleb", "malformed-array-new-data-index-uleb",
+      "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
+      "malformed-br-table-default-label-index-uleb", "malformed-table-index-uleb",
+      "malformed-table-set-index-uleb", "malformed-table-size-index-uleb", "malformed-table-grow-index-uleb",
+      "malformed-table-fill-index-uleb", "malformed-memory-size-memory-index-uleb",
       "malformed-memory-grow-memory-index-uleb", "malformed-memory-copy-dst-index-uleb",
       "malformed-memory-copy-src-index-uleb", "malformed-table-copy-dst-index-uleb",
       "malformed-table-copy-src-index-uleb", "malformed-select-type-count-uleb",
