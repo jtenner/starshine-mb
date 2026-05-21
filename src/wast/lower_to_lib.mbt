@@ -1975,6 +1975,13 @@ fn wt_instr_to_lib(
         ),
       )
     }
+    CallRef(type_use) => {
+      let ti = match wt_resolve_type_use(ctx, type_use) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::call_ref(@lib.TypeIdx::new(ti)))
+    }
     ReturnCall(idx) => {
       let fi = match
         wt_resolve_named_or_num_index(

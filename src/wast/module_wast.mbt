@@ -364,6 +364,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Call(idx) => "call \{index_text(idx)}"
     CallIndirect(table_idx, type_use) =>
       "call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
+    CallRef(type_use) => "call_ref\{render_type_use(type_use)}"
     ReturnCall(idx) => "return_call \{index_text(idx)}"
     ReturnCallIndirect(table_idx, type_use) =>
       "return_call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"

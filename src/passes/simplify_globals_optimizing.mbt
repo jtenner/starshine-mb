@@ -1161,7 +1161,7 @@ fn sgo_flow_scan_prefix_until(
           Some(value) if !value.tainted => continue
           _ => return (false, reads, stack)
         }
-      @lib.Call(_) | @lib.CallIndirect(_, _) => {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
         if sgo_flow_stack_has_taint(stack) {
           return (false, reads, stack)
         }
@@ -1252,7 +1252,7 @@ fn sgo_flow_scan_clean_prefix_until(
           Some(value) if !value.tainted => continue
           _ => return (false, stack)
         }
-      @lib.Call(_) | @lib.CallIndirect(_, _) => {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
         if sgo_flow_stack_has_taint(stack) {
           return (false, stack)
         }
@@ -1367,7 +1367,7 @@ fn sgo_flow_arm_result_taint_and_reads(
         stack.push(sgo_flow_plain(then_tainted || else_tainted))
         continue
       }
-      @lib.Call(_) | @lib.CallIndirect(_, _) => {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
         if sgo_flow_stack_has_taint(stack) {
           return (false, reads, false)
         }
@@ -1464,7 +1464,7 @@ fn sgo_nested_if_arm_flow_outer_if_index(
           Some(value) if !value.tainted => continue
           _ => return None
         }
-      @lib.Call(_) | @lib.CallIndirect(_, _) => {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
         if sgo_flow_stack_has_taint(stack) {
           return None
         }
@@ -1574,7 +1574,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         stack.push(sgo_flow_plain(then_tainted || else_tainted))
         continue
       }
-      @lib.Call(_) | @lib.CallIndirect(_, _) => {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
         if sgo_flow_stack_has_taint(stack) {
           return (false, reads, false)
         }

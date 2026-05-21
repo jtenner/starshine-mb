@@ -3173,6 +3173,77 @@ test "simplify-globals-optimizing removes nested-if arm flow with independent ca
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow with independent call_ref condition" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $t (func (result i32)))
+      #|  (func $cond (type $t)
+      #|    i32.const 1)
+      #|  (elem declare func $cond)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    ref.func $cond
+      #|    call_ref $t
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(
+    pretty.contains("call_ref") || pretty.contains("call"),
+    msg=pretty,
+  )
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps call_ref operands derived from the global" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $t (func (param i32) (result i32)))
+      #|  (func $id (type $t)
+      #|    local.get 0)
+      #|  (elem declare func $id)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    ref.func $id
+      #|    call_ref $t
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps call_indirect operands derived from the global" {
   let optimized = sgo_test_run(
     (

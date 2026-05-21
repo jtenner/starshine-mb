@@ -218,6 +218,7 @@ pub enum Opcode {
   Return
   Call
   CallIndirect
+  CallRef
   ReturnCall
   ReturnCallIndirect
   ReturnCallRef
@@ -756,6 +757,7 @@ pub impl Show for Opcode with output(self, logger) {
     Return => logger.write_string("Return")
     Call => logger.write_string("Call")
     CallIndirect => logger.write_string("CallIndirect")
+    CallRef => logger.write_string("CallRef")
     ReturnCall => logger.write_string("ReturnCall")
     ReturnCallIndirect => logger.write_string("ReturnCallIndirect")
     ReturnCallRef => logger.write_string("ReturnCallRef")

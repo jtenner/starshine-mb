@@ -365,6 +365,7 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
+  CallRef(TypeUse)
   ReturnCall(Index)
   ReturnCallIndirect(Index, TypeUse)
   ReturnCallRef(TypeUse)
@@ -1878,6 +1879,18 @@ fn WastParser::parse_opcode_instruction(
       let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
       let type_use = self.parse_type_use()
       CallIndirect(table_index, type_use)
+    }
+    CallRef => {
+      let type_use = if self.current.token_type is (Nat | Var) {
+        {
+          type_index: Some(self.parse_index()),
+          func_type: { params: [], results: [] },
+          param_ids: [],
+        }
+      } else {
+        self.parse_type_use()
+      }
+      CallRef(type_use)
     }
     ReturnCall => ReturnCall(self.parse_index())
     ReturnCallIndirect => {

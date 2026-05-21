@@ -315,7 +315,7 @@ A side-effecting condition can also hide the candidate read in a nested `if (res
 
 Binaryen promotes this family because the call decides which arm runs, while `$once` only flows out to the final branch condition. Starshine's current subset accepts one or more transparent block-result wrappers for supported pure post-consumers like `i32.eqz` and for the supported clean-sibling `select` value form, and it preserves the neighboring negative where the block-wrapped post-consumer is a trapping `i32.load` whose address comes from the global-derived value.
 
-The 2026-05-21 indirect-call follow-up extends the independent nested-if condition family to `call_indirect` when all function and table-index operands are clean; it preserves global-derived indirect-call parameter or index operands because the call may trap or execute different code before the final guard.
+The 2026-05-21 indirect-call and call-ref follow-ups extend the independent nested-if condition family to `call_indirect` and ordinary `call_ref` when all call operands are clean; they preserve global-derived indirect-call parameter/index operands and global-derived `call_ref` parameters because the call may trap or execute different code before the final guard.
 
 The clean trapping-read follow-up extends the same stack/value-flow accounting from `i32.load` to source-backed scalar memory loads and `table.get` when their address or table index is independent of the candidate global. The load or table read remains in the output, but the fake global read/write state is removed. Starshine preserves neighboring shapes where the candidate global supplies the load address or `table.get` index, because that value may decide whether a trap occurs before the final guard.
 
