@@ -83,6 +83,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-call-indirect-type-index-uleb", "malformed-call-indirect-table-index-uleb",
     "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
     "malformed-br-table-default-label-index-uleb", "malformed-table-index-uleb",
+    "malformed-memory-copy-dst-index-uleb", "malformed-memory-copy-src-index-uleb",
+    "malformed-table-copy-dst-index-uleb", "malformed-table-copy-src-index-uleb",
     "malformed-select-type-count-uleb", "malformed-start-func-index-uleb", "malformed-datacount-uleb",
     "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow", "simd-store-lane-index-overflow",
     "simd-replace-lane-index-overflow", "malformed-data-index-uleb", "malformed-elem-index-uleb",
@@ -134,7 +136,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1034,6 +1036,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-call-indirect-table-index-uleb", "malformed-br-label-index-uleb",
       "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
       "malformed-br-table-default-label-index-uleb", "malformed-table-index-uleb",
+      "malformed-memory-copy-dst-index-uleb", "malformed-memory-copy-src-index-uleb",
+      "malformed-table-copy-dst-index-uleb", "malformed-table-copy-src-index-uleb",
       "malformed-select-type-count-uleb", "malformed-start-func-index-uleb", "malformed-datacount-uleb",
       "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow", "simd-store-lane-index-overflow",
       "simd-replace-lane-index-overflow", "malformed-data-index-uleb", "malformed-elem-index-uleb",

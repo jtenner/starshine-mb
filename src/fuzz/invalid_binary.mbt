@@ -140,6 +140,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBrTableTargetCountUleb
   MalformedBrTableDefaultLabelIndexUleb
   MalformedTableIndexUleb
+  MalformedMemoryCopyDstIndexUleb
+  MalformedMemoryCopySrcIndexUleb
+  MalformedTableCopyDstIndexUleb
+  MalformedTableCopySrcIndexUleb
   MalformedSelectTypeCountUleb
   MalformedStartFuncIndexUleb
   MalformedDataCountUleb
@@ -608,6 +612,10 @@ fn validate_invalid_binary_strategy_label(
     MalformedBrTableDefaultLabelIndexUleb =>
       "malformed-br-table-default-label-index-uleb"
     MalformedTableIndexUleb => "malformed-table-index-uleb"
+    MalformedMemoryCopyDstIndexUleb => "malformed-memory-copy-dst-index-uleb"
+    MalformedMemoryCopySrcIndexUleb => "malformed-memory-copy-src-index-uleb"
+    MalformedTableCopyDstIndexUleb => "malformed-table-copy-dst-index-uleb"
+    MalformedTableCopySrcIndexUleb => "malformed-table-copy-src-index-uleb"
     MalformedSelectTypeCountUleb => "malformed-select-type-count-uleb"
     MalformedStartFuncIndexUleb => "malformed-start-func-index-uleb"
     MalformedDataCountUleb => "malformed-datacount-uleb"
@@ -1438,6 +1446,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedTableIndexUleb,
       "malformed-table-index-uleb",
       "table.get instruction with a malformed table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedMemoryCopyDstIndexUleb,
+      "malformed-memory-copy-dst-index-uleb",
+      "memory.copy instruction with a malformed destination memory-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedMemoryCopySrcIndexUleb,
+      "malformed-memory-copy-src-index-uleb",
+      "memory.copy instruction with a malformed source memory-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableCopyDstIndexUleb,
+      "malformed-table-copy-dst-index-uleb",
+      "table.copy instruction with a malformed destination table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableCopySrcIndexUleb,
+      "malformed-table-copy-src-index-uleb",
+      "table.copy instruction with a malformed source table-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3314,6 +3350,96 @@ fn validate_invalid_binary_mutate_malformed_table_index_uleb(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x25).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_memory_copy_dst_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedMemoryCopyDstIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x0a).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_memory_copy_src_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedMemoryCopySrcIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x0a).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_table_copy_dst_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTableCopyDstIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x0e).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_table_copy_src_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTableCopySrcIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfc).to_byte(),
+        (0x0e).to_byte(),
+        (0x00).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -6628,6 +6754,14 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     MalformedTableIndexUleb =>
       validate_invalid_binary_mutate_malformed_table_index_uleb(base)
+    MalformedMemoryCopyDstIndexUleb =>
+      validate_invalid_binary_mutate_malformed_memory_copy_dst_index_uleb(base)
+    MalformedMemoryCopySrcIndexUleb =>
+      validate_invalid_binary_mutate_malformed_memory_copy_src_index_uleb(base)
+    MalformedTableCopyDstIndexUleb =>
+      validate_invalid_binary_mutate_malformed_table_copy_dst_index_uleb(base)
+    MalformedTableCopySrcIndexUleb =>
+      validate_invalid_binary_mutate_malformed_table_copy_src_index_uleb(base)
     MalformedSelectTypeCountUleb =>
       validate_invalid_binary_mutate_malformed_select_type_count_uleb(base)
     MalformedStartFuncIndexUleb =>
