@@ -113,24 +113,25 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-name-section-func-name-length-uleb", "invalid-name-section-local-name-utf8",
     "malformed-name-section-local-name-length-uleb", "invalid-name-section-module-name-utf8",
     "malformed-name-section-module-name-length-uleb", "invalid-name-section-type-name-utf8",
-    "invalid-name-section-table-name-utf8", "invalid-name-section-memory-name-utf8",
-    "invalid-name-section-global-name-utf8", "invalid-name-section-elem-name-utf8",
-    "invalid-name-section-data-name-utf8", "invalid-name-section-field-name-utf8",
-    "invalid-name-section-label-name-utf8", "invalid-name-section-tag-name-utf8",
-    "invalid-functype-byte", "invalid-code-local-valtype-byte", "malformed-code-local-decl-count-uleb",
-    "malformed-code-local-run-count-uleb", "type-section-count-underflow", "code-section-count-underflow",
-    "import-section-count-underflow", "export-section-count-underflow", "table-section-count-underflow",
-    "memory-section-count-underflow", "global-section-count-underflow", "function-section-count-underflow",
-    "element-section-count-underflow", "data-section-count-underflow", "tag-section-count-underflow",
-    "type-section-size-underflow", "code-body-size-underflow", "malformed-code-body-size-uleb",
-    "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
-    "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
-    "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
-    "type-section-size-overflow", "code-section-size-overflow", "import-section-size-overflow",
-    "export-section-size-overflow", "table-section-size-overflow", "memory-section-size-overflow",
-    "global-section-size-overflow", "function-section-size-overflow", "element-section-size-overflow",
-    "data-section-size-overflow", "tag-section-size-overflow", "start-section-size-underflow",
-    "datacount-section-size-underflow", "start-section-size-overflow", "datacount-section-size-overflow",
+    "malformed-name-section-type-name-length-uleb", "invalid-name-section-table-name-utf8",
+    "invalid-name-section-memory-name-utf8", "invalid-name-section-global-name-utf8",
+    "invalid-name-section-elem-name-utf8", "invalid-name-section-data-name-utf8",
+    "invalid-name-section-field-name-utf8", "invalid-name-section-label-name-utf8",
+    "invalid-name-section-tag-name-utf8", "invalid-functype-byte", "invalid-code-local-valtype-byte",
+    "malformed-code-local-decl-count-uleb", "malformed-code-local-run-count-uleb",
+    "type-section-count-underflow", "code-section-count-underflow", "import-section-count-underflow",
+    "export-section-count-underflow", "table-section-count-underflow", "memory-section-count-underflow",
+    "global-section-count-underflow", "function-section-count-underflow", "element-section-count-underflow",
+    "data-section-count-underflow", "tag-section-count-underflow", "type-section-size-underflow",
+    "code-body-size-underflow", "malformed-code-body-size-uleb", "import-section-size-underflow",
+    "export-section-size-underflow", "table-section-size-underflow", "memory-section-size-underflow",
+    "global-section-size-underflow", "function-section-size-underflow", "element-section-size-underflow",
+    "data-section-size-underflow", "tag-section-size-underflow", "type-section-size-overflow",
+    "code-section-size-overflow", "import-section-size-overflow", "export-section-size-overflow",
+    "table-section-size-overflow", "memory-section-size-overflow", "global-section-size-overflow",
+    "function-section-size-overflow", "element-section-size-overflow", "data-section-size-overflow",
+    "tag-section-size-overflow", "start-section-size-underflow", "datacount-section-size-underflow",
+    "start-section-size-overflow", "datacount-section-size-overflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -168,7 +169,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1309,6 +1310,17 @@ test "invalid binary FZG025 decodes name section module-name length malformed UL
 }
 
 ///|
+test "invalid binary FZG025 decodes name section type-name length malformed ULEBs as invalid" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "malformed-name-section-type-name-length-uleb", 0x5f2bUL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
   for
     strategy in [
@@ -1367,25 +1379,25 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "invalid-name-section-func-name-utf8", "malformed-name-section-func-name-length-uleb",
       "invalid-name-section-local-name-utf8", "malformed-name-section-local-name-length-uleb",
       "invalid-name-section-module-name-utf8", "malformed-name-section-module-name-length-uleb",
-      "invalid-name-section-type-name-utf8", "invalid-name-section-table-name-utf8",
-      "invalid-name-section-memory-name-utf8", "invalid-name-section-global-name-utf8",
-      "invalid-name-section-elem-name-utf8", "invalid-name-section-data-name-utf8",
-      "invalid-name-section-field-name-utf8", "invalid-name-section-label-name-utf8",
-      "invalid-name-section-tag-name-utf8", "invalid-functype-byte", "invalid-code-local-valtype-byte",
-      "malformed-code-local-decl-count-uleb", "malformed-code-local-run-count-uleb",
-      "type-section-count-underflow", "code-section-count-underflow", "import-section-count-underflow",
-      "export-section-count-underflow", "table-section-count-underflow", "memory-section-count-underflow",
-      "global-section-count-underflow", "function-section-count-underflow", "element-section-count-underflow",
-      "data-section-count-underflow", "tag-section-count-underflow", "type-section-size-underflow",
-      "code-body-size-underflow", "malformed-code-body-size-uleb", "import-section-size-underflow",
-      "export-section-size-underflow", "table-section-size-underflow", "memory-section-size-underflow",
-      "global-section-size-underflow", "function-section-size-underflow", "element-section-size-underflow",
-      "data-section-size-underflow", "tag-section-size-underflow", "type-section-size-overflow",
-      "code-section-size-overflow", "import-section-size-overflow", "export-section-size-overflow",
-      "table-section-size-overflow", "memory-section-size-overflow", "global-section-size-overflow",
-      "function-section-size-overflow", "element-section-size-overflow", "data-section-size-overflow",
-      "tag-section-size-overflow", "start-section-size-underflow", "datacount-section-size-underflow",
-      "start-section-size-overflow", "datacount-section-size-overflow",
+      "invalid-name-section-type-name-utf8", "malformed-name-section-type-name-length-uleb",
+      "invalid-name-section-table-name-utf8", "invalid-name-section-memory-name-utf8",
+      "invalid-name-section-global-name-utf8", "invalid-name-section-elem-name-utf8",
+      "invalid-name-section-data-name-utf8", "invalid-name-section-field-name-utf8",
+      "invalid-name-section-label-name-utf8", "invalid-name-section-tag-name-utf8",
+      "invalid-functype-byte", "invalid-code-local-valtype-byte", "malformed-code-local-decl-count-uleb",
+      "malformed-code-local-run-count-uleb", "type-section-count-underflow", "code-section-count-underflow",
+      "import-section-count-underflow", "export-section-count-underflow", "table-section-count-underflow",
+      "memory-section-count-underflow", "global-section-count-underflow", "function-section-count-underflow",
+      "element-section-count-underflow", "data-section-count-underflow", "tag-section-count-underflow",
+      "type-section-size-underflow", "code-body-size-underflow", "malformed-code-body-size-uleb",
+      "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
+      "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
+      "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
+      "type-section-size-overflow", "code-section-size-overflow", "import-section-size-overflow",
+      "export-section-size-overflow", "table-section-size-overflow", "memory-section-size-overflow",
+      "global-section-size-overflow", "function-section-size-overflow", "element-section-size-overflow",
+      "data-section-size-overflow", "tag-section-size-overflow", "start-section-size-underflow",
+      "datacount-section-size-underflow", "start-section-size-overflow", "datacount-section-size-overflow",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
       Ok(_) => ()

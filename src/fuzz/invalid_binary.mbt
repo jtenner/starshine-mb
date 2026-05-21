@@ -212,6 +212,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionModuleNameUtf8
   MalformedNameSectionModuleNameLengthUleb
   InvalidNameSectionTypeNameUtf8
+  MalformedNameSectionTypeNameLengthUleb
   InvalidNameSectionTableNameUtf8
   InvalidNameSectionMemoryNameUtf8
   InvalidNameSectionGlobalNameUtf8
@@ -762,6 +763,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedNameSectionModuleNameLengthUleb =>
       "malformed-name-section-module-name-length-uleb"
     InvalidNameSectionTypeNameUtf8 => "invalid-name-section-type-name-utf8"
+    MalformedNameSectionTypeNameLengthUleb =>
+      "malformed-name-section-type-name-length-uleb"
     InvalidNameSectionTableNameUtf8 => "invalid-name-section-table-name-utf8"
     InvalidNameSectionMemoryNameUtf8 => "invalid-name-section-memory-name-utf8"
     InvalidNameSectionGlobalNameUtf8 => "invalid-name-section-global-name-utf8"
@@ -2087,6 +2090,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidNameSectionTypeNameUtf8,
       "invalid-name-section-type-name-utf8",
       "name section type-name payload with invalid UTF-8",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedNameSectionTypeNameLengthUleb,
+      "malformed-name-section-type-name-length-uleb",
+      "name section type-name payload with a malformed name-length ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5225,6 +5235,13 @@ fn validate_invalid_binary_module_with_invalid_name_section_type_name_utf8() -> 
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_name_section_type_name_length_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+    0x04,
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_name_section_table_name_utf8() -> Bytes {
   validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(0x05)
 }
@@ -5313,6 +5330,38 @@ fn validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(
     (0x01).to_byte(),
     (0x00).to_byte(),
     (0x01).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
+  subsection_id : Int,
+) -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0e).to_byte(),
+    (0x04).to_byte(),
+    (0x6e).to_byte(),
+    (0x61).to_byte(),
+    (0x6d).to_byte(),
+    (0x65).to_byte(),
+    subsection_id.to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
     (0x80).to_byte(),
   ])
 }
@@ -5411,6 +5460,20 @@ fn validate_invalid_binary_mutate_invalid_name_section_type_name_utf8(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_name_section_type_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_name_section_type_name_length_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionTypeNameLengthUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_type_name_length_uleb(),
     ),
   )
 }
@@ -9197,6 +9260,10 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     InvalidNameSectionTypeNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_type_name_utf8(base)
+    MalformedNameSectionTypeNameLengthUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_type_name_length_uleb(
+        base,
+      )
     InvalidNameSectionTableNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_table_name_utf8(base)
     InvalidNameSectionMemoryNameUtf8 =>
