@@ -1505,10 +1505,23 @@ test "dae raw cleanup folds pure local copy chains" {
         @lib.Locals::empty(),
         @lib.Expr::new([@lib.Instruction::nop()]),
       ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::i32_add(),
+          @lib.Instruction::return_(),
+        ]),
+      ),
     ]),
   )
   let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [
-    false, true,
+    false, true, false,
   ])
   assert_true(result.changed)
   match result.mod_out.code_sec {
@@ -1518,16 +1531,23 @@ test "dae raw cleanup folds pure local copy chains" {
         @lib.Instruction::i32_const(@lib.I32(41)),
         @lib.Instruction::i32_const(@lib.I32(1)),
         @lib.Instruction::i32_add(),
-        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
-        @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
         @lib.Instruction::return_(),
       ])
       let @lib.Func(_, @lib.Expr(touched_cleaned)) = funcs[1]
       assert_eq(touched_cleaned, [])
+      let @lib.Func(_, @lib.Expr(used_copy_cleaned)) = funcs[2]
+      assert_eq(used_copy_cleaned, [
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::return_(),
+      ])
     }
     None => fail("expected rewritten code section")
   }

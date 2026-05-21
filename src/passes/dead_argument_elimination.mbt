@@ -9136,10 +9136,69 @@ fn dae_strip_dropped_nontrapping_pure_wrapper_suffix(
 }
 
 ///|
+fn dae_mark_local_get_count(
+  counts : Array[Int],
+  local_idx : @lib.LocalIdx,
+) -> Unit {
+  let slot = dae_local_idx_slot(local_idx)
+  if slot < 0 {
+    return
+  }
+  while counts.length() <= slot {
+    counts.push(0)
+  }
+  counts[slot] = counts[slot] + 1
+}
+
+///|
+fn dae_collect_local_get_counts_instrs(
+  instrs : Array[@lib.Instruction],
+  counts : Array[Int],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(local_idx) => dae_mark_local_get_count(counts, local_idx)
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_collect_local_get_counts_instrs(body, counts)
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_collect_local_get_counts_instrs(then_body, counts)
+        dae_collect_local_get_counts_instrs(else_body, counts)
+      }
+      @lib.If(_, then_body, None) =>
+        dae_collect_local_get_counts_instrs(then_body, counts)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn dae_local_get_count(counts : Array[Int], local_idx : @lib.LocalIdx) -> Int {
+  let slot = dae_local_idx_slot(local_idx)
+  if slot >= 0 && slot < counts.length() {
+    counts[slot]
+  } else {
+    0
+  }
+}
+
+///|
+fn dae_local_has_no_gets_beyond(
+  counts : Array[Int],
+  local_idx : @lib.LocalIdx,
+  immediate_readbacks : Int,
+) -> Bool {
+  counts.length() > 0 &&
+  dae_local_get_count(counts, local_idx) <= immediate_readbacks
+}
+
+///|
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
   allow_live_local_copy_cleanup? : Bool = true,
+  local_get_counts? : Array[Int] = [],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -9386,8 +9445,12 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         ) if dae_local_idx_equal(first, first_read) &&
           dae_local_idx_equal(second, second_read) &&
           dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
-          out.push(@lib.Instruction::local_tee(first))
-          out.push(@lib.Instruction::local_tee(second))
+          if !dae_local_has_no_gets_beyond(local_get_counts, first, 1) {
+            out.push(@lib.Instruction::local_tee(first))
+          }
+          if !dae_local_has_no_gets_beyond(local_get_counts, second, 1) {
+            out.push(@lib.Instruction::local_tee(second))
+          }
           out.push(@lib.Instruction::local_set(third))
           idx += 5
           continue
@@ -9401,7 +9464,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
             lhs, mid,
           ) &&
           dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
-          out.push(@lib.Instruction::local_tee(lhs))
+          if !dae_local_has_no_gets_beyond(local_get_counts, lhs, 1) {
+            out.push(@lib.Instruction::local_tee(lhs))
+          }
           out.push(@lib.Instruction::local_set(rhs))
           idx += 3
           continue
@@ -9415,6 +9480,10 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
             lhs, rhs,
           ) &&
           dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          if dae_local_has_no_gets_beyond(local_get_counts, lhs, 1) {
+            idx += 2
+            continue
+          }
           out.push(@lib.Instruction::local_tee(lhs))
           idx += 2
           continue
@@ -9424,6 +9493,14 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           ) &&
           dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
           out.push(@lib.Instruction::local_set(lhs))
+          idx += 2
+          continue
+        }
+        (@lib.LocalTee(lhs), @lib.LocalSet(rhs)) if dae_local_has_no_gets_beyond(
+            local_get_counts, lhs, 0,
+          ) &&
+          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          out.push(@lib.Instruction::local_set(rhs))
           idx += 2
           continue
         }
@@ -9467,6 +9544,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           body,
           type_sec,
           allow_live_local_copy_cleanup~,
+          local_get_counts~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9482,6 +9560,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           body,
           type_sec,
           allow_live_local_copy_cleanup~,
+          local_get_counts~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9497,6 +9576,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           body,
           type_sec,
           allow_live_local_copy_cleanup~,
+          local_get_counts~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9516,6 +9596,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           then_body,
           type_sec,
           allow_live_local_copy_cleanup~,
+          local_get_counts~,
         )
         let rewritten_else = match else_body {
           Some(body) =>
@@ -9524,6 +9605,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
                 body,
                 type_sec,
                 allow_live_local_copy_cleanup~,
+                local_get_counts~,
               ),
             )
           None => None
@@ -9576,6 +9658,8 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   let mut def_idx = 0
   while def_idx < funcs.length() {
     let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    let local_get_counts : Array[Int] = []
+    dae_collect_local_get_counts_instrs(body, local_get_counts)
     let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
       body,
       mod_.type_sec,
@@ -9584,6 +9668,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
       // it module-wide after any DAE touch so the cheap raw cleanup can also
       // shrink untouched artifact frontier bodies such as Func16.
       allow_live_local_copy_cleanup=true,
+      local_get_counts~,
     )
     if rewritten != body {
       let next_func = @lib.Func::new(locals, @lib.Expr::new(rewritten))
