@@ -319,6 +319,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSimdLoadSplatMemargOffsetUleb
   OverwideSimdLoadSplatMemargAlignUleb
   OverwideSimdLoadSplatMemargOffsetUleb
+  MalformedSimdLoadExtendMemargAlignUleb
+  MalformedSimdLoadExtendMemargOffsetUleb
+  OverwideSimdLoadExtendMemargAlignUleb
+  OverwideSimdLoadExtendMemargOffsetUleb
   MalformedDataIndexUleb
   OverwideDataIndexUleb
   MalformedDataSegmentByteCountUleb
@@ -1096,6 +1100,14 @@ fn validate_invalid_binary_strategy_label(
       "overwide-simd-load-splat-memarg-align-uleb"
     OverwideSimdLoadSplatMemargOffsetUleb =>
       "overwide-simd-load-splat-memarg-offset-uleb"
+    MalformedSimdLoadExtendMemargAlignUleb =>
+      "malformed-simd-load-extend-memarg-align-uleb"
+    MalformedSimdLoadExtendMemargOffsetUleb =>
+      "malformed-simd-load-extend-memarg-offset-uleb"
+    OverwideSimdLoadExtendMemargAlignUleb =>
+      "overwide-simd-load-extend-memarg-align-uleb"
+    OverwideSimdLoadExtendMemargOffsetUleb =>
+      "overwide-simd-load-extend-memarg-offset-uleb"
     MalformedDataIndexUleb => "malformed-data-index-uleb"
     OverwideDataIndexUleb => "overwide-data-index-uleb"
     MalformedDataSegmentByteCountUleb =>
@@ -3282,6 +3294,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideSimdLoadSplatMemargOffsetUleb,
       "overwide-simd-load-splat-memarg-offset-uleb",
       "SIMD load splat instruction with an overwide memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSimdLoadExtendMemargAlignUleb,
+      "malformed-simd-load-extend-memarg-align-uleb",
+      "SIMD load-extend instruction with a malformed memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSimdLoadExtendMemargOffsetUleb,
+      "malformed-simd-load-extend-memarg-offset-uleb",
+      "SIMD load-extend instruction with a malformed memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideSimdLoadExtendMemargAlignUleb,
+      "overwide-simd-load-extend-memarg-align-uleb",
+      "SIMD load-extend instruction with an overwide memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideSimdLoadExtendMemargOffsetUleb,
+      "overwide-simd-load-extend-memarg-offset-uleb",
+      "SIMD load-extend instruction with an overwide memarg offset ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -8387,6 +8427,11 @@ fn validate_invalid_binary_simd_lane_memarg_prefix(
 ///|
 fn validate_invalid_binary_simd_load_splat_memarg_prefix() -> Array[Byte] {
   [(0xfd).to_byte(), (0x07).to_byte()]
+}
+
+///|
+fn validate_invalid_binary_simd_load_extend_memarg_prefix() -> Array[Byte] {
+  [(0xfd).to_byte(), (0x01).to_byte()]
 }
 
 ///|
@@ -15179,6 +15224,26 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_simd_memarg_offset_uleb_with_prefix(
         strategy,
         validate_invalid_binary_simd_load_splat_memarg_prefix(),
+      )
+    MalformedSimdLoadExtendMemargAlignUleb =>
+      validate_invalid_binary_mutate_malformed_simd_memarg_align_uleb_with_prefix(
+        strategy,
+        validate_invalid_binary_simd_load_extend_memarg_prefix(),
+      )
+    MalformedSimdLoadExtendMemargOffsetUleb =>
+      validate_invalid_binary_mutate_malformed_simd_memarg_offset_uleb_with_prefix(
+        strategy,
+        validate_invalid_binary_simd_load_extend_memarg_prefix(),
+      )
+    OverwideSimdLoadExtendMemargAlignUleb =>
+      validate_invalid_binary_mutate_overwide_simd_memarg_align_uleb_with_prefix(
+        strategy,
+        validate_invalid_binary_simd_load_extend_memarg_prefix(),
+      )
+    OverwideSimdLoadExtendMemargOffsetUleb =>
+      validate_invalid_binary_mutate_overwide_simd_memarg_offset_uleb_with_prefix(
+        strategy,
+        validate_invalid_binary_simd_load_extend_memarg_prefix(),
       )
     MalformedDataIndexUleb =>
       validate_invalid_binary_mutate_malformed_data_index_uleb(base)

@@ -597,6 +597,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSimdLoadSplatMemargOffsetUleb
   OverwideSimdLoadSplatMemargAlignUleb
   OverwideSimdLoadSplatMemargOffsetUleb
+  MalformedSimdLoadExtendMemargAlignUleb
+  MalformedSimdLoadExtendMemargOffsetUleb
+  OverwideSimdLoadExtendMemargAlignUleb
+  OverwideSimdLoadExtendMemargOffsetUleb
   MalformedDataIndexUleb
   OverwideDataIndexUleb
   MalformedDataSegmentByteCountUleb

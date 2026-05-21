@@ -157,8 +157,10 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "overwide-simd-store-lane-memarg-align-uleb", "overwide-simd-load-lane-memarg-offset-uleb",
     "overwide-simd-store-lane-memarg-offset-uleb", "malformed-simd-load-splat-memarg-align-uleb",
     "malformed-simd-load-splat-memarg-offset-uleb", "overwide-simd-load-splat-memarg-align-uleb",
-    "overwide-simd-load-splat-memarg-offset-uleb", "malformed-data-index-uleb", "overwide-data-index-uleb",
-    "malformed-data-segment-byte-count-uleb", "overwide-data-segment-byte-count-uleb",
+    "overwide-simd-load-splat-memarg-offset-uleb", "malformed-simd-load-extend-memarg-align-uleb",
+    "malformed-simd-load-extend-memarg-offset-uleb", "overwide-simd-load-extend-memarg-align-uleb",
+    "overwide-simd-load-extend-memarg-offset-uleb", "malformed-data-index-uleb",
+    "overwide-data-index-uleb", "malformed-data-segment-byte-count-uleb", "overwide-data-segment-byte-count-uleb",
     "malformed-memory-init-data-index-uleb", "malformed-memory-init-memory-index-uleb",
     "overwide-memory-init-data-index-uleb", "overwide-memory-init-memory-index-uleb",
     "malformed-elem-index-uleb", "overwide-elem-index-uleb", "malformed-table-init-elem-index-uleb",
@@ -271,7 +273,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1751,6 +1754,20 @@ test "invalid binary FZG031 decodes SIMD load splat memarg ULEBs as invalid" {
       "overwide-simd-load-splat-memarg-align-uleb", "overwide-simd-load-splat-memarg-offset-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f49UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
+test "invalid binary FZG031 decodes SIMD load-extend memarg ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-simd-load-extend-memarg-align-uleb", "malformed-simd-load-extend-memarg-offset-uleb",
+      "overwide-simd-load-extend-memarg-align-uleb", "overwide-simd-load-extend-memarg-offset-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f4aUL, "decode") {
       Ok(_) => ()
       Err(msg) => fail("\{strategy}: \{msg}")
     }
