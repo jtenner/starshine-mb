@@ -9492,7 +9492,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   touched_defs : Array[Bool],
 ) -> DaePassResult {
   let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    Some(@lib.CodeSec(funcs)) => funcs
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -9512,7 +9512,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
     touched[touched_idx] = touched_defs[touched_idx]
     touched_idx += 1
   }
-  let mut changed = false
+  let mut rewritten_funcs : Array[@lib.Func]? = None
   let mut primary_def = -1
   let mut def_idx = 0
   while def_idx < funcs.length() {
@@ -9523,22 +9523,30 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
       allow_live_local_copy_cleanup=touched[def_idx],
     )
     if rewritten != body {
-      funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
-      changed = true
+      let next_func = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+      match rewritten_funcs {
+        Some(copy) => copy[def_idx] = next_func
+        None => {
+          let copy = funcs.copy()
+          copy[def_idx] = next_func
+          rewritten_funcs = Some(copy)
+        }
+      }
       if primary_def < 0 {
         primary_def = def_idx
       }
     }
     def_idx += 1
   }
-  if !changed {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  {
-    mod_out: mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec(),
-    touched,
-    changed: true,
-    primary_def,
+  match rewritten_funcs {
+    Some(copy) =>
+      {
+        mod_out: mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec(),
+        touched,
+        changed: true,
+        primary_def,
+      }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
 }
 
@@ -9635,12 +9643,12 @@ fn dae_try_simplify_selected_const_if_defs_once(
   selected_defs : Array[Bool],
 ) -> DaePassResult {
   let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    Some(@lib.CodeSec(funcs)) => funcs
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let touched = Array::make(funcs.length(), false)
-  let mut changed = false
+  let mut rewritten_funcs : Array[@lib.Func]? = None
+  let mut touched : Array[Bool]? = None
   let mut primary_def = -1
   let mut def_idx = 0
   while def_idx < funcs.length() && def_idx < selected_defs.length() {
@@ -9650,9 +9658,23 @@ fn dae_try_simplify_selected_const_if_defs_once(
         body,
       )
       if body_changed {
-        funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten_body))
-        touched[def_idx] = true
-        changed = true
+        let next_func = @lib.Func::new(locals, @lib.Expr::new(rewritten_body))
+        match rewritten_funcs {
+          Some(copy) => copy[def_idx] = next_func
+          None => {
+            let copy = funcs.copy()
+            copy[def_idx] = next_func
+            rewritten_funcs = Some(copy)
+          }
+        }
+        match touched {
+          Some(flags) => flags[def_idx] = true
+          None => {
+            let flags = Array::make(funcs.length(), false)
+            flags[def_idx] = true
+            touched = Some(flags)
+          }
+        }
         if primary_def < 0 {
           primary_def = def_idx
         }
@@ -9660,14 +9682,15 @@ fn dae_try_simplify_selected_const_if_defs_once(
     }
     def_idx += 1
   }
-  if !changed {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  {
-    mod_out: mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec(),
-    touched,
-    changed: true,
-    primary_def,
+  match (rewritten_funcs, touched) {
+    (Some(copy), Some(flags)) =>
+      {
+        mod_out: mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec(),
+        touched: flags,
+        changed: true,
+        primary_def,
+      }
+    _ => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
 }
 
