@@ -2198,6 +2198,94 @@ test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret c
   assert_true(counts.i64_add > 0, msg="numeric coverage should include i64.add")
   assert_true(counts.f32_add > 0, msg="numeric coverage should include f32.add")
   assert_true(counts.f64_add > 0, msg="numeric coverage should include f64.add")
+  assert_true(counts.i32_clz > 0, msg="numeric coverage should include i32.clz")
+  assert_true(counts.i32_ctz > 0, msg="numeric coverage should include i32.ctz")
+  assert_true(
+    counts.i32_popcnt > 0,
+    msg="numeric coverage should include i32.popcnt",
+  )
+  assert_true(counts.i32_sub > 0, msg="numeric coverage should include i32.sub")
+  assert_true(counts.i32_mul > 0, msg="numeric coverage should include i32.mul")
+  assert_true(
+    counts.i32_div_s > 0,
+    msg="numeric coverage should include i32.div_s",
+  )
+  assert_true(
+    counts.i32_div_u > 0,
+    msg="numeric coverage should include i32.div_u",
+  )
+  assert_true(
+    counts.i32_rem_s > 0,
+    msg="numeric coverage should include i32.rem_s",
+  )
+  assert_true(
+    counts.i32_rem_u > 0,
+    msg="numeric coverage should include i32.rem_u",
+  )
+  assert_true(counts.i32_and > 0, msg="numeric coverage should include i32.and")
+  assert_true(counts.i32_or > 0, msg="numeric coverage should include i32.or")
+  assert_true(counts.i32_xor > 0, msg="numeric coverage should include i32.xor")
+  assert_true(counts.i32_shl > 0, msg="numeric coverage should include i32.shl")
+  assert_true(
+    counts.i32_shr_s > 0,
+    msg="numeric coverage should include i32.shr_s",
+  )
+  assert_true(
+    counts.i32_shr_u > 0,
+    msg="numeric coverage should include i32.shr_u",
+  )
+  assert_true(
+    counts.i32_rotl > 0,
+    msg="numeric coverage should include i32.rotl",
+  )
+  assert_true(
+    counts.i32_rotr > 0,
+    msg="numeric coverage should include i32.rotr",
+  )
+  assert_true(counts.i64_clz > 0, msg="numeric coverage should include i64.clz")
+  assert_true(counts.i64_ctz > 0, msg="numeric coverage should include i64.ctz")
+  assert_true(
+    counts.i64_popcnt > 0,
+    msg="numeric coverage should include i64.popcnt",
+  )
+  assert_true(counts.i64_sub > 0, msg="numeric coverage should include i64.sub")
+  assert_true(counts.i64_mul > 0, msg="numeric coverage should include i64.mul")
+  assert_true(
+    counts.i64_div_s > 0,
+    msg="numeric coverage should include i64.div_s",
+  )
+  assert_true(
+    counts.i64_div_u > 0,
+    msg="numeric coverage should include i64.div_u",
+  )
+  assert_true(
+    counts.i64_rem_s > 0,
+    msg="numeric coverage should include i64.rem_s",
+  )
+  assert_true(
+    counts.i64_rem_u > 0,
+    msg="numeric coverage should include i64.rem_u",
+  )
+  assert_true(counts.i64_and > 0, msg="numeric coverage should include i64.and")
+  assert_true(counts.i64_or > 0, msg="numeric coverage should include i64.or")
+  assert_true(counts.i64_xor > 0, msg="numeric coverage should include i64.xor")
+  assert_true(counts.i64_shl > 0, msg="numeric coverage should include i64.shl")
+  assert_true(
+    counts.i64_shr_s > 0,
+    msg="numeric coverage should include i64.shr_s",
+  )
+  assert_true(
+    counts.i64_shr_u > 0,
+    msg="numeric coverage should include i64.shr_u",
+  )
+  assert_true(
+    counts.i64_rotl > 0,
+    msg="numeric coverage should include i64.rotl",
+  )
+  assert_true(
+    counts.i64_rotr > 0,
+    msg="numeric coverage should include i64.rotr",
+  )
   assert_true(
     counts.i32_reinterpret_f32 > 0,
     msg="numeric coverage should include i32.reinterpret_f32",
