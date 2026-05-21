@@ -9363,6 +9363,47 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         continue
       }
     }
+    if allow_live_local_copy_cleanup && idx + 4 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+        ) {
+        (
+          @lib.LocalSet(first),
+          @lib.LocalGet(first_read),
+          @lib.LocalSet(second),
+          @lib.LocalGet(second_read),
+          @lib.LocalSet(third),
+        ) if dae_local_idx_equal(first, first_read) &&
+          dae_local_idx_equal(second, second_read) &&
+          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          out.push(@lib.Instruction::local_tee(first))
+          out.push(@lib.Instruction::local_tee(second))
+          out.push(@lib.Instruction::local_set(third))
+          idx += 5
+          continue
+        }
+        _ => ()
+      }
+    }
+    if allow_live_local_copy_cleanup && idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.LocalSet(lhs), @lib.LocalGet(mid), @lib.LocalSet(rhs)) if dae_local_idx_equal(
+            lhs, mid,
+          ) &&
+          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          out.push(@lib.Instruction::local_tee(lhs))
+          out.push(@lib.Instruction::local_set(rhs))
+          idx += 3
+          continue
+        }
+        _ => ()
+      }
+    }
     if allow_live_local_copy_cleanup && idx + 1 < instrs.length() {
       match (instrs[idx], instrs[idx + 1]) {
         (@lib.LocalSet(lhs), @lib.LocalGet(rhs)) if dae_local_idx_equal(
