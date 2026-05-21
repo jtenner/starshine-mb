@@ -513,6 +513,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidFuncTypeByte
   MalformedFuncTypeParamCountUleb
   MalformedFuncTypeResultCountUleb
+  OverwideFuncTypeParamCountUleb
+  OverwideFuncTypeResultCountUleb
   InvalidFuncTypeParamValTypeByte
   InvalidFuncTypeResultValTypeByte
   InvalidCodeLocalValTypeByte
