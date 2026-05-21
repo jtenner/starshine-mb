@@ -261,6 +261,20 @@ test "gen_valid named profiles expose stable labels and compatibility aliases" {
     GenValidConfig::binaryen_oracle_coverage_forced_default(),
   )
   @debug.assert_eq(
+    gen_valid_profile_name(BinaryenOracleRelaxedSimdProfile),
+    "binaryen-oracle-relaxed-simd",
+  )
+  let relaxed_oracle = GenValidConfig::for_profile(
+    BinaryenOracleRelaxedSimdProfile,
+  )
+  assert_true(relaxed_oracle.features.allow_v128)
+  assert_true(relaxed_oracle.features.allow_relaxed_simd)
+  assert_false(relaxed_oracle.features.allow_tags)
+  assert_false(relaxed_oracle.features.allow_imports)
+  assert_false(relaxed_oracle.features.allow_mems)
+  @debug.assert_eq(relaxed_oracle.max_tags, 0)
+  @debug.assert_eq(relaxed_oracle.max_imports, 0)
+  @debug.assert_eq(
     GenValidConfig::for_profile(PassFuzzStressProfile),
     GenValidConfig::binaryen_oracle_coverage_forced_default(),
   )
@@ -279,6 +293,7 @@ test "gen_valid named profiles expose stable labels and compatibility aliases" {
       assert_true(msg.contains("unknown gen-valid profile"))
       assert_true(msg.contains("natural-small"))
       assert_true(msg.contains("binaryen-oracle-portable"))
+      assert_true(msg.contains("binaryen-oracle-relaxed-simd"))
       assert_true(msg.contains("topology-heavy"))
     }
   }

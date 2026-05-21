@@ -364,6 +364,7 @@ pub enum GenValidProfile {
   CoverageForcedPortableProfile
   CoverageForcedAllFeaturesProfile
   BinaryenOraclePortableProfile
+  BinaryenOracleRelaxedSimdProfile
   MutationSeedSmallProfile
   MutationSeedRichProfile
   PassFuzzStressProfile
@@ -387,6 +388,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CoverageForcedPortableProfile => "coverage-forced-portable"
     CoverageForcedAllFeaturesProfile => "coverage-forced-all-features"
     BinaryenOraclePortableProfile => "binaryen-oracle-portable"
+    BinaryenOracleRelaxedSimdProfile => "binaryen-oracle-relaxed-simd"
     MutationSeedSmallProfile => "mutation-seed-small"
     MutationSeedRichProfile => "mutation-seed-rich"
     PassFuzzStressProfile => "pass-fuzz-stress"
@@ -411,6 +413,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CoverageForcedPortableProfile,
     CoverageForcedAllFeaturesProfile,
     BinaryenOraclePortableProfile,
+    BinaryenOracleRelaxedSimdProfile,
     MutationSeedSmallProfile,
     MutationSeedRichProfile,
     PassFuzzStressProfile,
@@ -516,6 +519,18 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       GenValidConfig::coverage_forced_default()
     BinaryenOraclePortableProfile =>
       GenValidConfig::binaryen_oracle_coverage_forced_default()
+    BinaryenOracleRelaxedSimdProfile => {
+      let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_v128: true,
+          allow_relaxed_simd: true,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
     MutationSeedSmallProfile =>
       GenValidConfig::{
         ..GenValidConfig::natural_default(),
