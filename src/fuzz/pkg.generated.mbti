@@ -376,6 +376,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
   MalformedAtomicPrefixSubopcodeUleb
+  InvalidAtomicPrefixSubopcodeByte
   OverwideGcPrefixSubopcodeUleb
   OverwideBulkPrefixSubopcodeUleb
   OverwideSimdPrefixSubopcodeUleb

@@ -98,6 +98,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
   MalformedAtomicPrefixSubopcodeUleb
+  InvalidAtomicPrefixSubopcodeByte
   OverwideGcPrefixSubopcodeUleb
   OverwideBulkPrefixSubopcodeUleb
   OverwideSimdPrefixSubopcodeUleb
@@ -783,6 +784,7 @@ fn validate_invalid_binary_strategy_label(
     MalformedSimdPrefixSubopcodeUleb => "malformed-simd-prefix-subopcode-uleb"
     MalformedAtomicPrefixSubopcodeUleb =>
       "malformed-atomic-prefix-subopcode-uleb"
+    InvalidAtomicPrefixSubopcodeByte => "invalid-atomic-prefix-subopcode-byte"
     OverwideGcPrefixSubopcodeUleb => "overwide-gc-prefix-subopcode-uleb"
     OverwideBulkPrefixSubopcodeUleb => "overwide-bulk-prefix-subopcode-uleb"
     OverwideSimdPrefixSubopcodeUleb => "overwide-simd-prefix-subopcode-uleb"
@@ -1647,6 +1649,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedAtomicPrefixSubopcodeUleb,
       "malformed-atomic-prefix-subopcode-uleb",
       "atomics-prefixed instruction with a malformed subopcode ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidAtomicPrefixSubopcodeByte,
+      "invalid-atomic-prefix-subopcode-byte",
+      "atomics-prefixed instruction with a reserved subopcode byte",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5140,6 +5149,23 @@ fn validate_invalid_binary_mutate_malformed_atomic_prefix_subopcode_uleb(
       validate_invalid_binary_malformed_prefix_subopcode_module(
         (0xfe).to_byte(),
       ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_atomic_prefix_subopcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidAtomicPrefixSubopcodeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfe).to_byte(),
+        (0x7f).to_byte(),
+      ]),
     ),
   )
 }
@@ -13817,6 +13843,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_atomic_prefix_subopcode_uleb(
         base,
       )
+    InvalidAtomicPrefixSubopcodeByte =>
+      validate_invalid_binary_mutate_invalid_atomic_prefix_subopcode_byte(base)
     OverwideGcPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_overwide_gc_prefix_subopcode_uleb(base)
     OverwideBulkPrefixSubopcodeUleb =>
