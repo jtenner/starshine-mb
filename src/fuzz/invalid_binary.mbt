@@ -109,8 +109,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideImportFieldNameLengthUleb
   InvalidImportKindByte
   MalformedFunctionSectionTypeIndexUleb
+  OverwideFunctionSectionTypeIndexUleb
   MalformedImportFuncTypeIndexUleb
+  OverwideImportFuncTypeIndexUleb
   MalformedImportTagTypeIndexUleb
+  OverwideImportTagTypeIndexUleb
   MalformedImportMemoryMinUleb
   MalformedImportTableMinUleb
   MalformedImportMemoryMaxUleb
@@ -155,6 +158,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   DataSectionCountOverflow
   TagSectionCountOverflow
   MalformedTagTypeIndexUleb
+  OverwideTagTypeIndexUleb
   MalformedLocalIndexUleb
   MalformedLocalSetIndexUleb
   MalformedLocalTeeIndexUleb
@@ -682,8 +686,12 @@ fn validate_invalid_binary_strategy_label(
     InvalidImportKindByte => "invalid-import-kind-byte"
     MalformedFunctionSectionTypeIndexUleb =>
       "malformed-function-section-type-index-uleb"
+    OverwideFunctionSectionTypeIndexUleb =>
+      "overwide-function-section-type-index-uleb"
     MalformedImportFuncTypeIndexUleb => "malformed-import-func-type-index-uleb"
+    OverwideImportFuncTypeIndexUleb => "overwide-import-func-type-index-uleb"
     MalformedImportTagTypeIndexUleb => "malformed-import-tag-type-index-uleb"
+    OverwideImportTagTypeIndexUleb => "overwide-import-tag-type-index-uleb"
     MalformedImportMemoryMinUleb => "malformed-import-memory-min-uleb"
     MalformedImportTableMinUleb => "malformed-import-table-min-uleb"
     MalformedImportMemoryMaxUleb => "malformed-import-memory-max-uleb"
@@ -729,6 +737,7 @@ fn validate_invalid_binary_strategy_label(
     DataSectionCountOverflow => "data-section-count-overflow"
     TagSectionCountOverflow => "tag-section-count-overflow"
     MalformedTagTypeIndexUleb => "malformed-tag-type-index-uleb"
+    OverwideTagTypeIndexUleb => "overwide-tag-type-index-uleb"
     MalformedLocalIndexUleb => "malformed-local-index-uleb"
     MalformedLocalSetIndexUleb => "malformed-local-set-index-uleb"
     MalformedLocalTeeIndexUleb => "malformed-local-tee-index-uleb"
@@ -1475,6 +1484,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideFunctionSectionTypeIndexUleb,
+      "overwide-function-section-type-index-uleb",
+      "function section entry with an overwide type-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedImportFuncTypeIndexUleb,
       "malformed-import-func-type-index-uleb",
       "function import descriptor with a malformed type-index ULEB",
@@ -1482,9 +1498,23 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideImportFuncTypeIndexUleb,
+      "overwide-import-func-type-index-uleb",
+      "function import descriptor with an overwide type-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedImportTagTypeIndexUleb,
       "malformed-import-tag-type-index-uleb",
       "tag import descriptor with a malformed type-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideImportTagTypeIndexUleb,
+      "overwide-import-tag-type-index-uleb",
+      "tag import descriptor with an overwide type-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -1793,6 +1823,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedTagTypeIndexUleb,
       "malformed-tag-type-index-uleb",
       "tag section entry with a malformed type-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideTagTypeIndexUleb,
+      "overwide-tag-type-index-uleb",
+      "tag section entry with an overwide type-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4021,6 +4058,39 @@ fn validate_invalid_binary_mutate_malformed_table_max_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_tag_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideTagTypeIndexUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x0d).to_byte(),
+        (0x08).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
       ]),
     ),
   )
@@ -8784,6 +8854,38 @@ fn validate_invalid_binary_mutate_malformed_function_section_type_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_overwide_function_section_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideFunctionSectionTypeIndexUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x03).to_byte(),
+        (0x07).to_byte(),
+        (0x01).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_import_func_type_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -8814,6 +8916,43 @@ fn validate_invalid_binary_mutate_malformed_import_func_type_index_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_import_func_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideImportFuncTypeIndexUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x0c).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x66).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
       ]),
     ),
   )
@@ -9191,6 +9330,44 @@ fn validate_invalid_binary_module_with_invalid_table_reftype_byte() -> Bytes {
     (0x00).to_byte(),
     (0x00).to_byte(),
   ])
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_import_tag_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideImportTagTypeIndexUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x02).to_byte(),
+        (0x0d).to_byte(),
+        (0x01).to_byte(),
+        (0x01).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x74).to_byte(),
+        (0x04).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
 }
 
 ///|
@@ -10503,10 +10680,18 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_function_section_type_index_uleb(
         base,
       )
+    OverwideFunctionSectionTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_function_section_type_index_uleb(
+        base,
+      )
     MalformedImportFuncTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_import_func_type_index_uleb(base)
+    OverwideImportFuncTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_import_func_type_index_uleb(base)
     MalformedImportTagTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_import_tag_type_index_uleb(base)
+    OverwideImportTagTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_import_tag_type_index_uleb(base)
     MalformedImportMemoryMinUleb =>
       validate_invalid_binary_mutate_malformed_import_memory_min_uleb(base)
     MalformedImportTableMinUleb =>
@@ -10597,6 +10782,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_tag_section_count_overflow(base)
     MalformedTagTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_tag_type_index_uleb(base)
+    OverwideTagTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_tag_type_index_uleb(base)
     MalformedLocalIndexUleb =>
       validate_invalid_binary_mutate_malformed_local_index_uleb(base)
     MalformedLocalSetIndexUleb =>

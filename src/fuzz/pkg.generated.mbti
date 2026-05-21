@@ -387,8 +387,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideImportFieldNameLengthUleb
   InvalidImportKindByte
   MalformedFunctionSectionTypeIndexUleb
+  OverwideFunctionSectionTypeIndexUleb
   MalformedImportFuncTypeIndexUleb
+  OverwideImportFuncTypeIndexUleb
   MalformedImportTagTypeIndexUleb
+  OverwideImportTagTypeIndexUleb
   MalformedImportMemoryMinUleb
   MalformedImportTableMinUleb
   MalformedImportMemoryMaxUleb
@@ -433,6 +436,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   DataSectionCountOverflow
   TagSectionCountOverflow
   MalformedTagTypeIndexUleb
+  OverwideTagTypeIndexUleb
   MalformedLocalIndexUleb
   MalformedLocalSetIndexUleb
   MalformedLocalTeeIndexUleb
