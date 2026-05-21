@@ -2035,6 +2035,45 @@ test "natural GenValid organically emits recursive GC topology families" {
 }
 
 ///|
+test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret counters" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71009UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected scalar-numeric coverage-forced generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  let counts = generated.facts.exact_opcode_counts
+  assert_true(generated.facts.has_numeric_full_ops)
+  assert_true(counts.i32_add > 0, msg="numeric coverage should include i32.add")
+  assert_true(counts.i64_add > 0, msg="numeric coverage should include i64.add")
+  assert_true(counts.f32_add > 0, msg="numeric coverage should include f32.add")
+  assert_true(counts.f64_add > 0, msg="numeric coverage should include f64.add")
+  assert_true(
+    counts.i32_reinterpret_f32 > 0,
+    msg="numeric coverage should include i32.reinterpret_f32",
+  )
+  assert_true(
+    counts.i64_reinterpret_f64 > 0,
+    msg="numeric coverage should include i64.reinterpret_f64",
+  )
+  assert_true(
+    counts.f32_reinterpret_i32 > 0,
+    msg="numeric coverage should include f32.reinterpret_i32",
+  )
+  assert_true(
+    counts.f64_reinterpret_i64 > 0,
+    msg="numeric coverage should include f64.reinterpret_i64",
+  )
+}
+
+///|
 test "coverage-forced GenValid routes exact refs through locals and block results" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match

@@ -4783,10 +4783,16 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
     ])
   }
   let i32_binary_ops = [
+    Instruction::i32_add(),
+    Instruction::i32_sub(),
+    Instruction::i32_mul(),
     Instruction::i32_div_s(),
     Instruction::i32_div_u(),
     Instruction::i32_rem_s(),
     Instruction::i32_rem_u(),
+    Instruction::i32_and(),
+    Instruction::i32_or(),
+    Instruction::i32_xor(),
     Instruction::i32_shl(),
     Instruction::i32_shr_s(),
     Instruction::i32_shr_u(),
@@ -4825,10 +4831,16 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
     ])
   }
   let i64_int_ops = [
+    Instruction::i64_add(),
+    Instruction::i64_sub(),
+    Instruction::i64_mul(),
     Instruction::i64_div_s(),
     Instruction::i64_div_u(),
     Instruction::i64_rem_s(),
     Instruction::i64_rem_u(),
+    Instruction::i64_and(),
+    Instruction::i64_or(),
+    Instruction::i64_xor(),
   ]
   for op in i64_int_ops {
     gen_valid_append_scalar_numeric_drop(out, [
@@ -4866,6 +4878,10 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
     ])
   }
   let f32_binary_ops = [
+    Instruction::f32_add(),
+    Instruction::f32_sub(),
+    Instruction::f32_mul(),
+    Instruction::f32_div(),
     Instruction::f32_min(),
     Instruction::f32_max(),
     Instruction::f32_copysign(),
@@ -4907,6 +4923,10 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
     ])
   }
   let f64_binary_ops = [
+    Instruction::f64_add(),
+    Instruction::f64_sub(),
+    Instruction::f64_mul(),
+    Instruction::f64_div(),
     Instruction::f64_min(),
     Instruction::f64_max(),
     Instruction::f64_copysign(),
@@ -4975,6 +4995,19 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
     ],
     [Instruction::f64_const(F64(12.0)), Instruction::i64_trunc_sat_f64s()],
     [Instruction::f64_const(F64(12.0)), Instruction::i64_trunc_sat_f64u()],
+    [
+      Instruction::f32_const(F32(Float::from_double(1.0))),
+      Instruction::i32_reinterpret_f32(),
+    ],
+    [Instruction::f64_const(F64(1.0)), Instruction::i64_reinterpret_f64()],
+    [
+      Instruction::i32_const(I32(0x3f800000)),
+      Instruction::f32_reinterpret_i32(),
+    ],
+    [
+      Instruction::i64_const(I64(0x3ff0000000000000L)),
+      Instruction::f64_reinterpret_i64(),
+    ],
   ]
   for instrs in conversion_ops {
     gen_valid_append_scalar_numeric_drop(out, instrs)

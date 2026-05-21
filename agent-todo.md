@@ -619,6 +619,9 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Exit Criteria: exception-heavy profiles produce more than the single deterministic matrix currently used by coverage-forced generation.
 
 - [FUZ]1009 - GenValid Numeric Constants, Arithmetic, Conversion, And Trap-Safe Cleanup Surfaces
+  - Status: IN PROGRESS (cron 23, 2026-05-21) - arithmetic/reinterpret slice landed; resume with boundary literal and deeper exact-opcode coverage.
+  - Latest evidence: coverage-forced GenValid now emits and exact-counts `i32.add`, `i64.add`, `f32.add`, `f64.add`, `i32.reinterpret_f32`, `i64.reinterpret_f64`, `f32.reinterpret_i32`, and `f64.reinterpret_i64`; TDD failure was `moon test src/validate` failing on missing `i32.add`, then `moon test src/validate` passed after implementation. Full validation on 2026-05-21: `moon info` passed with pre-existing DAE unused warnings, `moon fmt` passed, `moon test` passed (`3459` tests).
+  - Next steps: add literal-family evidence for boundary integer constants, `-0`, infinities, and NaN payloads if core literal APIs support stable inspection; consider exact counters for additional numeric sub/mul/div/rem/bitwise/shift/rotate/comparison/conversion opcodes before declaring the broad task complete.
   - Goal: widen scalar numeric generation with safe boundary constants and operation combinations.
   - Why: optimizers need arithmetic, comparisons, conversions, reinterprets, saturation, NaNs, signedness, and boundary constants in realistic expression trees, not only isolated drop-wrapped operations.
   - Deliverables: generate full integer arithmetic and bit ops, shifts/rotates, comparisons, float unary/binary/comparison ops, reinterpret operations, sign-extension, saturating conversions, safe regular conversions, boundary constants (`0`, `1`, `-1`, min/max, powers of two), float `-0`, infinities, NaNs, and nontrivial expression trees.
