@@ -2211,6 +2211,14 @@ fn gen_valid_func_idx_to_int(idx : FuncIdx) -> Int {
 }
 
 ///|
+fn gen_valid_func_type_idx_from_ref_type(rt : RefType) -> TypeIdx? {
+  match rt {
+    HeapTypeRefType(_, _, HeapType(type_idx)) => Some(type_idx)
+    _ => None
+  }
+}
+
+///|
 fn gen_valid_has_callable_with_result(
   funcs : Array[GenValidFuncSig],
   vt : ValType,
@@ -4287,6 +4295,25 @@ fn gen_valid_append_call_ref_source_variants(
       }
     None => ()
   }
+  for i = 0; i < env.tables.length(); i = i + 1 {
+    let TableType(rt, _) = env.tables[i]
+    match gen_valid_func_type_idx_from_ref_type(rt) {
+      Some(type_idx) =>
+        for target in env.funcs {
+          if target.type_idx == type_idx {
+            gen_valid_append_call_args(out, ctx, env, target.params)
+            out.push(Instruction::i32_const(I32(0)))
+            out.push(
+              Instruction::table_get(TableIdx::new(i.reinterpret_as_uint())),
+            )
+            out.push(Instruction::call_ref(target.type_idx))
+            gen_valid_append_call_result_drops(out, target.results)
+            return
+          }
+        }
+      None => ()
+    }
+  }
 }
 
 ///|
@@ -4388,6 +4415,51 @@ fn gen_valid_append_nested_tail_call_variants(
       out.push(Instruction::block(BlockType::void_(), Expr::new(nested)))
     }
     None => ()
+  }
+  if ctx.config.features.allow_call_indirect && !env.tables.is_empty() {
+    let TableType(rt, _) = env.tables[0]
+    if ValType::ref_type(rt) == ValType::funcref() {
+      match gen_valid_pick_callable_with_results(ctx, env.funcs, returns) {
+        Some(target) => {
+          let nested : Array[Instruction] = []
+          gen_valid_append_call_args(nested, ctx, env, target.params)
+          nested.push(Instruction::i32_const(I32(1)))
+          nested.push(
+            Instruction::return_call_indirect(
+              target.type_idx,
+              TableIdx::new(0U),
+            ),
+          )
+          out.push(Instruction::block(BlockType::void_(), Expr::new(nested)))
+        }
+        None => ()
+      }
+    }
+  }
+  if ctx.config.features.allow_ref_types {
+    match
+      gen_valid_declared_ref_callable_with_results(
+        env.funcs,
+        env.declared_ref_func_idx,
+        returns,
+      ) {
+      Some(target) => {
+        let fref = ValType::ref_type(
+          RefType::new(true, HeapType::new(target.type_idx)),
+        )
+        let nested : Array[Instruction] = []
+        gen_valid_append_call_args(nested, ctx, env, target.params)
+        nested.push(
+          Instruction::block(
+            BlockType::val_type(fref),
+            Expr::new([Instruction::ref_func(target.idx)]),
+          ),
+        )
+        nested.push(Instruction::return_call_ref(target.type_idx))
+        out.push(Instruction::block(BlockType::void_(), Expr::new(nested)))
+      }
+      None => ()
+    }
   }
 }
 
@@ -6026,15 +6098,8 @@ fn gen_valid_table_ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.config.mode == CoverageForced &&
-    total_table_idx == 2 {
-    if !gc_type_plan.concrete_ref_types.is_empty() {
-      match gc_type_plan.concrete_ref_types[0] {
-        RefTypeValType(rt) => rt
-        _ => RefType::new(true, HeapType::abs(AbsHeapType::eq()))
-      }
-    } else {
-      RefType::new(true, HeapType::abs(AbsHeapType::eq()))
-    }
+    total_table_idx >= 2 {
+    RefType::new(true, HeapType::new(TypeIdx::new(0U)))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.random_int(6) == 0 {
     RefType::new(true, HeapType::abs(AbsHeapType::extern_()))

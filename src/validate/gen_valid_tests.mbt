@@ -1009,12 +1009,51 @@ fn gen_valid_test_has_global_call_ref_source(
 }
 
 ///|
+fn gen_valid_test_has_table_call_ref_source(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (I32Const(_), TableGet(_), CallRef(_)) => return true
+      _ => ()
+    }
+  }
+  for i = 0; i + 3 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+      (I32Const(_), TableGet(_), RefCast(_, _), CallRef(_)) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_table_call_ref_source(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_table_call_ref_source(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_table_call_ref_source(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_module_has_call_ref_source_variants(mod_ : Module) -> Bool {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
       let mut has_local_source = false
       let mut has_block_source = false
       let mut has_global_source = false
+      let mut has_table_source = false
       for func in funcs {
         let Func(_, Expr(instrs)) = func
         if gen_valid_test_has_local_call_ref_source(instrs) {
@@ -1026,8 +1065,14 @@ fn gen_valid_test_module_has_call_ref_source_variants(mod_ : Module) -> Bool {
         if gen_valid_test_has_global_call_ref_source(instrs) {
           has_global_source = true
         }
+        if gen_valid_test_has_table_call_ref_source(instrs) {
+          has_table_source = true
+        }
       }
-      has_local_source && has_block_source && has_global_source
+      has_local_source &&
+      has_block_source &&
+      has_global_source &&
+      has_table_source
     }
     None => false
   }
@@ -1151,6 +1196,70 @@ fn gen_valid_test_has_nested_tail_call(instrs : Array[Instruction]) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_nested_return_call_indirect(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) => {
+        for i = 0; i + 1 < body.length(); i = i + 1 {
+          match (body[i], body[i + 1]) {
+            (I32Const(I32(1)), ReturnCallIndirect(_, TableIdx(0U))) =>
+              return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_nested_return_call_indirect(body) {
+          return true
+        }
+      }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_nested_return_call_indirect(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_nested_return_call_indirect(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_nested_return_call_ref(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) => {
+        if gen_valid_test_has_block_return_call_ref_source(body) {
+          return true
+        }
+        if gen_valid_test_has_nested_return_call_ref(body) {
+          return true
+        }
+      }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_nested_return_call_ref(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_nested_return_call_ref(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_module_has_nonzero_indirect_and_nested_tail(
   mod_ : Module,
 ) -> Bool {
@@ -1158,6 +1267,8 @@ fn gen_valid_test_module_has_nonzero_indirect_and_nested_tail(
     Some(CodeSec(funcs)) => {
       let mut has_nonzero_indirect = false
       let mut has_nested_tail = false
+      let mut has_nested_indirect_tail = false
+      let mut has_nested_ref_tail = false
       for func in funcs {
         let Func(_, Expr(instrs)) = func
         has_nonzero_indirect = has_nonzero_indirect ||
@@ -1168,8 +1279,15 @@ fn gen_valid_test_module_has_nonzero_indirect_and_nested_tail(
           )
         has_nested_tail = has_nested_tail ||
           gen_valid_test_has_nested_tail_call(instrs)
+        has_nested_indirect_tail = has_nested_indirect_tail ||
+          gen_valid_test_has_nested_return_call_indirect(instrs)
+        has_nested_ref_tail = has_nested_ref_tail ||
+          gen_valid_test_has_nested_return_call_ref(instrs)
       }
-      has_nonzero_indirect && has_nested_tail
+      has_nonzero_indirect &&
+      has_nested_tail &&
+      has_nested_indirect_tail &&
+      has_nested_ref_tail
     }
     None => false
   }
@@ -1464,7 +1582,7 @@ test "coverage-forced GenValid routes exact refs through locals and block result
 test "coverage-forced GenValid routes call_ref through locals and block results" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match
-    gen_valid_module_result(@splitmix.new(seed=0x71006UL), config) {
+    gen_valid_module_result(@splitmix.new(seed=0x71008UL), config) {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
