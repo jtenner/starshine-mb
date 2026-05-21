@@ -164,6 +164,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTryTableCatchCountUleb
   MalformedTryTableCatchTagIndexUleb
   MalformedTryTableCatchLabelIndexUleb
+  MalformedStructNewTypeIndexUleb
+  MalformedStructGetFieldIndexUleb
+  MalformedArrayNewDataTypeIndexUleb
+  MalformedArrayNewDataIndexUleb
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
@@ -685,6 +689,11 @@ fn validate_invalid_binary_strategy_label(
       "malformed-try-table-catch-tag-index-uleb"
     MalformedTryTableCatchLabelIndexUleb =>
       "malformed-try-table-catch-label-index-uleb"
+    MalformedStructNewTypeIndexUleb => "malformed-struct-new-type-index-uleb"
+    MalformedStructGetFieldIndexUleb => "malformed-struct-get-field-index-uleb"
+    MalformedArrayNewDataTypeIndexUleb =>
+      "malformed-array-new-data-type-index-uleb"
+    MalformedArrayNewDataIndexUleb => "malformed-array-new-data-index-uleb"
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
     MalformedBrIfLabelIndexUleb => "malformed-br-if-label-index-uleb"
     MalformedBrTableTargetCountUleb => "malformed-br-table-target-count-uleb"
@@ -1714,6 +1723,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedTryTableCatchLabelIndexUleb,
       "malformed-try-table-catch-label-index-uleb",
       "try_table catch instruction with a malformed label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedStructNewTypeIndexUleb,
+      "malformed-struct-new-type-index-uleb",
+      "struct.new instruction with a malformed type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedStructGetFieldIndexUleb,
+      "malformed-struct-get-field-index-uleb",
+      "struct.get instruction with a malformed field-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedArrayNewDataTypeIndexUleb,
+      "malformed-array-new-data-type-index-uleb",
+      "array.new_data instruction with a malformed type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedArrayNewDataIndexUleb,
+      "malformed-array-new-data-index-uleb",
+      "array.new_data instruction with a malformed data-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3960,6 +3997,96 @@ fn validate_invalid_binary_mutate_malformed_try_table_catch_label_index_uleb(
         (0x40).to_byte(),
         (0x01).to_byte(),
         (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_struct_new_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedStructNewTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfb).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_struct_get_field_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedStructGetFieldIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfb).to_byte(),
+        (0x02).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_array_new_data_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedArrayNewDataTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfb).to_byte(),
+        (0x09).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_array_new_data_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedArrayNewDataIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfb).to_byte(),
+        (0x09).to_byte(),
         (0x00).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -8386,6 +8513,16 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_try_table_catch_label_index_uleb(
         base,
       )
+    MalformedStructNewTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_struct_new_type_index_uleb(base)
+    MalformedStructGetFieldIndexUleb =>
+      validate_invalid_binary_mutate_malformed_struct_get_field_index_uleb(base)
+    MalformedArrayNewDataTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_array_new_data_type_index_uleb(
+        base,
+      )
+    MalformedArrayNewDataIndexUleb =>
+      validate_invalid_binary_mutate_malformed_array_new_data_index_uleb(base)
     MalformedBrLabelIndexUleb =>
       validate_invalid_binary_mutate_malformed_br_label_index_uleb(base)
     MalformedBrIfLabelIndexUleb =>
