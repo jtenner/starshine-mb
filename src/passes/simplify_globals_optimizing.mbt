@@ -2075,11 +2075,11 @@ fn sgo_block_condition_flow_scanner_read_matches(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
 ) -> Bool {
-  let (ok, reads, stack) = sgo_flow_scan_prefix_until(
-    instrs,
-    instrs.length(),
-    idx,
-  )
+  let flat : Array[@lib.Instruction] = []
+  if !sgo_collect_read_only_to_write_condition_body(instrs, flat) {
+    return false
+  }
+  let (ok, reads, stack) = sgo_flow_scan_prefix_until(flat, flat.length(), idx)
   ok && reads == 1 && stack == [true]
 }
 
