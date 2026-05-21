@@ -488,6 +488,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionLocalNameUtf8
   MalformedNameSectionLocalNameLengthUleb
   InvalidNameSectionModuleNameUtf8
+  MalformedNameSectionModuleNameLengthUleb
   InvalidNameSectionTypeNameUtf8
   InvalidNameSectionTableNameUtf8
   InvalidNameSectionMemoryNameUtf8
