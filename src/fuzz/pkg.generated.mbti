@@ -434,6 +434,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedRefFuncIndexUleb
   MalformedCallIndirectTypeIndexUleb
   MalformedCallIndirectTableIndexUleb
+  MalformedReturnCallIndirectTypeIndexUleb
+  MalformedReturnCallIndirectTableIndexUleb
+  MalformedCallRefTypeIndexUleb
+  MalformedReturnCallRefTypeIndexUleb
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb

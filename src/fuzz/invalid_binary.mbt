@@ -156,6 +156,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedRefFuncIndexUleb
   MalformedCallIndirectTypeIndexUleb
   MalformedCallIndirectTableIndexUleb
+  MalformedReturnCallIndirectTypeIndexUleb
+  MalformedReturnCallIndirectTableIndexUleb
+  MalformedCallRefTypeIndexUleb
+  MalformedReturnCallRefTypeIndexUleb
   MalformedBrLabelIndexUleb
   MalformedBrIfLabelIndexUleb
   MalformedBrTableTargetCountUleb
@@ -664,6 +668,13 @@ fn validate_invalid_binary_strategy_label(
       "malformed-call-indirect-type-index-uleb"
     MalformedCallIndirectTableIndexUleb =>
       "malformed-call-indirect-table-index-uleb"
+    MalformedReturnCallIndirectTypeIndexUleb =>
+      "malformed-return-call-indirect-type-index-uleb"
+    MalformedReturnCallIndirectTableIndexUleb =>
+      "malformed-return-call-indirect-table-index-uleb"
+    MalformedCallRefTypeIndexUleb => "malformed-call-ref-type-index-uleb"
+    MalformedReturnCallRefTypeIndexUleb =>
+      "malformed-return-call-ref-type-index-uleb"
     MalformedBrLabelIndexUleb => "malformed-br-label-index-uleb"
     MalformedBrIfLabelIndexUleb => "malformed-br-if-label-index-uleb"
     MalformedBrTableTargetCountUleb => "malformed-br-table-target-count-uleb"
@@ -1637,6 +1648,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedCallIndirectTableIndexUleb,
       "malformed-call-indirect-table-index-uleb",
       "call_indirect instruction with a malformed table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedReturnCallIndirectTypeIndexUleb,
+      "malformed-return-call-indirect-type-index-uleb",
+      "return_call_indirect instruction with a malformed type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedReturnCallIndirectTableIndexUleb,
+      "malformed-return-call-indirect-table-index-uleb",
+      "return_call_indirect instruction with a malformed table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedCallRefTypeIndexUleb,
+      "malformed-call-ref-type-index-uleb",
+      "call_ref instruction with a malformed type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedReturnCallRefTypeIndexUleb,
+      "malformed-return-call-ref-type-index-uleb",
+      "return_call_ref instruction with a malformed type-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3707,6 +3746,91 @@ fn validate_invalid_binary_mutate_malformed_call_indirect_table_index_uleb(
       validate_invalid_binary_minimal_code_with_instr([
         (0x11).to_byte(),
         (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_return_call_indirect_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedReturnCallIndirectTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x13).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_return_call_indirect_table_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedReturnCallIndirectTableIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x13).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_call_ref_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedCallRefTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x14).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_return_call_ref_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedReturnCallRefTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x15).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -8104,6 +8228,20 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     MalformedCallIndirectTableIndexUleb =>
       validate_invalid_binary_mutate_malformed_call_indirect_table_index_uleb(
+        base,
+      )
+    MalformedReturnCallIndirectTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_return_call_indirect_type_index_uleb(
+        base,
+      )
+    MalformedReturnCallIndirectTableIndexUleb =>
+      validate_invalid_binary_mutate_malformed_return_call_indirect_table_index_uleb(
+        base,
+      )
+    MalformedCallRefTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_call_ref_type_index_uleb(base)
+    MalformedReturnCallRefTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_return_call_ref_type_index_uleb(
         base,
       )
     MalformedBrLabelIndexUleb =>
