@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | FUZ1006 global call_ref source
+
+- Continued [`[FUZ]1006`](../../agent-todo.md) by adding a typed function-reference global to coverage-forced GenValid modules and emitting an ordinary `global.get -> call_ref` source variant alongside the existing local and block-result callable-reference flows.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so `[FZG]009` and the `[FUZ]1006` validation anchor name the local/global/block `call_ref` source coverage.
+
 ## [2026-05-21] fuzzing | control-heavy payload facts
 
 - Continued [`[FUZ]1005`](../../agent-todo.md) by adding `has_payload_control_flow` and `has_multivalue_control_flow` facts/stats/ledger keys so GenValid reports can distinguish ordinary branch-heavy modules from payload-bearing and multi-value control-flow modules.

@@ -977,11 +977,44 @@ fn gen_valid_test_has_block_return_call_ref_source(
 }
 
 ///|
+fn gen_valid_test_has_global_call_ref_source(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 1 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1]) {
+      (GlobalGet(_), CallRef(_)) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_global_call_ref_source(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_global_call_ref_source(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_global_call_ref_source(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_module_has_call_ref_source_variants(mod_ : Module) -> Bool {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
       let mut has_local_source = false
       let mut has_block_source = false
+      let mut has_global_source = false
       for func in funcs {
         let Func(_, Expr(instrs)) = func
         if gen_valid_test_has_local_call_ref_source(instrs) {
@@ -990,8 +1023,11 @@ fn gen_valid_test_module_has_call_ref_source_variants(mod_ : Module) -> Bool {
         if gen_valid_test_has_block_return_call_ref_source(instrs) {
           has_block_source = true
         }
+        if gen_valid_test_has_global_call_ref_source(instrs) {
+          has_global_source = true
+        }
       }
-      has_local_source && has_block_source
+      has_local_source && has_block_source && has_global_source
     }
     None => false
   }

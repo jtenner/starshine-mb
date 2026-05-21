@@ -290,7 +290,7 @@ pub fn GenValidConfig::coverage_forced_default() -> GenValidConfig {
     max_imports: 6,
     max_tables: 3,
     max_mems: 2,
-    max_globals: 4,
+    max_globals: 5,
     max_tags: 2,
     max_elems: 3,
     max_datas: 4,
@@ -4273,6 +4273,15 @@ fn gen_valid_append_call_ref_source_variants(
           )
           out.push(Instruction::call_ref(target.type_idx))
           gen_valid_append_call_result_drops(out, target.results)
+          match gen_matching_global_idx(env.globals, fref) {
+            Some(global_idx) => {
+              gen_valid_append_call_args(out, ctx, env, target.params)
+              out.push(Instruction::global_get(global_idx))
+              out.push(Instruction::call_ref(target.type_idx))
+              gen_valid_append_call_result_drops(out, target.results)
+            }
+            None => ()
+          }
         }
         None => ()
       }
@@ -6450,6 +6459,10 @@ fn gen_valid_module_once_with_config(
           exact=true,
         ),
       )
+    } else if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 4 {
+      ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0U))))
     } else if i == 0 &&
       !gc_type_plan.exact_ref_types.is_empty() &&
       (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
@@ -6490,7 +6503,7 @@ fn gen_valid_module_once_with_config(
   let func_type_idxs : Array[TypeIdx] = []
   for i = 0; i < defined_func_count; i = i + 1 {
     func_type_idxs.push(
-      if i == 0 && has_start {
+      if i == 0 && (has_start || ctx.config.mode == CoverageForced) {
         TypeIdx::new(0U)
       } else if ctx.config.features.allow_typed_body_generator &&
         i == 1 &&
