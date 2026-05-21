@@ -80,6 +80,87 @@ test "gen_valid_module_with_config remains deterministic compatibility wrapper" 
 }
 
 ///|
+fn gen_valid_test_count_local_set_instrs(instrs : Array[Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count += match instr {
+      LocalSet(_) => 1
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        gen_valid_test_count_local_set_instrs(body)
+      If(_, then_body, else_body) => {
+        let else_count = match else_body {
+          Some(body) => gen_valid_test_count_local_set_instrs(body)
+          None => 0
+        }
+        gen_valid_test_count_local_set_instrs(then_body) + else_count
+      }
+      _ => 0
+    }
+  }
+  count
+}
+
+///|
+fn gen_valid_test_has_i64_const_local_set(instrs : Array[Instruction]) -> Bool {
+  for i = 0; i + 1 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1]) {
+      (I64Const(_), LocalSet(_)) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_i64_const_local_set(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_i64_const_local_set(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_i64_const_local_set(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_local_set_count(mod_ : Module) -> Int {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut count = 0
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        count += gen_valid_test_count_local_set_instrs(instrs)
+      }
+      count
+    }
+    None => 0
+  }
+}
+
+///|
+fn gen_valid_test_module_has_i64_const_local_set(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_has_i64_const_local_set(instrs) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 test "control-heavy profile uses typed GenValid body generator slice" {
   let config = GenValidConfig::for_profile(ControlHeavyProfile)
   assert_true(config.features.allow_typed_body_generator)
@@ -98,4 +179,12 @@ test "control-heavy profile uses typed GenValid body generator slice" {
   assert_true(generated.facts.has_branch_heavy_control)
   assert_true(generated.facts.has_local_tee)
   assert_true(generated.facts.exact_opcode_counts.local_tee > 0)
+  assert_true(
+    gen_valid_test_module_local_set_count(generated.wasm_module) > 0,
+    msg="typed body generator should emit stack-planned local.set coverage",
+  )
+  assert_true(
+    gen_valid_test_module_has_i64_const_local_set(generated.wasm_module),
+    msg="typed body generator should widen beyond the original i32-only local slice",
+  )
 }

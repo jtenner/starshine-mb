@@ -2537,9 +2537,25 @@ fn gen_valid_typed_value(
   env : GenValidBodyEnv,
   vt : ValType,
 ) -> Array[Instruction] {
+  if ctx.config.mode == CoverageForced {
+    return [gen_const_instr(ctx, vt)]
+  }
   let out : Array[Instruction] = []
   append_value_instrs(out, ctx, vt, env, prefer_local=true)
   out
+}
+
+///|
+fn gen_valid_typed_pick_local_set_target(
+  local_types : Array[ValType],
+) -> (LocalIdx, ValType)? {
+  for vt in [ValType::i64(), ValType::f32(), ValType::f64(), ValType::i32()] {
+    match gen_matching_local_idx(local_types, vt) {
+      Some(idx) => return Some((idx, vt))
+      None => ()
+    }
+  }
+  None
 }
 
 ///|
@@ -2574,6 +2590,15 @@ fn gen_valid_typed_stmt(
   fuel : Int,
 ) -> Unit {
   let child = gen_valid_body_env_child(env, add_void_label=true)
+  match gen_valid_typed_pick_local_set_target(env.local_types) {
+    Some((idx, vt)) => {
+      for instr in gen_valid_typed_expr(ctx, env, [vt], fuel) {
+        out.push(instr)
+      }
+      out.push(Instruction::local_set(idx))
+    }
+    None => ()
+  }
   match gen_matching_local_idx(env.local_types, ValType::i32()) {
     Some(idx) => {
       for instr in gen_valid_typed_expr(ctx, env, [ValType::i32()], fuel) {
@@ -5144,6 +5169,14 @@ fn gen_valid_build_func(
     if !has_i32_local {
       locals.push(ValType::i32())
     }
+    if ctx.config.features.allow_typed_body_generator &&
+      gen_matching_local_idx(
+        gen_all_local_types(accepts, locals),
+        ValType::i64(),
+      )
+      is None {
+      locals.push(ValType::i64())
+    }
   }
   if ctx.config.mode == Natural {
     for vt in returns {
@@ -5210,9 +5243,7 @@ fn gen_valid_build_func(
   for _ in 0..<stmt_count {
     append_void_stmt(body_instrs, ctx, env)
   }
-  if ctx.config.mode == Natural {
-    gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
-  }
+  gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
   if ctx.config.mode == Natural && ctx.config.features.allow_ref_types {
     let gc_stmt_count = if gc_type_plan.concrete_ref_types.is_empty() {
       1 + ctx.random_int(2)
