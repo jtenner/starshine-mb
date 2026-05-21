@@ -3360,6 +3360,66 @@ test "simplify-globals-optimizing keeps nested-if arm flow into post-if call ope
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow with clean local set" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    i32.const 1
+      #|    local.set $tmp
+      #|    local.get $tmp
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps tainted local set flow" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $tmp i32)
+      #|    global.get $guard
+      #|    local.set $tmp
+      #|    local.get $tmp
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes nested-if arm flow with clean arm local tee and load" {
   let optimized = sgo_test_run(
     (

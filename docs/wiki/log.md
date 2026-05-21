@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-21] binaryen | SGO clean local.set FlowScanner slice
+
+- Extended `[SGO]003` read-only-to-write FlowScanner handling for independent local writes: `local.set` is accepted only when the consumed value stack is clean, while tainted/global-derived local writes still preserve the mutable global/read-write shape.
+- Added a focused positive for a clean `local.set` / `local.get` nested-if condition and a negative proving `global.get` flowing through `local.set` remains preserved. Binaryen v129 probes promoted the clean local-set shape and preserved the tainted local-set neighbor.
+- Recorded validation evidence from Binaryen v129 WAT probes, initial failing focused test, `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-local-set-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-21] binaryen | SGO independent call_ref FlowScanner slice
 
 - Added ordinary WAT `call_ref` parsing/lowering/rendering and extended `[SGO]003` nested-if arm-flow handling so independent `call_ref` conditions are treated like direct calls and `call_indirect` when every stacked operand is clean; the candidate global may still only flow through the selected value arm and supported post-consumers before the outer same-global write guard.
