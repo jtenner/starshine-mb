@@ -500,6 +500,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBrTableTargetCountUleb
   MalformedBrTableTargetLabelIndexUleb
   MalformedBrTableDefaultLabelIndexUleb
+  OverwideBrLabelIndexUleb
+  OverwideBrIfLabelIndexUleb
+  OverwideBrTableTargetCountUleb
+  OverwideBrTableTargetLabelIndexUleb
+  OverwideBrTableDefaultLabelIndexUleb
   MalformedTableIndexUleb
   MalformedTableSetIndexUleb
   MalformedTableSizeIndexUleb

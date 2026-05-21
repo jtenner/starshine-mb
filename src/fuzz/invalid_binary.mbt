@@ -222,6 +222,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedBrTableTargetCountUleb
   MalformedBrTableTargetLabelIndexUleb
   MalformedBrTableDefaultLabelIndexUleb
+  OverwideBrLabelIndexUleb
+  OverwideBrIfLabelIndexUleb
+  OverwideBrTableTargetCountUleb
+  OverwideBrTableTargetLabelIndexUleb
+  OverwideBrTableDefaultLabelIndexUleb
   MalformedTableIndexUleb
   MalformedTableSetIndexUleb
   MalformedTableSizeIndexUleb
@@ -850,6 +855,13 @@ fn validate_invalid_binary_strategy_label(
       "malformed-br-table-target-label-index-uleb"
     MalformedBrTableDefaultLabelIndexUleb =>
       "malformed-br-table-default-label-index-uleb"
+    OverwideBrLabelIndexUleb => "overwide-br-label-index-uleb"
+    OverwideBrIfLabelIndexUleb => "overwide-br-if-label-index-uleb"
+    OverwideBrTableTargetCountUleb => "overwide-br-table-target-count-uleb"
+    OverwideBrTableTargetLabelIndexUleb =>
+      "overwide-br-table-target-label-index-uleb"
+    OverwideBrTableDefaultLabelIndexUleb =>
+      "overwide-br-table-default-label-index-uleb"
     MalformedTableIndexUleb => "malformed-table-index-uleb"
     MalformedTableSetIndexUleb => "malformed-table-set-index-uleb"
     MalformedTableSizeIndexUleb => "malformed-table-size-index-uleb"
@@ -2344,6 +2356,41 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedBrTableDefaultLabelIndexUleb,
       "malformed-br-table-default-label-index-uleb",
       "br_table instruction with a malformed default label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideBrLabelIndexUleb,
+      "overwide-br-label-index-uleb",
+      "br instruction with an overwide label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideBrIfLabelIndexUleb,
+      "overwide-br-if-label-index-uleb",
+      "br_if instruction with an overwide label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideBrTableTargetCountUleb,
+      "overwide-br-table-target-count-uleb",
+      "br_table instruction with an overwide target-count ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideBrTableTargetLabelIndexUleb,
+      "overwide-br-table-target-label-index-uleb",
+      "br_table instruction with an overwide target label-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideBrTableDefaultLabelIndexUleb,
+      "overwide-br-table-default-label-index-uleb",
+      "br_table instruction with an overwide default label-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5669,6 +5716,86 @@ fn validate_invalid_binary_mutate_malformed_br_table_default_label_index_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_br_label_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x0c).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideBrLabelIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_br_if_label_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x0d).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideBrIfLabelIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_br_table_target_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x0e).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideBrTableTargetCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_br_table_target_label_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x0e).to_byte(), (0x01).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideBrTableTargetLabelIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_br_table_default_label_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0x0e).to_byte(), (0x00).to_byte()]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideBrTableDefaultLabelIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
     ),
   )
 }
@@ -12138,6 +12265,20 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     MalformedBrTableDefaultLabelIndexUleb =>
       validate_invalid_binary_mutate_malformed_br_table_default_label_index_uleb(
+        base,
+      )
+    OverwideBrLabelIndexUleb =>
+      validate_invalid_binary_mutate_overwide_br_label_index_uleb(base)
+    OverwideBrIfLabelIndexUleb =>
+      validate_invalid_binary_mutate_overwide_br_if_label_index_uleb(base)
+    OverwideBrTableTargetCountUleb =>
+      validate_invalid_binary_mutate_overwide_br_table_target_count_uleb(base)
+    OverwideBrTableTargetLabelIndexUleb =>
+      validate_invalid_binary_mutate_overwide_br_table_target_label_index_uleb(
+        base,
+      )
+    OverwideBrTableDefaultLabelIndexUleb =>
+      validate_invalid_binary_mutate_overwide_br_table_default_label_index_uleb(
         base,
       )
     MalformedTableIndexUleb =>
