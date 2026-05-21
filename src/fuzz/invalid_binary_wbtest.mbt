@@ -90,7 +90,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-return-call-func-index-uleb", "malformed-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb",
     "malformed-call-indirect-table-index-uleb", "malformed-return-call-indirect-type-index-uleb",
     "malformed-return-call-indirect-table-index-uleb", "malformed-call-ref-type-index-uleb",
-    "malformed-return-call-ref-type-index-uleb", "malformed-br-label-index-uleb",
+    "malformed-return-call-ref-type-index-uleb", "malformed-throw-tag-index-uleb",
+    "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
+    "malformed-try-table-catch-label-index-uleb", "malformed-br-label-index-uleb",
     "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb", "malformed-br-table-target-label-index-uleb",
     "malformed-br-table-default-label-index-uleb", "malformed-table-index-uleb",
     "malformed-table-set-index-uleb", "malformed-table-size-index-uleb", "malformed-table-grow-index-uleb",
@@ -157,6 +159,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1083,6 +1086,20 @@ test "invalid binary FZG028 decodes malformed tail and ref call type indices as 
 }
 
 ///|
+test "invalid binary decodes malformed exception instruction immediates as invalid" {
+  for
+    strategy in [
+      "malformed-throw-tag-index-uleb", "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
+      "malformed-try-table-catch-label-index-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f14UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG029 decodes malformed limit minimum ULEBs as invalid" {
   for strategy in ["malformed-memory-min-uleb", "malformed-table-min-uleb"] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f14UL, "decode") {
@@ -1226,7 +1243,9 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-return-call-func-index-uleb", "malformed-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb",
       "malformed-call-indirect-table-index-uleb", "malformed-return-call-indirect-type-index-uleb",
       "malformed-return-call-indirect-table-index-uleb", "malformed-call-ref-type-index-uleb",
-      "malformed-return-call-ref-type-index-uleb", "malformed-br-label-index-uleb",
+      "malformed-return-call-ref-type-index-uleb", "malformed-throw-tag-index-uleb",
+      "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
+      "malformed-try-table-catch-label-index-uleb", "malformed-br-label-index-uleb",
       "malformed-br-if-label-index-uleb", "malformed-br-table-target-count-uleb",
       "malformed-br-table-default-label-index-uleb", "malformed-table-index-uleb",
       "malformed-table-set-index-uleb", "malformed-table-size-index-uleb", "malformed-table-grow-index-uleb",
