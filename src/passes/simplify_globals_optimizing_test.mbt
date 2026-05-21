@@ -6310,6 +6310,100 @@ test "simplify-globals-optimizing removes simd narrow extmul and dot read-only-t
 }
 
 ///|
+test "simplify-globals-optimizing removes simd extadd pairwise read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $i16s (mut i32) (i32.const 0))
+      #|  (global $i16u (mut i32) (i32.const 0))
+      #|  (global $i32s (mut i32) (i32.const 0))
+      #|  (global $i32u (mut i32) (i32.const 0))
+      #|  (func (export "i16s")
+      #|    global.get $i16s
+      #|    i8x16.splat
+      #|    i16x8.extadd_pairwise_i8x16_s
+      #|    i16x8.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i16s
+      #|    end)
+      #|  (func (export "i16u")
+      #|    global.get $i16u
+      #|    i8x16.splat
+      #|    i16x8.extadd_pairwise_i8x16_u
+      #|    i16x8.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i16u
+      #|    end)
+      #|  (func (export "i32s")
+      #|    global.get $i32s
+      #|    i16x8.splat
+      #|    i32x4.extadd_pairwise_i16x8_s
+      #|    i32x4.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i32s
+      #|    end)
+      #|  (func (export "i32u")
+      #|    global.get $i32u
+      #|    i16x8.splat
+      #|    i32x4.extadd_pairwise_i16x8_u
+      #|    i32x4.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i32u
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 4; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+    )
+  }
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U) +
+    optimized.pretty_print_defined_func(3U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps simd extadd pairwise flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i8x16.splat
+      #|    i16x8.extadd_pairwise_i8x16_s
+      #|    i16x8.bitmask
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes wrapped simd extension guards" {
   let optimized = sgo_test_run(
     (

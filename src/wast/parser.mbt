@@ -3789,6 +3789,10 @@ fn WastParser::parse_simd_instruction(
     | I32x4ExtmulHighI16x8S
     | I32x4ExtmulLowI16x8U
     | I32x4ExtmulHighI16x8U
+    | I16x8ExtaddPairwiseI8x16S
+    | I16x8ExtaddPairwiseI8x16U
+    | I32x4ExtaddPairwiseI16x8S
+    | I32x4ExtaddPairwiseI16x8U
     | I64x2ExtmulLowI32x4S
     | I64x2ExtmulHighI32x4S
     | I64x2ExtmulLowI32x4U

@@ -806,6 +806,8 @@ pub enum Opcode {
   I16x8ExtmulHighI8x16S
   I16x8ExtmulLowI8x16U
   I16x8ExtmulHighI8x16U
+  I16x8ExtaddPairwiseI8x16S
+  I16x8ExtaddPairwiseI8x16U
   I32x4Splat
   I32x4ExtractLane
   I32x4ReplaceLane
@@ -842,6 +844,8 @@ pub enum Opcode {
   I32x4ExtmulHighI16x8S
   I32x4ExtmulLowI16x8U
   I32x4ExtmulHighI16x8U
+  I32x4ExtaddPairwiseI16x8S
+  I32x4ExtaddPairwiseI16x8U
   I32x4TruncSatF32x4S
   I32x4TruncSatF32x4U
   I32x4TruncSatF64x2SZero

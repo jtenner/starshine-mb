@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-21] binaryen | SGO SIMD extadd-pairwise FlowScanner slice
+
+- Added WAT parsing/lowering and `[SGO]003` read-only-to-write FlowScanner coverage for parser-backed nontrapping SIMD pairwise extension-add operators: `i16x8.extadd_pairwise_i8x16_s`, `i16x8.extadd_pairwise_i8x16_u`, `i32x4.extadd_pairwise_i16x8_s`, and `i32x4.extadd_pairwise_i16x8_u`.
+- Added focused positives for direct extadd-pairwise self-guards plus a post-consumer-call negative; Binaryen v129 probes also preserved a trapping-load neighbor.
+- Recorded validation evidence from Binaryen v129 WAT probes, `moon test src/wast`, `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-simd-extadd-pairwise-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+- Grounded the change in [`../../src/wast/types.mbt`](../../src/wast/types.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/passes/simplify_globals_optimizing.mbt`](../../src/passes/simplify_globals_optimizing.mbt), [`../../src/passes/simplify_globals_optimizing_test.mbt`](../../src/passes/simplify_globals_optimizing_test.mbt), [`binaryen/passes/simplify-globals-optimizing/parity-matrix.md`](binaryen/passes/simplify-globals-optimizing/parity-matrix.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-05-21] binaryen | SGO SIMD core bitwise/shuffle FlowScanner slice
 
 - Extended `[SGO]003` read-only-to-write FlowScanner coverage for WAT-lowered nontrapping SIMD core operators: `v128.not`, `v128.any_true`, bitwise `v128.and` / `v128.andnot` / `v128.or` / `v128.xor`, `i8x16.shuffle`, `i8x16.swizzle`, and ternary `v128.bitselect`.

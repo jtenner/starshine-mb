@@ -512,6 +512,8 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i16x8.extmul_high_i8x16_s", Opcode(I16x8ExtmulHighI8x16S))
   map.set("i16x8.extmul_low_i8x16_u", Opcode(I16x8ExtmulLowI8x16U))
   map.set("i16x8.extmul_high_i8x16_u", Opcode(I16x8ExtmulHighI8x16U))
+  map.set("i16x8.extadd_pairwise_i8x16_s", Opcode(I16x8ExtaddPairwiseI8x16S))
+  map.set("i16x8.extadd_pairwise_i8x16_u", Opcode(I16x8ExtaddPairwiseI8x16U))
 
   // ========== SIMD - i32x4 Operations ==========
   map.set("i32x4.splat", Opcode(I32x4Splat))
@@ -550,6 +552,8 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i32x4.extmul_high_i16x8_s", Opcode(I32x4ExtmulHighI16x8S))
   map.set("i32x4.extmul_low_i16x8_u", Opcode(I32x4ExtmulLowI16x8U))
   map.set("i32x4.extmul_high_i16x8_u", Opcode(I32x4ExtmulHighI16x8U))
+  map.set("i32x4.extadd_pairwise_i16x8_s", Opcode(I32x4ExtaddPairwiseI16x8S))
+  map.set("i32x4.extadd_pairwise_i16x8_u", Opcode(I32x4ExtaddPairwiseI16x8U))
   map.set("i32x4.trunc_sat_f32x4_s", Opcode(I32x4TruncSatF32x4S))
   map.set("i32x4.trunc_sat_f32x4_u", Opcode(I32x4TruncSatF32x4U))
   map.set("i32x4.trunc_sat_f64x2_s_zero", Opcode(I32x4TruncSatF64x2SZero))

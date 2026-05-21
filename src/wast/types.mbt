@@ -578,6 +578,8 @@ pub enum Opcode {
   I16x8ExtmulHighI8x16S
   I16x8ExtmulLowI8x16U
   I16x8ExtmulHighI8x16U
+  I16x8ExtaddPairwiseI8x16S
+  I16x8ExtaddPairwiseI8x16U
 
   // ========== SIMD - i32x4 Operations ==========
   I32x4Splat
@@ -616,6 +618,8 @@ pub enum Opcode {
   I32x4ExtmulHighI16x8S
   I32x4ExtmulLowI16x8U
   I32x4ExtmulHighI16x8U
+  I32x4ExtaddPairwiseI16x8S
+  I32x4ExtaddPairwiseI16x8U
   I32x4TruncSatF32x4S
   I32x4TruncSatF32x4U
   I32x4TruncSatF64x2SZero
@@ -1078,6 +1082,10 @@ pub impl Show for Opcode with output(self, logger) {
     I16x8ExtmulHighI8x16S => logger.write_string("I16x8ExtmulHighI8x16S")
     I16x8ExtmulLowI8x16U => logger.write_string("I16x8ExtmulLowI8x16U")
     I16x8ExtmulHighI8x16U => logger.write_string("I16x8ExtmulHighI8x16U")
+    I16x8ExtaddPairwiseI8x16S =>
+      logger.write_string("I16x8ExtaddPairwiseI8x16S")
+    I16x8ExtaddPairwiseI8x16U =>
+      logger.write_string("I16x8ExtaddPairwiseI8x16U")
     I32x4Splat => logger.write_string("I32x4Splat")
     I32x4ExtractLane => logger.write_string("I32x4ExtractLane")
     I32x4ReplaceLane => logger.write_string("I32x4ReplaceLane")
@@ -1114,6 +1122,10 @@ pub impl Show for Opcode with output(self, logger) {
     I32x4ExtmulHighI16x8S => logger.write_string("I32x4ExtmulHighI16x8S")
     I32x4ExtmulLowI16x8U => logger.write_string("I32x4ExtmulLowI16x8U")
     I32x4ExtmulHighI16x8U => logger.write_string("I32x4ExtmulHighI16x8U")
+    I32x4ExtaddPairwiseI16x8S =>
+      logger.write_string("I32x4ExtaddPairwiseI16x8S")
+    I32x4ExtaddPairwiseI16x8U =>
+      logger.write_string("I32x4ExtaddPairwiseI16x8U")
     I32x4TruncSatF32x4S => logger.write_string("I32x4TruncSatF32x4S")
     I32x4TruncSatF32x4U => logger.write_string("I32x4TruncSatF32x4U")
     I32x4TruncSatF64x2SZero => logger.write_string("I32x4TruncSatF64x2SZero")

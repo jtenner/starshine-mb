@@ -783,6 +783,10 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I64x2ExtendHighI32x4S
     | @lib.I64x2ExtendLowI32x4U
     | @lib.I64x2ExtendHighI32x4U
+    | @lib.I16x8ExtaddPairwiseI8x16S
+    | @lib.I16x8ExtaddPairwiseI8x16U
+    | @lib.I32x4ExtaddPairwiseI16x8S
+    | @lib.I32x4ExtaddPairwiseI16x8U
     | @lib.I32x4TruncSatF32x4S
     | @lib.I32x4TruncSatF32x4U
     | @lib.I32x4TruncSatF64x2SZero

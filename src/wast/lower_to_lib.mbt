@@ -1412,6 +1412,10 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I16x8ExtmulHighI8x16S => Ok(@lib.Instruction::i16x8_extmul_high_i8x16s())
     I16x8ExtmulLowI8x16U => Ok(@lib.Instruction::i16x8_extmul_low_i8x16u())
     I16x8ExtmulHighI8x16U => Ok(@lib.Instruction::i16x8_extmul_high_i8x16u())
+    I16x8ExtaddPairwiseI8x16S =>
+      Ok(@lib.Instruction::i16x8_extadd_pairwise_i8x16s())
+    I16x8ExtaddPairwiseI8x16U =>
+      Ok(@lib.Instruction::i16x8_extadd_pairwise_i8x16u())
     I32x4Eq => Ok(@lib.Instruction::i32x4_eq())
     I32x4Ne => Ok(@lib.Instruction::i32x4_ne())
     I32x4LtS => Ok(@lib.Instruction::i32x4_lt_s())
@@ -1445,6 +1449,10 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I32x4ExtmulHighI16x8S => Ok(@lib.Instruction::i32x4_extmul_high_i16x8s())
     I32x4ExtmulLowI16x8U => Ok(@lib.Instruction::i32x4_extmul_low_i16x8u())
     I32x4ExtmulHighI16x8U => Ok(@lib.Instruction::i32x4_extmul_high_i16x8u())
+    I32x4ExtaddPairwiseI16x8S =>
+      Ok(@lib.Instruction::i32x4_extadd_pairwise_i16x8s())
+    I32x4ExtaddPairwiseI16x8U =>
+      Ok(@lib.Instruction::i32x4_extadd_pairwise_i16x8u())
     I32x4TruncSatF32x4S => Ok(@lib.Instruction::i32x4_trunc_sat_f32x4s())
     I32x4TruncSatF32x4U => Ok(@lib.Instruction::i32x4_trunc_sat_f32x4u())
     I32x4TruncSatF64x2SZero =>
@@ -4518,7 +4526,9 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
     #|    local.get 0 local.get 1 i16x8.extmul_low_i8x16_s drop
     #|    local.get 0 local.get 1 i16x8.extmul_high_i8x16_s drop
     #|    local.get 0 local.get 1 i16x8.extmul_low_i8x16_u drop
-    #|    local.get 0 local.get 1 i16x8.extmul_high_i8x16_u drop)
+    #|    local.get 0 local.get 1 i16x8.extmul_high_i8x16_u drop
+    #|    local.get 0 i16x8.extadd_pairwise_i8x16_s drop
+    #|    local.get 0 i16x8.extadd_pairwise_i8x16_u drop)
     #|  (func (param v128 v128 i32)
     #|    local.get 0 local.get 1 i32x4.eq drop
     #|    local.get 0 local.get 1 i32x4.ne drop
@@ -4553,6 +4563,8 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
     #|    local.get 0 local.get 1 i32x4.extmul_high_i16x8_s drop
     #|    local.get 0 local.get 1 i32x4.extmul_low_i16x8_u drop
     #|    local.get 0 local.get 1 i32x4.extmul_high_i16x8_u drop
+    #|    local.get 0 i32x4.extadd_pairwise_i16x8_s drop
+    #|    local.get 0 i32x4.extadd_pairwise_i16x8_u drop
     #|    local.get 0 i32x4.trunc_sat_f32x4_s drop
     #|    local.get 0 i32x4.trunc_sat_f32x4_u drop
     #|    local.get 0 i32x4.trunc_sat_f64x2_s_zero drop
@@ -4663,6 +4675,14 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
             lowered_ops[39],
             @lib.Instruction::i16x8_extmul_high_i8x16u(),
           )
+          @debug.assert_eq(
+            lowered_ops[40],
+            @lib.Instruction::i16x8_extadd_pairwise_i8x16s(),
+          )
+          @debug.assert_eq(
+            lowered_ops[41],
+            @lib.Instruction::i16x8_extadd_pairwise_i8x16u(),
+          )
         }
       }
 
@@ -4683,10 +4703,18 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
           )
           @debug.assert_eq(
             lowered_ops[33],
+            @lib.Instruction::i32x4_extadd_pairwise_i16x8s(),
+          )
+          @debug.assert_eq(
+            lowered_ops[34],
+            @lib.Instruction::i32x4_extadd_pairwise_i16x8u(),
+          )
+          @debug.assert_eq(
+            lowered_ops[35],
             @lib.Instruction::i32x4_trunc_sat_f32x4s(),
           )
           @debug.assert_eq(
-            lowered_ops[36],
+            lowered_ops[38],
             @lib.Instruction::i32x4_trunc_sat_f64x2u_zero(),
           )
         }
