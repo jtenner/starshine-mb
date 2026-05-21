@@ -146,7 +146,11 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-typed-select-valtype-byte", "malformed-start-func-index-uleb", "overwide-start-func-index-uleb",
     "malformed-datacount-uleb", "overwide-datacount-uleb", "simd-shuffle-lane-overflow",
     "simd-load-lane-index-overflow", "simd-store-lane-index-overflow", "simd-extract-lane-index-overflow",
-    "simd-replace-lane-index-overflow", "malformed-data-index-uleb", "overwide-data-index-uleb",
+    "simd-replace-lane-index-overflow", "malformed-simd-load-memarg-align-uleb",
+    "malformed-simd-store-memarg-align-uleb", "malformed-simd-load-memarg-offset-uleb",
+    "malformed-simd-store-memarg-offset-uleb", "overwide-simd-load-memarg-align-uleb",
+    "overwide-simd-store-memarg-align-uleb", "overwide-simd-load-memarg-offset-uleb",
+    "overwide-simd-store-memarg-offset-uleb", "malformed-data-index-uleb", "overwide-data-index-uleb",
     "malformed-data-segment-byte-count-uleb", "overwide-data-segment-byte-count-uleb",
     "malformed-memory-init-data-index-uleb", "malformed-memory-init-memory-index-uleb",
     "overwide-memory-init-data-index-uleb", "overwide-memory-init-memory-index-uleb",
@@ -214,6 +218,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "validate-name", "validate-name", "validate-name", "validate-name",
       "validate-export", "validate-export", "validate-export", "validate-export",
       "validate-name", "validate-import", "validate-datacount", "validate-datacount",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
@@ -1674,6 +1679,34 @@ test "invalid binary FZG041 decodes overwide atomic memarg ULEBs as invalid" {
 }
 
 ///|
+test "invalid binary FZG031 decodes malformed SIMD memarg ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-simd-load-memarg-align-uleb", "malformed-simd-store-memarg-align-uleb",
+      "malformed-simd-load-memarg-offset-uleb", "malformed-simd-store-memarg-offset-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f45UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
+test "invalid binary FZG031 decodes overwide SIMD memarg ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-simd-load-memarg-align-uleb", "overwide-simd-store-memarg-align-uleb",
+      "overwide-simd-load-memarg-offset-uleb", "overwide-simd-store-memarg-offset-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f46UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG032 decodes custom-section overwide name length as invalid" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -1930,6 +1963,10 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-atomic-prefix-subopcode-uleb", "invalid-atomic-prefix-subopcode-byte",
       "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb",
       "overwide-simd-prefix-subopcode-uleb", "overwide-atomic-prefix-subopcode-uleb",
+      "malformed-simd-load-memarg-align-uleb", "malformed-simd-store-memarg-align-uleb",
+      "malformed-simd-load-memarg-offset-uleb", "malformed-simd-store-memarg-offset-uleb",
+      "overwide-simd-load-memarg-align-uleb", "overwide-simd-store-memarg-align-uleb",
+      "overwide-simd-load-memarg-offset-uleb", "overwide-simd-store-memarg-offset-uleb",
       "malformed-atomic-load-memarg-align-uleb", "malformed-atomic-store-memarg-align-uleb",
       "malformed-atomic-load-memarg-offset-uleb", "malformed-atomic-store-memarg-offset-uleb",
       "overwide-atomic-load-memarg-align-uleb", "overwide-atomic-store-memarg-align-uleb",
