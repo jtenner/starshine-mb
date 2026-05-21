@@ -284,6 +284,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedDataIndexUleb
   OverwideDataIndexUleb
   MalformedDataSegmentByteCountUleb
+  OverwideDataSegmentByteCountUleb
   MalformedMemoryInitDataIndexUleb
   MalformedMemoryInitMemoryIndexUleb
   OverwideMemoryInitDataIndexUleb
@@ -295,6 +296,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideTableInitElemIndexUleb
   OverwideTableInitTableIndexUleb
   MalformedDataSegmentMemoryIndexUleb
+  OverwideDataSegmentMemoryIndexUleb
   MalformedElementSegmentTableIndexUleb
   MalformedElementSegmentFuncIndexUleb
   OverwideElementSegmentTableIndexUleb
@@ -972,6 +974,7 @@ fn validate_invalid_binary_strategy_label(
     OverwideDataIndexUleb => "overwide-data-index-uleb"
     MalformedDataSegmentByteCountUleb =>
       "malformed-data-segment-byte-count-uleb"
+    OverwideDataSegmentByteCountUleb => "overwide-data-segment-byte-count-uleb"
     MalformedMemoryInitDataIndexUleb => "malformed-memory-init-data-index-uleb"
     MalformedMemoryInitMemoryIndexUleb =>
       "malformed-memory-init-memory-index-uleb"
@@ -986,6 +989,8 @@ fn validate_invalid_binary_strategy_label(
     OverwideTableInitTableIndexUleb => "overwide-table-init-table-index-uleb"
     MalformedDataSegmentMemoryIndexUleb =>
       "malformed-data-segment-memory-index-uleb"
+    OverwideDataSegmentMemoryIndexUleb =>
+      "overwide-data-segment-memory-index-uleb"
     MalformedElementSegmentTableIndexUleb =>
       "malformed-element-segment-table-index-uleb"
     MalformedElementSegmentFuncIndexUleb =>
@@ -2887,6 +2892,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideDataSegmentByteCountUleb,
+      "overwide-data-segment-byte-count-uleb",
+      "data segment with an overwide byte-vector count ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedMemoryInitDataIndexUleb,
       "malformed-memory-init-data-index-uleb",
       "memory.init instruction with a malformed data-index ULEB immediate",
@@ -2960,6 +2972,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedDataSegmentMemoryIndexUleb,
       "malformed-data-segment-memory-index-uleb",
       "active data segment with a malformed memory-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideDataSegmentMemoryIndexUleb,
+      "overwide-data-segment-memory-index-uleb",
+      "active data segment with an overwide memory-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -7424,6 +7443,40 @@ fn validate_invalid_binary_mutate_malformed_data_segment_byte_count_uleb(
 }
 
 ///|
+fn validate_invalid_binary_module_with_overwide_data_segment_byte_count_uleb() -> Bytes {
+  let bytes : Array[Byte] = [
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x08).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+  ]
+  bytes.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Bytes::from_array(bytes)
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_data_segment_byte_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideDataSegmentByteCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_data_segment_byte_count_uleb(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_memory_init_data_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -7679,6 +7732,40 @@ fn validate_invalid_binary_mutate_malformed_data_segment_memory_index_uleb(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_malformed_data_segment_memory_index_uleb(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_overwide_data_segment_memory_index_uleb() -> Bytes {
+  let bytes : Array[Byte] = [
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x08).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+  ]
+  bytes.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Bytes::from_array(bytes)
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_data_segment_memory_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideDataSegmentMemoryIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_data_segment_memory_index_uleb(),
     ),
   )
 }
@@ -13637,6 +13724,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_data_segment_byte_count_uleb(
         base,
       )
+    OverwideDataSegmentByteCountUleb =>
+      validate_invalid_binary_mutate_overwide_data_segment_byte_count_uleb(base)
     MalformedMemoryInitDataIndexUleb =>
       validate_invalid_binary_mutate_malformed_memory_init_data_index_uleb(base)
     MalformedMemoryInitMemoryIndexUleb =>
@@ -13663,6 +13752,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_table_init_table_index_uleb(base)
     MalformedDataSegmentMemoryIndexUleb =>
       validate_invalid_binary_mutate_malformed_data_segment_memory_index_uleb(
+        base,
+      )
+    OverwideDataSegmentMemoryIndexUleb =>
+      validate_invalid_binary_mutate_overwide_data_segment_memory_index_uleb(
         base,
       )
     MalformedElementSegmentTableIndexUleb =>

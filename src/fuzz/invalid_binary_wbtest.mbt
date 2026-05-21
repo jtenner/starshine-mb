@@ -141,12 +141,13 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-datacount-uleb", "overwide-datacount-uleb", "simd-shuffle-lane-overflow",
     "simd-load-lane-index-overflow", "simd-store-lane-index-overflow", "simd-extract-lane-index-overflow",
     "simd-replace-lane-index-overflow", "malformed-data-index-uleb", "overwide-data-index-uleb",
-    "malformed-data-segment-byte-count-uleb", "malformed-memory-init-data-index-uleb",
-    "malformed-memory-init-memory-index-uleb", "overwide-memory-init-data-index-uleb",
-    "overwide-memory-init-memory-index-uleb", "malformed-elem-index-uleb", "overwide-elem-index-uleb",
-    "malformed-table-init-elem-index-uleb", "malformed-table-init-table-index-uleb",
-    "overwide-table-init-elem-index-uleb", "overwide-table-init-table-index-uleb",
-    "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
+    "malformed-data-segment-byte-count-uleb", "overwide-data-segment-byte-count-uleb",
+    "malformed-memory-init-data-index-uleb", "malformed-memory-init-memory-index-uleb",
+    "overwide-memory-init-data-index-uleb", "overwide-memory-init-memory-index-uleb",
+    "malformed-elem-index-uleb", "overwide-elem-index-uleb", "malformed-table-init-elem-index-uleb",
+    "malformed-table-init-table-index-uleb", "overwide-table-init-elem-index-uleb",
+    "overwide-table-init-table-index-uleb", "malformed-data-segment-memory-index-uleb",
+    "overwide-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
     "malformed-element-segment-func-index-uleb", "overwide-element-segment-table-index-uleb",
     "overwide-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
     "malformed-name-section-func-name-length-uleb", "overwide-name-section-func-name-length-uleb",
@@ -236,7 +237,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1623,6 +1624,20 @@ test "invalid binary FZG036 decodes overwide element segment index ULEBs as inva
 }
 
 ///|
+test "invalid binary FZG037 decodes overwide data segment ULEBs as invalid" {
+  for
+    stable_id in [
+      "overwide-data-segment-byte-count-uleb", "overwide-data-segment-memory-index-uleb",
+    ] {
+    match
+      invalid_binary_expect_strategy_rejects(stable_id, 0x5f2cUL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{stable_id}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG030 decodes overwide table and memory index ULEBs as invalid" {
   for
     strategy in [
@@ -1831,12 +1846,13 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-start-func-index-uleb", "malformed-datacount-uleb", "simd-shuffle-lane-overflow",
       "simd-load-lane-index-overflow", "simd-store-lane-index-overflow", "simd-extract-lane-index-overflow",
       "simd-replace-lane-index-overflow", "malformed-data-index-uleb", "overwide-data-index-uleb",
-      "malformed-data-segment-byte-count-uleb", "malformed-memory-init-data-index-uleb",
-      "malformed-memory-init-memory-index-uleb", "overwide-memory-init-data-index-uleb",
-      "overwide-memory-init-memory-index-uleb", "malformed-elem-index-uleb", "overwide-elem-index-uleb",
-      "malformed-table-init-elem-index-uleb", "malformed-table-init-table-index-uleb",
-      "overwide-table-init-elem-index-uleb", "overwide-table-init-table-index-uleb",
-      "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
+      "malformed-data-segment-byte-count-uleb", "overwide-data-segment-byte-count-uleb",
+      "malformed-memory-init-data-index-uleb", "malformed-memory-init-memory-index-uleb",
+      "overwide-memory-init-data-index-uleb", "overwide-memory-init-memory-index-uleb",
+      "malformed-elem-index-uleb", "overwide-elem-index-uleb", "malformed-table-init-elem-index-uleb",
+      "malformed-table-init-table-index-uleb", "overwide-table-init-elem-index-uleb",
+      "overwide-table-init-table-index-uleb", "malformed-data-segment-memory-index-uleb",
+      "overwide-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
       "malformed-element-segment-func-index-uleb", "overwide-element-segment-table-index-uleb",
       "overwide-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
       "malformed-name-section-func-name-length-uleb", "overwide-name-section-func-name-length-uleb",
