@@ -372,6 +372,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedLoadMemargOffsetUleb
   MalformedStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
+  MalformedMemoryMinUleb
+  MalformedTableMinUleb
   InvalidExportNameUtf8
   InvalidImportModuleNameUtf8
   InvalidImportFieldNameUtf8

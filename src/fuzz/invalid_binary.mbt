@@ -94,6 +94,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedLoadMemargOffsetUleb
   MalformedStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
+  MalformedMemoryMinUleb
+  MalformedTableMinUleb
   InvalidExportNameUtf8
   InvalidImportModuleNameUtf8
   InvalidImportFieldNameUtf8
@@ -573,6 +575,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedLoadMemargOffsetUleb => "malformed-load-memarg-offset-uleb"
     MalformedStoreMemargOffsetUleb => "malformed-store-memarg-offset-uleb"
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
+    MalformedMemoryMinUleb => "malformed-memory-min-uleb"
+    MalformedTableMinUleb => "malformed-table-min-uleb"
     InvalidExportNameUtf8 => "invalid-export-name-utf8"
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
     InvalidImportFieldNameUtf8 => "invalid-import-field-name-utf8"
@@ -1145,6 +1149,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedBlocktypeImmediate,
       "malformed-blocktype-immediate",
       "block instruction with a malformed blocktype encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedMemoryMinUleb,
+      "malformed-memory-min-uleb",
+      "memory section limits with a malformed minimum-size ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTableMinUleb,
+      "malformed-table-min-uleb",
+      "table section limits with a malformed minimum-size ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -3040,6 +3058,71 @@ fn validate_invalid_binary_mutate_malformed_blocktype_immediate(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x02).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_memory_min_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedMemoryMinUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x05).to_byte(),
+        (0x07).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_table_min_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedTableMinUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x04).to_byte(),
+        (0x08).to_byte(),
+        (0x01).to_byte(),
+        (0x70).to_byte(),
+        (0x00).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -6987,6 +7070,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_store_memarg_offset_uleb(base)
     MalformedBlocktypeImmediate =>
       validate_invalid_binary_mutate_malformed_blocktype_immediate(base)
+    MalformedMemoryMinUleb =>
+      validate_invalid_binary_mutate_malformed_memory_min_uleb(base)
+    MalformedTableMinUleb =>
+      validate_invalid_binary_mutate_malformed_table_min_uleb(base)
     InvalidExportNameUtf8 =>
       validate_invalid_binary_mutate_invalid_export_name_utf8(base)
     InvalidImportModuleNameUtf8 =>

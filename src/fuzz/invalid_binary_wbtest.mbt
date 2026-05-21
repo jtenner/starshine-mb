@@ -67,8 +67,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-name-subsection-size-uleb", "invalid-opcode-byte", "invalid-prefix-subopcode-byte",
     "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
     "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb", "malformed-blocktype-immediate",
-    "invalid-export-name-utf8", "invalid-import-module-name-utf8", "invalid-import-field-name-utf8",
-    "invalid-import-kind-byte", "malformed-import-func-type-index-uleb", "malformed-import-tag-type-index-uleb",
+    "malformed-memory-min-uleb", "malformed-table-min-uleb", "invalid-export-name-utf8",
+    "invalid-import-module-name-utf8", "invalid-import-field-name-utf8", "invalid-import-kind-byte",
+    "malformed-import-func-type-index-uleb", "malformed-import-tag-type-index-uleb",
     "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
     "invalid-global-valtype-byte", "invalid-export-kind-byte", "invalid-memory-limits-flag-byte",
     "invalid-tag-attribute-byte", "invalid-global-mutability-byte", "malformed-export-func-index-uleb",
@@ -141,7 +142,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode",
+      "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1053,6 +1054,16 @@ test "invalid binary FZG027 decodes malformed bulk init secondary indices as inv
 }
 
 ///|
+test "invalid binary FZG029 decodes malformed limit minimum ULEBs as invalid" {
+  for strategy in ["malformed-memory-min-uleb", "malformed-table-min-uleb"] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f14UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG028 decodes SIMD extract-lane overflow as invalid" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -1075,12 +1086,13 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-name-subsection-size-uleb", "invalid-opcode-byte", "invalid-prefix-subopcode-byte",
       "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
       "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
-      "malformed-blocktype-immediate", "invalid-export-name-utf8", "invalid-import-module-name-utf8",
-      "invalid-import-field-name-utf8", "invalid-import-kind-byte", "malformed-import-func-type-index-uleb",
-      "malformed-import-tag-type-index-uleb", "invalid-table-reftype-byte", "invalid-table-limits-flag-byte",
-      "malformed-ref-null-heaptype-immediate", "invalid-global-valtype-byte", "invalid-export-kind-byte",
-      "invalid-memory-limits-flag-byte", "invalid-tag-attribute-byte", "invalid-global-mutability-byte",
-      "malformed-export-func-index-uleb", "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb",
+      "malformed-blocktype-immediate", "malformed-memory-min-uleb", "malformed-table-min-uleb",
+      "invalid-export-name-utf8", "invalid-import-module-name-utf8", "invalid-import-field-name-utf8",
+      "invalid-import-kind-byte", "malformed-import-func-type-index-uleb", "malformed-import-tag-type-index-uleb",
+      "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
+      "invalid-global-valtype-byte", "invalid-export-kind-byte", "invalid-memory-limits-flag-byte",
+      "invalid-tag-attribute-byte", "invalid-global-mutability-byte", "malformed-export-func-index-uleb",
+      "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb",
       "malformed-export-global-index-uleb", "malformed-export-tag-index-uleb", "invalid-element-segment-flag-byte",
       "invalid-element-kind-byte", "invalid-data-segment-flag-byte", "type-section-count-overflow",
       "code-section-count-overflow", "table-section-count-overflow", "export-section-count-overflow",
