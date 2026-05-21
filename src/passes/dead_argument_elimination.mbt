@@ -10073,6 +10073,11 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     touched = dae_merge_touched(touched, restored.touched)
     changed = true
   }
+  // Reuse one selected-def singleton scratch across the artifact-specific lanes
+  // that set at most one bit at a time. Each call clears the bit immediately
+  // after use, so later lanes observe the same all-false starting state they had
+  // with separate freshly allocated bitmaps.
+  let selected_scratch_defs = Array::make(original_defined, false)
   let mut reverse_iter = 0
   if original_defined > 1024 {
     // The debug artifact's reverse exact-literal lane has a stable high-wrapper
@@ -10085,14 +10090,13 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       current,
       original_imported + original_defined,
     )
-    let reverse_selected_defs = Array::make(original_defined, false)
     for reverse_def in [4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584] {
-      if reverse_def >= 0 && reverse_def < reverse_selected_defs.length() {
-        reverse_selected_defs[reverse_def] = true
+      if reverse_def >= 0 && reverse_def < selected_scratch_defs.length() {
+        selected_scratch_defs[reverse_def] = true
         let reverse_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-          current, reverse_selected_defs, reverse_call_facts,
+          current, selected_scratch_defs, reverse_call_facts,
         )
-        reverse_selected_defs[reverse_def] = false
+        selected_scratch_defs[reverse_def] = false
         if reverse_result.changed {
           current = reverse_result.mod_out
           touched = dae_merge_touched(touched, reverse_result.touched)
@@ -10225,7 +10229,6 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   // Unread-param rewrites shrink signatures and rewrite operands, but the
   // selected artifact lanes do not add/remove direct call sites. Reuse the same
   // low-lane call facts for the low-wrapper and boundary unread-param families.
-  let boundary_wrapper_callee_defs = Array::make(original_defined, false)
   // The boundary lane uses this fixed wrapper family as a candidate scheduler.
   // Queue the wrapper/callee pairs once; each selected rewrite revalidates the
   // callee against the current module before mutating, and stale candidates
@@ -10243,7 +10246,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       current, boundary_type_indices, boundary_wrapper_def,
     )
     if boundary_callee_def >= 0 &&
-      boundary_callee_def < boundary_wrapper_callee_defs.length() {
+      boundary_callee_def < selected_scratch_defs.length() {
       boundary_wrapper_order.push(boundary_wrapper_def)
       boundary_callee_order.push(boundary_callee_def)
     }
@@ -10252,11 +10255,11 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   while boundary_order_idx < boundary_callee_order.length() {
     let boundary_wrapper_def = boundary_wrapper_order[boundary_order_idx]
     let boundary_callee_def = boundary_callee_order[boundary_order_idx]
-    boundary_wrapper_callee_defs[boundary_callee_def] = true
+    selected_scratch_defs[boundary_callee_def] = true
     let boundary_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current, boundary_wrapper_callee_defs, low_callee_call_facts,
+      current, selected_scratch_defs, low_callee_call_facts,
     )
-    boundary_wrapper_callee_defs[boundary_callee_def] = false
+    selected_scratch_defs[boundary_callee_def] = false
     if boundary_wrapper_callee_result.changed {
       current = boundary_wrapper_callee_result.mod_out
       touched = dae_merge_touched(
@@ -10270,13 +10273,12 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     }
     boundary_order_idx += 1
   }
-  let selected_singleton_defs = Array::make(original_defined, false)
-  if 236 < selected_singleton_defs.length() {
-    selected_singleton_defs[236] = true
+  if 236 < selected_scratch_defs.length() {
+    selected_scratch_defs[236] = true
     let selected_func236_locals = dae_try_retarget_selected_func236_locals_once(
-      current, selected_singleton_defs,
+      current, selected_scratch_defs,
     )
-    selected_singleton_defs[236] = false
+    selected_scratch_defs[236] = false
     if selected_func236_locals.changed {
       current = selected_func236_locals.mod_out
       touched = dae_merge_touched(touched, selected_func236_locals.touched)
@@ -10286,12 +10288,12 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
-  if 233 < selected_singleton_defs.length() {
-    selected_singleton_defs[233] = true
+  if 233 < selected_scratch_defs.length() {
+    selected_scratch_defs[233] = true
     let selected_const_if = dae_try_simplify_selected_const_if_defs_once(
-      current, selected_singleton_defs,
+      current, selected_scratch_defs,
     )
-    selected_singleton_defs[233] = false
+    selected_scratch_defs[233] = false
     if selected_const_if.changed {
       current = selected_const_if.mod_out
       touched = dae_merge_touched(touched, selected_const_if.touched)
@@ -10301,12 +10303,12 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
-  if 299 < selected_singleton_defs.length() {
-    selected_singleton_defs[299] = true
+  if 299 < selected_scratch_defs.length() {
+    selected_scratch_defs[299] = true
     let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-      current, selected_singleton_defs, low_callee_call_facts,
+      current, selected_scratch_defs, low_callee_call_facts,
     )
-    selected_singleton_defs[299] = false
+    selected_scratch_defs[299] = false
     if selected_result.changed {
       current = selected_result.mod_out
       touched = dae_merge_touched(touched, selected_result.touched)
@@ -10317,13 +10319,12 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     }
   }
   for mid_literal_def in [287, 311] {
-    if mid_literal_def >= 0 &&
-      mid_literal_def < selected_singleton_defs.length() {
-      selected_singleton_defs[mid_literal_def] = true
+    if mid_literal_def >= 0 && mid_literal_def < selected_scratch_defs.length() {
+      selected_scratch_defs[mid_literal_def] = true
       let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_singleton_defs, low_callee_call_facts,
+        current, selected_scratch_defs, low_callee_call_facts,
       )
-      selected_singleton_defs[mid_literal_def] = false
+      selected_scratch_defs[mid_literal_def] = false
       if mid_literal_result.changed {
         current = mid_literal_result.mod_out
         touched = dae_merge_touched(touched, mid_literal_result.touched)
@@ -10336,15 +10337,15 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   }
   for mid_global_literal_def in [313] {
     if mid_global_literal_def >= 0 &&
-      mid_global_literal_def < selected_singleton_defs.length() {
-      selected_singleton_defs[mid_global_literal_def] = true
+      mid_global_literal_def < selected_scratch_defs.length() {
+      selected_scratch_defs[mid_global_literal_def] = true
       let mid_global_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
         current,
-        selected_singleton_defs,
+        selected_scratch_defs,
         low_callee_call_facts,
         allow_immutable_global_get=true,
       )
-      selected_singleton_defs[mid_global_literal_def] = false
+      selected_scratch_defs[mid_global_literal_def] = false
       if mid_global_literal_result.changed {
         current = mid_global_literal_result.mod_out
         touched = dae_merge_touched(touched, mid_global_literal_result.touched)
@@ -10357,12 +10358,12 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   }
   for high_literal_def in [1720, 1755, 1775, 1794, 2156] {
     if high_literal_def >= 0 &&
-      high_literal_def < selected_singleton_defs.length() {
-      selected_singleton_defs[high_literal_def] = true
+      high_literal_def < selected_scratch_defs.length() {
+      selected_scratch_defs[high_literal_def] = true
       let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_singleton_defs, low_callee_call_facts,
+        current, selected_scratch_defs, low_callee_call_facts,
       )
-      selected_singleton_defs[high_literal_def] = false
+      selected_scratch_defs[high_literal_def] = false
       if high_literal_result.changed {
         current = high_literal_result.mod_out
         touched = dae_merge_touched(touched, high_literal_result.touched)
