@@ -376,6 +376,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportModuleNameUtf8
   InvalidImportFieldNameUtf8
   InvalidImportKindByte
+  MalformedImportFuncTypeIndexUleb
+  MalformedImportTagTypeIndexUleb
   InvalidTableRefTypeByte
   InvalidTableLimitsFlagByte
   MalformedRefNullHeaptypeImmediate
