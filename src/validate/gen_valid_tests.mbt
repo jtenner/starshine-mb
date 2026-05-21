@@ -78,3 +78,24 @@ test "gen_valid_module_with_config remains deterministic compatibility wrapper" 
   @debug.assert_eq(wrapped, generated.wasm_module)
   @debug.assert_eq(generated.config_label, "binaryen-oracle-coverage-forced")
 }
+
+///|
+test "control-heavy profile uses typed GenValid body generator slice" {
+  let config = GenValidConfig::for_profile(ControlHeavyProfile)
+  assert_true(config.features.allow_typed_body_generator)
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0x71002UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected typed-body generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_branch_heavy_control)
+  assert_true(generated.facts.has_local_tee)
+  assert_true(generated.facts.exact_opcode_counts.local_tee > 0)
+}

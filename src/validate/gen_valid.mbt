@@ -97,6 +97,7 @@ pub struct GenValidFeatureToggles {
   allow_atomics : Bool
   allow_subtyping_topology : Bool
   allow_name_custom_sections : Bool
+  allow_typed_body_generator : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -145,6 +146,8 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_subtyping_topology.output(logger)
   logger.write_string(", allow_name_custom_sections:")
   self.allow_name_custom_sections.output(logger)
+  logger.write_string(", allow_typed_body_generator:")
+  self.allow_typed_body_generator.output(logger)
 }
 
 ///|
@@ -172,6 +175,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_atomics: true,
     allow_subtyping_topology: true,
     allow_name_custom_sections: true,
+    allow_typed_body_generator: false,
   }
 }
 
@@ -594,6 +598,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           ..GenValidFeatureToggles::coverage_forced_default(),
           allow_branch_heavy_control: true,
           allow_tail_calls: true,
+          allow_typed_body_generator: true,
         },
       }
   }
@@ -2504,6 +2509,118 @@ fn gen_valid_append_nested_void_instrs(
   for _ in 0..<stmt_count {
     append_void_stmt(out, ctx, child)
   }
+}
+
+///|
+priv struct GenValidTypedStack {
+  values : Array[ValType]
+}
+
+///|
+fn gen_valid_typed_stack_empty() -> GenValidTypedStack {
+  { values: [] }
+}
+
+///|
+fn gen_valid_typed_stack_push(
+  stack : GenValidTypedStack,
+  vt : ValType,
+) -> GenValidTypedStack {
+  let values = stack.values.copy()
+  values.push(vt)
+  { values, }
+}
+
+///|
+fn gen_valid_typed_value(
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  vt : ValType,
+) -> Array[Instruction] {
+  let out : Array[Instruction] = []
+  append_value_instrs(out, ctx, vt, env, prefer_local=true)
+  out
+}
+
+///|
+fn gen_valid_typed_expr(
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  expected_results : Array[ValType],
+  fuel : Int,
+) -> Array[Instruction] {
+  let out : Array[Instruction] = []
+  let mut stack = gen_valid_typed_stack_empty()
+  for vt in expected_results {
+    let value_instrs = if fuel > 0 {
+      gen_valid_typed_value(ctx, env, vt)
+    } else {
+      [gen_const_instr(ctx, vt)]
+    }
+    for instr in value_instrs {
+      out.push(instr)
+    }
+    stack = gen_valid_typed_stack_push(stack, vt)
+  }
+  ignore(stack)
+  out
+}
+
+///|
+fn gen_valid_typed_stmt(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  fuel : Int,
+) -> Unit {
+  let child = gen_valid_body_env_child(env, add_void_label=true)
+  match gen_matching_local_idx(env.local_types, ValType::i32()) {
+    Some(idx) => {
+      for instr in gen_valid_typed_expr(ctx, env, [ValType::i32()], fuel) {
+        out.push(instr)
+      }
+      out.push(Instruction::local_tee(idx))
+      out.push(Instruction::drop())
+    }
+    None => ()
+  }
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new(gen_valid_typed_expr(ctx, child, [ValType::i32()], fuel - 1)),
+    ),
+  )
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })))
+  out.push(
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      gen_valid_typed_expr(ctx, child, [ValType::i32()], fuel - 1),
+      Some(gen_valid_typed_expr(ctx, child, [ValType::i32()], fuel - 1)),
+    ),
+  )
+  out.push(Instruction::drop())
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+        Instruction::br_if(LabelIdx::new(0U)),
+      ]),
+    ),
+  )
+}
+
+///|
+fn gen_valid_append_typed_body_generator_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !ctx.config.features.allow_typed_body_generator {
+    return
+  }
+  gen_valid_typed_stmt(out, ctx, env, env.depth_left)
 }
 
 ///|
@@ -5092,6 +5209,9 @@ fn gen_valid_build_func(
   }
   for _ in 0..<stmt_count {
     append_void_stmt(body_instrs, ctx, env)
+  }
+  if ctx.config.mode == Natural {
+    gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
   }
   if ctx.config.mode == Natural && ctx.config.features.allow_ref_types {
     let gc_stmt_count = if gc_type_plan.concrete_ref_types.is_empty() {
