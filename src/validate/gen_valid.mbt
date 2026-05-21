@@ -288,11 +288,11 @@ pub fn GenValidConfig::coverage_forced_default() -> GenValidConfig {
     mode: CoverageForced,
     max_type_defs: 18,
     max_imports: 6,
-    max_tables: 3,
+    max_tables: 4,
     max_mems: 2,
     max_globals: 5,
     max_tags: 2,
-    max_elems: 3,
+    max_elems: 4,
     max_datas: 4,
     max_locals: 6,
     section_bias: GenValidSectionBias::coverage_forced_default(),
@@ -4314,6 +4314,21 @@ fn gen_valid_append_call_ref_source_variants(
       None => ()
     }
   }
+  match gen_valid_first_nonzero_funcref_table_idx(env.tables) {
+    Some(table_idx) =>
+      match gen_valid_pick_callable(ctx, env.funcs) {
+        Some(target) => {
+          gen_valid_append_call_args(out, ctx, env, target.params)
+          out.push(Instruction::i32_const(I32(1)))
+          out.push(Instruction::table_get(table_idx))
+          out.push(Instruction::ref_cast(false, HeapType::new(target.type_idx)))
+          out.push(Instruction::call_ref(target.type_idx))
+          gen_valid_append_call_result_drops(out, target.results)
+        }
+        None => ()
+      }
+    None => ()
+  }
 }
 
 ///|
@@ -4370,6 +4385,33 @@ fn gen_valid_append_direct_call_graph_variants(
 }
 
 ///|
+fn gen_valid_funcref_table_indices(
+  tables : Array[TableType],
+) -> Array[TableIdx] {
+  let result : Array[TableIdx] = []
+  for i = 0; i < tables.length(); i = i + 1 {
+    let TableType(rt, _) = tables[i]
+    if ValType::ref_type(rt) == ValType::funcref() {
+      result.push(TableIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  result
+}
+
+///|
+fn gen_valid_first_nonzero_funcref_table_idx(
+  tables : Array[TableType],
+) -> TableIdx? {
+  for i = 1; i < tables.length(); i = i + 1 {
+    let TableType(rt, _) = tables[i]
+    if ValType::ref_type(rt) == ValType::funcref() {
+      return Some(TableIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  None
+}
+
+///|
 fn gen_valid_append_call_indirect_variants(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -4378,20 +4420,30 @@ fn gen_valid_append_call_indirect_variants(
   if !ctx.config.features.allow_call_indirect || env.tables.is_empty() {
     return
   }
-  let TableType(rt, _) = env.tables[0]
-  if ValType::ref_type(rt) != ValType::funcref() {
+  let funcref_tables = gen_valid_funcref_table_indices(env.tables)
+  if funcref_tables.is_empty() {
     return
   }
+  let primary_table = funcref_tables[0]
   match gen_valid_pick_callable(ctx, env.funcs) {
     Some(target) => {
       gen_valid_append_call_args(out, ctx, env, target.params)
       out.push(Instruction::i32_const(I32(0)))
-      out.push(Instruction::call_indirect(target.type_idx, TableIdx::new(0U)))
+      out.push(Instruction::call_indirect(target.type_idx, primary_table))
       gen_valid_append_call_result_drops(out, target.results)
       gen_valid_append_call_args(out, ctx, env, target.params)
       out.push(Instruction::i32_const(I32(1)))
-      out.push(Instruction::call_indirect(target.type_idx, TableIdx::new(0U)))
+      out.push(Instruction::call_indirect(target.type_idx, primary_table))
       gen_valid_append_call_result_drops(out, target.results)
+      match gen_valid_first_nonzero_funcref_table_idx(env.tables) {
+        Some(nonzero_table) => {
+          gen_valid_append_call_args(out, ctx, env, target.params)
+          out.push(Instruction::i32_const(I32(1)))
+          out.push(Instruction::call_indirect(target.type_idx, nonzero_table))
+          gen_valid_append_call_result_drops(out, target.results)
+        }
+        None => ()
+      }
     }
     None => ()
   }
@@ -4413,6 +4465,21 @@ fn gen_valid_append_nested_tail_call_variants(
       gen_valid_append_call_args(nested, ctx, env, target.params)
       nested.push(Instruction::return_call(target.idx))
       out.push(Instruction::block(BlockType::void_(), Expr::new(nested)))
+      let then_tail : Array[Instruction] = []
+      gen_valid_append_call_args(then_tail, ctx, env, target.params)
+      then_tail.push(Instruction::return_call(target.idx))
+      let else_tail : Array[Instruction] = []
+      gen_valid_append_call_args(else_tail, ctx, env, target.params)
+      else_tail.push(Instruction::return_call(target.idx))
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::if_(BlockType::void_(), then_tail, Some(else_tail)),
+          ]),
+        ),
+      )
     }
     None => ()
   }
@@ -6098,8 +6165,13 @@ fn gen_valid_table_ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.config.mode == CoverageForced &&
-    total_table_idx >= 2 {
+    total_table_idx >= 2 &&
+    total_table_idx < 4 {
     RefType::new(true, HeapType::new(TypeIdx::new(0U)))
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx >= 4 {
+    RefType::new(true, HeapType::abs(AbsHeapType::func()))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.random_int(6) == 0 {
     RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
@@ -6292,7 +6364,7 @@ fn gen_valid_module_once_with_config(
     config.section_bias.tables_percent,
     if config.features.allow_table_limit_variants &&
       config.features.allow_ref_types {
-      3
+      4
     } else {
       1
     },
@@ -6750,9 +6822,8 @@ fn gen_valid_module_once_with_config(
           ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
         )
       } else if ctx.config.mode == CoverageForced && i == 3 {
-        match (gc_table_choice, gc_table_ref_type) {
-          (Some(table_idx), Some(rt)) if ValType::ref_type(rt) !=
-            ValType::funcref() =>
+        match gen_valid_first_nonzero_funcref_table_idx(table_types) {
+          Some(table_idx) =>
             Elem::new(
               ElemMode::active(
                 table_idx,
@@ -6761,20 +6832,35 @@ fn gen_valid_module_once_with_config(
                   global_idx=const_i32_global_idx,
                 ),
               ),
-              ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+              ElemKind::funcs([func_idx, second_func_idx]),
             )
-          _ =>
-            match gc_type_plan.bulk_elem_ref_type {
-              Some(rt) =>
+          None =>
+            match (gc_table_choice, gc_table_ref_type) {
+              (Some(table_idx), Some(rt)) if ValType::ref_type(rt) !=
+                ValType::funcref() =>
                 Elem::new(
-                  ElemMode::passive(),
-                  ElemKind::typed_exprs(rt, [
-                    gen_valid_elem_ref_expr(ctx, rt),
-                    gen_valid_elem_ref_expr(ctx, rt),
-                  ]),
+                  ElemMode::active(
+                    table_idx,
+                    gen_valid_active_i32_offset(
+                      ctx,
+                      global_idx=const_i32_global_idx,
+                    ),
+                  ),
+                  ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
                 )
-              None =>
-                Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+              _ =>
+                match gc_type_plan.bulk_elem_ref_type {
+                  Some(rt) =>
+                    Elem::new(
+                      ElemMode::passive(),
+                      ElemKind::typed_exprs(rt, [
+                        gen_valid_elem_ref_expr(ctx, rt),
+                        gen_valid_elem_ref_expr(ctx, rt),
+                      ]),
+                    )
+                  None =>
+                    Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+                }
             }
         }
       } else if (match gc_type_plan.bulk_elem_ref_type {

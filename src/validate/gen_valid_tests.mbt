@@ -1165,6 +1165,84 @@ fn gen_valid_test_has_const_index_call_indirect(
 }
 
 ///|
+fn gen_valid_test_module_has_populated_nonzero_table_call_indirect(
+  mod_ : Module,
+) -> Bool {
+  let populated_tables : Array[TableIdx] = []
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(mode, _) = elem
+        match mode {
+          Active(table_idx, _) => populated_tables.push(table_idx)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for table_idx in populated_tables {
+        let TableIdx(table_idx_u) = table_idx
+        if table_idx_u.reinterpret_as_int() > 0 {
+          for func in funcs {
+            let Func(_, Expr(instrs)) = func
+            if gen_valid_test_has_const_index_call_indirect(
+                instrs, table_idx, 1,
+              ) {
+              return true
+            }
+          }
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_if_nested_tail_call(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      If(_, then_body, else_body) => {
+        for child in then_body {
+          match child {
+            ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
+              return true
+            _ => ()
+          }
+        }
+        match else_body {
+          Some(body) =>
+            for child in body {
+              match child {
+                ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
+                  return true
+                _ => ()
+              }
+            }
+          None => ()
+        }
+        if gen_valid_test_has_if_nested_tail_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_if_nested_tail_call(body) =>
+            return true
+          _ => ()
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_if_nested_tail_call(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_has_nested_tail_call(instrs : Array[Instruction]) -> Bool {
   for instr in instrs {
     match instr {
@@ -1269,6 +1347,11 @@ fn gen_valid_test_module_has_nonzero_indirect_and_nested_tail(
       let mut has_nested_tail = false
       let mut has_nested_indirect_tail = false
       let mut has_nested_ref_tail = false
+      let mut has_populated_nonzero_table_indirect = false
+      let mut has_if_nested_tail = false
+      has_populated_nonzero_table_indirect = gen_valid_test_module_has_populated_nonzero_table_call_indirect(
+        mod_,
+      )
       for func in funcs {
         let Func(_, Expr(instrs)) = func
         has_nonzero_indirect = has_nonzero_indirect ||
@@ -1283,11 +1366,15 @@ fn gen_valid_test_module_has_nonzero_indirect_and_nested_tail(
           gen_valid_test_has_nested_return_call_indirect(instrs)
         has_nested_ref_tail = has_nested_ref_tail ||
           gen_valid_test_has_nested_return_call_ref(instrs)
+        has_if_nested_tail = has_if_nested_tail ||
+          gen_valid_test_has_if_nested_tail_call(instrs)
       }
       has_nonzero_indirect &&
       has_nested_tail &&
       has_nested_indirect_tail &&
-      has_nested_ref_tail
+      has_nested_ref_tail &&
+      has_populated_nonzero_table_indirect &&
+      has_if_nested_tail
     }
     None => false
   }
@@ -1646,7 +1733,7 @@ test "coverage-forced GenValid emits nonzero call_indirect and nested tail calls
     gen_valid_test_module_has_nonzero_indirect_and_nested_tail(
       generated.wasm_module,
     ),
-    msg="coverage-forced call generation should include a table-0 call_indirect at element index 1 plus a tail call nested inside a terminal control block",
+    msg="coverage-forced call generation should include table-0 and populated nonzero-table call_indirect index-1 variants plus tail calls nested inside terminal block and if-control forms",
   )
 }
 
