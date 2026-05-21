@@ -452,6 +452,31 @@ pub struct GenValidExactOpcodeCounts {
   return_call : Int
   return_call_indirect : Int
   return_call_ref : Int
+  v128_const : Int
+  i8x16_splat : Int
+  i8x16_extract_lane_s : Int
+  i8x16_replace_lane : Int
+  v128_not : Int
+  v128_and : Int
+  v128_bitselect : Int
+  v128_any_true : Int
+  i8x16_eq : Int
+  i16x8_lt_s : Int
+  i32x4_gt_u : Int
+  f32x4_lt : Int
+  f64x2_ge : Int
+  i8x16_all_true : Int
+  i16x8_bitmask : Int
+  i8x16_add : Int
+  i8x16_add_sat_s : Int
+  i16x8_mul : Int
+  v128_load : Int
+  v128_store : Int
+  i8x16_shuffle : Int
+  i8x16_swizzle : Int
+  i8x16_narrow_i16x8_s : Int
+  i32x4_dot_i16x8_s : Int
+  f32x4_demote_f64x2_zero : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidExactOpcodeCounts::add(Self, Self) -> Self
 pub fn GenValidExactOpcodeCounts::empty() -> Self

@@ -609,6 +609,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
 - [FUZ]1010 - GenValid SIMD Exact Opcode And Relaxed-SIMD Widening
+  - Status: IN PROGRESS (cron 23, 2026-05-21): representative exact standard-SIMD opcode counters are landed for phase-1/phase-2/phase-3 coverage (`v128.const`, selected lane/bitwise/arithmetic/comparison/memory/shuffle/narrow/dot/demote forms) with docs and focused validation coverage; next run should widen the counter set toward the full standard SIMD opcode matrix, then add relaxed-SIMD emission behind an explicit non-Binaryen-oracle toggle/profile.
   - Goal: extend SIMD generation from phase-level coverage to exact opcode and relaxed-SIMD coverage.
   - Why: the AST appears to represent relaxed SIMD, but current GenValid docs note relaxed SIMD is not emitted. Phase counters are too coarse to detect missing individual SIMD op families.
   - Deliverables: add exact SIMD opcode counters; emit relaxed SIMD behind an explicit toggle/profile; widen lane index coverage to min/max/middle legal lanes; thread v128 values through locals/params/results/select/block results where valid; add SIMD memory ops with varied memargs and nonzero memory indices where supported.

@@ -1227,6 +1227,31 @@ pub struct GenValidExactOpcodeCounts {
   return_call : Int
   return_call_indirect : Int
   return_call_ref : Int
+  v128_const : Int
+  i8x16_splat : Int
+  i8x16_extract_lane_s : Int
+  i8x16_replace_lane : Int
+  v128_not : Int
+  v128_and : Int
+  v128_bitselect : Int
+  v128_any_true : Int
+  i8x16_eq : Int
+  i16x8_lt_s : Int
+  i32x4_gt_u : Int
+  f32x4_lt : Int
+  f64x2_ge : Int
+  i8x16_all_true : Int
+  i16x8_bitmask : Int
+  i8x16_add : Int
+  i8x16_add_sat_s : Int
+  i16x8_mul : Int
+  v128_load : Int
+  v128_store : Int
+  i8x16_shuffle : Int
+  i8x16_swizzle : Int
+  i8x16_narrow_i16x8_s : Int
+  i32x4_dot_i16x8_s : Int
+  f32x4_demote_f64x2_zero : Int
 } derive(Eq, Debug)
 
 ///|
@@ -1422,6 +1447,31 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     return_call: 0,
     return_call_indirect: 0,
     return_call_ref: 0,
+    v128_const: 0,
+    i8x16_splat: 0,
+    i8x16_extract_lane_s: 0,
+    i8x16_replace_lane: 0,
+    v128_not: 0,
+    v128_and: 0,
+    v128_bitselect: 0,
+    v128_any_true: 0,
+    i8x16_eq: 0,
+    i16x8_lt_s: 0,
+    i32x4_gt_u: 0,
+    f32x4_lt: 0,
+    f64x2_ge: 0,
+    i8x16_all_true: 0,
+    i16x8_bitmask: 0,
+    i8x16_add: 0,
+    i8x16_add_sat_s: 0,
+    i16x8_mul: 0,
+    v128_load: 0,
+    v128_store: 0,
+    i8x16_shuffle: 0,
+    i8x16_swizzle: 0,
+    i8x16_narrow_i16x8_s: 0,
+    i32x4_dot_i16x8_s: 0,
+    f32x4_demote_f64x2_zero: 0,
   }
 }
 
@@ -1578,6 +1628,32 @@ pub fn GenValidExactOpcodeCounts::add(
     return_call: self.return_call + other.return_call,
     return_call_indirect: self.return_call_indirect + other.return_call_indirect,
     return_call_ref: self.return_call_ref + other.return_call_ref,
+    v128_const: self.v128_const + other.v128_const,
+    i8x16_splat: self.i8x16_splat + other.i8x16_splat,
+    i8x16_extract_lane_s: self.i8x16_extract_lane_s + other.i8x16_extract_lane_s,
+    i8x16_replace_lane: self.i8x16_replace_lane + other.i8x16_replace_lane,
+    v128_not: self.v128_not + other.v128_not,
+    v128_and: self.v128_and + other.v128_and,
+    v128_bitselect: self.v128_bitselect + other.v128_bitselect,
+    v128_any_true: self.v128_any_true + other.v128_any_true,
+    i8x16_eq: self.i8x16_eq + other.i8x16_eq,
+    i16x8_lt_s: self.i16x8_lt_s + other.i16x8_lt_s,
+    i32x4_gt_u: self.i32x4_gt_u + other.i32x4_gt_u,
+    f32x4_lt: self.f32x4_lt + other.f32x4_lt,
+    f64x2_ge: self.f64x2_ge + other.f64x2_ge,
+    i8x16_all_true: self.i8x16_all_true + other.i8x16_all_true,
+    i16x8_bitmask: self.i16x8_bitmask + other.i16x8_bitmask,
+    i8x16_add: self.i8x16_add + other.i8x16_add,
+    i8x16_add_sat_s: self.i8x16_add_sat_s + other.i8x16_add_sat_s,
+    i16x8_mul: self.i16x8_mul + other.i16x8_mul,
+    v128_load: self.v128_load + other.v128_load,
+    v128_store: self.v128_store + other.v128_store,
+    i8x16_shuffle: self.i8x16_shuffle + other.i8x16_shuffle,
+    i8x16_swizzle: self.i8x16_swizzle + other.i8x16_swizzle,
+    i8x16_narrow_i16x8_s: self.i8x16_narrow_i16x8_s + other.i8x16_narrow_i16x8_s,
+    i32x4_dot_i16x8_s: self.i32x4_dot_i16x8_s + other.i32x4_dot_i16x8_s,
+    f32x4_demote_f64x2_zero: self.f32x4_demote_f64x2_zero +
+    other.f32x4_demote_f64x2_zero,
   }
 }
 
@@ -1613,6 +1689,14 @@ pub impl Show for GenValidExactOpcodeCounts with output(self, logger) {
   self.return_call_indirect.output(logger)
   logger.write_string(", return_call_ref: ")
   self.return_call_ref.output(logger)
+  logger.write_string(", v128_const: ")
+  self.v128_const.output(logger)
+  logger.write_string(", i8x16_splat: ")
+  self.i8x16_splat.output(logger)
+  logger.write_string(", i8x16_add: ")
+  self.i8x16_add.output(logger)
+  logger.write_string(", v128_load: ")
+  self.v128_load.output(logger)
   logger.write_char('}')
 }
 
@@ -8806,6 +8890,38 @@ fn gen_valid_exact_opcode_counts_for_instr(
       GenValidExactOpcodeCounts::{ ..zero, return_call_indirect: 1 }
     ReturnCallRef(_) =>
       GenValidExactOpcodeCounts::{ ..zero, return_call_ref: 1 }
+    V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_const: 1 }
+    I8x16Splat => GenValidExactOpcodeCounts::{ ..zero, i8x16_splat: 1 }
+    I8x16ExtractLaneS(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i8x16_extract_lane_s: 1 }
+    I8x16ReplaceLane(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, i8x16_replace_lane: 1 }
+    V128Not => GenValidExactOpcodeCounts::{ ..zero, v128_not: 1 }
+    V128And => GenValidExactOpcodeCounts::{ ..zero, v128_and: 1 }
+    V128Bitselect => GenValidExactOpcodeCounts::{ ..zero, v128_bitselect: 1 }
+    V128AnyTrue => GenValidExactOpcodeCounts::{ ..zero, v128_any_true: 1 }
+    I8x16Eq => GenValidExactOpcodeCounts::{ ..zero, i8x16_eq: 1 }
+    I16x8LtS => GenValidExactOpcodeCounts::{ ..zero, i16x8_lt_s: 1 }
+    I32x4GtU => GenValidExactOpcodeCounts::{ ..zero, i32x4_gt_u: 1 }
+    F32x4Lt => GenValidExactOpcodeCounts::{ ..zero, f32x4_lt: 1 }
+    F64x2Ge => GenValidExactOpcodeCounts::{ ..zero, f64x2_ge: 1 }
+    I8x16AllTrue => GenValidExactOpcodeCounts::{ ..zero, i8x16_all_true: 1 }
+    I16x8Bitmask => GenValidExactOpcodeCounts::{ ..zero, i16x8_bitmask: 1 }
+    I8x16Add => GenValidExactOpcodeCounts::{ ..zero, i8x16_add: 1 }
+    I8x16AddSatS => GenValidExactOpcodeCounts::{ ..zero, i8x16_add_sat_s: 1 }
+    I16x8Mul => GenValidExactOpcodeCounts::{ ..zero, i16x8_mul: 1 }
+    V128Load(_) => GenValidExactOpcodeCounts::{ ..zero, v128_load: 1 }
+    V128Store(_) => GenValidExactOpcodeCounts::{ ..zero, v128_store: 1 }
+    I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, i8x16_shuffle: 1 }
+    I8x16Swizzle => GenValidExactOpcodeCounts::{ ..zero, i8x16_swizzle: 1 }
+    I8x16NarrowI16x8S =>
+      GenValidExactOpcodeCounts::{ ..zero, i8x16_narrow_i16x8_s: 1 }
+    I32x4DotI16x8S =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_dot_i16x8_s: 1 }
+    F32x4DemoteF64x2Zero =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_demote_f64x2_zero: 1 }
     _ => zero
   }
 }

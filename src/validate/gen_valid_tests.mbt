@@ -2460,6 +2460,128 @@ fn gen_valid_test_module_has_numeric_expression_tree(mod_ : Module) -> Bool {
 }
 
 ///|
+test "coverage-forced GenValid emits standard SIMD representative exact opcode counters" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71009UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected SIMD coverage-forced generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  let counts = generated.facts.exact_opcode_counts
+  assert_true(generated.facts.uses_v128)
+  assert_true(generated.facts.has_simd_phase1)
+  assert_true(generated.facts.has_simd_phase2)
+  assert_true(generated.facts.has_simd_phase3)
+  assert_true(
+    counts.v128_const > 0,
+    msg="SIMD exact coverage should include v128.const",
+  )
+  assert_true(
+    counts.i8x16_splat > 0,
+    msg="SIMD exact coverage should include i8x16.splat",
+  )
+  assert_true(
+    counts.i8x16_extract_lane_s > 0,
+    msg="SIMD exact coverage should include i8x16.extract_lane_s",
+  )
+  assert_true(
+    counts.i8x16_replace_lane > 0,
+    msg="SIMD exact coverage should include i8x16.replace_lane",
+  )
+  assert_true(
+    counts.v128_not > 0,
+    msg="SIMD exact coverage should include v128.not",
+  )
+  assert_true(
+    counts.v128_and > 0,
+    msg="SIMD exact coverage should include v128.and",
+  )
+  assert_true(
+    counts.v128_bitselect > 0,
+    msg="SIMD exact coverage should include v128.bitselect",
+  )
+  assert_true(
+    counts.v128_any_true > 0,
+    msg="SIMD exact coverage should include v128.any_true",
+  )
+  assert_true(
+    counts.i8x16_eq > 0,
+    msg="SIMD exact coverage should include i8x16.eq",
+  )
+  assert_true(
+    counts.i16x8_lt_s > 0,
+    msg="SIMD exact coverage should include i16x8.lt_s",
+  )
+  assert_true(
+    counts.i32x4_gt_u > 0,
+    msg="SIMD exact coverage should include i32x4.gt_u",
+  )
+  assert_true(
+    counts.f32x4_lt > 0,
+    msg="SIMD exact coverage should include f32x4.lt",
+  )
+  assert_true(
+    counts.f64x2_ge > 0,
+    msg="SIMD exact coverage should include f64x2.ge",
+  )
+  assert_true(
+    counts.i8x16_all_true > 0,
+    msg="SIMD exact coverage should include i8x16.all_true",
+  )
+  assert_true(
+    counts.i16x8_bitmask > 0,
+    msg="SIMD exact coverage should include i16x8.bitmask",
+  )
+  assert_true(
+    counts.i8x16_add > 0,
+    msg="SIMD exact coverage should include i8x16.add",
+  )
+  assert_true(
+    counts.i8x16_add_sat_s > 0,
+    msg="SIMD exact coverage should include i8x16.add_sat_s",
+  )
+  assert_true(
+    counts.i16x8_mul > 0,
+    msg="SIMD exact coverage should include i16x8.mul",
+  )
+  assert_true(
+    counts.v128_load > 0,
+    msg="SIMD exact coverage should include v128.load",
+  )
+  assert_true(
+    counts.v128_store > 0,
+    msg="SIMD exact coverage should include v128.store",
+  )
+  assert_true(
+    counts.i8x16_shuffle > 0,
+    msg="SIMD exact coverage should include i8x16.shuffle",
+  )
+  assert_true(
+    counts.i8x16_swizzle > 0,
+    msg="SIMD exact coverage should include i8x16.swizzle",
+  )
+  assert_true(
+    counts.i8x16_narrow_i16x8_s > 0,
+    msg="SIMD exact coverage should include i8x16.narrow_i16x8_s",
+  )
+  assert_true(
+    counts.i32x4_dot_i16x8_s > 0,
+    msg="SIMD exact coverage should include i32x4.dot_i16x8_s",
+  )
+  assert_true(
+    counts.f32x4_demote_f64x2_zero > 0,
+    msg="SIMD exact coverage should include f32x4.demote_f64x2_zero",
+  )
+}
+
+///|
 test "coverage-forced GenValid emits scalar numeric arithmetic and reinterpret counters" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match
