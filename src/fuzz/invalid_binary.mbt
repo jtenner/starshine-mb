@@ -96,9 +96,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedGcPrefixSubopcodeUleb
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
+  MalformedAtomicPrefixSubopcodeUleb
   OverwideGcPrefixSubopcodeUleb
   OverwideBulkPrefixSubopcodeUleb
   OverwideSimdPrefixSubopcodeUleb
+  OverwideAtomicPrefixSubopcodeUleb
   MalformedMemargImmediate
   MalformedLoadMemargAlignUleb
   MalformedStoreMemargAlignUleb
@@ -777,9 +779,12 @@ fn validate_invalid_binary_strategy_label(
     MalformedGcPrefixSubopcodeUleb => "malformed-gc-prefix-subopcode-uleb"
     MalformedBulkPrefixSubopcodeUleb => "malformed-bulk-prefix-subopcode-uleb"
     MalformedSimdPrefixSubopcodeUleb => "malformed-simd-prefix-subopcode-uleb"
+    MalformedAtomicPrefixSubopcodeUleb =>
+      "malformed-atomic-prefix-subopcode-uleb"
     OverwideGcPrefixSubopcodeUleb => "overwide-gc-prefix-subopcode-uleb"
     OverwideBulkPrefixSubopcodeUleb => "overwide-bulk-prefix-subopcode-uleb"
     OverwideSimdPrefixSubopcodeUleb => "overwide-simd-prefix-subopcode-uleb"
+    OverwideAtomicPrefixSubopcodeUleb => "overwide-atomic-prefix-subopcode-uleb"
     MalformedMemargImmediate => "malformed-memarg-immediate"
     MalformedLoadMemargAlignUleb => "malformed-load-memarg-align-uleb"
     MalformedStoreMemargAlignUleb => "malformed-store-memarg-align-uleb"
@@ -1630,6 +1635,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedAtomicPrefixSubopcodeUleb,
+      "malformed-atomic-prefix-subopcode-uleb",
+      "atomics-prefixed instruction with a malformed subopcode ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       OverwideGcPrefixSubopcodeUleb,
       "overwide-gc-prefix-subopcode-uleb",
       "GC-prefixed instruction with an overwide subopcode ULEB",
@@ -1647,6 +1659,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideSimdPrefixSubopcodeUleb,
       "overwide-simd-prefix-subopcode-uleb",
       "SIMD-prefixed instruction with an overwide subopcode ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideAtomicPrefixSubopcodeUleb,
+      "overwide-atomic-prefix-subopcode-uleb",
+      "atomics-prefixed instruction with an overwide subopcode ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5054,6 +5073,22 @@ fn validate_invalid_binary_mutate_malformed_simd_prefix_subopcode_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_atomic_prefix_subopcode_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedAtomicPrefixSubopcodeUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_malformed_prefix_subopcode_module(
+        (0xfe).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_overwide_gc_prefix_subopcode_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -5091,6 +5126,20 @@ fn validate_invalid_binary_mutate_overwide_simd_prefix_subopcode_uleb(
       DecodeRejected,
       true,
       validate_invalid_binary_overwide_prefix_subopcode_module((0xfd).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_atomic_prefix_subopcode_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideAtomicPrefixSubopcodeUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_overwide_prefix_subopcode_module((0xfe).to_byte()),
     ),
   )
 }
@@ -13706,12 +13755,18 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_bulk_prefix_subopcode_uleb(base)
     MalformedSimdPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_malformed_simd_prefix_subopcode_uleb(base)
+    MalformedAtomicPrefixSubopcodeUleb =>
+      validate_invalid_binary_mutate_malformed_atomic_prefix_subopcode_uleb(
+        base,
+      )
     OverwideGcPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_overwide_gc_prefix_subopcode_uleb(base)
     OverwideBulkPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_overwide_bulk_prefix_subopcode_uleb(base)
     OverwideSimdPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_overwide_simd_prefix_subopcode_uleb(base)
+    OverwideAtomicPrefixSubopcodeUleb =>
+      validate_invalid_binary_mutate_overwide_atomic_prefix_subopcode_uleb(base)
     MalformedMemargImmediate =>
       validate_invalid_binary_mutate_malformed_memarg_immediate(base)
     MalformedLoadMemargAlignUleb =>

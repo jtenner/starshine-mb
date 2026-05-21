@@ -136,7 +136,7 @@ Do not audit instruction coverage by one-byte opcodes only. Starshine's current 
 
 String and custom-descriptor instructions have additional proposal/local caveats; see [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md), [`../strings/string-const-surface.md`](../strings/string-const-surface.md), [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), and [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the local `StringRefsSec` caveat.
 
-The binary-invalid lane now has focused malformed- and overwide-subopcode ULEB fixtures for the supported `0xFB`, `0xFC`, and `0xFD` prefixed spaces (`malformed-gc-prefix-subopcode-uleb`, `malformed-bulk-prefix-subopcode-uleb`, `malformed-simd-prefix-subopcode-uleb`, `overwide-gc-prefix-subopcode-uleb`, `overwide-bulk-prefix-subopcode-uleb`, and `overwide-simd-prefix-subopcode-uleb`) in addition to the existing invalid assigned subopcode fixture.
+The binary-invalid lane now has focused malformed- and overwide-subopcode ULEB fixtures for the supported `0xFB`, `0xFC`, `0xFD`, and `0xFE` prefixed spaces (`malformed-gc-prefix-subopcode-uleb`, `malformed-bulk-prefix-subopcode-uleb`, `malformed-simd-prefix-subopcode-uleb`, `malformed-atomic-prefix-subopcode-uleb`, `overwide-gc-prefix-subopcode-uleb`, `overwide-bulk-prefix-subopcode-uleb`, `overwide-simd-prefix-subopcode-uleb`, and `overwide-atomic-prefix-subopcode-uleb`) in addition to the existing invalid assigned subopcode fixture.
 
 ## Validation Contract
 
