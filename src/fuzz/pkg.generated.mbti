@@ -376,6 +376,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTableMinUleb
   MalformedMemoryMaxUleb
   MalformedTableMaxUleb
+  OverwideMemoryMinUleb
+  OverwideTableMinUleb
+  OverwideMemoryMaxUleb
+  OverwideTableMaxUleb
   InvalidExportNameUtf8
   MalformedExportNameLengthUleb
   OverwideExportNameLengthUleb
@@ -396,6 +400,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedImportTableMinUleb
   MalformedImportMemoryMaxUleb
   MalformedImportTableMaxUleb
+  OverwideImportMemoryMinUleb
+  OverwideImportTableMinUleb
+  OverwideImportMemoryMaxUleb
+  OverwideImportTableMaxUleb
   InvalidImportTableRefTypeByte
   InvalidImportMemoryLimitsFlagByte
   InvalidImportGlobalValTypeByte

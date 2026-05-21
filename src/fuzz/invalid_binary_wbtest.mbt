@@ -68,15 +68,18 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
     "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb", "malformed-blocktype-immediate",
     "malformed-memory-min-uleb", "malformed-table-min-uleb", "malformed-memory-max-uleb",
-    "malformed-table-max-uleb", "invalid-export-name-utf8", "malformed-export-name-length-uleb",
-    "overwide-export-name-length-uleb", "invalid-import-module-name-utf8", "malformed-import-module-name-length-uleb",
-    "overwide-import-module-name-length-uleb", "invalid-import-field-name-utf8",
-    "malformed-import-field-name-length-uleb", "overwide-import-field-name-length-uleb",
-    "invalid-import-kind-byte", "malformed-function-section-type-index-uleb", "overwide-function-section-type-index-uleb",
-    "malformed-import-func-type-index-uleb", "overwide-import-func-type-index-uleb",
-    "malformed-import-tag-type-index-uleb", "overwide-import-tag-type-index-uleb",
-    "malformed-import-memory-min-uleb", "malformed-import-table-min-uleb", "malformed-import-memory-max-uleb",
-    "malformed-import-table-max-uleb", "invalid-import-table-reftype-byte", "invalid-import-memory-limits-flag-byte",
+    "malformed-table-max-uleb", "overwide-memory-min-uleb", "overwide-table-min-uleb",
+    "overwide-memory-max-uleb", "overwide-table-max-uleb", "invalid-export-name-utf8",
+    "malformed-export-name-length-uleb", "overwide-export-name-length-uleb", "invalid-import-module-name-utf8",
+    "malformed-import-module-name-length-uleb", "overwide-import-module-name-length-uleb",
+    "invalid-import-field-name-utf8", "malformed-import-field-name-length-uleb",
+    "overwide-import-field-name-length-uleb", "invalid-import-kind-byte", "malformed-function-section-type-index-uleb",
+    "overwide-function-section-type-index-uleb", "malformed-import-func-type-index-uleb",
+    "overwide-import-func-type-index-uleb", "malformed-import-tag-type-index-uleb",
+    "overwide-import-tag-type-index-uleb", "malformed-import-memory-min-uleb", "malformed-import-table-min-uleb",
+    "malformed-import-memory-max-uleb", "malformed-import-table-max-uleb", "overwide-import-memory-min-uleb",
+    "overwide-import-table-min-uleb", "overwide-import-memory-max-uleb", "overwide-import-table-max-uleb",
+    "invalid-import-table-reftype-byte", "invalid-import-memory-limits-flag-byte",
     "invalid-import-global-valtype-byte", "invalid-import-global-mutability-byte",
     "invalid-import-tag-attribute-byte", "invalid-table-reftype-byte", "invalid-table-limits-flag-byte",
     "malformed-ref-null-heaptype-immediate", "malformed-ref-cast-heaptype-immediate",
@@ -171,6 +174,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "validate-name", "validate-name", "validate-name", "validate-name", "validate-export",
       "validate-export", "validate-export", "validate-export", "validate-name", "validate-import",
       "validate-datacount", "validate-datacount", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
@@ -1450,6 +1454,21 @@ test "invalid binary FZG025 decodes name section name-map length malformed ULEBs
 }
 
 ///|
+test "invalid binary FZG030 decodes overwide memory/table limit ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-memory-min-uleb", "overwide-table-min-uleb", "overwide-memory-max-uleb",
+      "overwide-table-max-uleb", "overwide-import-memory-min-uleb", "overwide-import-table-min-uleb",
+      "overwide-import-memory-max-uleb", "overwide-import-table-max-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f15UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG025 decodes import and export name length overwide ULEBs as invalid" {
   for
     strategy in [
@@ -1508,22 +1527,24 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
       "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
       "malformed-blocktype-immediate", "malformed-memory-min-uleb", "malformed-table-min-uleb",
-      "malformed-memory-max-uleb", "malformed-table-max-uleb", "invalid-export-name-utf8",
-      "malformed-export-name-length-uleb", "overwide-export-name-length-uleb", "invalid-import-module-name-utf8",
-      "malformed-import-module-name-length-uleb", "overwide-import-module-name-length-uleb",
-      "invalid-import-field-name-utf8", "malformed-import-field-name-length-uleb",
-      "overwide-import-field-name-length-uleb", "invalid-import-kind-byte", "malformed-function-section-type-index-uleb",
-      "overwide-function-section-type-index-uleb", "malformed-import-func-type-index-uleb",
-      "overwide-import-func-type-index-uleb", "malformed-import-tag-type-index-uleb",
-      "overwide-import-tag-type-index-uleb", "malformed-import-memory-min-uleb",
-      "malformed-import-table-min-uleb", "malformed-import-memory-max-uleb", "malformed-import-table-max-uleb",
-      "invalid-import-table-reftype-byte", "invalid-import-memory-limits-flag-byte",
-      "invalid-import-global-valtype-byte", "invalid-import-global-mutability-byte",
-      "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
-      "malformed-ref-cast-heaptype-immediate", "malformed-ref-test-heaptype-immediate",
-      "invalid-global-valtype-byte", "invalid-export-kind-byte", "invalid-memory-limits-flag-byte",
-      "invalid-tag-attribute-byte", "invalid-global-mutability-byte", "malformed-export-func-index-uleb",
-      "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb",
+      "malformed-memory-max-uleb", "malformed-table-max-uleb", "overwide-memory-min-uleb",
+      "overwide-table-min-uleb", "overwide-memory-max-uleb", "overwide-table-max-uleb",
+      "invalid-export-name-utf8", "malformed-export-name-length-uleb", "overwide-export-name-length-uleb",
+      "invalid-import-module-name-utf8", "malformed-import-module-name-length-uleb",
+      "overwide-import-module-name-length-uleb", "invalid-import-field-name-utf8",
+      "malformed-import-field-name-length-uleb", "overwide-import-field-name-length-uleb",
+      "invalid-import-kind-byte", "malformed-function-section-type-index-uleb", "overwide-function-section-type-index-uleb",
+      "malformed-import-func-type-index-uleb", "overwide-import-func-type-index-uleb",
+      "malformed-import-tag-type-index-uleb", "overwide-import-tag-type-index-uleb",
+      "malformed-import-memory-min-uleb", "malformed-import-table-min-uleb", "malformed-import-memory-max-uleb",
+      "malformed-import-table-max-uleb", "overwide-import-memory-min-uleb", "overwide-import-table-min-uleb",
+      "overwide-import-memory-max-uleb", "overwide-import-table-max-uleb", "invalid-import-table-reftype-byte",
+      "invalid-import-memory-limits-flag-byte", "invalid-import-global-valtype-byte",
+      "invalid-import-global-mutability-byte", "invalid-table-reftype-byte", "invalid-table-limits-flag-byte",
+      "malformed-ref-null-heaptype-immediate", "malformed-ref-cast-heaptype-immediate",
+      "malformed-ref-test-heaptype-immediate", "invalid-global-valtype-byte", "invalid-export-kind-byte",
+      "invalid-memory-limits-flag-byte", "invalid-tag-attribute-byte", "invalid-global-mutability-byte",
+      "malformed-export-func-index-uleb", "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb",
       "malformed-export-global-index-uleb", "malformed-export-tag-index-uleb", "overwide-export-func-index-uleb",
       "overwide-export-table-index-uleb", "overwide-export-memory-index-uleb", "overwide-export-global-index-uleb",
       "overwide-export-tag-index-uleb", "invalid-element-segment-flag-byte", "invalid-element-kind-byte",
