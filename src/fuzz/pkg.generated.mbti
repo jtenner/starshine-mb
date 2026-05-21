@@ -667,6 +667,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionMemoryNameUtf8
   MalformedNameSectionMemoryNameLengthUleb
   OverwideNameSectionMemoryNameLengthUleb
+  MalformedNameSectionMemoryNameCountUleb
+  OverwideNameSectionMemoryNameCountUleb
   InvalidNameSectionGlobalNameUtf8
   MalformedNameSectionGlobalNameLengthUleb
   OverwideNameSectionGlobalNameLengthUleb

@@ -191,7 +191,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-name-section-table-name-length-uleb", "overwide-name-section-table-name-length-uleb",
     "malformed-name-section-table-name-count-uleb", "overwide-name-section-table-name-count-uleb",
     "invalid-name-section-memory-name-utf8", "malformed-name-section-memory-name-length-uleb",
-    "overwide-name-section-memory-name-length-uleb", "invalid-name-section-global-name-utf8",
+    "overwide-name-section-memory-name-length-uleb", "malformed-name-section-memory-name-count-uleb",
+    "overwide-name-section-memory-name-count-uleb", "invalid-name-section-global-name-utf8",
     "malformed-name-section-global-name-length-uleb", "overwide-name-section-global-name-length-uleb",
     "invalid-name-section-elem-name-utf8", "malformed-name-section-elem-name-length-uleb",
     "overwide-name-section-elem-name-length-uleb", "invalid-name-section-data-name-utf8",
@@ -291,7 +292,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1593,6 +1595,19 @@ test "invalid binary FZG025 decodes name section table-name count ULEBs as inval
       "malformed-name-section-table-name-count-uleb", "overwide-name-section-table-name-count-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f43UL, "decode") {
+      Ok(_) => ()
+      Err(message) => fail(message)
+    }
+  }
+}
+
+///|
+test "invalid binary FZG025 decodes name section memory-name count ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-name-section-memory-name-count-uleb", "overwide-name-section-memory-name-count-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f44UL, "decode") {
       Ok(_) => ()
       Err(message) => fail(message)
     }
