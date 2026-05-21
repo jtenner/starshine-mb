@@ -787,6 +787,8 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.I32x4TruncSatF32x4U
     | @lib.I32x4TruncSatF64x2SZero
     | @lib.I32x4TruncSatF64x2UZero
+    | @lib.V128Not
+    | @lib.V128AnyTrue
     | @lib.F32x4ConvertI32x4S
     | @lib.F32x4ConvertI32x4U
     | @lib.F64x2ConvertLowI32x4S
@@ -928,6 +930,12 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64x2Gt
     | @lib.F64x2Le
     | @lib.F64x2Ge
+    | @lib.V128And
+    | @lib.V128Andnot
+    | @lib.V128Or
+    | @lib.V128Xor
+    | @lib.I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.I8x16Swizzle
     | @lib.I8x16ReplaceLane(_)
     | @lib.I16x8ReplaceLane(_)
     | @lib.I32x4ReplaceLane(_)
@@ -1080,7 +1088,7 @@ fn sgo_flow_scan_prefix_until(
         sgo_flow_push_clean(stack)
         continue
       }
-      @lib.Select(_) => {
+      @lib.Select(_) | @lib.V128Bitselect => {
         if !sgo_flow_apply_select(stack) {
           return (false, reads, stack)
         }
@@ -1163,7 +1171,7 @@ fn sgo_flow_scan_clean_prefix_until(
         sgo_flow_push_clean(stack)
         continue
       }
-      @lib.Select(_) => {
+      @lib.Select(_) | @lib.V128Bitselect => {
         if !sgo_flow_apply_select(stack) {
           return (false, stack)
         }
@@ -1285,7 +1293,7 @@ fn sgo_flow_arm_result_taint_and_reads(
         }
         continue
       }
-      @lib.Select(_) => {
+      @lib.Select(_) | @lib.V128Bitselect => {
         if !sgo_flow_apply_select(stack) {
           return (false, reads, false)
         }
@@ -1370,7 +1378,7 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         sgo_flow_push_clean(stack)
         continue
       }
-      @lib.Select(_) => {
+      @lib.Select(_) | @lib.V128Bitselect => {
         if !sgo_flow_apply_select(stack) {
           return None
         }
@@ -1480,7 +1488,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         sgo_flow_push_clean(stack)
         continue
       }
-      @lib.Select(_) => {
+      @lib.Select(_) | @lib.V128Bitselect => {
         if !sgo_flow_apply_select(stack) {
           return (false, reads, false)
         }
@@ -1650,7 +1658,7 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
           Some(false) => continue
           _ => return false
         }
-      @lib.Select(_) => {
+      @lib.Select(_) | @lib.V128Bitselect => {
         if !sgo_flow_apply_select(stack) {
           return false
         }

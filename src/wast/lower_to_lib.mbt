@@ -1316,6 +1316,13 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I64TruncSatF32U => Ok(@lib.Instruction::i64_trunc_sat_f32u())
     I64TruncSatF64S => Ok(@lib.Instruction::i64_trunc_sat_f64s())
     I64TruncSatF64U => Ok(@lib.Instruction::i64_trunc_sat_f64u())
+    V128Not => Ok(@lib.Instruction::v128_not())
+    V128And => Ok(@lib.Instruction::v128_and())
+    V128AndNot => Ok(@lib.Instruction::v128_andnot())
+    V128Or => Ok(@lib.Instruction::v128_or())
+    V128Xor => Ok(@lib.Instruction::v128_xor())
+    V128Bitselect => Ok(@lib.Instruction::v128_bitselect())
+    V128AnyTrue => Ok(@lib.Instruction::v128_any_true())
     RefEq => Ok(@lib.Instruction::ref_eq())
     RefAsNonNull => Ok(@lib.Instruction::ref_as_non_null())
     StringConst => Err("string.const requires a literal")
@@ -4127,6 +4134,50 @@ test "wast_to_binary_module lowers SIMD non-lane memory prefixed ops" {
       }
     }
     _ => fail("expected lowered module code section for SIMD memory ops")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers SIMD v128 core ops" {
+  let src =
+    #|(module
+    #|  (func (param v128 v128 v128) (result i32)
+    #|    local.get 0
+    #|    v128.not
+    #|    local.get 1
+    #|    v128.and
+    #|    local.get 2
+    #|    v128.andnot
+    #|    local.get 0
+    #|    v128.or
+    #|    local.get 1
+    #|    v128.xor
+    #|    local.get 2
+    #|    v128.bitselect
+    #|    v128.any_true))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected SIMD v128 core lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => {
+      let lowered_ops : Array[@lib.Instruction] = []
+      for instr in body {
+        match instr {
+          @lib.LocalGet(_) => ()
+          _ => lowered_ops.push(instr)
+        }
+      }
+      @debug.assert_eq(lowered_ops.length(), 7)
+      @debug.assert_eq(lowered_ops[0], @lib.Instruction::v128_not())
+      @debug.assert_eq(lowered_ops[1], @lib.Instruction::v128_and())
+      @debug.assert_eq(lowered_ops[2], @lib.Instruction::v128_andnot())
+      @debug.assert_eq(lowered_ops[3], @lib.Instruction::v128_or())
+      @debug.assert_eq(lowered_ops[4], @lib.Instruction::v128_xor())
+      @debug.assert_eq(lowered_ops[5], @lib.Instruction::v128_bitselect())
+      @debug.assert_eq(lowered_ops[6], @lib.Instruction::v128_any_true())
+    }
+    _ => fail("expected lowered module v128 core function body")
   }
 }
 
