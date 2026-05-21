@@ -474,6 +474,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   SimdExtractLaneIndexOverflow
   SimdReplaceLaneIndexOverflow
   MalformedDataIndexUleb
+  MalformedDataSegmentByteCountUleb
   MalformedMemoryInitDataIndexUleb
   MalformedMemoryInitMemoryIndexUleb
   MalformedElemIndexUleb

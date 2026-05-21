@@ -196,6 +196,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   SimdExtractLaneIndexOverflow
   SimdReplaceLaneIndexOverflow
   MalformedDataIndexUleb
+  MalformedDataSegmentByteCountUleb
   MalformedMemoryInitDataIndexUleb
   MalformedMemoryInitMemoryIndexUleb
   MalformedElemIndexUleb
@@ -733,6 +734,8 @@ fn validate_invalid_binary_strategy_label(
     SimdExtractLaneIndexOverflow => "simd-extract-lane-index-overflow"
     SimdReplaceLaneIndexOverflow => "simd-replace-lane-index-overflow"
     MalformedDataIndexUleb => "malformed-data-index-uleb"
+    MalformedDataSegmentByteCountUleb =>
+      "malformed-data-segment-byte-count-uleb"
     MalformedMemoryInitDataIndexUleb => "malformed-memory-init-data-index-uleb"
     MalformedMemoryInitMemoryIndexUleb =>
       "malformed-memory-init-memory-index-uleb"
@@ -1960,6 +1963,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedDataIndexUleb,
       "malformed-data-index-uleb",
       "data.drop instruction with a malformed data-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedDataSegmentByteCountUleb,
+      "malformed-data-segment-byte-count-uleb",
+      "data segment with a malformed byte-vector count ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4730,6 +4740,43 @@ fn validate_invalid_binary_mutate_malformed_data_index_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_data_segment_byte_count_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_data_segment_byte_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedDataSegmentByteCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_data_segment_byte_count_uleb(),
     ),
   )
 }
@@ -8889,6 +8936,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_simd_replace_lane_index_overflow(base)
     MalformedDataIndexUleb =>
       validate_invalid_binary_mutate_malformed_data_index_uleb(base)
+    MalformedDataSegmentByteCountUleb =>
+      validate_invalid_binary_mutate_malformed_data_segment_byte_count_uleb(
+        base,
+      )
     MalformedMemoryInitDataIndexUleb =>
       validate_invalid_binary_mutate_malformed_memory_init_data_index_uleb(base)
     MalformedMemoryInitMemoryIndexUleb =>
