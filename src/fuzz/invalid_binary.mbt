@@ -107,10 +107,18 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedAtomicStoreMemargAlignUleb
   MalformedAtomicLoadMemargOffsetUleb
   MalformedAtomicStoreMemargOffsetUleb
+  MalformedAtomicRmwMemargAlignUleb
+  MalformedAtomicRmwMemargOffsetUleb
+  MalformedAtomicCmpxchgMemargAlignUleb
+  MalformedAtomicCmpxchgMemargOffsetUleb
   OverwideAtomicLoadMemargAlignUleb
   OverwideAtomicStoreMemargAlignUleb
   OverwideAtomicLoadMemargOffsetUleb
   OverwideAtomicStoreMemargOffsetUleb
+  OverwideAtomicRmwMemargAlignUleb
+  OverwideAtomicRmwMemargOffsetUleb
+  OverwideAtomicCmpxchgMemargAlignUleb
+  OverwideAtomicCmpxchgMemargOffsetUleb
   MalformedMemargImmediate
   MalformedLoadMemargAlignUleb
   MalformedStoreMemargAlignUleb
@@ -835,6 +843,14 @@ fn validate_invalid_binary_strategy_label(
       "malformed-atomic-load-memarg-offset-uleb"
     MalformedAtomicStoreMemargOffsetUleb =>
       "malformed-atomic-store-memarg-offset-uleb"
+    MalformedAtomicRmwMemargAlignUleb =>
+      "malformed-atomic-rmw-memarg-align-uleb"
+    MalformedAtomicRmwMemargOffsetUleb =>
+      "malformed-atomic-rmw-memarg-offset-uleb"
+    MalformedAtomicCmpxchgMemargAlignUleb =>
+      "malformed-atomic-cmpxchg-memarg-align-uleb"
+    MalformedAtomicCmpxchgMemargOffsetUleb =>
+      "malformed-atomic-cmpxchg-memarg-offset-uleb"
     OverwideAtomicLoadMemargAlignUleb =>
       "overwide-atomic-load-memarg-align-uleb"
     OverwideAtomicStoreMemargAlignUleb =>
@@ -843,6 +859,13 @@ fn validate_invalid_binary_strategy_label(
       "overwide-atomic-load-memarg-offset-uleb"
     OverwideAtomicStoreMemargOffsetUleb =>
       "overwide-atomic-store-memarg-offset-uleb"
+    OverwideAtomicRmwMemargAlignUleb => "overwide-atomic-rmw-memarg-align-uleb"
+    OverwideAtomicRmwMemargOffsetUleb =>
+      "overwide-atomic-rmw-memarg-offset-uleb"
+    OverwideAtomicCmpxchgMemargAlignUleb =>
+      "overwide-atomic-cmpxchg-memarg-align-uleb"
+    OverwideAtomicCmpxchgMemargOffsetUleb =>
+      "overwide-atomic-cmpxchg-memarg-offset-uleb"
     MalformedMemargImmediate => "malformed-memarg-immediate"
     MalformedLoadMemargAlignUleb => "malformed-load-memarg-align-uleb"
     MalformedStoreMemargAlignUleb => "malformed-store-memarg-align-uleb"
@@ -1826,6 +1849,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedAtomicRmwMemargAlignUleb,
+      "malformed-atomic-rmw-memarg-align-uleb",
+      "atomic RMW instruction with a malformed memarg alignment encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedAtomicRmwMemargOffsetUleb,
+      "malformed-atomic-rmw-memarg-offset-uleb",
+      "atomic RMW instruction with a malformed memarg offset encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedAtomicCmpxchgMemargAlignUleb,
+      "malformed-atomic-cmpxchg-memarg-align-uleb",
+      "atomic cmpxchg instruction with a malformed memarg alignment encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedAtomicCmpxchgMemargOffsetUleb,
+      "malformed-atomic-cmpxchg-memarg-offset-uleb",
+      "atomic cmpxchg instruction with a malformed memarg offset encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       OverwideAtomicLoadMemargAlignUleb,
       "overwide-atomic-load-memarg-align-uleb",
       "atomic load instruction with an overwide memarg alignment ULEB",
@@ -1850,6 +1901,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideAtomicStoreMemargOffsetUleb,
       "overwide-atomic-store-memarg-offset-uleb",
       "atomic store instruction with an overwide memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideAtomicRmwMemargAlignUleb,
+      "overwide-atomic-rmw-memarg-align-uleb",
+      "atomic RMW instruction with an overwide memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideAtomicRmwMemargOffsetUleb,
+      "overwide-atomic-rmw-memarg-offset-uleb",
+      "atomic RMW instruction with an overwide memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideAtomicCmpxchgMemargAlignUleb,
+      "overwide-atomic-cmpxchg-memarg-align-uleb",
+      "atomic cmpxchg instruction with an overwide memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideAtomicCmpxchgMemargOffsetUleb,
+      "overwide-atomic-cmpxchg-memarg-offset-uleb",
+      "atomic cmpxchg instruction with an overwide memarg offset ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5603,6 +5682,83 @@ fn validate_invalid_binary_mutate_overwide_atomic_prefix_subopcode_uleb(
 }
 
 ///|
+fn validate_invalid_binary_atomic_rmw_prefix() -> Array[Byte] {
+  [
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0xfe).to_byte(),
+    (0x1e).to_byte(),
+  ]
+}
+
+///|
+fn validate_invalid_binary_atomic_cmpxchg_prefix() -> Array[Byte] {
+  [
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0xfe).to_byte(),
+    (0x48).to_byte(),
+  ]
+}
+
+///|
+fn validate_invalid_binary_atomic_memarg_with_malformed_align(
+  prefix : Array[Byte],
+) -> Bytes {
+  let instr = prefix
+  instr.append([
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+  validate_invalid_binary_minimal_code_with_instr(instr)
+}
+
+///|
+fn validate_invalid_binary_atomic_memarg_with_malformed_offset(
+  prefix : Array[Byte],
+) -> Bytes {
+  let instr = prefix
+  instr.append([
+    (0x02).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+  validate_invalid_binary_minimal_code_with_instr(instr)
+}
+
+///|
+fn validate_invalid_binary_atomic_memarg_with_overwide_align(
+  prefix : Array[Byte],
+) -> Bytes {
+  let instr = prefix
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  instr.push((0x00).to_byte())
+  validate_invalid_binary_minimal_code_with_instr(instr)
+}
+
+///|
+fn validate_invalid_binary_atomic_memarg_with_overwide_offset(
+  prefix : Array[Byte],
+) -> Bytes {
+  let instr = prefix
+  instr.push((0x02).to_byte())
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  validate_invalid_binary_minimal_code_with_instr(instr)
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_atomic_load_memarg_align_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -5792,6 +5948,134 @@ fn validate_invalid_binary_mutate_overwide_atomic_store_memarg_offset_uleb(
       DecodeRejected,
       true,
       validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_atomic_rmw_memarg_align_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedAtomicRmwMemargAlignUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_atomic_memarg_with_malformed_align(
+        validate_invalid_binary_atomic_rmw_prefix(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_atomic_rmw_memarg_offset_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedAtomicRmwMemargOffsetUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_atomic_memarg_with_malformed_offset(
+        validate_invalid_binary_atomic_rmw_prefix(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_atomic_cmpxchg_memarg_align_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedAtomicCmpxchgMemargAlignUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_atomic_memarg_with_malformed_align(
+        validate_invalid_binary_atomic_cmpxchg_prefix(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_atomic_cmpxchg_memarg_offset_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedAtomicCmpxchgMemargOffsetUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_atomic_memarg_with_malformed_offset(
+        validate_invalid_binary_atomic_cmpxchg_prefix(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_atomic_rmw_memarg_align_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideAtomicRmwMemargAlignUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_atomic_memarg_with_overwide_align(
+        validate_invalid_binary_atomic_rmw_prefix(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_atomic_rmw_memarg_offset_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideAtomicRmwMemargOffsetUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_atomic_memarg_with_overwide_offset(
+        validate_invalid_binary_atomic_rmw_prefix(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_atomic_cmpxchg_memarg_align_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideAtomicCmpxchgMemargAlignUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_atomic_memarg_with_overwide_align(
+        validate_invalid_binary_atomic_cmpxchg_prefix(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_atomic_cmpxchg_memarg_offset_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideAtomicCmpxchgMemargOffsetUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_atomic_memarg_with_overwide_offset(
+        validate_invalid_binary_atomic_cmpxchg_prefix(),
+      ),
     ),
   )
 }
@@ -14720,6 +15004,22 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_atomic_store_memarg_offset_uleb(
         base,
       )
+    MalformedAtomicRmwMemargAlignUleb =>
+      validate_invalid_binary_mutate_malformed_atomic_rmw_memarg_align_uleb(
+        base,
+      )
+    MalformedAtomicRmwMemargOffsetUleb =>
+      validate_invalid_binary_mutate_malformed_atomic_rmw_memarg_offset_uleb(
+        base,
+      )
+    MalformedAtomicCmpxchgMemargAlignUleb =>
+      validate_invalid_binary_mutate_malformed_atomic_cmpxchg_memarg_align_uleb(
+        base,
+      )
+    MalformedAtomicCmpxchgMemargOffsetUleb =>
+      validate_invalid_binary_mutate_malformed_atomic_cmpxchg_memarg_offset_uleb(
+        base,
+      )
     OverwideAtomicLoadMemargAlignUleb =>
       validate_invalid_binary_mutate_overwide_atomic_load_memarg_align_uleb(
         base,
@@ -14734,6 +15034,20 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     OverwideAtomicStoreMemargOffsetUleb =>
       validate_invalid_binary_mutate_overwide_atomic_store_memarg_offset_uleb(
+        base,
+      )
+    OverwideAtomicRmwMemargAlignUleb =>
+      validate_invalid_binary_mutate_overwide_atomic_rmw_memarg_align_uleb(base)
+    OverwideAtomicRmwMemargOffsetUleb =>
+      validate_invalid_binary_mutate_overwide_atomic_rmw_memarg_offset_uleb(
+        base,
+      )
+    OverwideAtomicCmpxchgMemargAlignUleb =>
+      validate_invalid_binary_mutate_overwide_atomic_cmpxchg_memarg_align_uleb(
+        base,
+      )
+    OverwideAtomicCmpxchgMemargOffsetUleb =>
+      validate_invalid_binary_mutate_overwide_atomic_cmpxchg_memarg_offset_uleb(
         base,
       )
     MalformedMemargImmediate =>

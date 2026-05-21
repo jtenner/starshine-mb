@@ -72,9 +72,13 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
     "overwide-atomic-prefix-subopcode-uleb", "malformed-atomic-load-memarg-align-uleb",
     "malformed-atomic-store-memarg-align-uleb", "malformed-atomic-load-memarg-offset-uleb",
-    "malformed-atomic-store-memarg-offset-uleb", "overwide-atomic-load-memarg-align-uleb",
+    "malformed-atomic-store-memarg-offset-uleb", "malformed-atomic-rmw-memarg-align-uleb",
+    "malformed-atomic-rmw-memarg-offset-uleb", "malformed-atomic-cmpxchg-memarg-align-uleb",
+    "malformed-atomic-cmpxchg-memarg-offset-uleb", "overwide-atomic-load-memarg-align-uleb",
     "overwide-atomic-store-memarg-align-uleb", "overwide-atomic-load-memarg-offset-uleb",
-    "overwide-atomic-store-memarg-offset-uleb", "malformed-memarg-immediate", "malformed-load-memarg-align-uleb",
+    "overwide-atomic-store-memarg-offset-uleb", "overwide-atomic-rmw-memarg-align-uleb",
+    "overwide-atomic-rmw-memarg-offset-uleb", "overwide-atomic-cmpxchg-memarg-align-uleb",
+    "overwide-atomic-cmpxchg-memarg-offset-uleb", "malformed-memarg-immediate", "malformed-load-memarg-align-uleb",
     "malformed-store-memarg-align-uleb", "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
     "overwide-load-memarg-align-uleb", "overwide-store-memarg-align-uleb", "overwide-load-memarg-offset-uleb",
     "overwide-store-memarg-offset-uleb", "malformed-blocktype-immediate", "invalid-blocktype-valtype-byte",
@@ -229,6 +233,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "validate-name", "validate-name", "validate-name", "validate-name",
       "validate-export", "validate-export", "validate-export", "validate-export",
       "validate-name", "validate-import", "validate-datacount", "validate-datacount",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
@@ -1693,6 +1698,22 @@ test "invalid binary FZG041 decodes overwide atomic memarg ULEBs as invalid" {
 }
 
 ///|
+test "invalid binary FZG041 decodes atomic RMW and cmpxchg memarg ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-atomic-rmw-memarg-align-uleb", "malformed-atomic-rmw-memarg-offset-uleb",
+      "overwide-atomic-rmw-memarg-align-uleb", "overwide-atomic-rmw-memarg-offset-uleb",
+      "malformed-atomic-cmpxchg-memarg-align-uleb", "malformed-atomic-cmpxchg-memarg-offset-uleb",
+      "overwide-atomic-cmpxchg-memarg-align-uleb", "overwide-atomic-cmpxchg-memarg-offset-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x2a41UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG031 decodes malformed SIMD memarg ULEBs as invalid" {
   for
     strategy in [
@@ -2061,6 +2082,10 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-atomic-load-memarg-offset-uleb", "malformed-atomic-store-memarg-offset-uleb",
       "overwide-atomic-load-memarg-align-uleb", "overwide-atomic-store-memarg-align-uleb",
       "overwide-atomic-load-memarg-offset-uleb", "overwide-atomic-store-memarg-offset-uleb",
+      "malformed-atomic-rmw-memarg-align-uleb", "malformed-atomic-rmw-memarg-offset-uleb",
+      "overwide-atomic-rmw-memarg-align-uleb", "overwide-atomic-rmw-memarg-offset-uleb",
+      "malformed-atomic-cmpxchg-memarg-align-uleb", "malformed-atomic-cmpxchg-memarg-offset-uleb",
+      "overwide-atomic-cmpxchg-memarg-align-uleb", "overwide-atomic-cmpxchg-memarg-offset-uleb",
       "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
       "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
       "overwide-load-memarg-align-uleb", "overwide-store-memarg-align-uleb", "overwide-load-memarg-offset-uleb",
