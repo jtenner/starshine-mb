@@ -4840,6 +4840,218 @@ test "simplify-globals-optimizing removes broader simd unary read-only-to-write 
 }
 
 ///|
+test "simplify-globals-optimizing removes broader simd binary read-only-to-write guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $i8 (mut i32) (i32.const 0))
+      #|  (global $i16 (mut i32) (i32.const 0))
+      #|  (global $i32 (mut i32) (i32.const 0))
+      #|  (global $i64 (mut i64) (i64.const 0))
+      #|  (global $f32 (mut f32) (f32.const 1))
+      #|  (global $f64 (mut f64) (f64.const 1))
+      #|  (func (export "i8")
+      #|    global.get $i8
+      #|    i8x16.splat
+      #|    v128.const i32x4 1 1 1 1
+      #|    i8x16.add
+      #|    i8x16.bitmask
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i8
+      #|    end)
+      #|  (func (export "i16")
+      #|    global.get $i16
+      #|    i16x8.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i16x8.eq
+      #|    i16x8.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i16
+      #|    end)
+      #|  (func (export "i32")
+      #|    global.get $i32
+      #|    i32x4.splat
+      #|    v128.const i32x4 0 0 0 0
+      #|    i32x4.eq
+      #|    i32x4.all_true
+      #|    if
+      #|      i32.const 1
+      #|      global.set $i32
+      #|    end)
+      #|  (func (export "i64")
+      #|    global.get $i64
+      #|    i64x2.splat
+      #|    v128.const i64x2 0 0
+      #|    i64x2.eq
+      #|    i64x2.all_true
+      #|    if
+      #|      i64.const 1
+      #|      global.set $i64
+      #|    end)
+      #|  (func (export "f32")
+      #|    global.get $f32
+      #|    f32x4.splat
+      #|    v128.const f32x4 1 1 1 1
+      #|    f32x4.div
+      #|    v128.const f32x4 0 0 0 0
+      #|    f32x4.ne
+      #|    i32x4.all_true
+      #|    if
+      #|      f32.const 2
+      #|      global.set $f32
+      #|    end)
+      #|  (func (export "f64")
+      #|    global.get $f64
+      #|    f64x2.splat
+      #|    v128.const f64x2 1 1
+      #|    f64x2.add
+      #|    v128.const f64x2 0 0
+      #|    f64x2.ne
+      #|    i64x2.all_true
+      #|    if
+      #|      f64.const 2
+      #|      global.set $f64
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 3),
+    @lib.GlobalType::new(@lib.ValType::i64(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 4),
+    @lib.GlobalType::new(@lib.ValType::f32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 5),
+    @lib.GlobalType::new(@lib.ValType::f64(), false),
+  )
+  let pretty = optimized.to_string()
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes block-wrapped simd binary if-return guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $guard (mut f32) (f32.const 1))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      global.get $guard
+      #|      f32x4.splat
+      #|      v128.const f32x4 1 1 1 1
+      #|      f32x4.div
+      #|      v128.const f32x4 0 0 0 0
+      #|      f32x4.ne
+      #|      i32x4.all_true
+      #|    end
+      #|    if
+      #|      return
+      #|    end
+      #|    f32.const 2
+      #|    global.set $guard))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::f32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes clean if-wrapper simd binary guards" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "cond" (func $cond (result i32)))
+      #|  (global $guard (mut i64) (i64.const 0))
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      call $cond
+      #|      if (result i32)
+      #|        global.get $guard
+      #|        i64x2.splat
+      #|        v128.const i64x2 0 0
+      #|        i64x2.eq
+      #|        i64x2.all_true
+      #|      else
+      #|        i32.const 0
+      #|      end
+      #|    end
+      #|    if
+      #|      i64.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i64(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps simd binary value flow into post-consumer call" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "use" (func $use (param i32) (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    i8x16.splat
+      #|    v128.const i32x4 1 1 1 1
+      #|    i8x16.add
+      #|    i8x16.bitmask
+      #|    call $use
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes block-wrapped simd bitmask if-return guards" {
   let optimized = sgo_test_run(
     (

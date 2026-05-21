@@ -843,8 +843,14 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64Max
     | @lib.F64Copysign
     | @lib.F64Div
+    | @lib.I8x16Add
+    | @lib.I16x8Eq
     | @lib.I32x4Add
+    | @lib.I32x4Eq
+    | @lib.I64x2Eq
+    | @lib.F32x4Div
     | @lib.F32x4Ne
+    | @lib.F64x2Add
     | @lib.F64x2Ne => true
     _ => false
   }
