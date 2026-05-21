@@ -482,6 +482,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTableInitTableIndexUleb
   MalformedDataSegmentMemoryIndexUleb
   MalformedElementSegmentTableIndexUleb
+  MalformedElementSegmentFuncIndexUleb
   InvalidNameSectionFuncNameUtf8
   InvalidNameSectionLocalNameUtf8
   InvalidNameSectionModuleNameUtf8

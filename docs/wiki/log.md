@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | element segment function-index malformed-ULEB invalid-binary coverage
+
+- Added one decode-rejected binary-invalid strategy for [`[FUZ]1021`](../../agent-todo.md): `malformed-element-segment-func-index-uleb` keeps the element-section frame, active segment flags, offset expression, and function-index vector count well-formed but corrupts the segment function-index payload with an unterminated unsigned LEB.
+- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so element-segment function-index corruption is tracked alongside other section-payload malformed-ULEB carriers.
+
 ## [2026-05-21] fuzzing | data segment byte-count malformed-ULEB invalid-binary coverage
 
 - Added one decode-rejected binary-invalid strategy for [`[FUZ]1021`](../../agent-todo.md): `malformed-data-segment-byte-count-uleb` keeps the data-section frame and passive segment flags well-formed but corrupts the data byte-vector count with an unterminated unsigned LEB.
