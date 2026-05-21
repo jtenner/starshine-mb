@@ -182,7 +182,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-name-section-func-name-length-uleb", "overwide-name-section-func-name-length-uleb",
     "malformed-name-section-func-name-count-uleb", "overwide-name-section-func-name-count-uleb",
     "invalid-name-section-local-name-utf8", "malformed-name-section-local-name-length-uleb",
-    "overwide-name-section-local-name-length-uleb", "invalid-name-section-module-name-utf8",
+    "overwide-name-section-local-name-length-uleb", "malformed-name-section-local-name-count-uleb",
+    "overwide-name-section-local-name-count-uleb", "invalid-name-section-module-name-utf8",
     "malformed-name-section-module-name-length-uleb", "overwide-name-section-module-name-length-uleb",
     "invalid-name-section-type-name-utf8", "malformed-name-section-type-name-length-uleb",
     "overwide-name-section-type-name-length-uleb", "invalid-name-section-table-name-utf8",
@@ -288,7 +289,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1532,6 +1533,19 @@ test "invalid binary FZG025 decodes name section local-name length malformed ULE
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid binary FZG025 decodes name section local-name count ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-name-section-local-name-count-uleb", "overwide-name-section-local-name-count-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f41UL, "decode") {
+      Ok(_) => ()
+      Err(message) => fail(message)
+    }
   }
 }
 
