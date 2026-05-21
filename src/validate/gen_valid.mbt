@@ -2062,6 +2062,7 @@ priv struct GenValidBodyEnv {
   bulk_elem_seed_idx : ElemIdx?
   gc_type_plan : GenValidGcTypePlan
   declared_ref_func_idx : FuncIdx?
+  current_func_idx : FuncIdx?
   depth_left : Int
   label_depth : Int
 }
@@ -2189,6 +2190,24 @@ fn gen_valid_append_call_result_drops(
   for _ in results {
     out.push(Instruction::drop())
   }
+}
+
+///|
+fn gen_valid_append_direct_call(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  target : GenValidFuncSig,
+) -> Unit {
+  gen_valid_append_call_args(out, ctx, env, target.params)
+  out.push(Instruction::call(target.idx))
+  gen_valid_append_call_result_drops(out, target.results)
+}
+
+///|
+fn gen_valid_func_idx_to_int(idx : FuncIdx) -> Int {
+  let FuncIdx(idx_u) = idx
+  idx_u.reinterpret_as_int()
 }
 
 ///|
@@ -4262,6 +4281,59 @@ fn gen_valid_append_call_ref_source_variants(
 }
 
 ///|
+fn gen_valid_append_direct_call_graph_variants(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !ctx.config.features.allow_calls {
+    return
+  }
+  match env.declared_ref_func_idx {
+    Some(first_defined_idx) => {
+      let first_defined_i = gen_valid_func_idx_to_int(first_defined_idx)
+      for target in env.funcs {
+        if gen_valid_func_idx_to_int(target.idx) < first_defined_i {
+          gen_valid_append_direct_call(out, ctx, env, target)
+          break
+        }
+      }
+    }
+    None => ()
+  }
+  match env.current_func_idx {
+    Some(current_idx) => {
+      match gen_valid_callable_by_idx(env.funcs, current_idx) {
+        Some(target) => gen_valid_append_direct_call(out, ctx, env, target)
+        None => ()
+      }
+      match env.declared_ref_func_idx {
+        Some(first_defined_idx) => {
+          let current_i = gen_valid_func_idx_to_int(current_idx)
+          let first_defined_i = gen_valid_func_idx_to_int(first_defined_idx)
+          if current_i == first_defined_i {
+            let next_idx = FuncIdx::new((current_i + 1).reinterpret_as_uint())
+            match gen_valid_callable_by_idx(env.funcs, next_idx) {
+              Some(target) =>
+                gen_valid_append_direct_call(out, ctx, env, target)
+              None => ()
+            }
+          } else if current_i == first_defined_i + 1 {
+            match gen_valid_callable_by_idx(env.funcs, first_defined_idx) {
+              Some(target) =>
+                gen_valid_append_direct_call(out, ctx, env, target)
+              None => ()
+            }
+          }
+        }
+        None => ()
+      }
+    }
+    None => ()
+  }
+}
+
+///|
 fn gen_valid_append_tail_call_ops(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -5352,6 +5424,7 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
   gen_valid_append_expanded_scalar_numeric_ops(out)
   gen_valid_append_core_control_ops(out, ctx, env)
+  gen_valid_append_direct_call_graph_variants(out, ctx, env)
   gen_valid_append_call_ref_source_variants(out, ctx, env)
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
   if ctx.config.features.allow_v128 {
@@ -5552,6 +5625,7 @@ fn gen_valid_build_func(
   bulk_elem_seed_idx : ElemIdx?,
   gc_type_plan : GenValidGcTypePlan,
   declared_ref_func_idx : FuncIdx?,
+  current_func_idx? : FuncIdx? = None,
 ) -> Func {
   let local_ref_types = gc_type_plan.concrete_ref_types.copy()
   for vt in gc_type_plan.exact_ref_types {
@@ -5654,6 +5728,7 @@ fn gen_valid_build_func(
     bulk_elem_seed_idx,
     gc_type_plan,
     declared_ref_func_idx,
+    current_func_idx,
     depth_left: gen_valid_clamp_non_negative(ctx.config.max_body_depth),
     label_depth: 0,
   }
@@ -6756,7 +6831,8 @@ fn gen_valid_module_once_with_config(
   }
 
   let funcs : Array[Func] = []
-  for type_idx in func_type_idxs {
+  for i = 0; i < func_type_idxs.length(); i = i + 1 {
+    let type_idx = func_type_idxs[i]
     let type_idx_i = match type_idx {
       TypeIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
       RecIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
@@ -6777,6 +6853,9 @@ fn gen_valid_module_once_with_config(
         bulk_elem_seed_idx,
         gc_type_plan,
         Some(first_defined_func_idx),
+        current_func_idx=Some(
+          FuncIdx::new((import_func_count + i).reinterpret_as_uint()),
+        ),
       ),
     )
   }

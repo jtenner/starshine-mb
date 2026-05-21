@@ -998,6 +998,98 @@ fn gen_valid_test_module_has_call_ref_source_variants(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_instrs_call_func(
+  instrs : Array[Instruction],
+  target : FuncIdx,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Call(idx) if idx == target => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_call_func(body, target) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_call_func(then_body, target) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_call_func(body, target) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_imported_func_count(mod_ : Module) -> Int {
+  let mut count = 0
+  match mod_.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        let Import(_, _, extern_type) = import_
+        match extern_type {
+          FuncExternType(_) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn gen_valid_test_module_has_import_self_and_mutual_direct_calls(
+  mod_ : Module,
+) -> Bool {
+  let imported_func_count = gen_valid_test_imported_func_count(mod_)
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) if imported_func_count > 0 && funcs.length() >= 2 => {
+      let imported_idx = FuncIdx::new(0U)
+      let first_defined = FuncIdx::new(
+        imported_func_count.reinterpret_as_uint(),
+      )
+      let second_defined = FuncIdx::new(
+        (imported_func_count + 1).reinterpret_as_uint(),
+      )
+      let mut has_imported_call = false
+      let mut has_self_call = false
+      let mut first_calls_second = false
+      let mut second_calls_first = false
+      for i = 0; i < funcs.length(); i = i + 1 {
+        let Func(_, Expr(instrs)) = funcs[i]
+        if gen_valid_test_instrs_call_func(instrs, imported_idx) {
+          has_imported_call = true
+        }
+        let self_idx = FuncIdx::new(
+          (imported_func_count + i).reinterpret_as_uint(),
+        )
+        if gen_valid_test_instrs_call_func(instrs, self_idx) {
+          has_self_call = true
+        }
+        if self_idx == first_defined &&
+          gen_valid_test_instrs_call_func(instrs, second_defined) {
+          first_calls_second = true
+        }
+        if self_idx == second_defined &&
+          gen_valid_test_instrs_call_func(instrs, first_defined) {
+          second_calls_first = true
+        }
+      }
+      has_imported_call &&
+      has_self_call &&
+      first_calls_second &&
+      second_calls_first
+    }
+    _ => false
+  }
+}
+
+///|
 fn gen_valid_test_has_mutual_struct_array_group(mod_ : Module) -> Bool {
   match mod_.type_sec {
     Some(TypeSec(types)) => {
@@ -1254,6 +1346,30 @@ test "coverage-forced GenValid routes call_ref through locals and block results"
   assert_true(
     gen_valid_test_module_has_call_ref_source_variants(generated.wasm_module),
     msg="coverage-forced call-ref generation should include callable references sourced through a typed function-reference local and block result",
+  )
+}
+
+///|
+test "coverage-forced GenValid emits imported self and mutual direct calls" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0x71007UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected direct-call graph coverage-forced generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_call)
+  assert_true(
+    gen_valid_test_module_has_import_self_and_mutual_direct_calls(
+      generated.wasm_module,
+    ),
+    msg="coverage-forced direct-call generation should include imported calls, recursive self-calls, and a mutually recursive pair",
   )
 }
 
