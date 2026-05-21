@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-20] health | research archive sibling-link hygiene
+
+- Repaired the stale same-directory research-note link inside [`raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md), which had escaped back out through `docs/wiki/raw/research/...` instead of staying as a sibling `./0066-...` reference after archival.
+- Tightened [`raw/research/README.md`](raw/research/README.md) so the move checklist now explicitly says same-directory research-note links should stay `./...`, making the archive-link repair rule easier to follow on future moves.
+- No new external source was needed; this was a repo-local archive-link hygiene fix.
+
 ## [2026-05-20] wiki | dae-optimizing right-constant cleanup refresh
 
 - Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) so the current Starshine `dae-optimizing` status and readiness pages now cite the implementation file plus the focused wbtest and scheduler regression files, and now describe the right-constant integer identity raw-cleanup slice instead of only the older right-zero wording.

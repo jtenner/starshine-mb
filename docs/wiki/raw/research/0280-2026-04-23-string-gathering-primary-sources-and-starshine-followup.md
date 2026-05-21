@@ -18,7 +18,7 @@ sources:
   - ../../../../src/binary/tests.mbt
   - ../../../../src/wast/lower_to_lib.mbt
   - ../../../../agent-todo.md
-  - ../../../../docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
+  - ./0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
 ---
 
 # `string-gathering` primary-source and Starshine follow-up
