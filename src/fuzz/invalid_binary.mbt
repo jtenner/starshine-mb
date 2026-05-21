@@ -384,6 +384,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionTableNameUtf8
   MalformedNameSectionTableNameLengthUleb
   OverwideNameSectionTableNameLengthUleb
+  MalformedNameSectionTableNameCountUleb
+  OverwideNameSectionTableNameCountUleb
   InvalidNameSectionMemoryNameUtf8
   MalformedNameSectionMemoryNameLengthUleb
   OverwideNameSectionMemoryNameLengthUleb
@@ -1239,6 +1241,10 @@ fn validate_invalid_binary_strategy_label(
       "malformed-name-section-table-name-length-uleb"
     OverwideNameSectionTableNameLengthUleb =>
       "overwide-name-section-table-name-length-uleb"
+    MalformedNameSectionTableNameCountUleb =>
+      "malformed-name-section-table-name-count-uleb"
+    OverwideNameSectionTableNameCountUleb =>
+      "overwide-name-section-table-name-count-uleb"
     InvalidNameSectionMemoryNameUtf8 => "invalid-name-section-memory-name-utf8"
     MalformedNameSectionMemoryNameLengthUleb =>
       "malformed-name-section-memory-name-length-uleb"
@@ -3826,6 +3832,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideNameSectionTableNameLengthUleb,
       "overwide-name-section-table-name-length-uleb",
       "name section table-name payload with an overwide name-length ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedNameSectionTableNameCountUleb,
+      "malformed-name-section-table-name-count-uleb",
+      "name section table-name map with a malformed count ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideNameSectionTableNameCountUleb,
+      "overwide-name-section-table-name-count-uleb",
+      "name section table-name map with an overwide count ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -10560,6 +10580,20 @@ fn validate_invalid_binary_module_with_overwide_name_section_type_name_count_ule
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_name_section_table_name_count_uleb() -> Bytes {
+  validate_invalid_binary_module_with_malformed_name_section_name_map_count_uleb(
+    0x05,
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_overwide_name_section_table_name_count_uleb() -> Bytes {
+  validate_invalid_binary_module_with_overwide_name_section_name_map_count_uleb(
+    0x05,
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_overwide_name_section_name_map_length_uleb(
   subsection_id : Int,
 ) -> Bytes {
@@ -16334,6 +16368,16 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_decode_rejected_bytes(
         OverwideNameSectionTableNameLengthUleb,
         validate_invalid_binary_module_with_overwide_name_section_table_name_length_uleb(),
+      )
+    MalformedNameSectionTableNameCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedNameSectionTableNameCountUleb,
+        validate_invalid_binary_module_with_malformed_name_section_table_name_count_uleb(),
+      )
+    OverwideNameSectionTableNameCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        OverwideNameSectionTableNameCountUleb,
+        validate_invalid_binary_module_with_overwide_name_section_table_name_count_uleb(),
       )
     InvalidNameSectionMemoryNameUtf8 =>
       validate_invalid_binary_mutate_invalid_name_section_memory_name_utf8(base)

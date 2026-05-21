@@ -189,6 +189,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "overwide-name-section-type-name-length-uleb", "malformed-name-section-type-name-count-uleb",
     "overwide-name-section-type-name-count-uleb", "invalid-name-section-table-name-utf8",
     "malformed-name-section-table-name-length-uleb", "overwide-name-section-table-name-length-uleb",
+    "malformed-name-section-table-name-count-uleb", "overwide-name-section-table-name-count-uleb",
     "invalid-name-section-memory-name-utf8", "malformed-name-section-memory-name-length-uleb",
     "overwide-name-section-memory-name-length-uleb", "invalid-name-section-global-name-utf8",
     "malformed-name-section-global-name-length-uleb", "overwide-name-section-global-name-length-uleb",
@@ -290,7 +291,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1579,6 +1580,19 @@ test "invalid binary FZG025 decodes name section type-name count ULEBs as invali
       "malformed-name-section-type-name-count-uleb", "overwide-name-section-type-name-count-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f42UL, "decode") {
+      Ok(_) => ()
+      Err(message) => fail(message)
+    }
+  }
+}
+
+///|
+test "invalid binary FZG025 decodes name section table-name count ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-name-section-table-name-count-uleb", "overwide-name-section-table-name-count-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f43UL, "decode") {
       Ok(_) => ()
       Err(message) => fail(message)
     }
