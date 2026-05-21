@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | atomic store memarg malformed-byte coverage
+
+- Added `malformed-atomic-store-memarg-align-uleb` for [`[FUZ]1021`](../../agent-todo.md) as a decode-rejected, non-smoke binary-invalid strategy that reaches a valid `0xFE 0x17` `i32.atomic.store` subopcode before corrupting the following memarg alignment ULEB.
+- Updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md), and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so atomics malformed-byte coverage names both load and store operand-context alignment corruption.
+
 ## [2026-05-21] fuzzing | atomic load memarg malformed-byte coverage
 
 - Added `malformed-atomic-load-memarg-align-uleb` for [`[FUZ]1021`](../../agent-todo.md) as a decode-rejected, non-smoke binary-invalid strategy that reaches a valid `0xFE 0x10` atomics load subopcode before corrupting the memarg alignment ULEB.
