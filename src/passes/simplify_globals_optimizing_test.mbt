@@ -3135,6 +3135,93 @@ test "simplify-globals-optimizing removes nested-if arm flow with independent ca
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow with independent call_indirect condition" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $t (func (param i32) (result i32)))
+      #|  (table 1 funcref)
+      #|  (elem (i32.const 0) $cond)
+      #|  (func $cond (param i32) (result i32)
+      #|    local.get 0)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    i32.const 42
+      #|    i32.const 0
+      #|    call_indirect (type $t)
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps call_indirect operands derived from the global" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $nullary (func (result i32)))
+      #|  (type $unary (func (param i32) (result i32)))
+      #|  (table 2 funcref)
+      #|  (elem (i32.const 0) $one $zero)
+      #|  (func $one (result i32)
+      #|    i32.const 1)
+      #|  (func $zero (result i32)
+      #|    i32.const 0)
+      #|  (func $id (param i32) (result i32)
+      #|    local.get 0)
+      #|  (global $index (mut i32) (i32.const 0))
+      #|  (global $param (mut i32) (i32.const 0))
+      #|  (func (export "index")
+      #|    global.get $index
+      #|    call_indirect (type $nullary)
+      #|    if
+      #|      i32.const 1
+      #|      global.set $index
+      #|    end)
+      #|  (func (export "param")
+      #|    global.get $param
+      #|    i32.const 0
+      #|    call_indirect (type $unary)
+      #|    if
+      #|      i32.const 1
+      #|      global.set $param
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 2; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), true),
+    )
+  }
+  let pretty = optimized.pretty_print_defined_func(3U) +
+    optimized.pretty_print_defined_func(4U)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes nested-if arm flow through post-if pure consumer" {
   let optimized = sgo_test_run(
     (

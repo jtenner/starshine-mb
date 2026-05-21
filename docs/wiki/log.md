@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-21] binaryen | SGO independent call_indirect FlowScanner slice
+
+- Extended `[SGO]003` nested-if arm-flow handling so independent `call_indirect` conditions are treated like direct calls when every stacked operand is clean; the candidate global may still only flow through the selected value arm and supported post-consumers before the outer same-global write guard.
+- Added a focused positive for a clean-operand `call_indirect` nested condition and negatives for global-derived indirect-call table index and parameter operands. Binaryen v129 probes promoted the clean indirect-call condition and preserved both operand-derived neighbors.
+- Recorded validation evidence from Binaryen v129 WAT probes, initial failing focused test, `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-call-indirect-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-21] binaryen | SGO fact-sensitive i31 FlowScanner slice
 
 - Extended `[SGO]003` read-only-to-write FlowScanner from a taint-only stack to a small fact stack that remembers values produced by `ref.i31`, so `i31.get_s`, `i31.get_u`, `ref.as_non_null`, and typed `select` results are accepted only when the consumed operand is proven to be that non-null i31 reference (both value operands for `select`).
