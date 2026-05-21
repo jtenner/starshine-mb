@@ -343,6 +343,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSectionSizeUleb
   OverwideSectionSizeUleb
   SectionPayloadLengthOverflow
+  SectionPayloadLengthUnderflow
   CodeSecWithoutFuncSecModule
   InvalidTableNameSectionIndexModule
   InvalidGlobalNameSectionIndexModule

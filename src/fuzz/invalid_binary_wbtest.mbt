@@ -52,7 +52,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-name-section-func-index-module", "invalid-local-name-section-index-module",
     "invalid-label-name-section-index-module", "bad-magic-header", "bad-version-header",
     "malformed-section-size-uleb", "overwide-section-size-uleb", "section-payload-length-overflow",
-    "codesec-without-funcsec-module", "invalid-table-name-section-index-module",
+    "section-payload-length-underflow", "codesec-without-funcsec-module", "invalid-table-name-section-index-module",
     "invalid-global-name-section-index-module", "reserved-section-id", "invalid-custom-section-name-utf8",
     "invalid-type-name-section-index-module", "invalid-field-name-section-index-module",
     "invalid-elem-name-section-index-module", "invalid-data-name-section-index-module",
@@ -206,8 +206,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "validate-start", "validate-start", "validate-start", "validate-start", "validate-start",
       "validate-start", "validate-start", "validate-export", "validate-code", "validate-datacount",
       "validate-name", "validate-name", "validate-name", "decode", "decode", "decode",
-      "decode", "decode", "validate-code", "validate-name", "validate-name", "decode",
-      "decode", "validate-name", "validate-name", "validate-name", "validate-name",
+      "decode", "decode", "decode", "validate-code", "validate-name", "validate-name",
+      "decode", "decode", "validate-name", "validate-name", "validate-name", "validate-name",
       "validate-export", "validate-export", "validate-export", "validate-export",
       "validate-name", "validate-import", "validate-datacount", "validate-datacount",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
@@ -485,6 +485,17 @@ test "section payload length overflow binary strategy rejects at decode stage" {
   match
     invalid_binary_expect_strategy_rejects(
       "section-payload-length-overflow", 0x5efa2UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid binary FZG042 decodes section payload length underflow as invalid" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "section-payload-length-underflow", 0x5f42UL, "decode",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

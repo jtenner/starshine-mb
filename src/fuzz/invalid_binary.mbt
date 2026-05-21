@@ -65,6 +65,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSectionSizeUleb
   OverwideSectionSizeUleb
   SectionPayloadLengthOverflow
+  SectionPayloadLengthUnderflow
   CodeSecWithoutFuncSecModule
   InvalidTableNameSectionIndexModule
   InvalidGlobalNameSectionIndexModule
@@ -739,6 +740,7 @@ fn validate_invalid_binary_strategy_label(
     MalformedSectionSizeUleb => "malformed-section-size-uleb"
     OverwideSectionSizeUleb => "overwide-section-size-uleb"
     SectionPayloadLengthOverflow => "section-payload-length-overflow"
+    SectionPayloadLengthUnderflow => "section-payload-length-underflow"
     CodeSecWithoutFuncSecModule => "codesec-without-funcsec-module"
     InvalidTableNameSectionIndexModule =>
       "invalid-table-name-section-index-module"
@@ -1363,6 +1365,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       "section-payload-length-overflow",
       "section payload length that exceeds the module bytes",
       DecodeRejected,
+    ),
+    validate_invalid_binary_strategy_spec(
+      SectionPayloadLengthUnderflow,
+      "section-payload-length-underflow",
+      "section payload length that ends before the section payload bytes",
+      DecodeRejected,
+      required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
       CodeSecWithoutFuncSecModule,
@@ -4550,6 +4559,53 @@ fn validate_invalid_binary_mutate_section_payload_length_overflow(
   Ok(
     validate_invalid_binary_mutation(
       SectionPayloadLengthOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_replace_range(
+        encoded,
+        target.header_start + 1,
+        target.payload_start,
+        replacement,
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_section_payload_length_underflow(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let spans = match validate_invalid_binary_scan_sections(encoded) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mut target : ValidateInvalidBinarySectionSpan? = None
+  for span in spans {
+    if span.payload_len > 0 {
+      target = Some(span)
+      break
+    }
+  }
+  let target = match target {
+    Some(v) => v
+    None =>
+      return Ok(
+        validate_invalid_binary_mutation(
+          SectionPayloadLengthUnderflow,
+          DecodeRejected,
+          false,
+          encoded,
+        ),
+      )
+  }
+  let replacement = validate_invalid_binary_encode_uleb(target.payload_len - 1)
+  Ok(
+    validate_invalid_binary_mutation(
+      SectionPayloadLengthUnderflow,
       DecodeRejected,
       true,
       validate_invalid_binary_replace_range(
@@ -13719,6 +13775,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_section_size_uleb(base)
     SectionPayloadLengthOverflow =>
       validate_invalid_binary_mutate_section_payload_length_overflow(base)
+    SectionPayloadLengthUnderflow =>
+      validate_invalid_binary_mutate_section_payload_length_underflow(base)
     ReservedSectionId =>
       validate_invalid_binary_mutate_reserved_section_id(base)
     InvalidCustomSectionNameUtf8 =>
