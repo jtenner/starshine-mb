@@ -378,10 +378,13 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTableMaxUleb
   InvalidExportNameUtf8
   MalformedExportNameLengthUleb
+  OverwideExportNameLengthUleb
   InvalidImportModuleNameUtf8
   MalformedImportModuleNameLengthUleb
+  OverwideImportModuleNameLengthUleb
   InvalidImportFieldNameUtf8
   MalformedImportFieldNameLengthUleb
+  OverwideImportFieldNameLengthUleb
   InvalidImportKindByte
   MalformedFunctionSectionTypeIndexUleb
   MalformedImportFuncTypeIndexUleb

@@ -69,8 +69,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb", "malformed-blocktype-immediate",
     "malformed-memory-min-uleb", "malformed-table-min-uleb", "malformed-memory-max-uleb",
     "malformed-table-max-uleb", "invalid-export-name-utf8", "malformed-export-name-length-uleb",
-    "invalid-import-module-name-utf8", "malformed-import-module-name-length-uleb",
-    "invalid-import-field-name-utf8", "malformed-import-field-name-length-uleb",
+    "overwide-export-name-length-uleb", "invalid-import-module-name-utf8", "malformed-import-module-name-length-uleb",
+    "overwide-import-module-name-length-uleb", "invalid-import-field-name-utf8",
+    "malformed-import-field-name-length-uleb", "overwide-import-field-name-length-uleb",
     "invalid-import-kind-byte", "malformed-function-section-type-index-uleb", "malformed-import-func-type-index-uleb",
     "malformed-import-tag-type-index-uleb", "malformed-import-memory-min-uleb", "malformed-import-table-min-uleb",
     "malformed-import-memory-max-uleb", "malformed-import-table-max-uleb", "invalid-import-table-reftype-byte",
@@ -187,7 +188,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1394,6 +1395,20 @@ test "invalid binary FZG025 decodes name section name-map length malformed ULEBs
 }
 
 ///|
+test "invalid binary FZG025 decodes import and export name length overwide ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-export-name-length-uleb", "overwide-import-module-name-length-uleb",
+      "overwide-import-field-name-length-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f3bUL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG025 decodes name section length overwide ULEBs as invalid" {
   for
     strategy in [
@@ -1425,12 +1440,13 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
       "malformed-blocktype-immediate", "malformed-memory-min-uleb", "malformed-table-min-uleb",
       "malformed-memory-max-uleb", "malformed-table-max-uleb", "invalid-export-name-utf8",
-      "malformed-export-name-length-uleb", "invalid-import-module-name-utf8", "malformed-import-module-name-length-uleb",
+      "malformed-export-name-length-uleb", "overwide-export-name-length-uleb", "invalid-import-module-name-utf8",
+      "malformed-import-module-name-length-uleb", "overwide-import-module-name-length-uleb",
       "invalid-import-field-name-utf8", "malformed-import-field-name-length-uleb",
-      "invalid-import-kind-byte", "malformed-function-section-type-index-uleb", "malformed-import-func-type-index-uleb",
-      "malformed-import-tag-type-index-uleb", "malformed-import-memory-min-uleb",
-      "malformed-import-table-min-uleb", "malformed-import-memory-max-uleb", "malformed-import-table-max-uleb",
-      "invalid-import-table-reftype-byte", "invalid-import-memory-limits-flag-byte",
+      "overwide-import-field-name-length-uleb", "invalid-import-kind-byte", "malformed-function-section-type-index-uleb",
+      "malformed-import-func-type-index-uleb", "malformed-import-tag-type-index-uleb",
+      "malformed-import-memory-min-uleb", "malformed-import-table-min-uleb", "malformed-import-memory-max-uleb",
+      "malformed-import-table-max-uleb", "invalid-import-table-reftype-byte", "invalid-import-memory-limits-flag-byte",
       "invalid-import-global-valtype-byte", "invalid-import-global-mutability-byte",
       "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
       "malformed-ref-cast-heaptype-immediate", "malformed-ref-test-heaptype-immediate",
