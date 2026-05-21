@@ -105,6 +105,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideLoadMemargOffsetUleb
   OverwideStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
+  InvalidBlocktypeValTypeByte
   OverwideBlocktypeTypeIndexUleb
   MalformedMemoryMinUleb
   MalformedTableMinUleb
@@ -754,6 +755,7 @@ fn validate_invalid_binary_strategy_label(
     OverwideLoadMemargOffsetUleb => "overwide-load-memarg-offset-uleb"
     OverwideStoreMemargOffsetUleb => "overwide-store-memarg-offset-uleb"
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
+    InvalidBlocktypeValTypeByte => "invalid-blocktype-valtype-byte"
     OverwideBlocktypeTypeIndexUleb => "overwide-blocktype-type-index-uleb"
     MalformedMemoryMinUleb => "malformed-memory-min-uleb"
     MalformedTableMinUleb => "malformed-table-min-uleb"
@@ -1622,6 +1624,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedBlocktypeImmediate,
       "malformed-blocktype-immediate",
       "block instruction with a malformed blocktype encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBlocktypeValTypeByte,
+      "invalid-blocktype-valtype-byte",
+      "block instruction with an invalid blocktype value-type byte",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4951,6 +4960,23 @@ fn validate_invalid_binary_mutate_malformed_blocktype_immediate(
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_blocktype_valtype_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidBlocktypeValTypeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x02).to_byte(),
+        (0x7a).to_byte(),
       ]),
     ),
   )
@@ -13089,6 +13115,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_store_memarg_offset_uleb(base)
     MalformedBlocktypeImmediate =>
       validate_invalid_binary_mutate_malformed_blocktype_immediate(base)
+    InvalidBlocktypeValTypeByte =>
+      validate_invalid_binary_mutate_invalid_blocktype_valtype_byte(base)
     OverwideBlocktypeTypeIndexUleb =>
       validate_invalid_binary_mutate_overwide_blocktype_type_index_uleb(base)
     MalformedMemoryMinUleb =>

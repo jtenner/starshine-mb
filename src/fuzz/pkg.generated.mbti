@@ -383,6 +383,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideLoadMemargOffsetUleb
   OverwideStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
+  InvalidBlocktypeValTypeByte
   OverwideBlocktypeTypeIndexUleb
   MalformedMemoryMinUleb
   MalformedTableMinUleb
