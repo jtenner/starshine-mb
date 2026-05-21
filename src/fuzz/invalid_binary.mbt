@@ -366,6 +366,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionFuncNameUtf8
   MalformedNameSectionFuncNameLengthUleb
   OverwideNameSectionFuncNameLengthUleb
+  MalformedNameSectionFuncNameCountUleb
+  OverwideNameSectionFuncNameCountUleb
   InvalidNameSectionLocalNameUtf8
   MalformedNameSectionLocalNameLengthUleb
   OverwideNameSectionLocalNameLengthUleb
@@ -1201,6 +1203,10 @@ fn validate_invalid_binary_strategy_label(
       "malformed-name-section-func-name-length-uleb"
     OverwideNameSectionFuncNameLengthUleb =>
       "overwide-name-section-func-name-length-uleb"
+    MalformedNameSectionFuncNameCountUleb =>
+      "malformed-name-section-func-name-count-uleb"
+    OverwideNameSectionFuncNameCountUleb =>
+      "overwide-name-section-func-name-count-uleb"
     InvalidNameSectionLocalNameUtf8 => "invalid-name-section-local-name-utf8"
     MalformedNameSectionLocalNameLengthUleb =>
       "malformed-name-section-local-name-length-uleb"
@@ -3682,6 +3688,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideNameSectionFuncNameLengthUleb,
       "overwide-name-section-func-name-length-uleb",
       "name section function-name payload with an overwide name-length ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedNameSectionFuncNameCountUleb,
+      "malformed-name-section-func-name-count-uleb",
+      "name section function-name map with a malformed count ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideNameSectionFuncNameCountUleb,
+      "overwide-name-section-func-name-count-uleb",
+      "name section function-name map with an overwide count ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -10245,6 +10265,63 @@ fn validate_invalid_binary_module_with_overwide_name_section_func_name_length_ul
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_name_section_func_name_count_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0c).to_byte(),
+    (0x04).to_byte(),
+    (0x6e).to_byte(),
+    (0x61).to_byte(),
+    (0x6d).to_byte(),
+    (0x65).to_byte(),
+    (0x01).to_byte(),
+    (0x05).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_overwide_name_section_func_name_count_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0d).to_byte(),
+    (0x04).to_byte(),
+    (0x6e).to_byte(),
+    (0x61).to_byte(),
+    (0x6d).to_byte(),
+    (0x65).to_byte(),
+    (0x01).to_byte(),
+    (0x06).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
 fn validate_invalid_binary_module_with_overwide_name_section_local_name_length_uleb() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -10377,6 +10454,34 @@ fn validate_invalid_binary_mutate_overwide_name_section_func_name_length_uleb(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_overwide_name_section_func_name_length_uleb(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_name_section_func_name_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedNameSectionFuncNameCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_name_section_func_name_count_uleb(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_name_section_func_name_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideNameSectionFuncNameCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_name_section_func_name_count_uleb(),
     ),
   )
 }
@@ -15956,6 +16061,14 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     OverwideNameSectionFuncNameLengthUleb =>
       validate_invalid_binary_mutate_overwide_name_section_func_name_length_uleb(
+        base,
+      )
+    MalformedNameSectionFuncNameCountUleb =>
+      validate_invalid_binary_mutate_malformed_name_section_func_name_count_uleb(
+        base,
+      )
+    OverwideNameSectionFuncNameCountUleb =>
+      validate_invalid_binary_mutate_overwide_name_section_func_name_count_uleb(
         base,
       )
     InvalidNameSectionLocalNameUtf8 =>

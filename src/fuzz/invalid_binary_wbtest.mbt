@@ -180,6 +180,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-element-segment-func-index-uleb", "overwide-element-segment-table-index-uleb",
     "overwide-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
     "malformed-name-section-func-name-length-uleb", "overwide-name-section-func-name-length-uleb",
+    "malformed-name-section-func-name-count-uleb", "overwide-name-section-func-name-count-uleb",
     "invalid-name-section-local-name-utf8", "malformed-name-section-local-name-length-uleb",
     "overwide-name-section-local-name-length-uleb", "invalid-name-section-module-name-utf8",
     "malformed-name-section-module-name-length-uleb", "overwide-name-section-module-name-length-uleb",
@@ -286,7 +287,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1506,6 +1508,19 @@ test "invalid binary FZG025 decodes name section function-name length malformed 
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid binary FZG025 decodes name section function-name count ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-name-section-func-name-count-uleb", "overwide-name-section-func-name-count-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f40UL, "decode") {
+      Ok(_) => ()
+      Err(message) => fail(message)
+    }
   }
 }
 
