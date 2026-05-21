@@ -4507,6 +4507,119 @@ test "simplify-globals-optimizing removes nested-if arm flow through table size"
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow through clean i64 load" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    i64.load
+      #|    i64.eqz
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("i64.load"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes nested-if arm flow through clean table get" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    table.get 0
+      #|    ref.is_null
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("table.get"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps global-derived load and table get" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (table 1 funcref)
+      #|  (global $load (mut i32) (i32.const 0))
+      #|  (global $table (mut i32) (i32.const 0))
+      #|  (func (export "load")
+      #|    global.get $load
+      #|    i64.load
+      #|    i64.eqz
+      #|    if
+      #|      i32.const 1
+      #|      global.set $load
+      #|    end)
+      #|  (func (export "table")
+      #|    global.get $table
+      #|    table.get 0
+      #|    ref.is_null
+      #|    if
+      #|      i32.const 1
+      #|      global.set $table
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("i64.load"), msg=pretty)
+  assert_true(pretty.contains("table.get"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps memory grow fed by the global" {
   let optimized = sgo_test_run(
     (

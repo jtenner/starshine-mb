@@ -1090,6 +1090,28 @@ fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn sgo_is_flowscanner_trapping_read_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.TableGet(_)
+    | @lib.I32Load(_)
+    | @lib.I64Load(_)
+    | @lib.F32Load(_)
+    | @lib.F64Load(_)
+    | @lib.I32Load8S(_)
+    | @lib.I32Load8U(_)
+    | @lib.I32Load16S(_)
+    | @lib.I32Load16U(_)
+    | @lib.I64Load8S(_)
+    | @lib.I64Load8U(_)
+    | @lib.I64Load16S(_)
+    | @lib.I64Load16U(_)
+    | @lib.I64Load32S(_)
+    | @lib.I64Load32U(_) => true
+    _ => false
+  }
+}
+
+///|
 fn sgo_flow_scan_prefix_until(
   instrs : Array[@lib.Instruction],
   end_ : Int,
@@ -1126,7 +1148,7 @@ fn sgo_flow_scan_prefix_until(
           }
           _ => return (false, reads, stack)
         }
-      @lib.I32Load(_) =>
+      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
@@ -1209,7 +1231,15 @@ fn sgo_flow_scan_clean_prefix_until(
         sgo_flow_push_clean(stack)
         continue
       }
-      @lib.LocalTee(_) | @lib.I32Load(_) =>
+      @lib.LocalTee(_) =>
+        match sgo_flow_pop(stack) {
+          Some(value) if !value.tainted => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return (false, stack)
+        }
+      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
@@ -1295,7 +1325,7 @@ fn sgo_flow_arm_result_taint_and_reads(
           }
           _ => return (false, reads, false)
         }
-      @lib.I32Load(_) =>
+      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
@@ -1421,7 +1451,7 @@ fn sgo_nested_if_arm_flow_outer_if_index(
           }
           _ => return None
         }
-      @lib.I32Load(_) =>
+      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
@@ -1502,7 +1532,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
           }
           _ => return (false, reads, false)
         }
-      @lib.I32Load(_) =>
+      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)
@@ -1709,7 +1739,7 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
           }
           _ => return false
         }
-      @lib.I32Load(_) =>
+      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => {
             sgo_flow_push_clean(stack)

@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-21] binaryen | SGO clean scalar-load/table.get FlowScanner slice
+
+- Extended `[SGO]003` read-only-to-write FlowScanner handling for independent trapping reads: source-backed scalar memory loads and `table.get` are accepted when their address/index operand stack is clean, while the candidate global still may only flow to the final branch decision through supported pure/select/nested-arm consumers.
+- Added focused positives for clean `i64.load` and clean `table.get` nested-if arm-flow conditions, plus negatives proving global-derived load addresses and `table.get` indices remain mutable/preserved. Binaryen v129 probes promoted the clean trapping-read shapes and preserved both global-derived neighbors.
+- Recorded validation evidence from Binaryen v129 WAT probes, initial failing focused tests, `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-load-tableget-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-21] binaryen | SGO independent call_indirect FlowScanner slice
 
 - Extended `[SGO]003` nested-if arm-flow handling so independent `call_indirect` conditions are treated like direct calls when every stacked operand is clean; the candidate global may still only flow through the selected value arm and supported post-consumers before the outer same-global write guard.
