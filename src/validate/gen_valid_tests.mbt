@@ -503,6 +503,86 @@ fn gen_valid_test_has_i32_payload_br_table_value_block(
 }
 
 ///|
+fn gen_valid_test_has_i32_result_loop(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      Loop(ValTypeBlockType(vt), Expr(body)) if vt == ValType::i32() => {
+        for inner in body {
+          match inner {
+            I32Const(_) => return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_i32_result_loop(body) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_i32_result_loop(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_i32_result_loop(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_i32_result_loop(body) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_nested_return(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) => {
+        for inner in body {
+          match inner {
+            Return => return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_nested_return(body) {
+          return true
+        }
+      }
+      If(_, then_body, else_body) => {
+        for inner in then_body {
+          match inner {
+            Return => return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_nested_return(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => {
+            for inner in body {
+              match inner {
+                Return => return true
+                _ => ()
+              }
+            }
+            if gen_valid_test_has_nested_return(body) {
+              return true
+            }
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_module_local_set_count(mod_ : Module) -> Int {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
@@ -967,6 +1047,8 @@ test "control-heavy profile uses typed GenValid body generator slice" {
       let mut has_payload_br_if = false
       let mut has_payload_br_table = false
       let mut has_multivalue_block = false
+      let mut has_i32_result_loop = false
+      let mut has_nested_return = false
       for func in funcs {
         let Func(_, Expr(instrs)) = func
         if gen_valid_test_has_i32_payload_br_value_block(instrs) {
@@ -984,6 +1066,12 @@ test "control-heavy profile uses typed GenValid body generator slice" {
           ) {
           has_multivalue_block = true
         }
+        if gen_valid_test_has_i32_result_loop(instrs) {
+          has_i32_result_loop = true
+        }
+        if gen_valid_test_has_nested_return(instrs) {
+          has_nested_return = true
+        }
       }
       assert_true(
         has_payload_br,
@@ -1000,6 +1088,14 @@ test "control-heavy profile uses typed GenValid body generator slice" {
       assert_true(
         has_multivalue_block,
         msg="typed body generator should emit a multi-value TypeIdx block",
+      )
+      assert_true(
+        has_i32_result_loop,
+        msg="typed body generator should emit a value-producing loop where block result typing is valid",
+      )
+      assert_true(
+        has_nested_return,
+        msg="typed body generator should emit a return from nested control in a return-typed function",
       )
     }
     None => fail("expected generated module to contain code bodies")

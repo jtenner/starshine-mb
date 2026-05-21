@@ -2038,6 +2038,7 @@ priv struct GenValidBodyEnv {
   mems : Array[MemType]
   tags : Array[TagType]
   funcs : Array[GenValidFuncSig]
+  return_types : Array[ValType]
   data_idxs : Array[DataIdx]
   passive_elem_idxs : Array[ElemIdx]
   bulk_elem_seed_idx : ElemIdx?
@@ -2787,6 +2788,13 @@ fn gen_valid_typed_stmt(
     ),
   )
   out.push(Instruction::drop())
+  out.push(
+    Instruction::loop_(
+      BlockType::val_type(ValType::i32()),
+      Expr::new(gen_valid_typed_expr(ctx, child, [ValType::i32()], fuel - 1)),
+    ),
+  )
+  out.push(Instruction::drop())
   match gen_valid_typed_pick_multivalue_block_type(env.funcs) {
     Some((type_idx, results)) => {
       let multivalue_body : Array[Instruction] = []
@@ -2818,6 +2826,19 @@ fn gen_valid_typed_stmt(
     ),
   )
   out.push(Instruction::drop())
+  if !env.return_types.is_empty() {
+    let return_block_body : Array[Instruction] = []
+    for vt in env.return_types {
+      for instr in gen_valid_typed_expr(ctx, env, [vt], fuel - 1) {
+        return_block_body.push(instr)
+      }
+    }
+    return_block_body.push(Instruction::return_())
+    return_block_body.push(Instruction::unreachable_())
+    out.push(
+      Instruction::block(BlockType::void_(), Expr::new(return_block_body)),
+    )
+  }
 }
 
 ///|
@@ -5438,6 +5459,7 @@ fn gen_valid_build_func(
     mems,
     tags,
     funcs,
+    return_types: returns,
     data_idxs,
     passive_elem_idxs,
     bulk_elem_seed_idx,
