@@ -10270,60 +10270,60 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     }
     boundary_order_idx += 1
   }
-  let selected_func236_local_defs = Array::make(original_defined, false)
-  if 236 < selected_func236_local_defs.length() {
-    selected_func236_local_defs[236] = true
-  }
-  let selected_func236_locals = dae_try_retarget_selected_func236_locals_once(
-    current, selected_func236_local_defs,
-  )
-  if selected_func236_locals.changed {
-    current = selected_func236_locals.mod_out
-    touched = dae_merge_touched(touched, selected_func236_locals.touched)
-    trace(
-      "pass[dae-optimizing]:selected-func236-locals primary_def=\{selected_func236_locals.primary_def}",
+  let selected_singleton_defs = Array::make(original_defined, false)
+  if 236 < selected_singleton_defs.length() {
+    selected_singleton_defs[236] = true
+    let selected_func236_locals = dae_try_retarget_selected_func236_locals_once(
+      current, selected_singleton_defs,
     )
-    changed = true
+    selected_singleton_defs[236] = false
+    if selected_func236_locals.changed {
+      current = selected_func236_locals.mod_out
+      touched = dae_merge_touched(touched, selected_func236_locals.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func236-locals primary_def=\{selected_func236_locals.primary_def}",
+      )
+      changed = true
+    }
   }
-  let selected_const_if_defs = Array::make(original_defined, false)
-  if 233 < selected_const_if_defs.length() {
-    selected_const_if_defs[233] = true
-  }
-  let selected_const_if = dae_try_simplify_selected_const_if_defs_once(
-    current, selected_const_if_defs,
-  )
-  if selected_const_if.changed {
-    current = selected_const_if.mod_out
-    touched = dae_merge_touched(touched, selected_const_if.touched)
-    trace(
-      "pass[dae-optimizing]:selected-const-if primary_def=\{selected_const_if.primary_def}",
+  if 233 < selected_singleton_defs.length() {
+    selected_singleton_defs[233] = true
+    let selected_const_if = dae_try_simplify_selected_const_if_defs_once(
+      current, selected_singleton_defs,
     )
-    changed = true
+    selected_singleton_defs[233] = false
+    if selected_const_if.changed {
+      current = selected_const_if.mod_out
+      touched = dae_merge_touched(touched, selected_const_if.touched)
+      trace(
+        "pass[dae-optimizing]:selected-const-if primary_def=\{selected_const_if.primary_def}",
+      )
+      changed = true
+    }
   }
-  let selected_result_defs = Array::make(original_defined, false)
-  if 299 < selected_result_defs.length() {
-    selected_result_defs[299] = true
-  }
-  let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-    current, selected_result_defs, low_callee_call_facts,
-  )
-  if selected_result.changed {
-    current = selected_result.mod_out
-    touched = dae_merge_touched(touched, selected_result.touched)
-    trace(
-      "pass[dae-optimizing]:selected-dropped-result primary_def=\{selected_result.primary_def}",
+  if 299 < selected_singleton_defs.length() {
+    selected_singleton_defs[299] = true
+    let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
+      current, selected_singleton_defs, low_callee_call_facts,
     )
-    changed = true
+    selected_singleton_defs[299] = false
+    if selected_result.changed {
+      current = selected_result.mod_out
+      touched = dae_merge_touched(touched, selected_result.touched)
+      trace(
+        "pass[dae-optimizing]:selected-dropped-result primary_def=\{selected_result.primary_def}",
+      )
+      changed = true
+    }
   }
-  let selected_mid_literal_defs = Array::make(original_defined, false)
   for mid_literal_def in [287, 311] {
     if mid_literal_def >= 0 &&
-      mid_literal_def < selected_mid_literal_defs.length() {
-      selected_mid_literal_defs[mid_literal_def] = true
+      mid_literal_def < selected_singleton_defs.length() {
+      selected_singleton_defs[mid_literal_def] = true
       let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_mid_literal_defs, low_callee_call_facts,
+        current, selected_singleton_defs, low_callee_call_facts,
       )
-      selected_mid_literal_defs[mid_literal_def] = false
+      selected_singleton_defs[mid_literal_def] = false
       if mid_literal_result.changed {
         current = mid_literal_result.mod_out
         touched = dae_merge_touched(touched, mid_literal_result.touched)
@@ -10334,18 +10334,17 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       }
     }
   }
-  let selected_mid_global_literal_defs = Array::make(original_defined, false)
   for mid_global_literal_def in [313] {
     if mid_global_literal_def >= 0 &&
-      mid_global_literal_def < selected_mid_global_literal_defs.length() {
-      selected_mid_global_literal_defs[mid_global_literal_def] = true
+      mid_global_literal_def < selected_singleton_defs.length() {
+      selected_singleton_defs[mid_global_literal_def] = true
       let mid_global_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
         current,
-        selected_mid_global_literal_defs,
+        selected_singleton_defs,
         low_callee_call_facts,
         allow_immutable_global_get=true,
       )
-      selected_mid_global_literal_defs[mid_global_literal_def] = false
+      selected_singleton_defs[mid_global_literal_def] = false
       if mid_global_literal_result.changed {
         current = mid_global_literal_result.mod_out
         touched = dae_merge_touched(touched, mid_global_literal_result.touched)
@@ -10356,15 +10355,14 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       }
     }
   }
-  let selected_high_literal_defs = Array::make(original_defined, false)
   for high_literal_def in [1720, 1755, 1775, 1794, 2156] {
     if high_literal_def >= 0 &&
-      high_literal_def < selected_high_literal_defs.length() {
-      selected_high_literal_defs[high_literal_def] = true
+      high_literal_def < selected_singleton_defs.length() {
+      selected_singleton_defs[high_literal_def] = true
       let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_high_literal_defs, low_callee_call_facts,
+        current, selected_singleton_defs, low_callee_call_facts,
       )
-      selected_high_literal_defs[high_literal_def] = false
+      selected_singleton_defs[high_literal_def] = false
       if high_literal_result.changed {
         current = high_literal_result.mod_out
         touched = dae_merge_touched(touched, high_literal_result.touched)
