@@ -102,6 +102,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportModuleNameUtf8
   InvalidImportFieldNameUtf8
   InvalidImportKindByte
+  MalformedFunctionSectionTypeIndexUleb
   MalformedImportFuncTypeIndexUleb
   MalformedImportTagTypeIndexUleb
   MalformedImportMemoryMinUleb
@@ -620,6 +621,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
     InvalidImportFieldNameUtf8 => "invalid-import-field-name-utf8"
     InvalidImportKindByte => "invalid-import-kind-byte"
+    MalformedFunctionSectionTypeIndexUleb =>
+      "malformed-function-section-type-index-uleb"
     MalformedImportFuncTypeIndexUleb => "malformed-import-func-type-index-uleb"
     MalformedImportTagTypeIndexUleb => "malformed-import-tag-type-index-uleb"
     MalformedImportMemoryMinUleb => "malformed-import-memory-min-uleb"
@@ -1291,6 +1294,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidImportKindByte,
       "invalid-import-kind-byte",
       "import section with an invalid import kind byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedFunctionSectionTypeIndexUleb,
+      "malformed-function-section-type-index-uleb",
+      "function section entry with a malformed type-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -6828,6 +6838,37 @@ fn validate_invalid_binary_mutate_invalid_import_kind_byte(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_function_section_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedFunctionSectionTypeIndexUleb,
+      DecodeRejected,
+      true,
+      Bytes::from_array([
+        (0x00).to_byte(),
+        (0x61).to_byte(),
+        (0x73).to_byte(),
+        (0x6d).to_byte(),
+        (0x01).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x00).to_byte(),
+        (0x03).to_byte(),
+        (0x06).to_byte(),
+        (0x01).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_import_func_type_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -8415,6 +8456,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_import_field_name_utf8(base)
     InvalidImportKindByte =>
       validate_invalid_binary_mutate_invalid_import_kind_byte(base)
+    MalformedFunctionSectionTypeIndexUleb =>
+      validate_invalid_binary_mutate_malformed_function_section_type_index_uleb(
+        base,
+      )
     MalformedImportFuncTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_import_func_type_index_uleb(base)
     MalformedImportTagTypeIndexUleb =>

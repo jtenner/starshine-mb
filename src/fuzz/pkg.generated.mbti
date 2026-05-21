@@ -380,6 +380,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportModuleNameUtf8
   InvalidImportFieldNameUtf8
   InvalidImportKindByte
+  MalformedFunctionSectionTypeIndexUleb
   MalformedImportFuncTypeIndexUleb
   MalformedImportTagTypeIndexUleb
   MalformedImportMemoryMinUleb
