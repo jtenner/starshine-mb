@@ -592,6 +592,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         features: GenValidFeatureToggles::{
           ..GenValidFeatureToggles::coverage_forced_default(),
           allow_v128: true,
+          allow_typed_body_generator: true,
         },
       }
     RelaxedSimdProfile =>
@@ -3814,6 +3815,17 @@ fn gen_valid_typed_stmt(
       out.push(Instruction::local_set(idx))
     }
     None => ()
+  }
+  if ctx.config.features.allow_v128 {
+    match gen_matching_local_idx(env.local_types, ValType::v128()) {
+      Some(idx) => {
+        for instr in gen_valid_typed_expr(ctx, env, [ValType::v128()], fuel) {
+          out.push(instr)
+        }
+        out.push(Instruction::local_set(idx))
+      }
+      None => ()
+    }
   }
   match gen_matching_local_idx(env.local_types, ValType::i32()) {
     Some(idx) => {
@@ -7379,6 +7391,15 @@ fn gen_valid_build_func(
       is None {
       locals.push(ValType::i64())
     }
+    if ctx.config.features.allow_typed_body_generator &&
+      ctx.config.features.allow_v128 &&
+      gen_matching_local_idx(
+        gen_all_local_types(accepts, locals),
+        ValType::v128(),
+      )
+      is None {
+      locals.push(ValType::v128())
+    }
     if ctx.config.features.allow_ref_types {
       match declared_ref_func_idx {
         Some(func_idx) =>
@@ -8016,7 +8037,17 @@ fn gen_valid_module_once_with_config(
   } else {
     1 + ctx.random_int(func_type_cap)
   }
+  let typed_body_min_func_types = if ctx.config.features.allow_typed_body_generator &&
+    ctx.config.features.allow_v128 {
+    3
+  } else {
+    2
+  }
   if ctx.config.features.allow_typed_body_generator &&
+    func_type_cap >= typed_body_min_func_types &&
+    func_type_count < typed_body_min_func_types {
+    func_type_count = typed_body_min_func_types
+  } else if ctx.config.features.allow_typed_body_generator &&
     func_type_cap > 1 &&
     func_type_count < 2 {
     func_type_count = 2
@@ -8057,13 +8088,25 @@ fn gen_valid_module_once_with_config(
       []
     } else if ctx.config.features.allow_typed_body_generator && i == 1 {
       []
+    } else if ctx.config.features.allow_typed_body_generator &&
+      ctx.config.features.allow_v128 &&
+      i == 2 {
+      [ValType::v128()]
     } else {
       gen_param_types(ctx)
     }
     let results = if i == 0 && (has_start || total_tag_count > 0) {
       []
     } else if ctx.config.features.allow_typed_body_generator && i == 1 {
-      [ValType::i32(), ValType::i64()]
+      if ctx.config.features.allow_v128 {
+        [ValType::i32(), ValType::i64(), ValType::v128()]
+      } else {
+        [ValType::i32(), ValType::i64()]
+      }
+    } else if ctx.config.features.allow_typed_body_generator &&
+      ctx.config.features.allow_v128 &&
+      i == 2 {
+      [ValType::v128()]
     } else if exact_result_slot == Some(i) {
       [
         gc_type_plan.exact_ref_types[ctx.random_int(

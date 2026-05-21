@@ -707,6 +707,195 @@ fn gen_valid_test_has_simd_lane(
 }
 
 ///|
+fn gen_valid_test_flat_func_types(mod_ : Module) -> Array[FuncType] {
+  let out : Array[FuncType] = []
+  match mod_.type_sec {
+    Some(TypeSec(types)) =>
+      for rec in types {
+        match rec {
+          SingleRecType(st) =>
+            match st.get_comptype() {
+              FuncCompType(params, results) =>
+                out.push(FuncType::new(params, results))
+              _ => ()
+            }
+          GroupRecType(sts) =>
+            for st in sts {
+              match st.get_comptype() {
+                FuncCompType(params, results) =>
+                  out.push(FuncType::new(params, results))
+                _ => ()
+              }
+            }
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+fn gen_valid_test_typeidx_to_int(idx : TypeIdx) -> Int {
+  match idx {
+    TypeIdx(i) | RecIdx(i) => i.reinterpret_as_int()
+  }
+}
+
+///|
+fn gen_valid_test_defined_func_type(
+  func_types : Array[FuncType],
+  func_type_idxs : Array[TypeIdx],
+  defined_idx : Int,
+) -> FuncType? {
+  match func_type_idxs.get(defined_idx) {
+    Some(type_idx) => func_types.get(gen_valid_test_typeidx_to_int(type_idx))
+    None => None
+  }
+}
+
+///|
+fn gen_valid_test_func_has_v128_local(
+  func_type : FuncType,
+  locals : Locals,
+) -> Bool {
+  let FuncType(params, _) = func_type
+  for vt in params {
+    if vt == ValType::v128() {
+      return true
+    }
+  }
+  for vt in locals.iter() {
+    if vt == ValType::v128() {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_func_local_type(
+  func_type : FuncType,
+  locals : Locals,
+  idx : LocalIdx,
+) -> ValType? {
+  let FuncType(params, _) = func_type
+  let LocalIdx(i) = idx
+  let local_i = i.reinterpret_as_int()
+  if local_i < params.length() {
+    Some(params[local_i])
+  } else {
+    locals.at(local_i - params.length())
+  }
+}
+
+///|
+fn gen_valid_test_instrs_have_v128_local_set(
+  instrs : Array[Instruction],
+  func_type : FuncType,
+  locals : Locals,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      LocalSet(idx) | LocalTee(idx) =>
+        if gen_valid_test_func_local_type(func_type, locals, idx) ==
+          Some(ValType::v128()) {
+          return true
+        }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_v128_local_set(body, func_type, locals) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_v128_local_set(
+            then_body, func_type, locals,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_v128_local_set(
+              body, func_type, locals,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_v128_result_control(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(ValTypeBlockType(vt), _)
+      | Loop(ValTypeBlockType(vt), _)
+      | If(ValTypeBlockType(vt), _, _) if vt == ValType::v128() => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_v128_result_control(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_v128_result_control(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_v128_result_control(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_v128_threaded_body(mod_ : Module) -> Bool {
+  let func_types = gen_valid_test_flat_func_types(mod_)
+  match (mod_.func_sec, mod_.code_sec) {
+    (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) => {
+      let mut saw_v128_signature = false
+      let mut saw_v128_local = false
+      let mut saw_v128_local_set = false
+      let mut saw_v128_result_control = false
+      for i = 0; i < funcs.length(); i = i + 1 {
+        match gen_valid_test_defined_func_type(func_types, type_idxs, i) {
+          Some(func_type) => {
+            let FuncType(params, results) = func_type
+            if params.contains(ValType::v128()) ||
+              results.contains(ValType::v128()) {
+              saw_v128_signature = true
+            }
+            let Func(locals, Expr(body)) = funcs[i]
+            if gen_valid_test_func_has_v128_local(func_type, locals) {
+              saw_v128_local = true
+            }
+            if gen_valid_test_instrs_have_v128_local_set(
+                body, func_type, locals,
+              ) {
+              saw_v128_local_set = true
+            }
+            if gen_valid_test_instrs_have_v128_result_control(body) {
+              saw_v128_result_control = true
+            }
+          }
+          None => ()
+        }
+      }
+      saw_v128_signature &&
+      saw_v128_local &&
+      saw_v128_local_set &&
+      saw_v128_result_control
+    }
+    _ => false
+  }
+}
+
+///|
 fn gen_valid_test_instrs_have_nonzero_memory_copy(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -2855,6 +3044,29 @@ test "SIMD-heavy profile emits SIMD memory coverage over nonzero memory indices"
   assert_true(
     gen_valid_test_has_simd_memory_over_nonzero_mem(generated.wasm_module),
     msg="SIMD-heavy profile should emit SIMD memory coverage over a nonzero memory index",
+  )
+}
+
+///|
+test "SIMD-heavy profile threads v128 through signatures locals and control results" {
+  let generated = match
+    gen_valid_module_result(
+      @splitmix.new(seed=0xf71013UL),
+      GenValidConfig::for_profile(SimdHeavyProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected SIMD-heavy generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(
+    gen_valid_test_has_v128_threaded_body(generated.wasm_module),
+    msg="SIMD-heavy profile should deterministically thread v128 through signatures, locals/local.set, and typed result control",
   )
 }
 
