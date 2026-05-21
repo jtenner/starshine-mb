@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | import/export name length malformed-ULEB invalid-binary coverage
+
+- Added three decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `malformed-export-name-length-uleb`, `malformed-import-module-name-length-uleb`, and `malformed-import-field-name-length-uleb` keep the export/import section frames well-formed while corrupting the string-length payload with an unterminated unsigned LEB.
+- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so export/import string-length corruption is tracked alongside the name-section malformed-ULEB carriers.
+
 ## [2026-05-21] fuzzing | name section label-name length malformed-ULEB invalid-binary coverage
 
 - Added one decode-rejected binary-invalid strategy for [`[FUZ]1021`](../../agent-todo.md): `malformed-name-section-label-name-length-uleb` keeps the custom-section and label-name subsection frames well-formed while corrupting the nested label-name string-length payload with an unterminated unsigned LEB.
