@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | overwide ref heaptype invalid-binary coverage
+
+- Added `overwide-ref-null-heaptype-immediate`, `overwide-ref-cast-heaptype-immediate`, and `overwide-ref-test-heaptype-immediate` for [`[FUZ]1021`](../../agent-todo.md) as decode-rejected binary-invalid strategies that keep their instruction frames well-formed while corrupting heaptype immediates with over-budget signed-33-bit LEB payloads.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the binary-invalid strategy summary tracks malformed and overwide heaptype immediate corruption separately for `ref.null`, `ref.cast`, and `ref.test`.
+
 ## [2026-05-21] fuzzing | overwide blocktype invalid-binary coverage
 
 - Added `overwide-blocktype-type-index-uleb` for [`[FUZ]1021`](../../agent-todo.md) as a decode-rejected binary-invalid strategy that keeps a block instruction frame well-formed while corrupting the signed-33-bit blocktype type-index payload with an over-budget LEB.

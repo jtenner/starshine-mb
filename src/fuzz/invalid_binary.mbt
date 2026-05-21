@@ -141,6 +141,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedRefNullHeaptypeImmediate
   MalformedRefCastHeaptypeImmediate
   MalformedRefTestHeaptypeImmediate
+  OverwideRefNullHeaptypeImmediate
+  OverwideRefCastHeaptypeImmediate
+  OverwideRefTestHeaptypeImmediate
   InvalidGlobalValTypeByte
   InvalidExportKindByte
   InvalidMemoryLimitsFlagByte
@@ -749,6 +752,9 @@ fn validate_invalid_binary_strategy_label(
     MalformedRefNullHeaptypeImmediate => "malformed-ref-null-heaptype-immediate"
     MalformedRefCastHeaptypeImmediate => "malformed-ref-cast-heaptype-immediate"
     MalformedRefTestHeaptypeImmediate => "malformed-ref-test-heaptype-immediate"
+    OverwideRefNullHeaptypeImmediate => "overwide-ref-null-heaptype-immediate"
+    OverwideRefCastHeaptypeImmediate => "overwide-ref-cast-heaptype-immediate"
+    OverwideRefTestHeaptypeImmediate => "overwide-ref-test-heaptype-immediate"
     InvalidGlobalValTypeByte => "invalid-global-valtype-byte"
     InvalidExportKindByte => "invalid-export-kind-byte"
     InvalidMemoryLimitsFlagByte => "invalid-memory-limits-flag-byte"
@@ -1767,6 +1773,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedRefTestHeaptypeImmediate,
       "malformed-ref-test-heaptype-immediate",
       "ref.test instruction with a malformed heaptype immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideRefNullHeaptypeImmediate,
+      "overwide-ref-null-heaptype-immediate",
+      "ref.null instruction with an overwide heaptype immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideRefCastHeaptypeImmediate,
+      "overwide-ref-cast-heaptype-immediate",
+      "ref.cast instruction with an overwide heaptype immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideRefTestHeaptypeImmediate,
+      "overwide-ref-test-heaptype-immediate",
+      "ref.test instruction with an overwide heaptype immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -10529,6 +10556,66 @@ fn validate_invalid_binary_mutate_malformed_ref_test_heaptype_immediate(
 }
 
 ///|
+fn validate_invalid_binary_overwide_heaptype_bytes() -> Array[Byte] {
+  [
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ]
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_ref_null_heaptype_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xd0).to_byte()]
+  instr.append(validate_invalid_binary_overwide_heaptype_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideRefNullHeaptypeImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_ref_cast_heaptype_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xfb).to_byte(), (0x16).to_byte()]
+  instr.append(validate_invalid_binary_overwide_heaptype_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideRefCastHeaptypeImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_ref_test_heaptype_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [(0xfb).to_byte(), (0x14).to_byte()]
+  instr.append(validate_invalid_binary_overwide_heaptype_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideRefTestHeaptypeImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_global_valtype_byte() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -11794,6 +11881,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_ref_cast_heaptype_immediate(base)
     MalformedRefTestHeaptypeImmediate =>
       validate_invalid_binary_mutate_malformed_ref_test_heaptype_immediate(base)
+    OverwideRefNullHeaptypeImmediate =>
+      validate_invalid_binary_mutate_overwide_ref_null_heaptype_immediate(base)
+    OverwideRefCastHeaptypeImmediate =>
+      validate_invalid_binary_mutate_overwide_ref_cast_heaptype_immediate(base)
+    OverwideRefTestHeaptypeImmediate =>
+      validate_invalid_binary_mutate_overwide_ref_test_heaptype_immediate(base)
     InvalidGlobalValTypeByte =>
       validate_invalid_binary_mutate_invalid_global_valtype_byte(base)
     InvalidExportKindByte =>

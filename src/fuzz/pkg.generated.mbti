@@ -419,6 +419,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedRefNullHeaptypeImmediate
   MalformedRefCastHeaptypeImmediate
   MalformedRefTestHeaptypeImmediate
+  OverwideRefNullHeaptypeImmediate
+  OverwideRefCastHeaptypeImmediate
+  OverwideRefTestHeaptypeImmediate
   InvalidGlobalValTypeByte
   InvalidExportKindByte
   InvalidMemoryLimitsFlagByte

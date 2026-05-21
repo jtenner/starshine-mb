@@ -85,24 +85,25 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-import-global-mutability-byte", "invalid-import-tag-attribute-byte",
     "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
     "malformed-ref-cast-heaptype-immediate", "malformed-ref-test-heaptype-immediate",
-    "invalid-global-valtype-byte", "invalid-export-kind-byte", "invalid-memory-limits-flag-byte",
-    "invalid-tag-attribute-byte", "invalid-global-mutability-byte", "malformed-export-func-index-uleb",
-    "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb", "malformed-export-global-index-uleb",
-    "malformed-export-tag-index-uleb", "overwide-export-func-index-uleb", "overwide-export-table-index-uleb",
-    "overwide-export-memory-index-uleb", "overwide-export-global-index-uleb", "overwide-export-tag-index-uleb",
-    "invalid-element-segment-flag-byte", "invalid-element-kind-byte", "invalid-data-segment-flag-byte",
-    "type-section-count-overflow", "code-section-count-overflow", "table-section-count-overflow",
-    "export-section-count-overflow", "import-section-count-overflow", "global-section-count-overflow",
-    "function-section-count-overflow", "memory-section-count-overflow", "element-section-count-overflow",
-    "data-section-count-overflow", "tag-section-count-overflow", "malformed-tag-type-index-uleb",
-    "overwide-tag-type-index-uleb", "malformed-local-index-uleb", "malformed-local-set-index-uleb",
-    "malformed-local-tee-index-uleb", "overwide-local-index-uleb", "overwide-local-set-index-uleb",
-    "overwide-local-tee-index-uleb", "malformed-global-index-uleb", "malformed-global-set-index-uleb",
-    "overwide-global-index-uleb", "overwide-global-set-index-uleb", "malformed-i32-const-sleb",
-    "malformed-i64-const-sleb", "malformed-f32-const-immediate", "malformed-f64-const-immediate",
-    "malformed-call-func-index-uleb", "malformed-return-call-func-index-uleb", "malformed-ref-func-index-uleb",
-    "overwide-call-func-index-uleb", "overwide-return-call-func-index-uleb", "overwide-ref-func-index-uleb",
-    "malformed-call-indirect-type-index-uleb", "malformed-call-indirect-table-index-uleb",
+    "overwide-ref-null-heaptype-immediate", "overwide-ref-cast-heaptype-immediate",
+    "overwide-ref-test-heaptype-immediate", "invalid-global-valtype-byte", "invalid-export-kind-byte",
+    "invalid-memory-limits-flag-byte", "invalid-tag-attribute-byte", "invalid-global-mutability-byte",
+    "malformed-export-func-index-uleb", "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb",
+    "malformed-export-global-index-uleb", "malformed-export-tag-index-uleb", "overwide-export-func-index-uleb",
+    "overwide-export-table-index-uleb", "overwide-export-memory-index-uleb", "overwide-export-global-index-uleb",
+    "overwide-export-tag-index-uleb", "invalid-element-segment-flag-byte", "invalid-element-kind-byte",
+    "invalid-data-segment-flag-byte", "type-section-count-overflow", "code-section-count-overflow",
+    "table-section-count-overflow", "export-section-count-overflow", "import-section-count-overflow",
+    "global-section-count-overflow", "function-section-count-overflow", "memory-section-count-overflow",
+    "element-section-count-overflow", "data-section-count-overflow", "tag-section-count-overflow",
+    "malformed-tag-type-index-uleb", "overwide-tag-type-index-uleb", "malformed-local-index-uleb",
+    "malformed-local-set-index-uleb", "malformed-local-tee-index-uleb", "overwide-local-index-uleb",
+    "overwide-local-set-index-uleb", "overwide-local-tee-index-uleb", "malformed-global-index-uleb",
+    "malformed-global-set-index-uleb", "overwide-global-index-uleb", "overwide-global-set-index-uleb",
+    "malformed-i32-const-sleb", "malformed-i64-const-sleb", "malformed-f32-const-immediate",
+    "malformed-f64-const-immediate", "malformed-call-func-index-uleb", "malformed-return-call-func-index-uleb",
+    "malformed-ref-func-index-uleb", "overwide-call-func-index-uleb", "overwide-return-call-func-index-uleb",
+    "overwide-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb", "malformed-call-indirect-table-index-uleb",
     "malformed-return-call-indirect-type-index-uleb", "malformed-return-call-indirect-table-index-uleb",
     "malformed-call-ref-type-index-uleb", "malformed-return-call-ref-type-index-uleb",
     "overwide-call-indirect-type-index-uleb", "overwide-call-indirect-table-index-uleb",
@@ -208,7 +209,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1482,6 +1483,20 @@ test "invalid binary FZG030 decodes overwide blocktype type-index ULEB as invali
 }
 
 ///|
+test "invalid binary FZG030 decodes overwide ref heaptype immediates as invalid" {
+  for
+    strategy in [
+      "overwide-ref-null-heaptype-immediate", "overwide-ref-cast-heaptype-immediate",
+      "overwide-ref-test-heaptype-immediate",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f17UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG030 decodes overwide memory/table limit ULEBs as invalid" {
   for
     strategy in [
@@ -1572,9 +1587,10 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "invalid-import-global-valtype-byte", "invalid-import-global-mutability-byte",
       "invalid-table-reftype-byte", "invalid-table-limits-flag-byte", "malformed-ref-null-heaptype-immediate",
       "malformed-ref-cast-heaptype-immediate", "malformed-ref-test-heaptype-immediate",
-      "invalid-global-valtype-byte", "invalid-export-kind-byte", "invalid-memory-limits-flag-byte",
-      "invalid-tag-attribute-byte", "invalid-global-mutability-byte", "malformed-export-func-index-uleb",
-      "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb",
+      "overwide-ref-null-heaptype-immediate", "overwide-ref-cast-heaptype-immediate",
+      "overwide-ref-test-heaptype-immediate", "invalid-global-valtype-byte", "invalid-export-kind-byte",
+      "invalid-memory-limits-flag-byte", "invalid-tag-attribute-byte", "invalid-global-mutability-byte",
+      "malformed-export-func-index-uleb", "malformed-export-table-index-uleb", "malformed-export-memory-index-uleb",
       "malformed-export-global-index-uleb", "malformed-export-tag-index-uleb", "overwide-export-func-index-uleb",
       "overwide-export-table-index-uleb", "overwide-export-memory-index-uleb", "overwide-export-global-index-uleb",
       "overwide-export-tag-index-uleb", "invalid-element-segment-flag-byte", "invalid-element-kind-byte",
