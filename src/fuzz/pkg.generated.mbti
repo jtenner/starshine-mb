@@ -517,6 +517,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedTableCopyDstIndexUleb
   MalformedTableCopySrcIndexUleb
   MalformedSelectTypeCountUleb
+  OverwideSelectTypeCountUleb
   InvalidTypedSelectValTypeByte
   MalformedStartFuncIndexUleb
   OverwideStartFuncIndexUleb

@@ -117,7 +117,7 @@ Scalar numeric constants and operators are mostly byte-simple but validation-sen
 
 ### Parametric instructions
 
-The untyped `select` carrier is opcode `0x1B`; typed `select` is opcode `0x1C` followed by a vector of value types. The binary-invalid lane now has separate decode-rejection fixtures for an unterminated typed-select type-count ULEB (`malformed-select-type-count-uleb`) and an invalid value-type byte inside that vector (`invalid-typed-select-valtype-byte`). Stack compatibility, bottom handling, and result typing remain validator responsibilities above the byte layer.
+The untyped `select` carrier is opcode `0x1B`; typed `select` is opcode `0x1C` followed by a vector of value types. The binary-invalid lane now has separate decode-rejection fixtures for malformed typed-select type-count ULEBs (`malformed-select-type-count-uleb` and `overwide-select-type-count-uleb`) and an invalid value-type byte inside that vector (`invalid-typed-select-valtype-byte`). Stack compatibility, bottom handling, and result typing remain validator responsibilities above the byte layer.
 
 ### Reference instructions
 
