@@ -8810,6 +8810,15 @@ fn dae_instr_self_integer_binary_replacement(
 }
 
 ///|
+fn dae_instr_is_nontrapping_pure_tee_suffix_binary(
+  rhs : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> Bool {
+  dae_instr_is_droppable_pure_leaf(rhs) &&
+  dae_instr_is_nontrapping_pure_binary(instr)
+}
+
+///|
 fn dae_block_type_is_zero_param_single_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -9163,6 +9172,54 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           dae_local_idx_equal(lhs, rhs) => {
           out.push(@lib.Instruction::local_set(lhs))
           idx += 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    if out.length() > 0 && idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.LocalTee(local_idx), op, drop) if dae_instr_is_nontrapping_pure_unary(
+            op,
+          ) &&
+          drop == @lib.Instruction::drop() => {
+          out.push(@lib.Instruction::local_set(local_idx))
+          idx += 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    if out.length() > 0 && idx + 3 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+        (@lib.LocalTee(local_idx), rhs, op, drop) if dae_instr_is_nontrapping_pure_tee_suffix_binary(
+            rhs, op,
+          ) &&
+          drop == @lib.Instruction::drop() => {
+          out.push(@lib.Instruction::local_set(local_idx))
+          idx += 4
+          continue
+        }
+        _ => ()
+      }
+    }
+    if out.length() > 0 && idx + 5 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+          instrs[idx + 5],
+        ) {
+        (@lib.LocalTee(local_idx), rhs1, op1, rhs2, op2, drop) if dae_instr_is_nontrapping_pure_tee_suffix_binary(
+            rhs1, op1,
+          ) &&
+          dae_instr_is_nontrapping_pure_tee_suffix_binary(rhs2, op2) &&
+          drop == @lib.Instruction::drop() => {
+          out.push(@lib.Instruction::local_set(local_idx))
+          idx += 6
           continue
         }
         _ => ()
