@@ -186,7 +186,7 @@ test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters"
     parse_fuzz_cli_command([
       "--emit-gen-valid-batch", "--count=3", "--seed=0xf71004", "--out-dir=tmp/gen-valid",
       "--gen-valid-profile=coverage-forced", "--require-feature", "v128", "--require-feature=mems:2",
-      "--exclude-feature=imports", "--max-attempts", "12",
+      "--exclude-feature=imports", "--max-attempts", "12", "--manifest=tmp/gen-valid/manifest.json",
     ]) {
     EmitGenValidBatch(args) => {
       @debug.assert_eq(args.count, 3)
@@ -198,6 +198,7 @@ test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters"
       @debug.assert_eq(args.required_features[1].min_count, 2)
       @debug.assert_eq(args.excluded_features.length(), 1)
       @debug.assert_eq(args.max_attempts, 12)
+      @debug.assert_eq(args.manifest_path, Some("tmp/gen-valid/manifest.json"))
     }
     _ => fail("expected emit-gen-valid-batch command")
   }
@@ -322,6 +323,42 @@ test "emit_gen_valid_batch_artifacts_until_features reports unmet floors" {
       assert_true(msg.contains("mems actual=0 min=1"))
     }
   }
+}
+
+///|
+test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
+  let v128_floor = match
+    @validate.validate_valid_feature_floor_by_label("v128", 1) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  let out_dir = ".tmp/fuzz-main-wbtest-gen-valid-manifest"
+  let manifest_path = "\{out_dir}/manifest.json"
+  let selection = match
+    emit_gen_valid_batch_to_dir(
+      EmitGenValidBatchArgs::new(
+        1,
+        0xf71004UL,
+        out_dir,
+        profile="coverage-forced",
+        required_features=[v128_floor],
+        max_attempts=8,
+        manifest_path=Some(manifest_path),
+      ),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected manifest-backed gen-valid selection, got \{e}")
+  }
+  @debug.assert_eq(selection.selected, 1)
+  let manifest = match read_file_sync(manifest_path) {
+    Ok(v) => v
+    Err(e) => fail("expected manifest file to exist, got \{e}")
+  }
+  assert_true(manifest.contains("\"generator\":\"gen-valid\""))
+  assert_true(manifest.contains("\"profile\":\"coverage-forced\""))
+  assert_true(manifest.contains("\"file_name\":\"gen-valid-000001.wasm\""))
+  assert_true(manifest.contains("\"validated\":true"))
+  assert_true(manifest.contains("\"feature_stats\":"))
 }
 
 ///|

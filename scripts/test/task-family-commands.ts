@@ -269,6 +269,7 @@ process.exit(0);
 
   fs.writeFileSync(logPath, "");
   const fuzzBatchOutDir = path.join(tmpdir, "fuzz-batch-out");
+  const fuzzBatchManifestPath = path.join(fuzzBatchOutDir, "manifest.json");
   runBun(
     repoRoot,
     [
@@ -287,12 +288,14 @@ process.exit(0);
       "--exclude-feature",
       "imports",
       "--max-attempts=12",
+      "--manifest",
+      fuzzBatchManifestPath,
     ],
     env,
   );
   const actualFuzzBatch = fs.readFileSync(logPath, "utf8").trim();
   assert(
-    actualFuzzBatch === `run --target wasm-gc src/fuzz -- --emit-gen-valid-batch --count 3 --seed 0x5eed --out-dir ${fuzzBatchOutDir} --gen-valid-profile coverage-forced --require-feature v128 --exclude-feature imports --max-attempts 12`,
+    actualFuzzBatch === `run --target wasm-gc src/fuzz -- --emit-gen-valid-batch --count 3 --seed 0x5eed --out-dir ${fuzzBatchOutDir} --gen-valid-profile coverage-forced --require-feature v128 --exclude-feature imports --max-attempts 12 --manifest ${fuzzBatchManifestPath}`,
     `unexpected fuzz batch command log:\n${actualFuzzBatch}`,
   );
 
@@ -319,8 +322,12 @@ process.exit(0);
     env,
   );
   const actualComparePass = fs.readFileSync(logPath, "utf8").trim();
+  const comparePassGenValidDir = path.relative(
+    repoRoot,
+    path.join(comparePassOutDir, "inputs", "gen-valid"),
+  );
   assert(
-    actualComparePass === `run --target native --release src/fuzz -- --emit-gen-valid-batch --count 16 --seed 0x5eed --out-dir ${path.join(comparePassOutDir, "inputs", "gen-valid")}`,
+    actualComparePass === `run --target native --release src/fuzz -- --emit-gen-valid-batch --count 16 --seed 0x5eed --out-dir ${comparePassGenValidDir} --manifest ${path.join(comparePassGenValidDir, "manifest.json")}`,
     `unexpected compare-pass command log:\n${actualComparePass}`,
   );
 

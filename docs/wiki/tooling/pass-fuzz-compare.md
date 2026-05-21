@@ -75,9 +75,9 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --case-index <n
 | --- | --- | --- | --- |
 | `both` | Alternates `wasm-smith` and Starshine `gen-valid` inputs. | Default broad signoff, especially for mature implemented passes. | Some cases may be tool/oracle failures rather than pass mismatches; classify them instead of hiding them. |
 | `wasm-smith` | Calls `wasm-tools smith -o <input>` with deterministic seed bytes. | External generator diversity and Binaryen parser/tool gap discovery. | Still validate every generated input; generator/tool failures are not Starshine semantic mismatches. |
-| `gen-valid` | Calls `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ...`. | Starshine coverage-forced portable modules and focused regression lanes after FZG widening. | Uses the batch emitter's Binaryen-oracle-friendly config, not the ordinary natural `validate-valid` fuzz profile. |
+| `gen-valid` | Calls `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ... --manifest <out>/inputs/gen-valid/manifest.json`. | Starshine coverage-forced portable modules and focused regression lanes after FZG widening. | Uses the batch emitter's Binaryen-oracle-friendly config, not the ordinary natural `validate-valid` fuzz profile. |
 
-The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) and [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt) even though compare-pass is not itself a MoonBit fuzz suite.
+The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) and [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt) even though compare-pass is not itself a MoonBit fuzz suite. Runs that generate Starshine inputs now keep `inputs/gen-valid/manifest.json` beside the saved `.wasm` files; this file records the requested profile, filters, aggregate feature stats, and per-input feature facts for replay triage.
 
 ## Normalization And Comparison Flow
 

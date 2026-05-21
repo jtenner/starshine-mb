@@ -628,16 +628,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: per-opcode atomic counter tests, validation fixtures for each op family, invalid-lane follow-ups for non-shared/invalid alignment, pass-fuzz compare on memory-heavy profiles.
   - Exit Criteria: atomic-heavy profiles can prove every represented atomic family is generated at least once over a bounded run.
 
-- [FUZ]1015 - GenValid Batch Profiles, Feature Filters, And Input Manifests
-  - Goal: make `--emit-gen-valid-batch` useful beyond the current Binaryen-oracle portable corpus.
-  - Why: pass-fuzz compare and validator fuzzing need different valid-generator profiles, and every saved `.wasm` should carry its config and feature facts.
-  - Deliverables: add opt-in manifest emission for generated batches; write per-input records with file name, seed, index, config/profile, feature facts, and validation result; thread the saved manifest into downstream generated-input consumers. Profile selection plus `--require-feature` / `--exclude-feature` / `--max-attempts` filters landed with completed `[FUZ]1014` and should be preserved rather than reimplemented.
-  - Required APIs: `src/fuzz/main.mbt` parser, `scripts/lib/fuzz-task.ts` forwarding, feature ledger APIs, docs/tooling pages.
-  - Invariants: default batch behavior and file names remain compatible; manifest emission should be opt-in or backward-compatible; invalid generated candidates must never be written as successful batch artifacts.
-  - Dependencies: [FUZ]1001, [FUZ]1013, and completed [FUZ]1014 filters.
-  - Suggested Tests: CLI parse tests, deterministic artifact/manifest tests, wrapper forwarding tests, `moon test src/fuzz`, script tests for `bun fuzz run --emit-gen-valid-batch`.
-  - Exit Criteria: every generated batch can be replayed and understood from its manifest without regenerating feature facts.
-
 - [FUZ]1016 - Pass-Fuzz Compare Generator Profiles, Replay Modes, And Failure Metadata
   - Goal: widen `bun fuzz compare-pass` so it can consume richer GenValid profiles and replay every failure status.
   - Why: compare-pass currently uses one gen-valid batch config and replays command failures only. Agents need profile selection, feature-aware inputs, and replay for mismatches/validation failures too.

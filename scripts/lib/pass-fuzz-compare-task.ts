@@ -1223,7 +1223,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const genValidCount =
     replayCases === null ? requiredGenValidCount(options.generator, options.count) : 0;
   if (genValidCount > 0) {
-    fs.mkdirSync(genValidDir, { recursive: true });
+    const genValidMoonDir = path.relative(repoRoot, genValidDir) || ".";
+    const genValidManifestPath = path.join(genValidMoonDir, "manifest.json");
     runOrThrow(
       options.moonBin,
       [
@@ -1239,7 +1240,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         "--seed",
         seedHex(options.seed),
         "--out-dir",
-        genValidDir,
+        genValidMoonDir,
+        "--manifest",
+        genValidManifestPath,
       ],
       { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
     );

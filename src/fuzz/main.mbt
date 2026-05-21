@@ -26,6 +26,7 @@ pub struct EmitGenValidBatchArgs {
   required_features : Array[ValidateValidFeatureFloor]
   excluded_features : Array[ValidateValidFeatureKey]
   max_attempts : Int
+  manifest_path : String?
 } derive(Eq, Debug)
 
 ///|
@@ -37,6 +38,7 @@ pub fn EmitGenValidBatchArgs::new(
   required_features? : Array[ValidateValidFeatureFloor] = [],
   excluded_features? : Array[ValidateValidFeatureKey] = [],
   max_attempts? : Int = count,
+  manifest_path? : String? = None,
 ) -> EmitGenValidBatchArgs {
   {
     count,
@@ -46,6 +48,7 @@ pub fn EmitGenValidBatchArgs::new(
     required_features,
     excluded_features,
     max_attempts,
+    manifest_path,
   }
 }
 
@@ -163,7 +166,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -480,6 +483,7 @@ fn fuzz_parse_emit_gen_valid_batch_args(
   let required_features : Array[ValidateValidFeatureFloor] = []
   let excluded_features : Array[ValidateValidFeatureKey] = []
   let mut max_attempts : Int? = None
+  let mut manifest_path : String? = None
   let mut i = 1
   while i < args.length() {
     let arg = args[i].trim().to_owned()
@@ -609,6 +613,17 @@ fn fuzz_parse_emit_gen_valid_batch_args(
       i += 2
       continue
     }
+    if arg == "--manifest" {
+      if i + 1 >= args.length() {
+        abort("missing value for --manifest")
+      }
+      if manifest_path is Some(_) {
+        abort("duplicate --manifest flag")
+      }
+      manifest_path = Some(args[i + 1])
+      i += 2
+      continue
+    }
     if fuzz_has_prefix_text(arg, "--max-attempts=") {
       if max_attempts is Some(_) {
         abort("duplicate --max-attempts flag")
@@ -619,6 +634,14 @@ fn fuzz_parse_emit_gen_valid_batch_args(
           fuzz_tail_string(arg, 15),
         ),
       )
+      i += 1
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--manifest=") {
+      if manifest_path is Some(_) {
+        abort("duplicate --manifest flag")
+      }
+      manifest_path = Some(fuzz_tail_string(arg, 11))
       i += 1
       continue
     }
@@ -657,6 +680,7 @@ fn fuzz_parse_emit_gen_valid_batch_args(
     required_features~,
     excluded_features~,
     max_attempts=resolved_max_attempts,
+    manifest_path~,
   )
 }
 
@@ -1593,6 +1617,61 @@ pub fn emit_gen_valid_batch_artifacts(
 }
 
 ///|
+fn format_gen_valid_batch_feature_facts_json(
+  facts : GenValidFeatureFacts,
+) -> String {
+  "{\"mode\":\"\{fuzz_json_escape(@debug.to_string(facts.mode))}\",\"imports\":\{facts.has_imports},\"func_exports\":\{facts.has_func_exports},\"table_exports\":\{facts.has_table_exports},\"mem_exports\":\{facts.has_mem_exports},\"global_exports\":\{facts.has_global_exports},\"tag_exports\":\{facts.has_tag_exports},\"start\":\{facts.has_start},\"lacks_start\":\{facts.lacks_start},\"tables\":\{facts.has_tables},\"mems\":\{facts.has_mems},\"globals\":\{facts.has_globals},\"tags\":\{facts.has_tags},\"elems\":\{facts.has_elems},\"datas\":\{facts.has_datas},\"data_count\":\{facts.has_data_count},\"ref_types\":\{facts.uses_ref_types},\"v128\":\{facts.uses_v128},\"calls\":\{facts.has_call},\"call_indirect\":\{facts.has_call_indirect},\"branch_heavy_control\":\{facts.has_branch_heavy_control},\"payload_control_flow\":\{facts.has_payload_control_flow},\"multivalue_control_flow\":\{facts.has_multivalue_control_flow},\"numeric_full_ops\":\{facts.has_numeric_full_ops},\"br_table\":\{facts.has_br_table},\"standalone_unreachable\":\{facts.has_standalone_unreachable},\"local_tee\":\{facts.has_local_tee},\"typed_select\":\{facts.has_typed_select},\"tail_calls\":\{facts.has_tail_calls},\"scalar_memory_widths\":\{facts.has_scalar_memory_widths},\"nonzero_memarg\":\{facts.has_nonzero_memarg},\"memory_limit_variants\":\{facts.has_memory_limit_variants},\"table_limit_variants\":\{facts.has_table_limit_variants},\"const_expr_variants\":\{facts.has_const_expr_variants},\"basic_ref_instructions\":\{facts.has_basic_ref_instructions},\"i31_extern_conversions\":\{facts.has_i31_extern_conversions},\"simd_phase1\":\{facts.has_simd_phase1},\"simd_phase2\":\{facts.has_simd_phase2},\"simd_phase3\":\{facts.has_simd_phase3},\"atomics\":\{facts.has_atomics},\"gc_constructors\":\{facts.has_gc_constructors},\"gc_accessors\":\{facts.has_gc_accessors},\"string_ops\":\{facts.has_string_ops},\"exception_try_table_matrix\":\{facts.has_exception_try_table_matrix},\"subtyping_topology\":\{facts.has_subtyping_topology},\"rich_gc_field_plans\":\{facts.has_rich_gc_field_plans},\"import_export_topology\":\{facts.has_import_export_topology},\"element_segment_range\":\{facts.has_element_segment_range},\"data_segment_range\":\{facts.has_data_segment_range},\"name_custom_sections\":\{facts.has_name_custom_sections},\"gc_exception_combo\":\{facts.has_gc_exception_combo},\"gc_tail_call_combo\":\{facts.has_gc_tail_call_combo},\"shared_memory_atomics\":\{facts.has_shared_memory_atomics},\"imports_start_exports\":\{facts.has_imports_start_exports}}"
+}
+
+///|
+fn format_gen_valid_batch_feature_keys_json(
+  keys : Array[ValidateValidFeatureKey],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let mut i = 0
+  while i < keys.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string(
+      "\"\{fuzz_json_escape(gen_valid_coverage_feature_label(keys[i]))}\"",
+    )
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
+fn format_gen_valid_batch_manifest_json(
+  args : EmitGenValidBatchArgs,
+  selection : GenValidCoverageSelection,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"generator\":\"gen-valid\",\"seed\":\{args.seed},\"count\":\{args.count},\"profile\":\"\{fuzz_json_escape(args.profile)}\",\"max_attempts\":\{args.max_attempts},\"attempts\":\{selection.attempts},\"selected\":\{selection.selected},\"skipped_candidates\":\{selection.skipped_candidates},\"required_features\":\{format_validate_valid_feature_floors_json(args.required_features)},\"excluded_features\":\{format_gen_valid_batch_feature_keys_json(args.excluded_features)},\"feature_stats\":\{format_gen_valid_feature_stats_json(selection.feature_stats)},\"records\":[",
+  )
+  let mut i = 0
+  while i < selection.manifest.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let item = selection.manifest[i]
+    let error_json = match item.validation_error_message {
+      Some(msg) => "\"\{fuzz_json_escape(msg)}\""
+      None => "null"
+    }
+    out.write_string(
+      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"seed\":\{item.seed},\"index\":\{item.index},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)}}",
+    )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
 fn emit_gen_valid_batch_selection(
   args : EmitGenValidBatchArgs,
 ) -> Result[GenValidCoverageSelection, String] {
@@ -1629,6 +1708,16 @@ fn emit_gen_valid_batch_to_dir(
       Ok(_) => ()
       Err(e) => return Err("failed to write gen-valid artifact \{path}: \{e}")
     }
+  }
+  match args.manifest_path {
+    Some(path) => {
+      let manifest_json = format_gen_valid_batch_manifest_json(args, selection)
+      match write_file_bytes(path, fuzz_string_to_bytes(manifest_json)) {
+        Ok(_) => ()
+        Err(e) => return Err("failed to write gen-valid manifest \{path}: \{e}")
+      }
+    }
+    None => ()
   }
   Ok(selection)
 }

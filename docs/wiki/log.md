@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-21] tooling | FUZ1015 GenValid batch manifests
+
+- Completed [`[FUZ]1015`](../../agent-todo.md) by adding opt-in `--manifest <path>` support to the Moon and Bun `--emit-gen-valid-batch` surfaces. The manifest records generator/profile/seed/filter metadata, aggregate feature stats, and per-input file name, index, config label, attempt count, validation status, and feature facts while preserving the existing `.wasm` file names and default no-manifest behavior.
+- Updated `bun fuzz compare-pass` so generated Starshine `gen-valid` inputs always carry `inputs/gen-valid/manifest.json` beside the saved `.wasm` inputs, then refreshed [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), and the tooling index entry with the replay/triage contract.
+
 ## [2026-05-21] fuzzing | FUZ1014 coverage-guided GenValid selection
 
 - Started [`[FUZ]1014`](../../agent-todo.md) by adding an in-memory bounded selector, `emit_gen_valid_batch_artifacts_until_features(...)`, that generates from an explicit `GenValidConfig`, skips excluded feature keys, keeps only modules that advance missing required feature floors, and reports selected artifacts, manifest rows, aggregate stats, floor failures, attempts, and skipped candidates.

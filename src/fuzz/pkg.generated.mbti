@@ -144,8 +144,9 @@ pub struct EmitGenValidBatchArgs {
   required_features : Array[@validate.ValidateValidFeatureFloor]
   excluded_features : Array[@validate.ValidateValidFeatureKey]
   max_attempts : Int
+  manifest_path : String?
 } derive(Eq, @debug.Debug)
-pub fn EmitGenValidBatchArgs::new(Int, UInt64, String, profile? : String, required_features? : Array[@validate.ValidateValidFeatureFloor], excluded_features? : Array[@validate.ValidateValidFeatureKey], max_attempts? : Int) -> Self
+pub fn EmitGenValidBatchArgs::new(Int, UInt64, String, profile? : String, required_features? : Array[@validate.ValidateValidFeatureFloor], excluded_features? : Array[@validate.ValidateValidFeatureKey], max_attempts? : Int, manifest_path? : String?) -> Self
 
 pub struct EmitInvalidReproArgs {
   suite : String
