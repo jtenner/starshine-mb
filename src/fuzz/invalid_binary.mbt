@@ -93,6 +93,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedStoreMemargAlignUleb
   MalformedLoadMemargOffsetUleb
   MalformedStoreMemargOffsetUleb
+  OverwideLoadMemargAlignUleb
+  OverwideStoreMemargAlignUleb
+  OverwideLoadMemargOffsetUleb
+  OverwideStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
   MalformedMemoryMinUleb
   MalformedTableMinUleb
@@ -689,6 +693,10 @@ fn validate_invalid_binary_strategy_label(
     MalformedStoreMemargAlignUleb => "malformed-store-memarg-align-uleb"
     MalformedLoadMemargOffsetUleb => "malformed-load-memarg-offset-uleb"
     MalformedStoreMemargOffsetUleb => "malformed-store-memarg-offset-uleb"
+    OverwideLoadMemargAlignUleb => "overwide-load-memarg-align-uleb"
+    OverwideStoreMemargAlignUleb => "overwide-store-memarg-align-uleb"
+    OverwideLoadMemargOffsetUleb => "overwide-load-memarg-offset-uleb"
+    OverwideStoreMemargOffsetUleb => "overwide-store-memarg-offset-uleb"
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
     MalformedMemoryMinUleb => "malformed-memory-min-uleb"
     MalformedTableMinUleb => "malformed-table-min-uleb"
@@ -1421,6 +1429,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedStoreMemargOffsetUleb,
       "malformed-store-memarg-offset-uleb",
       "memory store instruction with a malformed memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideLoadMemargAlignUleb,
+      "overwide-load-memarg-align-uleb",
+      "memory load instruction with an overwide memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideStoreMemargAlignUleb,
+      "overwide-store-memarg-align-uleb",
+      "memory store instruction with an overwide memarg alignment ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideLoadMemargOffsetUleb,
+      "overwide-load-memarg-offset-uleb",
+      "memory load instruction with an overwide memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideStoreMemargOffsetUleb,
+      "overwide-store-memarg-offset-uleb",
+      "memory store instruction with an overwide memarg offset ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4127,6 +4163,111 @@ fn validate_invalid_binary_mutate_malformed_store_memarg_offset_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_overwide_u32_uleb_bytes() -> Array[Byte] {
+  [
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ]
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_load_memarg_align_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x28).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  instr.push((0x00).to_byte())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideLoadMemargAlignUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_store_memarg_align_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x36).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  instr.push((0x00).to_byte())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideStoreMemargAlignUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_load_memarg_offset_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x28).to_byte(),
+    (0x00).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideLoadMemargOffsetUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_store_memarg_offset_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr : Array[Byte] = [
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x41).to_byte(),
+    (0x00).to_byte(),
+    (0x36).to_byte(),
+    (0x00).to_byte(),
+  ]
+  instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideStoreMemargOffsetUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
     ),
   )
 }
@@ -11512,6 +11653,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_load_memarg_offset_uleb(base)
     MalformedStoreMemargOffsetUleb =>
       validate_invalid_binary_mutate_malformed_store_memarg_offset_uleb(base)
+    OverwideLoadMemargAlignUleb =>
+      validate_invalid_binary_mutate_overwide_load_memarg_align_uleb(base)
+    OverwideStoreMemargAlignUleb =>
+      validate_invalid_binary_mutate_overwide_store_memarg_align_uleb(base)
+    OverwideLoadMemargOffsetUleb =>
+      validate_invalid_binary_mutate_overwide_load_memarg_offset_uleb(base)
+    OverwideStoreMemargOffsetUleb =>
+      validate_invalid_binary_mutate_overwide_store_memarg_offset_uleb(base)
     MalformedBlocktypeImmediate =>
       validate_invalid_binary_mutate_malformed_blocktype_immediate(base)
     MalformedMemoryMinUleb =>
