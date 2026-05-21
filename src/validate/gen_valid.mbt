@@ -286,7 +286,7 @@ pub fn GenValidConfig::coverage_forced_default() -> GenValidConfig {
   GenValidConfig::{
     ..GenValidConfig::natural_default(),
     mode: CoverageForced,
-    max_type_defs: 14,
+    max_type_defs: 18,
     max_imports: 6,
     max_tables: 3,
     max_mems: 2,
@@ -1774,34 +1774,93 @@ fn gen_valid_gc_type_defs(
     type_idx_cursor += 1
   }
 
-  if want_descriptor_group && defs.length() < remaining_type_budget {
+  if want_descriptor_group &&
+    remaining_type_budget - (type_idx_cursor - next_type_idx) >= 2 {
     let described_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
     let descriptor_idx = TypeIdx::new(
       (type_idx_cursor + 1).reinterpret_as_uint(),
     )
-    defs.push(
-      RecType::group([
-        SubType::comp_type(
-          CompType::struct_([]),
-          metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
-        ),
-        SubType::comp_type(
-          CompType::struct_([]),
-          metadata=TypeMetadata::new(describes=Some(described_idx)),
-        ),
-      ]),
-    )
-    plan = {
-      ..plan,
-      descriptor_struct_idx: Some(described_idx),
-      descriptor_type_idx: Some(descriptor_idx),
-      rec_group_count: plan.rec_group_count + 1,
+    if remaining_type_budget - (type_idx_cursor - next_type_idx) >= 4 {
+      let leaf_described_idx = TypeIdx::new(
+        (type_idx_cursor + 2).reinterpret_as_uint(),
+      )
+      let leaf_descriptor_idx = TypeIdx::new(
+        (type_idx_cursor + 3).reinterpret_as_uint(),
+      )
+      defs.push(
+        RecType::group([
+          SubType::new(
+            false,
+            [],
+            CompType::struct_([]),
+            metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
+          ),
+          SubType::new(
+            false,
+            [],
+            CompType::struct_([]),
+            metadata=TypeMetadata::new(describes=Some(described_idx)),
+          ),
+          SubType::new(
+            true,
+            [described_idx],
+            CompType::struct_([]),
+            metadata=TypeMetadata::new(descriptor=Some(leaf_descriptor_idx)),
+          ),
+          SubType::new(
+            true,
+            [descriptor_idx],
+            CompType::struct_([]),
+            metadata=TypeMetadata::new(describes=Some(leaf_described_idx)),
+          ),
+        ]),
+      )
+      plan = {
+        ..plan,
+        descriptor_struct_idx: Some(described_idx),
+        descriptor_type_idx: Some(descriptor_idx),
+        rec_group_count: plan.rec_group_count + 1,
+      }
+      plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(described_idx))
+      plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(descriptor_idx))
+      plan.concrete_ref_types.push(
+        gen_valid_gc_type_field_ref(leaf_described_idx),
+      )
+      plan.concrete_ref_types.push(
+        gen_valid_gc_type_field_ref(leaf_descriptor_idx),
+      )
+      plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(described_idx))
+      plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(descriptor_idx))
+      plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(leaf_described_idx))
+      plan.exact_ref_types.push(
+        gen_valid_gc_type_exact_ref(leaf_descriptor_idx),
+      )
+      type_idx_cursor += 4
+    } else {
+      defs.push(
+        RecType::group([
+          SubType::comp_type(
+            CompType::struct_([]),
+            metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
+          ),
+          SubType::comp_type(
+            CompType::struct_([]),
+            metadata=TypeMetadata::new(describes=Some(described_idx)),
+          ),
+        ]),
+      )
+      plan = {
+        ..plan,
+        descriptor_struct_idx: Some(described_idx),
+        descriptor_type_idx: Some(descriptor_idx),
+        rec_group_count: plan.rec_group_count + 1,
+      }
+      plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(described_idx))
+      plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(descriptor_idx))
+      plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(described_idx))
+      plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(descriptor_idx))
+      type_idx_cursor += 2
     }
-    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(described_idx))
-    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(descriptor_idx))
-    plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(described_idx))
-    plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(descriptor_idx))
-    type_idx_cursor += 2
   }
 
   if want_elem_array && defs.length() < remaining_type_budget {

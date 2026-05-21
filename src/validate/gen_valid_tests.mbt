@@ -611,6 +611,79 @@ fn gen_valid_test_has_mutual_struct_array_group(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_descriptor_final_open_matrix(mod_ : Module) -> Bool {
+  match mod_.type_sec {
+    Some(TypeSec(types)) => {
+      let mut cursor = 0
+      for rec_type in types {
+        match rec_type {
+          GroupRecType(group) if group.length() >= 4 => {
+            let base_described = TypeIdx::new(cursor.reinterpret_as_uint())
+            let base_descriptor = TypeIdx::new(
+              (cursor + 1).reinterpret_as_uint(),
+            )
+            let leaf_described = TypeIdx::new(
+              (cursor + 2).reinterpret_as_uint(),
+            )
+            let leaf_descriptor = TypeIdx::new(
+              (cursor + 3).reinterpret_as_uint(),
+            )
+            match (group[0], group[1], group[2], group[3]) {
+              (
+                SubType(false, [], base_meta, StructCompType(_)),
+                SubType(false, [], desc_meta, StructCompType(_)),
+                SubType(true, leaf_supers, leaf_meta, StructCompType(_)),
+                SubType(true, desc_supers, leaf_desc_meta, StructCompType(_)),
+              ) =>
+                if base_meta.descriptor == Some(base_descriptor) &&
+                  desc_meta.describes == Some(base_described) &&
+                  leaf_meta.descriptor == Some(leaf_descriptor) &&
+                  leaf_desc_meta.describes == Some(leaf_described) &&
+                  leaf_supers.length() == 1 &&
+                  leaf_supers[0] == base_described &&
+                  desc_supers.length() == 1 &&
+                  desc_supers[0] == base_descriptor {
+                  return true
+                }
+              _ => ()
+            }
+          }
+          _ => ()
+        }
+        match rec_type {
+          SingleRecType(_) => cursor += 1
+          GroupRecType(group) => cursor += group.length()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+test "GC-heavy GenValid emits descriptor final-open subtype matrix" {
+  let config = GenValidConfig::for_profile(GcHeavyProfile)
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71006UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected descriptor final-open matrix generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_subtyping_topology)
+  assert_true(
+    gen_valid_test_has_descriptor_final_open_matrix(generated.wasm_module),
+    msg="GC-heavy generation should include open descriptor/describes supertypes with final descriptor/describes subtypes",
+  )
+}
+
+///|
 test "coverage-forced GenValid emits mutually recursive struct and array topology" {
   let config = GenValidConfig::for_profile(GcHeavyProfile)
   let generated = match
