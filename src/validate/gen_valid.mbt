@@ -6269,6 +6269,43 @@ fn gen_valid_append_v128_ternary_op(
 }
 
 ///|
+fn gen_valid_append_simd_lane_index_coverage(out : Array[Instruction]) -> Unit {
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i8x16_extract_lane_s(LaneIdx::new(8)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i32_const(I32(15)))
+  out.push(Instruction::i8x16_replace_lane(LaneIdx::new(15)))
+  out.push(Instruction::drop())
+
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i16x8_extract_lane_s(LaneIdx::new(0)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i32_const(I32(16)))
+  out.push(Instruction::i16x8_replace_lane(LaneIdx::new(7)))
+  out.push(Instruction::drop())
+
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i32x4_extract_lane(LaneIdx::new(0)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::f32x4_extract_lane(LaneIdx::new(2)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i32_const(I32(17)))
+  out.push(Instruction::i32x4_replace_lane(LaneIdx::new(3)))
+  out.push(Instruction::drop())
+
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i64x2_extract_lane(LaneIdx::new(0)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::f64x2_extract_lane(LaneIdx::new(1)))
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_append_relaxed_simd_ops(out : Array[Instruction]) -> Unit {
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_relaxed_swizzle())
   gen_valid_append_v128_ternary_op(out, Instruction::i8x16_relaxed_laneselect())
@@ -6376,6 +6413,8 @@ fn gen_valid_append_simd_phase1_ops(out : Array[Instruction]) -> Unit {
   out.push(Instruction::f64_const(F64(4.5)))
   out.push(Instruction::f64x2_replace_lane(LaneIdx::new(0)))
   out.push(Instruction::drop())
+
+  gen_valid_append_simd_lane_index_coverage(out)
 
   gen_valid_append_v128_zero(out)
   out.push(Instruction::v128_not())

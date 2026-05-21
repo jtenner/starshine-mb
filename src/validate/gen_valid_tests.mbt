@@ -622,6 +622,91 @@ fn gen_valid_test_has_simd_memory_over_nonzero_mem(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_instr_has_simd_lane(
+  instr : Instruction,
+  lane_count : Int,
+  expected : LaneIdx,
+) -> Bool {
+  match instr {
+    I8x16ExtractLaneS(li)
+    | I8x16ExtractLaneU(li)
+    | I8x16ReplaceLane(li)
+    | V128Load8Lane(_, li)
+    | V128Store8Lane(_, li) => lane_count == 16 && li == expected
+    I16x8ExtractLaneS(li)
+    | I16x8ExtractLaneU(li)
+    | I16x8ReplaceLane(li)
+    | V128Load16Lane(_, li)
+    | V128Store16Lane(_, li) => lane_count == 8 && li == expected
+    I32x4ExtractLane(li)
+    | I32x4ReplaceLane(li)
+    | F32x4ExtractLane(li)
+    | F32x4ReplaceLane(li)
+    | V128Load32Lane(_, li)
+    | V128Store32Lane(_, li) => lane_count == 4 && li == expected
+    I64x2ExtractLane(li)
+    | I64x2ReplaceLane(li)
+    | F64x2ExtractLane(li)
+    | F64x2ReplaceLane(li)
+    | V128Load64Lane(_, li)
+    | V128Store64Lane(_, li) => lane_count == 2 && li == expected
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_test_instrs_have_simd_lane(
+  instrs : Array[Instruction],
+  lane_count : Int,
+  expected : LaneIdx,
+) -> Bool {
+  for instr in instrs {
+    if gen_valid_test_instr_has_simd_lane(instr, lane_count, expected) {
+      return true
+    }
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_simd_lane(body, lane_count, expected) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_simd_lane(then_body, lane_count, expected) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_simd_lane(
+              body, lane_count, expected,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_simd_lane(
+  mod_ : Module,
+  lane_count : Int,
+  expected : LaneIdx,
+) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_simd_lane(body, lane_count, expected) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_instrs_have_nonzero_memory_copy(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -2770,6 +2855,70 @@ test "SIMD-heavy profile emits SIMD memory coverage over nonzero memory indices"
   assert_true(
     gen_valid_test_has_simd_memory_over_nonzero_mem(generated.wasm_module),
     msg="SIMD-heavy profile should emit SIMD memory coverage over a nonzero memory index",
+  )
+}
+
+///|
+test "SIMD-heavy profile emits SIMD lane min middle and max coverage" {
+  let generated = match
+    gen_valid_module_result(
+      @splitmix.new(seed=0xf71012UL),
+      GenValidConfig::for_profile(SimdHeavyProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected SIMD-heavy generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  let mod_ = generated.wasm_module
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 16, LaneIdx::new(0)),
+    msg="SIMD lane coverage should include i8x16/v128 lane min 0",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 16, LaneIdx::new(8)),
+    msg="SIMD lane coverage should include i8x16/v128 lane middle 8",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 16, LaneIdx::new(15)),
+    msg="SIMD lane coverage should include i8x16/v128 lane max 15",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 8, LaneIdx::new(0)),
+    msg="SIMD lane coverage should include i16x8/v128 lane min 0",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 8, LaneIdx::new(4)),
+    msg="SIMD lane coverage should include i16x8/v128 lane middle 4",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 8, LaneIdx::new(7)),
+    msg="SIMD lane coverage should include i16x8/v128 lane max 7",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 4, LaneIdx::new(0)),
+    msg="SIMD lane coverage should include i32x4/f32x4/v128 lane min 0",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 4, LaneIdx::new(2)),
+    msg="SIMD lane coverage should include i32x4/f32x4/v128 lane middle 2",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 4, LaneIdx::new(3)),
+    msg="SIMD lane coverage should include i32x4/f32x4/v128 lane max 3",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 2, LaneIdx::new(0)),
+    msg="SIMD lane coverage should include i64x2/f64x2/v128 lane min 0",
+  )
+  assert_true(
+    gen_valid_test_has_simd_lane(mod_, 2, LaneIdx::new(1)),
+    msg="SIMD lane coverage should include i64x2/f64x2/v128 lane max 1",
   )
 }
 

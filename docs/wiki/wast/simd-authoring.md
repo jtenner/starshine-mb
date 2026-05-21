@@ -193,9 +193,8 @@ When changing SIMD WAST support:
 
 ## Current Gaps And Caveats
 
-- WAST arbitrary currently emits a representative `v128.const` in the widened prelude, not the full SIMD text surface. The valid generator has broader `[FZG]014` through `[FZG]016` deterministic SIMD coverage, but that generator matrix is not relaxed-SIMD coverage today.
+- WAST arbitrary currently emits a representative `v128.const` in the widened prelude, not the full SIMD text surface. The valid generator has broader `[FZG]014` through `[FZG]016` deterministic SIMD coverage and now carries relaxed-SIMD only through the explicit non-Binaryen-oracle `relaxed-simd` profile, not through the default portable profiles.
 - Relaxed-SIMD dot-product spellings are intentionally called out because Starshine's WAST keywords currently use `relaxed_dot` while the proposal/Binaryen spelling does not. Treat this as a fixture-porting caveat, not a semantic difference in the lowered instruction.
-- Current relaxed-SIMD evidence comes from WAST/core/binary/typechecker paths and Binaryen oracle fixtures, not from `gen_valid`: a whole-wiki health check on 2026-05-20 found no relaxed-SIMD op generation in [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt).
 - Starshine's core `V128Const` stores bytes, so exact original text shape is not preserved through WAST-to-core lowering.
 - WAST lowering checks lane-index shape rules before typechecking. Binary decode currently has only a coarse single-lane `<16` guard plus the shuffle-specific `<32` guard, so binary-origin hardening should add explicit per-instruction lane-bound tests instead of relying on WAST lowering tests; the focused validator/binary split lives in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md).
 - **Vector memory instructions inherit all memory-index, memory64, and alignment hazards from the ordinary memory-argument contract.** Use [`memory-argument-authoring.md`](memory-argument-authoring.md) for the shared `offset=` / `align=` / memory-index model rather than duplicating it in SIMD-only docs.
