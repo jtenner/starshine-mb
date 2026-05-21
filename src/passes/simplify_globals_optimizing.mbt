@@ -750,15 +750,22 @@ fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
     | @lib.F64x2Splat
     | @lib.I8x16Popcnt
     | @lib.I8x16Bitmask
+    | @lib.I8x16AllTrue
+    | @lib.I16x8Abs
     | @lib.I16x8Neg
     | @lib.I16x8AllTrue
+    | @lib.I16x8Bitmask
     | @lib.I32x4Neg
     | @lib.I32x4AllTrue
+    | @lib.I32x4Bitmask
     | @lib.I32x4ExtractLane(_)
     | @lib.I64x2Neg
     | @lib.I64x2AllTrue
     | @lib.I64x2Bitmask
     | @lib.F32x4Abs
+    | @lib.F32x4Neg
+    | @lib.F32x4Sqrt
+    | @lib.F64x2Abs
     | @lib.F64x2Neg => true
     _ => false
   }
