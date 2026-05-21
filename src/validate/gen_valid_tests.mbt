@@ -29,6 +29,10 @@ test "gen_valid named profiles expose stable labels and compatibility aliases" {
     "coverage-forced-all-features",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(TopologyHeavyProfile),
+    "topology-heavy",
+  )
+  @debug.assert_eq(
     GenValidConfig::for_profile(NaturalSmallProfile).mode,
     Natural,
   )
@@ -59,8 +63,107 @@ test "gen_valid named profiles expose stable labels and compatibility aliases" {
       assert_true(msg.contains("unknown gen-valid profile"))
       assert_true(msg.contains("natural-small"))
       assert_true(msg.contains("binaryen-oracle-portable"))
+      assert_true(msg.contains("topology-heavy"))
     }
   }
+}
+
+///|
+fn gen_valid_test_total_func_count(mod_ : Module) -> Int {
+  let import_funcs = match mod_.import_sec {
+    Some(ImportSec(imports)) => {
+      let mut count = 0
+      for import_ in imports {
+        let Import(_, _, extern_type) = import_
+        match extern_type {
+          FuncExternType(_) => count += 1
+          _ => ()
+        }
+      }
+      count
+    }
+    None => 0
+  }
+  let defined_funcs = match mod_.func_sec {
+    Some(FuncSec(funcs)) => funcs.length()
+    None => 0
+  }
+  import_funcs + defined_funcs
+}
+
+///|
+fn gen_valid_test_import_module_count(mod_ : Module) -> Int {
+  let modules : Array[Name] = []
+  match mod_.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        let Import(module_name, _, _) = import_
+        let mut seen = false
+        for existing in modules {
+          if existing == module_name {
+            seen = true
+          }
+        }
+        if !seen {
+          modules.push(module_name)
+        }
+      }
+    None => ()
+  }
+  modules.length()
+}
+
+///|
+fn gen_valid_test_has_repeated_export_idx(mod_ : Module) -> Bool {
+  match mod_.export_sec {
+    Some(ExportSec(exports)) => {
+      let seen : Array[ExternIdx] = []
+      for export_ in exports {
+        let Export(_, idx) = export_
+        for prior in seen {
+          if prior == idx {
+            return true
+          }
+        }
+        seen.push(idx)
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+test "topology-heavy profile emits high-index import export topology" {
+  let config = GenValidConfig::for_profile(TopologyHeavyProfile)
+  assert_true(config.max_defined_funcs >= 16)
+  assert_true(config.max_imports >= 12)
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71003UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected topology-heavy generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(
+    gen_valid_test_total_func_count(generated.wasm_module) >= 10,
+    msg="topology-heavy profile should exercise high function indices",
+  )
+  assert_true(
+    gen_valid_test_import_module_count(generated.wasm_module) >= 2,
+    msg="topology-heavy profile should use multiple import module names",
+  )
+  assert_true(
+    gen_valid_test_has_repeated_export_idx(generated.wasm_module),
+    msg="topology-heavy profile should export the same item under distinct names",
+  )
+  assert_true(generated.facts.has_import_export_topology)
+  assert_true(generated.facts.has_imports_start_exports)
 }
 
 ///|

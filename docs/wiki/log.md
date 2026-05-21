@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | topology-heavy GenValid profile slice
+
+- Started [`[FUZ]1003`](../../agent-todo.md) by adding a dedicated `topology-heavy` named GenValid profile with larger type/import/function/resource/segment budgets, forced topology sections, at least ten defined functions, multiple import module names, repeated valid exports of the same index under distinct names, and imported-function re-export coverage.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the profile taxonomy and validation anchors mention the new topology-heavy surface and its remaining no-main/no-export/resource-index/custom-section-placement follow-ups.
+
 ## [2026-05-21] fuzzing | typed GenValid local-set widening
 
 - Continued [`[FUZ]1002`](../../agent-todo.md) by running the typed stack-aware GenValid body-generator slice for `control-heavy` coverage-forced modules instead of leaving it natural-only.

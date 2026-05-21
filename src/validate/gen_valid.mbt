@@ -369,6 +369,7 @@ pub enum GenValidProfile {
   SimdHeavyProfile
   MemoryHeavyProfile
   ControlHeavyProfile
+  TopologyHeavyProfile
 } derive(Eq, Debug)
 
 ///|
@@ -390,6 +391,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SimdHeavyProfile => "simd-heavy"
     MemoryHeavyProfile => "memory-heavy"
     ControlHeavyProfile => "control-heavy"
+    TopologyHeavyProfile => "topology-heavy"
   }
 }
 
@@ -412,6 +414,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SimdHeavyProfile,
     MemoryHeavyProfile,
     ControlHeavyProfile,
+    TopologyHeavyProfile,
   ]
 }
 
@@ -601,6 +604,19 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           allow_typed_body_generator: true,
         },
       }
+    TopologyHeavyProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        max_type_defs: 24,
+        max_imports: 12,
+        max_defined_funcs: 18,
+        max_tables: 5,
+        max_mems: 4,
+        max_globals: 8,
+        max_tags: 4,
+        max_elems: 6,
+        max_datas: 6,
+      }
   }
 }
 
@@ -610,6 +626,11 @@ pub fn GenValidConfig::profile(name : String) -> Result[GenValidConfig, String] 
     Ok(profile) => Ok(GenValidConfig::for_profile(profile))
     Err(msg) => Err(msg)
   }
+}
+
+///|
+fn gen_valid_is_topology_heavy_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(TopologyHeavyProfile)
 }
 
 ///|
@@ -5338,6 +5359,9 @@ fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
   let bounded_max = gen_valid_clamp_non_negative(ctx.config.max_defined_funcs)
   if bounded_max <= 1 {
     1
+  } else if gen_valid_is_topology_heavy_config(ctx.config) {
+    let floor = gen_valid_min_int(10, bounded_max)
+    floor + ctx.random_int(bounded_max - floor + 1)
   } else if ctx.config.mode == CoverageForced {
     2 + ctx.random_int(bounded_max - 1)
   } else {
@@ -5544,6 +5568,19 @@ fn gen_valid_table_init_expr(
 ///|
 fn gen_valid_pick_type_idx(ctx : GenValidContext, type_count : Int) -> TypeIdx {
   TypeIdx::new(ctx.random_int(type_count).reinterpret_as_uint())
+}
+
+///|
+fn gen_valid_import_module_name(ctx : GenValidContext, index : Int) -> Name {
+  if gen_valid_is_topology_heavy_config(ctx.config) {
+    match index % 3 {
+      0 => Name::new("env")
+      1 => Name::new("fzg.topology.a")
+      _ => Name::new("fzg.topology.b")
+    }
+  } else {
+    Name::new("env")
+  }
 }
 
 ///|
@@ -5811,7 +5848,7 @@ fn gen_valid_module_once_with_config(
     let type_idx = gen_valid_pick_type_idx(ctx, func_type_count)
     imports.push(
       Import::new(
-        Name::new("env"),
+        gen_valid_import_module_name(ctx, i),
         Name::new("imported_func_\{i}"),
         ExternType::func(type_idx),
       ),
@@ -5823,7 +5860,7 @@ fn gen_valid_module_once_with_config(
     imported_tables.push(table_type)
     imports.push(
       Import::new(
-        Name::new("env"),
+        gen_valid_import_module_name(ctx, import_func_count + i),
         Name::new("imported_table_\{i}"),
         ExternType::table(table_type),
       ),
@@ -5835,7 +5872,10 @@ fn gen_valid_module_once_with_config(
     imported_mems.push(mem_type)
     imports.push(
       Import::new(
-        Name::new("env"),
+        gen_valid_import_module_name(
+          ctx,
+          import_func_count + import_table_count + i,
+        ),
         Name::new("imported_memory_\{i}"),
         ExternType::mem(mem_type),
       ),
@@ -5879,7 +5919,10 @@ fn gen_valid_module_once_with_config(
     imported_global_types.push(global_type)
     imports.push(
       Import::new(
-        Name::new("env"),
+        gen_valid_import_module_name(
+          ctx,
+          import_func_count + import_table_count + import_mem_count + i,
+        ),
         Name::new("imported_global_\{i}"),
         ExternType::global(global_type),
       ),
@@ -5888,7 +5931,14 @@ fn gen_valid_module_once_with_config(
   for i = 0; i < import_tag_count; i = i + 1 {
     imports.push(
       Import::new(
-        Name::new("env"),
+        gen_valid_import_module_name(
+          ctx,
+          import_func_count +
+          import_table_count +
+          import_mem_count +
+          import_global_count +
+          i,
+        ),
         Name::new("imported_tag_\{i}"),
         ExternType::tag(TagType::new(TypeIdx::new(0U))),
       ),
@@ -6326,6 +6376,22 @@ fn gen_valid_module_once_with_config(
   let exports : Array[Export] = [
     Export::new(Name::new("main"), ExternIdx::func(first_defined_func_idx)),
   ]
+  if gen_valid_is_topology_heavy_config(config) {
+    exports.push(
+      Export::new(
+        Name::new("main.alias"),
+        ExternIdx::func(first_defined_func_idx),
+      ),
+    )
+    if import_func_count > 0 {
+      exports.push(
+        Export::new(
+          Name::new("imported_func_0.reexport"),
+          ExternIdx::func(FuncIdx::new(0U)),
+        ),
+      )
+    }
+  }
   if total_table_count > 0 {
     exports.push(
       Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))),

@@ -519,6 +519,7 @@ pub enum GenValidProfile {
   SimdHeavyProfile
   MemoryHeavyProfile
   ControlHeavyProfile
+  TopologyHeavyProfile
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidSectionBias {

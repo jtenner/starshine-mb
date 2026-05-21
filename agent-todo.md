@@ -609,6 +609,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
 - [FUZ]1003 - GenValid Module Topology And High-Index Generation
+  - Status: IN PROGRESS (cron 23, 2026-05-21) - first topology-heavy profile slice landed locally: `topology-heavy` is a coverage-forced named profile with larger type/import/function/resource/segment budgets, forced topology sections, at least ten defined functions, multiple import module names, repeated valid exports of the same index under distinct names, and imported-function re-export coverage. Next resume should continue this same task by adding explicit no-`main` / no-export generation, stronger nonzero resource-index pressure, or custom-section placement variation where the binary model supports it.
   - Goal: widen valid module shape beyond small mostly-low-index modules.
   - Why: many validator and optimizer bugs appear only with high index spaces, many functions, repeated imports/exports, nonzero table/memory indices, or odd custom-section placement.
   - Deliverables: generate many-function modules, high type/function/table/memory/global/tag/data/elem indices, multiple import modules, imported re-exports, repeated valid exports of the same index under distinct names, modules without `main`, modules without exports, and custom sections before/between/after standard sections where the binary model supports it.
@@ -616,6 +617,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Invariants: keep the current small profiles small; put high-index and many-function shapes behind explicit profile/config knobs; avoid producing modules that Binaryen cannot parse in the binary-oracle profile unless that profile explicitly opts into tool-failure exploration.
   - Dependencies: [FUZ]1001 profile taxonomy recommended.
   - Suggested Tests: feature-fact tests for high index/topology rows, encode/decode/validate roundtrips, a small `--generator gen-valid` pass-fuzz smoke on a topology-heavy profile.
+  - Current evidence: focused TDD first failed on missing `TopologyHeavyProfile`; `moon test src/validate` then passed with `topology-heavy profile emits high-index import export topology`, proving fixed-seed validation, at least ten total function indices, multiple import module names, repeated export indices, and import/start/export facts. Broader validation in this run passed `moon info`, `moon fmt`, `moon test src/validate`, `moon test src/fuzz`, `moon test`, and `moon run src/fuzz -- validate-valid smoke --seed 0xf71003`. Docs updated in `docs/wiki/fuzzing/generator-coverage-ledger.md` and `docs/wiki/log.md`.
   - Exit Criteria: a dedicated profile can reliably emit validated modules with nonzero index spaces and richer import/export/custom-section topology.
 
 - [FUZ]1004 - GenValid Type, Subtyping, And GC Topology Widening
