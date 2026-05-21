@@ -1265,6 +1265,68 @@ pub struct GenValidExactOpcodeCounts {
   i8x16_add : Int
   i8x16_add_sat_s : Int
   i16x8_mul : Int
+  i64x2_ge_s : Int
+  i32x4_all_true : Int
+  i64x2_bitmask : Int
+  i8x16_sub_sat_u : Int
+  i8x16_min_s : Int
+  i8x16_max_u : Int
+  i8x16_avgr_u : Int
+  i16x8_add_sat_u : Int
+  i16x8_sub_sat_s : Int
+  i16x8_min_u : Int
+  i16x8_max_s : Int
+  i16x8_avgr_u : Int
+  i32x4_add : Int
+  i32x4_mul : Int
+  i32x4_min_s : Int
+  i32x4_max_u : Int
+  i64x2_add : Int
+  i64x2_mul : Int
+  f32x4_add : Int
+  f32x4_div : Int
+  f32x4_min : Int
+  f32x4_max : Int
+  f64x2_add : Int
+  f64x2_div : Int
+  f64x2_min : Int
+  f64x2_max : Int
+  f32x4_ceil : Int
+  f32x4_floor : Int
+  f32x4_trunc : Int
+  f32x4_nearest : Int
+  f64x2_ceil : Int
+  f64x2_floor : Int
+  f64x2_trunc : Int
+  f64x2_nearest : Int
+  v128_load8x8_s : Int
+  v128_load8x8_u : Int
+  v128_load16x4_s : Int
+  v128_load16x4_u : Int
+  v128_load32x2_s : Int
+  v128_load32x2_u : Int
+  v128_load8_splat : Int
+  v128_load16_splat : Int
+  v128_load32_splat : Int
+  v128_load64_splat : Int
+  v128_load8_lane : Int
+  v128_load16_lane : Int
+  v128_load32_lane : Int
+  v128_load64_lane : Int
+  v128_store8_lane : Int
+  v128_store16_lane : Int
+  v128_store32_lane : Int
+  v128_store64_lane : Int
+  v128_load32_zero : Int
+  v128_load64_zero : Int
+  i8x16_narrow_i16x8_u : Int
+  i16x8_narrow_i32x4_s : Int
+  i16x8_narrow_i32x4_u : Int
+  i16x8_extadd_pairwise_i8x16_s : Int
+  i16x8_extadd_pairwise_i8x16_u : Int
+  i32x4_extadd_pairwise_i16x8_s : Int
+  i32x4_extadd_pairwise_i16x8_u : Int
+  f64x2_promote_low_f32x4 : Int
   v128_load : Int
   v128_store : Int
   i8x16_shuffle : Int
@@ -1505,6 +1567,68 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i8x16_add: 0,
     i8x16_add_sat_s: 0,
     i16x8_mul: 0,
+    i64x2_ge_s: 0,
+    i32x4_all_true: 0,
+    i64x2_bitmask: 0,
+    i8x16_sub_sat_u: 0,
+    i8x16_min_s: 0,
+    i8x16_max_u: 0,
+    i8x16_avgr_u: 0,
+    i16x8_add_sat_u: 0,
+    i16x8_sub_sat_s: 0,
+    i16x8_min_u: 0,
+    i16x8_max_s: 0,
+    i16x8_avgr_u: 0,
+    i32x4_add: 0,
+    i32x4_mul: 0,
+    i32x4_min_s: 0,
+    i32x4_max_u: 0,
+    i64x2_add: 0,
+    i64x2_mul: 0,
+    f32x4_add: 0,
+    f32x4_div: 0,
+    f32x4_min: 0,
+    f32x4_max: 0,
+    f64x2_add: 0,
+    f64x2_div: 0,
+    f64x2_min: 0,
+    f64x2_max: 0,
+    f32x4_ceil: 0,
+    f32x4_floor: 0,
+    f32x4_trunc: 0,
+    f32x4_nearest: 0,
+    f64x2_ceil: 0,
+    f64x2_floor: 0,
+    f64x2_trunc: 0,
+    f64x2_nearest: 0,
+    v128_load8x8_s: 0,
+    v128_load8x8_u: 0,
+    v128_load16x4_s: 0,
+    v128_load16x4_u: 0,
+    v128_load32x2_s: 0,
+    v128_load32x2_u: 0,
+    v128_load8_splat: 0,
+    v128_load16_splat: 0,
+    v128_load32_splat: 0,
+    v128_load64_splat: 0,
+    v128_load8_lane: 0,
+    v128_load16_lane: 0,
+    v128_load32_lane: 0,
+    v128_load64_lane: 0,
+    v128_store8_lane: 0,
+    v128_store16_lane: 0,
+    v128_store32_lane: 0,
+    v128_store64_lane: 0,
+    v128_load32_zero: 0,
+    v128_load64_zero: 0,
+    i8x16_narrow_i16x8_u: 0,
+    i16x8_narrow_i32x4_s: 0,
+    i16x8_narrow_i32x4_u: 0,
+    i16x8_extadd_pairwise_i8x16_s: 0,
+    i16x8_extadd_pairwise_i8x16_u: 0,
+    i32x4_extadd_pairwise_i16x8_s: 0,
+    i32x4_extadd_pairwise_i16x8_u: 0,
+    f64x2_promote_low_f32x4: 0,
     v128_load: 0,
     v128_store: 0,
     i8x16_shuffle: 0,
@@ -1706,6 +1830,73 @@ pub fn GenValidExactOpcodeCounts::add(
     i8x16_add: self.i8x16_add + other.i8x16_add,
     i8x16_add_sat_s: self.i8x16_add_sat_s + other.i8x16_add_sat_s,
     i16x8_mul: self.i16x8_mul + other.i16x8_mul,
+    i64x2_ge_s: self.i64x2_ge_s + other.i64x2_ge_s,
+    i32x4_all_true: self.i32x4_all_true + other.i32x4_all_true,
+    i64x2_bitmask: self.i64x2_bitmask + other.i64x2_bitmask,
+    i8x16_sub_sat_u: self.i8x16_sub_sat_u + other.i8x16_sub_sat_u,
+    i8x16_min_s: self.i8x16_min_s + other.i8x16_min_s,
+    i8x16_max_u: self.i8x16_max_u + other.i8x16_max_u,
+    i8x16_avgr_u: self.i8x16_avgr_u + other.i8x16_avgr_u,
+    i16x8_add_sat_u: self.i16x8_add_sat_u + other.i16x8_add_sat_u,
+    i16x8_sub_sat_s: self.i16x8_sub_sat_s + other.i16x8_sub_sat_s,
+    i16x8_min_u: self.i16x8_min_u + other.i16x8_min_u,
+    i16x8_max_s: self.i16x8_max_s + other.i16x8_max_s,
+    i16x8_avgr_u: self.i16x8_avgr_u + other.i16x8_avgr_u,
+    i32x4_add: self.i32x4_add + other.i32x4_add,
+    i32x4_mul: self.i32x4_mul + other.i32x4_mul,
+    i32x4_min_s: self.i32x4_min_s + other.i32x4_min_s,
+    i32x4_max_u: self.i32x4_max_u + other.i32x4_max_u,
+    i64x2_add: self.i64x2_add + other.i64x2_add,
+    i64x2_mul: self.i64x2_mul + other.i64x2_mul,
+    f32x4_add: self.f32x4_add + other.f32x4_add,
+    f32x4_div: self.f32x4_div + other.f32x4_div,
+    f32x4_min: self.f32x4_min + other.f32x4_min,
+    f32x4_max: self.f32x4_max + other.f32x4_max,
+    f64x2_add: self.f64x2_add + other.f64x2_add,
+    f64x2_div: self.f64x2_div + other.f64x2_div,
+    f64x2_min: self.f64x2_min + other.f64x2_min,
+    f64x2_max: self.f64x2_max + other.f64x2_max,
+    f32x4_ceil: self.f32x4_ceil + other.f32x4_ceil,
+    f32x4_floor: self.f32x4_floor + other.f32x4_floor,
+    f32x4_trunc: self.f32x4_trunc + other.f32x4_trunc,
+    f32x4_nearest: self.f32x4_nearest + other.f32x4_nearest,
+    f64x2_ceil: self.f64x2_ceil + other.f64x2_ceil,
+    f64x2_floor: self.f64x2_floor + other.f64x2_floor,
+    f64x2_trunc: self.f64x2_trunc + other.f64x2_trunc,
+    f64x2_nearest: self.f64x2_nearest + other.f64x2_nearest,
+    v128_load8x8_s: self.v128_load8x8_s + other.v128_load8x8_s,
+    v128_load8x8_u: self.v128_load8x8_u + other.v128_load8x8_u,
+    v128_load16x4_s: self.v128_load16x4_s + other.v128_load16x4_s,
+    v128_load16x4_u: self.v128_load16x4_u + other.v128_load16x4_u,
+    v128_load32x2_s: self.v128_load32x2_s + other.v128_load32x2_s,
+    v128_load32x2_u: self.v128_load32x2_u + other.v128_load32x2_u,
+    v128_load8_splat: self.v128_load8_splat + other.v128_load8_splat,
+    v128_load16_splat: self.v128_load16_splat + other.v128_load16_splat,
+    v128_load32_splat: self.v128_load32_splat + other.v128_load32_splat,
+    v128_load64_splat: self.v128_load64_splat + other.v128_load64_splat,
+    v128_load8_lane: self.v128_load8_lane + other.v128_load8_lane,
+    v128_load16_lane: self.v128_load16_lane + other.v128_load16_lane,
+    v128_load32_lane: self.v128_load32_lane + other.v128_load32_lane,
+    v128_load64_lane: self.v128_load64_lane + other.v128_load64_lane,
+    v128_store8_lane: self.v128_store8_lane + other.v128_store8_lane,
+    v128_store16_lane: self.v128_store16_lane + other.v128_store16_lane,
+    v128_store32_lane: self.v128_store32_lane + other.v128_store32_lane,
+    v128_store64_lane: self.v128_store64_lane + other.v128_store64_lane,
+    v128_load32_zero: self.v128_load32_zero + other.v128_load32_zero,
+    v128_load64_zero: self.v128_load64_zero + other.v128_load64_zero,
+    i8x16_narrow_i16x8_u: self.i8x16_narrow_i16x8_u + other.i8x16_narrow_i16x8_u,
+    i16x8_narrow_i32x4_s: self.i16x8_narrow_i32x4_s + other.i16x8_narrow_i32x4_s,
+    i16x8_narrow_i32x4_u: self.i16x8_narrow_i32x4_u + other.i16x8_narrow_i32x4_u,
+    i16x8_extadd_pairwise_i8x16_s: self.i16x8_extadd_pairwise_i8x16_s +
+    other.i16x8_extadd_pairwise_i8x16_s,
+    i16x8_extadd_pairwise_i8x16_u: self.i16x8_extadd_pairwise_i8x16_u +
+    other.i16x8_extadd_pairwise_i8x16_u,
+    i32x4_extadd_pairwise_i16x8_s: self.i32x4_extadd_pairwise_i16x8_s +
+    other.i32x4_extadd_pairwise_i16x8_s,
+    i32x4_extadd_pairwise_i16x8_u: self.i32x4_extadd_pairwise_i16x8_u +
+    other.i32x4_extadd_pairwise_i16x8_u,
+    f64x2_promote_low_f32x4: self.f64x2_promote_low_f32x4 +
+    other.f64x2_promote_low_f32x4,
     v128_load: self.v128_load + other.v128_load,
     v128_store: self.v128_store + other.v128_store,
     i8x16_shuffle: self.i8x16_shuffle + other.i8x16_shuffle,
@@ -9003,6 +9194,94 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I8x16Add => GenValidExactOpcodeCounts::{ ..zero, i8x16_add: 1 }
     I8x16AddSatS => GenValidExactOpcodeCounts::{ ..zero, i8x16_add_sat_s: 1 }
     I16x8Mul => GenValidExactOpcodeCounts::{ ..zero, i16x8_mul: 1 }
+    I64x2GeS => GenValidExactOpcodeCounts::{ ..zero, i64x2_ge_s: 1 }
+    I32x4AllTrue => GenValidExactOpcodeCounts::{ ..zero, i32x4_all_true: 1 }
+    I64x2Bitmask => GenValidExactOpcodeCounts::{ ..zero, i64x2_bitmask: 1 }
+    I8x16SubSatU => GenValidExactOpcodeCounts::{ ..zero, i8x16_sub_sat_u: 1 }
+    I8x16MinS => GenValidExactOpcodeCounts::{ ..zero, i8x16_min_s: 1 }
+    I8x16MaxU => GenValidExactOpcodeCounts::{ ..zero, i8x16_max_u: 1 }
+    I8x16AvgrU => GenValidExactOpcodeCounts::{ ..zero, i8x16_avgr_u: 1 }
+    I16x8AddSatU => GenValidExactOpcodeCounts::{ ..zero, i16x8_add_sat_u: 1 }
+    I16x8SubSatS => GenValidExactOpcodeCounts::{ ..zero, i16x8_sub_sat_s: 1 }
+    I16x8MinU => GenValidExactOpcodeCounts::{ ..zero, i16x8_min_u: 1 }
+    I16x8MaxS => GenValidExactOpcodeCounts::{ ..zero, i16x8_max_s: 1 }
+    I16x8AvgrU => GenValidExactOpcodeCounts::{ ..zero, i16x8_avgr_u: 1 }
+    I32x4Add => GenValidExactOpcodeCounts::{ ..zero, i32x4_add: 1 }
+    I32x4Mul => GenValidExactOpcodeCounts::{ ..zero, i32x4_mul: 1 }
+    I32x4MinS => GenValidExactOpcodeCounts::{ ..zero, i32x4_min_s: 1 }
+    I32x4MaxU => GenValidExactOpcodeCounts::{ ..zero, i32x4_max_u: 1 }
+    I64x2Add => GenValidExactOpcodeCounts::{ ..zero, i64x2_add: 1 }
+    I64x2Mul => GenValidExactOpcodeCounts::{ ..zero, i64x2_mul: 1 }
+    F32x4Add => GenValidExactOpcodeCounts::{ ..zero, f32x4_add: 1 }
+    F32x4Div => GenValidExactOpcodeCounts::{ ..zero, f32x4_div: 1 }
+    F32x4Min => GenValidExactOpcodeCounts::{ ..zero, f32x4_min: 1 }
+    F32x4Max => GenValidExactOpcodeCounts::{ ..zero, f32x4_max: 1 }
+    F64x2Add => GenValidExactOpcodeCounts::{ ..zero, f64x2_add: 1 }
+    F64x2Div => GenValidExactOpcodeCounts::{ ..zero, f64x2_div: 1 }
+    F64x2Min => GenValidExactOpcodeCounts::{ ..zero, f64x2_min: 1 }
+    F64x2Max => GenValidExactOpcodeCounts::{ ..zero, f64x2_max: 1 }
+    F32x4Ceil => GenValidExactOpcodeCounts::{ ..zero, f32x4_ceil: 1 }
+    F32x4Floor => GenValidExactOpcodeCounts::{ ..zero, f32x4_floor: 1 }
+    F32x4Trunc => GenValidExactOpcodeCounts::{ ..zero, f32x4_trunc: 1 }
+    F32x4Nearest => GenValidExactOpcodeCounts::{ ..zero, f32x4_nearest: 1 }
+    F64x2Ceil => GenValidExactOpcodeCounts::{ ..zero, f64x2_ceil: 1 }
+    F64x2Floor => GenValidExactOpcodeCounts::{ ..zero, f64x2_floor: 1 }
+    F64x2Trunc => GenValidExactOpcodeCounts::{ ..zero, f64x2_trunc: 1 }
+    F64x2Nearest => GenValidExactOpcodeCounts::{ ..zero, f64x2_nearest: 1 }
+    V128Load8x8S(_) => GenValidExactOpcodeCounts::{ ..zero, v128_load8x8_s: 1 }
+    V128Load8x8U(_) => GenValidExactOpcodeCounts::{ ..zero, v128_load8x8_u: 1 }
+    V128Load16x4S(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load16x4_s: 1 }
+    V128Load16x4U(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load16x4_u: 1 }
+    V128Load32x2S(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load32x2_s: 1 }
+    V128Load32x2U(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load32x2_u: 1 }
+    V128Load8Splat(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load8_splat: 1 }
+    V128Load16Splat(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load16_splat: 1 }
+    V128Load32Splat(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load32_splat: 1 }
+    V128Load64Splat(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load64_splat: 1 }
+    V128Load8Lane(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load8_lane: 1 }
+    V128Load16Lane(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load16_lane: 1 }
+    V128Load32Lane(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load32_lane: 1 }
+    V128Load64Lane(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load64_lane: 1 }
+    V128Store8Lane(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_store8_lane: 1 }
+    V128Store16Lane(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_store16_lane: 1 }
+    V128Store32Lane(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_store32_lane: 1 }
+    V128Store64Lane(_, _) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_store64_lane: 1 }
+    V128Load32Zero(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load32_zero: 1 }
+    V128Load64Zero(_) =>
+      GenValidExactOpcodeCounts::{ ..zero, v128_load64_zero: 1 }
+    I8x16NarrowI16x8U =>
+      GenValidExactOpcodeCounts::{ ..zero, i8x16_narrow_i16x8_u: 1 }
+    I16x8NarrowI32x4S =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_narrow_i32x4_s: 1 }
+    I16x8NarrowI32x4U =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_narrow_i32x4_u: 1 }
+    I16x8ExtaddPairwiseI8x16S =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_extadd_pairwise_i8x16_s: 1 }
+    I16x8ExtaddPairwiseI8x16U =>
+      GenValidExactOpcodeCounts::{ ..zero, i16x8_extadd_pairwise_i8x16_u: 1 }
+    I32x4ExtaddPairwiseI16x8S =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_extadd_pairwise_i16x8_s: 1 }
+    I32x4ExtaddPairwiseI16x8U =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_extadd_pairwise_i16x8_u: 1 }
+    F64x2PromoteLowF32x4 =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_promote_low_f32x4: 1 }
     V128Load(_) => GenValidExactOpcodeCounts::{ ..zero, v128_load: 1 }
     V128Store(_) => GenValidExactOpcodeCounts::{ ..zero, v128_store: 1 }
     I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>

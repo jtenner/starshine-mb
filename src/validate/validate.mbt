@@ -8582,6 +8582,53 @@ test "gen_valid_feature_facts records exact scalar and control opcode counts" {
 }
 
 ///|
+test "gen_valid_feature_facts records exact simd phase2 and phase3 opcode counts" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let memarg = MemArg::new(0U, None, 0UL)
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::i64x2_ge_s(),
+            Instruction::i32x4_all_true(),
+            Instruction::i8x16_sub_sat_u(),
+            Instruction::i32x4_min_s(),
+            Instruction::f64x2_nearest(),
+            Instruction::v128_load8x8s(memarg),
+            Instruction::v128_load64_zero(memarg),
+            Instruction::i16x8_extadd_pairwise_i8x16s(),
+            Instruction::f64x2_promote_low_f32x4(),
+          ]),
+        ),
+      ]),
+    )
+  let facts = gen_valid_feature_facts(mod, CoverageForced)
+  assert_true(facts.has_simd_phase2)
+  assert_true(facts.has_simd_phase3)
+  let exact = facts.exact_opcode_counts
+  @debug.assert_eq(exact.i64x2_ge_s, 1)
+  @debug.assert_eq(exact.i32x4_all_true, 1)
+  @debug.assert_eq(exact.i8x16_sub_sat_u, 1)
+  @debug.assert_eq(exact.i32x4_min_s, 1)
+  @debug.assert_eq(exact.f64x2_nearest, 1)
+  @debug.assert_eq(exact.v128_load8x8_s, 1)
+  @debug.assert_eq(exact.v128_load64_zero, 1)
+  @debug.assert_eq(exact.i16x8_extadd_pairwise_i8x16_s, 1)
+  @debug.assert_eq(exact.f64x2_promote_low_f32x4, 1)
+  let stats = GenValidFeatureStats::empty(CoverageForced)
+    .record(facts)
+    .record(facts)
+  @debug.assert_eq(stats.exact_opcode_counts.i64x2_ge_s, 2)
+  @debug.assert_eq(stats.exact_opcode_counts.v128_load8x8_s, 2)
+  @debug.assert_eq(stats.exact_opcode_counts.f64x2_promote_low_f32x4, 2)
+}
+
+///|
 test "gen_valid coverage-forced records cross-feature ledger rows" {
   let generated = gen_valid_module_result(
     @splitmix.new(seed=0x5eedUL),

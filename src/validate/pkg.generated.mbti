@@ -490,6 +490,68 @@ pub struct GenValidExactOpcodeCounts {
   i8x16_add : Int
   i8x16_add_sat_s : Int
   i16x8_mul : Int
+  i64x2_ge_s : Int
+  i32x4_all_true : Int
+  i64x2_bitmask : Int
+  i8x16_sub_sat_u : Int
+  i8x16_min_s : Int
+  i8x16_max_u : Int
+  i8x16_avgr_u : Int
+  i16x8_add_sat_u : Int
+  i16x8_sub_sat_s : Int
+  i16x8_min_u : Int
+  i16x8_max_s : Int
+  i16x8_avgr_u : Int
+  i32x4_add : Int
+  i32x4_mul : Int
+  i32x4_min_s : Int
+  i32x4_max_u : Int
+  i64x2_add : Int
+  i64x2_mul : Int
+  f32x4_add : Int
+  f32x4_div : Int
+  f32x4_min : Int
+  f32x4_max : Int
+  f64x2_add : Int
+  f64x2_div : Int
+  f64x2_min : Int
+  f64x2_max : Int
+  f32x4_ceil : Int
+  f32x4_floor : Int
+  f32x4_trunc : Int
+  f32x4_nearest : Int
+  f64x2_ceil : Int
+  f64x2_floor : Int
+  f64x2_trunc : Int
+  f64x2_nearest : Int
+  v128_load8x8_s : Int
+  v128_load8x8_u : Int
+  v128_load16x4_s : Int
+  v128_load16x4_u : Int
+  v128_load32x2_s : Int
+  v128_load32x2_u : Int
+  v128_load8_splat : Int
+  v128_load16_splat : Int
+  v128_load32_splat : Int
+  v128_load64_splat : Int
+  v128_load8_lane : Int
+  v128_load16_lane : Int
+  v128_load32_lane : Int
+  v128_load64_lane : Int
+  v128_store8_lane : Int
+  v128_store16_lane : Int
+  v128_store32_lane : Int
+  v128_store64_lane : Int
+  v128_load32_zero : Int
+  v128_load64_zero : Int
+  i8x16_narrow_i16x8_u : Int
+  i16x8_narrow_i32x4_s : Int
+  i16x8_narrow_i32x4_u : Int
+  i16x8_extadd_pairwise_i8x16_s : Int
+  i16x8_extadd_pairwise_i8x16_u : Int
+  i32x4_extadd_pairwise_i16x8_s : Int
+  i32x4_extadd_pairwise_i16x8_u : Int
+  f64x2_promote_low_f32x4 : Int
   v128_load : Int
   v128_store : Int
   i8x16_shuffle : Int
