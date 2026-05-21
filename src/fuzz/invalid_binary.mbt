@@ -218,7 +218,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSelectTypeCountUleb
   InvalidTypedSelectValTypeByte
   MalformedStartFuncIndexUleb
+  OverwideStartFuncIndexUleb
   MalformedDataCountUleb
+  OverwideDataCountUleb
   SimdShuffleLaneOverflow
   SimdLoadLaneIndexOverflow
   SimdStoreLaneIndexOverflow
@@ -828,7 +830,9 @@ fn validate_invalid_binary_strategy_label(
     MalformedSelectTypeCountUleb => "malformed-select-type-count-uleb"
     InvalidTypedSelectValTypeByte => "invalid-typed-select-valtype-byte"
     MalformedStartFuncIndexUleb => "malformed-start-func-index-uleb"
+    OverwideStartFuncIndexUleb => "overwide-start-func-index-uleb"
     MalformedDataCountUleb => "malformed-datacount-uleb"
+    OverwideDataCountUleb => "overwide-datacount-uleb"
     SimdShuffleLaneOverflow => "simd-shuffle-lane-overflow"
     SimdLoadLaneIndexOverflow => "simd-load-lane-index-overflow"
     SimdStoreLaneIndexOverflow => "simd-store-lane-index-overflow"
@@ -2280,9 +2284,23 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideStartFuncIndexUleb,
+      "overwide-start-func-index-uleb",
+      "start section with an overwide function-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedDataCountUleb,
       "malformed-datacount-uleb",
       "data count section with a malformed count ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideDataCountUleb,
+      "overwide-datacount-uleb",
+      "data count section with an overwide count ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5498,6 +5516,62 @@ fn validate_invalid_binary_mutate_malformed_datacount_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_minimal_singleton_section_with_overwide_u32(
+  section_id : Byte,
+) -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    section_id,
+    (0x06).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_start_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideStartFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_singleton_section_with_overwide_u32(
+        (0x08).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_datacount_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideDataCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_singleton_section_with_overwide_u32(
+        (0x0c).to_byte(),
+      ),
     ),
   )
 }
@@ -11332,8 +11406,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_typed_select_valtype_byte(base)
     MalformedStartFuncIndexUleb =>
       validate_invalid_binary_mutate_malformed_start_func_index_uleb(base)
+    OverwideStartFuncIndexUleb =>
+      validate_invalid_binary_mutate_overwide_start_func_index_uleb(base)
     MalformedDataCountUleb =>
       validate_invalid_binary_mutate_malformed_datacount_uleb(base)
+    OverwideDataCountUleb =>
+      validate_invalid_binary_mutate_overwide_datacount_uleb(base)
     SimdShuffleLaneOverflow =>
       validate_invalid_binary_mutate_simd_shuffle_lane_overflow(base)
     SimdLoadLaneIndexOverflow =>

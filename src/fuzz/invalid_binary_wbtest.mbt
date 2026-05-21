@@ -114,48 +114,49 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-memory-grow-memory-index-uleb", "malformed-memory-copy-dst-index-uleb",
     "malformed-memory-copy-src-index-uleb", "malformed-table-copy-dst-index-uleb",
     "malformed-table-copy-src-index-uleb", "malformed-select-type-count-uleb", "invalid-typed-select-valtype-byte",
-    "malformed-start-func-index-uleb", "malformed-datacount-uleb", "simd-shuffle-lane-overflow",
-    "simd-load-lane-index-overflow", "simd-store-lane-index-overflow", "simd-extract-lane-index-overflow",
-    "simd-replace-lane-index-overflow", "malformed-data-index-uleb", "malformed-data-segment-byte-count-uleb",
-    "malformed-memory-init-data-index-uleb", "malformed-memory-init-memory-index-uleb",
-    "malformed-elem-index-uleb", "malformed-table-init-elem-index-uleb", "malformed-table-init-table-index-uleb",
-    "malformed-data-segment-memory-index-uleb", "malformed-element-segment-table-index-uleb",
-    "malformed-element-segment-func-index-uleb", "invalid-name-section-func-name-utf8",
-    "malformed-name-section-func-name-length-uleb", "overwide-name-section-func-name-length-uleb",
-    "invalid-name-section-local-name-utf8", "malformed-name-section-local-name-length-uleb",
-    "overwide-name-section-local-name-length-uleb", "invalid-name-section-module-name-utf8",
-    "malformed-name-section-module-name-length-uleb", "overwide-name-section-module-name-length-uleb",
-    "invalid-name-section-type-name-utf8", "malformed-name-section-type-name-length-uleb",
-    "overwide-name-section-type-name-length-uleb", "invalid-name-section-table-name-utf8",
-    "malformed-name-section-table-name-length-uleb", "overwide-name-section-table-name-length-uleb",
-    "invalid-name-section-memory-name-utf8", "malformed-name-section-memory-name-length-uleb",
-    "overwide-name-section-memory-name-length-uleb", "invalid-name-section-global-name-utf8",
-    "malformed-name-section-global-name-length-uleb", "overwide-name-section-global-name-length-uleb",
-    "invalid-name-section-elem-name-utf8", "malformed-name-section-elem-name-length-uleb",
-    "overwide-name-section-elem-name-length-uleb", "invalid-name-section-data-name-utf8",
-    "malformed-name-section-data-name-length-uleb", "overwide-name-section-data-name-length-uleb",
-    "invalid-name-section-field-name-utf8", "malformed-name-section-field-name-length-uleb",
-    "overwide-name-section-field-name-length-uleb", "invalid-name-section-label-name-utf8",
-    "malformed-name-section-label-name-length-uleb", "overwide-name-section-label-name-length-uleb",
-    "invalid-name-section-tag-name-utf8", "malformed-name-section-tag-name-length-uleb",
-    "overwide-name-section-tag-name-length-uleb", "invalid-functype-byte", "malformed-functype-param-count-uleb",
-    "malformed-functype-result-count-uleb", "overwide-functype-param-count-uleb",
-    "overwide-functype-result-count-uleb", "invalid-functype-param-valtype-byte",
-    "invalid-functype-result-valtype-byte", "invalid-code-local-valtype-byte", "malformed-code-local-decl-count-uleb",
-    "malformed-code-local-run-count-uleb", "overwide-code-local-decl-count-uleb",
-    "overwide-code-local-run-count-uleb", "type-section-count-underflow", "code-section-count-underflow",
-    "import-section-count-underflow", "export-section-count-underflow", "table-section-count-underflow",
-    "memory-section-count-underflow", "global-section-count-underflow", "function-section-count-underflow",
-    "element-section-count-underflow", "data-section-count-underflow", "tag-section-count-underflow",
-    "type-section-size-underflow", "code-body-size-underflow", "malformed-code-body-size-uleb",
-    "import-section-size-underflow", "export-section-size-underflow", "table-section-size-underflow",
-    "memory-section-size-underflow", "global-section-size-underflow", "function-section-size-underflow",
-    "element-section-size-underflow", "data-section-size-underflow", "tag-section-size-underflow",
-    "type-section-size-overflow", "code-section-size-overflow", "import-section-size-overflow",
-    "export-section-size-overflow", "table-section-size-overflow", "memory-section-size-overflow",
-    "global-section-size-overflow", "function-section-size-overflow", "element-section-size-overflow",
-    "data-section-size-overflow", "tag-section-size-overflow", "start-section-size-underflow",
-    "datacount-section-size-underflow", "start-section-size-overflow", "datacount-section-size-overflow",
+    "malformed-start-func-index-uleb", "overwide-start-func-index-uleb", "malformed-datacount-uleb",
+    "overwide-datacount-uleb", "simd-shuffle-lane-overflow", "simd-load-lane-index-overflow",
+    "simd-store-lane-index-overflow", "simd-extract-lane-index-overflow", "simd-replace-lane-index-overflow",
+    "malformed-data-index-uleb", "malformed-data-segment-byte-count-uleb", "malformed-memory-init-data-index-uleb",
+    "malformed-memory-init-memory-index-uleb", "malformed-elem-index-uleb", "malformed-table-init-elem-index-uleb",
+    "malformed-table-init-table-index-uleb", "malformed-data-segment-memory-index-uleb",
+    "malformed-element-segment-table-index-uleb", "malformed-element-segment-func-index-uleb",
+    "invalid-name-section-func-name-utf8", "malformed-name-section-func-name-length-uleb",
+    "overwide-name-section-func-name-length-uleb", "invalid-name-section-local-name-utf8",
+    "malformed-name-section-local-name-length-uleb", "overwide-name-section-local-name-length-uleb",
+    "invalid-name-section-module-name-utf8", "malformed-name-section-module-name-length-uleb",
+    "overwide-name-section-module-name-length-uleb", "invalid-name-section-type-name-utf8",
+    "malformed-name-section-type-name-length-uleb", "overwide-name-section-type-name-length-uleb",
+    "invalid-name-section-table-name-utf8", "malformed-name-section-table-name-length-uleb",
+    "overwide-name-section-table-name-length-uleb", "invalid-name-section-memory-name-utf8",
+    "malformed-name-section-memory-name-length-uleb", "overwide-name-section-memory-name-length-uleb",
+    "invalid-name-section-global-name-utf8", "malformed-name-section-global-name-length-uleb",
+    "overwide-name-section-global-name-length-uleb", "invalid-name-section-elem-name-utf8",
+    "malformed-name-section-elem-name-length-uleb", "overwide-name-section-elem-name-length-uleb",
+    "invalid-name-section-data-name-utf8", "malformed-name-section-data-name-length-uleb",
+    "overwide-name-section-data-name-length-uleb", "invalid-name-section-field-name-utf8",
+    "malformed-name-section-field-name-length-uleb", "overwide-name-section-field-name-length-uleb",
+    "invalid-name-section-label-name-utf8", "malformed-name-section-label-name-length-uleb",
+    "overwide-name-section-label-name-length-uleb", "invalid-name-section-tag-name-utf8",
+    "malformed-name-section-tag-name-length-uleb", "overwide-name-section-tag-name-length-uleb",
+    "invalid-functype-byte", "malformed-functype-param-count-uleb", "malformed-functype-result-count-uleb",
+    "overwide-functype-param-count-uleb", "overwide-functype-result-count-uleb",
+    "invalid-functype-param-valtype-byte", "invalid-functype-result-valtype-byte",
+    "invalid-code-local-valtype-byte", "malformed-code-local-decl-count-uleb", "malformed-code-local-run-count-uleb",
+    "overwide-code-local-decl-count-uleb", "overwide-code-local-run-count-uleb",
+    "type-section-count-underflow", "code-section-count-underflow", "import-section-count-underflow",
+    "export-section-count-underflow", "table-section-count-underflow", "memory-section-count-underflow",
+    "global-section-count-underflow", "function-section-count-underflow", "element-section-count-underflow",
+    "data-section-count-underflow", "tag-section-count-underflow", "type-section-size-underflow",
+    "code-body-size-underflow", "malformed-code-body-size-uleb", "import-section-size-underflow",
+    "export-section-size-underflow", "table-section-size-underflow", "memory-section-size-underflow",
+    "global-section-size-underflow", "function-section-size-underflow", "element-section-size-underflow",
+    "data-section-size-underflow", "tag-section-size-underflow", "type-section-size-overflow",
+    "code-section-size-overflow", "import-section-size-overflow", "export-section-size-overflow",
+    "table-section-size-overflow", "memory-section-size-overflow", "global-section-size-overflow",
+    "function-section-size-overflow", "element-section-size-overflow", "data-section-size-overflow",
+    "tag-section-size-overflow", "start-section-size-underflow", "datacount-section-size-underflow",
+    "start-section-size-overflow", "datacount-section-size-overflow",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -200,7 +201,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1125,6 +1126,16 @@ test "invalid binary FZG028 decodes overwide call instruction index ULEBs as inv
       "overwide-call-ref-type-index-uleb", "overwide-return-call-ref-type-index-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f13UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
+test "invalid binary FZG029 decodes overwide singleton section payload ULEBs as invalid" {
+  for strategy in ["overwide-start-func-index-uleb", "overwide-datacount-uleb"] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f14UL, "decode") {
       Ok(_) => ()
       Err(msg) => fail("\{strategy}: \{msg}")
     }
