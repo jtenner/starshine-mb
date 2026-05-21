@@ -217,6 +217,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSectionTagNameUtf8
   InvalidFuncTypeByte
   InvalidCodeLocalValTypeByte
+  MalformedCodeLocalDeclCountUleb
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
   ImportSectionCountUnderflow
@@ -755,6 +756,7 @@ fn validate_invalid_binary_strategy_label(
     InvalidNameSectionTagNameUtf8 => "invalid-name-section-tag-name-utf8"
     InvalidFuncTypeByte => "invalid-functype-byte"
     InvalidCodeLocalValTypeByte => "invalid-code-local-valtype-byte"
+    MalformedCodeLocalDeclCountUleb => "malformed-code-local-decl-count-uleb"
     TypeSectionCountUnderflow => "type-section-count-underflow"
     CodeSectionCountUnderflow => "code-section-count-underflow"
     ImportSectionCountUnderflow => "import-section-count-underflow"
@@ -2103,6 +2105,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidCodeLocalValTypeByte,
       "invalid-code-local-valtype-byte",
       "code section local declaration with an invalid value-type byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedCodeLocalDeclCountUleb,
+      "malformed-code-local-decl-count-uleb",
+      "code body with a malformed local declaration count ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5325,6 +5334,53 @@ fn validate_invalid_binary_mutate_invalid_code_local_valtype_byte(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_code_local_valtype_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_code_local_decl_count_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x07).to_byte(),
+    (0x01).to_byte(),
+    (0x05).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_code_local_decl_count_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedCodeLocalDeclCountUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_code_local_decl_count_uleb(),
     ),
   )
 }
@@ -8824,6 +8880,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_functype_byte(base)
     InvalidCodeLocalValTypeByte =>
       validate_invalid_binary_mutate_invalid_code_local_valtype_byte(base)
+    MalformedCodeLocalDeclCountUleb =>
+      validate_invalid_binary_mutate_malformed_code_local_decl_count_uleb(base)
     TypeSectionCountUnderflow =>
       validate_invalid_binary_mutate_type_section_count_underflow(base)
     CodeSectionCountUnderflow =>
