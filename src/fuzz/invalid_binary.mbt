@@ -353,6 +353,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedCodeLocalRunCountUleb
   OverwideCodeLocalDeclCountUleb
   OverwideCodeLocalRunCountUleb
+  MalformedTypeSectionCountUleb
+  MalformedCodeSectionCountUleb
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
   ImportSectionCountUnderflow
@@ -1080,6 +1082,8 @@ fn validate_invalid_binary_strategy_label(
     MalformedCodeLocalRunCountUleb => "malformed-code-local-run-count-uleb"
     OverwideCodeLocalDeclCountUleb => "overwide-code-local-decl-count-uleb"
     OverwideCodeLocalRunCountUleb => "overwide-code-local-run-count-uleb"
+    MalformedTypeSectionCountUleb => "malformed-type-section-count-uleb"
+    MalformedCodeSectionCountUleb => "malformed-code-section-count-uleb"
     TypeSectionCountUnderflow => "type-section-count-underflow"
     CodeSectionCountUnderflow => "code-section-count-underflow"
     ImportSectionCountUnderflow => "import-section-count-underflow"
@@ -3381,6 +3385,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideCodeLocalRunCountUleb,
       "overwide-code-local-run-count-uleb",
       "code body with an overwide local run-count ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedTypeSectionCountUleb,
+      "malformed-type-section-count-uleb",
+      "type section whose vector-count ULEB is malformed",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedCodeSectionCountUleb,
+      "malformed-code-section-count-uleb",
+      "code section whose vector-count ULEB is malformed",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -9522,6 +9540,48 @@ fn validate_invalid_binary_mutate_overwide_code_local_run_count_uleb(
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_type_section_count_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x05).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_code_section_count_uleb() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x05).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
 fn validate_invalid_binary_module_with_type_section_count_underflow() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -14108,6 +14168,16 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_code_local_decl_count_uleb(base)
     OverwideCodeLocalRunCountUleb =>
       validate_invalid_binary_mutate_overwide_code_local_run_count_uleb(base)
+    MalformedTypeSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedTypeSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_type_section_count_uleb(),
+      )
+    MalformedCodeSectionCountUleb =>
+      validate_invalid_binary_mutate_decode_rejected_bytes(
+        MalformedCodeSectionCountUleb,
+        validate_invalid_binary_module_with_malformed_code_section_count_uleb(),
+      )
     TypeSectionCountUnderflow =>
       validate_invalid_binary_mutate_type_section_count_underflow(base)
     CodeSectionCountUnderflow =>

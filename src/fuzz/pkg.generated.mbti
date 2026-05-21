@@ -631,6 +631,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedCodeLocalRunCountUleb
   OverwideCodeLocalDeclCountUleb
   OverwideCodeLocalRunCountUleb
+  MalformedTypeSectionCountUleb
+  MalformedCodeSectionCountUleb
   TypeSectionCountUnderflow
   CodeSectionCountUnderflow
   ImportSectionCountUnderflow

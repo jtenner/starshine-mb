@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | malformed section vector-count ULEBs
+
+- Added `malformed-type-section-count-uleb` and `malformed-code-section-count-uleb` for [`[FUZ]1021`](../../agent-todo.md) as decode-rejected, non-smoke binary-invalid strategies that keep section payload-size frames well formed while corrupting the type/code section vector-count ULEB payloads with unterminated encodings.
+- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so section vector-count coverage distinguishes malformed count LEBs from count underflow/overflow payload-shape cases.
+
 ## [2026-05-21] fuzzing | overwide section and prefixed subopcode ULEBs
 
 - Added decode-rejected, non-smoke `overwide-section-size-uleb` coverage for section payload-size fields under [`[FUZ]1021`](../../agent-todo.md), complementing the existing malformed section-size ULEB strategy.
