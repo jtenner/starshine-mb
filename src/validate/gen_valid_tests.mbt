@@ -242,6 +242,93 @@ fn gen_valid_test_idx_is_nonzero_table(table_idx : TableIdx) -> Bool {
 }
 
 ///|
+fn gen_valid_test_memarg_has_nonzero_mem(ma : MemArg) -> Bool {
+  let MemArg(_, mem_idx, _) = ma
+  match mem_idx {
+    Some(idx) => gen_valid_test_idx_is_nonzero_mem(idx)
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_instr_is_scalar_memory_over_nonzero_mem(
+  instr : Instruction,
+) -> Bool {
+  match instr {
+    I32Load(ma)
+    | I64Load(ma)
+    | F32Load(ma)
+    | F64Load(ma)
+    | I32Load8S(ma)
+    | I32Load8U(ma)
+    | I32Load16S(ma)
+    | I32Load16U(ma)
+    | I64Load8S(ma)
+    | I64Load8U(ma)
+    | I64Load16S(ma)
+    | I64Load16U(ma)
+    | I64Load32S(ma)
+    | I64Load32U(ma)
+    | I32Store(ma)
+    | I64Store(ma)
+    | F32Store(ma)
+    | F64Store(ma)
+    | I32Store8(ma)
+    | I32Store16(ma)
+    | I64Store8(ma)
+    | I64Store16(ma)
+    | I64Store32(ma) => gen_valid_test_memarg_has_nonzero_mem(ma)
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_test_instrs_have_scalar_memory_over_nonzero_mem(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    if gen_valid_test_instr_is_scalar_memory_over_nonzero_mem(instr) {
+      return true
+    }
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_scalar_memory_over_nonzero_mem(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_scalar_memory_over_nonzero_mem(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_scalar_memory_over_nonzero_mem(
+              body,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_scalar_memory_over_nonzero_mem(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_have_scalar_memory_over_nonzero_mem(body) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_instrs_have_nonzero_memory_copy(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -317,6 +404,45 @@ fn gen_valid_test_instrs_have_nonzero_table_copy_or_fill(
 }
 
 ///|
+fn gen_valid_test_collect_nonzero_table_access(
+  instrs : Array[Instruction],
+  saw_get : Ref[Bool],
+  saw_set : Ref[Bool],
+  saw_grow : Ref[Bool],
+  saw_size : Ref[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      TableGet(table_idx) if gen_valid_test_idx_is_nonzero_table(table_idx) =>
+        saw_get.val = true
+      TableSet(table_idx) if gen_valid_test_idx_is_nonzero_table(table_idx) =>
+        saw_set.val = true
+      TableGrow(table_idx) if gen_valid_test_idx_is_nonzero_table(table_idx) =>
+        saw_grow.val = true
+      TableSize(table_idx) if gen_valid_test_idx_is_nonzero_table(table_idx) =>
+        saw_size.val = true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        gen_valid_test_collect_nonzero_table_access(
+          body, saw_get, saw_set, saw_grow, saw_size,
+        )
+      If(_, then_body, else_body) => {
+        gen_valid_test_collect_nonzero_table_access(
+          then_body, saw_get, saw_set, saw_grow, saw_size,
+        )
+        match else_body {
+          Some(body) =>
+            gen_valid_test_collect_nonzero_table_access(
+              body, saw_get, saw_set, saw_grow, saw_size,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn gen_valid_test_has_nonzero_table_copy_or_fill(mod_ : Module) -> Bool {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
@@ -330,6 +456,25 @@ fn gen_valid_test_has_nonzero_table_copy_or_fill(mod_ : Module) -> Bool {
     }
     None => false
   }
+}
+
+///|
+fn gen_valid_test_has_all_nonzero_table_accesses(mod_ : Module) -> Bool {
+  let saw_get = Ref::new(false)
+  let saw_set = Ref::new(false)
+  let saw_grow = Ref::new(false)
+  let saw_size = Ref::new(false)
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        gen_valid_test_collect_nonzero_table_access(
+          body, saw_get, saw_set, saw_grow, saw_size,
+        )
+      }
+    None => ()
+  }
+  saw_get.val && saw_set.val && saw_grow.val && saw_size.val
 }
 
 ///|
@@ -352,6 +497,10 @@ test "memory-heavy profile emits nonzero memory bulk and segment operators" {
     gen_valid_test_has_nonzero_memory_copy(generated.wasm_module),
     msg="memory-heavy profile should emit memory.copy coverage over a nonzero memory index",
   )
+  assert_true(
+    gen_valid_test_has_scalar_memory_over_nonzero_mem(generated.wasm_module),
+    msg="memory-heavy profile should emit scalar memory coverage over a nonzero memory index",
+  )
 }
 
 ///|
@@ -373,6 +522,10 @@ test "topology-heavy profile emits nonzero table bulk and element operators" {
   assert_true(
     gen_valid_test_has_nonzero_table_copy_or_fill(generated.wasm_module),
     msg="topology-heavy profile should emit table.fill or table.copy coverage over a nonzero table index",
+  )
+  assert_true(
+    gen_valid_test_has_all_nonzero_table_accesses(generated.wasm_module),
+    msg="topology-heavy profile should emit table get, set, grow, and size coverage over a nonzero table index",
   )
 }
 

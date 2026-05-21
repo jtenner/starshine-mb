@@ -2138,6 +2138,15 @@ fn gen_valid_memarg_varied(align_pow : UInt, offset : UInt64) -> MemArg {
 }
 
 ///|
+fn gen_valid_memarg_for_mem(
+  mem_idx : MemIdx,
+  align_pow : UInt,
+  offset : UInt64,
+) -> MemArg {
+  MemArg::new(U32(align_pow), Some(mem_idx), U64(offset))
+}
+
+///|
 fn gen_valid_body_env_child(
   env : GenValidBodyEnv,
   add_void_label? : Bool = false,
@@ -2462,6 +2471,31 @@ fn gen_valid_append_scalar_memory_store(
 }
 
 ///|
+fn gen_valid_append_nonzero_scalar_memory_ops(
+  out : Array[Instruction],
+  mem_idx : MemIdx,
+) -> Unit {
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i32_load(gen_valid_memarg_for_mem(mem_idx, 2U, 88UL)),
+  )
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i32_const(I32(10)),
+    Instruction::i32_store(gen_valid_memarg_for_mem(mem_idx, 2U, 92UL)),
+  )
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i64_load8u(gen_valid_memarg_for_mem(mem_idx, 0U, 96UL)),
+  )
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i64_const(I64(11L)),
+    Instruction::i64_store16(gen_valid_memarg_for_mem(mem_idx, 1U, 98UL)),
+  )
+}
+
+///|
 fn gen_valid_append_scalar_memory_ops(out : Array[Instruction]) -> Unit {
   let i32_load_ma = gen_valid_memarg_varied(2U, 4UL)
   gen_valid_append_scalar_memory_load_drop(
@@ -2598,6 +2632,28 @@ fn gen_valid_first_nonzero_table_idx(tables : Array[TableType]) -> TableIdx? {
   } else {
     None
   }
+}
+
+///|
+fn gen_valid_append_nonzero_table_access_ops(
+  out : Array[Instruction],
+  env : GenValidBodyEnv,
+  table_idx : TableIdx,
+) -> Unit {
+  let TableIdx(table_idx_u) = table_idx
+  let TableType(rt, _) = env.tables[table_idx_u.reinterpret_as_int()]
+  out.push(Instruction::table_size(table_idx))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::ref_null(rt.get_heap_type()))
+  out.push(Instruction::table_set(table_idx))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::table_get(table_idx))
+  out.push(Instruction::drop())
+  out.push(Instruction::ref_null(rt.get_heap_type()))
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(Instruction::table_grow(table_idx))
+  out.push(Instruction::drop())
 }
 
 ///|
@@ -5749,6 +5805,11 @@ fn gen_valid_append_coverage_prelude(
     out.push(Instruction::memory_grow(MemIdx::new(0U)))
     out.push(Instruction::drop())
     gen_valid_append_scalar_memory_ops(out)
+    match gen_valid_first_nonzero_i32_mem_idx(env.mems) {
+      Some(nonzero_mem_idx) =>
+        gen_valid_append_nonzero_scalar_memory_ops(out, nonzero_mem_idx)
+      None => ()
+    }
     ignore(gen_valid_append_memory_bulk_ops(out, ctx, env))
   }
   if !env.tables.is_empty() {
@@ -5765,6 +5826,11 @@ fn gen_valid_append_coverage_prelude(
     out.push(Instruction::i32_const(I32(1)))
     out.push(Instruction::table_grow(TableIdx::new(0U)))
     out.push(Instruction::drop())
+    match gen_valid_first_nonzero_table_idx(env.tables) {
+      Some(nonzero_table_idx) =>
+        gen_valid_append_nonzero_table_access_ops(out, env, nonzero_table_idx)
+      None => ()
+    }
     ignore(gen_valid_append_table_bulk_ops(out, ctx, env))
   }
   if !env.globals.is_empty() {

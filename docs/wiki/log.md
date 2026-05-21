@@ -1158,9 +1158,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-21] fuzzing | FUZ1007 nonzero scalar/table resources
 
-- Continued [`[FUZ]1007`](../../agent-todo.md) by widening the shared GenValid bulk-memory and bulk-table preludes: `memory-heavy` fixed-seed coverage now emits `memory.copy` over a nonzero i32 memory index, and `topology-heavy` fixed-seed coverage now emits `table.fill` / `table.copy` over a nonzero table index.
-- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with validation anchors for the new resource-index body coverage and left remaining FUZ1007 resource-op matrix work visible in the backlog.
+- Continued [`[FUZ]1007`](../../agent-todo.md) by widening the shared GenValid memory and table preludes again: `memory-heavy` fixed-seed coverage now emits scalar load/store `MemArg`s with explicit nonzero memory indices, and `topology-heavy` fixed-seed coverage now emits nonzero-index `table.size`, `table.set`, `table.get`, and `table.grow` in addition to the earlier nonzero bulk coverage.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with validation anchors for the expanded resource-index body coverage and left remaining FUZ1007 segment compatibility / memory64 / shared-resource matrix work visible in the backlog.
 
 ## [2026-05-21] fuzzing | FUZ1006 indirect and nested-tail widening
 
