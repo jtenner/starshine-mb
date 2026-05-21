@@ -187,6 +187,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideGlobalSetIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
+  OverwideI32ConstSleb
+  OverwideI64ConstSleb
   MalformedF32ConstImmediate
   MalformedF64ConstImmediate
   MalformedCallFuncIndexUleb
@@ -798,6 +800,8 @@ fn validate_invalid_binary_strategy_label(
     OverwideGlobalSetIndexUleb => "overwide-global-set-index-uleb"
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
     MalformedI64ConstSleb => "malformed-i64-const-sleb"
+    OverwideI32ConstSleb => "overwide-i32-const-sleb"
+    OverwideI64ConstSleb => "overwide-i64-const-sleb"
     MalformedF32ConstImmediate => "malformed-f32-const-immediate"
     MalformedF64ConstImmediate => "malformed-f64-const-immediate"
     MalformedCallFuncIndexUleb => "malformed-call-func-index-uleb"
@@ -2095,6 +2099,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedI64ConstSleb,
       "malformed-i64-const-sleb",
       "i64.const instruction with a malformed signed LEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideI32ConstSleb,
+      "overwide-i32-const-sleb",
+      "i32.const instruction with an overwide signed LEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideI64ConstSleb,
+      "overwide-i64-const-sleb",
+      "i64.const instruction with an overwide signed LEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4909,6 +4927,55 @@ fn validate_invalid_binary_mutate_malformed_i64_const_sleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_i32_const_sleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideI32ConstSleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x41).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_i64_const_sleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideI64ConstSleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x42).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
       ]),
     ),
   )
@@ -11973,6 +12040,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_i32_const_sleb(base)
     MalformedI64ConstSleb =>
       validate_invalid_binary_mutate_malformed_i64_const_sleb(base)
+    OverwideI32ConstSleb =>
+      validate_invalid_binary_mutate_overwide_i32_const_sleb(base)
+    OverwideI64ConstSleb =>
+      validate_invalid_binary_mutate_overwide_i64_const_sleb(base)
     MalformedF32ConstImmediate =>
       validate_invalid_binary_mutate_malformed_f32_const_immediate(base)
     MalformedF64ConstImmediate =>
