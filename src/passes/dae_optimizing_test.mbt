@@ -3519,6 +3519,36 @@ test "dae-optimizing traces oversized touched-function nested cleanup skip" {
 }
 
 ///|
+test "dae-optimizing traces large touched set nested cleanup skip" {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  let mut idx = 0
+  while idx < 9 {
+    out.write_string("  (func $f\{idx} (param i32) nop)\n")
+    idx += 1
+  }
+  out.write_string("  (func (export \"run\")\n")
+  idx = 0
+  while idx < 9 {
+    out.write_string("    i32.const \{idx}\n    call $f\{idx}\n")
+    idx += 1
+  }
+  out.write_string("  ))")
+  let trace = match
+    pass_test_capture_trace(out.to_string(), ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail("expected traced large-touched-set DAE success, got \{err}")
+  }
+  assert_true(
+    trace.contains(
+      "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-set touched=9",
+    ),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dae-optimizing traces nested local-cse before simplify-locals" {
   let source =
     #|(module

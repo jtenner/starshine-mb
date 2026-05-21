@@ -10463,20 +10463,27 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   (options.trace)(
     "pass[dae-optimizing]:nested-cleanup touched=\{touched_count} prefix=precompute-propagate",
   )
-  let size_skip_reason = run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
-    mod_, touched,
-  )
-  if touched_count > 8 || size_skip_reason != None {
-    let reason = if touched_count > 8 {
-      "large-touched-set"
-    } else {
-      size_skip_reason.unwrap()
-    }
+  if touched_count > 8 {
+    // The large-touched-set guard wins over per-function size reasons. Return
+    // before scanning touched bodies so artifact-sized DAE runs do not pay for a
+    // skip reason that cannot affect the emitted trace or output.
     pipeline_trace_hook(
       options.trace,
       "dae-optimizing",
       "nested-cleanup-skip",
-      payload="reason=\{reason} touched=\{touched_count}",
+      payload="reason=large-touched-set touched=\{touched_count}",
+    )
+    return Ok(mod_)
+  }
+  let size_skip_reason = run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
+    mod_, touched,
+  )
+  if size_skip_reason != None {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-cleanup-skip",
+      payload="reason=\{size_skip_reason.unwrap()} touched=\{touched_count}",
     )
     return Ok(mod_)
   }
