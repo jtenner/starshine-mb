@@ -2414,6 +2414,7 @@ fn sgo_count_block_condition_safe_body_read(
 ) -> Unit {
   if sgo_block_condition_final_read_matches(body, idx) ||
     sgo_block_condition_pure_read_matches(body, idx) ||
+    sgo_block_condition_flow_scanner_read_matches(body, idx) ||
     sgo_block_condition_nested_final_direct_read_matches(body, idx) {
     sgo_count_read_only_to_write_safe_read(idx, safe_reads)
   } else {
