@@ -1227,10 +1227,20 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added fourteen decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `overwide-local-index-uleb`, `overwide-local-set-index-uleb`, `overwide-local-tee-index-uleb`, `overwide-global-index-uleb`, `overwide-global-set-index-uleb`, `overwide-call-func-index-uleb`, `overwide-return-call-func-index-uleb`, `overwide-ref-func-index-uleb`, `overwide-call-indirect-type-index-uleb`, `overwide-call-indirect-table-index-uleb`, `overwide-return-call-indirect-type-index-uleb`, `overwide-return-call-indirect-table-index-uleb`, `overwide-call-ref-type-index-uleb`, and `overwide-return-call-ref-type-index-uleb` keep the instruction opcode and preceding immediates well-formed while corrupting local/global/call-family index payloads with a six-byte unsigned LEB that exceeds the `u32` byte budget.
 - Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so overwide local/global/call-family instruction index corruption is tracked beside the existing malformed instruction-index carriers.
 
+## [2026-05-21] fuzzing | name-subsection id invalid-binary coverage
+
+- Added two decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `invalid-name-subsection-id-byte` keeps the custom `name` section wrapper and subsection size well formed while corrupting the subsection id to Starshine's first unsupported byte, and `out-of-order-name-subsection-id` keeps both subsection payloads well formed while putting a module-name subsection after a function-name subsection.
+- Updated [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so name-subsection id/order byte corruption is tracked beside malformed and overwide subsection-size carriers.
+
 ## [2026-05-21] fuzzing | section/import/tag type-index overwide-ULEB invalid-binary coverage
 
 - Added four decode-rejected binary-invalid strategies for [`[FUZ]1021`](../../agent-todo.md): `overwide-function-section-type-index-uleb`, `overwide-import-func-type-index-uleb`, `overwide-import-tag-type-index-uleb`, and `overwide-tag-type-index-uleb` keep the function/import/tag section frames and descriptor kind/attribute bytes well-formed while corrupting type-index payloads with a six-byte unsigned LEB that exceeds the `u32` byte budget.
 - Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so overwide type-index corruption is tracked beside the existing malformed function-section, import descriptor, and tag-section type-index carriers.
+
+## [2026-05-21] fuzzing | name-subsection size overwide-ULEB invalid-binary coverage
+
+- Added one decode-rejected binary-invalid strategy for [`[FUZ]1021`](../../agent-todo.md): `overwide-name-subsection-size-uleb` keeps the custom `name` section wrapper and subsection id well formed while corrupting the subsection payload-size field with a six-byte unsigned LEB that exceeds the `u32` byte budget.
+- Updated [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md), [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so name-subsection overwide size corruption is tracked beside the existing malformed name-subsection size carrier.
 
 ## [2026-05-21] fuzzing | export descriptor index overwide-ULEB invalid-binary coverage
 

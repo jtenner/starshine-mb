@@ -365,6 +365,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedCustomSectionNameLengthUleb
   OverwideCustomSectionNameLengthUleb
   MalformedNameSubsectionSizeUleb
+  OverwideNameSubsectionSizeUleb
+  InvalidNameSubsectionIdByte
+  OutOfOrderNameSubsectionId
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte
   MalformedGcPrefixSubopcodeUleb

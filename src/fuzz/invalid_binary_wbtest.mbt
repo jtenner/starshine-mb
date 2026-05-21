@@ -65,6 +65,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "duplicate-tag-section", "malformed-simd-immediate", "simd-lane-index-overflow",
     "malformed-custom-section-payload", "malformed-custom-section-name-length-uleb",
     "overwide-custom-section-name-length-uleb", "malformed-name-subsection-size-uleb",
+    "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
     "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
     "malformed-bulk-prefix-subopcode-uleb", "malformed-simd-prefix-subopcode-uleb",
     "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
@@ -233,6 +234,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1570,6 +1572,30 @@ test "invalid binary FZG032 decodes custom-section overwide name length as inval
 }
 
 ///|
+test "invalid binary FZG033 decodes name-section overwide subsection size as invalid" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "overwide-name-subsection-size-uleb", 0x5f28UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid binary FZG034 decodes invalid name subsection ids and order as invalid" {
+  for
+    strategy in [
+      "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f29UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG030 decodes overwide table and memory index ULEBs as invalid" {
   for
     strategy in [
@@ -1701,6 +1727,7 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "duplicate-tag-section", "malformed-simd-immediate", "simd-lane-index-overflow",
       "malformed-custom-section-payload", "malformed-custom-section-name-length-uleb",
       "overwide-custom-section-name-length-uleb", "malformed-name-subsection-size-uleb",
+      "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
       "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
       "malformed-bulk-prefix-subopcode-uleb", "malformed-simd-prefix-subopcode-uleb",
       "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
