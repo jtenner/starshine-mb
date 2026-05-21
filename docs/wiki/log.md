@@ -1157,6 +1157,16 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | topology-heavy FUZ1003 closeout
+
+- Completed [`[FUZ]1003`](../../agent-todo.md) by extending the `topology-heavy` GenValid profile's fixed topology seed to prove nonzero active element/data segment targets and multiple binary-supported leading non-name custom sections in addition to the earlier high-index import/export topology, nonzero resource exports, imported-function re-exports, no-`main`, and no-export variants.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) to mark the profile lane landed. Further custom-section placement needs a future module/binary model that preserves exact custom-section positions; deeper instruction-body nonzero resource-index pressure should be tracked in narrower follow-up tasks.
+
+## [2026-05-21] fuzzing | topology-heavy nonzero resource exports
+
+- Continued [`[FUZ]1003`](../../agent-todo.md) by making the `topology-heavy` GenValid profile export nonzero table, memory, global, and tag indices when those resource spaces contain more than one item.
+- Added focused validation coverage for the deterministic topology-heavy seed that now proves high total function indices, multiple import modules, repeated exports, imported-function re-exports, and nonzero resource-index exports together; updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so remaining work is custom-section placement variation and deeper instruction-body resource-index pressure if needed.
+
 ## [2026-05-21] fuzzing | topology-heavy no-main/no-export variants
 
 - Continued [`[FUZ]1003`](../../agent-todo.md) by widening the `topology-heavy` GenValid profile's export topology: generated modules can now keep resource/import/start topology while either using `entry`/`entry.alias` instead of the conventional `main` export name or omitting the export section entirely.

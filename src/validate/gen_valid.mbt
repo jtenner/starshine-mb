@@ -6416,21 +6416,44 @@ fn gen_valid_module_once_with_config(
       exports.push(
         Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))),
       )
+      if gen_valid_is_topology_heavy_config(config) && total_table_count > 1 {
+        exports.push(
+          Export::new(Name::new("table1"), ExternIdx::table(TableIdx::new(1U))),
+        )
+      }
     }
     if total_mem_count > 0 {
       exports.push(
         Export::new(Name::new("memory0"), ExternIdx::mem(MemIdx::new(0U))),
       )
+      if gen_valid_is_topology_heavy_config(config) && total_mem_count > 1 {
+        exports.push(
+          Export::new(Name::new("memory1"), ExternIdx::mem(MemIdx::new(1U))),
+        )
+      }
     }
     if total_global_count > 0 {
       exports.push(
         Export::new(Name::new("global0"), ExternIdx::global(GlobalIdx::new(0U))),
       )
+      if gen_valid_is_topology_heavy_config(config) && total_global_count > 1 {
+        exports.push(
+          Export::new(
+            Name::new("global1"),
+            ExternIdx::global(GlobalIdx::new(1U)),
+          ),
+        )
+      }
     }
     if total_tag_count > 0 {
       exports.push(
         Export::new(Name::new("tag0"), ExternIdx::tag(TagIdx::new(0U))),
       )
+      if gen_valid_is_topology_heavy_config(config) && total_tag_count > 1 {
+        exports.push(
+          Export::new(Name::new("tag1"), ExternIdx::tag(TagIdx::new(1U))),
+        )
+      }
     }
   }
 
@@ -6544,9 +6567,21 @@ fn gen_valid_module_once_with_config(
       },
     )
     mod = mod.with_name_sec(name_sec)
-    mod = mod.with_custom_secs([
-      @lib.CustomSec::new(Name::new("fzg.custom"), b"valid-fzg-custom"),
-    ])
+    let custom_secs = if gen_valid_is_topology_heavy_config(config) {
+      [
+        @lib.CustomSec::new(
+          Name::new("fzg.custom.leading"),
+          b"valid-fzg-custom-leading",
+        ),
+        @lib.CustomSec::new(
+          Name::new("fzg.custom.topology"),
+          b"valid-fzg-custom-topology",
+        ),
+      ]
+    } else {
+      [@lib.CustomSec::new(Name::new("fzg.custom"), b"valid-fzg-custom")]
+    }
+    mod = mod.with_custom_secs(custom_secs)
   }
   if exports.is_empty() {
     mod

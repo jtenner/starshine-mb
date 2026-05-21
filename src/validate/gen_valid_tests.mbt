@@ -158,6 +158,78 @@ fn gen_valid_test_has_any_export(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_nonzero_resource_export(mod_ : Module) -> Bool {
+  match mod_.export_sec {
+    Some(ExportSec(exports)) => {
+      for export_ in exports {
+        let Export(_, idx) = export_
+        match idx {
+          TableExternIdx(TableIdx(table_idx)) if table_idx.reinterpret_as_int() >
+            0 => return true
+          MemExternIdx(MemIdx(mem_idx)) if mem_idx.reinterpret_as_int() > 0 =>
+            return true
+          GlobalExternIdx(GlobalIdx(global_idx)) if global_idx.reinterpret_as_int() >
+            0 => return true
+          TagExternIdx(TagIdx(tag_idx)) if tag_idx.reinterpret_as_int() > 0 =>
+            return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_nonzero_active_elem(mod_ : Module) -> Bool {
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) => {
+      for elem in elems {
+        let Elem(mode, _) = elem
+        match mode {
+          Active(TableIdx(table_idx), _) if table_idx.reinterpret_as_int() > 0 =>
+            return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_nonzero_active_data(mod_ : Module) -> Bool {
+  match mod_.data_sec {
+    Some(DataSec(datas)) => {
+      for data in datas {
+        let Data(mode, _) = data
+        match mode {
+          Active(MemIdx(mem_idx), _) if mem_idx.reinterpret_as_int() > 0 =>
+            return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_non_name_custom_count(mod_ : Module) -> Int {
+  let mut count = 0
+  for custom in mod_.custom_secs {
+    let CustomSec(name, _) = custom
+    if name != Name::new("name") {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
 test "topology-heavy profile emits high-index import export topology" {
   let config = GenValidConfig::for_profile(TopologyHeavyProfile)
   assert_true(config.max_defined_funcs >= 16)
@@ -185,6 +257,22 @@ test "topology-heavy profile emits high-index import export topology" {
   assert_true(
     gen_valid_test_has_repeated_export_idx(generated.wasm_module),
     msg="topology-heavy profile should export the same item under distinct names",
+  )
+  assert_true(
+    gen_valid_test_has_nonzero_resource_export(generated.wasm_module),
+    msg="topology-heavy profile should export nonzero table/memory/global/tag indices",
+  )
+  assert_true(
+    gen_valid_test_has_nonzero_active_elem(generated.wasm_module),
+    msg="topology-heavy profile should place an active element segment on a nonzero table index",
+  )
+  assert_true(
+    gen_valid_test_has_nonzero_active_data(generated.wasm_module),
+    msg="topology-heavy profile should place an active data segment on a nonzero memory index",
+  )
+  assert_true(
+    gen_valid_test_non_name_custom_count(generated.wasm_module) >= 2,
+    msg="topology-heavy profile should emit multiple non-name custom sections in the binary-supported leading custom section area",
   )
   assert_true(generated.facts.has_import_export_topology)
   assert_true(generated.facts.has_imports_start_exports)
