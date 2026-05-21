@@ -134,6 +134,30 @@ fn gen_valid_test_has_repeated_export_idx(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_export_named(mod_ : Module, name : String) -> Bool {
+  match mod_.export_sec {
+    Some(ExportSec(exports)) => {
+      for export_ in exports {
+        let Export(export_name, _) = export_
+        if export_name == Name::new(name) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_any_export(mod_ : Module) -> Bool {
+  match mod_.export_sec {
+    Some(ExportSec(exports)) => !exports.is_empty()
+    None => false
+  }
+}
+
+///|
 test "topology-heavy profile emits high-index import export topology" {
   let config = GenValidConfig::for_profile(TopologyHeavyProfile)
   assert_true(config.max_defined_funcs >= 16)
@@ -164,6 +188,46 @@ test "topology-heavy profile emits high-index import export topology" {
   )
   assert_true(generated.facts.has_import_export_topology)
   assert_true(generated.facts.has_imports_start_exports)
+}
+
+///|
+test "topology-heavy profile emits explicit no-main and no-export variants" {
+  let config = GenValidConfig::for_profile(TopologyHeavyProfile)
+  let mut saw_no_main_export = false
+  let mut saw_no_export = false
+  for offset in 0..<32 {
+    let generated = match
+      gen_valid_module_result(
+        @splitmix.new(seed=0xf71030UL + offset.to_uint64()),
+        config,
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected topology-heavy generated module to validate, got \{validation_error_message(err)}",
+        )
+    }
+    if gen_valid_test_has_any_export(generated.wasm_module) &&
+      !gen_valid_test_has_export_named(generated.wasm_module, "main") {
+      saw_no_main_export = true
+    }
+    if !gen_valid_test_has_any_export(generated.wasm_module) {
+      saw_no_export = true
+      assert_false(generated.facts.has_imports_start_exports)
+    }
+  }
+  assert_true(
+    saw_no_main_export,
+    msg="topology-heavy profile should sometimes avoid the conventional main export name",
+  )
+  assert_true(
+    saw_no_export,
+    msg="topology-heavy profile should sometimes generate modules without exports",
+  )
 }
 
 ///|

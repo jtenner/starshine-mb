@@ -6373,44 +6373,65 @@ fn gen_valid_module_once_with_config(
     )
   }
 
-  let exports : Array[Export] = [
-    Export::new(Name::new("main"), ExternIdx::func(first_defined_func_idx)),
-  ]
-  if gen_valid_is_topology_heavy_config(config) {
+  let topology_export_mode = if gen_valid_is_topology_heavy_config(config) {
+    ctx.random_int(8)
+  } else {
+    7
+  }
+  let exports : Array[Export] = []
+  if topology_export_mode != 0 {
+    let primary_func_export_name = if topology_export_mode == 1 {
+      "entry"
+    } else {
+      "main"
+    }
+    let alias_func_export_name = if topology_export_mode == 1 {
+      "entry.alias"
+    } else {
+      "main.alias"
+    }
     exports.push(
       Export::new(
-        Name::new("main.alias"),
+        Name::new(primary_func_export_name),
         ExternIdx::func(first_defined_func_idx),
       ),
     )
-    if import_func_count > 0 {
+    if gen_valid_is_topology_heavy_config(config) {
       exports.push(
         Export::new(
-          Name::new("imported_func_0.reexport"),
-          ExternIdx::func(FuncIdx::new(0U)),
+          Name::new(alias_func_export_name),
+          ExternIdx::func(first_defined_func_idx),
         ),
       )
+      if import_func_count > 0 {
+        exports.push(
+          Export::new(
+            Name::new("imported_func_0.reexport"),
+            ExternIdx::func(FuncIdx::new(0U)),
+          ),
+        )
+      }
     }
-  }
-  if total_table_count > 0 {
-    exports.push(
-      Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))),
-    )
-  }
-  if total_mem_count > 0 {
-    exports.push(
-      Export::new(Name::new("memory0"), ExternIdx::mem(MemIdx::new(0U))),
-    )
-  }
-  if total_global_count > 0 {
-    exports.push(
-      Export::new(Name::new("global0"), ExternIdx::global(GlobalIdx::new(0U))),
-    )
-  }
-  if total_tag_count > 0 {
-    exports.push(
-      Export::new(Name::new("tag0"), ExternIdx::tag(TagIdx::new(0U))),
-    )
+    if total_table_count > 0 {
+      exports.push(
+        Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))),
+      )
+    }
+    if total_mem_count > 0 {
+      exports.push(
+        Export::new(Name::new("memory0"), ExternIdx::mem(MemIdx::new(0U))),
+      )
+    }
+    if total_global_count > 0 {
+      exports.push(
+        Export::new(Name::new("global0"), ExternIdx::global(GlobalIdx::new(0U))),
+      )
+    }
+    if total_tag_count > 0 {
+      exports.push(
+        Export::new(Name::new("tag0"), ExternIdx::tag(TagIdx::new(0U))),
+      )
+    }
   }
 
   let mut mod = Module::new().with_type_sec(TypeSec::new(type_defs))
@@ -6527,7 +6548,11 @@ fn gen_valid_module_once_with_config(
       @lib.CustomSec::new(Name::new("fzg.custom"), b"valid-fzg-custom"),
     ])
   }
-  mod.with_export_sec(ExportSec::new(exports))
+  if exports.is_empty() {
+    mod
+  } else {
+    mod.with_export_sec(ExportSec::new(exports))
+  }
 }
 
 ///|
