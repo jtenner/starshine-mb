@@ -91,14 +91,19 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "global-section-count-overflow", "function-section-count-overflow", "memory-section-count-overflow",
     "element-section-count-overflow", "data-section-count-overflow", "tag-section-count-overflow",
     "malformed-tag-type-index-uleb", "overwide-tag-type-index-uleb", "malformed-local-index-uleb",
-    "malformed-local-set-index-uleb", "malformed-local-tee-index-uleb", "malformed-global-index-uleb",
-    "malformed-global-set-index-uleb", "malformed-i32-const-sleb", "malformed-i64-const-sleb",
-    "malformed-f32-const-immediate", "malformed-f64-const-immediate", "malformed-call-func-index-uleb",
-    "malformed-return-call-func-index-uleb", "malformed-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb",
-    "malformed-call-indirect-table-index-uleb", "malformed-return-call-indirect-type-index-uleb",
-    "malformed-return-call-indirect-table-index-uleb", "malformed-call-ref-type-index-uleb",
-    "malformed-return-call-ref-type-index-uleb", "malformed-throw-tag-index-uleb",
-    "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
+    "malformed-local-set-index-uleb", "malformed-local-tee-index-uleb", "overwide-local-index-uleb",
+    "overwide-local-set-index-uleb", "overwide-local-tee-index-uleb", "malformed-global-index-uleb",
+    "malformed-global-set-index-uleb", "overwide-global-index-uleb", "overwide-global-set-index-uleb",
+    "malformed-i32-const-sleb", "malformed-i64-const-sleb", "malformed-f32-const-immediate",
+    "malformed-f64-const-immediate", "malformed-call-func-index-uleb", "malformed-return-call-func-index-uleb",
+    "malformed-ref-func-index-uleb", "overwide-call-func-index-uleb", "overwide-return-call-func-index-uleb",
+    "overwide-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb", "malformed-call-indirect-table-index-uleb",
+    "malformed-return-call-indirect-type-index-uleb", "malformed-return-call-indirect-table-index-uleb",
+    "malformed-call-ref-type-index-uleb", "malformed-return-call-ref-type-index-uleb",
+    "overwide-call-indirect-type-index-uleb", "overwide-call-indirect-table-index-uleb",
+    "overwide-return-call-indirect-type-index-uleb", "overwide-return-call-indirect-table-index-uleb",
+    "overwide-call-ref-type-index-uleb", "overwide-return-call-ref-type-index-uleb",
+    "malformed-throw-tag-index-uleb", "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
     "malformed-try-table-catch-label-index-uleb", "malformed-struct-new-type-index-uleb",
     "malformed-struct-get-field-index-uleb", "malformed-array-new-data-type-index-uleb",
     "malformed-array-new-data-index-uleb", "malformed-br-label-index-uleb", "malformed-br-if-label-index-uleb",
@@ -193,7 +198,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1095,7 +1102,37 @@ test "invalid binary FZG026 decodes malformed section and import descriptor type
 }
 
 ///|
-test "invalid binary FZG027 decodes malformed bulk init instruction indices as invalid" {
+test "invalid binary FZG027 decodes overwide local and global instruction index ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-local-index-uleb", "overwide-local-set-index-uleb", "overwide-local-tee-index-uleb",
+      "overwide-global-index-uleb", "overwide-global-set-index-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f12UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
+test "invalid binary FZG028 decodes overwide call instruction index ULEBs as invalid" {
+  for
+    strategy in [
+      "overwide-call-func-index-uleb", "overwide-return-call-func-index-uleb", "overwide-ref-func-index-uleb",
+      "overwide-call-indirect-type-index-uleb", "overwide-call-indirect-table-index-uleb",
+      "overwide-return-call-indirect-type-index-uleb", "overwide-return-call-indirect-table-index-uleb",
+      "overwide-call-ref-type-index-uleb", "overwide-return-call-ref-type-index-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f13UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
+test "invalid binary FZG028 decodes malformed bulk init instruction indices as invalid" {
   for
     strategy in [
       "malformed-memory-init-data-index-uleb", "malformed-memory-init-memory-index-uleb",
@@ -1484,13 +1521,19 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "global-section-count-overflow", "function-section-count-overflow", "memory-section-count-overflow",
       "element-section-count-overflow", "data-section-count-overflow", "tag-section-count-overflow",
       "malformed-tag-type-index-uleb", "overwide-tag-type-index-uleb", "malformed-local-index-uleb",
-      "malformed-local-set-index-uleb", "malformed-local-tee-index-uleb", "malformed-global-index-uleb",
-      "malformed-global-set-index-uleb", "malformed-i32-const-sleb", "malformed-i64-const-sleb",
-      "malformed-f32-const-immediate", "malformed-f64-const-immediate", "malformed-call-func-index-uleb",
-      "malformed-return-call-func-index-uleb", "malformed-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb",
+      "malformed-local-set-index-uleb", "malformed-local-tee-index-uleb", "overwide-local-index-uleb",
+      "overwide-local-set-index-uleb", "overwide-local-tee-index-uleb", "malformed-global-index-uleb",
+      "malformed-global-set-index-uleb", "overwide-global-index-uleb", "overwide-global-set-index-uleb",
+      "malformed-i32-const-sleb", "malformed-i64-const-sleb", "malformed-f32-const-immediate",
+      "malformed-f64-const-immediate", "malformed-call-func-index-uleb", "malformed-return-call-func-index-uleb",
+      "malformed-ref-func-index-uleb", "overwide-call-func-index-uleb", "overwide-return-call-func-index-uleb",
+      "overwide-ref-func-index-uleb", "malformed-call-indirect-type-index-uleb",
       "malformed-call-indirect-table-index-uleb", "malformed-return-call-indirect-type-index-uleb",
       "malformed-return-call-indirect-table-index-uleb", "malformed-call-ref-type-index-uleb",
-      "malformed-return-call-ref-type-index-uleb", "malformed-throw-tag-index-uleb",
+      "malformed-return-call-ref-type-index-uleb", "overwide-call-indirect-type-index-uleb",
+      "overwide-call-indirect-table-index-uleb", "overwide-return-call-indirect-type-index-uleb",
+      "overwide-return-call-indirect-table-index-uleb", "overwide-call-ref-type-index-uleb",
+      "overwide-return-call-ref-type-index-uleb", "malformed-throw-tag-index-uleb",
       "malformed-try-table-catch-count-uleb", "malformed-try-table-catch-tag-index-uleb",
       "malformed-try-table-catch-label-index-uleb", "invalid-import-tag-attribute-byte",
       "malformed-struct-new-type-index-uleb", "malformed-struct-get-field-index-uleb",

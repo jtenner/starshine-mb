@@ -162,8 +162,13 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedLocalIndexUleb
   MalformedLocalSetIndexUleb
   MalformedLocalTeeIndexUleb
+  OverwideLocalIndexUleb
+  OverwideLocalSetIndexUleb
+  OverwideLocalTeeIndexUleb
   MalformedGlobalIndexUleb
   MalformedGlobalSetIndexUleb
+  OverwideGlobalIndexUleb
+  OverwideGlobalSetIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
   MalformedF32ConstImmediate
@@ -171,12 +176,21 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedCallFuncIndexUleb
   MalformedReturnCallFuncIndexUleb
   MalformedRefFuncIndexUleb
+  OverwideCallFuncIndexUleb
+  OverwideReturnCallFuncIndexUleb
+  OverwideRefFuncIndexUleb
   MalformedCallIndirectTypeIndexUleb
   MalformedCallIndirectTableIndexUleb
   MalformedReturnCallIndirectTypeIndexUleb
   MalformedReturnCallIndirectTableIndexUleb
   MalformedCallRefTypeIndexUleb
   MalformedReturnCallRefTypeIndexUleb
+  OverwideCallIndirectTypeIndexUleb
+  OverwideCallIndirectTableIndexUleb
+  OverwideReturnCallIndirectTypeIndexUleb
+  OverwideReturnCallIndirectTableIndexUleb
+  OverwideCallRefTypeIndexUleb
+  OverwideReturnCallRefTypeIndexUleb
   MalformedThrowTagIndexUleb
   MalformedTryTableCatchCountUleb
   MalformedTryTableCatchTagIndexUleb
@@ -741,8 +755,13 @@ fn validate_invalid_binary_strategy_label(
     MalformedLocalIndexUleb => "malformed-local-index-uleb"
     MalformedLocalSetIndexUleb => "malformed-local-set-index-uleb"
     MalformedLocalTeeIndexUleb => "malformed-local-tee-index-uleb"
+    OverwideLocalIndexUleb => "overwide-local-index-uleb"
+    OverwideLocalSetIndexUleb => "overwide-local-set-index-uleb"
+    OverwideLocalTeeIndexUleb => "overwide-local-tee-index-uleb"
     MalformedGlobalIndexUleb => "malformed-global-index-uleb"
     MalformedGlobalSetIndexUleb => "malformed-global-set-index-uleb"
+    OverwideGlobalIndexUleb => "overwide-global-index-uleb"
+    OverwideGlobalSetIndexUleb => "overwide-global-set-index-uleb"
     MalformedI32ConstSleb => "malformed-i32-const-sleb"
     MalformedI64ConstSleb => "malformed-i64-const-sleb"
     MalformedF32ConstImmediate => "malformed-f32-const-immediate"
@@ -750,6 +769,9 @@ fn validate_invalid_binary_strategy_label(
     MalformedCallFuncIndexUleb => "malformed-call-func-index-uleb"
     MalformedReturnCallFuncIndexUleb => "malformed-return-call-func-index-uleb"
     MalformedRefFuncIndexUleb => "malformed-ref-func-index-uleb"
+    OverwideCallFuncIndexUleb => "overwide-call-func-index-uleb"
+    OverwideReturnCallFuncIndexUleb => "overwide-return-call-func-index-uleb"
+    OverwideRefFuncIndexUleb => "overwide-ref-func-index-uleb"
     MalformedCallIndirectTypeIndexUleb =>
       "malformed-call-indirect-type-index-uleb"
     MalformedCallIndirectTableIndexUleb =>
@@ -761,6 +783,17 @@ fn validate_invalid_binary_strategy_label(
     MalformedCallRefTypeIndexUleb => "malformed-call-ref-type-index-uleb"
     MalformedReturnCallRefTypeIndexUleb =>
       "malformed-return-call-ref-type-index-uleb"
+    OverwideCallIndirectTypeIndexUleb =>
+      "overwide-call-indirect-type-index-uleb"
+    OverwideCallIndirectTableIndexUleb =>
+      "overwide-call-indirect-table-index-uleb"
+    OverwideReturnCallIndirectTypeIndexUleb =>
+      "overwide-return-call-indirect-type-index-uleb"
+    OverwideReturnCallIndirectTableIndexUleb =>
+      "overwide-return-call-indirect-table-index-uleb"
+    OverwideCallRefTypeIndexUleb => "overwide-call-ref-type-index-uleb"
+    OverwideReturnCallRefTypeIndexUleb =>
+      "overwide-return-call-ref-type-index-uleb"
     MalformedThrowTagIndexUleb => "malformed-throw-tag-index-uleb"
     MalformedTryTableCatchCountUleb => "malformed-try-table-catch-count-uleb"
     MalformedTryTableCatchTagIndexUleb =>
@@ -1855,6 +1888,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideLocalIndexUleb,
+      "overwide-local-index-uleb",
+      "local.get instruction with an overwide local-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideLocalSetIndexUleb,
+      "overwide-local-set-index-uleb",
+      "local.set instruction with an overwide local-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideLocalTeeIndexUleb,
+      "overwide-local-tee-index-uleb",
+      "local.tee instruction with an overwide local-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedGlobalIndexUleb,
       "malformed-global-index-uleb",
       "global.get instruction with a malformed global-index ULEB",
@@ -1865,6 +1919,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedGlobalSetIndexUleb,
       "malformed-global-set-index-uleb",
       "global.set instruction with a malformed global-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideGlobalIndexUleb,
+      "overwide-global-index-uleb",
+      "global.get instruction with an overwide global-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideGlobalSetIndexUleb,
+      "overwide-global-set-index-uleb",
+      "global.set instruction with an overwide global-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -1918,6 +1986,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      OverwideCallFuncIndexUleb,
+      "overwide-call-func-index-uleb",
+      "call instruction with an overwide function-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideReturnCallFuncIndexUleb,
+      "overwide-return-call-func-index-uleb",
+      "return_call instruction with an overwide function-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideRefFuncIndexUleb,
+      "overwide-ref-func-index-uleb",
+      "ref.func instruction with an overwide function-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedCallIndirectTypeIndexUleb,
       "malformed-call-indirect-type-index-uleb",
       "call_indirect instruction with a malformed type-index ULEB immediate",
@@ -1956,6 +2045,48 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedReturnCallRefTypeIndexUleb,
       "malformed-return-call-ref-type-index-uleb",
       "return_call_ref instruction with a malformed type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideCallIndirectTypeIndexUleb,
+      "overwide-call-indirect-type-index-uleb",
+      "call_indirect instruction with an overwide type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideCallIndirectTableIndexUleb,
+      "overwide-call-indirect-table-index-uleb",
+      "call_indirect instruction with an overwide table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideReturnCallIndirectTypeIndexUleb,
+      "overwide-return-call-indirect-type-index-uleb",
+      "return_call_indirect instruction with an overwide type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideReturnCallIndirectTableIndexUleb,
+      "overwide-return-call-indirect-table-index-uleb",
+      "return_call_indirect instruction with an overwide table-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideCallRefTypeIndexUleb,
+      "overwide-call-ref-type-index-uleb",
+      "call_ref instruction with an overwide type-index ULEB immediate",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideReturnCallRefTypeIndexUleb,
+      "overwide-return-call-ref-type-index-uleb",
+      "return_call_ref instruction with an overwide type-index ULEB immediate",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -4202,6 +4333,101 @@ fn validate_invalid_binary_mutate_malformed_global_set_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+  opcode : Byte,
+) -> Bytes {
+  validate_invalid_binary_minimal_code_with_instr([
+    opcode,
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_local_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideLocalIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x20).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_local_set_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideLocalSetIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x21).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_local_tee_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideLocalTeeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x22).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_global_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideGlobalIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x23).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_global_set_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideGlobalSetIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x24).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_i32_const_sleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -4349,6 +4575,54 @@ fn validate_invalid_binary_mutate_malformed_ref_func_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_mutate_overwide_call_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideCallFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x10).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_return_call_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideReturnCallFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x12).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_ref_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideRefFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0xd2).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_call_indirect_type_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -4472,6 +4746,128 @@ fn validate_invalid_binary_mutate_malformed_return_call_ref_type_index_uleb(
         (0x80).to_byte(),
         (0x80).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_call_indirect_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideCallIndirectTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x11).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_call_indirect_table_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideCallIndirectTableIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x11).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_return_call_indirect_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideReturnCallIndirectTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x13).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_return_call_indirect_table_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideReturnCallIndirectTableIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x13).to_byte(),
+        (0x00).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x00).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_call_ref_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideCallRefTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x14).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_return_call_ref_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideReturnCallRefTypeIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_overwide_u32_instr(
+        (0x15).to_byte(),
+      ),
     ),
   )
 }
@@ -10790,10 +11186,20 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_local_set_index_uleb(base)
     MalformedLocalTeeIndexUleb =>
       validate_invalid_binary_mutate_malformed_local_tee_index_uleb(base)
+    OverwideLocalIndexUleb =>
+      validate_invalid_binary_mutate_overwide_local_index_uleb(base)
+    OverwideLocalSetIndexUleb =>
+      validate_invalid_binary_mutate_overwide_local_set_index_uleb(base)
+    OverwideLocalTeeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_local_tee_index_uleb(base)
     MalformedGlobalIndexUleb =>
       validate_invalid_binary_mutate_malformed_global_index_uleb(base)
     MalformedGlobalSetIndexUleb =>
       validate_invalid_binary_mutate_malformed_global_set_index_uleb(base)
+    OverwideGlobalIndexUleb =>
+      validate_invalid_binary_mutate_overwide_global_index_uleb(base)
+    OverwideGlobalSetIndexUleb =>
+      validate_invalid_binary_mutate_overwide_global_set_index_uleb(base)
     MalformedI32ConstSleb =>
       validate_invalid_binary_mutate_malformed_i32_const_sleb(base)
     MalformedI64ConstSleb =>
@@ -10808,6 +11214,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_return_call_func_index_uleb(base)
     MalformedRefFuncIndexUleb =>
       validate_invalid_binary_mutate_malformed_ref_func_index_uleb(base)
+    OverwideCallFuncIndexUleb =>
+      validate_invalid_binary_mutate_overwide_call_func_index_uleb(base)
+    OverwideReturnCallFuncIndexUleb =>
+      validate_invalid_binary_mutate_overwide_return_call_func_index_uleb(base)
+    OverwideRefFuncIndexUleb =>
+      validate_invalid_binary_mutate_overwide_ref_func_index_uleb(base)
     MalformedCallIndirectTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_call_indirect_type_index_uleb(
         base,
@@ -10828,6 +11240,28 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_call_ref_type_index_uleb(base)
     MalformedReturnCallRefTypeIndexUleb =>
       validate_invalid_binary_mutate_malformed_return_call_ref_type_index_uleb(
+        base,
+      )
+    OverwideCallIndirectTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_call_indirect_type_index_uleb(
+        base,
+      )
+    OverwideCallIndirectTableIndexUleb =>
+      validate_invalid_binary_mutate_overwide_call_indirect_table_index_uleb(
+        base,
+      )
+    OverwideReturnCallIndirectTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_return_call_indirect_type_index_uleb(
+        base,
+      )
+    OverwideReturnCallIndirectTableIndexUleb =>
+      validate_invalid_binary_mutate_overwide_return_call_indirect_table_index_uleb(
+        base,
+      )
+    OverwideCallRefTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_call_ref_type_index_uleb(base)
+    OverwideReturnCallRefTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_return_call_ref_type_index_uleb(
         base,
       )
     MalformedThrowTagIndexUleb =>

@@ -440,8 +440,13 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedLocalIndexUleb
   MalformedLocalSetIndexUleb
   MalformedLocalTeeIndexUleb
+  OverwideLocalIndexUleb
+  OverwideLocalSetIndexUleb
+  OverwideLocalTeeIndexUleb
   MalformedGlobalIndexUleb
   MalformedGlobalSetIndexUleb
+  OverwideGlobalIndexUleb
+  OverwideGlobalSetIndexUleb
   MalformedI32ConstSleb
   MalformedI64ConstSleb
   MalformedF32ConstImmediate
@@ -449,12 +454,21 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedCallFuncIndexUleb
   MalformedReturnCallFuncIndexUleb
   MalformedRefFuncIndexUleb
+  OverwideCallFuncIndexUleb
+  OverwideReturnCallFuncIndexUleb
+  OverwideRefFuncIndexUleb
   MalformedCallIndirectTypeIndexUleb
   MalformedCallIndirectTableIndexUleb
   MalformedReturnCallIndirectTypeIndexUleb
   MalformedReturnCallIndirectTableIndexUleb
   MalformedCallRefTypeIndexUleb
   MalformedReturnCallRefTypeIndexUleb
+  OverwideCallIndirectTypeIndexUleb
+  OverwideCallIndirectTableIndexUleb
+  OverwideReturnCallIndirectTypeIndexUleb
+  OverwideReturnCallIndirectTableIndexUleb
+  OverwideCallRefTypeIndexUleb
+  OverwideReturnCallRefTypeIndexUleb
   MalformedThrowTagIndexUleb
   MalformedTryTableCatchCountUleb
   MalformedTryTableCatchTagIndexUleb
