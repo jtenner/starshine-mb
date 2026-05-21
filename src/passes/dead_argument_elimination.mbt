@@ -9506,12 +9506,6 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   if !has_touch {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let touched = Array::make(funcs.length(), false)
-  let mut touched_idx = 0
-  while touched_idx < funcs.length() && touched_idx < touched_defs.length() {
-    touched[touched_idx] = touched_defs[touched_idx]
-    touched_idx += 1
-  }
   let mut rewritten_funcs : Array[@lib.Func]? = None
   let mut primary_def = -1
   let mut def_idx = 0
@@ -9520,7 +9514,8 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
     let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
       body,
       mod_.type_sec,
-      allow_live_local_copy_cleanup=touched[def_idx],
+      allow_live_local_copy_cleanup=def_idx < touched_defs.length() &&
+        touched_defs[def_idx],
     )
     if rewritten != body {
       let next_func = @lib.Func::new(locals, @lib.Expr::new(rewritten))
@@ -9542,7 +9537,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
     Some(copy) =>
       {
         mod_out: mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec(),
-        touched,
+        touched: touched_defs.copy(),
         changed: true,
         primary_def,
       }
