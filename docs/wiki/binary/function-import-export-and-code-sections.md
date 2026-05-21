@@ -15,6 +15,8 @@ sources:
   - ../../../src/validate_proof/func_index.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/binary/tests.mbt
+  - ../../../src/fuzz/invalid_binary.mbt
+  - ../../../src/fuzz/invalid_binary_wbtest.mbt
 related:
   - module-section-map.md
   - custom-and-name-sections.md
@@ -99,9 +101,9 @@ These helpers matter for diagnostics and pass writeback. A failure in defined bo
 | Decode exports/start/code | [`Decode for ExportSec`](../../../src/binary/decode.mbt#L2280-L2286), [`Decode for StartSec`](../../../src/binary/decode.mbt#L2288-L2298), and [`Decode for CodeSec`](../../../src/binary/decode.mbt#L1795-L1810) preserve the separate section surfaces. | `src/binary/decode.mbt` |
 | Encode sections | [`Encode for ImportSec`](../../../src/binary/encode.mbt#L1151-L1153), [`FuncSec`](../../../src/binary/encode.mbt#L1307-L1309), [`ExportSec`](../../../src/binary/encode.mbt#L1351-L1353), [`StartSec`](../../../src/binary/encode.mbt#L1366-L1369), and [`CodeSec`](../../../src/binary/encode.mbt#L1474-L1488) write section ids `2`, `3`, `7`, `8`, and `10`. | `src/binary/encode.mbt` |
 | Encode whole module | [`Encode for Module`](../../../src/binary/encode.mbt#L1651-L1727) emits the standard sections in canonical order, with import before function declarations and code after data-count/element handling. | `src/binary/encode.mbt` |
-| Round-trip fuzz | [`run_binary_fuzz_with_state`](../../../src/binary/tests.mbt#L160-L240) includes independent arbitrary round-trips for `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, and `CodeSec`. | `src/binary/tests.mbt` |
+| Round-trip fuzz | [`run_binary_fuzz_with_state`](../../../src/binary/tests.mbt#L160-L240) includes independent arbitrary round-trips for `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, and `CodeSec`. Focused invalid-binary export descriptor byte carriers live in [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt) and [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt). | `src/binary/tests.mbt`; `src/fuzz/invalid_binary.mbt`; `src/fuzz/invalid_binary_wbtest.mbt` |
 
-Starshine does not preserve a source-level interleaving of imports, functions, exports, and start declarations after lowering. The core module preserves the semantic section surfaces and index targets.
+Starshine does not preserve a source-level interleaving of imports, functions, exports, and start declarations after lowering. The core module preserves the semantic section surfaces and index targets. The binary-invalid lane locks the export descriptor decode surface with `invalid-export-kind-byte`, malformed export index ULEB carriers (`malformed-export-func-index-uleb`, `malformed-export-table-index-uleb`, `malformed-export-memory-index-uleb`, `malformed-export-global-index-uleb`, `malformed-export-tag-index-uleb`), and overwide export index ULEB carriers (`overwide-export-func-index-uleb`, `overwide-export-table-index-uleb`, `overwide-export-memory-index-uleb`, `overwide-export-global-index-uleb`, `overwide-export-tag-index-uleb`).
 
 ## Code Body Local Model
 

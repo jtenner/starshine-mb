@@ -135,6 +135,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedExportMemoryIndexUleb
   MalformedExportGlobalIndexUleb
   MalformedExportTagIndexUleb
+  OverwideExportFuncIndexUleb
+  OverwideExportTableIndexUleb
+  OverwideExportMemoryIndexUleb
+  OverwideExportGlobalIndexUleb
+  OverwideExportTagIndexUleb
   InvalidElementSegmentFlagByte
   InvalidElementKindByte
   InvalidDataSegmentFlagByte
@@ -704,6 +709,11 @@ fn validate_invalid_binary_strategy_label(
     MalformedExportMemoryIndexUleb => "malformed-export-memory-index-uleb"
     MalformedExportGlobalIndexUleb => "malformed-export-global-index-uleb"
     MalformedExportTagIndexUleb => "malformed-export-tag-index-uleb"
+    OverwideExportFuncIndexUleb => "overwide-export-func-index-uleb"
+    OverwideExportTableIndexUleb => "overwide-export-table-index-uleb"
+    OverwideExportMemoryIndexUleb => "overwide-export-memory-index-uleb"
+    OverwideExportGlobalIndexUleb => "overwide-export-global-index-uleb"
+    OverwideExportTagIndexUleb => "overwide-export-tag-index-uleb"
     InvalidElementSegmentFlagByte => "invalid-element-segment-flag-byte"
     InvalidElementKindByte => "invalid-element-kind-byte"
     InvalidDataSegmentFlagByte => "invalid-data-segment-flag-byte"
@@ -1643,6 +1653,41 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedExportTagIndexUleb,
       "malformed-export-tag-index-uleb",
       "tag export descriptor with a malformed tag-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideExportFuncIndexUleb,
+      "overwide-export-func-index-uleb",
+      "function export descriptor with an overwide function-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideExportTableIndexUleb,
+      "overwide-export-table-index-uleb",
+      "table export descriptor with an overwide table-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideExportMemoryIndexUleb,
+      "overwide-export-memory-index-uleb",
+      "memory export descriptor with an overwide memory-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideExportGlobalIndexUleb,
+      "overwide-export-global-index-uleb",
+      "global export descriptor with an overwide global-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideExportTagIndexUleb,
+      "overwide-export-tag-index-uleb",
+      "tag export descriptor with an overwide tag-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -9472,6 +9517,34 @@ fn validate_invalid_binary_module_with_malformed_export_index_uleb(
 }
 
 ///|
+fn validate_invalid_binary_module_with_overwide_export_index_uleb(
+  kind : Byte,
+) -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x07).to_byte(),
+    (0x0a).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x78).to_byte(),
+    kind,
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_export_func_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -9545,6 +9618,86 @@ fn validate_invalid_binary_mutate_malformed_export_tag_index_uleb(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_malformed_export_index_uleb(
+        (0x04).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_export_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideExportFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_export_index_uleb(
+        (0x00).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_export_table_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideExportTableIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_export_index_uleb(
+        (0x01).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_export_memory_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideExportMemoryIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_export_index_uleb(
+        (0x02).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_export_global_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideExportGlobalIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_export_index_uleb(
+        (0x03).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_export_tag_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      OverwideExportTagIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_overwide_export_index_uleb(
         (0x04).to_byte(),
       ),
     ),
@@ -10404,6 +10557,16 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_malformed_export_global_index_uleb(base)
     MalformedExportTagIndexUleb =>
       validate_invalid_binary_mutate_malformed_export_tag_index_uleb(base)
+    OverwideExportFuncIndexUleb =>
+      validate_invalid_binary_mutate_overwide_export_func_index_uleb(base)
+    OverwideExportTableIndexUleb =>
+      validate_invalid_binary_mutate_overwide_export_table_index_uleb(base)
+    OverwideExportMemoryIndexUleb =>
+      validate_invalid_binary_mutate_overwide_export_memory_index_uleb(base)
+    OverwideExportGlobalIndexUleb =>
+      validate_invalid_binary_mutate_overwide_export_global_index_uleb(base)
+    OverwideExportTagIndexUleb =>
+      validate_invalid_binary_mutate_overwide_export_tag_index_uleb(base)
     InvalidElementSegmentFlagByte =>
       validate_invalid_binary_mutate_invalid_element_segment_flag_byte(base)
     InvalidElementKindByte =>

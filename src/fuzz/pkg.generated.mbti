@@ -413,6 +413,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedExportMemoryIndexUleb
   MalformedExportGlobalIndexUleb
   MalformedExportTagIndexUleb
+  OverwideExportFuncIndexUleb
+  OverwideExportTableIndexUleb
+  OverwideExportMemoryIndexUleb
+  OverwideExportGlobalIndexUleb
+  OverwideExportTagIndexUleb
   InvalidElementSegmentFlagByte
   InvalidElementKindByte
   InvalidDataSegmentFlagByte
