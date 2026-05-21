@@ -454,6 +454,118 @@ fn gen_valid_test_module_has_i64_const_local_set(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_val_type_is_exact_ref(vt : ValType) -> Bool {
+  match vt {
+    RefTypeValType(rt) => rt.is_exact()
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_test_module_has_exact_ref_local(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(locals, _) = func
+        for vt in locals.iter() {
+          if gen_valid_test_val_type_is_exact_ref(vt) {
+            return true
+          }
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_exact_ref_local_flow_block(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(ValTypeBlockType(vt), Expr(body)) if gen_valid_test_val_type_is_exact_ref(
+          vt,
+        ) => {
+        let mut saw_set = false
+        let mut saw_get = false
+        for nested in body {
+          match nested {
+            LocalSet(_) => saw_set = true
+            LocalGet(_) => saw_get = true
+            _ => ()
+          }
+        }
+        if saw_set && saw_get {
+          return true
+        }
+        if gen_valid_test_has_exact_ref_local_flow_block(body) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_exact_ref_local_flow_block(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_exact_ref_local_flow_block(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_exact_ref_local_flow_block(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_exact_ref_local_flow_block(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_has_exact_ref_local_flow_block(instrs) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+test "coverage-forced GenValid routes exact refs through locals and block results" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71004UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exact-ref coverage-forced generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.uses_ref_types)
+  assert_true(generated.facts.has_gc_constructors)
+  assert_true(
+    gen_valid_test_module_has_exact_ref_local(generated.wasm_module),
+    msg="coverage-forced GC topology should declare at least one exact-reference local",
+  )
+  assert_true(
+    gen_valid_test_module_has_exact_ref_local_flow_block(generated.wasm_module),
+    msg="coverage-forced GC topology should route an exact reference through local.set/local.get inside an exact block result",
+  )
+}
+
+///|
 test "control-heavy profile uses typed GenValid body generator slice" {
   let config = GenValidConfig::for_profile(ControlHeavyProfile)
   assert_true(config.features.allow_typed_body_generator)

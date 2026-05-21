@@ -4971,6 +4971,36 @@ fn gen_valid_append_simd_phase3_ops(out : Array[Instruction]) -> Unit {
 }
 
 ///|
+fn gen_valid_append_exact_ref_local_flow(
+  out : Array[Instruction],
+  env : GenValidBodyEnv,
+) -> Unit {
+  for vt in env.gc_type_plan.exact_ref_types {
+    match vt {
+      RefTypeValType(rt) =>
+        match gen_matching_local_idx(env.local_types, vt) {
+          Some(idx) => {
+            out.push(
+              Instruction::block(
+                BlockType::val_type(vt),
+                Expr::new([
+                  Instruction::ref_null_type(rt),
+                  Instruction::local_set(idx),
+                  Instruction::local_get(idx),
+                ]),
+              ),
+            )
+            out.push(Instruction::drop())
+            return
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -4978,6 +5008,7 @@ fn gen_valid_append_coverage_prelude(
   returns : Array[ValType],
 ) -> Unit {
   gen_valid_append_gc_prelude(out, ctx, env)
+  gen_valid_append_exact_ref_local_flow(out, env)
   gen_valid_append_basic_ref_ops(out, ctx)
   gen_valid_append_i31_extern_conversion_ops(out, ctx)
   gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
@@ -5243,6 +5274,9 @@ fn gen_valid_build_func(
   }
   if ctx.config.mode == CoverageForced {
     for vt in gc_type_plan.concrete_ref_types {
+      locals.push(vt)
+    }
+    for vt in gc_type_plan.exact_ref_types {
       locals.push(vt)
     }
   }
