@@ -106,6 +106,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidMemoryLimitsFlagByte
   InvalidTagAttributeByte
   InvalidGlobalMutabilityByte
+  MalformedExportFuncIndexUleb
+  MalformedExportTableIndexUleb
+  MalformedExportMemoryIndexUleb
+  MalformedExportGlobalIndexUleb
+  MalformedExportTagIndexUleb
   InvalidElementSegmentFlagByte
   InvalidElementKindByte
   InvalidDataSegmentFlagByte
@@ -575,6 +580,11 @@ fn validate_invalid_binary_strategy_label(
     InvalidMemoryLimitsFlagByte => "invalid-memory-limits-flag-byte"
     InvalidTagAttributeByte => "invalid-tag-attribute-byte"
     InvalidGlobalMutabilityByte => "invalid-global-mutability-byte"
+    MalformedExportFuncIndexUleb => "malformed-export-func-index-uleb"
+    MalformedExportTableIndexUleb => "malformed-export-table-index-uleb"
+    MalformedExportMemoryIndexUleb => "malformed-export-memory-index-uleb"
+    MalformedExportGlobalIndexUleb => "malformed-export-global-index-uleb"
+    MalformedExportTagIndexUleb => "malformed-export-tag-index-uleb"
     InvalidElementSegmentFlagByte => "invalid-element-segment-flag-byte"
     InvalidElementKindByte => "invalid-element-kind-byte"
     InvalidDataSegmentFlagByte => "invalid-data-segment-flag-byte"
@@ -1208,6 +1218,41 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidGlobalMutabilityByte,
       "invalid-global-mutability-byte",
       "global section with an invalid mutability byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedExportFuncIndexUleb,
+      "malformed-export-func-index-uleb",
+      "function export descriptor with a malformed function-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedExportTableIndexUleb,
+      "malformed-export-table-index-uleb",
+      "table export descriptor with a malformed table-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedExportMemoryIndexUleb,
+      "malformed-export-memory-index-uleb",
+      "memory export descriptor with a malformed memory-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedExportGlobalIndexUleb,
+      "malformed-export-global-index-uleb",
+      "global export descriptor with a malformed global-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedExportTagIndexUleb,
+      "malformed-export-tag-index-uleb",
+      "tag export descriptor with a malformed tag-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5898,6 +5943,109 @@ fn validate_invalid_binary_mutate_invalid_global_mutability_byte(
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_export_index_uleb(
+  kind : Byte,
+) -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x07).to_byte(),
+    (0x05).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x78).to_byte(),
+    kind,
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_export_func_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedExportFuncIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_export_index_uleb(
+        (0x00).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_export_table_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedExportTableIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_export_index_uleb(
+        (0x01).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_export_memory_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedExportMemoryIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_export_index_uleb(
+        (0x02).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_export_global_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedExportGlobalIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_export_index_uleb(
+        (0x03).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_export_tag_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedExportTagIndexUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_export_index_uleb(
+        (0x04).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_module_with_invalid_element_segment_flag_byte() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -6680,6 +6828,16 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_tag_attribute_byte(base)
     InvalidGlobalMutabilityByte =>
       validate_invalid_binary_mutate_invalid_global_mutability_byte(base)
+    MalformedExportFuncIndexUleb =>
+      validate_invalid_binary_mutate_malformed_export_func_index_uleb(base)
+    MalformedExportTableIndexUleb =>
+      validate_invalid_binary_mutate_malformed_export_table_index_uleb(base)
+    MalformedExportMemoryIndexUleb =>
+      validate_invalid_binary_mutate_malformed_export_memory_index_uleb(base)
+    MalformedExportGlobalIndexUleb =>
+      validate_invalid_binary_mutate_malformed_export_global_index_uleb(base)
+    MalformedExportTagIndexUleb =>
+      validate_invalid_binary_mutate_malformed_export_tag_index_uleb(base)
     InvalidElementSegmentFlagByte =>
       validate_invalid_binary_mutate_invalid_element_segment_flag_byte(base)
     InvalidElementKindByte =>

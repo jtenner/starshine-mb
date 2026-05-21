@@ -384,6 +384,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidMemoryLimitsFlagByte
   InvalidTagAttributeByte
   InvalidGlobalMutabilityByte
+  MalformedExportFuncIndexUleb
+  MalformedExportTableIndexUleb
+  MalformedExportMemoryIndexUleb
+  MalformedExportGlobalIndexUleb
+  MalformedExportTagIndexUleb
   InvalidElementSegmentFlagByte
   InvalidElementKindByte
   InvalidDataSegmentFlagByte
