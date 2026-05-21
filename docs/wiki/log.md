@@ -1157,6 +1157,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so broad validator, diagnostic-family, binary resource, segment, and WAST declaration readers route non-function resource-section details through one shared validator contract instead of repeating partial summaries.
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
+## [2026-05-21] fuzzing | FUZ1006 indirect and nested-tail widening
+
+- Continued [`[FUZ]1006`](../../agent-todo.md) by making coverage-forced GenValid emit ordinary `call_indirect` through table `0` with both dynamic element indices `0` and `1`, plus a `return_call` nested inside a terminal control block.
+- Updated [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md) so the generator row names the current call-family coverage-forced guarantees alongside direct-call and `call_ref` source coverage.
+
 ## [2026-05-21] fuzzing | FUZ1006 global call_ref source
 
 - Continued [`[FUZ]1006`](../../agent-todo.md) by adding a typed function-reference global to coverage-forced GenValid modules and emitting an ordinary `global.get -> call_ref` source variant alongside the existing local and block-result callable-reference flows.

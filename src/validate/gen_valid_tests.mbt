@@ -1079,6 +1079,103 @@ fn gen_valid_test_imported_func_count(mod_ : Module) -> Int {
 }
 
 ///|
+fn gen_valid_test_has_const_index_call_indirect(
+  instrs : Array[Instruction],
+  table_idx : TableIdx,
+  index : Int,
+) -> Bool {
+  for i = 0; i + 1 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1]) {
+      (I32Const(I32(value)), CallIndirect(_, target_table)) if value == index &&
+        target_table == table_idx => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_const_index_call_indirect(body, table_idx, index) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_const_index_call_indirect(
+            then_body, table_idx, index,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if gen_valid_test_has_const_index_call_indirect(
+                body, table_idx, index,
+              ) {
+              return true
+            }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_nested_tail_call(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) => {
+        for child in body {
+          match child {
+            ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
+              return true
+            _ => ()
+          }
+        }
+        if gen_valid_test_has_nested_tail_call(body) {
+          return true
+        }
+      }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_nested_tail_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_nested_tail_call(body) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_nonzero_indirect_and_nested_tail(
+  mod_ : Module,
+) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut has_nonzero_indirect = false
+      let mut has_nested_tail = false
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        has_nonzero_indirect = has_nonzero_indirect ||
+          gen_valid_test_has_const_index_call_indirect(
+            instrs,
+            TableIdx::new(0U),
+            1,
+          )
+        has_nested_tail = has_nested_tail ||
+          gen_valid_test_has_nested_tail_call(instrs)
+      }
+      has_nonzero_indirect && has_nested_tail
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_module_has_import_self_and_mutual_direct_calls(
   mod_ : Module,
 ) -> Bool {
@@ -1406,6 +1503,32 @@ test "coverage-forced GenValid emits imported self and mutual direct calls" {
       generated.wasm_module,
     ),
     msg="coverage-forced direct-call generation should include imported calls, recursive self-calls, and a mutually recursive pair",
+  )
+}
+
+///|
+test "coverage-forced GenValid emits nonzero call_indirect and nested tail calls" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0x71008UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected indirect/tail coverage-forced generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_call_indirect)
+  assert_true(generated.facts.has_tail_calls)
+  assert_true(generated.facts.exact_opcode_counts.return_call > 0)
+  assert_true(
+    gen_valid_test_module_has_nonzero_indirect_and_nested_tail(
+      generated.wasm_module,
+    ),
+    msg="coverage-forced call generation should include a table-0 call_indirect at element index 1 plus a tail call nested inside a terminal control block",
   )
 }
 

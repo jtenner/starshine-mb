@@ -4343,6 +4343,55 @@ fn gen_valid_append_direct_call_graph_variants(
 }
 
 ///|
+fn gen_valid_append_call_indirect_variants(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !ctx.config.features.allow_call_indirect || env.tables.is_empty() {
+    return
+  }
+  let TableType(rt, _) = env.tables[0]
+  if ValType::ref_type(rt) != ValType::funcref() {
+    return
+  }
+  match gen_valid_pick_callable(ctx, env.funcs) {
+    Some(target) => {
+      gen_valid_append_call_args(out, ctx, env, target.params)
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::call_indirect(target.type_idx, TableIdx::new(0U)))
+      gen_valid_append_call_result_drops(out, target.results)
+      gen_valid_append_call_args(out, ctx, env, target.params)
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(Instruction::call_indirect(target.type_idx, TableIdx::new(0U)))
+      gen_valid_append_call_result_drops(out, target.results)
+    }
+    None => ()
+  }
+}
+
+///|
+fn gen_valid_append_nested_tail_call_variants(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  returns : Array[ValType],
+) -> Unit {
+  if !ctx.config.features.allow_tail_calls || !ctx.config.features.allow_calls {
+    return
+  }
+  match gen_valid_pick_callable_with_results(ctx, env.funcs, returns) {
+    Some(target) => {
+      let nested : Array[Instruction] = []
+      gen_valid_append_call_args(nested, ctx, env, target.params)
+      nested.push(Instruction::return_call(target.idx))
+      out.push(Instruction::block(BlockType::void_(), Expr::new(nested)))
+    }
+    None => ()
+  }
+}
+
+///|
 fn gen_valid_append_tail_call_ops(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -5434,7 +5483,9 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_expanded_scalar_numeric_ops(out)
   gen_valid_append_core_control_ops(out, ctx, env)
   gen_valid_append_direct_call_graph_variants(out, ctx, env)
+  gen_valid_append_call_indirect_variants(out, ctx, env)
   gen_valid_append_call_ref_source_variants(out, ctx, env)
+  gen_valid_append_nested_tail_call_variants(out, ctx, env, returns)
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
   if ctx.config.features.allow_v128 {
     gen_valid_append_simd_phase1_ops(out)
