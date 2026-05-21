@@ -317,6 +317,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   DuplicateTableSection
   DuplicateMemorySection
   DuplicateGlobalSection
+  DuplicateFunctionSection
+  DuplicateCodeSection
+  DuplicateElementSection
+  DuplicateDataSection
+  DuplicateTagSection
   WrongSectionOrder
   InvalidFuncTypeIndex
   InvalidStartSignatureModule

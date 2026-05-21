@@ -39,6 +39,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   DuplicateTableSection
   DuplicateMemorySection
   DuplicateGlobalSection
+  DuplicateFunctionSection
+  DuplicateCodeSection
+  DuplicateElementSection
+  DuplicateDataSection
+  DuplicateTagSection
   WrongSectionOrder
   InvalidFuncTypeIndex
   InvalidStartSignatureModule
@@ -497,6 +502,11 @@ fn validate_invalid_binary_strategy_label(
     DuplicateTableSection => "duplicate-table-section"
     DuplicateMemorySection => "duplicate-memory-section"
     DuplicateGlobalSection => "duplicate-global-section"
+    DuplicateFunctionSection => "duplicate-function-section"
+    DuplicateCodeSection => "duplicate-code-section"
+    DuplicateElementSection => "duplicate-element-section"
+    DuplicateDataSection => "duplicate-data-section"
+    DuplicateTagSection => "duplicate-tag-section"
     DuplicateExportNameModule => "duplicate-export-name-module"
     FuncSecWithoutCodeSecModule => "funcsec-without-codesec-module"
     DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
@@ -978,6 +988,41 @@ pub fn validate_invalid_binary_registry() -> Array[
       DuplicateGlobalSection,
       "duplicate-global-section",
       "duplicate global section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateFunctionSection,
+      "duplicate-function-section",
+      "duplicate function section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateCodeSection,
+      "duplicate-code-section",
+      "duplicate code section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateElementSection,
+      "duplicate-element-section",
+      "duplicate element section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateDataSection,
+      "duplicate-data-section",
+      "duplicate data section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateTagSection,
+      "duplicate-tag-section",
+      "duplicate tag section after a valid module",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -2211,6 +2256,57 @@ fn validate_invalid_binary_mutate_duplicate_global_section(
     DuplicateGlobalSection,
     6,
   )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_function_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateFunctionSection,
+    3,
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_code_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateCodeSection,
+    10,
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_element_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateElementSection,
+    9,
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_data_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(
+    mod,
+    DuplicateDataSection,
+    11,
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_tag_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_duplicate_section(mod, DuplicateTagSection, 13)
 }
 
 ///|
@@ -6340,6 +6436,16 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_duplicate_memory_section(base)
     DuplicateGlobalSection =>
       validate_invalid_binary_mutate_duplicate_global_section(base)
+    DuplicateFunctionSection =>
+      validate_invalid_binary_mutate_duplicate_function_section(base)
+    DuplicateCodeSection =>
+      validate_invalid_binary_mutate_duplicate_code_section(base)
+    DuplicateElementSection =>
+      validate_invalid_binary_mutate_duplicate_element_section(base)
+    DuplicateDataSection =>
+      validate_invalid_binary_mutate_duplicate_data_section(base)
+    DuplicateTagSection =>
+      validate_invalid_binary_mutate_duplicate_tag_section(base)
     WrongSectionOrder =>
       validate_invalid_binary_mutate_wrong_section_order(base)
     InvalidFuncTypeIndex =>
