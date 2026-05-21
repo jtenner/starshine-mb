@@ -137,8 +137,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "malformed-table-size-index-uleb", "malformed-table-grow-index-uleb", "malformed-table-fill-index-uleb",
     "overwide-table-index-uleb", "overwide-table-set-index-uleb", "overwide-table-size-index-uleb",
     "overwide-table-grow-index-uleb", "overwide-table-fill-index-uleb", "malformed-memory-size-memory-index-uleb",
-    "malformed-memory-grow-memory-index-uleb", "overwide-memory-size-memory-index-uleb",
-    "overwide-memory-grow-memory-index-uleb", "malformed-memory-copy-dst-index-uleb",
+    "malformed-memory-grow-memory-index-uleb", "malformed-memory-fill-memory-index-uleb",
+    "overwide-memory-size-memory-index-uleb", "overwide-memory-grow-memory-index-uleb",
+    "overwide-memory-fill-memory-index-uleb", "malformed-memory-copy-dst-index-uleb",
     "malformed-memory-copy-src-index-uleb", "malformed-table-copy-dst-index-uleb",
     "malformed-table-copy-src-index-uleb", "overwide-memory-copy-dst-index-uleb",
     "overwide-memory-copy-src-index-uleb", "overwide-table-copy-dst-index-uleb",
@@ -268,7 +269,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
+      "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1349,6 +1350,7 @@ test "invalid binary FZG034 decodes malformed table and memory index ULEBs as in
       "malformed-table-set-index-uleb", "malformed-table-size-index-uleb", "malformed-table-grow-index-uleb",
       "malformed-table-fill-index-uleb", "malformed-table-init-elem-index-uleb",
       "malformed-memory-size-memory-index-uleb", "malformed-memory-grow-memory-index-uleb",
+      "malformed-memory-fill-memory-index-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f19UL, "decode") {
       Ok(_) => ()
@@ -1864,7 +1866,7 @@ test "invalid binary FZG030 decodes overwide table and memory index ULEBs as inv
     strategy in [
       "overwide-table-index-uleb", "overwide-table-set-index-uleb", "overwide-table-size-index-uleb",
       "overwide-table-grow-index-uleb", "overwide-table-fill-index-uleb", "overwide-memory-size-memory-index-uleb",
-      "overwide-memory-grow-memory-index-uleb",
+      "overwide-memory-grow-memory-index-uleb", "overwide-memory-fill-memory-index-uleb",
     ] {
     match invalid_binary_expect_strategy_rejects(strategy, 0x5f1aUL, "decode") {
       Ok(_) => ()
@@ -2073,7 +2075,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-table-fill-index-uleb", "overwide-table-index-uleb", "overwide-table-set-index-uleb",
       "overwide-table-size-index-uleb", "overwide-table-grow-index-uleb", "overwide-table-fill-index-uleb",
       "malformed-memory-size-memory-index-uleb", "malformed-memory-grow-memory-index-uleb",
-      "overwide-memory-size-memory-index-uleb", "overwide-memory-grow-memory-index-uleb",
+      "malformed-memory-fill-memory-index-uleb", "overwide-memory-size-memory-index-uleb",
+      "overwide-memory-grow-memory-index-uleb", "overwide-memory-fill-memory-index-uleb",
       "malformed-memory-copy-dst-index-uleb", "malformed-memory-copy-src-index-uleb",
       "malformed-table-copy-dst-index-uleb", "malformed-table-copy-src-index-uleb",
       "overwide-memory-copy-dst-index-uleb", "overwide-memory-copy-src-index-uleb",
