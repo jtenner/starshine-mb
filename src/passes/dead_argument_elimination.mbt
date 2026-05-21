@@ -8791,6 +8791,25 @@ fn dae_instr_self_comparison_replacement(
 }
 
 ///|
+fn dae_instr_self_integer_binary_replacement(
+  lhs : @lib.Instruction,
+  rhs : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> Array[@lib.Instruction]? {
+  if !dae_instrs_read_same_local_or_global(lhs, rhs) {
+    return None
+  }
+  match instr {
+    @lib.I32And | @lib.I32Or | @lib.I64And | @lib.I64Or => Some([lhs])
+    @lib.I32Xor | @lib.I32Sub =>
+      Some([@lib.Instruction::i32_const(@lib.I32(0))])
+    @lib.I64Xor | @lib.I64Sub =>
+      Some([@lib.Instruction::i64_const(@lib.I64(0L))])
+    _ => None
+  }
+}
+
+///|
 fn dae_block_type_is_zero_param_single_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -9178,6 +9197,20 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         Some(replacement) => {
           ignore(out.pop())
           out.push(replacement)
+          idx += 2
+          continue
+        }
+        None => ()
+      }
+      match
+        dae_instr_self_integer_binary_replacement(
+          out[last_idx],
+          instrs[idx],
+          instrs[idx + 1],
+        ) {
+        Some(replacement) => {
+          ignore(out.pop())
+          dae_push_instrs(out, replacement)
           idx += 2
           continue
         }
