@@ -609,7 +609,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
 - [FUZ]1004 - GenValid Type, Subtyping, And GC Topology Widening
-  - Status: active; exact-reference local/block flow slice landed on 2026-05-21, but broader recursive topology/descriptor/field-matrix widening remains.
+  - Status: IN PROGRESS (cron 23, 2026-05-21); active; exact-reference local/block flow and mutually recursive struct/array rec-group slices landed on 2026-05-21, but broader recursive topology/descriptor/final-open matrices remain.
   - Goal: generate richer recursive types, subtype graphs, descriptors, structs, arrays, and exact-reference flows.
   - Why: current GC coverage is broad but still template-heavy. Optimizer and validator bugs often live in recursive type topology, descriptor pairing, defaultability, exact refs, and typed aggregate access.
   - Deliverables: add generation for rec groups of varied sizes, mutually recursive struct/array groups, deep chains, wide fanout, final/open subtype matrices, descriptor/describes pairs, descriptor edge cases that remain valid, packed and ref fields, mutable/immutable field mixes, arrays over packed/ref fields, and exact refs flowing through params/locals/globals/calls/blocks.
@@ -617,7 +617,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Invariants: do not weaken subtype validation; keep official-vs-local caveats documented; ensure every generated exact non-null ref has a real construction path or safe fallback.
   - Dependencies: [FUZ]1002 helps produce diverse GC bodies but is not strictly required for type-section widening.
   - Suggested Tests: focused validation tests for each topology family, feature fact counters for exact-ref and descriptor flows, `moon test src/validate`, small pass-fuzz lanes against GC-sensitive passes.
-  - Current evidence: `coverage-forced GenValid routes exact refs through locals and block results` now proves coverage-forced modules declare exact-reference locals and emit an exact-result block routing an exact reference through `local.set` / `local.get`; `moon test src/validate` passes for that slice. Remaining work should target nontrivial recursive topology/descriptor/final-open matrices rather than redoing this exact-ref local-flow coverage.
+  - Current evidence: `coverage-forced GenValid routes exact refs through locals and block results` now proves coverage-forced modules declare exact-reference locals and emit an exact-result block routing an exact reference through `local.set` / `local.get`; `coverage-forced GenValid emits mutually recursive struct and array topology` now proves GC-heavy modules validate with a rec group where a struct field references an array sibling and that array's element type references the struct sibling; focused `moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt` passes. Remaining work should target descriptor/final-open matrices and organic non-forced topology diversity rather than redoing these exact-ref or mutual struct/array slices.
   - Exit Criteria: natural or GC-heavy profiles organically produce multiple GC topology families without relying only on the coverage prelude.
 
 - [FUZ]1005 - GenValid Control Flow, Multi-Value, And Branch Payloads

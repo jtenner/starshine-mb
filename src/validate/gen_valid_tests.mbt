@@ -539,6 +539,101 @@ fn gen_valid_test_module_has_exact_ref_local_flow_block(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_mutual_struct_array_group(mod_ : Module) -> Bool {
+  match mod_.type_sec {
+    Some(TypeSec(types)) => {
+      let mut cursor = 0
+      for rec_type in types {
+        match rec_type {
+          GroupRecType(group) if group.length() >= 2 =>
+            for i = 0; i < group.length(); i = i + 1 {
+              for j = 0; j < group.length(); j = j + 1 {
+                if i != j {
+                  let struct_idx = TypeIdx::new(
+                    (cursor + i).reinterpret_as_uint(),
+                  )
+                  let array_idx = TypeIdx::new(
+                    (cursor + j).reinterpret_as_uint(),
+                  )
+                  let mut struct_refs_array = false
+                  let mut array_refs_struct = false
+                  match group[i] {
+                    SubType(_, _, _, StructCompType(fields))
+                    | CompTypeSubType(_, StructCompType(fields)) =>
+                      for field in fields {
+                        match field {
+                          FieldType(
+                            ValTypeStorageType(
+                              RefTypeValType(
+                                HeapTypeRefType(_, _, HeapType(target))
+                              )
+                            ),
+                            _
+                          ) if target == array_idx => struct_refs_array = true
+                          _ => ()
+                        }
+                      }
+                    _ => ()
+                  }
+                  match group[j] {
+                    SubType(_, _, _, ArrayCompType(field))
+                    | CompTypeSubType(_, ArrayCompType(field)) =>
+                      match field {
+                        FieldType(
+                          ValTypeStorageType(
+                            RefTypeValType(
+                              HeapTypeRefType(_, _, HeapType(target))
+                            )
+                          ),
+                          _
+                        ) if target == struct_idx => array_refs_struct = true
+                        _ => ()
+                      }
+                    _ => ()
+                  }
+                  if struct_refs_array && array_refs_struct {
+                    return true
+                  }
+                }
+              }
+            }
+          _ => ()
+        }
+        match rec_type {
+          SingleRecType(_) => cursor += 1
+          GroupRecType(group) => cursor += group.length()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+test "coverage-forced GenValid emits mutually recursive struct and array topology" {
+  let config = GenValidConfig::for_profile(GcHeavyProfile)
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf71005UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected mutual struct/array topology generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.facts.has_subtyping_topology)
+  assert_true(generated.facts.has_rich_gc_field_plans)
+  assert_true(
+    gen_valid_test_has_mutual_struct_array_group(generated.wasm_module),
+    msg="GC-heavy generation should include a rec group where a struct field references an array sibling and the array element references the struct sibling",
+  )
+}
+
+///|
 test "coverage-forced GenValid routes exact refs through locals and block results" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match
