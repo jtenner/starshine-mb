@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1054 high-local-index GenValid coverage
+
+- Continued [`[FUZ]1054`](../../agent-todo.md) by making the `control-heavy` typed-body profile append a budget-gated high-local declaration tail and emit a concrete `local.set` / `local.get` access against an index `>= 16`.
+- Added the public `GenValidFeatureFacts.has_high_local_indices` coverage fact, stats aggregation, and focused validation coverage so high local indices are measured separately from grouped/mixed local declaration runs.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the new validation anchor and high-index contract.
+
 ## [2026-05-22] fuzzing | FUZ1035 GenValid budget diagnostics
 
 - Started [`[FUZ]1035`](../../agent-todo.md) by adding optional `GenValidConfig` instruction-count and expression-depth budgets. Candidates that exceed either budget are retried, and final failures report `GenValidFailure.budget_stop` plus a clear budget-exceeded diagnostic.

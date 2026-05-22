@@ -1543,6 +1543,57 @@ fn gen_valid_test_count_local_set_instrs(instrs : Array[Instruction]) -> Int {
 }
 
 ///|
+fn gen_valid_test_local_idx_is_high(idx : LocalIdx) -> Bool {
+  let LocalIdx(raw) = idx
+  raw >= 16U
+}
+
+///|
+fn gen_valid_test_instrs_have_high_local_access(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      LocalGet(idx) | LocalSet(idx) | LocalTee(idx) =>
+        if gen_valid_test_local_idx_is_high(idx) {
+          return true
+        }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_high_local_access(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_high_local_access(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_high_local_access(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_high_local_access(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_instrs_have_high_local_access(instrs) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 fn gen_valid_test_has_i64_const_local_set(instrs : Array[Instruction]) -> Bool {
   for i = 0; i + 1 < instrs.length(); i = i + 1 {
     match (instrs[i], instrs[i + 1]) {
@@ -4798,6 +4849,14 @@ test "control-heavy profile records widened local declaration layout" {
   assert_true(
     generated.facts.has_mixed_local_decl_types,
     msg="typed body profiles should deliberately include mixed local declaration run types",
+  )
+  assert_true(
+    generated.facts.has_high_local_indices,
+    msg="body-layout profiles should exercise local indices beyond the tiny default range",
+  )
+  assert_true(
+    gen_valid_test_module_has_high_local_access(generated.wasm_module),
+    msg="body-layout profiles should reference a high local index from generated code, not only declare it",
   )
 }
 

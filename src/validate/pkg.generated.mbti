@@ -771,6 +771,7 @@ pub struct GenValidFeatureFacts {
   has_tail_calls : Bool
   has_grouped_local_decls : Bool
   has_mixed_local_decl_types : Bool
+  has_high_local_indices : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
@@ -830,6 +831,7 @@ pub struct GenValidFeatureStats {
   local_tee : Int
   typed_select : Int
   tail_calls : Int
+  high_local_indices : Int
   scalar_memory_widths : Int
   nonzero_memarg : Int
   memory_limit_variants : Int

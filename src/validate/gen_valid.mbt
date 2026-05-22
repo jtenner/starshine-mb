@@ -921,6 +921,11 @@ fn gen_valid_is_topology_heavy_config(config : GenValidConfig) -> Bool {
 }
 
 ///|
+fn gen_valid_is_control_heavy_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(ControlHeavyProfile)
+}
+
+///|
 pub fn default_gen_valid_config() -> GenValidConfig {
   GenValidConfig::natural_default()
 }
@@ -958,6 +963,7 @@ pub struct GenValidFeatureFacts {
   has_tail_calls : Bool
   has_grouped_local_decls : Bool
   has_mixed_local_decl_types : Bool
+  has_high_local_indices : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
@@ -1070,6 +1076,7 @@ pub struct GenValidFeatureStats {
   local_tee : Int
   typed_select : Int
   tail_calls : Int
+  high_local_indices : Int
   scalar_memory_widths : Int
   nonzero_memarg : Int
   memory_limit_variants : Int
@@ -1160,6 +1167,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.typed_select.output(logger)
   logger.write_string(", tail_calls: ")
   self.tail_calls.output(logger)
+  logger.write_string(", high_local_indices: ")
+  self.high_local_indices.output(logger)
   logger.write_string(", scalar_memory_widths: ")
   self.scalar_memory_widths.output(logger)
   logger.write_string(", nonzero_memarg: ")
@@ -1248,6 +1257,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     local_tee: 0,
     typed_select: 0,
     tail_calls: 0,
+    high_local_indices: 0,
     scalar_memory_widths: 0,
     nonzero_memarg: 0,
     memory_limit_variants: 0,
@@ -1323,6 +1333,8 @@ pub fn GenValidFeatureStats::record(
     typed_select: self.typed_select +
     gen_valid_bool_count(facts.has_typed_select),
     tail_calls: self.tail_calls + gen_valid_bool_count(facts.has_tail_calls),
+    high_local_indices: self.high_local_indices +
+    gen_valid_bool_count(facts.has_high_local_indices),
     scalar_memory_widths: self.scalar_memory_widths +
     gen_valid_bool_count(facts.has_scalar_memory_widths),
     nonzero_memarg: self.nonzero_memarg +
@@ -3015,6 +3027,16 @@ fn gen_valid_ensure_body_layout_locals(
     } else {
       locals.push(ValType::f32())
     }
+    if gen_valid_is_control_heavy_config(ctx.config) {
+      for i = 0; i < 24; i = i + 1 {
+        match i % 4 {
+          0 => locals.push(ValType::i32())
+          1 => locals.push(ValType::i64())
+          2 => locals.push(ValType::f32())
+          _ => locals.push(ValType::f64())
+        }
+      }
+    }
   }
 }
 
@@ -3465,6 +3487,20 @@ fn gen_matching_local_idx(
   vt : ValType,
 ) -> LocalIdx? {
   for i = 0; i < local_types.length(); i = i + 1 {
+    if local_types[i] == vt {
+      return Some(LocalIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  None
+}
+
+///|
+fn gen_matching_high_local_idx(
+  local_types : Array[ValType],
+  vt : ValType,
+  min_index : Int,
+) -> LocalIdx? {
+  for i = min_index; i < local_types.length(); i = i + 1 {
     if local_types[i] == vt {
       return Some(LocalIdx::new(i.reinterpret_as_uint()))
     }
@@ -4551,6 +4587,15 @@ fn gen_valid_typed_stmt(
         out.push(instr)
       }
       out.push(Instruction::local_tee(idx))
+      out.push(Instruction::drop())
+    }
+    None => ()
+  }
+  match gen_matching_high_local_idx(env.local_types, ValType::i32(), 16) {
+    Some(idx) => {
+      out.push(Instruction::i32_const(I32(1054)))
+      out.push(Instruction::local_set(idx))
+      out.push(Instruction::local_get(idx))
       out.push(Instruction::drop())
     }
     None => ()
@@ -12414,6 +12459,41 @@ pub fn gen_valid_coverage_template_signature(mod : Module) -> String {
 }
 
 ///|
+fn gen_valid_local_idx_is_high(idx : LocalIdx) -> Bool {
+  let LocalIdx(raw) = idx
+  raw >= 16U
+}
+
+///|
+fn gen_valid_expr_has_high_local_access(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      LocalGet(idx) | LocalSet(idx) | LocalTee(idx) =>
+        if gen_valid_local_idx_is_high(idx) {
+          return true
+        }
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_expr_has_high_local_access(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_expr_has_high_local_access(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_expr_has_high_local_access(Expr::new(body)) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 pub fn gen_valid_feature_facts(
   mod : Module,
   mode : GenValidMode,
@@ -12446,6 +12526,7 @@ pub fn gen_valid_feature_facts(
   let mut has_tail_calls = false
   let mut has_grouped_local_decls = false
   let mut has_mixed_local_decl_types = false
+  let mut has_high_local_indices = false
   let mut has_scalar_memory_widths = false
   let mut has_nonzero_memarg = false
   let mut has_memory_limit_variants = false
@@ -12946,6 +13027,8 @@ pub fn gen_valid_feature_facts(
           uses_v128 = uses_v128 || has_v128_fact
         }
         let facts = gen_valid_scan_expr(expr)
+        has_high_local_indices = has_high_local_indices ||
+          gen_valid_expr_has_high_local_access(expr)
         uses_ref_types = uses_ref_types || facts.uses_ref_types
         uses_v128 = uses_v128 || facts.uses_v128
         has_call = has_call || facts.has_call
@@ -13027,6 +13110,7 @@ pub fn gen_valid_feature_facts(
     has_tail_calls,
     has_grouped_local_decls,
     has_mixed_local_decl_types,
+    has_high_local_indices,
     has_scalar_memory_widths,
     has_nonzero_memarg,
     has_memory_limit_variants,
