@@ -93,7 +93,7 @@ For a concrete future implementation sequence and validation ladder, use [`./sta
   - If a future alias is added, add a focused test so the upstream spelling cannot silently drift again.
 
 - [`src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt)
-  - Owns the current Starshine `dae-optimizing` implementation, including the integer identity raw-cleanup slice and the frontier-tracing hooks.
+  - Owns the current Starshine `dae-optimizing` implementation, including the integer identity raw-cleanup slice, the selected Func237 single-`i32` loop-parameter spill that materializes Binaryen-like explicit carrier locals when the target local is proven unused, and the frontier-tracing hooks.
 
 - [`src/passes/dead_argument_elimination_wbtest.mbt`](../../../../../src/passes/dead_argument_elimination_wbtest.mbt)
   - Focused raw-cleanup regression coverage for live integer identity tails, including guarded left-constant forms.

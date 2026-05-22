@@ -9869,6 +9869,268 @@ fn dae_instrs_reference_local_at_or_above(
 }
 
 ///|
+fn dae_block_type_is_single_i32_param_zero_result(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+) -> Bool {
+  match block_type {
+    @lib.TypeIdxBlockType(type_idx) =>
+      match type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              params.length() == 1 &&
+              params[0] == @lib.ValType::i32() &&
+              results.length() == 0
+            None => false
+          }
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_references_local(
+  instr : @lib.Instruction,
+  target_local : @lib.LocalIdx,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+      dae_local_idx_equal(idx, target_local)
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_instrs_reference_local(body, target_local)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_instrs_reference_local(then_body, target_local) ||
+      dae_instrs_reference_local(else_body, target_local)
+    @lib.If(_, then_body, None) =>
+      dae_instrs_reference_local(then_body, target_local)
+    _ => false
+  }
+}
+
+///|
+fn dae_instrs_reference_local(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+) -> Bool {
+  for instr in instrs {
+    if dae_instr_references_local(instr, target_local) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn dae_instrs_reference_local_from(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+  start : Int,
+) -> Bool {
+  let mut idx = start
+  while idx < instrs.length() {
+    if dae_instr_references_local(instrs[idx], target_local) {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_try_spill_i32_param_loop_if(
+  instr : @lib.Instruction,
+  iteration_local : @lib.LocalIdx,
+  carrier_local : @lib.LocalIdx,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.If(block_type, then_body, Some(else_body)) if block_type ==
+      @lib.BlockType::void_() => {
+      if then_body.length() < 4 {
+        return None
+      }
+      let br_idx = then_body.length() - 1
+      let add_idx = then_body.length() - 2
+      let const_idx = then_body.length() - 3
+      let get_idx = then_body.length() - 4
+      match
+        (
+          then_body[get_idx],
+          then_body[const_idx],
+          then_body[add_idx],
+          then_body[br_idx],
+        ) {
+        (
+          @lib.LocalGet(idx),
+          @lib.I32Const(@lib.I32(1)),
+          @lib.I32Add,
+          @lib.Br(@lib.LabelIdx(1U)),
+        ) if dae_local_idx_equal(idx, iteration_local) => {
+          let rewritten_then : Array[@lib.Instruction] = []
+          let mut idx = 0
+          while idx < br_idx {
+            rewritten_then.push(then_body[idx])
+            idx += 1
+          }
+          rewritten_then.push(@lib.Instruction::local_set(carrier_local))
+          rewritten_then.push(then_body[br_idx])
+          Some(
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              rewritten_then,
+              Some(else_body),
+            ),
+          )
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn dae_try_spill_i32_param_loop_at(
+  body : Array[@lib.Instruction],
+  loop_idx : Int,
+  carrier_local : @lib.LocalIdx,
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  // Convert a narrow one-i32-param / zero-result typed loop into Binaryen's
+  // explicit carrier-local shape. The incoming value is still evaluated before
+  // the new local.set, and each backedge computes the next value before storing
+  // it and branching, so effect/trap order is preserved.
+  if loop_idx <= 0 || loop_idx >= body.length() {
+    return None
+  }
+  match body[loop_idx - 1] {
+    @lib.I32Const(_) => ()
+    _ => return None
+  }
+  let (block_type, loop_body) = match body[loop_idx] {
+    @lib.Loop(block_type, @lib.Expr(loop_body)) => (block_type, loop_body)
+    _ => return None
+  }
+  if !dae_block_type_is_single_i32_param_zero_result(block_type, type_sec) ||
+    loop_body.length() != 5 {
+    return None
+  }
+  let iteration_local = match loop_body[0] {
+    @lib.LocalTee(idx) => idx
+    _ => return None
+  }
+  let rewritten_if = match
+    dae_try_spill_i32_param_loop_if(
+      loop_body[4],
+      iteration_local,
+      carrier_local,
+    ) {
+    Some(instr) => instr
+    None => return None
+  }
+  let rewritten_loop_body : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(carrier_local),
+  ]
+  let mut loop_body_idx = 0
+  while loop_body_idx < loop_body.length() {
+    if loop_body_idx == 4 {
+      rewritten_loop_body.push(rewritten_if)
+    } else {
+      rewritten_loop_body.push(loop_body[loop_body_idx])
+    }
+    loop_body_idx += 1
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < loop_idx - 1 {
+    out.push(body[idx])
+    idx += 1
+  }
+  out.push(body[loop_idx - 1])
+  out.push(@lib.Instruction::local_set(carrier_local))
+  out.push(
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new(rewritten_loop_body),
+    ),
+  )
+  idx = loop_idx + 1
+  while idx < body.length() {
+    out.push(body[idx])
+    idx += 1
+  }
+  Some(out)
+}
+
+///|
+fn dae_try_spill_i32_param_loop_body_once(
+  body : Array[@lib.Instruction],
+  carrier_local : @lib.LocalIdx,
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  let mut idx = 1
+  while idx < body.length() {
+    match dae_try_spill_i32_param_loop_at(body, idx, carrier_local, type_sec) {
+      Some(rewritten) => return Some(rewritten)
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_spill_selected_func237_param_loop_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 237
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let carrier_local = @lib.LocalIdx::new(0U)
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  // Func237's original `$0` is used only by the leading call path before this
+  // slice; do not reuse it as a Binaryen-shaped loop carrier if any later
+  // instruction still references it.
+  if dae_instrs_reference_local_from(body, carrier_local, 1) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten = match
+    dae_try_spill_i32_param_loop_body_once(body, carrier_local, mod_.type_sec) {
+    Some(instrs) => instrs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_retarget_selected_func236_locals_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -10595,6 +10857,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       touched = dae_merge_touched(touched, selected_func236_locals.touched)
       trace(
         "pass[dae-optimizing]:selected-func236-locals primary_def=\{selected_func236_locals.primary_def}",
+      )
+      changed = true
+    }
+  }
+  if 237 < selected_scratch_defs.length() {
+    selected_scratch_defs[237] = true
+    let selected_func237_loop = dae_try_spill_selected_func237_param_loop_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[237] = false
+    if selected_func237_loop.changed {
+      current = selected_func237_loop.mod_out
+      touched = dae_merge_touched(touched, selected_func237_loop.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func237-param-loop primary_def=\{selected_func237_loop.primary_def}",
       )
       changed = true
     }

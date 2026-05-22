@@ -1680,6 +1680,136 @@ test "dae raw cleanup preserves nested dropped integer branch debris in effectfu
 }
 
 ///|
+test "dae spills single-i32-param loops into explicit local carrier" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+    ),
+  ])
+  let loop_body = [
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_load(memarg),
+    @lib.Instruction::i32_lt_s(),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+      ],
+      Some([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(45U)),
+      ]),
+    ),
+  ]
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new(loop_body),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ]
+  match
+    dae_try_spill_i32_param_loop_body_once(
+      body,
+      @lib.LocalIdx::new(0U),
+      Some(type_sec),
+    ) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::loop_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(5U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_load(memarg),
+            @lib.Instruction::i32_lt_s(),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::i32_add(),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ],
+              Some([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(45U)),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      ])
+    None => fail("expected typed loop spill")
+  }
+}
+
+///|
+test "dae selected func237 param loop spill preserves live target locals" {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+    ),
+  ])
+  let funcs = Array::make(
+    238,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  funcs[237] = @lib.Func::new(
+    @lib.Locals::single(6U, @lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::loop_(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::local_tee(@lib.LocalIdx::new(5U)),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::i32_const(@lib.I32(2)),
+          @lib.Instruction::i32_lt_s(),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [
+              @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::i32_add(),
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+            ],
+            Some([]),
+          ),
+        ]),
+      ),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let selected = Array::make(238, false)
+  selected[237] = true
+  let result = dae_try_spill_selected_func237_param_loop_once(
+    @lib.Module::new()
+    .with_type_sec(type_sec)
+    .with_code_sec(@lib.CodeSec::new(funcs)),
+    selected,
+  )
+  assert_false(result.changed)
+}
+
+///|
 test "dae selected func236 local retarget strips Binaryen-removed raw debris" {
   let funcs = Array::make(
     237,
