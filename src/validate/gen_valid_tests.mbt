@@ -3050,12 +3050,44 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include i16x8.ge_u",
   )
   assert_true(
+    counts.i32x4_eq > 0,
+    msg="SIMD exact coverage should include i32x4.eq",
+  )
+  assert_true(
+    counts.i32x4_ne > 0,
+    msg="SIMD exact coverage should include i32x4.ne",
+  )
+  assert_true(
+    counts.i32x4_lt_s > 0,
+    msg="SIMD exact coverage should include i32x4.lt_s",
+  )
+  assert_true(
+    counts.i32x4_lt_u > 0,
+    msg="SIMD exact coverage should include i32x4.lt_u",
+  )
+  assert_true(
+    counts.i32x4_gt_s > 0,
+    msg="SIMD exact coverage should include i32x4.gt_s",
+  )
+  assert_true(
     counts.i32x4_gt_u > 0,
     msg="SIMD exact coverage should include i32x4.gt_u",
   )
   assert_true(
     counts.i32x4_le_s > 0,
     msg="SIMD exact coverage should include i32x4.le_s",
+  )
+  assert_true(
+    counts.i32x4_le_u > 0,
+    msg="SIMD exact coverage should include i32x4.le_u",
+  )
+  assert_true(
+    counts.i32x4_ge_s > 0,
+    msg="SIMD exact coverage should include i32x4.ge_s",
+  )
+  assert_true(
+    counts.i32x4_ge_u > 0,
+    msg="SIMD exact coverage should include i32x4.ge_u",
   )
   assert_true(
     counts.i64x2_eq > 0,
