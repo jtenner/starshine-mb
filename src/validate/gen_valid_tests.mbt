@@ -3939,16 +3939,68 @@ test "relaxed SIMD profile emits explicit relaxed SIMD exact opcode counters" {
     msg="relaxed SIMD exact coverage should include i8x16.relaxed_laneselect",
   )
   assert_true(
+    counts.i16x8_relaxed_laneselect > 0,
+    msg="relaxed SIMD exact coverage should include i16x8.relaxed_laneselect",
+  )
+  assert_true(
+    counts.i32x4_relaxed_laneselect > 0,
+    msg="relaxed SIMD exact coverage should include i32x4.relaxed_laneselect",
+  )
+  assert_true(
+    counts.i64x2_relaxed_laneselect > 0,
+    msg="relaxed SIMD exact coverage should include i64x2.relaxed_laneselect",
+  )
+  assert_true(
     counts.i32x4_relaxed_trunc_f32x4_s > 0,
     msg="relaxed SIMD exact coverage should include i32x4.relaxed_trunc_f32x4_s",
+  )
+  assert_true(
+    counts.i32x4_relaxed_trunc_f32x4_u > 0,
+    msg="relaxed SIMD exact coverage should include i32x4.relaxed_trunc_f32x4_u",
+  )
+  assert_true(
+    counts.i32x4_relaxed_trunc_zero_f64x2_s > 0,
+    msg="relaxed SIMD exact coverage should include i32x4.relaxed_trunc_zero_f64x2_s",
+  )
+  assert_true(
+    counts.i32x4_relaxed_trunc_zero_f64x2_u > 0,
+    msg="relaxed SIMD exact coverage should include i32x4.relaxed_trunc_zero_f64x2_u",
   )
   assert_true(
     counts.f32x4_relaxed_madd > 0,
     msg="relaxed SIMD exact coverage should include f32x4.relaxed_madd",
   )
   assert_true(
+    counts.f32x4_relaxed_nmadd > 0,
+    msg="relaxed SIMD exact coverage should include f32x4.relaxed_nmadd",
+  )
+  assert_true(
+    counts.f64x2_relaxed_madd > 0,
+    msg="relaxed SIMD exact coverage should include f64x2.relaxed_madd",
+  )
+  assert_true(
+    counts.f64x2_relaxed_nmadd > 0,
+    msg="relaxed SIMD exact coverage should include f64x2.relaxed_nmadd",
+  )
+  assert_true(
+    counts.f32x4_relaxed_min > 0,
+    msg="relaxed SIMD exact coverage should include f32x4.relaxed_min",
+  )
+  assert_true(
+    counts.f32x4_relaxed_max > 0,
+    msg="relaxed SIMD exact coverage should include f32x4.relaxed_max",
+  )
+  assert_true(
     counts.f64x2_relaxed_min > 0,
     msg="relaxed SIMD exact coverage should include f64x2.relaxed_min",
+  )
+  assert_true(
+    counts.f64x2_relaxed_max > 0,
+    msg="relaxed SIMD exact coverage should include f64x2.relaxed_max",
+  )
+  assert_true(
+    counts.i16x8_relaxed_q15mulr_s > 0,
+    msg="relaxed SIMD exact coverage should include i16x8.relaxed_q15mulr_s",
   )
   assert_true(
     counts.i16x8_relaxed_dot_i8x16_i7x16_s > 0,
