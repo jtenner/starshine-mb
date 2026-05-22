@@ -10521,6 +10521,91 @@ fn dae_try_spill_i32_param_loop_recursive_body_once(
 }
 
 ///|
+fn dae_try_fold_func237_store_carrier_copy_body_once(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> Array[@lib.Instruction]? {
+  if body.length() < 10 {
+    return None
+  }
+  let mut idx = 0
+  while idx + 9 < body.length() {
+    match
+      (
+        body[idx],
+        body[idx + 1],
+        body[idx + 2],
+        body[idx + 3],
+        body[idx + 4],
+        body[idx + 5],
+        body[idx + 7],
+        body[idx + 8],
+        body[idx + 9],
+      ) {
+      (
+        @lib.I32Const(@lib.I32(4)),
+        @lib.Call(_),
+        @lib.LocalTee(temp_local),
+        @lib.I32Const(@lib.I32(1048832)),
+        @lib.I32Store(_),
+        @lib.LocalGet(first_get),
+        @lib.I32Store(_),
+        @lib.LocalGet(second_get),
+        @lib.LocalSet(target_local),
+      ) if dae_local_idx_equal(temp_local, first_get) &&
+        dae_local_idx_equal(temp_local, second_get) &&
+        !dae_local_idx_equal(temp_local, target_local) &&
+        dae_local_idx_slot(temp_local) >= param_count &&
+        dae_local_idx_slot(target_local) >= param_count &&
+        !dae_instr_references_local(body[idx + 6], temp_local) &&
+        !dae_instr_references_local(body[idx + 6], target_local) => {
+        let out : Array[@lib.Instruction] = []
+        let mut prefix_idx = 0
+        while prefix_idx < idx {
+          out.push(body[prefix_idx])
+          prefix_idx += 1
+        }
+        out.push(body[idx])
+        out.push(body[idx + 1])
+        out.push(@lib.Instruction::local_tee(target_local))
+        out.push(body[idx + 3])
+        out.push(body[idx + 4])
+        out.push(@lib.Instruction::local_get(target_local))
+        out.push(body[idx + 6])
+        out.push(body[idx + 7])
+        let mut suffix_idx = idx + 10
+        while suffix_idx < body.length() {
+          out.push(body[suffix_idx])
+          suffix_idx += 1
+        }
+        return Some(out)
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_fold_func237_store_carrier_copies(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> Array[@lib.Instruction] {
+  let mut current = body
+  let mut remaining = 8
+  while remaining > 0 {
+    match
+      dae_try_fold_func237_store_carrier_copy_body_once(current, param_count) {
+      Some(rewritten) => current = rewritten
+      None => break
+    }
+    remaining -= 1
+  }
+  current
+}
+
+///|
 fn dae_strip_nops_and_dropped_i32_zero_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
@@ -10601,7 +10686,8 @@ fn dae_try_strip_selected_func237_raw_debris_once(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(body)
+  let folded_body = dae_fold_func237_store_carrier_copies(body, 4)
+  let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(folded_body)
   if rewritten == body {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }

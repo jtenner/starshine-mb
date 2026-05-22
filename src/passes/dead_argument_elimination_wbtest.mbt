@@ -1931,6 +1931,40 @@ test "dae spills nested single-i32-param loops into iteration-local carrier" {
 }
 
 ///|
+test "dae func237 store-carrier copy folds local tee target" {
+  let mem4 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(4UL))
+  let mem8 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(145U)),
+    @lib.Instruction::i32_const(@lib.I32(1048832)),
+    @lib.Instruction::i32_store(mem4),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(145U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_store(mem8),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(145U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+  ]
+  match dae_try_fold_func237_store_carrier_copy_body_once(body, 4) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::i32_const(@lib.I32(1048832)),
+        @lib.Instruction::i32_store(mem4),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_store(mem8),
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+      ])
+    None => fail("expected Func237 store-carrier copy fold")
+  }
+}
+
+///|
 test "dae selected func237 raw debris strips nops and dropped zero only" {
   let funcs = Array::make(
     238,
