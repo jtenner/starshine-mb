@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1054 unused/write-only local GenValid coverage
+
+- Continued [`[FUZ]1054`](../../agent-todo.md) by making the `control-heavy` typed-body profile emit a dedicated high-index write-only local and by scanning declared locals for unused and write-only layout facts.
+- Added public `GenValidFeatureFacts.has_unused_locals` / `has_write_only_locals` plus matching `GenValidFeatureStats` aggregation, and extended the focused local-layout validation anchor.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so local/body-layout coverage distinguishes grouped, mixed-type, high-index, unused, and write-only declared-local surfaces.
+
 ## [2026-05-22] fuzzing | FUZ1054 high-local-index GenValid coverage
 
 - Continued [`[FUZ]1054`](../../agent-todo.md) by making the `control-heavy` typed-body profile append a budget-gated high-local declaration tail and emit a concrete `local.set` / `local.get` access against an index `>= 16`.

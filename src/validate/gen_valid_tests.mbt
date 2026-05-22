@@ -4855,6 +4855,14 @@ test "control-heavy profile records widened local declaration layout" {
     msg="body-layout profiles should exercise local indices beyond the tiny default range",
   )
   assert_true(
+    generated.facts.has_unused_locals,
+    msg="body-layout profiles should deliberately leave at least one declared local unused",
+  )
+  assert_true(
+    generated.facts.has_write_only_locals,
+    msg="body-layout profiles should deliberately write at least one declared local without reading it back",
+  )
+  assert_true(
     gen_valid_test_module_has_high_local_access(generated.wasm_module),
     msg="body-layout profiles should reference a high local index from generated code, not only declare it",
   )

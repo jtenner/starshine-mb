@@ -964,6 +964,8 @@ pub struct GenValidFeatureFacts {
   has_grouped_local_decls : Bool
   has_mixed_local_decl_types : Bool
   has_high_local_indices : Bool
+  has_unused_locals : Bool
+  has_write_only_locals : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
@@ -1077,6 +1079,8 @@ pub struct GenValidFeatureStats {
   typed_select : Int
   tail_calls : Int
   high_local_indices : Int
+  unused_locals : Int
+  write_only_locals : Int
   scalar_memory_widths : Int
   nonzero_memarg : Int
   memory_limit_variants : Int
@@ -1169,6 +1173,10 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.tail_calls.output(logger)
   logger.write_string(", high_local_indices: ")
   self.high_local_indices.output(logger)
+  logger.write_string(", unused_locals: ")
+  self.unused_locals.output(logger)
+  logger.write_string(", write_only_locals: ")
+  self.write_only_locals.output(logger)
   logger.write_string(", scalar_memory_widths: ")
   self.scalar_memory_widths.output(logger)
   logger.write_string(", nonzero_memarg: ")
@@ -1258,6 +1266,8 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     typed_select: 0,
     tail_calls: 0,
     high_local_indices: 0,
+    unused_locals: 0,
+    write_only_locals: 0,
     scalar_memory_widths: 0,
     nonzero_memarg: 0,
     memory_limit_variants: 0,
@@ -1335,6 +1345,10 @@ pub fn GenValidFeatureStats::record(
     tail_calls: self.tail_calls + gen_valid_bool_count(facts.has_tail_calls),
     high_local_indices: self.high_local_indices +
     gen_valid_bool_count(facts.has_high_local_indices),
+    unused_locals: self.unused_locals +
+    gen_valid_bool_count(facts.has_unused_locals),
+    write_only_locals: self.write_only_locals +
+    gen_valid_bool_count(facts.has_write_only_locals),
     scalar_memory_widths: self.scalar_memory_widths +
     gen_valid_bool_count(facts.has_scalar_memory_widths),
     nonzero_memarg: self.nonzero_memarg +
@@ -3509,6 +3523,22 @@ fn gen_matching_high_local_idx(
 }
 
 ///|
+fn gen_matching_high_local_idx_except(
+  local_types : Array[ValType],
+  vt : ValType,
+  min_index : Int,
+  excluded : LocalIdx,
+) -> LocalIdx? {
+  for i = min_index; i < local_types.length(); i = i + 1 {
+    let idx = LocalIdx::new(i.reinterpret_as_uint())
+    if local_types[i] == vt && idx != excluded {
+      return Some(idx)
+    }
+  }
+  None
+}
+
+///|
 fn gen_valid_contains_type_idx(
   type_idxs : Array[TypeIdx],
   target : TypeIdx,
@@ -4597,6 +4627,19 @@ fn gen_valid_typed_stmt(
       out.push(Instruction::local_set(idx))
       out.push(Instruction::local_get(idx))
       out.push(Instruction::drop())
+      match
+        gen_matching_high_local_idx_except(
+          env.local_types,
+          ValType::i32(),
+          16,
+          idx,
+        ) {
+        Some(write_only_idx) => {
+          out.push(Instruction::i32_const(I32(1055)))
+          out.push(Instruction::local_set(write_only_idx))
+        }
+        None => ()
+      }
     }
     None => ()
   }
@@ -12494,6 +12537,120 @@ fn gen_valid_expr_has_high_local_access(expr : Expr) -> Bool {
 }
 
 ///|
+fn gen_valid_expr_local_has_read(expr : Expr, wanted : LocalIdx) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      LocalGet(idx) | LocalTee(idx) if idx == wanted => return true
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_expr_local_has_read(body, wanted) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_expr_local_has_read(Expr::new(then_body), wanted) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_expr_local_has_read(Expr::new(body), wanted) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_expr_local_has_write(expr : Expr, wanted : LocalIdx) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      LocalSet(idx) | LocalTee(idx) if idx == wanted => return true
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_expr_local_has_write(body, wanted) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_expr_local_has_write(Expr::new(then_body), wanted) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_expr_local_has_write(Expr::new(body), wanted) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_module_typeidx_param_count(mod : Module, wanted : TypeIdx) -> Int {
+  match mod.type_sec {
+    Some(TypeSec(rec_types)) => {
+      let mut cursor = 0U
+      for rec_type in rec_types {
+        match rec_type {
+          SingleRecType(sub_type) => {
+            match sub_type {
+              SubType(_, _, _, FuncCompType(params, _))
+              | CompTypeSubType(_, FuncCompType(params, _)) if TypeIdx::new(
+                  cursor,
+                ) ==
+                wanted => return params.length()
+              _ => ()
+            }
+            cursor += 1
+          }
+          GroupRecType(group) =>
+            for sub_type in group {
+              match sub_type {
+                SubType(_, _, _, FuncCompType(params, _))
+                | CompTypeSubType(_, FuncCompType(params, _)) if TypeIdx::new(
+                    cursor,
+                  ) ==
+                  wanted => return params.length()
+                _ => ()
+              }
+              cursor += 1
+            }
+        }
+      }
+      0
+    }
+    None => 0
+  }
+}
+
+///|
+fn gen_valid_func_local_layout_facts(
+  param_count : Int,
+  locals : Locals,
+  expr : Expr,
+) -> (Bool, Bool) {
+  let mut has_unused = false
+  let mut has_write_only = false
+  let mut decl_cursor = 0
+  for _local_vt in locals.iter() {
+    let idx = LocalIdx::new((param_count + decl_cursor).reinterpret_as_uint())
+    let has_read = gen_valid_expr_local_has_read(expr, idx)
+    let has_write = gen_valid_expr_local_has_write(expr, idx)
+    if !has_read && !has_write {
+      has_unused = true
+    }
+    if has_write && !has_read {
+      has_write_only = true
+    }
+    decl_cursor += 1
+  }
+  (has_unused, has_write_only)
+}
+
+///|
 pub fn gen_valid_feature_facts(
   mod : Module,
   mode : GenValidMode,
@@ -12527,6 +12684,8 @@ pub fn gen_valid_feature_facts(
   let mut has_grouped_local_decls = false
   let mut has_mixed_local_decl_types = false
   let mut has_high_local_indices = false
+  let mut has_unused_locals = false
+  let mut has_write_only_locals = false
   let mut has_scalar_memory_widths = false
   let mut has_nonzero_memarg = false
   let mut has_memory_limit_variants = false
@@ -13008,9 +13167,21 @@ pub fn gen_valid_feature_facts(
       }
     None => ()
   }
+  let defined_func_param_counts : Array[Int] = []
+  match mod.func_sec {
+    Some(FuncSec(type_idxs)) =>
+      for type_idx in type_idxs {
+        defined_func_param_counts.push(
+          gen_valid_module_typeidx_param_count(mod, type_idx),
+        )
+      }
+    None => ()
+  }
+
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
-      for func in funcs {
+      for func_idx = 0; func_idx < funcs.length(); func_idx = func_idx + 1 {
+        let func = funcs[func_idx]
         let Func(locals, expr) = func
         let local_runs = locals.runs()
         if local_runs.length() > 1 {
@@ -13029,6 +13200,16 @@ pub fn gen_valid_feature_facts(
         let facts = gen_valid_scan_expr(expr)
         has_high_local_indices = has_high_local_indices ||
           gen_valid_expr_has_high_local_access(expr)
+        let param_count = if func_idx < defined_func_param_counts.length() {
+          defined_func_param_counts[func_idx]
+        } else {
+          0
+        }
+        let (func_has_unused, func_has_write_only) = gen_valid_func_local_layout_facts(
+          param_count, locals, expr,
+        )
+        has_unused_locals = has_unused_locals || func_has_unused
+        has_write_only_locals = has_write_only_locals || func_has_write_only
         uses_ref_types = uses_ref_types || facts.uses_ref_types
         uses_v128 = uses_v128 || facts.uses_v128
         has_call = has_call || facts.has_call
@@ -13111,6 +13292,8 @@ pub fn gen_valid_feature_facts(
     has_grouped_local_decls,
     has_mixed_local_decl_types,
     has_high_local_indices,
+    has_unused_locals,
+    has_write_only_locals,
     has_scalar_memory_widths,
     has_nonzero_memarg,
     has_memory_limit_variants,
