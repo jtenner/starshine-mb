@@ -11228,6 +11228,70 @@ fn dae_fold_func237_used_temp_copies(
 }
 
 ///|
+fn dae_max_referenced_local_slot_instr(
+  instr : @lib.Instruction,
+  current_max : Int,
+) -> Int {
+  match instr {
+    @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) => {
+      let slot = dae_local_idx_slot(idx)
+      if slot > current_max {
+        slot
+      } else {
+        current_max
+      }
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_max_referenced_local_slot_instrs(body, current_max)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_max_referenced_local_slot_instrs(
+        else_body,
+        dae_max_referenced_local_slot_instrs(then_body, current_max),
+      )
+    @lib.If(_, then_body, None) =>
+      dae_max_referenced_local_slot_instrs(then_body, current_max)
+    _ => current_max
+  }
+}
+
+///|
+fn dae_max_referenced_local_slot_instrs(
+  instrs : Array[@lib.Instruction],
+  initial_max : Int,
+) -> Int {
+  let mut max_slot = initial_max
+  for instr in instrs {
+    max_slot = dae_max_referenced_local_slot_instr(instr, max_slot)
+  }
+  max_slot
+}
+
+///|
+fn dae_trim_trailing_unused_func237_locals(
+  locals : @lib.Locals,
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> @lib.Locals {
+  let max_slot = dae_max_referenced_local_slot_instrs(body, param_count - 1)
+  let needed_count = max_slot + 1 - param_count
+  if needed_count >= locals.length() {
+    return locals
+  }
+  let types : Array[@lib.ValType] = []
+  let mut idx = 0
+  while idx < needed_count {
+    match locals.at(idx) {
+      Some(vt) => types.push(vt)
+      None => ()
+    }
+    idx += 1
+  }
+  @lib.Locals::from_types(types)
+}
+
+///|
 fn dae_try_fold_func237_store_carrier_copy_body_once(
   body : Array[@lib.Instruction],
   param_count : Int,
@@ -11401,11 +11465,17 @@ fn dae_try_strip_selected_func237_raw_debris_once(
     4,
   )
   let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(folded_body)
-  if rewritten == body {
+  let rewritten_locals = dae_trim_trailing_unused_func237_locals(
+    locals, rewritten, 4,
+  )
+  if rewritten == body && rewritten_locals.length() == locals.length() {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    rewritten_locals,
+    @lib.Expr::new(rewritten),
+  )
   let touched = Array::make(funcs.length(), false)
   touched[def_idx] = true
   {

@@ -2113,6 +2113,36 @@ test "dae func237 immediate local copy preserves call gaps when try_table exists
 }
 
 ///|
+test "dae selected func237 cleanup trims trailing unused locals" {
+  let funcs = Array::make(
+    238,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  funcs[237] = @lib.Func::new(
+    @lib.Locals::single(4U, @lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+    ]),
+  )
+  let selected = Array::make(238, false)
+  selected[237] = true
+  let result = dae_try_strip_selected_func237_raw_debris_once(
+    @lib.Module::new().with_code_sec(@lib.CodeSec::new(funcs)),
+    selected,
+  )
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(rewritten_funcs)) => {
+      let @lib.Func(locals, _) = rewritten_funcs[237]
+      assert_eq(locals.length(), 1)
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae selected func237 raw debris strips nops and dropped zero only" {
   let funcs = Array::make(
     238,
