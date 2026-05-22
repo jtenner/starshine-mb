@@ -164,6 +164,24 @@ fn fuzz_without_pass_index(values : Array[String], skip : Int) -> Array[String] 
 }
 
 ///|
+fn fuzz_without_pass_range(
+  values : Array[String],
+  start : Int,
+  len : Int,
+) -> Array[String] {
+  let out = Array::new(capacity=values.length())
+  let end = start + len
+  let mut i = 0
+  while i < values.length() {
+    if i < start || i >= end {
+      out.push(values[i])
+    }
+    i += 1
+  }
+  out
+}
+
+///|
 pub fn minimize_fuzz_passes(
   passes : Array[String],
   reproduces : (Array[String]) -> Bool,
@@ -172,6 +190,25 @@ pub fn minimize_fuzz_passes(
     return fuzz_clone_passes(passes)
   }
   let mut current = fuzz_clone_passes(passes)
+  let mut chunk = current.length() / 2
+  while chunk > 0 {
+    let mut changed = false
+    let mut i = 0
+    while i + chunk <= current.length() {
+      let candidate = fuzz_without_pass_range(current, i, chunk)
+      if reproduces(candidate) {
+        current = candidate
+        changed = true
+      } else {
+        i += 1
+      }
+    }
+    if !changed {
+      chunk = chunk / 2
+    } else if chunk > current.length() {
+      chunk = current.length()
+    }
+  }
   let mut i = 0
   while i < current.length() {
     let candidate = fuzz_without_pass_index(current, i)
@@ -466,6 +503,28 @@ fn decode_then_validate(bytes : Bytes) -> Result[Bool, String] {
 }
 
 ///|
+fn fuzz_minimize_optimize_failure(
+  bytes : Bytes,
+  passes : Array[String],
+) -> Array[String] {
+  minimize_fuzz_passes(passes, fn(candidate) {
+    match decode_module(bytes) {
+      Ok(mod) =>
+        match
+          optimize_module_with_pass_flags(
+            mod,
+            candidate,
+            OptimizeOptions::new(),
+          ) {
+          Ok(_) => false
+          Err(_) => true
+        }
+      Err(_) => false
+    }
+  })
+}
+
+///|
 pub fn differential_validate_wasm(
   bytes : Bytes,
   adapters? : DifferentialAdapters = default_differential_adapters(),
@@ -725,6 +784,7 @@ pub fn run_cmd_fuzz_harness(
       Ok(v) => v
       Err(e) => {
         let msg = "optimize failed at attempt #\{attempts}: \{e}"
+        let minimized = fuzz_minimize_optimize_failure(encoded, pass_names)
         let report = FuzzFailureReport::new(
           seed,
           attempts,
@@ -732,7 +792,7 @@ pub fn run_cmd_fuzz_harness(
           "optimize",
           "\{e}",
           optimize_passes=pass_names,
-          minimized_passes=pass_names,
+          minimized_passes=minimized,
           generator_profile=gen_profile_label,
           pass_profile~,
           wasm=Some(encoded),

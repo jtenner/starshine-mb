@@ -120,6 +120,18 @@ test "minimize_fuzz_passes greedily removes non-essential pass names" {
 }
 
 ///|
+test "minimize_fuzz_passes can remove dependent chunks before single-pass cleanup" {
+  let minimized = minimize_fuzz_passes(
+    ["frontier-a", "frontier-b", "trigger", "tail"],
+    fn(passes) {
+      passes.contains("trigger") &&
+      passes.contains("frontier-a") == passes.contains("frontier-b")
+    },
+  )
+  @debug.assert_eq(minimized, ["trigger"])
+}
+
+///|
 test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
   let ensured_dirs : Array[String] = []
   let writes : Array[(String, Bytes)] = []
@@ -241,7 +253,9 @@ test "run_cmd_fuzz_harness reports explicit hot pass names on optimize failure" 
     run_cmd_fuzz_harness(
       1,
       seed=0x5eedUL,
-      optimize_passes=["global-struct-inference-desc-cast"],
+      optimize_passes=[
+        "vacuum", "global-struct-inference-desc-cast", "remove-unused-brs",
+      ],
       on_failure=Some(fn(report) {
         reports.push(report)
         Ok(())
@@ -257,6 +271,9 @@ test "run_cmd_fuzz_harness reports explicit hot pass names on optimize failure" 
   @debug.assert_eq(reports.length(), 1)
   @debug.assert_eq(reports[0].stage, "optimize")
   @debug.assert_eq(reports[0].optimize_passes, [
+    "vacuum", "global-struct-inference-desc-cast", "remove-unused-brs",
+  ])
+  @debug.assert_eq(reports[0].minimized_passes, [
     "global-struct-inference-desc-cast",
   ])
 }
