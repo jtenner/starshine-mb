@@ -4295,6 +4295,99 @@ test "simplify-globals-optimizing keeps tainted memory fill operands" {
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow with clean memory copy" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory (export "m") 1)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    i32.const 8
+      #|    i32.const 0
+      #|    i32.const 4
+      #|    memory.copy
+      #|    i32.const 1
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps tainted memory copy operands" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory (export "m") 1)
+      #|  (global $dest (mut i32) (i32.const 0))
+      #|  (global $src (mut i32) (i32.const 0))
+      #|  (global $size (mut i32) (i32.const 0))
+      #|  (func (export "dest")
+      #|    global.get $dest
+      #|    i32.const 0
+      #|    i32.const 4
+      #|    memory.copy
+      #|    i32.const 1
+      #|    if
+      #|      i32.const 1
+      #|      global.set $dest
+      #|    end)
+      #|  (func (export "src")
+      #|    i32.const 8
+      #|    global.get $src
+      #|    i32.const 4
+      #|    memory.copy
+      #|    i32.const 1
+      #|    if
+      #|      i32.const 1
+      #|      global.set $src
+      #|    end)
+      #|  (func (export "size")
+      #|    i32.const 8
+      #|    i32.const 0
+      #|    global.get $size
+      #|    memory.copy
+      #|    i32.const 1
+      #|    if
+      #|      i32.const 1
+      #|      global.set $size
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), true),
+    )
+  }
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U)
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes nested-if arm flow with clean local set" {
   let optimized = sgo_test_run(
     (
