@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] tooling | FUZ1017 cmd-harness profile controls
+
+- Started [`[FUZ]1017`](../../agent-todo.md) by adding `cmd-harness` profile modifiers for named GenValid generator profiles, stable pass profiles, optimize idempotence, and encode/decode idempotence.
+- The Moon fuzz runner now accepts profiles such as `smoke+gen=natural-small+passes=cleanup+codec-idempotence`; the lower-level command harness API exposes the same controls and records generator/pass labels in stats and persisted failure metadata.
+
 ## [2026-05-22] fuzzing | FUZ1010 SIMD phase-2/phase-3 exact counter assertions
 
 - Continued [`[FUZ]1010`](../../agent-todo.md) by strengthening the coverage-forced GenValid standard-SIMD exact-counter regression for remaining phase-2 shift, reduction, integer arithmetic/min/max, float arithmetic, and rounding forms, plus remaining phase-3 narrow/extadd representatives.

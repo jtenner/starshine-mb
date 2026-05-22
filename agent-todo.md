@@ -609,9 +609,10 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
 - [FUZ]1017 - Command Harness Generator Profiles, Pass Profiles, And Idempotence Checks
+  - Status: IN PROGRESS (cron 23, 2026-05-22). Current slice landed profile modifiers for `cmd-harness`: `gen=<gen-valid-profile>` / `generator=<...>`, `passes=none|cleanup|optimize-core|each-pass|default-pipeline`, `idempotence`, and `codec-idempotence`; `run_cmd_fuzz_harness(...)` exposes matching direct parameters and reports generator/pass labels plus idempotence counters in stats and persisted failure metadata. `moon test src/cmd` and `moon test src/fuzz` pass for this slice.
   - Goal: turn `cmd-harness` into a stronger optimizer-pipeline fuzzer.
-  - Why: `run_cmd_fuzz_harness(...)` currently uses natural GenValid and an optional pass list, but profiles do not exercise named generator configs, pass clusters, repeated passes, or idempotence by default.
-  - Deliverables: add generator profile selection, pass-list profiles, each-pass and common-cluster modes, default-pipeline mode, optimize idempotence checks, encode/decode idempotence checks, pass minimization on failure, and richer persisted failure reports with config/feature facts.
+  - Why: `run_cmd_fuzz_harness(...)` previously used natural GenValid and an optional pass list, but profiles did not exercise named generator configs, pass clusters, repeated passes, or idempotence by default.
+  - Deliverables remaining: add broader pass minimization on failure (beyond the existing greedy helper), richer persisted failure reports with feature facts/config facts, stronger each-pass/common-cluster/default-pipeline coverage where full pass expansion is affordable, and native differential-availability tests where supported.
   - Required APIs: `src/cmd/fuzz_harness.mbt`, `src/cmd/cmd.mbt`, `src/fuzz/main.mbt`, pass registry, `minimize_fuzz_passes(...)`, differential validators.
   - Invariants: smoke profile remains quick; failure callback stays backward-compatible; no destructive writes unless corpus/output dir is explicit.
   - Dependencies: [FUZ]1001, [FUZ]1013, [FUZ]1015 recommended.

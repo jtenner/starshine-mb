@@ -5,10 +5,13 @@ import {
   "jtenner/starshine/binary",
   "jtenner/starshine/cli",
   "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn cmd_fuzz_harness_profile_config(String) -> Result[CmdFuzzHarnessProfileConfig, String]
+
 pub fn cmd_help_text() -> String
 
 pub fn cmd_version_text() -> String
@@ -27,7 +30,7 @@ pub fn run_cmd_exit_code(Array[String]) -> Int
 
 pub fn run_cmd_exit_code_with_adapter(Array[String], CmdIO, config_json? : String?) -> Int
 
-pub fn run_cmd_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[String], differential_adapters? : DifferentialAdapters?, differential_every? : Int, on_failure? : ((FuzzFailureReport) -> Result[Unit, String])?) -> Result[CmdFuzzStats, String]
+pub fn run_cmd_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[String], generator_profile? : String, generator_config? : @validate.GenValidConfig?, pass_profile? : String, check_optimize_idempotence? : Bool, check_encode_decode_idempotence? : Bool, differential_adapters? : DifferentialAdapters?, differential_every? : Int, on_failure? : ((FuzzFailureReport) -> Result[Unit, String])?) -> Result[CmdFuzzStats, String]
 
 pub fn run_cmd_fuzz_harness_profile(String, UInt64) -> Result[CmdFuzzStats, String]
 
@@ -67,6 +70,16 @@ pub fn CmdError::ambiguous_output_file(String) -> Self
 pub fn CmdError::unknown_pass_flag(String) -> Self
 pub impl Show for CmdError
 
+pub struct CmdFuzzHarnessProfileConfig {
+  valid_target : Int
+  generator_profile : String
+  generator_config : @validate.GenValidConfig
+  pass_profile : String
+  optimize_passes : Array[String]
+  check_optimize_idempotence : Bool
+  check_encode_decode_idempotence : Bool
+} derive(Eq, @debug.Debug)
+
 pub struct CmdFuzzStats {
   attempts : Int
   generated_valid : Int
@@ -75,8 +88,12 @@ pub struct CmdFuzzStats {
   optimized : Int
   roundtripped : Int
   differential_checked : Int
+  optimize_idempotence_checked : Int
+  encode_decode_idempotence_checked : Int
+  generator_profile : String
+  pass_profile : String
 } derive(Eq, @debug.Debug)
-pub fn CmdFuzzStats::new(attempts? : Int, generated_valid? : Int, generated_invalid? : Int, pipeline_validated? : Int, optimized? : Int, roundtripped? : Int, differential_checked? : Int) -> Self
+pub fn CmdFuzzStats::new(attempts? : Int, generated_valid? : Int, generated_invalid? : Int, pipeline_validated? : Int, optimized? : Int, roundtripped? : Int, differential_checked? : Int, optimize_idempotence_checked? : Int, encode_decode_idempotence_checked? : Int, generator_profile? : String, pass_profile? : String) -> Self
 pub impl Show for CmdFuzzStats
 
 pub struct CmdIO {
@@ -141,9 +158,11 @@ pub struct FuzzFailureReport {
   message : String
   optimize_passes : Array[String]
   minimized_passes : Array[String]
+  generator_profile : String
+  pass_profile : String
   wasm : Bytes?
 } derive(Eq, @debug.Debug)
-pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes? : Array[String], minimized_passes? : Array[String], wasm? : Bytes?) -> Self
+pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes? : Array[String], minimized_passes? : Array[String], generator_profile? : String, pass_profile? : String, wasm? : Bytes?) -> Self
 pub impl Show for FuzzFailureReport
 
 pub struct InliningOptions {

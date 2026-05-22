@@ -33,8 +33,9 @@ using @diff {render_line_diff}
 
 ///|
 using @validate {
+  type GenValidConfig,
   type ValidationError,
-  gen_valid_module,
+  gen_valid_module_result,
   validate_module,
   validation_error_func_idx,
   validation_error_message,

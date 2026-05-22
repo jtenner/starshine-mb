@@ -73,6 +73,44 @@ test "run_cmd_fuzz_harness_profile rejects unknown profile" {
 }
 
 ///|
+test "cmd harness profile config accepts GenValid and pass profile modifiers" {
+  let config = match
+    cmd_fuzz_harness_profile_config(
+      "smoke+gen=natural-small+passes=cleanup+idempotence+codec-idempotence",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(config.valid_target, 128)
+  @debug.assert_eq(config.generator_profile, "natural-small")
+  @debug.assert_eq(config.pass_profile, "cleanup")
+  @debug.assert_eq(config.optimize_passes, ["vacuum", "remove-unused-brs"])
+  assert_true(config.check_optimize_idempotence)
+  assert_true(config.check_encode_decode_idempotence)
+}
+
+///|
+test "run_cmd_fuzz_harness can exercise selected GenValid profile and idempotence checks" {
+  let stats = match
+    run_cmd_fuzz_harness(
+      1,
+      seed=0x5eedUL,
+      generator_profile="natural-small",
+      optimize_passes=["vacuum"],
+      check_optimize_idempotence=true,
+      check_encode_decode_idempotence=true,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected profiled harness success, got \{e}")
+  }
+  @debug.assert_eq(stats.generated_valid, 1)
+  @debug.assert_eq(stats.generator_profile, "natural-small")
+  @debug.assert_eq(stats.pass_profile, "custom")
+  @debug.assert_eq(stats.optimize_idempotence_checked, 1)
+  @debug.assert_eq(stats.encode_decode_idempotence_checked, 1)
+}
+
+///|
 test "minimize_fuzz_passes greedily removes non-essential pass names" {
   let minimized = minimize_fuzz_passes(
     ["flatten", "vacuum", "de-nan", "vacuum"],

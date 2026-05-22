@@ -490,6 +490,25 @@ test "fuzz usage text distinguishes active and reserved suites" {
 }
 
 ///|
+test "cmd-harness suite accepts GenValid and pass profile modifiers" {
+  let result = match
+    run_fuzz_suite(
+      "cmd-harness", "smoke+gen=natural-small+passes=cleanup+codec-idempotence",
+      -42L,
+    ) {
+    Ok([single]) => single
+    Ok(_) => fail("expected exactly one suite result")
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(result.suite, "cmd-harness")
+  @debug.assert_eq(
+    result.profile,
+    "smoke+gen=natural-small+passes=cleanup+codec-idempotence",
+  )
+  assert_true(result.attempts >= 1)
+}
+
+///|
 test "format_fuzz_suite_result supports jsonl output" {
   let parsed = parse_fuzz_cli_args(["--jsonl"])
   let result = match run_fuzz_suite("cmd-harness", "smoke", -42L) {
