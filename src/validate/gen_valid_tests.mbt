@@ -2990,12 +2990,68 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include f64x2.ge",
   )
   assert_true(
+    counts.i8x16_abs > 0,
+    msg="SIMD exact coverage should include i8x16.abs",
+  )
+  assert_true(
+    counts.i8x16_neg > 0,
+    msg="SIMD exact coverage should include i8x16.neg",
+  )
+  assert_true(
+    counts.i8x16_popcnt > 0,
+    msg="SIMD exact coverage should include i8x16.popcnt",
+  )
+  assert_true(
     counts.i8x16_all_true > 0,
     msg="SIMD exact coverage should include i8x16.all_true",
   )
   assert_true(
+    counts.i8x16_bitmask > 0,
+    msg="SIMD exact coverage should include i8x16.bitmask",
+  )
+  assert_true(
+    counts.i16x8_abs > 0,
+    msg="SIMD exact coverage should include i16x8.abs",
+  )
+  assert_true(
+    counts.i16x8_neg > 0,
+    msg="SIMD exact coverage should include i16x8.neg",
+  )
+  assert_true(
+    counts.i16x8_q15mulr_sat_s > 0,
+    msg="SIMD exact coverage should include i16x8.q15mulr_sat_s",
+  )
+  assert_true(
+    counts.i16x8_all_true > 0,
+    msg="SIMD exact coverage should include i16x8.all_true",
+  )
+  assert_true(
     counts.i16x8_bitmask > 0,
     msg="SIMD exact coverage should include i16x8.bitmask",
+  )
+  assert_true(
+    counts.i32x4_abs > 0,
+    msg="SIMD exact coverage should include i32x4.abs",
+  )
+  assert_true(
+    counts.i32x4_neg > 0,
+    msg="SIMD exact coverage should include i32x4.neg",
+  )
+  assert_true(
+    counts.i32x4_bitmask > 0,
+    msg="SIMD exact coverage should include i32x4.bitmask",
+  )
+  assert_true(
+    counts.i64x2_abs > 0,
+    msg="SIMD exact coverage should include i64x2.abs",
+  )
+  assert_true(
+    counts.i64x2_neg > 0,
+    msg="SIMD exact coverage should include i64x2.neg",
+  )
+  assert_true(
+    counts.i64x2_all_true > 0,
+    msg="SIMD exact coverage should include i64x2.all_true",
   )
   assert_true(
     counts.i8x16_add > 0,
