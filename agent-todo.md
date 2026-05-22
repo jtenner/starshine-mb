@@ -910,17 +910,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: fake hanging adapter test, timeout report schema test, partial artifact cleanup test.
   - Exit Criteria: a hanging parser/validator/tool case produces a clear timeout artifact instead of blocking the full fuzz run.
 
-- [FUZ]1054 - Local Declaration, Param/Result, And Body Layout Widening
-  - Status: IN PROGRESS (cron 23, 2026-05-22) - first focused GenValid local-declaration layout slice landed: typed-body coverage-forced profiles now force a grouped local declaration run plus mixed local run types, feature facts expose `has_grouped_local_decls` / `has_mixed_local_decl_types`, docs record the validation anchor, and validation passed (`moon test src/validate`, `moon info`, `moon fmt`, `moon test`, `bun fuzz run --suite validate-valid --profile smoke --seed 0x1054 --seed-count 1`). A follow-up high-local-index slice now makes the `control-heavy` typed-body profile append a budget-gated high-local declaration tail, emits a concrete `local.set` / `local.get` access against an index `>= 16`, exposes `has_high_local_indices`, and documents the coverage-ledger/log anchor; focused validation passed (`moon test src/validate`). The current unused/write-only local slice adds a dedicated high-index write-only `local.set`, scans declared locals for no-access and write-without-read facts, exposes `has_unused_locals` / `has_write_only_locals` with stats aggregation, and extends the coverage-ledger/log anchor; focused validation passed (`moon test src/validate`). Resume with the remaining FUZ1054 surfaces: zero locals, mixed param/result arities, empty/unreachable result bodies, and local-name/name-section stress.
-  - Goal: stress function-body layout details that are distinct from instruction semantics.
-  - Why: local declaration grouping, many locals, zero locals, mixed param/result arities, unused locals, shadowed names, and locals of every supported type can reveal encoder, decoder, validator, and optimizer bugs.
-  - Deliverables: generate varied local-declaration groups, high local indices, mixed value types including refs/v128, unused and write-only locals, multi-result functions, empty bodies where valid, unreachable bodies with declared results, and text name-section local names.
-  - Required APIs: function builder, local index planning, typed body generator, binary encoder/decoder, name-section support.
-  - Invariants: body expressions must still satisfy declared result arity; high local profiles must remain budget-gated.
-  - Dependencies: [FUZ]1002 typed body generation and [FUZ]1035 budgets.
-  - Suggested Tests: local grouping binary roundtrip tests, high-local validation fixtures, optimizer smoke for `simplify-locals` and `vacuum`.
-  - Exit Criteria: local/body-layout coverage is measurable separately from opcode coverage.
-
 - [FUZ]1055 - Multi-Module WAST, Linking, Unlinkable, And Instantiation Lanes
   - Goal: treat multi-module scripts and link-time behavior as a distinct fuzz target.
   - Why: validation accepts individual modules, but WAST assertions and real tooling also care about imports, exports, duplicate module names, register commands, instantiation, and unlinkable modules.

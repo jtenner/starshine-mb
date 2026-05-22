@@ -774,6 +774,11 @@ pub struct GenValidFeatureFacts {
   has_high_local_indices : Bool
   has_unused_locals : Bool
   has_write_only_locals : Bool
+  has_zero_local_funcs : Bool
+  has_multi_param_result_arities : Bool
+  has_empty_body_funcs : Bool
+  has_unreachable_result_bodies : Bool
+  has_local_name_entries : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
@@ -836,6 +841,11 @@ pub struct GenValidFeatureStats {
   high_local_indices : Int
   unused_locals : Int
   write_only_locals : Int
+  zero_local_funcs : Int
+  multi_param_result_arities : Int
+  empty_body_funcs : Int
+  unreachable_result_bodies : Int
+  local_name_entries : Int
   scalar_memory_widths : Int
   nonzero_memarg : Int
   memory_limit_variants : Int

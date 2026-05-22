@@ -966,6 +966,11 @@ pub struct GenValidFeatureFacts {
   has_high_local_indices : Bool
   has_unused_locals : Bool
   has_write_only_locals : Bool
+  has_zero_local_funcs : Bool
+  has_multi_param_result_arities : Bool
+  has_empty_body_funcs : Bool
+  has_unreachable_result_bodies : Bool
+  has_local_name_entries : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
@@ -1081,6 +1086,11 @@ pub struct GenValidFeatureStats {
   high_local_indices : Int
   unused_locals : Int
   write_only_locals : Int
+  zero_local_funcs : Int
+  multi_param_result_arities : Int
+  empty_body_funcs : Int
+  unreachable_result_bodies : Int
+  local_name_entries : Int
   scalar_memory_widths : Int
   nonzero_memarg : Int
   memory_limit_variants : Int
@@ -1177,6 +1187,16 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.unused_locals.output(logger)
   logger.write_string(", write_only_locals: ")
   self.write_only_locals.output(logger)
+  logger.write_string(", zero_local_funcs: ")
+  self.zero_local_funcs.output(logger)
+  logger.write_string(", multi_param_result_arities: ")
+  self.multi_param_result_arities.output(logger)
+  logger.write_string(", empty_body_funcs: ")
+  self.empty_body_funcs.output(logger)
+  logger.write_string(", unreachable_result_bodies: ")
+  self.unreachable_result_bodies.output(logger)
+  logger.write_string(", local_name_entries: ")
+  self.local_name_entries.output(logger)
   logger.write_string(", scalar_memory_widths: ")
   self.scalar_memory_widths.output(logger)
   logger.write_string(", nonzero_memarg: ")
@@ -1268,6 +1288,11 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     high_local_indices: 0,
     unused_locals: 0,
     write_only_locals: 0,
+    zero_local_funcs: 0,
+    multi_param_result_arities: 0,
+    empty_body_funcs: 0,
+    unreachable_result_bodies: 0,
+    local_name_entries: 0,
     scalar_memory_widths: 0,
     nonzero_memarg: 0,
     memory_limit_variants: 0,
@@ -1349,6 +1374,16 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_unused_locals),
     write_only_locals: self.write_only_locals +
     gen_valid_bool_count(facts.has_write_only_locals),
+    zero_local_funcs: self.zero_local_funcs +
+    gen_valid_bool_count(facts.has_zero_local_funcs),
+    multi_param_result_arities: self.multi_param_result_arities +
+    gen_valid_bool_count(facts.has_multi_param_result_arities),
+    empty_body_funcs: self.empty_body_funcs +
+    gen_valid_bool_count(facts.has_empty_body_funcs),
+    unreachable_result_bodies: self.unreachable_result_bodies +
+    gen_valid_bool_count(facts.has_unreachable_result_bodies),
+    local_name_entries: self.local_name_entries +
+    gen_valid_bool_count(facts.has_local_name_entries),
     scalar_memory_widths: self.scalar_memory_widths +
     gen_valid_bool_count(facts.has_scalar_memory_widths),
     nonzero_memarg: self.nonzero_memarg +
@@ -3036,6 +3071,9 @@ fn gen_valid_ensure_body_layout_locals(
     locals.push(ValType::i32())
     locals.push(ValType::i32())
     locals.push(ValType::i64())
+    if gen_valid_is_control_heavy_config(ctx.config) {
+      locals.push(ValType::f32())
+    }
     if ctx.config.features.allow_v128 {
       locals.push(ValType::v128())
     } else {
@@ -8925,6 +8963,8 @@ fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
   } else if gen_valid_is_topology_heavy_config(ctx.config) {
     let floor = gen_valid_min_int(10, bounded_max)
     floor + ctx.random_int(bounded_max - floor + 1)
+  } else if gen_valid_is_control_heavy_config(ctx.config) && bounded_max > 3 {
+    4 + ctx.random_int(bounded_max - 3)
   } else if ctx.config.mode == CoverageForced {
     2 + ctx.random_int(bounded_max - 1)
   } else {
@@ -9402,7 +9442,11 @@ fn gen_valid_module_once_with_config(
   } else {
     1 + ctx.random_int(func_type_cap)
   }
-  let typed_body_min_func_types = if ctx.config.features.allow_typed_body_generator &&
+  let typed_body_min_func_types = if gen_valid_is_control_heavy_config(
+      ctx.config,
+    ) {
+    4
+  } else if ctx.config.features.allow_typed_body_generator &&
     ctx.config.features.allow_v128 {
     3
   } else {
@@ -9457,6 +9501,8 @@ fn gen_valid_module_once_with_config(
       ctx.config.features.allow_v128 &&
       i == 2 {
       [ValType::v128()]
+    } else if gen_valid_is_control_heavy_config(ctx.config) && i == 3 {
+      [ValType::i32(), ValType::i64()]
     } else {
       gen_param_types(ctx)
     }
@@ -9472,6 +9518,8 @@ fn gen_valid_module_once_with_config(
       ctx.config.features.allow_v128 &&
       i == 2 {
       [ValType::v128()]
+    } else if gen_valid_is_control_heavy_config(ctx.config) && i == 3 {
+      [ValType::i32(), ValType::i64()]
     } else if exact_result_slot == Some(i) {
       [
         gc_type_plan.exact_ref_types[ctx.random_int(
@@ -9685,6 +9733,14 @@ fn gen_valid_module_once_with_config(
         TypeIdx::new(0U)
       } else if ctx.config.features.allow_typed_body_generator &&
         i == 1 &&
+        func_type_count > 1 {
+        TypeIdx::new(1U)
+      } else if gen_valid_is_control_heavy_config(config) &&
+        i == 2 &&
+        func_type_count > 3 {
+        TypeIdx::new(3U)
+      } else if gen_valid_is_control_heavy_config(config) &&
+        i == defined_func_count - 1 &&
         func_type_count > 1 {
         TypeIdx::new(1U)
       } else {
@@ -10061,28 +10117,41 @@ fn gen_valid_module_once_with_config(
       TypeIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
       RecIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
     }
-    funcs.push(
-      gen_valid_build_func(
-        ctx,
-        type_params[type_idx_i],
-        type_results[type_idx_i],
-        global_types,
-        table_types,
-        mems,
-        all_tags,
-        func_sigs,
-        data_idxs,
-        elem_idxs,
-        passive_elem_idxs,
-        passive_elem_ref_types,
-        bulk_elem_seed_idx,
-        gc_type_plan,
-        Some(first_defined_func_idx),
-        current_func_idx=Some(
-          FuncIdx::new((import_func_count + i).reinterpret_as_uint()),
+    if gen_valid_is_control_heavy_config(config) &&
+      i == 0 &&
+      type_params[type_idx_i].is_empty() &&
+      type_results[type_idx_i].is_empty() {
+      funcs.push(Func::new(Locals::empty(), Expr::new([])))
+    } else if gen_valid_is_control_heavy_config(config) &&
+      i == func_type_idxs.length() - 1 &&
+      type_results[type_idx_i].length() > 1 {
+      funcs.push(
+        Func::new(Locals::empty(), Expr::new([Instruction::unreachable_()])),
+      )
+    } else {
+      funcs.push(
+        gen_valid_build_func(
+          ctx,
+          type_params[type_idx_i],
+          type_results[type_idx_i],
+          global_types,
+          table_types,
+          mems,
+          all_tags,
+          func_sigs,
+          data_idxs,
+          elem_idxs,
+          passive_elem_idxs,
+          passive_elem_ref_types,
+          bulk_elem_seed_idx,
+          gc_type_plan,
+          Some(first_defined_func_idx),
+          current_func_idx=Some(
+            FuncIdx::new((import_func_count + i).reinterpret_as_uint()),
+          ),
         ),
-      ),
-    )
+      )
+    }
   }
 
   let topology_export_mode = if gen_valid_is_topology_heavy_config(config) {
@@ -10270,6 +10339,14 @@ fn gen_valid_module_once_with_config(
     if total_tag_count > 0 {
       tag_name_entries.push(NameAssoc::new(0U, gen_valid_name(ctx, "fzg_tag0")))
     }
+    let local_name_entries : Array[IndirectNameAssoc] = []
+    if gen_valid_is_control_heavy_config(config) && funcs.length() > 2 {
+      let first_local_names = NameMap::new([
+        NameAssoc::new(0U, gen_valid_name(ctx, "fzg_param0")),
+        NameAssoc::new(1U, gen_valid_name(ctx, "fzg_param1")),
+      ])
+      local_name_entries.push(IndirectNameAssoc::new(2U, first_local_names))
+    }
     let name_sec = NameSec::new(
       module_name=Some(gen_valid_name(ctx, "fzg_module")),
       func_names=if func_name_entries.is_empty() {
@@ -10311,6 +10388,11 @@ fn gen_valid_module_once_with_config(
         None
       } else {
         Some(NameMap::new(tag_name_entries))
+      },
+      local_names=if local_name_entries.is_empty() {
+        None
+      } else {
+        Some(IndirectNameMap::new(local_name_entries))
       },
     )
     mod = mod.with_name_sec(name_sec)
@@ -12589,6 +12671,55 @@ fn gen_valid_expr_local_has_write(expr : Expr, wanted : LocalIdx) -> Bool {
 }
 
 ///|
+fn gen_valid_module_typeidx_arities(
+  mod : Module,
+  wanted : TypeIdx,
+) -> (Int, Int)? {
+  match mod.type_sec {
+    Some(TypeSec(rec_types)) => {
+      let mut cursor = 0U
+      for rec_type in rec_types {
+        match rec_type {
+          SingleRecType(sub_type) => {
+            match sub_type {
+              SubType(_, _, _, FuncCompType(params, results))
+              | CompTypeSubType(_, FuncCompType(params, results)) if TypeIdx::new(
+                  cursor,
+                ) ==
+                wanted => return Some((params.length(), results.length()))
+              _ => ()
+            }
+            cursor += 1
+          }
+          GroupRecType(group) =>
+            for sub_type in group {
+              match sub_type {
+                SubType(_, _, _, FuncCompType(params, results))
+                | CompTypeSubType(_, FuncCompType(params, results)) if TypeIdx::new(
+                    cursor,
+                  ) ==
+                  wanted => return Some((params.length(), results.length()))
+                _ => ()
+              }
+              cursor += 1
+            }
+        }
+      }
+      None
+    }
+    None => None
+  }
+}
+
+///|
+fn gen_valid_module_typeidx_result_count(mod : Module, wanted : TypeIdx) -> Int {
+  match gen_valid_module_typeidx_arities(mod, wanted) {
+    Some((_, results)) => results
+    None => 0
+  }
+}
+
+///|
 fn gen_valid_module_typeidx_param_count(mod : Module, wanted : TypeIdx) -> Int {
   match mod.type_sec {
     Some(TypeSec(rec_types)) => {
@@ -12686,6 +12817,11 @@ pub fn gen_valid_feature_facts(
   let mut has_high_local_indices = false
   let mut has_unused_locals = false
   let mut has_write_only_locals = false
+  let mut has_zero_local_funcs = false
+  let mut has_multi_param_result_arities = false
+  let mut has_empty_body_funcs = false
+  let mut has_unreachable_result_bodies = false
+  let mut has_local_name_entries = false
   let mut has_scalar_memory_widths = false
   let mut has_nonzero_memarg = false
   let mut has_memory_limit_variants = false
@@ -12718,8 +12854,16 @@ pub fn gen_valid_feature_facts(
       has_name_custom_sections = true
     }
   }
-  if mod.name_sec is Some(_) {
-    has_name_custom_sections = true
+  match mod.name_sec {
+    Some(name_sec) => {
+      has_name_custom_sections = true
+      match name_sec.local_names {
+        Some(IndirectNameMap(entries)) if !entries.is_empty() =>
+          has_local_name_entries = true
+        _ => ()
+      }
+    }
+    None => ()
   }
 
   match mod.type_sec {
@@ -13168,9 +13312,11 @@ pub fn gen_valid_feature_facts(
     None => ()
   }
   let defined_func_param_counts : Array[Int] = []
+  let mod_defined_type_idxs : Array[TypeIdx] = []
   match mod.func_sec {
     Some(FuncSec(type_idxs)) =>
       for type_idx in type_idxs {
+        mod_defined_type_idxs.push(type_idx)
         defined_func_param_counts.push(
           gen_valid_module_typeidx_param_count(mod, type_idx),
         )
@@ -13183,6 +13329,33 @@ pub fn gen_valid_feature_facts(
       for func_idx = 0; func_idx < funcs.length(); func_idx = func_idx + 1 {
         let func = funcs[func_idx]
         let Func(locals, expr) = func
+        let Expr(body_instrs) = expr
+        if locals.is_empty() {
+          has_zero_local_funcs = true
+        }
+        if body_instrs.is_empty() {
+          has_empty_body_funcs = true
+        }
+        if body_instrs == [Instruction::unreachable_()] &&
+          func_idx < mod_defined_type_idxs.length() &&
+          gen_valid_module_typeidx_result_count(
+            mod,
+            mod_defined_type_idxs[func_idx],
+          ) >
+          0 {
+          has_unreachable_result_bodies = true
+        }
+        if func_idx < mod_defined_type_idxs.length() {
+          let arity = gen_valid_module_typeidx_arities(
+            mod,
+            mod_defined_type_idxs[func_idx],
+          )
+          match arity {
+            Some((params, results)) if params > 1 && results > 1 =>
+              has_multi_param_result_arities = true
+            _ => ()
+          }
+        }
         let local_runs = locals.runs()
         if local_runs.length() > 1 {
           has_mixed_local_decl_types = true
@@ -13294,6 +13467,11 @@ pub fn gen_valid_feature_facts(
     has_high_local_indices,
     has_unused_locals,
     has_write_only_locals,
+    has_zero_local_funcs,
+    has_multi_param_result_arities,
+    has_empty_body_funcs,
+    has_unreachable_result_bodies,
+    has_local_name_entries,
     has_scalar_memory_widths,
     has_nonzero_memarg,
     has_memory_limit_variants,

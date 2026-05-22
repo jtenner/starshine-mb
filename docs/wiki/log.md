@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1054 body-layout edge GenValid coverage
+
+- Continued [`[FUZ]1054`](../../agent-todo.md) by making the `control-heavy` profile keep a valid empty no-local body, a valid bare-`unreachable` multi-result body, a forced mixed-param/multi-result signature, and valid local-name entries in the structured name section.
+- Added public `GenValidFeatureFacts` / `GenValidFeatureStats` coverage for zero-local functions, mixed param/result arities, empty bodies, unreachable result bodies, and local-name entries.
+- Extended [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and the focused local-layout validation anchor so the remaining `[FUZ]1054` body layout surfaces are measured separately from opcode coverage.
+
 ## [2026-05-22] fuzzing | FUZ1054 unused/write-only local GenValid coverage
 
 - Continued [`[FUZ]1054`](../../agent-todo.md) by making the `control-heavy` typed-body profile emit a dedicated high-index write-only local and by scanning declared locals for unused and write-only layout facts.

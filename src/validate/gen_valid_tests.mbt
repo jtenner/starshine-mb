@@ -1594,6 +1594,50 @@ fn gen_valid_test_module_has_high_local_access(mod : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_module_has_empty_zero_local_body(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(locals, Expr(instrs)) = func
+        if locals.length() == 0 && instrs.is_empty() {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_unreachable_result_body(mod : Module) -> Bool {
+  match (mod.func_sec, mod.code_sec) {
+    (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) =>
+      for i = 0; i < funcs.length() && i < type_idxs.length(); i = i + 1 {
+        if gen_valid_module_typeidx_has_multiple_results(mod, type_idxs[i]) {
+          let Func(_, Expr(instrs)) = funcs[i]
+          if instrs == [Instruction::unreachable_()] {
+            return true
+          }
+        }
+      }
+    _ => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_local_name_entries(mod : Module) -> Bool {
+  match mod.name_sec {
+    Some(name_sec) =>
+      match name_sec.local_names {
+        Some(IndirectNameMap(entries)) => !entries.is_empty()
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_has_i64_const_local_set(instrs : Array[Instruction]) -> Bool {
   for i = 0; i + 1 < instrs.length(); i = i + 1 {
     match (instrs[i], instrs[i + 1]) {
@@ -4863,8 +4907,40 @@ test "control-heavy profile records widened local declaration layout" {
     msg="body-layout profiles should deliberately write at least one declared local without reading it back",
   )
   assert_true(
+    generated.facts.has_zero_local_funcs,
+    msg="body-layout profiles should include a valid function body with no body-local declarations",
+  )
+  assert_true(
+    generated.facts.has_multi_param_result_arities,
+    msg="body-layout profiles should include mixed parameter/result arities",
+  )
+  assert_true(
+    generated.facts.has_empty_body_funcs,
+    msg="body-layout profiles should include an empty body where the signature permits it",
+  )
+  assert_true(
+    generated.facts.has_unreachable_result_bodies,
+    msg="body-layout profiles should include an unreachable body for a declared-result function",
+  )
+  assert_true(
+    generated.facts.has_local_name_entries,
+    msg="body-layout profiles should include local-name name-section entries",
+  )
+  assert_true(
     gen_valid_test_module_has_high_local_access(generated.wasm_module),
     msg="body-layout profiles should reference a high local index from generated code, not only declare it",
+  )
+  assert_true(
+    gen_valid_test_module_has_empty_zero_local_body(generated.wasm_module),
+    msg="body-layout profiles should materialize an empty zero-local function body",
+  )
+  assert_true(
+    gen_valid_test_module_has_unreachable_result_body(generated.wasm_module),
+    msg="body-layout profiles should materialize a declared-result body as a bare unreachable",
+  )
+  assert_true(
+    gen_valid_test_module_has_local_name_entries(generated.wasm_module),
+    msg="body-layout profiles should attach local names in the structured name section",
   )
 }
 
