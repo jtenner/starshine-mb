@@ -3358,6 +3358,86 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include v128.store",
   )
   assert_true(
+    counts.v128_load8x8_s > 0,
+    msg="SIMD exact coverage should include v128.load8x8_s",
+  )
+  assert_true(
+    counts.v128_load8x8_u > 0,
+    msg="SIMD exact coverage should include v128.load8x8_u",
+  )
+  assert_true(
+    counts.v128_load16x4_s > 0,
+    msg="SIMD exact coverage should include v128.load16x4_s",
+  )
+  assert_true(
+    counts.v128_load16x4_u > 0,
+    msg="SIMD exact coverage should include v128.load16x4_u",
+  )
+  assert_true(
+    counts.v128_load32x2_s > 0,
+    msg="SIMD exact coverage should include v128.load32x2_s",
+  )
+  assert_true(
+    counts.v128_load32x2_u > 0,
+    msg="SIMD exact coverage should include v128.load32x2_u",
+  )
+  assert_true(
+    counts.v128_load8_splat > 0,
+    msg="SIMD exact coverage should include v128.load8_splat",
+  )
+  assert_true(
+    counts.v128_load16_splat > 0,
+    msg="SIMD exact coverage should include v128.load16_splat",
+  )
+  assert_true(
+    counts.v128_load32_splat > 0,
+    msg="SIMD exact coverage should include v128.load32_splat",
+  )
+  assert_true(
+    counts.v128_load64_splat > 0,
+    msg="SIMD exact coverage should include v128.load64_splat",
+  )
+  assert_true(
+    counts.v128_load8_lane > 0,
+    msg="SIMD exact coverage should include v128.load8_lane",
+  )
+  assert_true(
+    counts.v128_load16_lane > 0,
+    msg="SIMD exact coverage should include v128.load16_lane",
+  )
+  assert_true(
+    counts.v128_load32_lane > 0,
+    msg="SIMD exact coverage should include v128.load32_lane",
+  )
+  assert_true(
+    counts.v128_load64_lane > 0,
+    msg="SIMD exact coverage should include v128.load64_lane",
+  )
+  assert_true(
+    counts.v128_store8_lane > 0,
+    msg="SIMD exact coverage should include v128.store8_lane",
+  )
+  assert_true(
+    counts.v128_store16_lane > 0,
+    msg="SIMD exact coverage should include v128.store16_lane",
+  )
+  assert_true(
+    counts.v128_store32_lane > 0,
+    msg="SIMD exact coverage should include v128.store32_lane",
+  )
+  assert_true(
+    counts.v128_store64_lane > 0,
+    msg="SIMD exact coverage should include v128.store64_lane",
+  )
+  assert_true(
+    counts.v128_load32_zero > 0,
+    msg="SIMD exact coverage should include v128.load32_zero",
+  )
+  assert_true(
+    counts.v128_load64_zero > 0,
+    msg="SIMD exact coverage should include v128.load64_zero",
+  )
+  assert_true(
     counts.i8x16_shuffle > 0,
     msg="SIMD exact coverage should include i8x16.shuffle",
   )

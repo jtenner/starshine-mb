@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1010 SIMD memory exact counter assertions
+
+- Continued [`[FUZ]1010`](../../agent-todo.md) by strengthening the coverage-forced GenValid standard-SIMD exact-counter regression for phase-3 memory forms.
+- The regression now asserts each currently emitted SIMD memory opcode counter individually: base load/store, load-extend, load-splat, lane load/store, and zero-load families, so future generator or scanner drift cannot hide behind the coarse `SimdPhase3` flag or the representative `v128.load` / `v128.store` checks.
+
 ## [2026-05-22] fuzzing | FUZ1010 SIMD float unary exact counters
 
 - Continued [`[FUZ]1010`](../../agent-todo.md) by widening coverage-forced GenValid's standard-SIMD phase-2 prelude with float unary forms: `f32x4.abs`, `f32x4.neg`, `f32x4.sqrt`, `f64x2.abs`, `f64x2.neg`, and `f64x2.sqrt`.
