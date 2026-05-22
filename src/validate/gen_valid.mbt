@@ -1290,9 +1290,16 @@ pub struct GenValidExactOpcodeCounts {
   v128_bitselect : Int
   v128_any_true : Int
   i8x16_eq : Int
+  i8x16_ne : Int
+  i8x16_ge_u : Int
   i16x8_lt_s : Int
+  i16x8_ge_u : Int
   i32x4_gt_u : Int
+  i32x4_le_s : Int
+  i64x2_eq : Int
   f32x4_lt : Int
+  f32x4_ge : Int
+  f64x2_eq : Int
   f64x2_ge : Int
   i8x16_abs : Int
   i8x16_neg : Int
@@ -1638,9 +1645,16 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     v128_bitselect: 0,
     v128_any_true: 0,
     i8x16_eq: 0,
+    i8x16_ne: 0,
+    i8x16_ge_u: 0,
     i16x8_lt_s: 0,
+    i16x8_ge_u: 0,
     i32x4_gt_u: 0,
+    i32x4_le_s: 0,
+    i64x2_eq: 0,
     f32x4_lt: 0,
+    f32x4_ge: 0,
+    f64x2_eq: 0,
     f64x2_ge: 0,
     i8x16_abs: 0,
     i8x16_neg: 0,
@@ -1947,9 +1961,16 @@ pub fn GenValidExactOpcodeCounts::add(
     v128_bitselect: self.v128_bitselect + other.v128_bitselect,
     v128_any_true: self.v128_any_true + other.v128_any_true,
     i8x16_eq: self.i8x16_eq + other.i8x16_eq,
+    i8x16_ne: self.i8x16_ne + other.i8x16_ne,
+    i8x16_ge_u: self.i8x16_ge_u + other.i8x16_ge_u,
     i16x8_lt_s: self.i16x8_lt_s + other.i16x8_lt_s,
+    i16x8_ge_u: self.i16x8_ge_u + other.i16x8_ge_u,
     i32x4_gt_u: self.i32x4_gt_u + other.i32x4_gt_u,
+    i32x4_le_s: self.i32x4_le_s + other.i32x4_le_s,
+    i64x2_eq: self.i64x2_eq + other.i64x2_eq,
     f32x4_lt: self.f32x4_lt + other.f32x4_lt,
+    f32x4_ge: self.f32x4_ge + other.f32x4_ge,
+    f64x2_eq: self.f64x2_eq + other.f64x2_eq,
     f64x2_ge: self.f64x2_ge + other.f64x2_ge,
     i8x16_abs: self.i8x16_abs + other.i8x16_abs,
     i8x16_neg: self.i8x16_neg + other.i8x16_neg,
@@ -6565,10 +6586,17 @@ fn gen_valid_append_simd_phase1_ops(out : Array[Instruction]) -> Unit {
 ///|
 fn gen_valid_append_simd_phase2_ops(out : Array[Instruction]) -> Unit {
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_eq())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_ne())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_ge_u())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_lt_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_ge_u())
   gen_valid_append_v128_binary_op(out, Instruction::i32x4_gt_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i32x4_le_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i64x2_eq())
   gen_valid_append_v128_binary_op(out, Instruction::i64x2_ge_s())
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_lt())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_ge())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_eq())
   gen_valid_append_v128_binary_op(out, Instruction::f64x2_ge())
 
   gen_valid_append_v128_unary_op(out, Instruction::i8x16_abs())
@@ -9583,9 +9611,16 @@ fn gen_valid_exact_opcode_counts_for_instr(
     V128Bitselect => GenValidExactOpcodeCounts::{ ..zero, v128_bitselect: 1 }
     V128AnyTrue => GenValidExactOpcodeCounts::{ ..zero, v128_any_true: 1 }
     I8x16Eq => GenValidExactOpcodeCounts::{ ..zero, i8x16_eq: 1 }
+    I8x16Ne => GenValidExactOpcodeCounts::{ ..zero, i8x16_ne: 1 }
+    I8x16GeU => GenValidExactOpcodeCounts::{ ..zero, i8x16_ge_u: 1 }
     I16x8LtS => GenValidExactOpcodeCounts::{ ..zero, i16x8_lt_s: 1 }
+    I16x8GeU => GenValidExactOpcodeCounts::{ ..zero, i16x8_ge_u: 1 }
     I32x4GtU => GenValidExactOpcodeCounts::{ ..zero, i32x4_gt_u: 1 }
+    I32x4LeS => GenValidExactOpcodeCounts::{ ..zero, i32x4_le_s: 1 }
+    I64x2Eq => GenValidExactOpcodeCounts::{ ..zero, i64x2_eq: 1 }
     F32x4Lt => GenValidExactOpcodeCounts::{ ..zero, f32x4_lt: 1 }
+    F32x4Ge => GenValidExactOpcodeCounts::{ ..zero, f32x4_ge: 1 }
+    F64x2Eq => GenValidExactOpcodeCounts::{ ..zero, f64x2_eq: 1 }
     F64x2Ge => GenValidExactOpcodeCounts::{ ..zero, f64x2_ge: 1 }
     I8x16Abs => GenValidExactOpcodeCounts::{ ..zero, i8x16_abs: 1 }
     I8x16Neg => GenValidExactOpcodeCounts::{ ..zero, i8x16_neg: 1 }
@@ -9814,10 +9849,17 @@ fn gen_valid_instr_is_simd_phase1(instr : Instruction) -> Bool {
 fn gen_valid_instr_is_simd_phase2(instr : Instruction) -> Bool {
   match instr {
     I8x16Eq
+    | I8x16Ne
+    | I8x16GeU
     | I16x8LtS
+    | I16x8GeU
     | I32x4GtU
+    | I32x4LeS
+    | I64x2Eq
     | I64x2GeS
     | F32x4Lt
+    | F32x4Ge
+    | F64x2Eq
     | F64x2Ge
     | I8x16Abs
     | I8x16Neg

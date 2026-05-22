@@ -481,9 +481,16 @@ pub struct GenValidExactOpcodeCounts {
   v128_bitselect : Int
   v128_any_true : Int
   i8x16_eq : Int
+  i8x16_ne : Int
+  i8x16_ge_u : Int
   i16x8_lt_s : Int
+  i16x8_ge_u : Int
   i32x4_gt_u : Int
+  i32x4_le_s : Int
+  i64x2_eq : Int
   f32x4_lt : Int
+  f32x4_ge : Int
+  f64x2_eq : Int
   f64x2_ge : Int
   i8x16_abs : Int
   i8x16_neg : Int
