@@ -10521,6 +10521,105 @@ fn dae_try_spill_i32_param_loop_recursive_body_once(
 }
 
 ///|
+fn dae_strip_nops_and_dropped_i32_zero_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    if instrs[idx] == @lib.Instruction::nop() {
+      idx += 1
+      continue
+    }
+    if idx + 1 < instrs.length() &&
+      instrs[idx] == @lib.Instruction::i32_const(@lib.I32(0)) &&
+      instrs[idx + 1] == @lib.Instruction::drop() {
+      idx += 2
+      continue
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(dae_strip_nops_and_dropped_i32_zero_instrs(body)),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(dae_strip_nops_and_dropped_i32_zero_instrs(body)),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(dae_strip_nops_and_dropped_i32_zero_instrs(body)),
+          ),
+        )
+      @lib.If(block_type, then_body, Some(else_body)) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            dae_strip_nops_and_dropped_i32_zero_instrs(then_body),
+            Some(dae_strip_nops_and_dropped_i32_zero_instrs(else_body)),
+          ),
+        )
+      @lib.If(block_type, then_body, None) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            dae_strip_nops_and_dropped_i32_zero_instrs(then_body),
+            None,
+          ),
+        )
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  out
+}
+
+///|
+fn dae_try_strip_selected_func237_raw_debris_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 237
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(body)
+  if rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_spill_selected_func237_param_loop_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -11328,6 +11427,19 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       touched = dae_merge_touched(touched, selected_func237_default.touched)
       trace(
         "pass[dae-optimizing]:selected-func237-default-carrier primary_def=\{selected_func237_default.primary_def}",
+      )
+      changed = true
+    }
+    selected_scratch_defs[237] = true
+    let selected_func237_raw = dae_try_strip_selected_func237_raw_debris_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[237] = false
+    if selected_func237_raw.changed {
+      current = selected_func237_raw.mod_out
+      touched = dae_merge_touched(touched, selected_func237_raw.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func237-raw-debris primary_def=\{selected_func237_raw.primary_def}",
       )
       changed = true
     }

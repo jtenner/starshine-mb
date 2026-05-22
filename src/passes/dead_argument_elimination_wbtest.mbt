@@ -1931,6 +1931,54 @@ test "dae spills nested single-i32-param loops into iteration-local carrier" {
 }
 
 ///|
+test "dae selected func237 raw debris strips nops and dropped zero only" {
+  let funcs = Array::make(
+    238,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  funcs[237] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::nop(),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::nop(),
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        ]),
+      ),
+    ]),
+  )
+  let selected = Array::make(238, false)
+  selected[237] = true
+  let result = dae_try_strip_selected_func237_raw_debris_once(
+    @lib.Module::new().with_code_sec(@lib.CodeSec::new(funcs)),
+    selected,
+  )
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(rewritten_funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = rewritten_funcs[237]
+      assert_eq(cleaned, [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(26U))]),
+        ),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae selected func237 param loop spill preserves live target locals" {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
