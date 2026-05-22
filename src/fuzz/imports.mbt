@@ -42,4 +42,4 @@ using @wast {
 }
 
 ///|
-using @wat {run_wat_roundtrip_fuzz}
+using @wat {type WatRoundtripFuzzStats, run_wat_roundtrip_fuzz}

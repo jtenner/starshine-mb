@@ -138,6 +138,21 @@ test "format_fuzz_run_report_json includes detailed suite ledgers" {
   assert_true(invalid_report.contains("\"strategy_stats\":["))
   assert_true(invalid_report.contains("\"stable_id\":"))
   assert_true(invalid_report.contains("\"rejected_expected\":"))
+
+  let wat_results = match
+    run_fuzz_suite_sweep("wat-roundtrip", "smoke", 5L, 1, 0, 1) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let wat_report = format_fuzz_run_report_json(
+    "wat-roundtrip", "smoke", 5L, 1, 0, 1, wat_results,
+  )
+  assert_true(wat_report.contains("\"details\":{"))
+  assert_true(wat_report.contains("\"module_print_failures\":"))
+  assert_true(wat_report.contains("\"parse_failures\":"))
+  assert_true(wat_report.contains("\"unstable_text\":"))
+  assert_true(wat_report.contains("\"script_render_failures\":"))
+  assert_true(wat_report.contains("\"script_no_module_commands\":"))
 }
 
 ///|

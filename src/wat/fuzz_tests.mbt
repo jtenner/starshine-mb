@@ -30,9 +30,15 @@ pub struct WatRoundtripFuzzStats {
   attempts : Int
   successes : Int
   stable : Int
+  module_print_failures : Int
+  parse_failures : Int
+  roundtrip_print_failures : Int
+  unstable_text : Int
   script_iterations : Int
   module_commands : Int
   rendered_scripts : Int
+  script_render_failures : Int
+  script_no_module_commands : Int
 } derive(Eq, Debug)
 
 ///|
@@ -54,25 +60,37 @@ pub fn run_wat_roundtrip_fuzz(
   let state = @splitmix.new(seed~)
   let mut successes = 0
   let mut stable = 0
+  let mut module_print_failures = 0
+  let mut parse_failures = 0
+  let mut roundtrip_print_failures = 0
+  let mut unstable_text = 0
   let mut attempts = 0
   while attempts < max_attempts && successes < success_target {
     attempts += 1
     let wmod : Module = Arbitrary::arbitrary(5, state)
     match module_to_wat(wmod) {
-      Err(_) => continue
+      Err(_) => module_print_failures += 1
       Ok(printed) => {
         let parsed = match wat_to_module(printed) {
-          Err(_) => continue
+          Err(_) => {
+            parse_failures += 1
+            continue
+          }
           Ok(parsed) => parsed
         }
         let printed_round = match module_to_wat(parsed) {
-          Err(_) => continue
+          Err(_) => {
+            roundtrip_print_failures += 1
+            continue
+          }
           Ok(text) => text
         }
         successes += 1
         if normalize_text_for_compare(printed) ==
           normalize_text_for_compare(printed_round) {
           stable += 1
+        } else {
+          unstable_text += 1
         }
       }
     }
@@ -91,19 +109,26 @@ pub fn run_wat_roundtrip_fuzz(
   let script_state = @splitmix.new(seed=seed ^ 0xABCUL)
   let mut module_commands = 0
   let mut rendered_scripts = 0
+  let mut script_render_failures = 0
+  let mut script_no_module_commands = 0
   for _ in 0..<script_iters {
     let script : WastScript = Arbitrary::arbitrary(5, script_state)
+    let mut has_module_command = false
     for cmd in script.commands {
       if cmd is Module(_) {
         module_commands += 1
+        has_module_command = true
       }
+    }
+    if !has_module_command {
+      script_no_module_commands += 1
     }
     match script_to_wat(script) {
       Ok(text) => {
         ignore(wat_to_script(text))
         rendered_scripts += 1
       }
-      Err(_) => ()
+      Err(_) => script_render_failures += 1
     }
   }
   if module_commands <= 0 {
@@ -122,9 +147,15 @@ pub fn run_wat_roundtrip_fuzz(
     attempts,
     successes,
     stable,
+    module_print_failures,
+    parse_failures,
+    roundtrip_print_failures,
+    unstable_text,
     script_iterations: script_iters,
     module_commands,
     rendered_scripts,
+    script_render_failures,
+    script_no_module_commands,
   })
 }
 
@@ -152,4 +183,27 @@ test "run_wat_roundtrip_fuzz rejects unknown profile" {
     Ok(_) => fail("expected unknown profile error")
     Err(msg) => assert_true(msg.contains("unknown wat fuzz profile"))
   }
+}
+
+///|
+test "run_wat_roundtrip_fuzz reports failure categories" {
+  let stats = match run_wat_roundtrip_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    stats.attempts,
+    stats.successes +
+    stats.module_print_failures +
+    stats.parse_failures +
+    stats.roundtrip_print_failures,
+  )
+  @debug.assert_eq(stats.stable + stats.unstable_text, stats.successes)
+  @debug.assert_eq(
+    stats.script_iterations,
+    stats.rendered_scripts + stats.script_render_failures,
+  )
+  assert_true(stats.successes > 0)
+  assert_true(stats.rendered_scripts > 0)
+  assert_true(stats.script_no_module_commands >= 0)
 }

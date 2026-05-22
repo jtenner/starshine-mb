@@ -680,6 +680,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Exit Criteria: stress fuzzing can exercise hostile multi-fault inputs while keeping diagnostic-stable lanes clean.
 
 - [FUZ]1027 - WAT/WAST Roundtrip Reporting And GenValid Text Roundtrip Lanes
+  - Status: IN PROGRESS (cron 23, 2026-05-22) - WAT roundtrip reporting slice landed: `WatRoundtripFuzzStats` now counts module print failures, parse failures, roundtrip print failures, unstable text, script render failures, and scripts with no module commands, and runner JSON/report details expose those counts. TDD evidence: `moon test src/wat` first failed on missing stats fields; `moon test src/fuzz` first failed until wat details were added. Validation: `moon fmt`, `moon info` (only pre-existing DAE warnings), and `moon test` pass. Next: add the actual GenValid -> WAT -> parse -> validate lane, then WAST lower/binary/decode/validate reporting.
   - Goal: make WAT/WAST fuzzing report why cases fail and add lanes that roundtrip GenValid modules through text.
   - Why: current WAT/WAST roundtrip fuzz silently skips many failed generated cases and compares text by deleting all whitespace, which can hide useful parser/printer information.
   - Deliverables: count print failures, parse failures, roundtrip print failures, unstable text, script render failures, and no-module-command failures; add `GenValid -> WAT -> parse -> validate` and `GenValid -> WAST -> lower -> binary -> decode -> validate` lanes; improve normalization or compare parsed AST/module facts rather than raw whitespace-stripped text.

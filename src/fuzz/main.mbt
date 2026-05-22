@@ -1180,7 +1180,8 @@ fn run_single_suite(
       }
     "wat-roundtrip" =>
       match run_wat_roundtrip_fuzz(profile, seed) {
-        Ok(stats) => (stats.attempts, None)
+        Ok(stats) =>
+          (stats.attempts, Some(format_wat_roundtrip_details_json(stats)))
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
@@ -1800,6 +1801,11 @@ fn format_validate_valid_feature_floors_json(
 ///|
 fn format_validate_valid_details_json(stats : ValidateValidFuzzStats) -> String {
   "{\"validated\":\{stats.validated},\"generator_config\":\"\{fuzz_json_escape(gen_valid_config_label(stats.generator_config))}\",\"feature_stats\":\{format_gen_valid_feature_stats_json(stats.feature_stats)},\"feature_floors\":\{format_validate_valid_feature_floors_json(stats.feature_floors)}}"
+}
+
+///|
+fn format_wat_roundtrip_details_json(stats : WatRoundtripFuzzStats) -> String {
+  "{\"successes\":\{stats.successes},\"stable\":\{stats.stable},\"module_print_failures\":\{stats.module_print_failures},\"parse_failures\":\{stats.parse_failures},\"roundtrip_print_failures\":\{stats.roundtrip_print_failures},\"unstable_text\":\{stats.unstable_text},\"script_iterations\":\{stats.script_iterations},\"module_commands\":\{stats.module_commands},\"rendered_scripts\":\{stats.rendered_scripts},\"script_render_failures\":\{stats.script_render_failures},\"script_no_module_commands\":\{stats.script_no_module_commands}}"
 }
 
 ///|

@@ -33,9 +33,15 @@ pub struct WatRoundtripFuzzStats {
   attempts : Int
   successes : Int
   stable : Int
+  module_print_failures : Int
+  parse_failures : Int
+  roundtrip_print_failures : Int
+  unstable_text : Int
   script_iterations : Int
   module_commands : Int
   rendered_scripts : Int
+  script_render_failures : Int
+  script_no_module_commands : Int
 } derive(Eq, @debug.Debug)
 
 // Type aliases
