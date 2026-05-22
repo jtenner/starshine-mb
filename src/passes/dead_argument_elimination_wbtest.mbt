@@ -1931,6 +1931,90 @@ test "dae spills nested single-i32-param loops into iteration-local carrier" {
 }
 
 ///|
+test "dae func237 outer loop carrier reshapes through result block" {
+  let carrier = @lib.LocalIdx::new(0U)
+  let iter = @lib.LocalIdx::new(14U)
+  let body = [
+    @lib.Instruction::local_set(carrier),
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(carrier),
+        @lib.Instruction::local_tee(iter),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::i32_lt_s(),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(iter),
+            @lib.Instruction::drop(),
+            @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+            @lib.Instruction::local_get(iter),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::local_set(carrier),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          Some([
+            @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::local_get(carrier),
+  ]
+  match dae_try_wrap_func237_outer_loop_carrier_body_once(body, carrier, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::local_set(carrier),
+        @lib.Instruction::loop_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(carrier),
+                    @lib.Instruction::local_tee(iter),
+                    @lib.Instruction::i32_const(@lib.I32(7)),
+                    @lib.Instruction::i32_lt_s(),
+                    @lib.Instruction::if_(
+                      @lib.BlockType::void_(),
+                      [
+                        @lib.Instruction::local_get(carrier),
+                        @lib.Instruction::drop(),
+                        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+                        @lib.Instruction::local_get(iter),
+                        @lib.Instruction::i32_const(@lib.I32(1)),
+                        @lib.Instruction::i32_add(),
+                        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                      ],
+                      Some([
+                        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+                        @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+                        @lib.Instruction::drop(),
+                        @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                      ]),
+                    ),
+                  ]),
+                ),
+                @lib.Instruction::local_set(carrier),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Instruction::local_get(carrier),
+      ])
+    None => fail("expected Func237 outer loop carrier reshape")
+  }
+}
+
+///|
 test "dae func237 store-carrier copy folds local tee target" {
   let mem4 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(4UL))
   let mem8 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
