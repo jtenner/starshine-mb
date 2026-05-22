@@ -490,6 +490,42 @@ test "fuzz usage text distinguishes active and reserved suites" {
 }
 
 ///|
+test "cmd-harness suite accepts broad executable pass profiles" {
+  let each = match fuzz_cmd_harness_pass_profile("each-pass") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(each.length() > 20)
+  assert_true(each.contains("dead-code-elimination"))
+  assert_true(each.contains("local-cse"))
+  assert_true(each.contains("directize"))
+  assert_false(each.contains("optimize"))
+  assert_false(each.contains("no-inline"))
+
+  let clusters = match fuzz_cmd_harness_pass_profile("common-clusters") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(clusters.contains("dead-code-elimination"))
+  assert_true(clusters.contains("remove-unused-names"))
+  assert_true(clusters.contains("merge-blocks"))
+  assert_true(clusters.contains("vacuum"))
+  assert_false(clusters.contains("optimize-instructions"))
+  assert_false(clusters.contains("dae-optimizing"))
+  assert_false(clusters.contains("inlining-optimizing"))
+
+  let default_pipeline = match
+    fuzz_cmd_harness_pass_profile("default-pipeline") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(default_pipeline.length() > 20)
+  assert_true(default_pipeline.contains("memory-packing"))
+  assert_true(default_pipeline.contains("directize"))
+  assert_false(default_pipeline.contains("optimize"))
+}
+
+///|
 test "cmd-harness suite accepts GenValid and pass profile modifiers" {
   let result = match
     run_fuzz_suite(

@@ -90,6 +90,46 @@ test "cmd harness profile config accepts GenValid and pass profile modifiers" {
 }
 
 ///|
+test "cmd harness profile config expands broad executable pass profiles" {
+  let each = match cmd_fuzz_harness_profile_config("smoke+passes=each-pass") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(each.optimize_passes.length() > 20)
+  assert_true(each.optimize_passes.contains("dead-code-elimination"))
+  assert_true(each.optimize_passes.contains("local-cse"))
+  assert_true(each.optimize_passes.contains("directize"))
+  assert_false(each.optimize_passes.contains("optimize"))
+  assert_false(each.optimize_passes.contains("shrink"))
+  assert_false(each.optimize_passes.contains("no-inline"))
+  assert_false(each.optimize_passes.contains("flatten"))
+
+  let clusters = match
+    cmd_fuzz_harness_profile_config("smoke+passes=common-clusters") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(clusters.pass_profile, "common-clusters")
+  assert_true(clusters.optimize_passes.contains("dead-code-elimination"))
+  assert_true(clusters.optimize_passes.contains("remove-unused-names"))
+  assert_true(clusters.optimize_passes.contains("merge-blocks"))
+  assert_true(clusters.optimize_passes.contains("vacuum"))
+  assert_false(clusters.optimize_passes.contains("optimize-instructions"))
+  assert_false(clusters.optimize_passes.contains("dae-optimizing"))
+  assert_false(clusters.optimize_passes.contains("inlining-optimizing"))
+
+  let default_pipeline = match
+    cmd_fuzz_harness_profile_config("smoke+passes=default-pipeline") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(default_pipeline.optimize_passes.length() > 20)
+  assert_true(default_pipeline.optimize_passes.contains("memory-packing"))
+  assert_true(default_pipeline.optimize_passes.contains("directize"))
+  assert_false(default_pipeline.optimize_passes.contains("optimize"))
+}
+
+///|
 test "run_cmd_fuzz_harness can exercise selected GenValid profile and idempotence checks" {
   let stats = match
     run_cmd_fuzz_harness(

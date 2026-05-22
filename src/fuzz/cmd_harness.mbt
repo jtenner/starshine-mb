@@ -183,6 +183,44 @@ fn fuzz_cmd_harness_has_prefix(text : String, prefix : String) -> Bool {
 }
 
 ///|
+fn fuzz_cmd_harness_is_policy_pass(name : String) -> Bool {
+  name == "no-inline" || name == "no-full-inline" || name == "no-partial-inline"
+}
+
+///|
+fn fuzz_cmd_harness_each_pass_profile() -> Array[String] {
+  let passes : Array[String] = []
+  for entry in @passes.pass_registry_all() {
+    match entry.category {
+      @passes.HotPassRegistryCategory::HotPass
+      | @passes.HotPassRegistryCategory::ModulePass =>
+        if !fuzz_cmd_harness_is_policy_pass(entry.name) {
+          passes.push(entry.name)
+        }
+      _ => ()
+    }
+  }
+  passes
+}
+
+///|
+fn fuzz_cmd_harness_default_pipeline_profile() -> Result[Array[String], String] {
+  match @passes.pass_registry_lookup("optimize") {
+    Some(entry) => Ok(entry.expanded_passes)
+    None =>
+      Err("cmd-harness default-pipeline profile could not find optimize preset")
+  }
+}
+
+///|
+fn fuzz_cmd_harness_common_cluster_profile() -> Array[String] {
+  [
+    "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "vacuum",
+    "merge-blocks", "remove-unused-brs", "vacuum",
+  ]
+}
+
+///|
 fn fuzz_cmd_harness_pass_profile(
   profile : String,
 ) -> Result[Array[String], String] {
@@ -190,12 +228,13 @@ fn fuzz_cmd_harness_pass_profile(
     "none" => Ok([])
     "cleanup" => Ok(["vacuum", "remove-unused-brs"])
     "optimize-core" => Ok(["optimize-instructions", "precompute", "vacuum"])
-    "each-pass" =>
-      Ok(["vacuum", "remove-unused-brs", "optimize-instructions", "precompute"])
-    "default-pipeline" => Ok(["optimize"])
+    "each-pass" => Ok(fuzz_cmd_harness_each_pass_profile())
+    "common-cluster" | "common-clusters" =>
+      Ok(fuzz_cmd_harness_common_cluster_profile())
+    "default-pipeline" => fuzz_cmd_harness_default_pipeline_profile()
     _ =>
       Err(
-        "unknown cmd-harness pass profile '\{profile}'; expected none|cleanup|optimize-core|each-pass|default-pipeline",
+        "unknown cmd-harness pass profile '\{profile}'; expected none|cleanup|optimize-core|each-pass|common-clusters|default-pipeline",
       )
   }
 }
@@ -253,6 +292,10 @@ fn run_fuzz_cmd_harness_profile(
   let generator_config = match GenValidConfig::profile(generator_profile) {
     Ok(v) => v
     Err(msg) => return Err(msg)
+  }
+  let pass_profile = match pass_profile {
+    "common-cluster" => "common-clusters"
+    _ => pass_profile
   }
   let optimize_passes = match fuzz_cmd_harness_pass_profile(pass_profile) {
     Ok(v) => v

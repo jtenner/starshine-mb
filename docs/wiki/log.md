@@ -1164,6 +1164,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The Moon fuzz runner now accepts profiles such as `smoke+gen=natural-small+passes=cleanup+codec-idempotence`; the lower-level command harness API exposes the same controls and records generator/pass labels in stats and persisted failure metadata.
 - Continued the slice by widening command-harness optimizer-failure minimization: `minimize_fuzz_passes(...)` now removes reproducing chunks before final single-pass cleanup, and optimize-stage failure reports store the minimized pass list computed from the generated failing module.
 - Continued the slice by enriching persisted command-harness failure metadata with the resolved GenValid config label, the generated module attempt count, and generated feature facts, while keeping existing failure-callback and persistence APIs backward-compatible through constructor defaults.
+- Continued the slice by making `passes=each-pass` derive executable hot/module pass names from the registry, adding `passes=common-clusters` as an affordable cleanup/control-flow hot-pass cluster profile, and expanding `passes=default-pipeline` to the explicit `optimize` preset sequence for better failure metadata and minimization.
 
 ## [2026-05-22] fuzzing | FUZ1010 SIMD phase-2/phase-3 exact counter assertions
 
