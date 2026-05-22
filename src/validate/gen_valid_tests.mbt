@@ -4777,6 +4777,31 @@ test "coverage-forced GenValid emits nonzero call_indirect and nested tail calls
 }
 
 ///|
+test "control-heavy profile records widened local declaration layout" {
+  let config = GenValidConfig::for_profile(ControlHeavyProfile)
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0x71002UL), config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected local-layout generated module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(
+    generated.facts.has_grouped_local_decls,
+    msg="typed body profiles should deliberately include a grouped local declaration run",
+  )
+  assert_true(
+    generated.facts.has_mixed_local_decl_types,
+    msg="typed body profiles should deliberately include mixed local declaration run types",
+  )
+}
+
+///|
 test "control-heavy profile uses typed GenValid body generator slice" {
   let config = GenValidConfig::for_profile(ControlHeavyProfile)
   assert_true(config.features.allow_typed_body_generator)

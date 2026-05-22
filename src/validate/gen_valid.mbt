@@ -956,6 +956,8 @@ pub struct GenValidFeatureFacts {
   has_local_tee : Bool
   has_typed_select : Bool
   has_tail_calls : Bool
+  has_grouped_local_decls : Bool
+  has_mixed_local_decl_types : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
@@ -2996,6 +2998,24 @@ fn gen_local_types(
     }
   }
   locals
+}
+
+///|
+fn gen_valid_ensure_body_layout_locals(
+  ctx : GenValidContext,
+  locals : Array[ValType],
+) -> Unit {
+  if ctx.config.mode == CoverageForced &&
+    ctx.config.features.allow_typed_body_generator {
+    locals.push(ValType::i32())
+    locals.push(ValType::i32())
+    locals.push(ValType::i64())
+    if ctx.config.features.allow_v128 {
+      locals.push(ValType::v128())
+    } else {
+      locals.push(ValType::f32())
+    }
+  }
 }
 
 ///|
@@ -8659,6 +8679,7 @@ fn gen_valid_build_func(
       locals.push(ValType::ref_null_exn())
     }
   }
+  gen_valid_ensure_body_layout_locals(ctx, locals)
   if ctx.config.mode == Natural {
     for vt in returns {
       match vt {
@@ -12423,6 +12444,8 @@ pub fn gen_valid_feature_facts(
   let mut has_local_tee = false
   let mut has_typed_select = false
   let mut has_tail_calls = false
+  let mut has_grouped_local_decls = false
+  let mut has_mixed_local_decl_types = false
   let mut has_scalar_memory_widths = false
   let mut has_nonzero_memarg = false
   let mut has_memory_limit_variants = false
@@ -12908,6 +12931,15 @@ pub fn gen_valid_feature_facts(
     Some(CodeSec(funcs)) =>
       for func in funcs {
         let Func(locals, expr) = func
+        let local_runs = locals.runs()
+        if local_runs.length() > 1 {
+          has_mixed_local_decl_types = true
+        }
+        for run in local_runs {
+          if run.count() > 1U {
+            has_grouped_local_decls = true
+          }
+        }
         for local_vt in locals.iter() {
           let (has_ref, has_v128_fact) = gen_valid_scan_val_type(local_vt)
           uses_ref_types = uses_ref_types || has_ref
@@ -12993,6 +13025,8 @@ pub fn gen_valid_feature_facts(
     has_local_tee,
     has_typed_select,
     has_tail_calls,
+    has_grouped_local_decls,
+    has_mixed_local_decl_types,
     has_scalar_memory_widths,
     has_nonzero_memarg,
     has_memory_limit_variants,
