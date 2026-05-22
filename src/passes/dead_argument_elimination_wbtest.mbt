@@ -1680,6 +1680,101 @@ test "dae raw cleanup preserves nested dropped integer branch debris in effectfu
 }
 
 ///|
+test "dae func237 leading default carrier folds to local0" {
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    @lib.Instruction::block(
+                      @lib.BlockType::void_(),
+                      @lib.Expr::new([
+                        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                        @lib.Instruction::i32_eqz(),
+                        @lib.Instruction::if_(
+                          @lib.BlockType::void_(),
+                          [
+                            @lib.Instruction::nop(),
+                            @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+                            @lib.Instruction::local_get(
+                              @lib.LocalIdx::new(117U),
+                            ),
+                            @lib.Instruction::local_set(@lib.LocalIdx::new(6U)),
+                            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                          ],
+                          Some([
+                            @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+                            @lib.Instruction::local_get(
+                              @lib.LocalIdx::new(118U),
+                            ),
+                            @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+                            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                    @lib.Instruction::unreachable_(),
+                  ]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+              ]),
+            ),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ]),
+        ),
+        @lib.Instruction::nop(),
+        @lib.Instruction::i32_const(@lib.I32(18128)),
+        @lib.Instruction::call(@lib.FuncIdx::new(4211U)),
+        @lib.Instruction::return_(),
+      ]),
+    ),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(79U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(79U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+  ]
+  match
+    dae_try_fold_func237_default_carrier_to_local_body(
+      body,
+      4,
+      None,
+      @lib.LocalIdx::new(0U),
+    ) {
+    Some(cleaned) =>
+      assert_eq(cleaned, [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_eqz(),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [@lib.Instruction::call(@lib.FuncIdx::new(26U))],
+              Some([
+                @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::unreachable_(),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+      ])
+    None => fail("expected Func237 leading default-carrier fold")
+  }
+}
+
+///|
 test "dae spills single-i32-param loops into explicit local carrier" {
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
   let type_sec = @lib.TypeSec::new([
