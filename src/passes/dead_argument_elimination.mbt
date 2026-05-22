@@ -9121,16 +9121,21 @@ fn dae_should_preserve_dropped_integer_const_debris(
   out : Array[@lib.Instruction],
   start : Int,
   preserve_dropped_integer_const_debris : Bool,
+  preserve_effect_dropped_integer_const_debris : Bool,
 ) -> Bool {
   // Current Binaryen DAE shape preserves tiny dropped integer constants after
-  // live calls/effects and inside live branch regions in the debug artifact.
-  // Keep that debris instead of shrinking it away while the frontier is
-  // shape-parity-driven.
+  // live calls/effects and inside live branch regions for some raw-cleanup
+  // lanes, while the selected func236 local-retarget lane strips that debris.
+  // Keep the preservation mode explicit so shape fixes can follow Binaryen's
+  // lane-specific cleanup rather than globally preferring smaller output.
   out.length() - start == 1 &&
   dae_instr_is_integer_const_leaf(out[start]) &&
   (
     preserve_dropped_integer_const_debris ||
-    dae_instr_prefix_has_observable_effect(out, start)
+    (
+      preserve_effect_dropped_integer_const_debris &&
+      dae_instr_prefix_has_observable_effect(out, start)
+    )
   )
 }
 
@@ -9298,13 +9303,19 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   type_sec : @lib.TypeSec?,
   allow_live_local_copy_cleanup? : Bool = true,
   preserve_dropped_integer_const_debris? : Bool = false,
+  preserve_effect_dropped_integer_const_debris? : Bool = true,
+  preserve_nop_debris? : Bool = true,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
-  // Preserve raw `nop` debris here. Binaryen's DAE keeps those no-ops in the
-  // current artifact frontier, so stripping them makes Starshine diverge even
-  // though the smaller output is semantically equivalent.
+  // Preserve raw `nop` debris by default. Binaryen's DAE keeps those no-ops in
+  // several current artifact lanes, but the selected func236 local-retarget
+  // lane strips them, so callers can opt into the stricter cleanup shape.
   while idx < instrs.length() {
+    if !preserve_nop_debris && instrs[idx] == @lib.Instruction::nop() {
+      idx += 1
+      continue
+    }
     if instrs[idx] == @lib.Instruction::drop() {
       if out.length() > 0 {
         let last_idx = out.length() - 1
@@ -9337,7 +9348,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
             !dae_instr_range_contains_local_get(out, start)
           ) &&
           !dae_should_preserve_dropped_integer_const_debris(
-            out, start, preserve_dropped_integer_const_debris,
+            out, start, preserve_dropped_integer_const_debris, preserve_effect_dropped_integer_const_debris,
           ) &&
           !dae_should_preserve_dropped_local_get_after_same_set_stack(
             out, start,
@@ -9602,7 +9613,10 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       !(dae_instr_is_integer_const_leaf(instrs[idx]) &&
       (
         preserve_dropped_integer_const_debris ||
-        dae_instr_prefix_has_observable_effect(out, out.length())
+        (
+          preserve_effect_dropped_integer_const_debris &&
+          dae_instr_prefix_has_observable_effect(out, out.length())
+        )
       )) &&
       !dae_should_preserve_dropped_local_get_after_same_set_leaf(
         out,
@@ -9649,6 +9663,8 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           type_sec,
           allow_live_local_copy_cleanup~,
           preserve_dropped_integer_const_debris~,
+          preserve_effect_dropped_integer_const_debris~,
+          preserve_nop_debris~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9665,6 +9681,8 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           type_sec,
           allow_live_local_copy_cleanup~,
           preserve_dropped_integer_const_debris~,
+          preserve_effect_dropped_integer_const_debris~,
+          preserve_nop_debris~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9681,6 +9699,8 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           type_sec,
           allow_live_local_copy_cleanup~,
           preserve_dropped_integer_const_debris~,
+          preserve_effect_dropped_integer_const_debris~,
+          preserve_nop_debris~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9701,13 +9721,20 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           None => false
         }
         let preserve_branch_integer_const_debris = preserve_dropped_integer_const_debris ||
-          dae_instrs_have_observable_effect_or_branch(then_body) ||
-          else_has_effect_or_branch
+          (
+            preserve_effect_dropped_integer_const_debris &&
+            (
+              dae_instrs_have_observable_effect_or_branch(then_body) ||
+              else_has_effect_or_branch
+            )
+          )
         let rewritten_then = dae_strip_nops_and_dropped_pure_leaf_instrs(
           then_body,
           type_sec,
           allow_live_local_copy_cleanup~,
           preserve_dropped_integer_const_debris=preserve_branch_integer_const_debris,
+          preserve_effect_dropped_integer_const_debris~,
+          preserve_nop_debris~,
         )
         let rewritten_else = match else_body {
           Some(body) =>
@@ -9717,6 +9744,8 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
                 type_sec,
                 allow_live_local_copy_cleanup~,
                 preserve_dropped_integer_const_debris=preserve_branch_integer_const_debris,
+                preserve_effect_dropped_integer_const_debris~,
+                preserve_nop_debris~,
               ),
             )
           None => None
@@ -9873,6 +9902,8 @@ fn dae_try_retarget_selected_func236_locals_once(
   let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
     dae_rewrite_locals_instrs(body, local_map),
     mod_.type_sec,
+    preserve_effect_dropped_integer_const_debris=false,
+    preserve_nop_debris=false,
   )
   if dae_instrs_reference_local_at_or_above(rewritten, param_count) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }

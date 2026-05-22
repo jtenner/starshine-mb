@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-22] passes | dae Func236 strict debris parity
+
+- Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so the selected Func236 local-retarget lane opts out of the default raw-debris preservation and strips the `nop` / dropped-integer debris that Binaryen removes for that function.
+- Added focused coverage in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) and refreshed the public [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) expectation so Func236 local retargeting now locks the stricter Binaryen shape.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func236-strict-debris-artifact` advances the first diff from `defined=236 abs=253` to the known Func237 frontier `defined=237 abs=254`, validates with `wasm-opt --all-features`, and `.tmp/pass-fuzz-dae-func236-strict-debris-10000` preserves `9975/10000` compared, `6078` matches, `3897` mismatches, `0` validation failures, and the established `25` Binaryen/tool command failures.
+
 ## [2026-05-22] wiki | dae raw-cleanup Binaryen-shape pivot
 
 - Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) after the DAE raw-cleanup parity pivot so the current status no longer describes the frontier as usefulness-first, and now records the Binaryen-shape guards that preserve raw `nop`s, local-get-sourced live copy chains, post-call dropped integer constants, effect-suffix dropped `local.get` debris, and dropped integer constants inside effect/control-bearing branch regions.

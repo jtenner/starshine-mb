@@ -1680,6 +1680,75 @@ test "dae raw cleanup preserves nested dropped integer branch debris in effectfu
 }
 
 ///|
+test "dae selected func236 local retarget strips Binaryen-removed raw debris" {
+  let funcs = Array::make(
+    237,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  funcs[236] = @lib.Func::new(
+    @lib.Locals::single(6U, @lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::i32_eqz(),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::nop(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(9U)),
+          @lib.Instruction::nop(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+        ],
+        Some([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+        ]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+    ]),
+  )
+  let selected = Array::make(237, false)
+  selected[236] = true
+  let mod_ = @lib.Module::new().with_code_sec(@lib.CodeSec::new(funcs))
+  let result = dae_try_retarget_selected_func236_locals_once(mod_, selected)
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(rewritten_funcs)) => {
+      let @lib.Func(locals, @lib.Expr(cleaned)) = rewritten_funcs[236]
+      assert_eq(locals, @lib.Locals::empty())
+      assert_eq(cleaned, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_eqz(),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+          ],
+          Some([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae raw cleanup folds pure non-local-get local copy chains" {
   let mod_ = @lib.Module::new().with_code_sec(
     @lib.CodeSec::new([

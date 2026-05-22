@@ -801,7 +801,7 @@ test "dae-optimizing folds selected mid-prefix constant result-if wrappers" {
 }
 
 ///|
-test "dae-optimizing retargets selected Func236 temporary locals and preserves nop debris" {
+test "dae-optimizing retargets selected Func236 temporary locals and strips Binaryen-removed debris" {
   let target_def = 236
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -850,7 +850,8 @@ test "dae-optimizing retargets selected Func236 temporary locals and preserves n
     target_def.reinterpret_as_uint(),
   )
   assert_false(target.contains("(local)"), msg=target)
-  assert_true(target.contains("nop"), msg=target)
+  assert_false(target.contains("nop"), msg=target)
+  assert_false(target.contains("drop"), msg=target)
   assert_false(target.contains("Local6"), msg=target)
   assert_false(target.contains("Local8"), msg=target)
   assert_false(target.contains("Local9"), msg=target)
