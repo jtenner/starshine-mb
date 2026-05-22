@@ -319,6 +319,8 @@ The 2026-05-21 indirect-call and call-ref follow-ups extend the independent nest
 
 A `br_if` probe on 2026-05-21 did not become a Starshine rule: Binaryen preserved direct `global.get; br_if; global.set` and block/return variants, so branch-target control remains outside the current FlowScanner subset.
 
+The clean `nop` follow-up accepts an independent no-op in the same local stack/value-flow scanner paths. Binaryen v129 promoted the clean `nop` neighbor while preserving a global-steered `if (then nop)` control wrapper, so Starshine keeps control-dependent `nop` wrappers conservative instead of broadening branch reasoning.
+
 The clean local/global-set follow-ups extend the same stack/value-flow accounting to `local.set` and non-candidate `global.set` when the stored value is independent of the candidate global. The local/global write and later read may remain in the output, but the fake candidate-global read/write state is removed. Starshine preserves neighboring shapes where the candidate global is stored through `local.set` or another `global.set`, because that tainted storage can carry the global-derived value to later consumers.
 
 The clean `table.set` follow-up applies the same conservative stack rule to table writes: both the table index and stored reference must be independent of the candidate global. Binaryen v129 promoted the clean exported-table write neighbor and preserved the global-derived table-index neighbor, so Starshine accepts only that exact clean-operand side-effect shape and keeps tainted `table.set` operands conservative.
