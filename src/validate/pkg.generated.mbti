@@ -592,6 +592,9 @@ pub struct GenValidExactOpcodeCounts {
   i64x2_sub : Int
   i64x2_mul : Int
   f32x4_add : Int
+  f32x4_abs : Int
+  f32x4_neg : Int
+  f32x4_sqrt : Int
   f32x4_sub : Int
   f32x4_mul : Int
   f32x4_div : Int
@@ -600,6 +603,9 @@ pub struct GenValidExactOpcodeCounts {
   f32x4_pmin : Int
   f32x4_pmax : Int
   f64x2_add : Int
+  f64x2_abs : Int
+  f64x2_neg : Int
+  f64x2_sqrt : Int
   f64x2_sub : Int
   f64x2_mul : Int
   f64x2_div : Int

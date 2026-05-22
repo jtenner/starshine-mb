@@ -1401,6 +1401,9 @@ pub struct GenValidExactOpcodeCounts {
   i64x2_sub : Int
   i64x2_mul : Int
   f32x4_add : Int
+  f32x4_abs : Int
+  f32x4_neg : Int
+  f32x4_sqrt : Int
   f32x4_sub : Int
   f32x4_mul : Int
   f32x4_div : Int
@@ -1409,6 +1412,9 @@ pub struct GenValidExactOpcodeCounts {
   f32x4_pmin : Int
   f32x4_pmax : Int
   f64x2_add : Int
+  f64x2_abs : Int
+  f64x2_neg : Int
+  f64x2_sqrt : Int
   f64x2_sub : Int
   f64x2_mul : Int
   f64x2_div : Int
@@ -1846,6 +1852,9 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i64x2_sub: 0,
     i64x2_mul: 0,
     f32x4_add: 0,
+    f32x4_abs: 0,
+    f32x4_neg: 0,
+    f32x4_sqrt: 0,
     f32x4_sub: 0,
     f32x4_mul: 0,
     f32x4_div: 0,
@@ -1854,6 +1863,9 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     f32x4_pmin: 0,
     f32x4_pmax: 0,
     f64x2_add: 0,
+    f64x2_abs: 0,
+    f64x2_neg: 0,
+    f64x2_sqrt: 0,
     f64x2_sub: 0,
     f64x2_mul: 0,
     f64x2_div: 0,
@@ -2252,6 +2264,9 @@ pub fn GenValidExactOpcodeCounts::add(
     i64x2_sub: self.i64x2_sub + other.i64x2_sub,
     i64x2_mul: self.i64x2_mul + other.i64x2_mul,
     f32x4_add: self.f32x4_add + other.f32x4_add,
+    f32x4_abs: self.f32x4_abs + other.f32x4_abs,
+    f32x4_neg: self.f32x4_neg + other.f32x4_neg,
+    f32x4_sqrt: self.f32x4_sqrt + other.f32x4_sqrt,
     f32x4_sub: self.f32x4_sub + other.f32x4_sub,
     f32x4_mul: self.f32x4_mul + other.f32x4_mul,
     f32x4_div: self.f32x4_div + other.f32x4_div,
@@ -2260,6 +2275,9 @@ pub fn GenValidExactOpcodeCounts::add(
     f32x4_pmin: self.f32x4_pmin + other.f32x4_pmin,
     f32x4_pmax: self.f32x4_pmax + other.f32x4_pmax,
     f64x2_add: self.f64x2_add + other.f64x2_add,
+    f64x2_abs: self.f64x2_abs + other.f64x2_abs,
+    f64x2_neg: self.f64x2_neg + other.f64x2_neg,
+    f64x2_sqrt: self.f64x2_sqrt + other.f64x2_sqrt,
     f64x2_sub: self.f64x2_sub + other.f64x2_sub,
     f64x2_mul: self.f64x2_mul + other.f64x2_mul,
     f64x2_div: self.f64x2_div + other.f64x2_div,
@@ -7001,6 +7019,9 @@ fn gen_valid_append_simd_phase2_ops(out : Array[Instruction]) -> Unit {
   gen_valid_append_v128_binary_op(out, Instruction::i64x2_sub())
   gen_valid_append_v128_binary_op(out, Instruction::i64x2_mul())
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_add())
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_abs())
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_neg())
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_sqrt())
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_sub())
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_mul())
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_div())
@@ -7009,6 +7030,9 @@ fn gen_valid_append_simd_phase2_ops(out : Array[Instruction]) -> Unit {
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_pmin())
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_pmax())
   gen_valid_append_v128_binary_op(out, Instruction::f64x2_add())
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_abs())
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_neg())
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_sqrt())
   gen_valid_append_v128_binary_op(out, Instruction::f64x2_sub())
   gen_valid_append_v128_binary_op(out, Instruction::f64x2_mul())
   gen_valid_append_v128_binary_op(out, Instruction::f64x2_div())
@@ -10121,6 +10145,9 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I64x2Sub => GenValidExactOpcodeCounts::{ ..zero, i64x2_sub: 1 }
     I64x2Mul => GenValidExactOpcodeCounts::{ ..zero, i64x2_mul: 1 }
     F32x4Add => GenValidExactOpcodeCounts::{ ..zero, f32x4_add: 1 }
+    F32x4Abs => GenValidExactOpcodeCounts::{ ..zero, f32x4_abs: 1 }
+    F32x4Neg => GenValidExactOpcodeCounts::{ ..zero, f32x4_neg: 1 }
+    F32x4Sqrt => GenValidExactOpcodeCounts::{ ..zero, f32x4_sqrt: 1 }
     F32x4Sub => GenValidExactOpcodeCounts::{ ..zero, f32x4_sub: 1 }
     F32x4Mul => GenValidExactOpcodeCounts::{ ..zero, f32x4_mul: 1 }
     F32x4Div => GenValidExactOpcodeCounts::{ ..zero, f32x4_div: 1 }
@@ -10129,6 +10156,9 @@ fn gen_valid_exact_opcode_counts_for_instr(
     F32x4Pmin => GenValidExactOpcodeCounts::{ ..zero, f32x4_pmin: 1 }
     F32x4Pmax => GenValidExactOpcodeCounts::{ ..zero, f32x4_pmax: 1 }
     F64x2Add => GenValidExactOpcodeCounts::{ ..zero, f64x2_add: 1 }
+    F64x2Abs => GenValidExactOpcodeCounts::{ ..zero, f64x2_abs: 1 }
+    F64x2Neg => GenValidExactOpcodeCounts::{ ..zero, f64x2_neg: 1 }
+    F64x2Sqrt => GenValidExactOpcodeCounts::{ ..zero, f64x2_sqrt: 1 }
     F64x2Sub => GenValidExactOpcodeCounts::{ ..zero, f64x2_sub: 1 }
     F64x2Mul => GenValidExactOpcodeCounts::{ ..zero, f64x2_mul: 1 }
     F64x2Div => GenValidExactOpcodeCounts::{ ..zero, f64x2_div: 1 }

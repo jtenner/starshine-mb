@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1010 SIMD float unary exact counters
+
+- Continued [`[FUZ]1010`](../../agent-todo.md) by widening coverage-forced GenValid's standard-SIMD phase-2 prelude with float unary forms: `f32x4.abs`, `f32x4.neg`, `f32x4.sqrt`, `f64x2.abs`, `f64x2.neg`, and `f64x2.sqrt`.
+- Added exact opcode counters, feature-fact/stat aggregation coverage, and ledger wording for the new float unary surface so future generator runs can distinguish those opcodes instead of relying on coarse SIMD phase facts.
+
 ## [2026-05-22] fuzzing | FUZ1010 SIMD extension and extmul exact counters
 
 - Continued [`[FUZ]1010`](../../agent-todo.md) by widening coverage-forced GenValid's standard-SIMD phase-3 prelude with all currently represented integer lane extension and extmul variants across `i16x8`, `i32x4`, and `i64x2` widths.
