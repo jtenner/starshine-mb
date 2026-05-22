@@ -279,6 +279,8 @@ pub enum GenValidBudgetStop {
   InstructionCountBudgetExceeded
   ExpressionDepthBudgetExceeded
   ModuleByteSizeBudgetExceeded
+  RecGroupSizeBudgetExceeded
+  SectionCountBudgetExceeded
   SegmentPayloadSizeBudgetExceeded
 } derive(Eq, @debug.Debug)
 
@@ -301,6 +303,8 @@ pub struct GenValidConfig {
   max_instruction_count_budget : Int?
   max_expression_depth_budget : Int?
   max_module_byte_size_budget : Int?
+  max_rec_group_size_budget : Int?
+  max_section_count_budget : Int?
   max_name_length : Int
   max_segment_payload_size : Int
   section_bias : GenValidSectionBias

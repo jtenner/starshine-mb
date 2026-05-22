@@ -739,17 +739,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: same-seed determinism tests, add-choice-does-not-change-unrelated-stream tests using a fake stream, manifest seed-derivation roundtrip tests.
   - Exit Criteria: a repro can identify which stream made the interesting choice, and adding new choices in one family does not churn unrelated generated modules.
 
-- [FUZ]1035 - Generator Fuel, Size Budgets, And Pathological Shape Stress
-  - Status: IN PROGRESS (cron 23, 2026-05-22) - first slices landed optional GenValid instruction-count, expression-depth, and estimated module byte-size budgets; final failure `budget_stop` diagnostics for those budgets; bounded generated name length and data/custom segment payload size; and a bounded `pathological-valid` profile. Focused `moon test src/validate` passed after the byte-size/payload slice. Continue with remaining budget knobs/diagnostics for rec-group/pathological shape reporting plus runner/profile reporting before closing this broad task.
-  - Goal: add explicit size/fuel budgets and separate pathological-but-valid stress profiles.
-  - Why: a typed generator needs recursion limits, but validators and optimizers also need safe exposure to deep nesting, large vectors, wide type graphs, and large local/function counts.
-  - Deliverables: introduce budget knobs for instruction count, expression depth, block depth, rec-group depth, section counts, byte-size target, local count, name length, and segment payload size; add stress profiles that approach limits without becoming default smoke behavior.
-  - Required APIs: `GenValidConfig`, typed body generator from [FUZ]1002, module topology generation, fuzz runner profile selection.
-  - Invariants: every budget must be bounded; smoke/CI defaults must stay fast; pathological profiles must report when a candidate was skipped for size/fuel instead of silently retrying forever.
-  - Dependencies: [FUZ]1000 diagnostics and [FUZ]1002 typed generation recommended.
-  - Suggested Tests: budget cap tests, deterministic skip diagnostics, deep-nesting valid fixture, large-vector valid fixture, timeout-free fuzz smoke.
-  - Exit Criteria: agents can intentionally request small, medium, large, or pathological valid modules and understand which budget stopped growth.
-
 - [FUZ]1036 - Metamorphic Valid Module Transformer Suite
   - Goal: generate new valid test cases by applying semantics-preserving rewrites to already-valid modules.
   - Why: mutating valid modules in controlled ways exercises encoders, validators, and optimizers without requiring every shape to be born directly from GenValid.

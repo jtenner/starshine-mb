@@ -222,6 +222,8 @@ pub struct GenValidConfig {
   max_instruction_count_budget : Int?
   max_expression_depth_budget : Int?
   max_module_byte_size_budget : Int?
+  max_rec_group_size_budget : Int?
+  max_section_count_budget : Int?
   max_name_length : Int
   max_segment_payload_size : Int
   section_bias : GenValidSectionBias
@@ -287,6 +289,24 @@ pub impl Show for GenValidConfig with output(self, logger) {
     }
     None => logger.write_string("None")
   }
+  logger.write_string(", max_rec_group_size_budget: ")
+  match self.max_rec_group_size_budget {
+    Some(limit) => {
+      logger.write_string("Some(")
+      limit.output(logger)
+      logger.write_char(')')
+    }
+    None => logger.write_string("None")
+  }
+  logger.write_string(", max_section_count_budget: ")
+  match self.max_section_count_budget {
+    Some(limit) => {
+      logger.write_string("Some(")
+      limit.output(logger)
+      logger.write_char(')')
+    }
+    None => logger.write_string("None")
+  }
   logger.write_string(", max_name_length: ")
   self.max_name_length.output(logger)
   logger.write_string(", max_segment_payload_size: ")
@@ -319,6 +339,8 @@ pub fn GenValidConfig::natural_default() -> GenValidConfig {
     max_instruction_count_budget: None,
     max_expression_depth_budget: None,
     max_module_byte_size_budget: None,
+    max_rec_group_size_budget: None,
+    max_section_count_budget: None,
     max_name_length: 64,
     max_segment_payload_size: 64,
     section_bias: GenValidSectionBias::natural_default(),
@@ -733,6 +755,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_instruction_count_budget: Some(4096),
         max_expression_depth_budget: Some(64),
         max_module_byte_size_budget: Some(262144),
+        max_rec_group_size_budget: Some(64),
+        max_section_count_budget: Some(16),
         max_name_length: 256,
         max_segment_payload_size: 4096,
       }
@@ -830,6 +854,8 @@ pub enum GenValidBudgetStop {
   InstructionCountBudgetExceeded
   ExpressionDepthBudgetExceeded
   ModuleByteSizeBudgetExceeded
+  RecGroupSizeBudgetExceeded
+  SectionCountBudgetExceeded
   SegmentPayloadSizeBudgetExceeded
 } derive(Eq, Debug)
 
@@ -10185,6 +10211,97 @@ fn gen_valid_module_segment_payload_size(mod_ : Module) -> Int {
 }
 
 ///|
+fn gen_valid_rec_group_size(rec_type : RecType) -> Int {
+  match rec_type {
+    SingleRecType(_) => 1
+    GroupRecType(sub_types) => sub_types.length()
+  }
+}
+
+///|
+fn gen_valid_module_max_rec_group_size(mod_ : Module) -> Int {
+  match mod_.type_sec {
+    Some(TypeSec(types)) => {
+      let mut max_size = 0
+      for rec_type in types {
+        let size = gen_valid_rec_group_size(rec_type)
+        if size > max_size {
+          max_size = size
+        }
+      }
+      max_size
+    }
+    None => 0
+  }
+}
+
+///|
+fn gen_valid_module_section_count(mod_ : Module) -> Int {
+  let mut total = mod_.custom_secs.length()
+  match mod_.type_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.import_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.func_annotation_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.func_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.mem_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.export_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.start_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.data_cnt_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.code_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.data_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.name_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  match mod_.tag_sec {
+    Some(_) => total += 1
+    None => ()
+  }
+  total
+}
+
+///|
 fn gen_valid_module_byte_size_estimate(mod_ : Module) -> Int {
   let mut total = 8
   match mod_.type_sec {
@@ -10265,6 +10382,34 @@ fn gen_valid_budget_error(
           (
             ModuleByteSizeBudgetExceeded,
             "gen-valid byte-size budget exceeded: actual \{actual}, limit \{limit}",
+          ),
+        )
+      }
+    }
+    None => ()
+  }
+  match config.max_rec_group_size_budget {
+    Some(limit) => {
+      let actual = gen_valid_module_max_rec_group_size(mod_)
+      if actual > limit {
+        return Some(
+          (
+            RecGroupSizeBudgetExceeded,
+            "gen-valid rec-group budget exceeded: actual \{actual}, limit \{limit}",
+          ),
+        )
+      }
+    }
+    None => ()
+  }
+  match config.max_section_count_budget {
+    Some(limit) => {
+      let actual = gen_valid_module_section_count(mod_)
+      if actual > limit {
+        return Some(
+          (
+            SectionCountBudgetExceeded,
+            "gen-valid section-count budget exceeded: actual \{actual}, limit \{limit}",
           ),
         )
       }

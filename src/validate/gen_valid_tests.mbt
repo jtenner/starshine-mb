@@ -332,6 +332,15 @@ test "pathological-valid profile sets bounded generator budgets" {
     Some(limit) => assert_true(limit >= 4096)
     None => fail("pathological-valid should keep a bounded byte-size budget")
   }
+  match config.max_rec_group_size_budget {
+    Some(limit) => assert_true(limit >= 1)
+    None => fail("pathological-valid should keep a bounded rec-group budget")
+  }
+  match config.max_section_count_budget {
+    Some(limit) => assert_true(limit >= 8)
+    None =>
+      fail("pathological-valid should keep a bounded section-count budget")
+  }
   assert_true(config.max_name_length >= 32)
   assert_true(config.max_segment_payload_size >= 64)
 }
@@ -391,6 +400,40 @@ test "gen_valid_module_result reports byte-size budget stop diagnostics" {
       @debug.assert_eq(failure.config, config)
       @debug.assert_eq(failure.budget_stop, Some(ModuleByteSizeBudgetExceeded))
       assert_true(failure.validation_error_message.contains("byte-size budget"))
+      assert_true(failure.validation_error_message.contains("limit -1"))
+    }
+  }
+}
+
+///|
+test "gen_valid_module_result reports rec-group budget stop diagnostics" {
+  let base = GenValidConfig::for_profile(NaturalSmallProfile)
+  let config = GenValidConfig::{ ..base, max_rec_group_size_budget: Some(-1) }
+  match gen_valid_module_result(@splitmix.new(seed=0xf355UL), config) {
+    Ok(_) =>
+      fail("expected negative rec-group budget to reject every candidate")
+    Err(failure) => {
+      @debug.assert_eq(failure.config, config)
+      @debug.assert_eq(failure.budget_stop, Some(RecGroupSizeBudgetExceeded))
+      assert_true(failure.validation_error_message.contains("rec-group budget"))
+      assert_true(failure.validation_error_message.contains("limit -1"))
+    }
+  }
+}
+
+///|
+test "gen_valid_module_result reports section-count budget stop diagnostics" {
+  let base = GenValidConfig::for_profile(NaturalSmallProfile)
+  let config = GenValidConfig::{ ..base, max_section_count_budget: Some(-1) }
+  match gen_valid_module_result(@splitmix.new(seed=0xf356UL), config) {
+    Ok(_) =>
+      fail("expected negative section-count budget to reject every candidate")
+    Err(failure) => {
+      @debug.assert_eq(failure.config, config)
+      @debug.assert_eq(failure.budget_stop, Some(SectionCountBudgetExceeded))
+      assert_true(
+        failure.validation_error_message.contains("section-count budget"),
+      )
       assert_true(failure.validation_error_message.contains("limit -1"))
     }
   }

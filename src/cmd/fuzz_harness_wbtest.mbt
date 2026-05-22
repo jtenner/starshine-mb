@@ -151,6 +151,24 @@ test "run_cmd_fuzz_harness can exercise selected GenValid profile and idempotenc
 }
 
 ///|
+test "cmd harness profile config reports pathological GenValid budgets" {
+  let config = match
+    cmd_fuzz_harness_profile_config("smoke+gen=pathological-valid") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(config.generator_profile, "pathological-valid")
+  match config.generator_config.max_rec_group_size_budget {
+    Some(limit) => assert_true(limit >= 1)
+    None => fail("expected pathological rec-group budget")
+  }
+  match config.generator_config.max_section_count_budget {
+    Some(limit) => assert_true(limit >= 8)
+    None => fail("expected pathological section-count budget")
+  }
+}
+
+///|
 test "minimize_fuzz_passes greedily removes non-essential pass names" {
   let minimized = minimize_fuzz_passes(
     ["flatten", "vacuum", "de-nan", "vacuum"],
