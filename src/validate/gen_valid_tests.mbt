@@ -3141,6 +3141,42 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     counts.f32x4_demote_f64x2_zero > 0,
     msg="SIMD exact coverage should include f32x4.demote_f64x2_zero",
   )
+  assert_true(
+    counts.f64x2_promote_low_f32x4 > 0,
+    msg="SIMD exact coverage should include f64x2.promote_low_f32x4",
+  )
+  assert_true(
+    counts.i32x4_trunc_sat_f32x4_s > 0,
+    msg="SIMD exact coverage should include i32x4.trunc_sat_f32x4_s",
+  )
+  assert_true(
+    counts.i32x4_trunc_sat_f32x4_u > 0,
+    msg="SIMD exact coverage should include i32x4.trunc_sat_f32x4_u",
+  )
+  assert_true(
+    counts.f32x4_convert_i32x4_s > 0,
+    msg="SIMD exact coverage should include f32x4.convert_i32x4_s",
+  )
+  assert_true(
+    counts.f32x4_convert_i32x4_u > 0,
+    msg="SIMD exact coverage should include f32x4.convert_i32x4_u",
+  )
+  assert_true(
+    counts.i32x4_trunc_sat_f64x2_s_zero > 0,
+    msg="SIMD exact coverage should include i32x4.trunc_sat_f64x2_s_zero",
+  )
+  assert_true(
+    counts.i32x4_trunc_sat_f64x2_u_zero > 0,
+    msg="SIMD exact coverage should include i32x4.trunc_sat_f64x2_u_zero",
+  )
+  assert_true(
+    counts.f64x2_convert_low_i32x4_s > 0,
+    msg="SIMD exact coverage should include f64x2.convert_low_i32x4_s",
+  )
+  assert_true(
+    counts.f64x2_convert_low_i32x4_u > 0,
+    msg="SIMD exact coverage should include f64x2.convert_low_i32x4_u",
+  )
 }
 
 ///|

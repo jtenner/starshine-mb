@@ -1401,6 +1401,14 @@ pub struct GenValidExactOpcodeCounts {
   i8x16_narrow_i16x8_s : Int
   i32x4_dot_i16x8_s : Int
   f32x4_demote_f64x2_zero : Int
+  i32x4_trunc_sat_f32x4_s : Int
+  i32x4_trunc_sat_f32x4_u : Int
+  f32x4_convert_i32x4_s : Int
+  f32x4_convert_i32x4_u : Int
+  i32x4_trunc_sat_f64x2_s_zero : Int
+  i32x4_trunc_sat_f64x2_u_zero : Int
+  f64x2_convert_low_i32x4_s : Int
+  f64x2_convert_low_i32x4_u : Int
   i8x16_relaxed_swizzle : Int
   i32x4_relaxed_trunc_f32x4_s : Int
   i32x4_relaxed_trunc_f32x4_u : Int
@@ -1756,6 +1764,14 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i8x16_narrow_i16x8_s: 0,
     i32x4_dot_i16x8_s: 0,
     f32x4_demote_f64x2_zero: 0,
+    i32x4_trunc_sat_f32x4_s: 0,
+    i32x4_trunc_sat_f32x4_u: 0,
+    f32x4_convert_i32x4_s: 0,
+    f32x4_convert_i32x4_u: 0,
+    i32x4_trunc_sat_f64x2_s_zero: 0,
+    i32x4_trunc_sat_f64x2_u_zero: 0,
+    f64x2_convert_low_i32x4_s: 0,
+    f64x2_convert_low_i32x4_u: 0,
     i8x16_relaxed_swizzle: 0,
     i32x4_relaxed_trunc_f32x4_s: 0,
     i32x4_relaxed_trunc_f32x4_u: 0,
@@ -2078,6 +2094,22 @@ pub fn GenValidExactOpcodeCounts::add(
     i32x4_dot_i16x8_s: self.i32x4_dot_i16x8_s + other.i32x4_dot_i16x8_s,
     f32x4_demote_f64x2_zero: self.f32x4_demote_f64x2_zero +
     other.f32x4_demote_f64x2_zero,
+    i32x4_trunc_sat_f32x4_s: self.i32x4_trunc_sat_f32x4_s +
+    other.i32x4_trunc_sat_f32x4_s,
+    i32x4_trunc_sat_f32x4_u: self.i32x4_trunc_sat_f32x4_u +
+    other.i32x4_trunc_sat_f32x4_u,
+    f32x4_convert_i32x4_s: self.f32x4_convert_i32x4_s +
+    other.f32x4_convert_i32x4_s,
+    f32x4_convert_i32x4_u: self.f32x4_convert_i32x4_u +
+    other.f32x4_convert_i32x4_u,
+    i32x4_trunc_sat_f64x2_s_zero: self.i32x4_trunc_sat_f64x2_s_zero +
+    other.i32x4_trunc_sat_f64x2_s_zero,
+    i32x4_trunc_sat_f64x2_u_zero: self.i32x4_trunc_sat_f64x2_u_zero +
+    other.i32x4_trunc_sat_f64x2_u_zero,
+    f64x2_convert_low_i32x4_s: self.f64x2_convert_low_i32x4_s +
+    other.f64x2_convert_low_i32x4_s,
+    f64x2_convert_low_i32x4_u: self.f64x2_convert_low_i32x4_u +
+    other.f64x2_convert_low_i32x4_u,
     i8x16_relaxed_swizzle: self.i8x16_relaxed_swizzle +
     other.i8x16_relaxed_swizzle,
     i32x4_relaxed_trunc_f32x4_s: self.i32x4_relaxed_trunc_f32x4_s +
@@ -7079,6 +7111,20 @@ fn gen_valid_append_simd_phase3_ops(
   gen_valid_append_v128_binary_op(out, Instruction::i32x4_dot_i16x8s())
   gen_valid_append_v128_unary_op(out, Instruction::f32x4_demote_f64x2_zero())
   gen_valid_append_v128_unary_op(out, Instruction::f64x2_promote_low_f32x4())
+  gen_valid_append_v128_unary_op(out, Instruction::i32x4_trunc_sat_f32x4s())
+  gen_valid_append_v128_unary_op(out, Instruction::i32x4_trunc_sat_f32x4u())
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_convert_i32x4s())
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_convert_i32x4u())
+  gen_valid_append_v128_unary_op(
+    out,
+    Instruction::i32x4_trunc_sat_f64x2s_zero(),
+  )
+  gen_valid_append_v128_unary_op(
+    out,
+    Instruction::i32x4_trunc_sat_f64x2u_zero(),
+  )
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_convert_low_i32x4s())
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_convert_low_i32x4u())
 }
 
 ///|
@@ -9753,6 +9799,22 @@ fn gen_valid_exact_opcode_counts_for_instr(
       GenValidExactOpcodeCounts::{ ..zero, i32x4_dot_i16x8_s: 1 }
     F32x4DemoteF64x2Zero =>
       GenValidExactOpcodeCounts::{ ..zero, f32x4_demote_f64x2_zero: 1 }
+    I32x4TruncSatF32x4S =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_trunc_sat_f32x4_s: 1 }
+    I32x4TruncSatF32x4U =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_trunc_sat_f32x4_u: 1 }
+    F32x4ConvertI32x4S =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_convert_i32x4_s: 1 }
+    F32x4ConvertI32x4U =>
+      GenValidExactOpcodeCounts::{ ..zero, f32x4_convert_i32x4_u: 1 }
+    I32x4TruncSatF64x2SZero =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_trunc_sat_f64x2_s_zero: 1 }
+    I32x4TruncSatF64x2UZero =>
+      GenValidExactOpcodeCounts::{ ..zero, i32x4_trunc_sat_f64x2_u_zero: 1 }
+    F64x2ConvertLowI32x4S =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_convert_low_i32x4_s: 1 }
+    F64x2ConvertLowI32x4U =>
+      GenValidExactOpcodeCounts::{ ..zero, f64x2_convert_low_i32x4_u: 1 }
     I8x16RelaxedSwizzle =>
       GenValidExactOpcodeCounts::{ ..zero, i8x16_relaxed_swizzle: 1 }
     I32x4RelaxedTruncF32x4S =>

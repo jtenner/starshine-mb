@@ -592,6 +592,14 @@ pub struct GenValidExactOpcodeCounts {
   i8x16_narrow_i16x8_s : Int
   i32x4_dot_i16x8_s : Int
   f32x4_demote_f64x2_zero : Int
+  i32x4_trunc_sat_f32x4_s : Int
+  i32x4_trunc_sat_f32x4_u : Int
+  f32x4_convert_i32x4_s : Int
+  f32x4_convert_i32x4_u : Int
+  i32x4_trunc_sat_f64x2_s_zero : Int
+  i32x4_trunc_sat_f64x2_u_zero : Int
+  f64x2_convert_low_i32x4_s : Int
+  f64x2_convert_low_i32x4_u : Int
   i8x16_relaxed_swizzle : Int
   i32x4_relaxed_trunc_f32x4_s : Int
   i32x4_relaxed_trunc_f32x4_u : Int
