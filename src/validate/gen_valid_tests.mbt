@@ -3094,12 +3094,44 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include i64x2.eq",
   )
   assert_true(
+    counts.i64x2_ne > 0,
+    msg="SIMD exact coverage should include i64x2.ne",
+  )
+  assert_true(
+    counts.i64x2_lt_s > 0,
+    msg="SIMD exact coverage should include i64x2.lt_s",
+  )
+  assert_true(
+    counts.i64x2_gt_s > 0,
+    msg="SIMD exact coverage should include i64x2.gt_s",
+  )
+  assert_true(
+    counts.i64x2_le_s > 0,
+    msg="SIMD exact coverage should include i64x2.le_s",
+  )
+  assert_true(
     counts.i64x2_ge_s > 0,
     msg="SIMD exact coverage should include i64x2.ge_s",
   )
   assert_true(
+    counts.f32x4_eq > 0,
+    msg="SIMD exact coverage should include f32x4.eq",
+  )
+  assert_true(
+    counts.f32x4_ne > 0,
+    msg="SIMD exact coverage should include f32x4.ne",
+  )
+  assert_true(
     counts.f32x4_lt > 0,
     msg="SIMD exact coverage should include f32x4.lt",
+  )
+  assert_true(
+    counts.f32x4_gt > 0,
+    msg="SIMD exact coverage should include f32x4.gt",
+  )
+  assert_true(
+    counts.f32x4_le > 0,
+    msg="SIMD exact coverage should include f32x4.le",
   )
   assert_true(
     counts.f32x4_ge > 0,
@@ -3108,6 +3140,22 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
   assert_true(
     counts.f64x2_eq > 0,
     msg="SIMD exact coverage should include f64x2.eq",
+  )
+  assert_true(
+    counts.f64x2_ne > 0,
+    msg="SIMD exact coverage should include f64x2.ne",
+  )
+  assert_true(
+    counts.f64x2_lt > 0,
+    msg="SIMD exact coverage should include f64x2.lt",
+  )
+  assert_true(
+    counts.f64x2_gt > 0,
+    msg="SIMD exact coverage should include f64x2.gt",
+  )
+  assert_true(
+    counts.f64x2_le > 0,
+    msg="SIMD exact coverage should include f64x2.le",
   )
   assert_true(
     counts.f64x2_ge > 0,

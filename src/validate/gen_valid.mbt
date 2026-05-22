@@ -1320,9 +1320,21 @@ pub struct GenValidExactOpcodeCounts {
   i32x4_ge_s : Int
   i32x4_ge_u : Int
   i64x2_eq : Int
+  i64x2_ne : Int
+  i64x2_lt_s : Int
+  i64x2_gt_s : Int
+  i64x2_le_s : Int
+  f32x4_eq : Int
+  f32x4_ne : Int
   f32x4_lt : Int
+  f32x4_gt : Int
+  f32x4_le : Int
   f32x4_ge : Int
   f64x2_eq : Int
+  f64x2_ne : Int
+  f64x2_lt : Int
+  f64x2_gt : Int
+  f64x2_le : Int
   f64x2_ge : Int
   i8x16_abs : Int
   i8x16_neg : Int
@@ -1706,9 +1718,21 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i32x4_ge_s: 0,
     i32x4_ge_u: 0,
     i64x2_eq: 0,
+    i64x2_ne: 0,
+    i64x2_lt_s: 0,
+    i64x2_gt_s: 0,
+    i64x2_le_s: 0,
+    f32x4_eq: 0,
+    f32x4_ne: 0,
     f32x4_lt: 0,
+    f32x4_gt: 0,
+    f32x4_le: 0,
     f32x4_ge: 0,
     f64x2_eq: 0,
+    f64x2_ne: 0,
+    f64x2_lt: 0,
+    f64x2_gt: 0,
+    f64x2_le: 0,
     f64x2_ge: 0,
     i8x16_abs: 0,
     i8x16_neg: 0,
@@ -2053,9 +2077,21 @@ pub fn GenValidExactOpcodeCounts::add(
     i32x4_ge_s: self.i32x4_ge_s + other.i32x4_ge_s,
     i32x4_ge_u: self.i32x4_ge_u + other.i32x4_ge_u,
     i64x2_eq: self.i64x2_eq + other.i64x2_eq,
+    i64x2_ne: self.i64x2_ne + other.i64x2_ne,
+    i64x2_lt_s: self.i64x2_lt_s + other.i64x2_lt_s,
+    i64x2_gt_s: self.i64x2_gt_s + other.i64x2_gt_s,
+    i64x2_le_s: self.i64x2_le_s + other.i64x2_le_s,
+    f32x4_eq: self.f32x4_eq + other.f32x4_eq,
+    f32x4_ne: self.f32x4_ne + other.f32x4_ne,
     f32x4_lt: self.f32x4_lt + other.f32x4_lt,
+    f32x4_gt: self.f32x4_gt + other.f32x4_gt,
+    f32x4_le: self.f32x4_le + other.f32x4_le,
     f32x4_ge: self.f32x4_ge + other.f32x4_ge,
     f64x2_eq: self.f64x2_eq + other.f64x2_eq,
+    f64x2_ne: self.f64x2_ne + other.f64x2_ne,
+    f64x2_lt: self.f64x2_lt + other.f64x2_lt,
+    f64x2_gt: self.f64x2_gt + other.f64x2_gt,
+    f64x2_le: self.f64x2_le + other.f64x2_le,
     f64x2_ge: self.f64x2_ge + other.f64x2_ge,
     i8x16_abs: self.i8x16_abs + other.i8x16_abs,
     i8x16_neg: self.i8x16_neg + other.i8x16_neg,
@@ -6717,10 +6753,22 @@ fn gen_valid_append_simd_phase2_ops(out : Array[Instruction]) -> Unit {
   gen_valid_append_v128_binary_op(out, Instruction::i32x4_ge_s())
   gen_valid_append_v128_binary_op(out, Instruction::i32x4_ge_u())
   gen_valid_append_v128_binary_op(out, Instruction::i64x2_eq())
+  gen_valid_append_v128_binary_op(out, Instruction::i64x2_ne())
+  gen_valid_append_v128_binary_op(out, Instruction::i64x2_lt_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i64x2_gt_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i64x2_le_s())
   gen_valid_append_v128_binary_op(out, Instruction::i64x2_ge_s())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_eq())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_ne())
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_lt())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_gt())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_le())
   gen_valid_append_v128_binary_op(out, Instruction::f32x4_ge())
   gen_valid_append_v128_binary_op(out, Instruction::f64x2_eq())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_ne())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_lt())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_gt())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_le())
   gen_valid_append_v128_binary_op(out, Instruction::f64x2_ge())
 
   gen_valid_append_v128_unary_op(out, Instruction::i8x16_abs())
@@ -9779,9 +9827,21 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I32x4GeS => GenValidExactOpcodeCounts::{ ..zero, i32x4_ge_s: 1 }
     I32x4GeU => GenValidExactOpcodeCounts::{ ..zero, i32x4_ge_u: 1 }
     I64x2Eq => GenValidExactOpcodeCounts::{ ..zero, i64x2_eq: 1 }
+    I64x2Ne => GenValidExactOpcodeCounts::{ ..zero, i64x2_ne: 1 }
+    I64x2LtS => GenValidExactOpcodeCounts::{ ..zero, i64x2_lt_s: 1 }
+    I64x2GtS => GenValidExactOpcodeCounts::{ ..zero, i64x2_gt_s: 1 }
+    I64x2LeS => GenValidExactOpcodeCounts::{ ..zero, i64x2_le_s: 1 }
+    F32x4Eq => GenValidExactOpcodeCounts::{ ..zero, f32x4_eq: 1 }
+    F32x4Ne => GenValidExactOpcodeCounts::{ ..zero, f32x4_ne: 1 }
     F32x4Lt => GenValidExactOpcodeCounts::{ ..zero, f32x4_lt: 1 }
+    F32x4Gt => GenValidExactOpcodeCounts::{ ..zero, f32x4_gt: 1 }
+    F32x4Le => GenValidExactOpcodeCounts::{ ..zero, f32x4_le: 1 }
     F32x4Ge => GenValidExactOpcodeCounts::{ ..zero, f32x4_ge: 1 }
     F64x2Eq => GenValidExactOpcodeCounts::{ ..zero, f64x2_eq: 1 }
+    F64x2Ne => GenValidExactOpcodeCounts::{ ..zero, f64x2_ne: 1 }
+    F64x2Lt => GenValidExactOpcodeCounts::{ ..zero, f64x2_lt: 1 }
+    F64x2Gt => GenValidExactOpcodeCounts::{ ..zero, f64x2_gt: 1 }
+    F64x2Le => GenValidExactOpcodeCounts::{ ..zero, f64x2_le: 1 }
     F64x2Ge => GenValidExactOpcodeCounts::{ ..zero, f64x2_ge: 1 }
     I8x16Abs => GenValidExactOpcodeCounts::{ ..zero, i8x16_abs: 1 }
     I8x16Neg => GenValidExactOpcodeCounts::{ ..zero, i8x16_neg: 1 }
