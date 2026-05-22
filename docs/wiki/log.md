@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-22] wiki | dae raw-cleanup Binaryen-shape pivot
+
+- Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) after the DAE raw-cleanup parity pivot so the current status no longer describes the frontier as usefulness-first, and now records the Binaryen-shape guards that preserve raw `nop`s, local-get-sourced live copy chains, and post-call dropped integer constants.
+- Synced [`../../agent-todo.md`](../../agent-todo.md) with the new debug-artifact evidence: `.tmp/dae-binaryen-preserve-debris-artifact` moves the first diff from `defined=200 abs=217` to `defined=208 abs=225`, validates with `wasm-opt --all-features`, and preserves the established `9975/10000` direct-fuzz frontier with `0` Starshine validation failures.
+- No external source was needed; the repo-local pass implementation, focused wbtests, artifact replay, and fuzz-compare outputs were sufficient.
+
 ## [2026-05-20] health | research archive sibling-link hygiene
 
 - Repaired the stale same-directory research-note link inside [`raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md), which had escaped back out through `docs/wiki/raw/research/...` instead of staying as a sibling `./0066-...` reference after archival.

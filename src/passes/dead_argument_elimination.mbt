@@ -9050,14 +9050,50 @@ fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit 
 }
 
 ///|
-fn dae_out_ends_with_droppable_pure_stack(
+fn dae_out_ends_with_droppable_pure_stack_without_local_get(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
 ) -> Bool {
   match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
-    Some(_) => true
+    Some(start) => !dae_instr_range_contains_local_get(out, start)
     None => false
   }
+}
+
+///|
+fn dae_instr_is_integer_const_leaf(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_) | @lib.I64Const(_) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_prefix_has_observable_effect(
+  instrs : Array[@lib.Instruction],
+  end : Int,
+) -> Bool {
+  let mut idx = 0
+  while idx < end {
+    if dae_instr_has_observable_effect(instrs[idx]) {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_should_preserve_dropped_integer_const_after_effect(
+  out : Array[@lib.Instruction],
+  start : Int,
+) -> Bool {
+  // Current Binaryen DAE shape preserves tiny dropped integer constants after
+  // live calls/effects in the debug artifact. Keep that debris instead of
+  // shrinking it away while the frontier is shape-parity-driven.
+  out.length() - start == 1 &&
+  dae_instr_is_integer_const_leaf(out[start]) &&
+  dae_instr_prefix_has_observable_effect(out, start)
 }
 
 ///|
@@ -9167,14 +9203,10 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
+  // Preserve raw `nop` debris here. Binaryen's DAE keeps those no-ops in the
+  // current artifact frontier, so stripping them makes Starshine diverge even
+  // though the smaller output is semantically equivalent.
   while idx < instrs.length() {
-    match instrs[idx] {
-      @lib.Nop => {
-        idx += 1
-        continue
-      }
-      _ => ()
-    }
     if instrs[idx] == @lib.Instruction::drop() {
       if out.length() > 0 {
         let last_idx = out.length() - 1
@@ -9202,8 +9234,11 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         }
       }
       match dae_find_droppable_pure_stack_expr_start(out, type_sec) {
-        Some(start) if out.length() - start == 1 ||
-          !dae_instr_range_contains_local_get(out, start) => {
+        Some(start) if (
+            out.length() - start == 1 ||
+            !dae_instr_range_contains_local_get(out, start)
+          ) &&
+          !dae_should_preserve_dropped_integer_const_after_effect(out, start) => {
           dae_truncate_instrs(out, start)
           idx += 1
           continue
@@ -9410,7 +9445,11 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           @lib.LocalSet(third),
         ) if dae_local_idx_equal(first, first_read) &&
           dae_local_idx_equal(second, second_read) &&
-          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          // Binaryen keeps local-get-sourced temp copy chains in the current
+          // DAE frontier; only stackify copies rooted in non-local pure values.
+          dae_out_ends_with_droppable_pure_stack_without_local_get(
+            out, type_sec,
+          ) => {
           out.push(@lib.Instruction::local_tee(first))
           out.push(@lib.Instruction::local_tee(second))
           out.push(@lib.Instruction::local_set(third))
@@ -9425,7 +9464,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         (@lib.LocalSet(lhs), @lib.LocalGet(mid), @lib.LocalSet(rhs)) if dae_local_idx_equal(
             lhs, mid,
           ) &&
-          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          dae_out_ends_with_droppable_pure_stack_without_local_get(
+            out, type_sec,
+          ) => {
           out.push(@lib.Instruction::local_tee(lhs))
           out.push(@lib.Instruction::local_set(rhs))
           idx += 3
@@ -9439,7 +9480,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         (@lib.LocalSet(lhs), @lib.LocalGet(rhs)) if dae_local_idx_equal(
             lhs, rhs,
           ) &&
-          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          dae_out_ends_with_droppable_pure_stack_without_local_get(
+            out, type_sec,
+          ) => {
           out.push(@lib.Instruction::local_tee(lhs))
           idx += 2
           continue
@@ -9447,7 +9490,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         (@lib.LocalTee(lhs), @lib.LocalSet(rhs)) if dae_local_idx_equal(
             lhs, rhs,
           ) &&
-          dae_out_ends_with_droppable_pure_stack(out, type_sec) => {
+          dae_out_ends_with_droppable_pure_stack_without_local_get(
+            out, type_sec,
+          ) => {
           out.push(@lib.Instruction::local_set(lhs))
           idx += 2
           continue
@@ -9457,7 +9502,9 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
     }
     if idx + 1 < instrs.length() &&
       dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
-      instrs[idx + 1] == @lib.Instruction::drop() {
+      instrs[idx + 1] == @lib.Instruction::drop() &&
+      !(dae_instr_is_integer_const_leaf(instrs[idx]) &&
+      dae_instr_prefix_has_observable_effect(out, out.length())) {
       idx += 2
       continue
     }
