@@ -249,6 +249,10 @@ test "gen_valid named profiles expose stable labels and compatibility aliases" {
     "topology-heavy",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(PathologicalValidProfile),
+    "pathological-valid",
+  )
+  @debug.assert_eq(
     GenValidConfig::for_profile(NaturalSmallProfile).mode,
     Natural,
   )
@@ -295,6 +299,77 @@ test "gen_valid named profiles expose stable labels and compatibility aliases" {
       assert_true(msg.contains("binaryen-oracle-portable"))
       assert_true(msg.contains("binaryen-oracle-relaxed-simd"))
       assert_true(msg.contains("topology-heavy"))
+      assert_true(msg.contains("pathological-valid"))
+    }
+  }
+}
+
+///|
+test "pathological-valid profile sets bounded generator budgets" {
+  let config = GenValidConfig::for_profile(PathologicalValidProfile)
+  @debug.assert_eq(gen_valid_config_label(config), "pathological-valid")
+  assert_true(
+    config.max_defined_funcs >
+    GenValidConfig::natural_default().max_defined_funcs,
+  )
+  assert_true(
+    config.max_body_statements >
+    GenValidConfig::natural_default().max_body_statements,
+  )
+  assert_true(
+    config.max_body_depth > GenValidConfig::natural_default().max_body_depth,
+  )
+  match config.max_instruction_count_budget {
+    Some(limit) => assert_true(limit >= 512)
+    None => fail("pathological-valid should keep a bounded instruction budget")
+  }
+  match config.max_expression_depth_budget {
+    Some(limit) => assert_true(limit >= 8)
+    None =>
+      fail("pathological-valid should keep a bounded expression-depth budget")
+  }
+}
+
+///|
+test "gen_valid_module_result reports instruction budget stop diagnostics" {
+  let base = GenValidConfig::for_profile(NaturalSmallProfile)
+  let config = GenValidConfig::{
+    ..base,
+    max_instruction_count_budget: Some(-1),
+  }
+  match gen_valid_module_result(@splitmix.new(seed=0xf351UL), config) {
+    Ok(_) =>
+      fail("expected negative instruction budget to reject every candidate")
+    Err(failure) => {
+      @debug.assert_eq(failure.config, config)
+      @debug.assert_eq(
+        failure.budget_stop,
+        Some(InstructionCountBudgetExceeded),
+      )
+      assert_true(
+        failure.validation_error_message.contains("instruction budget"),
+      )
+      assert_true(failure.validation_error_message.contains("limit -1"))
+    }
+  }
+}
+
+///|
+test "gen_valid_module_result reports expression depth budget stop diagnostics" {
+  let base = GenValidConfig::for_profile(NaturalSmallProfile)
+  let config = GenValidConfig::{ ..base, max_expression_depth_budget: Some(-1) }
+  match gen_valid_module_result(@splitmix.new(seed=0xf352UL), config) {
+    Ok(_) =>
+      fail(
+        "expected negative expression-depth budget to reject every candidate",
+      )
+    Err(failure) => {
+      @debug.assert_eq(failure.config, config)
+      @debug.assert_eq(failure.budget_stop, Some(ExpressionDepthBudgetExceeded))
+      assert_true(
+        failure.validation_error_message.contains("expression depth budget"),
+      )
+      assert_true(failure.validation_error_message.contains("limit -1"))
     }
   }
 }

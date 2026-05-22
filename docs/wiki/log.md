@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1035 GenValid budget diagnostics
+
+- Started [`[FUZ]1035`](../../agent-todo.md) by adding optional `GenValidConfig` instruction-count and expression-depth budgets. Candidates that exceed either budget are retried, and final failures report `GenValidFailure.budget_stop` plus a clear budget-exceeded diagnostic.
+- Added the `pathological-valid` named profile with larger valid-generator topology/body limits and bounded instruction/depth caps, then updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the profile and budget contract.
+
 ## [2026-05-22] fuzzing | FUZ1027 GenValid WAT validate roundtrip
 
 - Completed [`[FUZ]1027`](../../agent-todo.md) by adding the active `gen-valid-wat-validate-roundtrip` suite. It generates Starshine lib modules with a text-roundtrip-safe GenValid config, prints them through the new `@wat.lib_module_to_wat(...)` first-class lib-module WAT printer, parses the WAT, lowers through the WAST-to-lib path, validates the lowered module, and reports generated/printed/parsed/lowered/validated counters plus failure categories in JSON details.

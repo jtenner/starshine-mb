@@ -219,6 +219,8 @@ pub struct GenValidConfig {
   max_locals : Int
   max_body_statements : Int
   max_body_depth : Int
+  max_instruction_count_budget : Int?
+  max_expression_depth_budget : Int?
   section_bias : GenValidSectionBias
   features : GenValidFeatureToggles
 } derive(Eq, Debug)
@@ -255,6 +257,24 @@ pub impl Show for GenValidConfig with output(self, logger) {
   self.max_body_statements.output(logger)
   logger.write_string(", max_body_depth: ")
   self.max_body_depth.output(logger)
+  logger.write_string(", max_instruction_count_budget: ")
+  match self.max_instruction_count_budget {
+    Some(limit) => {
+      logger.write_string("Some(")
+      limit.output(logger)
+      logger.write_char(')')
+    }
+    None => logger.write_string("None")
+  }
+  logger.write_string(", max_expression_depth_budget: ")
+  match self.max_expression_depth_budget {
+    Some(limit) => {
+      logger.write_string("Some(")
+      limit.output(logger)
+      logger.write_char(')')
+    }
+    None => logger.write_string("None")
+  }
   logger.write_string(", section_bias: ")
   self.section_bias.output(logger)
   logger.write_string(", features: ")
@@ -280,6 +300,8 @@ pub fn GenValidConfig::natural_default() -> GenValidConfig {
     max_locals: 5,
     max_body_statements: 6,
     max_body_depth: 2,
+    max_instruction_count_budget: None,
+    max_expression_depth_budget: None,
     section_bias: GenValidSectionBias::natural_default(),
     features: GenValidFeatureToggles::natural_default(),
   }
@@ -395,6 +417,7 @@ pub enum GenValidProfile {
   MemoryHeavyProfile
   ControlHeavyProfile
   TopologyHeavyProfile
+  PathologicalValidProfile
 } derive(Eq, Debug)
 
 ///|
@@ -419,6 +442,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     MemoryHeavyProfile => "memory-heavy"
     ControlHeavyProfile => "control-heavy"
     TopologyHeavyProfile => "topology-heavy"
+    PathologicalValidProfile => "pathological-valid"
   }
 }
 
@@ -444,6 +468,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     MemoryHeavyProfile,
     ControlHeavyProfile,
     TopologyHeavyProfile,
+    PathologicalValidProfile,
   ]
 }
 
@@ -669,6 +694,26 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_elems: 6,
         max_datas: 6,
       }
+    PathologicalValidProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        max_type_defs: 32,
+        max_imports: 16,
+        max_defined_funcs: 24,
+        max_tables: 6,
+        max_mems: 4,
+        max_globals: 12,
+        max_tags: 4,
+        max_elems: 12,
+        max_datas: 12,
+        max_params: 6,
+        max_results: 3,
+        max_locals: 32,
+        max_body_statements: 48,
+        max_body_depth: 8,
+        max_instruction_count_budget: Some(4096),
+        max_expression_depth_budget: Some(64),
+      }
   }
 }
 
@@ -759,12 +804,19 @@ pub struct GenValidGenerated {
 } derive(Eq, Debug)
 
 ///|
+pub enum GenValidBudgetStop {
+  InstructionCountBudgetExceeded
+  ExpressionDepthBudgetExceeded
+} derive(Eq, Debug)
+
+///|
 pub struct GenValidFailure {
   last_candidate : Module
   config : GenValidConfig
   config_label : String
   attempts : Int
   validation_error_message : String
+  budget_stop : GenValidBudgetStop?
 } derive(Eq, Debug)
 
 ///|
@@ -9914,6 +9966,145 @@ fn gen_valid_module_once_with_config(
 }
 
 ///|
+fn gen_valid_instruction_count_expr(expr : Expr) -> Int {
+  let Expr(instrs) = expr
+  gen_valid_instruction_count_instrs(instrs)
+}
+
+///|
+fn gen_valid_instruction_count_instrs(instrs : Array[Instruction]) -> Int {
+  let mut total = 0
+  for instr in instrs {
+    total += gen_valid_instruction_count_instr(instr)
+  }
+  total
+}
+
+///|
+fn gen_valid_instruction_count_instr(instr : Instruction) -> Int {
+  match instr {
+    Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+      1 + gen_valid_instruction_count_expr(body)
+    If(_, then_body, else_body) => {
+      let else_count = match else_body {
+        Some(instrs) => gen_valid_instruction_count_instrs(instrs)
+        None => 0
+      }
+      1 + gen_valid_instruction_count_instrs(then_body) + else_count
+    }
+    _ => 1
+  }
+}
+
+///|
+fn gen_valid_module_instruction_count(mod_ : Module) -> Int {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut total = 0
+      for func in funcs {
+        let Func(_, body) = func
+        total += gen_valid_instruction_count_expr(body)
+      }
+      total
+    }
+    None => 0
+  }
+}
+
+///|
+fn gen_valid_expr_depth_expr(expr : Expr) -> Int {
+  let Expr(instrs) = expr
+  gen_valid_expr_depth_instrs(instrs)
+}
+
+///|
+fn gen_valid_expr_depth_instrs(instrs : Array[Instruction]) -> Int {
+  let mut max_depth = 0
+  for instr in instrs {
+    let depth = gen_valid_expr_depth_instr(instr)
+    if depth > max_depth {
+      max_depth = depth
+    }
+  }
+  max_depth
+}
+
+///|
+fn gen_valid_expr_depth_instr(instr : Instruction) -> Int {
+  match instr {
+    Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+      1 + gen_valid_expr_depth_expr(body)
+    If(_, then_body, else_body) => {
+      let else_depth = match else_body {
+        Some(instrs) => gen_valid_expr_depth_instrs(instrs)
+        None => 0
+      }
+      let then_depth = gen_valid_expr_depth_instrs(then_body)
+      if then_depth >= else_depth {
+        1 + then_depth
+      } else {
+        1 + else_depth
+      }
+    }
+    _ => 0
+  }
+}
+
+///|
+fn gen_valid_module_expression_depth(mod_ : Module) -> Int {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut max_depth = 0
+      for func in funcs {
+        let Func(_, body) = func
+        let depth = gen_valid_expr_depth_expr(body)
+        if depth > max_depth {
+          max_depth = depth
+        }
+      }
+      max_depth
+    }
+    None => 0
+  }
+}
+
+///|
+fn gen_valid_budget_error(
+  mod_ : Module,
+  config : GenValidConfig,
+) -> (GenValidBudgetStop, String)? {
+  match config.max_instruction_count_budget {
+    Some(limit) => {
+      let actual = gen_valid_module_instruction_count(mod_)
+      if actual > limit {
+        return Some(
+          (
+            InstructionCountBudgetExceeded,
+            "gen-valid instruction budget exceeded: actual \{actual}, limit \{limit}",
+          ),
+        )
+      }
+    }
+    None => ()
+  }
+  match config.max_expression_depth_budget {
+    Some(limit) => {
+      let actual = gen_valid_module_expression_depth(mod_)
+      if actual > limit {
+        return Some(
+          (
+            ExpressionDepthBudgetExceeded,
+            "gen-valid expression depth budget exceeded: actual \{actual}, limit \{limit}",
+          ),
+        )
+      }
+    }
+    None => ()
+  }
+  None
+}
+
+///|
 pub fn gen_valid_module_result(
   rnd : RandomState,
   config : GenValidConfig,
@@ -9923,17 +10114,28 @@ pub fn gen_valid_module_result(
   let mut attempt = 1
   let mut last = gen_valid_module_once_with_config(rnd, config)
   let mut last_error_message = ""
+  let mut last_budget_stop = None
   while attempt <= max_attempts {
-    match validate_module(last) {
-      Ok(_) =>
-        return Ok({
-          wasm_module: last,
-          config,
-          config_label,
-          attempts: attempt,
-          facts: gen_valid_feature_facts(last, config.mode),
-        })
-      Err(err) => last_error_message = validation_error_message(err)
+    match gen_valid_budget_error(last, config) {
+      Some((stop, message)) => {
+        last_budget_stop = Some(stop)
+        last_error_message = message
+      }
+      None =>
+        match validate_module(last) {
+          Ok(_) =>
+            return Ok({
+              wasm_module: last,
+              config,
+              config_label,
+              attempts: attempt,
+              facts: gen_valid_feature_facts(last, config.mode),
+            })
+          Err(err) => {
+            last_budget_stop = None
+            last_error_message = validation_error_message(err)
+          }
+        }
     }
     if attempt < max_attempts {
       last = gen_valid_module_once_with_config(rnd, config)
@@ -9946,6 +10148,7 @@ pub fn gen_valid_module_result(
     config_label,
     attempts: max_attempts,
     validation_error_message: last_error_message,
+    budget_stop: last_budget_stop,
   })
 }
 
