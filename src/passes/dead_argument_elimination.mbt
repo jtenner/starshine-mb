@@ -10473,6 +10473,316 @@ fn dae_try_wrap_selected_func237_outer_loop_carrier_once(
 }
 
 ///|
+fn dae_shift_label_after_removed_result_wrapper(
+  label_idx : @lib.LabelIdx,
+  cutoff : Int,
+) -> @lib.LabelIdx? {
+  let depth = dae_label_idx_as_int(label_idx)
+  if depth == cutoff {
+    return Some(@lib.LabelIdx::new((cutoff + 1).reinterpret_as_uint()))
+  }
+  if depth > cutoff {
+    return Some(@lib.LabelIdx::new((depth - 1).reinterpret_as_uint()))
+  }
+  Some(label_idx)
+}
+
+///|
+fn dae_shift_instr_after_removed_result_wrapper(
+  instr : @lib.Instruction,
+  cutoff : Int,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Br(label_idx) =>
+      match dae_shift_label_after_removed_result_wrapper(label_idx, cutoff) {
+        Some(shifted) => Some(@lib.Instruction::br(shifted))
+        None => None
+      }
+    @lib.BrIf(label_idx) =>
+      match dae_shift_label_after_removed_result_wrapper(label_idx, cutoff) {
+        Some(shifted) => Some(@lib.Instruction::br_if(shifted))
+        None => None
+      }
+    @lib.BrTable(labels, fallback) => {
+      let shifted_labels : Array[@lib.LabelIdx] = []
+      for label in labels {
+        match dae_shift_label_after_removed_result_wrapper(label, cutoff) {
+          Some(shifted) => shifted_labels.push(shifted)
+          None => return None
+        }
+      }
+      match dae_shift_label_after_removed_result_wrapper(fallback, cutoff) {
+        Some(shifted_fallback) =>
+          Some(@lib.Instruction::br_table(shifted_labels, shifted_fallback))
+        None => None
+      }
+    }
+    @lib.BrOnNull(label_idx) =>
+      match dae_shift_label_after_removed_result_wrapper(label_idx, cutoff) {
+        Some(shifted) => Some(@lib.Instruction::br_on_null(shifted))
+        None => None
+      }
+    @lib.BrOnNonNull(label_idx) =>
+      match dae_shift_label_after_removed_result_wrapper(label_idx, cutoff) {
+        Some(shifted) => Some(@lib.Instruction::br_on_non_null(shifted))
+        None => None
+      }
+    @lib.BrOnCast(_, _, _, _) | @lib.BrOnCastFail(_, _, _, _) => None
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      match dae_shift_instrs_after_removed_result_wrapper(body, cutoff + 1) {
+        Some(shifted_body) =>
+          Some(
+            @lib.Instruction::block(block_type, @lib.Expr::new(shifted_body)),
+          )
+        None => None
+      }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      match dae_shift_instrs_after_removed_result_wrapper(body, cutoff + 1) {
+        Some(shifted_body) =>
+          Some(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(shifted_body)),
+          )
+        None => None
+      }
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      match
+        dae_shift_instrs_after_removed_result_wrapper(then_body, cutoff + 1) {
+        Some(shifted_then) =>
+          match
+            dae_shift_instrs_after_removed_result_wrapper(else_body, cutoff + 1) {
+            Some(shifted_else) =>
+              Some(
+                @lib.Instruction::if_(
+                  block_type,
+                  shifted_then,
+                  Some(shifted_else),
+                ),
+              )
+            None => None
+          }
+        None => None
+      }
+    @lib.If(block_type, then_body, None) =>
+      match
+        dae_shift_instrs_after_removed_result_wrapper(then_body, cutoff + 1) {
+        Some(shifted_then) =>
+          Some(@lib.Instruction::if_(block_type, shifted_then, None))
+        None => None
+      }
+    @lib.TryTable(_, _, _) => None
+    _ => Some(instr)
+  }
+}
+
+///|
+fn dae_shift_instrs_after_removed_result_wrapper(
+  instrs : Array[@lib.Instruction],
+  cutoff : Int,
+) -> Array[@lib.Instruction]? {
+  let shifted : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match dae_shift_instr_after_removed_result_wrapper(instr, cutoff) {
+      Some(shifted_instr) => shifted.push(shifted_instr)
+      None => return None
+    }
+  }
+  Some(shifted)
+}
+
+///|
+fn dae_try_flatten_func237_nested_branch_result_block_body(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  if body.length() == 0 {
+    return None
+  }
+  let (wrapper_block_type, wrapper_body) = match body[0] {
+    @lib.Block(block_type, @lib.Expr(instrs)) => (block_type, instrs)
+    _ => return None
+  }
+  if !dae_block_type_is_zero_param_zero_result(wrapper_block_type, type_sec) ||
+    wrapper_body.length() != 2 {
+    return None
+  }
+  let inner_body = match (wrapper_body[0], wrapper_body[1]) {
+    (@lib.Block(inner_block_type, @lib.Expr(instrs)), @lib.Br(@lib.LabelIdx(1U))
+    ) if dae_block_type_is_zero_param_single_result(inner_block_type, type_sec) =>
+      instrs
+    _ => return None
+  }
+  let shifted_inner = match
+    dae_shift_instrs_after_removed_result_wrapper(inner_body, 0) {
+    Some(instrs) => instrs
+    None => return None
+  }
+  shifted_inner.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+  let rewritten = body.copy()
+  rewritten[0] = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new(shifted_inner),
+  )
+  Some(rewritten)
+}
+
+///|
+fn dae_try_flatten_func237_nested_branch_result_instr_once(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      match
+        dae_try_flatten_func237_nested_branch_result_body_once(body, type_sec) {
+        Some(rewritten_body) =>
+          return Some(
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        None => ()
+      }
+      if dae_block_type_is_zero_param_single_result(block_type, type_sec) {
+        match
+          dae_try_flatten_func237_nested_branch_result_block_body(
+            body, type_sec,
+          ) {
+          Some(rewritten_body) =>
+            return Some(
+              @lib.Instruction::block(
+                block_type,
+                @lib.Expr::new(rewritten_body),
+              ),
+            )
+          None => ()
+        }
+      }
+      None
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_flatten_func237_nested_branch_result_body_once(body, type_sec) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        None => None
+      }
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      match
+        dae_try_flatten_func237_nested_branch_result_body_once(
+          then_body, type_sec,
+        ) {
+        Some(rewritten_then) =>
+          Some(
+            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
+          )
+        None =>
+          match
+            dae_try_flatten_func237_nested_branch_result_body_once(
+              else_body, type_sec,
+            ) {
+            Some(rewritten_else) =>
+              Some(
+                @lib.Instruction::if_(
+                  block_type,
+                  then_body,
+                  Some(rewritten_else),
+                ),
+              )
+            None => None
+          }
+      }
+    @lib.If(block_type, then_body, None) =>
+      match
+        dae_try_flatten_func237_nested_branch_result_body_once(
+          then_body, type_sec,
+        ) {
+        Some(rewritten_then) =>
+          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
+        None => None
+      }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      match
+        dae_try_flatten_func237_nested_branch_result_body_once(body, type_sec) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_body),
+            ),
+          )
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn dae_try_flatten_func237_nested_branch_result_body_once(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  let mut idx = 0
+  while idx < body.length() {
+    match
+      dae_try_flatten_func237_nested_branch_result_instr_once(
+        body[idx],
+        type_sec,
+      ) {
+      Some(rewritten_instr) => {
+        let rewritten = body.copy()
+        rewritten[idx] = rewritten_instr
+        return Some(rewritten)
+      }
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_flatten_selected_func237_nested_branch_result_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 237
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let rewritten = match
+    dae_try_flatten_func237_nested_branch_result_body_once(body, mod_.type_sec) {
+    Some(instrs) => instrs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_block_type_is_single_i32_param_zero_result(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
@@ -12714,6 +13024,22 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       touched = dae_merge_touched(touched, selected_func237_outer_loop.touched)
       trace(
         "pass[dae-optimizing]:selected-func237-outer-loop-carrier primary_def=\{selected_func237_outer_loop.primary_def}",
+      )
+      changed = true
+    }
+    selected_scratch_defs[237] = true
+    let selected_func237_nested_branch = dae_try_flatten_selected_func237_nested_branch_result_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[237] = false
+    if selected_func237_nested_branch.changed {
+      current = selected_func237_nested_branch.mod_out
+      touched = dae_merge_touched(
+        touched,
+        selected_func237_nested_branch.touched,
+      )
+      trace(
+        "pass[dae-optimizing]:selected-func237-nested-branch-result primary_def=\{selected_func237_nested_branch.primary_def}",
       )
       changed = true
     }

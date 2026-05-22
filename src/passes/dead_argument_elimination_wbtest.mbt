@@ -1931,6 +1931,69 @@ test "dae spills nested single-i32-param loops into iteration-local carrier" {
 }
 
 ///|
+test "dae func237 nested branch-result carrier inlines value wrapper" {
+  let body = [
+    @lib.Instruction::drop(),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(2U))]),
+                ),
+                @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+              ]),
+            ),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ]),
+        ),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(28U))]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+      ]),
+    ),
+  ]
+  match dae_try_flatten_func237_nested_branch_result_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::drop(),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(1U))]),
+                ),
+                @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(28U))]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+          ]),
+        ),
+      ])
+    None => fail("expected Func237 nested branch-result carrier flattening")
+  }
+}
+
+///|
 test "dae func237 outer loop carrier reshapes through result block" {
   let carrier = @lib.LocalIdx::new(0U)
   let iter = @lib.LocalIdx::new(14U)
