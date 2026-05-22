@@ -4388,6 +4388,99 @@ test "simplify-globals-optimizing keeps tainted memory copy operands" {
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow with clean table fill" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table (export "t") 10 funcref)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    ref.null func
+      #|    i32.const 2
+      #|    table.fill
+      #|    i32.const 1
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("table.fill"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps tainted table fill operands" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "value" (global $value (mut funcref)))
+      #|  (table (export "t") 10 funcref)
+      #|  (global $dest (mut i32) (i32.const 0))
+      #|  (global $size (mut i32) (i32.const 0))
+      #|  (func (export "dest")
+      #|    global.get $dest
+      #|    ref.null func
+      #|    i32.const 2
+      #|    table.fill
+      #|    i32.const 1
+      #|    if
+      #|      i32.const 1
+      #|      global.set $dest
+      #|    end)
+      #|  (func (export "value")
+      #|    i32.const 0
+      #|    global.get $value
+      #|    i32.const 2
+      #|    table.fill
+      #|    i32.const 1
+      #|    if
+      #|      ref.null func
+      #|      global.set $value
+      #|    end)
+      #|  (func (export "size")
+      #|    i32.const 0
+      #|    ref.null func
+      #|    global.get $size
+      #|    table.fill
+      #|    i32.const 1
+      #|    if
+      #|      i32.const 1
+      #|      global.set $size
+      #|    end))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 2; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), true),
+    )
+  }
+  let pretty = optimized.pretty_print_defined_func(0U) +
+    optimized.pretty_print_defined_func(1U) +
+    optimized.pretty_print_defined_func(2U)
+  assert_true(pretty.contains("table.fill"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes nested-if arm flow with clean local set" {
   let optimized = sgo_test_run(
     (
