@@ -6868,6 +6868,176 @@ fn validate_test_simd_phase3_forms_module(
 }
 
 ///|
+fn validate_test_atomic_load_form(instr : Instruction) -> Int? {
+  match instr {
+    I32AtomicLoad(_) => Some(0)
+    I64AtomicLoad(_) => Some(1)
+    I32AtomicLoad8U(_) => Some(2)
+    I32AtomicLoad16U(_) => Some(3)
+    I64AtomicLoad8U(_) => Some(4)
+    I64AtomicLoad16U(_) => Some(5)
+    I64AtomicLoad32U(_) => Some(6)
+    _ => None
+  }
+}
+
+///|
+fn validate_test_atomic_store_form(instr : Instruction) -> Int? {
+  match instr {
+    I32AtomicStore(_) => Some(0)
+    I64AtomicStore(_) => Some(1)
+    I32AtomicStore8(_) => Some(2)
+    I32AtomicStore16(_) => Some(3)
+    I64AtomicStore8(_) => Some(4)
+    I64AtomicStore16(_) => Some(5)
+    I64AtomicStore32(_) => Some(6)
+    _ => None
+  }
+}
+
+///|
+fn validate_test_atomic_rmw_form(op : AtomicRmwOp) -> Int {
+  match op {
+    I32AtomicRmwAddOp => 0
+    I64AtomicRmwAddOp => 1
+    I32AtomicRmw8AddUOp => 2
+    I32AtomicRmw16AddUOp => 3
+    I64AtomicRmw8AddUOp => 4
+    I64AtomicRmw16AddUOp => 5
+    I64AtomicRmw32AddUOp => 6
+    I32AtomicRmwSubOp => 7
+    I64AtomicRmwSubOp => 8
+    I32AtomicRmw8SubUOp => 9
+    I32AtomicRmw16SubUOp => 10
+    I64AtomicRmw8SubUOp => 11
+    I64AtomicRmw16SubUOp => 12
+    I64AtomicRmw32SubUOp => 13
+    I32AtomicRmwAndOp => 14
+    I64AtomicRmwAndOp => 15
+    I32AtomicRmw8AndUOp => 16
+    I32AtomicRmw16AndUOp => 17
+    I64AtomicRmw8AndUOp => 18
+    I64AtomicRmw16AndUOp => 19
+    I64AtomicRmw32AndUOp => 20
+    I32AtomicRmwOrOp => 21
+    I64AtomicRmwOrOp => 22
+    I32AtomicRmw8OrUOp => 23
+    I32AtomicRmw16OrUOp => 24
+    I64AtomicRmw8OrUOp => 25
+    I64AtomicRmw16OrUOp => 26
+    I64AtomicRmw32OrUOp => 27
+    I32AtomicRmwXorOp => 28
+    I64AtomicRmwXorOp => 29
+    I32AtomicRmw8XorUOp => 30
+    I32AtomicRmw16XorUOp => 31
+    I64AtomicRmw8XorUOp => 32
+    I64AtomicRmw16XorUOp => 33
+    I64AtomicRmw32XorUOp => 34
+    I32AtomicRmwXchgOp => 35
+    I64AtomicRmwXchgOp => 36
+    I32AtomicRmw8XchgUOp => 37
+    I32AtomicRmw16XchgUOp => 38
+    I64AtomicRmw8XchgUOp => 39
+    I64AtomicRmw16XchgUOp => 40
+    I64AtomicRmw32XchgUOp => 41
+  }
+}
+
+///|
+fn validate_test_atomic_cmpxchg_form(op : AtomicCmpxchgOp) -> Int {
+  match op {
+    I32AtomicRmwCmpxchgOp => 0
+    I64AtomicRmwCmpxchgOp => 1
+    I32AtomicRmw8CmpxchgUOp => 2
+    I32AtomicRmw16CmpxchgUOp => 3
+    I64AtomicRmw8CmpxchgUOp => 4
+    I64AtomicRmw16CmpxchgUOp => 5
+    I64AtomicRmw32CmpxchgUOp => 6
+  }
+}
+
+///|
+fn validate_test_bitset_all_seen(bits : @bitset.BitSet) -> Bool {
+  for i = 0; i < bits.length(); i = i + 1 {
+    if !bits.at(i) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+test "gen_valid coverage-forced emits full atomic instruction matrix" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26017UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let loads = @bitset.BitSet::new(7)
+  let stores = @bitset.BitSet::new(7)
+  let rmws = @bitset.BitSet::new(42)
+  let cmpxchgs = @bitset.BitSet::new(7)
+  let mut saw_notify = false
+  let mut saw_wait32 = false
+  let mut saw_wait64 = false
+  let mut saw_fence = false
+  let mut saw_nonzero_shared_memidx = false
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        for instr in instrs {
+          match validate_test_atomic_load_form(instr) {
+            Some(idx) => loads.set(idx, true)
+            None => ()
+          }
+          match validate_test_atomic_store_form(instr) {
+            Some(idx) => stores.set(idx, true)
+            None => ()
+          }
+          match instr {
+            AtomicRmw(op, ma) => {
+              rmws.set(validate_test_atomic_rmw_form(op), true)
+              let MemArg(_, mem, _) = ma
+              match mem {
+                Some(MemIdx(idx)) if idx > 0U =>
+                  saw_nonzero_shared_memidx = true
+                _ => ()
+              }
+            }
+            AtomicCmpxchg(op, ma) => {
+              cmpxchgs.set(validate_test_atomic_cmpxchg_form(op), true)
+              let MemArg(_, mem, _) = ma
+              match mem {
+                Some(MemIdx(idx)) if idx > 0U =>
+                  saw_nonzero_shared_memidx = true
+                _ => ()
+              }
+            }
+            MemoryAtomicNotify(_) => saw_notify = true
+            MemoryAtomicWait32(_) => saw_wait32 = true
+            MemoryAtomicWait64(_) => saw_wait64 = true
+            AtomicFence => saw_fence = true
+            _ => ()
+          }
+        }
+      }
+    None => ()
+  }
+  assert_true(validate_test_bitset_all_seen(loads))
+  assert_true(validate_test_bitset_all_seen(stores))
+  assert_true(validate_test_bitset_all_seen(rmws))
+  assert_true(validate_test_bitset_all_seen(cmpxchgs))
+  assert_true(saw_notify)
+  assert_true(saw_wait32)
+  assert_true(saw_wait64)
+  assert_true(saw_fence)
+  assert_true(saw_nonzero_shared_memidx)
+}
+
+///|
 test "gen_valid coverage-forced emits atomic instruction surface" {
   let config = GenValidConfig::coverage_forced_default()
   let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26017UL), config)

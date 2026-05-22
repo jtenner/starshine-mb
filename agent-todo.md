@@ -608,16 +608,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
-- [FUZ]1011 - GenValid Atomic Instruction And Shared-Memory Matrix Widening
-  - Goal: cover the full atomic operation matrix over valid shared memories.
-  - Why: current coverage-forced atomics emit a curated subset. Atomic bugs depend on width, operation, alignment, shared-memory index, and ordinary-memory interactions.
-  - Deliverables: generate every atomic load/store width, every RMW op and narrow width, cmpxchg widths, wait/notify/fence, nonzero shared memory indices, and mixed ordinary+atomic memory sequences.
-  - Required APIs: atomic instruction constructors, `AtomicRmwOp`, `AtomicCmpxchgOp`, shared `MemType`, validator alignment/shared-memory rules, exact coverage counters.
-  - Invariants: valid generation must use shared memories and valid alignments; invalid alignment/non-shared-memory cases belong in invalid AST/binary lanes.
-  - Dependencies: [FUZ]1007 for memory widening and [FUZ]1013 for exact counters.
-  - Suggested Tests: per-opcode atomic counter tests, validation fixtures for each op family, invalid-lane follow-ups for non-shared/invalid alignment, pass-fuzz compare on memory-heavy profiles.
-  - Exit Criteria: atomic-heavy profiles can prove every represented atomic family is generated at least once over a bounded run.
-
 - [FUZ]1016 - Pass-Fuzz Compare Generator Profiles, Replay Modes, And Failure Metadata
   - Goal: widen `bun fuzz compare-pass` so it can consume richer GenValid profiles and replay every failure status.
   - Why: compare-pass currently uses one gen-valid batch config and replays command failures only. Agents need profile selection, feature-aware inputs, and replay for mismatches/validation failures too.

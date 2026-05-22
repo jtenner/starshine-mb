@@ -7180,44 +7180,243 @@ fn gen_valid_append_atomic_ops(
   )
   gen_valid_append_atomic_load_drop(
     out,
+    Instruction::i32_atomic_load16_u(
+      gen_valid_atomic_memarg(mem_idx, 1U, 264UL),
+    ),
+  )
+  gen_valid_append_atomic_load_drop(
+    out,
+    Instruction::i64_atomic_load8_u(gen_valid_atomic_memarg(mem_idx, 0U, 272UL)),
+  )
+  gen_valid_append_atomic_load_drop(
+    out,
+    Instruction::i64_atomic_load16_u(
+      gen_valid_atomic_memarg(mem_idx, 1U, 280UL),
+    ),
+  )
+  gen_valid_append_atomic_load_drop(
+    out,
     Instruction::i64_atomic_load32_u(
-      gen_valid_atomic_memarg(mem_idx, 2U, 264UL),
+      gen_valid_atomic_memarg(mem_idx, 2U, 288UL),
     ),
   )
   gen_valid_append_atomic_store(
     out,
     false,
-    Instruction::i32_atomic_store(gen_valid_atomic_memarg(mem_idx, 2U, 272UL)),
+    Instruction::i32_atomic_store(gen_valid_atomic_memarg(mem_idx, 2U, 296UL)),
   )
   gen_valid_append_atomic_store(
     out,
     true,
-    Instruction::i64_atomic_store(gen_valid_atomic_memarg(mem_idx, 3U, 280UL)),
+    Instruction::i64_atomic_store(gen_valid_atomic_memarg(mem_idx, 3U, 304UL)),
   )
   gen_valid_append_atomic_store(
     out,
     false,
-    Instruction::i32_atomic_store8(gen_valid_atomic_memarg(mem_idx, 0U, 288UL)),
+    Instruction::i32_atomic_store8(gen_valid_atomic_memarg(mem_idx, 0U, 312UL)),
+  )
+  gen_valid_append_atomic_store(
+    out,
+    false,
+    Instruction::i32_atomic_store16(gen_valid_atomic_memarg(mem_idx, 1U, 320UL)),
   )
   gen_valid_append_atomic_store(
     out,
     true,
-    Instruction::i64_atomic_store32(gen_valid_atomic_memarg(mem_idx, 2U, 296UL)),
+    Instruction::i64_atomic_store8(gen_valid_atomic_memarg(mem_idx, 0U, 328UL)),
+  )
+  gen_valid_append_atomic_store(
+    out,
+    true,
+    Instruction::i64_atomic_store16(gen_valid_atomic_memarg(mem_idx, 1U, 336UL)),
+  )
+  gen_valid_append_atomic_store(
+    out,
+    true,
+    Instruction::i64_atomic_store32(gen_valid_atomic_memarg(mem_idx, 2U, 344UL)),
   )
   gen_valid_append_atomic_rmw_drop(
     out,
     false,
     Instruction::atomic_rmw(
       AtomicRmwOp::i32_add(),
-      gen_valid_atomic_memarg(mem_idx, 2U, 304UL),
+      gen_valid_atomic_memarg(mem_idx, 2U, 352UL),
     ),
   )
   gen_valid_append_atomic_rmw_drop(
     out,
     true,
     Instruction::atomic_rmw(
-      AtomicRmwOp::i64_xchg(),
-      gen_valid_atomic_memarg(mem_idx, 3U, 312UL),
+      AtomicRmwOp::i64_add(),
+      gen_valid_atomic_memarg(mem_idx, 3U, 360UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_8_add_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 368UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_16_add_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 376UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_8_add_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 384UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_16_add_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 392UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_32_add_u(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 400UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_sub(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 408UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_sub(),
+      gen_valid_atomic_memarg(mem_idx, 3U, 416UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_8_sub_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 424UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_16_sub_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 432UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_8_sub_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 440UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_16_sub_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 448UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_32_sub_u(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 456UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_and(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 464UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_and(),
+      gen_valid_atomic_memarg(mem_idx, 3U, 472UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_8_and_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 480UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_16_and_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 488UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_8_and_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 496UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_16_and_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 504UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_32_and_u(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 512UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_or(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 520UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_or(),
+      gen_valid_atomic_memarg(mem_idx, 3U, 528UL),
     ),
   )
   gen_valid_append_atomic_rmw_drop(
@@ -7225,7 +7424,151 @@ fn gen_valid_append_atomic_ops(
     false,
     Instruction::atomic_rmw(
       AtomicRmwOp::i32_8_or_u(),
-      gen_valid_atomic_memarg(mem_idx, 0U, 320UL),
+      gen_valid_atomic_memarg(mem_idx, 0U, 536UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_16_or_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 544UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_8_or_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 552UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_16_or_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 560UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_32_or_u(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 568UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_xor(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 576UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_xor(),
+      gen_valid_atomic_memarg(mem_idx, 3U, 584UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_8_xor_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 592UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_16_xor_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 600UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_8_xor_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 608UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_16_xor_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 616UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_32_xor_u(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 624UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_xchg(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 632UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_xchg(),
+      gen_valid_atomic_memarg(mem_idx, 3U, 640UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_8_xchg_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 648UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_16_xchg_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 656UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_8_xchg_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 664UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_16_xchg_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 672UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_32_xchg_u(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 680UL),
     ),
   )
   gen_valid_append_atomic_cmpxchg_drop(
@@ -7233,7 +7576,47 @@ fn gen_valid_append_atomic_ops(
     false,
     Instruction::atomic_cmpxchg(
       AtomicCmpxchgOp::i32(),
-      gen_valid_atomic_memarg(mem_idx, 2U, 328UL),
+      gen_valid_atomic_memarg(mem_idx, 2U, 688UL),
+    ),
+  )
+  gen_valid_append_atomic_cmpxchg_drop(
+    out,
+    true,
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i64(),
+      gen_valid_atomic_memarg(mem_idx, 3U, 696UL),
+    ),
+  )
+  gen_valid_append_atomic_cmpxchg_drop(
+    out,
+    false,
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i32_8_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 704UL),
+    ),
+  )
+  gen_valid_append_atomic_cmpxchg_drop(
+    out,
+    false,
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i32_16_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 712UL),
+    ),
+  )
+  gen_valid_append_atomic_cmpxchg_drop(
+    out,
+    true,
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i64_8_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 720UL),
+    ),
+  )
+  gen_valid_append_atomic_cmpxchg_drop(
+    out,
+    true,
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i64_16_u(),
+      gen_valid_atomic_memarg(mem_idx, 1U, 728UL),
     ),
   )
   gen_valid_append_atomic_cmpxchg_drop(
@@ -7241,14 +7624,14 @@ fn gen_valid_append_atomic_ops(
     true,
     Instruction::atomic_cmpxchg(
       AtomicCmpxchgOp::i64_32_u(),
-      gen_valid_atomic_memarg(mem_idx, 2U, 336UL),
+      gen_valid_atomic_memarg(mem_idx, 2U, 736UL),
     ),
   )
   out.push(Instruction::i32_const(I32(0)))
   out.push(Instruction::i32_const(I32(1)))
   out.push(
     Instruction::memory_atomic_notify(
-      gen_valid_atomic_memarg(mem_idx, 2U, 344UL),
+      gen_valid_atomic_memarg(mem_idx, 2U, 744UL),
     ),
   )
   out.push(Instruction::drop())
@@ -7257,7 +7640,7 @@ fn gen_valid_append_atomic_ops(
   out.push(Instruction::i64_const(I64(0L)))
   out.push(
     Instruction::memory_atomic_wait32(
-      gen_valid_atomic_memarg(mem_idx, 2U, 352UL),
+      gen_valid_atomic_memarg(mem_idx, 2U, 752UL),
     ),
   )
   out.push(Instruction::drop())
@@ -7266,7 +7649,7 @@ fn gen_valid_append_atomic_ops(
   out.push(Instruction::i64_const(I64(0L)))
   out.push(
     Instruction::memory_atomic_wait64(
-      gen_valid_atomic_memarg(mem_idx, 3U, 360UL),
+      gen_valid_atomic_memarg(mem_idx, 3U, 760UL),
     ),
   )
   out.push(Instruction::drop())
