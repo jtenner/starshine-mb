@@ -2113,6 +2113,58 @@ test "dae func237 immediate local copy preserves call gaps when try_table exists
 }
 
 ///|
+test "dae selected func237 low-local map retargets current carrier temps" {
+  let funcs = Array::make(
+    238,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  funcs[237] = @lib.Func::new(
+    @lib.Locals::single(140U, @lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(7U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(8U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(10U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(117U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(119U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(118U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(121U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(12U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(78U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(77U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(13U)),
+    ]),
+  )
+  let selected = Array::make(238, false)
+  selected[237] = true
+  let result = dae_try_strip_selected_func237_raw_debris_once(
+    @lib.Module::new().with_code_sec(@lib.CodeSec::new(funcs)),
+    selected,
+  )
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(rewritten_funcs)) => {
+      let @lib.Func(_, @lib.Expr(rewritten)) = rewritten_funcs[237]
+      assert_eq(rewritten, [
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(8U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(6U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(6U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(8U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(11U)),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae selected func237 cleanup trims trailing unused locals" {
   let funcs = Array::make(
     238,

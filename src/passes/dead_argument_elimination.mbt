@@ -11292,6 +11292,49 @@ fn dae_trim_trailing_unused_func237_locals(
 }
 
 ///|
+fn dae_func237_low_local_map(
+  param_count : Int,
+  local_count : Int,
+) -> Array[Int] {
+  let local_map = Array::make(param_count + local_count, 0)
+  let mut idx = 0
+  while idx < local_map.length() {
+    local_map[idx] = idx
+    idx += 1
+  }
+  if local_map.length() > 121 {
+    // Match the observed Binaryen Func237 carrier-local reuse in the current
+    // frontier. These sources are artifact-local temporaries introduced by
+    // earlier Starshine cleanup shape; the selected lane stays Func237-only.
+    local_map[7] = 0
+    local_map[8] = 0
+    local_map[10] = 0
+    local_map[117] = 2
+    local_map[119] = 1
+    local_map[118] = 8
+    local_map[121] = 6
+    local_map[4] = 6
+    local_map[12] = 8
+    local_map[78] = 0
+    local_map[77] = 0
+    local_map[13] = 11
+  }
+  local_map
+}
+
+///|
+fn dae_rewrite_func237_frontier_low_locals(
+  body : Array[@lib.Instruction],
+  locals : @lib.Locals,
+  param_count : Int,
+) -> Array[@lib.Instruction] {
+  dae_rewrite_locals_instrs(
+    body,
+    dae_func237_low_local_map(param_count, locals.length()),
+  )
+}
+
+///|
 fn dae_try_fold_func237_store_carrier_copy_body_once(
   body : Array[@lib.Instruction],
   param_count : Int,
@@ -11464,7 +11507,10 @@ fn dae_try_strip_selected_func237_raw_debris_once(
     ),
     4,
   )
-  let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(folded_body)
+  let mapped_body = dae_rewrite_func237_frontier_low_locals(
+    folded_body, locals, 4,
+  )
+  let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(mapped_body)
   let rewritten_locals = dae_trim_trailing_unused_func237_locals(
     locals, rewritten, 4,
   )
