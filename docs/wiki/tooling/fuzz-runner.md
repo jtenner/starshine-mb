@@ -60,7 +60,7 @@ The `cmd-harness` suite additionally accepts `+`-separated modifiers after the b
 moon run src/fuzz -- cmd-harness smoke+gen=natural-small+passes=cleanup+codec-idempotence --seed 0x5eed
 ```
 
-The lower-level [`run_cmd_fuzz_harness(...)`](../../../src/cmd/fuzz_harness.mbt) API exposes the same generator-profile, pass-profile, and idempotence controls directly and includes those labels in persisted failure metadata. Optimizer failures also record a minimized pass list: the minimizer now tries chunk removal before the final single-pass cleanup so dependent pass-prefix/suffix noise can be stripped even when no individual pass is removable on its own.
+The lower-level [`run_cmd_fuzz_harness(...)`](../../../src/cmd/fuzz_harness.mbt) API exposes the same generator-profile, pass-profile, and idempotence controls directly and includes those labels in persisted failure metadata. Generated-case failures also persist the resolved GenValid config label, the generator attempt count for that module, and the generated module's feature facts so repro triage can see which profile/config surface produced the failing bytes. Optimizer failures also record a minimized pass list: the minimizer now tries chunk removal before the final single-pass cleanup so dependent pass-prefix/suffix noise can be stripped even when no individual pass is removable on its own.
 
 ## Seed, Output, And Run Result Contract
 

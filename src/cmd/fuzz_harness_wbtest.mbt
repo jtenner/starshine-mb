@@ -153,6 +153,9 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
     "validator mismatch",
     optimize_passes=["flatten", "vacuum"],
     minimized_passes=["vacuum"],
+    generator_config_label="natural-small",
+    generated_attempts=2,
+    feature_facts="has_call=false;uses_v128=false",
     wasm=Some(encode_fixture_module(33)),
   )
   let (meta_path, wasm_path) = match
@@ -178,6 +181,9 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
       assert_true(text.contains("seed=24301"))
       assert_true(text.contains("optimize_passes=flatten,vacuum"))
       assert_true(text.contains("minimized_passes=vacuum"))
+      assert_true(text.contains("generator_config_label=natural-small"))
+      assert_true(text.contains("generated_attempts=2"))
+      assert_true(text.contains("feature_facts=has_call=false;uses_v128=false"))
     } else if path.contains(".wasm") {
       saw_wasm = true
       assert_true(bytes.length() > 0)

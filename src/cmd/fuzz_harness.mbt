@@ -88,6 +88,9 @@ pub struct FuzzFailureReport {
   minimized_passes : Array[String]
   generator_profile : String
   pass_profile : String
+  generator_config_label : String
+  generated_attempts : Int
+  feature_facts : String
   wasm : Bytes?
 } derive(Eq, Debug)
 
@@ -107,6 +110,9 @@ pub fn FuzzFailureReport::new(
   minimized_passes? : Array[String] = [],
   generator_profile? : String = "natural-wide",
   pass_profile? : String = "custom",
+  generator_config_label? : String = "unknown",
+  generated_attempts? : Int = 0,
+  feature_facts? : String = "unknown",
   wasm? : Bytes? = None,
 ) -> FuzzFailureReport {
   {
@@ -119,6 +125,9 @@ pub fn FuzzFailureReport::new(
     minimized_passes,
     generator_profile,
     pass_profile,
+    generator_config_label,
+    generated_attempts,
+    feature_facts,
     wasm,
   }
 }
@@ -423,6 +432,9 @@ fn fuzz_failure_meta_text(report : FuzzFailureReport) -> String {
   )
   out.write_string("generator_profile=\{report.generator_profile}\n")
   out.write_string("pass_profile=\{report.pass_profile}\n")
+  out.write_string("generator_config_label=\{report.generator_config_label}\n")
+  out.write_string("generated_attempts=\{report.generated_attempts}\n")
+  out.write_string("feature_facts=\{fuzz_single_line(report.feature_facts)}\n")
   out.to_string()
 }
 
@@ -645,6 +657,9 @@ pub fn run_cmd_fuzz_harness(
         continue
       }
     }
+    let generated_config_label = generated.config_label
+    let generated_attempts = generated.attempts
+    let feature_facts = @debug.to_string(generated.facts)
     let mod = generated.wasm_module
     match validate_module(mod) {
       Ok(_) => ()
@@ -674,6 +689,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=pass_names,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(encoded),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -694,6 +712,9 @@ pub fn run_cmd_fuzz_harness(
             minimized_passes=pass_names,
             generator_profile=gen_profile_label,
             pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
             wasm=Some(encoded),
           )
           return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -713,6 +734,9 @@ pub fn run_cmd_fuzz_harness(
             minimized_passes=pass_names,
             generator_profile=gen_profile_label,
             pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
             wasm=Some(recoded),
           )
           return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -732,6 +756,9 @@ pub fn run_cmd_fuzz_harness(
             minimized_passes=pass_names,
             generator_profile=gen_profile_label,
             pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
             wasm=Some(recoded),
           )
           return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -749,6 +776,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=pass_names,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(recoded_again),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -769,6 +799,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=pass_names,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(encoded),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -795,6 +828,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=minimized,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(encoded),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -816,6 +852,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=pass_names,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(encoded),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -835,6 +874,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=pass_names,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(roundtrip_bytes),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -860,6 +902,9 @@ pub fn run_cmd_fuzz_harness(
             minimized_passes=pass_names,
             generator_profile=gen_profile_label,
             pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
             wasm=Some(roundtrip_bytes),
           )
           return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -879,6 +924,9 @@ pub fn run_cmd_fuzz_harness(
             minimized_passes=pass_names,
             generator_profile=gen_profile_label,
             pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
             wasm=Some(roundtrip_bytes),
           )
           return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -896,6 +944,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=pass_names,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(optimized_again_bytes),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -916,6 +967,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=pass_names,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(roundtrip_bytes),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -935,6 +989,9 @@ pub fn run_cmd_fuzz_harness(
           minimized_passes=pass_names,
           generator_profile=gen_profile_label,
           pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
           wasm=Some(roundtrip_bytes),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
@@ -962,6 +1019,9 @@ pub fn run_cmd_fuzz_harness(
             minimized_passes=pass_names,
             generator_profile=gen_profile_label,
             pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
             wasm=Some(roundtrip_bytes),
           )
           return Err(fuzz_finalize_failure(on_failure, report, msg))
