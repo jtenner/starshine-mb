@@ -1176,7 +1176,8 @@ fn sgo_flow_scan_prefix_until(
       | @lib.MemoryFill(_)
       | @lib.MemoryInit(_, _)
       | @lib.TableFill(_)
-      | @lib.TableInit(_, _) =>
+      | @lib.TableInit(_, _)
+      | @lib.TableCopy(_, _) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1297,7 +1298,8 @@ fn sgo_flow_scan_clean_prefix_until(
       | @lib.MemoryFill(_)
       | @lib.MemoryInit(_, _)
       | @lib.TableFill(_)
-      | @lib.TableInit(_, _) =>
+      | @lib.TableInit(_, _)
+      | @lib.TableCopy(_, _) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1413,7 +1415,8 @@ fn sgo_flow_arm_result_taint_and_reads(
       | @lib.MemoryFill(_)
       | @lib.MemoryInit(_, _)
       | @lib.TableFill(_)
-      | @lib.TableInit(_, _) =>
+      | @lib.TableInit(_, _)
+      | @lib.TableCopy(_, _) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1569,7 +1572,8 @@ fn sgo_nested_if_arm_flow_outer_if_index(
       | @lib.MemoryFill(_)
       | @lib.MemoryInit(_, _)
       | @lib.TableFill(_)
-      | @lib.TableInit(_, _) =>
+      | @lib.TableInit(_, _)
+      | @lib.TableCopy(_, _) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1680,7 +1684,8 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
       | @lib.MemoryFill(_)
       | @lib.MemoryInit(_, _)
       | @lib.TableFill(_)
-      | @lib.TableInit(_, _) =>
+      | @lib.TableInit(_, _)
+      | @lib.TableCopy(_, _) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1917,7 +1922,8 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
       | @lib.MemoryFill(_)
       | @lib.MemoryInit(_, _)
       | @lib.TableFill(_)
-      | @lib.TableInit(_, _) =>
+      | @lib.TableInit(_, _)
+      | @lib.TableCopy(_, _) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
