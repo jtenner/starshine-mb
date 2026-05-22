@@ -1354,6 +1354,9 @@ pub struct GenValidExactOpcodeCounts {
   i64x2_all_true : Int
   i8x16_add : Int
   i8x16_add_sat_s : Int
+  i8x16_add_sat_u : Int
+  i8x16_sub : Int
+  i8x16_sub_sat_s : Int
   i16x8_mul : Int
   i8x16_shl : Int
   i8x16_shr_s : Int
@@ -1372,10 +1375,16 @@ pub struct GenValidExactOpcodeCounts {
   i64x2_bitmask : Int
   i8x16_sub_sat_u : Int
   i8x16_min_s : Int
+  i8x16_min_u : Int
+  i8x16_max_s : Int
   i8x16_max_u : Int
   i8x16_avgr_u : Int
+  i16x8_add : Int
+  i16x8_add_sat_s : Int
   i16x8_add_sat_u : Int
+  i16x8_sub : Int
   i16x8_sub_sat_s : Int
+  i16x8_sub_sat_u : Int
   i16x8_min_u : Int
   i16x8_max_s : Int
   i16x8_avgr_u : Int
@@ -1752,6 +1761,9 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i64x2_all_true: 0,
     i8x16_add: 0,
     i8x16_add_sat_s: 0,
+    i8x16_add_sat_u: 0,
+    i8x16_sub: 0,
+    i8x16_sub_sat_s: 0,
     i16x8_mul: 0,
     i8x16_shl: 0,
     i8x16_shr_s: 0,
@@ -1770,10 +1782,16 @@ pub fn GenValidExactOpcodeCounts::empty() -> GenValidExactOpcodeCounts {
     i64x2_bitmask: 0,
     i8x16_sub_sat_u: 0,
     i8x16_min_s: 0,
+    i8x16_min_u: 0,
+    i8x16_max_s: 0,
     i8x16_max_u: 0,
     i8x16_avgr_u: 0,
+    i16x8_add: 0,
+    i16x8_add_sat_s: 0,
     i16x8_add_sat_u: 0,
+    i16x8_sub: 0,
     i16x8_sub_sat_s: 0,
+    i16x8_sub_sat_u: 0,
     i16x8_min_u: 0,
     i16x8_max_s: 0,
     i16x8_avgr_u: 0,
@@ -2111,6 +2129,9 @@ pub fn GenValidExactOpcodeCounts::add(
     i64x2_all_true: self.i64x2_all_true + other.i64x2_all_true,
     i8x16_add: self.i8x16_add + other.i8x16_add,
     i8x16_add_sat_s: self.i8x16_add_sat_s + other.i8x16_add_sat_s,
+    i8x16_add_sat_u: self.i8x16_add_sat_u + other.i8x16_add_sat_u,
+    i8x16_sub: self.i8x16_sub + other.i8x16_sub,
+    i8x16_sub_sat_s: self.i8x16_sub_sat_s + other.i8x16_sub_sat_s,
     i16x8_mul: self.i16x8_mul + other.i16x8_mul,
     i8x16_shl: self.i8x16_shl + other.i8x16_shl,
     i8x16_shr_s: self.i8x16_shr_s + other.i8x16_shr_s,
@@ -2129,10 +2150,16 @@ pub fn GenValidExactOpcodeCounts::add(
     i64x2_bitmask: self.i64x2_bitmask + other.i64x2_bitmask,
     i8x16_sub_sat_u: self.i8x16_sub_sat_u + other.i8x16_sub_sat_u,
     i8x16_min_s: self.i8x16_min_s + other.i8x16_min_s,
+    i8x16_min_u: self.i8x16_min_u + other.i8x16_min_u,
+    i8x16_max_s: self.i8x16_max_s + other.i8x16_max_s,
     i8x16_max_u: self.i8x16_max_u + other.i8x16_max_u,
     i8x16_avgr_u: self.i8x16_avgr_u + other.i8x16_avgr_u,
+    i16x8_add: self.i16x8_add + other.i16x8_add,
+    i16x8_add_sat_s: self.i16x8_add_sat_s + other.i16x8_add_sat_s,
     i16x8_add_sat_u: self.i16x8_add_sat_u + other.i16x8_add_sat_u,
+    i16x8_sub: self.i16x8_sub + other.i16x8_sub,
     i16x8_sub_sat_s: self.i16x8_sub_sat_s + other.i16x8_sub_sat_s,
+    i16x8_sub_sat_u: self.i16x8_sub_sat_u + other.i16x8_sub_sat_u,
     i16x8_min_u: self.i16x8_min_u + other.i16x8_min_u,
     i16x8_max_s: self.i16x8_max_s + other.i16x8_max_s,
     i16x8_avgr_u: self.i16x8_avgr_u + other.i16x8_avgr_u,
@@ -6792,8 +6819,13 @@ fn gen_valid_append_simd_phase2_ops(out : Array[Instruction]) -> Unit {
 
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_add())
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_add_sat_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_add_sat_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_sub())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_sub_sat_s())
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_sub_sat_u())
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_min_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_min_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_max_s())
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_max_u())
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_avgr_u())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_mul())
@@ -6809,8 +6841,12 @@ fn gen_valid_append_simd_phase2_ops(out : Array[Instruction]) -> Unit {
   gen_valid_append_v128_shift_op(out, 10, Instruction::i64x2_shl())
   gen_valid_append_v128_shift_op(out, 11, Instruction::i64x2_shr_s())
   gen_valid_append_v128_shift_op(out, 12, Instruction::i64x2_shr_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_add())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_add_sat_s())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_add_sat_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_sub())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_sub_sat_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_sub_sat_u())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_min_u())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_max_s())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_avgr_u())
@@ -9862,6 +9898,9 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I64x2AllTrue => GenValidExactOpcodeCounts::{ ..zero, i64x2_all_true: 1 }
     I8x16Add => GenValidExactOpcodeCounts::{ ..zero, i8x16_add: 1 }
     I8x16AddSatS => GenValidExactOpcodeCounts::{ ..zero, i8x16_add_sat_s: 1 }
+    I8x16AddSatU => GenValidExactOpcodeCounts::{ ..zero, i8x16_add_sat_u: 1 }
+    I8x16Sub => GenValidExactOpcodeCounts::{ ..zero, i8x16_sub: 1 }
+    I8x16SubSatS => GenValidExactOpcodeCounts::{ ..zero, i8x16_sub_sat_s: 1 }
     I16x8Mul => GenValidExactOpcodeCounts::{ ..zero, i16x8_mul: 1 }
     I8x16Shl => GenValidExactOpcodeCounts::{ ..zero, i8x16_shl: 1 }
     I8x16ShrS => GenValidExactOpcodeCounts::{ ..zero, i8x16_shr_s: 1 }
@@ -9880,10 +9919,16 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I64x2Bitmask => GenValidExactOpcodeCounts::{ ..zero, i64x2_bitmask: 1 }
     I8x16SubSatU => GenValidExactOpcodeCounts::{ ..zero, i8x16_sub_sat_u: 1 }
     I8x16MinS => GenValidExactOpcodeCounts::{ ..zero, i8x16_min_s: 1 }
+    I8x16MinU => GenValidExactOpcodeCounts::{ ..zero, i8x16_min_u: 1 }
+    I8x16MaxS => GenValidExactOpcodeCounts::{ ..zero, i8x16_max_s: 1 }
     I8x16MaxU => GenValidExactOpcodeCounts::{ ..zero, i8x16_max_u: 1 }
     I8x16AvgrU => GenValidExactOpcodeCounts::{ ..zero, i8x16_avgr_u: 1 }
+    I16x8Add => GenValidExactOpcodeCounts::{ ..zero, i16x8_add: 1 }
+    I16x8AddSatS => GenValidExactOpcodeCounts::{ ..zero, i16x8_add_sat_s: 1 }
     I16x8AddSatU => GenValidExactOpcodeCounts::{ ..zero, i16x8_add_sat_u: 1 }
+    I16x8Sub => GenValidExactOpcodeCounts::{ ..zero, i16x8_sub: 1 }
     I16x8SubSatS => GenValidExactOpcodeCounts::{ ..zero, i16x8_sub_sat_s: 1 }
+    I16x8SubSatU => GenValidExactOpcodeCounts::{ ..zero, i16x8_sub_sat_u: 1 }
     I16x8MinU => GenValidExactOpcodeCounts::{ ..zero, i16x8_min_u: 1 }
     I16x8MaxS => GenValidExactOpcodeCounts::{ ..zero, i16x8_max_s: 1 }
     I16x8AvgrU => GenValidExactOpcodeCounts::{ ..zero, i16x8_avgr_u: 1 }

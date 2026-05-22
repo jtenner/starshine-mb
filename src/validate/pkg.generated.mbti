@@ -545,6 +545,9 @@ pub struct GenValidExactOpcodeCounts {
   i64x2_all_true : Int
   i8x16_add : Int
   i8x16_add_sat_s : Int
+  i8x16_add_sat_u : Int
+  i8x16_sub : Int
+  i8x16_sub_sat_s : Int
   i16x8_mul : Int
   i8x16_shl : Int
   i8x16_shr_s : Int
@@ -563,10 +566,16 @@ pub struct GenValidExactOpcodeCounts {
   i64x2_bitmask : Int
   i8x16_sub_sat_u : Int
   i8x16_min_s : Int
+  i8x16_min_u : Int
+  i8x16_max_s : Int
   i8x16_max_u : Int
   i8x16_avgr_u : Int
+  i16x8_add : Int
+  i16x8_add_sat_s : Int
   i16x8_add_sat_u : Int
+  i16x8_sub : Int
   i16x8_sub_sat_s : Int
+  i16x8_sub_sat_u : Int
   i16x8_min_u : Int
   i16x8_max_s : Int
   i16x8_avgr_u : Int
