@@ -1154,7 +1154,8 @@ fn sgo_flow_scan_prefix_until(
       | @lib.I32Store8(_)
       | @lib.I32Store16(_)
       | @lib.I64Store8(_)
-      | @lib.I64Store16(_) =>
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
@@ -1262,7 +1263,8 @@ fn sgo_flow_scan_clean_prefix_until(
       | @lib.I32Store8(_)
       | @lib.I32Store16(_)
       | @lib.I64Store8(_)
-      | @lib.I64Store16(_) =>
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
@@ -1365,7 +1367,8 @@ fn sgo_flow_arm_result_taint_and_reads(
       | @lib.I32Store8(_)
       | @lib.I32Store16(_)
       | @lib.I64Store8(_)
-      | @lib.I64Store16(_) =>
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
@@ -1508,7 +1511,8 @@ fn sgo_nested_if_arm_flow_outer_if_index(
       | @lib.I32Store8(_)
       | @lib.I32Store16(_)
       | @lib.I64Store8(_)
-      | @lib.I64Store16(_) =>
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
@@ -1606,7 +1610,8 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
       | @lib.I32Store8(_)
       | @lib.I32Store16(_)
       | @lib.I64Store8(_)
-      | @lib.I64Store16(_) =>
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
@@ -1830,7 +1835,8 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
       | @lib.I32Store8(_)
       | @lib.I32Store16(_)
       | @lib.I64Store8(_)
-      | @lib.I64Store16(_) =>
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
