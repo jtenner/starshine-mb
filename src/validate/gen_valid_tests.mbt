@@ -305,6 +305,56 @@ test "gen_valid named profiles expose stable labels and compatibility aliases" {
 }
 
 ///|
+test "pass-targeted gen-valid profiles expose stable pass recipes" {
+  @debug.assert_eq(gen_valid_profile_name(PassCleanupProfile), "pass-cleanup")
+  @debug.assert_eq(gen_valid_profile_name(PassDaeProfile), "pass-dae")
+  @debug.assert_eq(gen_valid_profile_name(PassInliningProfile), "pass-inlining")
+  @debug.assert_eq(gen_valid_profile_name(PassMemoryProfile), "pass-memory")
+  @debug.assert_eq(gen_valid_profile_name(PassGcRefProfile), "pass-gc-ref")
+  @debug.assert_eq(gen_valid_profile_name(PassControlProfile), "pass-control")
+
+  let cleanup = GenValidConfig::for_profile(PassCleanupProfile)
+  @debug.assert_eq(gen_valid_config_label(cleanup), "pass-cleanup")
+  assert_false(cleanup.features.allow_imports)
+  assert_false(cleanup.features.allow_mems)
+  assert_true(cleanup.features.allow_typed_body_generator)
+  assert_true(cleanup.max_body_statements >= 8)
+
+  let dae = GenValidConfig::for_profile(PassDaeProfile)
+  assert_true(dae.features.allow_calls)
+  assert_true(dae.features.allow_globals)
+  assert_true(dae.max_defined_funcs >= 6)
+  assert_true(dae.max_params >= 3)
+
+  let inlining = GenValidConfig::for_profile(PassInliningProfile)
+  assert_true(inlining.features.allow_calls)
+  assert_true(inlining.features.allow_tail_calls)
+  assert_false(inlining.features.allow_call_indirect)
+  assert_true(inlining.max_defined_funcs >= 8)
+
+  let memory = GenValidConfig::for_profile(PassMemoryProfile)
+  assert_true(memory.features.allow_mems)
+  assert_true(memory.features.allow_atomics)
+  assert_true(memory.features.allow_v128)
+  assert_true(memory.max_mems >= 2)
+
+  let gc_ref = GenValidConfig::for_profile(PassGcRefProfile)
+  assert_true(gc_ref.features.allow_ref_types)
+  assert_true(gc_ref.features.allow_subtyping_topology)
+  assert_true(gc_ref.max_type_defs >= 12)
+
+  let control = GenValidConfig::for_profile(PassControlProfile)
+  assert_true(control.features.allow_branch_heavy_control)
+  assert_true(control.features.allow_tail_calls)
+  assert_true(control.max_body_depth >= 4)
+
+  match gen_valid_profile_by_name("pass dae") {
+    Ok(profile) => @debug.assert_eq(profile, PassDaeProfile)
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "pathological-valid profile sets bounded generator budgets" {
   let config = GenValidConfig::for_profile(PathologicalValidProfile)
   @debug.assert_eq(gen_valid_config_label(config), "pathological-valid")

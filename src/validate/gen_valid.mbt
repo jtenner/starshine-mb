@@ -450,6 +450,12 @@ pub enum GenValidProfile {
   MutationSeedRichProfile
   PassFuzzStressProfile
   ValidatorStressProfile
+  PassCleanupProfile
+  PassDaeProfile
+  PassInliningProfile
+  PassMemoryProfile
+  PassGcRefProfile
+  PassControlProfile
   NoImportsProfile
   ImportsHeavyProfile
   GcHeavyProfile
@@ -475,6 +481,12 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     MutationSeedRichProfile => "mutation-seed-rich"
     PassFuzzStressProfile => "pass-fuzz-stress"
     ValidatorStressProfile => "validator-stress"
+    PassCleanupProfile => "pass-cleanup"
+    PassDaeProfile => "pass-dae"
+    PassInliningProfile => "pass-inlining"
+    PassMemoryProfile => "pass-memory"
+    PassGcRefProfile => "pass-gc-ref"
+    PassControlProfile => "pass-control"
     NoImportsProfile => "no-imports"
     ImportsHeavyProfile => "imports-heavy"
     GcHeavyProfile => "gc-heavy"
@@ -501,6 +513,12 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     MutationSeedRichProfile,
     PassFuzzStressProfile,
     ValidatorStressProfile,
+    PassCleanupProfile,
+    PassDaeProfile,
+    PassInliningProfile,
+    PassMemoryProfile,
+    PassGcRefProfile,
+    PassControlProfile,
     NoImportsProfile,
     ImportsHeavyProfile,
     GcHeavyProfile,
@@ -655,6 +673,132 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_body_statements: 10,
         max_body_depth: 3,
       }
+    PassCleanupProfile => {
+      let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 4,
+        max_defined_funcs: 6,
+        max_params: 2,
+        max_results: 1,
+        max_locals: 8,
+        max_body_statements: 12,
+        max_body_depth: 3,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
+    PassDaeProfile => {
+      let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 8,
+        max_defined_funcs: 8,
+        max_globals: 3,
+        max_params: 4,
+        max_results: 2,
+        max_locals: 6,
+        max_body_statements: 12,
+        max_body_depth: 3,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_globals: true,
+          allow_calls: true,
+        },
+      }
+    }
+    PassInliningProfile => {
+      let base = GenValidConfig::coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_imports: 0,
+        max_defined_funcs: 10,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 2,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 4,
+        max_results: 2,
+        max_locals: 4,
+        max_body_statements: 10,
+        max_body_depth: 3,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_tags: false,
+          allow_start: false,
+          allow_elems: false,
+          allow_datas: false,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_call_indirect: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_name_custom_sections: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
+    PassMemoryProfile => {
+      let base = GenValidConfig::coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_imports: 0,
+        max_mems: 3,
+        max_datas: 8,
+        max_locals: 6,
+        max_body_statements: 14,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_mems: true,
+          allow_v128: true,
+          allow_shared_memories: true,
+          allow_memory64: true,
+          allow_atomics: true,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
+    PassGcRefProfile =>
+      GenValidConfig::{
+        ..GenValidConfig::coverage_forced_default(),
+        max_type_defs: 16,
+        max_defined_funcs: 8,
+        max_globals: 6,
+        max_params: 3,
+        max_results: 2,
+        max_body_statements: 12,
+        max_body_depth: 3,
+      }
+    PassControlProfile => {
+      let base = GenValidConfig::coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_imports: 0,
+        max_defined_funcs: 8,
+        max_params: 3,
+        max_results: 2,
+        max_locals: 8,
+        max_body_statements: 18,
+        max_body_depth: 5,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_branch_heavy_control: true,
+          allow_tail_calls: true,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
     NoImportsProfile => {
       let base = GenValidConfig::natural_default()
       GenValidConfig::{

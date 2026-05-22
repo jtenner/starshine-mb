@@ -915,6 +915,12 @@ pub enum GenValidProfile {
   MutationSeedRichProfile
   PassFuzzStressProfile
   ValidatorStressProfile
+  PassCleanupProfile
+  PassDaeProfile
+  PassInliningProfile
+  PassMemoryProfile
+  PassGcRefProfile
+  PassControlProfile
   NoImportsProfile
   ImportsHeavyProfile
   GcHeavyProfile

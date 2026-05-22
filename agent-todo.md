@@ -789,15 +789,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: scanner fixtures for each effect family, conservative unknown tests, result.json fact propagation tests.
   - Exit Criteria: mismatch reports include enough effect/trap context for agents to prioritize semantic review.
 
-- [FUZ]1041 - Pass-Targeted GenValid Profiles From Pass Preconditions
-  - Goal: create generator profiles tailored to the preconditions and sensitive surfaces of individual optimizer passes.
-  - Why: one broad generator wastes time when signing off a pass. Each pass needs dense coverage of the shapes it is supposed to rewrite and the barriers it must not cross.
-  - Deliverables: add profile recipes for `precompute`, `optimize-instructions`, `simplify-locals`, `vacuum`, `remove-unused-*`, `dae`, `inlining`, `code-folding`, `directize`, memory passes, GC passes, and tail-call/control passes; document each pass's required features, barriers, and known Binaryen portability constraints.
-  - Required APIs: pass registry, GenValid profile taxonomy, feature filters, pass-fuzz compare task.
-  - Invariants: targeted profiles are additive and do not change generic smoke defaults; profile names must be stable enough for docs and CI.
-  - Dependencies: [FUZ]1001, [FUZ]1013, and [FUZ]1016.
-  - Suggested Tests: profile lookup tests, feature-floor tests per pass profile, tiny compare-pass smoke for representative profiles.
-  - Exit Criteria: pass signoff can request a named profile that densely exercises the pass's intended rewrite and no-rewrite cases.
 
 - [FUZ]1042 - Corpus Promotion, Quarantine, And Regression Replay Workflow
   - Goal: define how interesting fuzz findings become durable regression inputs.
