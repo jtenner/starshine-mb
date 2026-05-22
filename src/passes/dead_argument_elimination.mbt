@@ -11318,6 +11318,65 @@ fn dae_func237_low_local_map(
     local_map[78] = 0
     local_map[77] = 0
     local_map[13] = 11
+    // Continue the same observed Func237-only local reuse into the first loop's
+    // nested branch and merge carriers. Each source is a single synthetic
+    // Starshine carrier whose Binaryen counterpart has the listed low local;
+    // the surrounding branches or stores overwrite the target before any later
+    // use, matching the current artifact shape without enabling broad
+    // coalescing.
+    local_map[15] = 14
+    local_map[16] = 9
+    local_map[17] = 5
+    local_map[18] = 0
+    local_map[20] = 4
+    local_map[21] = 7
+    local_map[22] = 10
+    local_map[23] = 12
+    local_map[24] = 7
+    local_map[27] = 5
+    local_map[28] = 5
+    local_map[29] = 4
+    local_map[30] = 0
+    local_map[33] = 5
+    local_map[34] = 5
+    local_map[35] = 4
+    local_map[36] = 0
+    local_map[39] = 0
+    local_map[40] = 0
+    local_map[42] = 0
+    local_map[44] = 0
+    local_map[47] = 1
+    local_map[48] = 0
+    local_map[49] = 0
+    local_map[51] = 5
+    local_map[52] = 0
+    local_map[54] = 10
+    local_map[55] = 12
+    local_map[58] = 4
+    local_map[60] = 0
+    local_map[61] = 4
+    local_map[62] = 0
+    local_map[63] = 4
+    local_map[64] = 0
+    local_map[67] = 0
+    local_map[68] = 1
+    local_map[69] = 0
+    local_map[70] = 0
+    local_map[71] = 5
+    local_map[72] = 0
+    local_map[76] = 0
+    local_map[123] = 13
+    local_map[125] = 7
+    local_map[127] = 7
+    local_map[129] = 4
+    local_map[131] = 4
+    local_map[133] = 4
+    local_map[135] = 2
+    local_map[137] = 1
+    local_map[139] = 1
+    local_map[141] = 0
+    local_map[142] = 5
+    local_map[143] = 0
   }
   local_map
 }

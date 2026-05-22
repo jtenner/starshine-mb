@@ -2165,6 +2165,136 @@ test "dae selected func237 low-local map retargets current carrier temps" {
 }
 
 ///|
+test "dae selected func237 low-local map retargets nested carrier temps" {
+  let funcs = Array::make(
+    238,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  funcs[237] = @lib.Func::new(
+    @lib.Locals::single(140U, @lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(15U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(16U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(64U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(39U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(142U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(40U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(129U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(33U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(42U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(131U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(27U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(44U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(133U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(17U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(62U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(63U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(36U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(34U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(35U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(127U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(60U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(61U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(30U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(28U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(29U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(125U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(58U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(143U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(18U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(20U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(21U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(54U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(55U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(24U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(22U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(23U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(123U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(67U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(70U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(48U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(49U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(47U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(135U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(68U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(69U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(141U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(71U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(72U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(76U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(137U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(139U)),
+    ]),
+  )
+  let selected = Array::make(238, false)
+  selected[237] = true
+  let result = dae_try_strip_selected_func237_raw_debris_once(
+    @lib.Module::new().with_code_sec(@lib.CodeSec::new(funcs)),
+    selected,
+  )
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(rewritten_funcs)) => {
+      let @lib.Func(_, @lib.Expr(rewritten)) = rewritten_funcs[237]
+      assert_eq(rewritten, [
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(14U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(9U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(7U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(7U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(7U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(10U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(12U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(7U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(10U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(12U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(13U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae selected func237 cleanup trims trailing unused locals" {
   let funcs = Array::make(
     238,
