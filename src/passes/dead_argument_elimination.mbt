@@ -10521,6 +10521,376 @@ fn dae_try_spill_i32_param_loop_recursive_body_once(
 }
 
 ///|
+fn dae_count_local_gets_instr(
+  instr : @lib.Instruction,
+  target_local : @lib.LocalIdx,
+) -> Int {
+  match instr {
+    @lib.LocalGet(idx) =>
+      if dae_local_idx_equal(idx, target_local) {
+        1
+      } else {
+        0
+      }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_count_local_gets_instrs(body, target_local)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_count_local_gets_instrs(then_body, target_local) +
+      dae_count_local_gets_instrs(else_body, target_local)
+    @lib.If(_, then_body, None) =>
+      dae_count_local_gets_instrs(then_body, target_local)
+    _ => 0
+  }
+}
+
+///|
+fn dae_count_local_gets_instrs(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count += dae_count_local_gets_instr(instr, target_local)
+  }
+  count
+}
+
+///|
+fn dae_count_local_writes_instr(
+  instr : @lib.Instruction,
+  target_local : @lib.LocalIdx,
+) -> Int {
+  match instr {
+    @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+      if dae_local_idx_equal(idx, target_local) {
+        1
+      } else {
+        0
+      }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_count_local_writes_instrs(body, target_local)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_count_local_writes_instrs(then_body, target_local) +
+      dae_count_local_writes_instrs(else_body, target_local)
+    @lib.If(_, then_body, None) =>
+      dae_count_local_writes_instrs(then_body, target_local)
+    _ => 0
+  }
+}
+
+///|
+fn dae_count_local_writes_instrs(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count += dae_count_local_writes_instr(instr, target_local)
+  }
+  count
+}
+
+///|
+fn dae_instr_contains_try_table(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.TryTable(_, _, _) => true
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      dae_instrs_contain_try_table(body)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_instrs_contain_try_table(then_body) ||
+      dae_instrs_contain_try_table(else_body)
+    @lib.If(_, then_body, None) => dae_instrs_contain_try_table(then_body)
+    _ => false
+  }
+}
+
+///|
+fn dae_instrs_contain_try_table(instrs : Array[@lib.Instruction]) -> Bool {
+  instrs.any(fn(instr) { dae_instr_contains_try_table(instr) })
+}
+
+///|
+fn dae_func237_copy_gap_instr_safe(
+  instr : @lib.Instruction,
+  temp_local : @lib.LocalIdx,
+  target_local : @lib.LocalIdx,
+  root_has_try_table : Bool,
+) -> Bool {
+  if dae_instr_references_local(instr, temp_local) ||
+    dae_instr_references_local(instr, target_local) {
+    return false
+  }
+  match instr {
+    @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.TryTable(_, _, _)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _) => false
+    @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+      !root_has_try_table
+    _ => true
+  }
+}
+
+///|
+fn dae_func237_copy_gap_safe(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+  end_idx : Int,
+  temp_local : @lib.LocalIdx,
+  target_local : @lib.LocalIdx,
+  root_has_try_table : Bool,
+) -> Bool {
+  let mut idx = start_idx
+  while idx < end_idx {
+    if !dae_func237_copy_gap_instr_safe(
+        body[idx],
+        temp_local,
+        target_local,
+        root_has_try_table,
+      ) {
+      return false
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+  root_body : Array[@lib.Instruction],
+  root_has_try_table : Bool,
+) -> Array[@lib.Instruction]? {
+  let mut set_idx = 0
+  while set_idx + 2 < body.length() {
+    let temp_local = match body[set_idx] {
+      @lib.LocalSet(idx) => idx
+      _ => {
+        set_idx += 1
+        continue
+      }
+    }
+    if dae_local_idx_slot(temp_local) < param_count ||
+      dae_count_local_writes_instrs(root_body, temp_local) != 1 ||
+      dae_count_local_gets_instrs(root_body, temp_local) != 1 {
+      set_idx += 1
+      continue
+    }
+    let mut get_idx = set_idx + 1
+    let max_get_idx = set_idx + 5
+    while get_idx + 1 < body.length() && get_idx <= max_get_idx {
+      match (body[get_idx], body[get_idx + 1]) {
+        (@lib.LocalGet(read_local), @lib.LocalSet(target_local)) if dae_local_idx_equal(
+            read_local, temp_local,
+          ) &&
+          !dae_local_idx_equal(temp_local, target_local) &&
+          dae_local_idx_slot(target_local) >= param_count &&
+          dae_func237_copy_gap_safe(
+            body,
+            set_idx + 1,
+            get_idx,
+            temp_local,
+            target_local,
+            root_has_try_table,
+          ) => {
+          let out : Array[@lib.Instruction] = []
+          let mut prefix_idx = 0
+          while prefix_idx < body.length() {
+            if prefix_idx == set_idx {
+              out.push(@lib.Instruction::local_set(target_local))
+              prefix_idx += 1
+              continue
+            }
+            if prefix_idx == get_idx {
+              prefix_idx += 2
+              continue
+            }
+            out.push(body[prefix_idx])
+            prefix_idx += 1
+          }
+          return Some(out)
+        }
+        _ => ()
+      }
+      if !dae_func237_copy_gap_instr_safe(
+          body[get_idx],
+          temp_local,
+          temp_local,
+          root_has_try_table,
+        ) {
+        break
+      }
+      get_idx += 1
+    }
+    set_idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_fold_func237_immediate_local_copy_instr_once(
+  instr : @lib.Instruction,
+  param_count : Int,
+  root_body : Array[@lib.Instruction],
+  root_has_try_table : Bool,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+          body, param_count, root_body, root_has_try_table,
+        ) {
+        Some(rewritten) =>
+          Some(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+        None => None
+      }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+          body, param_count, root_body, root_has_try_table,
+        ) {
+        Some(rewritten) =>
+          Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
+        None => None
+      }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+          body, param_count, root_body, root_has_try_table,
+        ) {
+        Some(rewritten) =>
+          Some(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten),
+            ),
+          )
+        None => None
+      }
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      match
+        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+          then_body, param_count, root_body, root_has_try_table,
+        ) {
+        Some(rewritten_then) =>
+          Some(
+            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
+          )
+        None =>
+          match
+            dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+              else_body, param_count, root_body, root_has_try_table,
+            ) {
+            Some(rewritten_else) =>
+              Some(
+                @lib.Instruction::if_(
+                  block_type,
+                  then_body,
+                  Some(rewritten_else),
+                ),
+              )
+            None => None
+          }
+      }
+    @lib.If(block_type, then_body, None) =>
+      match
+        dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+          then_body, param_count, root_body, root_has_try_table,
+        ) {
+        Some(rewritten_then) =>
+          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+  root_body : Array[@lib.Instruction],
+  root_has_try_table : Bool,
+) -> Array[@lib.Instruction]? {
+  match
+    dae_try_fold_func237_immediate_local_copy_flat_body_once(
+      body, param_count, root_body, root_has_try_table,
+    ) {
+    Some(rewritten) => return Some(rewritten)
+    None => ()
+  }
+  let mut idx = 0
+  while idx < body.length() {
+    match
+      dae_try_fold_func237_immediate_local_copy_instr_once(
+        body[idx],
+        param_count,
+        root_body,
+        root_has_try_table,
+      ) {
+      Some(rewritten_instr) => {
+        let rewritten = body.copy()
+        rewritten[idx] = rewritten_instr
+        return Some(rewritten)
+      }
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_fold_func237_immediate_local_copy_body_once(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> Array[@lib.Instruction]? {
+  dae_try_fold_func237_immediate_local_copy_body_once_with_root(
+    body,
+    param_count,
+    body,
+    dae_instrs_contain_try_table(body),
+  )
+}
+
+///|
+fn dae_fold_func237_immediate_local_copies(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> Array[@lib.Instruction] {
+  let mut current = body
+  let mut remaining = 32
+  while remaining > 0 {
+    match
+      dae_try_fold_func237_immediate_local_copy_body_once(current, param_count) {
+      Some(rewritten) => current = rewritten
+      None => break
+    }
+    remaining -= 1
+  }
+  current
+}
+
+///|
 fn dae_try_fold_func237_store_carrier_copy_body_once(
   body : Array[@lib.Instruction],
   param_count : Int,
@@ -10686,7 +11056,10 @@ fn dae_try_strip_selected_func237_raw_debris_once(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let folded_body = dae_fold_func237_store_carrier_copies(body, 4)
+  let folded_body = dae_fold_func237_immediate_local_copies(
+    dae_fold_func237_store_carrier_copies(body, 4),
+    4,
+  )
   let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(folded_body)
   if rewritten == body {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }

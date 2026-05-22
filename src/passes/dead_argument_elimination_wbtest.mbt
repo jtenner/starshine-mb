@@ -1965,6 +1965,86 @@ test "dae func237 store-carrier copy folds local tee target" {
 }
 
 ///|
+test "dae func237 immediate local copy folds single-use temp" {
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(18072)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(16U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(52U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(51U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(51U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+  ]
+  match dae_try_fold_func237_immediate_local_copy_body_once(body, 4) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::i32_const(@lib.I32(18072)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(16U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(51U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(52U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(51U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+      ])
+    None => fail("expected Func237 immediate local-copy fold")
+  }
+}
+
+///|
+test "dae func237 immediate local copy preserves reused temps" {
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(18072)),
+    @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(51U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+  ]
+  match dae_try_fold_func237_immediate_local_copy_body_once(body, 4) {
+    None => ()
+    Some(_) => fail("reused temp must preserve the copy")
+  }
+}
+
+///|
+test "dae func237 immediate local copy preserves branch-skipped copies" {
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(18072)),
+    @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(51U)),
+  ]
+  match dae_try_fold_func237_immediate_local_copy_body_once(body, 4) {
+    None => ()
+    Some(_) => fail("branch-skipped copy must be preserved")
+  }
+}
+
+///|
+test "dae func237 immediate local copy preserves call gaps when try_table exists" {
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(18072)),
+    @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(112U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(51U)),
+    @lib.Instruction::try_table(@lib.BlockType::void_(), [], @lib.Expr::new([])),
+  ]
+  match dae_try_fold_func237_immediate_local_copy_body_once(body, 4) {
+    None => ()
+    Some(_) => fail("call gap must be preserved when local catches may exist")
+  }
+}
+
+///|
 test "dae selected func237 raw debris strips nops and dropped zero only" {
   let funcs = Array::make(
     238,
