@@ -8602,6 +8602,8 @@ test "gen_valid_feature_facts records exact simd phase2 and phase3 opcode counts
             Instruction::v128_load8x8s(memarg),
             Instruction::v128_load64_zero(memarg),
             Instruction::i16x8_extadd_pairwise_i8x16s(),
+            Instruction::i32x4_extend_low_i16x8s(),
+            Instruction::i64x2_extmul_high_i32x4u(),
             Instruction::f64x2_promote_low_f32x4(),
           ]),
         ),
@@ -8619,12 +8621,16 @@ test "gen_valid_feature_facts records exact simd phase2 and phase3 opcode counts
   @debug.assert_eq(exact.v128_load8x8_s, 1)
   @debug.assert_eq(exact.v128_load64_zero, 1)
   @debug.assert_eq(exact.i16x8_extadd_pairwise_i8x16_s, 1)
+  @debug.assert_eq(exact.i32x4_extend_low_i16x8_s, 1)
+  @debug.assert_eq(exact.i64x2_extmul_high_i32x4_u, 1)
   @debug.assert_eq(exact.f64x2_promote_low_f32x4, 1)
   let stats = GenValidFeatureStats::empty(CoverageForced)
     .record(facts)
     .record(facts)
   @debug.assert_eq(stats.exact_opcode_counts.i64x2_ge_s, 2)
   @debug.assert_eq(stats.exact_opcode_counts.v128_load8x8_s, 2)
+  @debug.assert_eq(stats.exact_opcode_counts.i32x4_extend_low_i16x8_s, 2)
+  @debug.assert_eq(stats.exact_opcode_counts.i64x2_extmul_high_i32x4_u, 2)
   @debug.assert_eq(stats.exact_opcode_counts.f64x2_promote_low_f32x4, 2)
 }
 

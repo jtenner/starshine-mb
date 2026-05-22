@@ -3445,6 +3445,102 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     counts.f64x2_pmax > 0,
     msg="SIMD exact coverage should include f64x2.pmax",
   )
+  assert_true(
+    counts.i16x8_extend_low_i8x16_s > 0,
+    msg="SIMD exact coverage should include i16x8.extend_low_i8x16_s",
+  )
+  assert_true(
+    counts.i16x8_extend_high_i8x16_s > 0,
+    msg="SIMD exact coverage should include i16x8.extend_high_i8x16_s",
+  )
+  assert_true(
+    counts.i16x8_extend_low_i8x16_u > 0,
+    msg="SIMD exact coverage should include i16x8.extend_low_i8x16_u",
+  )
+  assert_true(
+    counts.i16x8_extend_high_i8x16_u > 0,
+    msg="SIMD exact coverage should include i16x8.extend_high_i8x16_u",
+  )
+  assert_true(
+    counts.i32x4_extend_low_i16x8_s > 0,
+    msg="SIMD exact coverage should include i32x4.extend_low_i16x8_s",
+  )
+  assert_true(
+    counts.i32x4_extend_high_i16x8_s > 0,
+    msg="SIMD exact coverage should include i32x4.extend_high_i16x8_s",
+  )
+  assert_true(
+    counts.i32x4_extend_low_i16x8_u > 0,
+    msg="SIMD exact coverage should include i32x4.extend_low_i16x8_u",
+  )
+  assert_true(
+    counts.i32x4_extend_high_i16x8_u > 0,
+    msg="SIMD exact coverage should include i32x4.extend_high_i16x8_u",
+  )
+  assert_true(
+    counts.i64x2_extend_low_i32x4_s > 0,
+    msg="SIMD exact coverage should include i64x2.extend_low_i32x4_s",
+  )
+  assert_true(
+    counts.i64x2_extend_high_i32x4_s > 0,
+    msg="SIMD exact coverage should include i64x2.extend_high_i32x4_s",
+  )
+  assert_true(
+    counts.i64x2_extend_low_i32x4_u > 0,
+    msg="SIMD exact coverage should include i64x2.extend_low_i32x4_u",
+  )
+  assert_true(
+    counts.i64x2_extend_high_i32x4_u > 0,
+    msg="SIMD exact coverage should include i64x2.extend_high_i32x4_u",
+  )
+  assert_true(
+    counts.i16x8_extmul_low_i8x16_s > 0,
+    msg="SIMD exact coverage should include i16x8.extmul_low_i8x16_s",
+  )
+  assert_true(
+    counts.i16x8_extmul_high_i8x16_s > 0,
+    msg="SIMD exact coverage should include i16x8.extmul_high_i8x16_s",
+  )
+  assert_true(
+    counts.i16x8_extmul_low_i8x16_u > 0,
+    msg="SIMD exact coverage should include i16x8.extmul_low_i8x16_u",
+  )
+  assert_true(
+    counts.i16x8_extmul_high_i8x16_u > 0,
+    msg="SIMD exact coverage should include i16x8.extmul_high_i8x16_u",
+  )
+  assert_true(
+    counts.i32x4_extmul_low_i16x8_s > 0,
+    msg="SIMD exact coverage should include i32x4.extmul_low_i16x8_s",
+  )
+  assert_true(
+    counts.i32x4_extmul_high_i16x8_s > 0,
+    msg="SIMD exact coverage should include i32x4.extmul_high_i16x8_s",
+  )
+  assert_true(
+    counts.i32x4_extmul_low_i16x8_u > 0,
+    msg="SIMD exact coverage should include i32x4.extmul_low_i16x8_u",
+  )
+  assert_true(
+    counts.i32x4_extmul_high_i16x8_u > 0,
+    msg="SIMD exact coverage should include i32x4.extmul_high_i16x8_u",
+  )
+  assert_true(
+    counts.i64x2_extmul_low_i32x4_s > 0,
+    msg="SIMD exact coverage should include i64x2.extmul_low_i32x4_s",
+  )
+  assert_true(
+    counts.i64x2_extmul_high_i32x4_s > 0,
+    msg="SIMD exact coverage should include i64x2.extmul_high_i32x4_s",
+  )
+  assert_true(
+    counts.i64x2_extmul_low_i32x4_u > 0,
+    msg="SIMD exact coverage should include i64x2.extmul_low_i32x4_u",
+  )
+  assert_true(
+    counts.i64x2_extmul_high_i32x4_u > 0,
+    msg="SIMD exact coverage should include i64x2.extmul_high_i32x4_u",
+  )
 }
 
 ///|
