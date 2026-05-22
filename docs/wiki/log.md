@@ -1160,9 +1160,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-22] fuzzing | FUZ1019 invalid seed prerequisite metadata
 
-- Started [`[FUZ]1019`](../../agent-todo.md) by adding declarative `seed_prerequisites` metadata to AST-invalid strategy specs, plus public lookup helpers for strategy ids and strategy seed prerequisites.
-- `gen_invalid_ast_seed_config(...)` now derives memory/data and defined-function seed shaping from strategy metadata instead of a hard-coded `MissingDataCount` match, while keeping the `require_strategy_prereqs=false` opt-out strict.
-- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) with the metadata-derived seed-widening contract and added focused validate tests for memory/data and composed prerequisite derivation.
+- Completed `[FUZ]1019` by adding declarative `seed_prerequisites` metadata to AST-invalid strategy specs, plus public lookup helpers for strategy ids and strategy seed prerequisites.
+- `gen_invalid_ast_seed_config(...)` now derives memory/data and defined-function seed shaping from strategy metadata instead of a hard-coded `MissingDataCount` match, while keeping the `require_strategy_prereqs=false` opt-out strict. Binary invalid strategy specs now also expose lightweight prerequisite metadata for the current defined-function seed-shaping cases.
+- Added explicit `rich` seed constructors and `+seeds=` / `+seed-profiles=` modifiers for both `validate-invalid-ast` and `validate-invalid-binary`; `mixed` / `all` now runs `minimal,repro,small-natural,small-coverage-forced,natural,coverage-forced,rich`, and JSON details report per-profile attempt counts while default profiles still use the historical rich seed behavior.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) with the metadata-derived seed-widening and mixed-profile runner contracts, and added focused validate/fuzz tests for prerequisite derivation, mixed seed-profile scheduling, and per-profile attempt stats.
 
 ## [2026-05-22] fuzzing | FUZ1054 body-layout edge GenValid coverage
 

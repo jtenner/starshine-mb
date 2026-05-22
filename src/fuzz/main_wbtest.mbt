@@ -135,6 +135,8 @@ test "format_fuzz_run_report_json includes detailed suite ledgers" {
     "validate-invalid-ast", "smoke", 4L, 1, 0, 1, invalid_results,
   )
   assert_true(invalid_report.contains("\"details\":{"))
+  assert_true(invalid_report.contains("\"seed_profiles\":["))
+  assert_true(invalid_report.contains("\"profile\":\"rich\""))
   assert_true(invalid_report.contains("\"strategy_stats\":["))
   assert_true(invalid_report.contains("\"stable_id\":"))
   assert_true(invalid_report.contains("\"rejected_expected\":"))

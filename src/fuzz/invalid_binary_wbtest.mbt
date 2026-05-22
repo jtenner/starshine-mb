@@ -799,6 +799,43 @@ test "datacount mismatch too-large binary strategy rejects at validate stage" {
 }
 
 ///|
+test "validate_invalid_binary strategy specs expose declared prerequisites" {
+  let spec = match
+    validate_invalid_binary_strategy_by_stable_id(
+      "invalid-start-signature-module",
+    ) {
+    Some(v) => v
+    None => fail("missing invalid-start-signature-module strategy")
+  }
+  @debug.assert_eq(spec.seed_prerequisites, ["defined-func"])
+}
+
+///|
+test "validate_invalid_binary_run_config can schedule mixed seed profiles" {
+  let config = match validate_invalid_binary_run_config("smoke+seeds=mixed") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(config.profile, "smoke")
+  @debug.assert_eq(config.seed_profiles, [
+    "minimal", "repro", "small-natural", "small-coverage-forced", "natural", "coverage-forced",
+    "rich",
+  ])
+  @debug.assert_eq(config.attempts, 280)
+}
+
+///|
+test "validate_invalid_binary mixed seed fuzz records seed profile attempts" {
+  let stats = match
+    run_validate_invalid_binary_fuzz("smoke+seed-profiles=minimal", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(stats.seed_profiles, ["minimal"])
+  @debug.assert_eq(stats.seed_profile_attempts, [40])
+}
+
+///|
 test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_binary_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v

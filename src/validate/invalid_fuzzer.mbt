@@ -137,6 +137,7 @@ pub struct ValidateInvalidAstRunConfig {
   attempts : Int
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidAstStrategyId]
+  seed_profiles : Array[GenInvalidNamedSeedProfile]
 } derive(Eq, Debug)
 
 ///|
@@ -173,6 +174,8 @@ pub struct ValidateInvalidAstFuzzStats {
   attempts : Int
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidAstStrategyId]
+  seed_profiles : Array[GenInvalidNamedSeedProfile]
+  seed_profile_attempts : Array[Int]
   strategy_stats : Array[ValidateInvalidAstStrategyStats]
 } derive(Eq, Debug)
 
@@ -609,11 +612,90 @@ fn validate_invalid_ast_required_strategies(
 }
 
 ///|
+fn validate_invalid_ast_profile_has_prefix(
+  text : String,
+  prefix : String,
+) -> Bool {
+  if text.length() < prefix.length() {
+    return false
+  }
+  text.sub(end=prefix.length()).to_owned() == prefix
+}
+
+///|
+fn validate_invalid_ast_seed_profile_by_name(
+  name : String,
+) -> Result[GenInvalidNamedSeedProfile, String] {
+  match validate_fuzz_ascii_lower(name.trim().to_owned()) {
+    "natural" => Ok(NaturalSeedProfile)
+    "coverage-forced" => Ok(CoverageForcedSeedProfile)
+    "small-natural" => Ok(SmallNaturalSeedProfile)
+    "small-coverage-forced" => Ok(SmallCoverageForcedSeedProfile)
+    "repro" => Ok(ReproSeedProfile)
+    "minimal" => Ok(MinimalSeedProfile)
+    "rich" => Ok(RichSeedProfile)
+    other => Err("unknown validate-invalid-ast seed profile '\{other}'")
+  }
+}
+
+///|
+fn validate_invalid_ast_mixed_seed_profiles() -> Array[
+  GenInvalidNamedSeedProfile,
+] {
+  [
+    MinimalSeedProfile,
+    ReproSeedProfile,
+    SmallNaturalSeedProfile,
+    SmallCoverageForcedSeedProfile,
+    NaturalSeedProfile,
+    CoverageForcedSeedProfile,
+    RichSeedProfile,
+  ]
+}
+
+///|
+fn validate_invalid_ast_seed_profiles_from_modifier(
+  raw : String,
+) -> Result[Array[GenInvalidNamedSeedProfile], String] {
+  let normalized = validate_fuzz_ascii_lower(raw.trim().to_owned())
+  match normalized {
+    "default" | "rich" => Ok([RichSeedProfile])
+    "mixed" | "all" => Ok(validate_invalid_ast_mixed_seed_profiles())
+    _ => {
+      let out : Array[GenInvalidNamedSeedProfile] = []
+      for part in normalized.split(",") {
+        let item = part.trim().to_owned()
+        if item.length() > 0 {
+          match validate_invalid_ast_seed_profile_by_name(item) {
+            Ok(v) => out.push(v)
+            Err(msg) => return Err(msg)
+          }
+        }
+      }
+      if out.is_empty() {
+        return Err("validate-invalid-ast seed profile list must not be empty")
+      }
+      Ok(out)
+    }
+  }
+}
+
+///|
 pub fn validate_invalid_ast_run_config(
   profile : String,
 ) -> Result[ValidateInvalidAstRunConfig, String] {
-  let normalized = validate_fuzz_ascii_lower(profile.trim().to_owned())
-  let attempts = match normalized {
+  let raw = profile.trim().to_owned()
+  let parts : Array[String] = []
+  for part in raw.split("+") {
+    parts.push(part.to_owned())
+  }
+  let normalized = if parts.length() == 0 ||
+    parts[0].trim().to_owned().length() == 0 {
+    "smoke"
+  } else {
+    validate_fuzz_ascii_lower(parts[0].trim().to_owned())
+  }
+  let base_attempts = match normalized {
     "smoke" => 47
     "ci" => 470
     "stress" => 4700
@@ -622,11 +704,44 @@ pub fn validate_invalid_ast_run_config(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
       )
   }
+  let mut seed_profiles : Array[GenInvalidNamedSeedProfile] = []
+  let mut i = 1
+  while i < parts.length() {
+    let part = validate_fuzz_ascii_lower(parts[i].trim().to_owned())
+    if part.length() == 0 {
+      ()
+    } else if validate_invalid_ast_profile_has_prefix(part, "seeds=") {
+      match
+        validate_invalid_ast_seed_profiles_from_modifier(
+          part.sub(start=6).to_owned(),
+        ) {
+        Ok(v) => seed_profiles = v
+        Err(msg) => return Err(msg)
+      }
+    } else if validate_invalid_ast_profile_has_prefix(part, "seed-profiles=") {
+      match
+        validate_invalid_ast_seed_profiles_from_modifier(
+          part.sub(start=14).to_owned(),
+        ) {
+        Ok(v) => seed_profiles = v
+        Err(msg) => return Err(msg)
+      }
+    } else {
+      return Err(
+        "unknown validate-invalid-ast profile modifier '\{parts[i]}' in '\{profile}'",
+      )
+    }
+    i += 1
+  }
+  if seed_profiles.is_empty() {
+    seed_profiles = [RichSeedProfile]
+  }
   Ok({
     profile: normalized,
-    attempts,
+    attempts: base_attempts * seed_profiles.length(),
     generator_config: gen_invalid_coverage_seed_generator_config(),
     required_strategies: validate_invalid_ast_required_strategies(normalized),
+    seed_profiles,
   })
 }
 
@@ -2541,6 +2656,26 @@ fn validate_invalid_ast_join(values : Array[String], sep : String) -> String {
 }
 
 ///|
+fn validate_invalid_ast_params_for_seed_profile(
+  strategy : ValidateInvalidAstStrategyId,
+  seed_profile : GenInvalidNamedSeedProfile,
+  generator_config : GenValidConfig,
+) -> GenInvalidAstParams {
+  match seed_profile {
+    NaturalSeedProfile => GenInvalidAstParams::natural_seed(strategy)
+    CoverageForcedSeedProfile =>
+      GenInvalidAstParams::coverage_forced_seed(strategy)
+    SmallNaturalSeedProfile => GenInvalidAstParams::small_natural_seed(strategy)
+    SmallCoverageForcedSeedProfile =>
+      GenInvalidAstParams::small_coverage_forced_seed(strategy)
+    ReproSeedProfile => GenInvalidAstParams::repro_seed(strategy)
+    MinimalSeedProfile => GenInvalidAstParams::minimal_seed(strategy)
+    RichSeedProfile =>
+      GenInvalidAstParams::rich_seed(strategy, generator_config~)
+  }
+}
+
+///|
 pub fn run_validate_invalid_ast_fuzz(
   profile : String,
   seed : UInt64,
@@ -2553,15 +2688,22 @@ pub fn run_validate_invalid_ast_fuzz(
   let attempts = run_config.attempts
   let generator_config = run_config.generator_config
   let required_strategies = run_config.required_strategies
+  let seed_profiles = run_config.seed_profiles
   let registry = validate_invalid_ast_registry()
   if registry.is_empty() {
     return Err("validate-invalid-ast registry must not be empty")
   }
   let rnd = @splitmix.new(seed~)
   let stats = validate_invalid_ast_empty_strategy_stats()
+  let seed_profile_attempts = seed_profiles.map(fn(_) { 0 })
   let mut attempt = 0
   while attempt < attempts {
-    let spec = registry[attempt % registry.length()]
+    let seed_profile_idx = attempt % seed_profiles.length()
+    let seed_profile = seed_profiles[seed_profile_idx]
+    seed_profile_attempts[seed_profile_idx] = seed_profile_attempts[seed_profile_idx] +
+      1
+    let strategy_attempt = attempt / seed_profiles.length()
+    let spec = registry[strategy_attempt % registry.length()]
     let stat_idx = validate_invalid_ast_strategy_index(spec.id)
     let current = stats[stat_idx]
     validate_invalid_ast_update_strategy_stats(
@@ -2573,7 +2715,11 @@ pub fn run_validate_invalid_ast_fuzz(
     let generated = match
       gen_invalid_ast_generate(
         rnd,
-        GenInvalidAstParams::new(spec.id, generator_config~),
+        validate_invalid_ast_params_for_seed_profile(
+          spec.id,
+          seed_profile,
+          generator_config,
+        ),
       ) {
       Ok(v) => v
       Err(msg) =>
@@ -2640,8 +2786,55 @@ pub fn run_validate_invalid_ast_fuzz(
     attempts,
     generator_config,
     required_strategies,
+    seed_profiles,
+    seed_profile_attempts,
     strategy_stats: stats,
   })
+}
+
+///|
+test "validate_invalid_ast_run_config can schedule mixed seed profiles" {
+  let config = match validate_invalid_ast_run_config("smoke+seeds=mixed") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(config.profile, "smoke")
+  @debug.assert_eq(config.seed_profiles, [
+    MinimalSeedProfile,
+    ReproSeedProfile,
+    SmallNaturalSeedProfile,
+    SmallCoverageForcedSeedProfile,
+    NaturalSeedProfile,
+    CoverageForcedSeedProfile,
+    RichSeedProfile,
+  ])
+  @debug.assert_eq(config.attempts, 329)
+}
+
+///|
+test "validate_invalid_ast_run_config accepts explicit seed profile list" {
+  let config = match
+    validate_invalid_ast_run_config("smoke+seed-profiles=minimal,natural,rich") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(config.seed_profiles, [
+    MinimalSeedProfile,
+    NaturalSeedProfile,
+    RichSeedProfile,
+  ])
+  @debug.assert_eq(config.attempts, 141)
+}
+
+///|
+test "validate_invalid_ast mixed seed fuzz records seed profile attempts" {
+  let stats = match
+    run_validate_invalid_ast_fuzz("smoke+seed-profiles=minimal", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(stats.seed_profiles, [MinimalSeedProfile])
+  @debug.assert_eq(stats.seed_profile_attempts, [47])
 }
 
 ///|

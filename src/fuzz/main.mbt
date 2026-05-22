@@ -2068,7 +2068,18 @@ fn format_invalid_ast_details_json(
   stats : ValidateInvalidAstFuzzStats,
 ) -> String {
   let out = StringBuilder::new()
-  out.write_string("{\"strategy_stats\":[")
+  out.write_string("{\"seed_profiles\":[")
+  let mut p = 0
+  while p < stats.seed_profiles.length() {
+    if p > 0 {
+      out.write_char(',')
+    }
+    out.write_string(
+      "{\"profile\":\"\{fuzz_json_escape(gen_invalid_named_seed_profile_name(stats.seed_profiles[p]))}\",\"attempts\":\{stats.seed_profile_attempts[p]}}",
+    )
+    p += 1
+  }
+  out.write_string("],\"strategy_stats\":[")
   let mut i = 0
   while i < stats.strategy_stats.length() {
     if i > 0 {
@@ -2089,7 +2100,18 @@ fn format_invalid_binary_details_json(
   stats : ValidateInvalidBinaryFuzzStats,
 ) -> String {
   let out = StringBuilder::new()
-  out.write_string("{\"strategy_stats\":[")
+  out.write_string("{\"seed_profiles\":[")
+  let mut p = 0
+  while p < stats.seed_profiles.length() {
+    if p > 0 {
+      out.write_char(',')
+    }
+    out.write_string(
+      "{\"profile\":\"\{fuzz_json_escape(stats.seed_profiles[p])}\",\"attempts\":\{stats.seed_profile_attempts[p]}}",
+    )
+    p += 1
+  }
+  out.write_string("],\"strategy_stats\":[")
   let mut i = 0
   while i < stats.strategy_stats.length() {
     if i > 0 {

@@ -12,6 +12,7 @@ pub enum GenInvalidNamedSeedProfile {
   SmallCoverageForcedSeedProfile
   ReproSeedProfile
   MinimalSeedProfile
+  RichSeedProfile
 } derive(Eq, Debug)
 
 ///|
@@ -33,6 +34,7 @@ pub fn gen_invalid_named_seed_profile_name(
     SmallCoverageForcedSeedProfile => "small-coverage-forced"
     ReproSeedProfile => "repro"
     MinimalSeedProfile => "minimal"
+    RichSeedProfile => "rich"
   }
 }
 
@@ -151,6 +153,21 @@ pub fn GenInvalidAstParams::minimal_seed(
     strategy,
     seed_mode: MinimalValidSeed,
     seed_profile: Some(MinimalSeedProfile),
+    generator_config,
+    require_strategy_prereqs,
+  }
+}
+
+///|
+pub fn GenInvalidAstParams::rich_seed(
+  strategy : ValidateInvalidAstStrategyId,
+  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
+  require_strategy_prereqs? : Bool = true,
+) -> GenInvalidAstParams {
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    seed_profile: Some(RichSeedProfile),
     generator_config,
     require_strategy_prereqs,
   }

@@ -262,6 +262,7 @@ pub fn GenInvalidAstParams::minimal_seed(ValidateInvalidAstStrategyId, generator
 pub fn GenInvalidAstParams::natural_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidAstParams::new(ValidateInvalidAstStrategyId, seed_mode? : GenInvalidSeedMode, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidAstParams::repro_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
+pub fn GenInvalidAstParams::rich_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidAstParams::small_coverage_forced_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidAstParams::small_natural_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 
@@ -272,6 +273,7 @@ pub enum GenInvalidNamedSeedProfile {
   SmallCoverageForcedSeedProfile
   ReproSeedProfile
   MinimalSeedProfile
+  RichSeedProfile
 } derive(Eq, @debug.Debug)
 
 pub enum GenInvalidSeedMode {
@@ -1004,6 +1006,8 @@ pub struct ValidateInvalidAstFuzzStats {
   attempts : Int
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidAstStrategyId]
+  seed_profiles : Array[GenInvalidNamedSeedProfile]
+  seed_profile_attempts : Array[Int]
   strategy_stats : Array[ValidateInvalidAstStrategyStats]
 } derive(Eq, @debug.Debug)
 
@@ -1019,6 +1023,7 @@ pub struct ValidateInvalidAstRunConfig {
   attempts : Int
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidAstStrategyId]
+  seed_profiles : Array[GenInvalidNamedSeedProfile]
 } derive(Eq, @debug.Debug)
 
 pub enum ValidateInvalidAstSeedPrerequisite {

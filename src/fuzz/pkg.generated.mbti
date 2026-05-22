@@ -218,6 +218,7 @@ pub fn GenInvalidBinaryParams::minimal_seed(ValidateInvalidBinaryStrategyId, gen
 pub fn GenInvalidBinaryParams::natural_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidBinaryParams::new(ValidateInvalidBinaryStrategyId, seed_mode? : GenInvalidBinarySeedMode, generator_config? : @validate.GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidBinaryParams::repro_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig, require_strategy_prereqs? : Bool) -> Self
+pub fn GenInvalidBinaryParams::rich_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidBinaryParams::small_coverage_forced_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidBinaryParams::small_natural_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 
@@ -325,6 +326,8 @@ pub struct ValidateInvalidBinaryFuzzStats {
   attempts : Int
   generator_config : @validate.GenValidConfig
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
+  seed_profiles : Array[String]
+  seed_profile_attempts : Array[Int]
   strategy_stats : Array[ValidateInvalidBinaryStrategyStats]
 } derive(Eq, @debug.Debug)
 
@@ -340,6 +343,7 @@ pub struct ValidateInvalidBinaryRunConfig {
   attempts : Int
   generator_config : @validate.GenValidConfig
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
+  seed_profiles : Array[String]
 } derive(Eq, @debug.Debug)
 
 type ValidateInvalidBinarySectionSpan derive(Eq, @debug.Debug)
@@ -811,6 +815,7 @@ pub struct ValidateInvalidBinaryStrategySpec {
   expected_result : ValidateInvalidBinaryExpectedResult
   expected_issue_kind : String?
   required_in_smoke : Bool
+  seed_prerequisites : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategyStats {

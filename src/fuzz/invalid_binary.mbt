@@ -498,6 +498,7 @@ pub struct ValidateInvalidBinaryStrategySpec {
   expected_result : ValidateInvalidBinaryExpectedResult
   expected_issue_kind : String?
   required_in_smoke : Bool
+  seed_prerequisites : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -506,6 +507,7 @@ pub struct ValidateInvalidBinaryRunConfig {
   attempts : Int
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
+  seed_profiles : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -641,6 +643,21 @@ pub fn GenInvalidBinaryParams::minimal_seed(
 }
 
 ///|
+pub fn GenInvalidBinaryParams::rich_seed(
+  strategy : ValidateInvalidBinaryStrategyId,
+  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
+  require_strategy_prereqs? : Bool = true,
+) -> GenInvalidBinaryParams {
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    seed_profile: Some("rich"),
+    generator_config,
+    require_strategy_prereqs,
+  }
+}
+
+///|
 pub fn gen_invalid_binary_seed_mode_name(
   mode : GenInvalidBinarySeedMode,
 ) -> String {
@@ -696,6 +713,8 @@ pub struct ValidateInvalidBinaryFuzzStats {
   attempts : Int
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
+  seed_profiles : Array[String]
+  seed_profile_attempts : Array[Int]
   strategy_stats : Array[ValidateInvalidBinaryStrategyStats]
 } derive(Eq, Debug)
 
@@ -1375,22 +1394,40 @@ fn validate_invalid_binary_strategy_label(
 }
 
 ///|
+fn gen_invalid_binary_apply_seed_prerequisite(
+  config : GenValidConfig,
+  prerequisite : String,
+) -> GenValidConfig {
+  match prerequisite {
+    "defined-func" =>
+      @validate.gen_invalid_require_defined_func_gen_valid_config(config)
+    "memory-data" =>
+      @validate.gen_invalid_require_memory_data_gen_valid_config(config)
+    _ => config
+  }
+}
+
+///|
 pub fn gen_invalid_binary_seed_config(
   params : GenInvalidBinaryParams,
 ) -> GenValidConfig {
   if !params.require_strategy_prereqs {
     return params.generator_config
   }
-  let config = params.generator_config
-  match params.strategy {
-    InvalidFuncTypeIndex =>
-      @validate.gen_invalid_require_defined_func_gen_valid_config(config)
-    InvalidStartSignatureModule =>
-      @validate.gen_invalid_require_defined_func_gen_valid_config(config)
-    FuncSecWithoutCodeSecModule =>
-      @validate.gen_invalid_require_defined_func_gen_valid_config(config)
-    _ => config
+  let mut config = params.generator_config
+  match
+    validate_invalid_binary_strategy_by_stable_id(
+      validate_invalid_binary_strategy_label(params.strategy),
+    ) {
+    Some(spec) =>
+      for prerequisite in spec.seed_prerequisites {
+        config = gen_invalid_binary_apply_seed_prerequisite(
+          config, prerequisite,
+        )
+      }
+    None => ()
   }
+  config
 }
 
 ///|
@@ -1400,6 +1437,7 @@ fn validate_invalid_binary_strategy_spec(
   display_name : String,
   expected_result : ValidateInvalidBinaryExpectedResult,
   required_in_smoke? : Bool = true,
+  seed_prerequisites? : Array[String] = [],
 ) -> ValidateInvalidBinaryStrategySpec {
   let expected_issue_kind = match expected_result {
     DecodeRejected => None
@@ -1414,6 +1452,7 @@ fn validate_invalid_binary_strategy_spec(
     expected_result,
     expected_issue_kind,
     required_in_smoke,
+    seed_prerequisites,
   }
 }
 
@@ -1451,12 +1490,14 @@ pub fn validate_invalid_binary_registry() -> Array[
       "invalid-func-type-index",
       "function section type index out of range",
       ValidateRejected("function"),
+      seed_prerequisites=["defined-func"],
     ),
     validate_invalid_binary_strategy_spec(
       InvalidStartSignatureModule,
       "invalid-start-signature-module",
       "encoded module with invalid start signature",
       ValidateRejected("start"),
+      seed_prerequisites=["defined-func"],
     ),
     validate_invalid_binary_strategy_spec(
       InvalidImportedStartFuncParamModule,
@@ -1511,6 +1552,7 @@ pub fn validate_invalid_binary_registry() -> Array[
       "funcsec-without-codesec-module",
       "encoded module with function section but no code section",
       ValidateRejected("code"),
+      seed_prerequisites=["defined-func"],
     ),
     validate_invalid_binary_strategy_spec(
       DataCountWithoutDataSecModule,
@@ -4608,13 +4650,78 @@ fn validate_invalid_binary_required_strategies(
 }
 
 ///|
+fn validate_invalid_binary_profile_has_prefix(
+  text : String,
+  prefix : String,
+) -> Bool {
+  if text.length() < prefix.length() {
+    return false
+  }
+  text.sub(end=prefix.length()).to_owned() == prefix
+}
+
+///|
+fn validate_invalid_binary_mixed_seed_profiles() -> Array[String] {
+  [
+    "minimal", "repro", "small-natural", "small-coverage-forced", "natural", "coverage-forced",
+    "rich",
+  ]
+}
+
+///|
+fn validate_invalid_binary_seed_profiles_from_modifier(
+  raw : String,
+) -> Result[Array[String], String] {
+  let normalized = validate_invalid_binary_ascii_lower(raw.trim().to_owned())
+  match normalized {
+    "default" | "rich" => Ok(["rich"])
+    "mixed" | "all" => Ok(validate_invalid_binary_mixed_seed_profiles())
+    _ => {
+      let out : Array[String] = []
+      for part in normalized.split(",") {
+        let item = part.trim().to_owned()
+        if item.length() > 0 {
+          match item {
+            "natural"
+            | "coverage-forced"
+            | "small-natural"
+            | "small-coverage-forced"
+            | "repro"
+            | "minimal"
+            | "rich" => out.push(item)
+            _ =>
+              return Err(
+                "unknown validate-invalid-binary seed profile '\{item}'",
+              )
+          }
+        }
+      }
+      if out.is_empty() {
+        return Err(
+          "validate-invalid-binary seed profile list must not be empty",
+        )
+      }
+      Ok(out)
+    }
+  }
+}
+
+///|
 pub fn validate_invalid_binary_run_config(
   profile : String,
 ) -> Result[ValidateInvalidBinaryRunConfig, String] {
-  let normalized = validate_invalid_binary_ascii_lower(
-    profile.trim().to_owned(),
-  )
-  let attempts = match normalized {
+  let raw = profile.trim().to_owned()
+  let parts : Array[String] = []
+  for part in raw.split("+") {
+    parts.push(part.to_owned())
+  }
+  let normalized = if parts.length() == 0 ||
+    parts[0].trim().to_owned().length() == 0 {
+    "smoke"
+  } else {
+    validate_invalid_binary_ascii_lower(parts[0].trim().to_owned())
+  }
+  let base_attempts = match normalized {
     "smoke" => 40
     "ci" => 400
     "stress" => 4000
@@ -4623,11 +4730,44 @@ pub fn validate_invalid_binary_run_config(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
       )
   }
+  let mut seed_profiles : Array[String] = []
+  let mut i = 1
+  while i < parts.length() {
+    let part = validate_invalid_binary_ascii_lower(parts[i].trim().to_owned())
+    if part.length() == 0 {
+      ()
+    } else if validate_invalid_binary_profile_has_prefix(part, "seeds=") {
+      match
+        validate_invalid_binary_seed_profiles_from_modifier(
+          part.sub(start=6).to_owned(),
+        ) {
+        Ok(v) => seed_profiles = v
+        Err(msg) => return Err(msg)
+      }
+    } else if validate_invalid_binary_profile_has_prefix(part, "seed-profiles=") {
+      match
+        validate_invalid_binary_seed_profiles_from_modifier(
+          part.sub(start=14).to_owned(),
+        ) {
+        Ok(v) => seed_profiles = v
+        Err(msg) => return Err(msg)
+      }
+    } else {
+      return Err(
+        "unknown validate-invalid-binary profile modifier '\{parts[i]}' in '\{profile}'",
+      )
+    }
+    i += 1
+  }
+  if seed_profiles.is_empty() {
+    seed_profiles = ["rich"]
+  }
   Ok({
     profile: normalized,
-    attempts,
+    attempts: base_attempts * seed_profiles.length(),
     generator_config: gen_invalid_binary_coverage_seed_generator_config(),
     required_strategies: validate_invalid_binary_required_strategies(normalized),
+    seed_profiles,
   })
 }
 
@@ -17417,6 +17557,24 @@ fn validate_invalid_binary_required_failure_messages(
 }
 
 ///|
+fn validate_invalid_binary_params_for_seed_profile(
+  strategy : ValidateInvalidBinaryStrategyId,
+  seed_profile : String,
+  generator_config : GenValidConfig,
+) -> GenInvalidBinaryParams {
+  match seed_profile {
+    "natural" => GenInvalidBinaryParams::natural_seed(strategy)
+    "coverage-forced" => GenInvalidBinaryParams::coverage_forced_seed(strategy)
+    "small-natural" => GenInvalidBinaryParams::small_natural_seed(strategy)
+    "small-coverage-forced" =>
+      GenInvalidBinaryParams::small_coverage_forced_seed(strategy)
+    "repro" => GenInvalidBinaryParams::repro_seed(strategy)
+    "minimal" => GenInvalidBinaryParams::minimal_seed(strategy)
+    _ => GenInvalidBinaryParams::rich_seed(strategy, generator_config~)
+  }
+}
+
+///|
 pub fn run_validate_invalid_binary_fuzz(
   profile : String,
   seed : UInt64,
@@ -17429,20 +17587,27 @@ pub fn run_validate_invalid_binary_fuzz(
   let attempts = run_config.attempts
   let generator_config = run_config.generator_config
   let required_strategies = run_config.required_strategies
+  let seed_profiles = run_config.seed_profiles
   let registry = validate_invalid_binary_registry()
   if registry.is_empty() {
     return Err("validate-invalid-binary registry must not be empty")
   }
   let rnd = @splitmix.new(seed~)
   let stats = validate_invalid_binary_empty_strategy_stats()
+  let seed_profile_attempts = seed_profiles.map(fn(_) { 0 })
   let mut attempt = 0
   while attempt < attempts {
-    let spec = if attempt < required_strategies.length() {
+    let seed_profile_idx = attempt % seed_profiles.length()
+    let seed_profile = seed_profiles[seed_profile_idx]
+    seed_profile_attempts[seed_profile_idx] = seed_profile_attempts[seed_profile_idx] +
+      1
+    let strategy_attempt = attempt / seed_profiles.length()
+    let spec = if strategy_attempt < required_strategies.length() {
       registry[validate_invalid_binary_strategy_index(
-        required_strategies[attempt],
+        required_strategies[strategy_attempt],
       )]
     } else {
-      registry[attempt % registry.length()]
+      registry[strategy_attempt % registry.length()]
     }
     let stat_idx = validate_invalid_binary_strategy_index(spec.id)
     validate_invalid_binary_update_strategy_stats(
@@ -17454,7 +17619,11 @@ pub fn run_validate_invalid_binary_fuzz(
     let generated = match
       gen_invalid_binary_generate(
         rnd,
-        GenInvalidBinaryParams::new(spec.id, generator_config~),
+        validate_invalid_binary_params_for_seed_profile(
+          spec.id,
+          seed_profile,
+          generator_config,
+        ),
       ) {
       Ok(v) => v
       Err(msg) =>
@@ -17562,6 +17731,8 @@ pub fn run_validate_invalid_binary_fuzz(
     attempts,
     generator_config,
     required_strategies,
+    seed_profiles,
+    seed_profile_attempts,
     strategy_stats: stats,
   })
 }

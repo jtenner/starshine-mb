@@ -15,6 +15,7 @@ using @validate {
   type ValidateValidFeatureFloorFailure,
   type ValidateValidFeatureKey,
   type ValidateValidFuzzStats,
+  gen_invalid_named_seed_profile_name,
   gen_valid_config_label,
   gen_valid_module_result,
   gen_valid_module_with_config,
