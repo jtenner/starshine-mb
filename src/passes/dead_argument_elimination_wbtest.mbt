@@ -2028,6 +2028,74 @@ test "dae func237 immediate local copy preserves branch-skipped copies" {
 }
 
 ///|
+test "dae func237 used temp copy retargets reads before final copy" {
+  let body = [
+    @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(108U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(108U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+      ],
+      None,
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(108U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(33U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+  ]
+  match dae_try_fold_func237_used_temp_copy_body_once(body, 4) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(33U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(33U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+          ],
+          None,
+        ),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ])
+    None => fail("expected Func237 used-temp copy fold")
+  }
+}
+
+///|
+test "dae func237 used temp copy preserves temps read after copy" {
+  let body = [
+    @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(108U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(108U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(33U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(108U)),
+  ]
+  match dae_try_fold_func237_used_temp_copy_body_once(body, 4) {
+    None => ()
+    Some(_) => fail("temp read after copy must preserve the alias")
+  }
+}
+
+///|
+test "dae func237 used temp copy preserves branchy gaps" {
+  let body = [
+    @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(108U)),
+    @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(108U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(33U)),
+  ]
+  match dae_try_fold_func237_used_temp_copy_body_once(body, 4) {
+    None => ()
+    Some(_) => fail("branchy gap must preserve the alias")
+  }
+}
+
+///|
 test "dae func237 immediate local copy preserves call gaps when try_table exists" {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(18072)),
