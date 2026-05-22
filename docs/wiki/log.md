@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-22] binaryen | SGO clean data.drop FlowScanner slice
+
+- Probed clean and global-steered `data.drop` neighbors against Binaryen v129. Binaryen promoted the operandless independent `data.drop` before the fake-global nested-if guard, while preserving the mutable/read-write shape when `global.get` controlled whether the `data.drop` executed.
+- Extended `[SGO]003` read-only-to-write FlowScanner handling for independent operandless `data.drop` side effects in the same six scanner paths as `elem.drop`. Segment drops remain accepted only when independent; global-steered control wrappers remain conservative.
+- Added focused positive and negative tests for clean `data.drop` and global-steered `data.drop` control flow. Validation evidence: initial failing `moon test src/passes`, green `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-data-drop-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-22] binaryen | SGO clean elem.drop FlowScanner slice
 
 - Probed clean and global-steered `elem.drop` neighbors against Binaryen v129. Binaryen promoted the operandless independent `elem.drop` before the fake-global nested-if guard, while preserving the mutable/read-write shape when `global.get` controlled whether the `elem.drop` executed.
