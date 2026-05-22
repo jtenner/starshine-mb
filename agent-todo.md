@@ -609,6 +609,8 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
 - [FUZ]1019 - Declarative Invalid Seed Prerequisites And Mixed Seed Profiles
+  - Status: IN PROGRESS (cron 23, 2026-05-22) — prerequisite metadata/config derivation slice landed; next resume should add mixed seed-profile execution over the declared metadata.
+  - Current evidence: AST invalid strategy specs now expose `seed_prerequisites` metadata for memory/data and defined-function seed shaping; `gen_invalid_ast_seed_config(...)` derives widening from that metadata for `MissingDataCount`, `MissingDataCountDataDrop`, `NonConstantDataOffset`, and datacount mismatch strategies; opt-out remains strict. Validation: `moon info`, `moon fmt`, `moon test src/validate`, and `moon test` all pass with pre-existing warnings only.
   - Goal: make invalid strategy seed shaping data-driven and run invalid strategies over multiple base profiles.
   - Why: prerequisite widening is currently hardcoded in seed-config functions. As strategies grow, agents need a declarative way to request defined funcs, memories, passive data, names, refs, tags, tables, etc.
   - Deliverables: add prerequisite metadata to invalid strategy specs; derive `GenValidConfig` adjustments from prerequisites; run invalid fuzz profiles over minimal, repro, small-natural, small-coverage, natural, coverage-forced, and rich seed profiles as configured.

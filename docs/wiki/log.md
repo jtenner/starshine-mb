@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1019 invalid seed prerequisite metadata
+
+- Started [`[FUZ]1019`](../../agent-todo.md) by adding declarative `seed_prerequisites` metadata to AST-invalid strategy specs, plus public lookup helpers for strategy ids and strategy seed prerequisites.
+- `gen_invalid_ast_seed_config(...)` now derives memory/data and defined-function seed shaping from strategy metadata instead of a hard-coded `MissingDataCount` match, while keeping the `require_strategy_prereqs=false` opt-out strict.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) with the metadata-derived seed-widening contract and added focused validate tests for memory/data and composed prerequisite derivation.
+
 ## [2026-05-22] fuzzing | FUZ1054 body-layout edge GenValid coverage
 
 - Continued [`[FUZ]1054`](../../agent-todo.md) by making the `control-heavy` profile keep a valid empty no-local body, a valid bare-`unreachable` multi-result body, a forced mixed-param/multi-result signature, and valid local-name entries in the structured name section.

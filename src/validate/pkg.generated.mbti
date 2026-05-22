@@ -32,6 +32,8 @@ pub fn gen_invalid_ast_seed_config(GenInvalidAstParams) -> GenValidConfig
 
 pub fn gen_invalid_ast_seed_module(@splitmix.RandomState, GenInvalidAstParams) -> Result[@lib.Module, String]
 
+pub fn gen_invalid_ast_strategy_seed_prerequisites(ValidateInvalidAstStrategyId) -> Array[ValidateInvalidAstSeedPrerequisite]
+
 pub fn gen_invalid_coverage_seed_generator_config() -> GenValidConfig
 
 pub fn gen_invalid_named_seed_profile_name(GenInvalidNamedSeedProfile) -> String
@@ -129,6 +131,8 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec]
 pub fn validate_invalid_ast_run_config(String) -> Result[ValidateInvalidAstRunConfig, String]
 
 pub fn validate_invalid_ast_strategy_by_stable_id(String) -> ValidateInvalidAstStrategySpec?
+
+pub fn validate_invalid_ast_strategy_spec_by_id(ValidateInvalidAstStrategyId) -> ValidateInvalidAstStrategySpec?
 
 pub fn validate_memsec(@lib.MemSec?, Env) -> Result[Env, String]
 
@@ -1017,6 +1021,11 @@ pub struct ValidateInvalidAstRunConfig {
   required_strategies : Array[ValidateInvalidAstStrategyId]
 } derive(Eq, @debug.Debug)
 
+pub enum ValidateInvalidAstSeedPrerequisite {
+  RequiresDefinedFunc
+  RequiresMemoryData
+} derive(Eq, @debug.Debug)
+
 pub enum ValidateInvalidAstStrategyId {
   DuplicateExportName
   InvalidStartSignature
@@ -1076,6 +1085,7 @@ pub struct ValidateInvalidAstStrategySpec {
   expected_family : ValidationIssueFamily
   expected_issue_kind : ValidationIssueFamily
   required_in_smoke : Bool
+  seed_prerequisites : Array[ValidateInvalidAstSeedPrerequisite]
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidAstStrategyStats {

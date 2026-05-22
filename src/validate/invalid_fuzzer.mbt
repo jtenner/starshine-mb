@@ -113,6 +113,12 @@ pub enum ValidateInvalidAstStrategyId {
 } derive(Eq, Debug)
 
 ///|
+pub enum ValidateInvalidAstSeedPrerequisite {
+  RequiresDefinedFunc
+  RequiresMemoryData
+} derive(Eq, Debug)
+
+///|
 pub struct ValidateInvalidAstStrategySpec {
   id : ValidateInvalidAstStrategyId
   stable_id : String
@@ -122,6 +128,7 @@ pub struct ValidateInvalidAstStrategySpec {
   expected_family : ValidationIssueFamily
   expected_issue_kind : ValidationIssueFamily
   required_in_smoke : Bool
+  seed_prerequisites : Array[ValidateInvalidAstSeedPrerequisite]
 } derive(Eq, Debug)
 
 ///|
@@ -176,6 +183,7 @@ fn validate_invalid_ast_strategy_spec(
   display_name : String,
   expected_family : ValidationIssueFamily,
   required_in_smoke? : Bool = true,
+  seed_prerequisites? : Array[ValidateInvalidAstSeedPrerequisite] = [],
 ) -> ValidateInvalidAstStrategySpec {
   {
     id,
@@ -186,6 +194,7 @@ fn validate_invalid_ast_strategy_spec(
     expected_family,
     expected_issue_kind: expected_family,
     required_in_smoke,
+    seed_prerequisites,
   }
 }
 
@@ -258,6 +267,7 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "missing-datacount",
       "missing datacount for bulk-memory use",
       FunctionBodyFamily,
+      seed_prerequisites=[RequiresMemoryData],
     ),
     validate_invalid_ast_strategy_spec(
       UndeclaredRefFunc,
@@ -308,6 +318,7 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "non-constant-data-offset",
       "non-constant active data offset",
       DataSectionFamily,
+      seed_prerequisites=[RequiresMemoryData],
     ),
     validate_invalid_ast_strategy_spec(
       InvalidImportedFuncTypeIndex,
@@ -396,6 +407,7 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "missing datacount for data.drop",
       FunctionBodyFamily,
       required_in_smoke=false,
+      seed_prerequisites=[RequiresDefinedFunc, RequiresMemoryData],
     ),
     validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
@@ -494,6 +506,7 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "datacount section smaller than data segment count",
       DataCountSectionFamily,
       required_in_smoke=false,
+      seed_prerequisites=[RequiresMemoryData],
     ),
     validate_invalid_ast_strategy_spec(
       DataCountMismatchTooLarge,
@@ -501,8 +514,21 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "datacount section larger than data segment count",
       DataCountSectionFamily,
       required_in_smoke=false,
+      seed_prerequisites=[RequiresMemoryData],
     ),
   ]
+}
+
+///|
+pub fn validate_invalid_ast_strategy_spec_by_id(
+  id : ValidateInvalidAstStrategyId,
+) -> ValidateInvalidAstStrategySpec? {
+  for spec in validate_invalid_ast_registry() {
+    if spec.id == id {
+      return Some(spec)
+    }
+  }
+  None
 }
 
 ///|

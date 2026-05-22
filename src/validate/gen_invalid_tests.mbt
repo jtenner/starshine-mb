@@ -1,5 +1,5 @@
 ///|
-test "gen_invalid_ast_seed_config widens missing-datacount prerequisites" {
+test "gen_invalid_ast_seed_config widens declared memory-data prerequisites" {
   let restrictive = GenValidConfig::{
     ..GenValidConfig::natural_default(),
     max_mems: 0,
@@ -16,7 +16,10 @@ test "gen_invalid_ast_seed_config widens missing-datacount prerequisites" {
     },
   }
   let adjusted = gen_invalid_ast_seed_config(
-    GenInvalidAstParams::new(MissingDataCount, generator_config=restrictive),
+    GenInvalidAstParams::new(
+      NonConstantDataOffset,
+      generator_config=restrictive,
+    ),
   )
   @debug.assert_eq(adjusted.max_mems, 1)
   @debug.assert_eq(adjusted.max_datas, 1)
@@ -116,11 +119,32 @@ test "gen_invalid_ast coverage_forced_seed uses coverage-forced defaults" {
 
 ///|
 test "gen_invalid_ast new can disable strategy prereqs" {
+  let restrictive = GenValidConfig::{
+    ..GenValidConfig::natural_default(),
+    max_mems: 0,
+    max_datas: 0,
+    section_bias: GenValidSectionBias::{
+      ..GenValidSectionBias::natural_default(),
+      mems_percent: 0,
+      datas_percent: 0,
+    },
+    features: GenValidFeatureToggles::{
+      ..GenValidFeatureToggles::natural_default(),
+      allow_mems: false,
+      allow_datas: false,
+    },
+  }
   let params = GenInvalidAstParams::new(
-    MissingDataCount,
+    NonConstantDataOffset,
+    generator_config=restrictive,
     require_strategy_prereqs=false,
   )
   assert_false(params.require_strategy_prereqs)
+  let adjusted = gen_invalid_ast_seed_config(params)
+  @debug.assert_eq(adjusted.max_mems, 0)
+  @debug.assert_eq(adjusted.max_datas, 0)
+  assert_false(adjusted.features.allow_mems)
+  assert_false(adjusted.features.allow_datas)
 }
 
 ///|
@@ -159,6 +183,39 @@ test "gen_invalid_require_defined_func_gen_valid_config widens type and func min
   let adjusted = gen_invalid_require_defined_func_gen_valid_config(restrictive)
   @debug.assert_eq(adjusted.max_type_defs, 1)
   @debug.assert_eq(adjusted.max_defined_funcs, 1)
+}
+
+///|
+test "gen_invalid_ast_seed_config composes declared prerequisites" {
+  let restrictive = GenValidConfig::{
+    ..GenValidConfig::natural_default(),
+    max_type_defs: 0,
+    max_defined_funcs: 0,
+    max_mems: 0,
+    max_datas: 0,
+    section_bias: GenValidSectionBias::{
+      ..GenValidSectionBias::natural_default(),
+      mems_percent: 0,
+      datas_percent: 0,
+    },
+    features: GenValidFeatureToggles::{
+      ..GenValidFeatureToggles::natural_default(),
+      allow_mems: false,
+      allow_datas: false,
+    },
+  }
+  let adjusted = gen_invalid_ast_seed_config(
+    GenInvalidAstParams::new(
+      MissingDataCountDataDrop,
+      generator_config=restrictive,
+    ),
+  )
+  @debug.assert_eq(adjusted.max_type_defs, 1)
+  @debug.assert_eq(adjusted.max_defined_funcs, 1)
+  @debug.assert_eq(adjusted.max_mems, 1)
+  @debug.assert_eq(adjusted.max_datas, 1)
+  assert_true(adjusted.features.allow_mems)
+  assert_true(adjusted.features.allow_datas)
 }
 
 ///|

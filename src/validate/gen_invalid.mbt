@@ -305,17 +305,41 @@ pub fn gen_invalid_small_gen_valid_config(
 }
 
 ///|
+fn gen_invalid_apply_seed_prerequisite(
+  config : GenValidConfig,
+  prerequisite : ValidateInvalidAstSeedPrerequisite,
+) -> GenValidConfig {
+  match prerequisite {
+    RequiresDefinedFunc =>
+      gen_invalid_require_defined_func_gen_valid_config(config)
+    RequiresMemoryData =>
+      gen_invalid_require_memory_data_gen_valid_config(config)
+  }
+}
+
+///|
+pub fn gen_invalid_ast_strategy_seed_prerequisites(
+  strategy : ValidateInvalidAstStrategyId,
+) -> Array[ValidateInvalidAstSeedPrerequisite] {
+  match validate_invalid_ast_strategy_spec_by_id(strategy) {
+    Some(spec) => spec.seed_prerequisites
+    None => []
+  }
+}
+
+///|
 pub fn gen_invalid_ast_seed_config(
   params : GenInvalidAstParams,
 ) -> GenValidConfig {
   if !params.require_strategy_prereqs {
     return params.generator_config
   }
-  let config = params.generator_config
-  match params.strategy {
-    MissingDataCount => gen_invalid_require_memory_data_gen_valid_config(config)
-    _ => config
+  let mut config = params.generator_config
+  for
+    prerequisite in gen_invalid_ast_strategy_seed_prerequisites(params.strategy) {
+    config = gen_invalid_apply_seed_prerequisite(config, prerequisite)
   }
+  config
 }
 
 ///|
