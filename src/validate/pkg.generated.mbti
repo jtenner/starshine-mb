@@ -278,6 +278,8 @@ pub enum GenInvalidSeedMode {
 pub enum GenValidBudgetStop {
   InstructionCountBudgetExceeded
   ExpressionDepthBudgetExceeded
+  ModuleByteSizeBudgetExceeded
+  SegmentPayloadSizeBudgetExceeded
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidConfig {
@@ -298,6 +300,9 @@ pub struct GenValidConfig {
   max_body_depth : Int
   max_instruction_count_budget : Int?
   max_expression_depth_budget : Int?
+  max_module_byte_size_budget : Int?
+  max_name_length : Int
+  max_segment_payload_size : Int
   section_bias : GenValidSectionBias
   features : GenValidFeatureToggles
 } derive(Eq, @debug.Debug)

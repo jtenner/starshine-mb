@@ -221,6 +221,9 @@ pub struct GenValidConfig {
   max_body_depth : Int
   max_instruction_count_budget : Int?
   max_expression_depth_budget : Int?
+  max_module_byte_size_budget : Int?
+  max_name_length : Int
+  max_segment_payload_size : Int
   section_bias : GenValidSectionBias
   features : GenValidFeatureToggles
 } derive(Eq, Debug)
@@ -275,6 +278,19 @@ pub impl Show for GenValidConfig with output(self, logger) {
     }
     None => logger.write_string("None")
   }
+  logger.write_string(", max_module_byte_size_budget: ")
+  match self.max_module_byte_size_budget {
+    Some(limit) => {
+      logger.write_string("Some(")
+      limit.output(logger)
+      logger.write_char(')')
+    }
+    None => logger.write_string("None")
+  }
+  logger.write_string(", max_name_length: ")
+  self.max_name_length.output(logger)
+  logger.write_string(", max_segment_payload_size: ")
+  self.max_segment_payload_size.output(logger)
   logger.write_string(", section_bias: ")
   self.section_bias.output(logger)
   logger.write_string(", features: ")
@@ -302,6 +318,9 @@ pub fn GenValidConfig::natural_default() -> GenValidConfig {
     max_body_depth: 2,
     max_instruction_count_budget: None,
     max_expression_depth_budget: None,
+    max_module_byte_size_budget: None,
+    max_name_length: 64,
+    max_segment_payload_size: 64,
     section_bias: GenValidSectionBias::natural_default(),
     features: GenValidFeatureToggles::natural_default(),
   }
@@ -713,6 +732,9 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_body_depth: 8,
         max_instruction_count_budget: Some(4096),
         max_expression_depth_budget: Some(64),
+        max_module_byte_size_budget: Some(262144),
+        max_name_length: 256,
+        max_segment_payload_size: 4096,
       }
   }
 }
@@ -807,6 +829,8 @@ pub struct GenValidGenerated {
 pub enum GenValidBudgetStop {
   InstructionCountBudgetExceeded
   ExpressionDepthBudgetExceeded
+  ModuleByteSizeBudgetExceeded
+  SegmentPayloadSizeBudgetExceeded
 } derive(Eq, Debug)
 
 ///|
@@ -8846,15 +8870,43 @@ fn gen_valid_pick_type_idx(ctx : GenValidContext, type_count : Int) -> TypeIdx {
 }
 
 ///|
+fn gen_valid_name(ctx : GenValidContext, base : StringView) -> Name {
+  let limit = ctx.config.max_name_length
+  if limit <= 0 {
+    return Name::new("")
+  }
+  if base.length() <= limit {
+    return Name::new(base)
+  }
+  let out = StringBuilder::new()
+  for i = 0; i < limit; i = i + 1 {
+    out.write_char('n')
+  }
+  Name::from_string(out.to_string())
+}
+
+///|
+fn gen_valid_payload(ctx : GenValidContext, payload : Bytes) -> Bytes {
+  let limit = ctx.config.max_segment_payload_size
+  if limit < 0 {
+    Bytes::new(0)
+  } else if payload.length() <= limit {
+    payload
+  } else {
+    Bytes::new(limit)
+  }
+}
+
+///|
 fn gen_valid_import_module_name(ctx : GenValidContext, index : Int) -> Name {
   if gen_valid_is_topology_heavy_config(ctx.config) {
     match index % 3 {
-      0 => Name::new("env")
-      1 => Name::new("fzg.topology.a")
-      _ => Name::new("fzg.topology.b")
+      0 => gen_valid_name(ctx, "env")
+      1 => gen_valid_name(ctx, "fzg.topology.a")
+      _ => gen_valid_name(ctx, "fzg.topology.b")
     }
   } else {
-    Name::new("env")
+    gen_valid_name(ctx, "env")
   }
 }
 
@@ -9176,7 +9228,7 @@ fn gen_valid_module_once_with_config(
     imports.push(
       Import::new(
         gen_valid_import_module_name(ctx, i),
-        Name::new("imported_func_\{i}"),
+        gen_valid_name(ctx, "imported_func_\{i}"),
         ExternType::func(type_idx),
       ),
     )
@@ -9188,7 +9240,7 @@ fn gen_valid_module_once_with_config(
     imports.push(
       Import::new(
         gen_valid_import_module_name(ctx, import_func_count + i),
-        Name::new("imported_table_\{i}"),
+        gen_valid_name(ctx, "imported_table_\{i}"),
         ExternType::table(table_type),
       ),
     )
@@ -9203,7 +9255,7 @@ fn gen_valid_module_once_with_config(
           ctx,
           import_func_count + import_table_count + i,
         ),
-        Name::new("imported_memory_\{i}"),
+        gen_valid_name(ctx, "imported_memory_\{i}"),
         ExternType::mem(mem_type),
       ),
     )
@@ -9250,7 +9302,7 @@ fn gen_valid_module_once_with_config(
           ctx,
           import_func_count + import_table_count + import_mem_count + i,
         ),
-        Name::new("imported_global_\{i}"),
+        gen_valid_name(ctx, "imported_global_\{i}"),
         ExternType::global(global_type),
       ),
     )
@@ -9274,7 +9326,7 @@ fn gen_valid_module_once_with_config(
           import_global_count +
           i,
         ),
-        Name::new("imported_tag_\{i}"),
+        gen_valid_name(ctx, "imported_tag_\{i}"),
         ExternType::tag(tag_type),
       ),
     )
@@ -9668,20 +9720,23 @@ fn gen_valid_module_once_with_config(
             },
             gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
           ),
-          b"gen-valid-active-with-a-larger-payload",
+          gen_valid_payload(ctx, b"gen-valid-active-with-a-larger-payload"),
         )
       } else if ctx.config.mode == CoverageForced && i == 1 {
-        Data::new(DataMode::passive(), b"")
+        Data::new(DataMode::passive(), gen_valid_payload(ctx, b""))
       } else if ctx.config.mode == CoverageForced && i == 2 {
         Data::new(
           DataMode::active(
             MemIdx::new(0U),
             Expr::new([Instruction::i32_const(0)]),
           ),
-          b"",
+          gen_valid_payload(ctx, b""),
         )
       } else if ctx.config.mode == CoverageForced && i == 3 {
-        Data::new(DataMode::passive(), b"\x00\x01\x02\x03\x04\x05\x06\x07")
+        Data::new(
+          DataMode::passive(),
+          gen_valid_payload(ctx, b"\x00\x01\x02\x03\x04\x05\x06\x07"),
+        )
       } else {
         let payload = match ctx.random_int(4) {
           0 => b""
@@ -9690,7 +9745,7 @@ fn gen_valid_module_once_with_config(
           _ => b"\x00\x01\x02"
         }
         if ctx.random_int(3) == 0 {
-          Data::new(DataMode::passive(), payload)
+          Data::new(DataMode::passive(), gen_valid_payload(ctx, payload))
         } else {
           let mem_idx = if total_mem_count > 1 && ctx.random_int(4) == 0 {
             MemIdx::new(1U)
@@ -9702,7 +9757,10 @@ fn gen_valid_module_once_with_config(
           } else {
             gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx)
           }
-          Data::new(DataMode::active(mem_idx, offset), payload)
+          Data::new(
+            DataMode::active(mem_idx, offset),
+            gen_valid_payload(ctx, payload),
+          )
         }
       }
       datas.push(data)
@@ -9767,21 +9825,21 @@ fn gen_valid_module_once_with_config(
     }
     exports.push(
       Export::new(
-        Name::new(primary_func_export_name),
+        gen_valid_name(ctx, primary_func_export_name),
         ExternIdx::func(first_defined_func_idx),
       ),
     )
     if gen_valid_is_topology_heavy_config(config) {
       exports.push(
         Export::new(
-          Name::new(alias_func_export_name),
+          gen_valid_name(ctx, alias_func_export_name),
           ExternIdx::func(first_defined_func_idx),
         ),
       )
       if import_func_count > 0 {
         exports.push(
           Export::new(
-            Name::new("imported_func_0.reexport"),
+            gen_valid_name(ctx, "imported_func_0.reexport"),
             ExternIdx::func(FuncIdx::new(0U)),
           ),
         )
@@ -9789,32 +9847,47 @@ fn gen_valid_module_once_with_config(
     }
     if total_table_count > 0 {
       exports.push(
-        Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))),
+        Export::new(
+          gen_valid_name(ctx, "table0"),
+          ExternIdx::table(TableIdx::new(0U)),
+        ),
       )
       if gen_valid_is_topology_heavy_config(config) && total_table_count > 1 {
         exports.push(
-          Export::new(Name::new("table1"), ExternIdx::table(TableIdx::new(1U))),
+          Export::new(
+            gen_valid_name(ctx, "table1"),
+            ExternIdx::table(TableIdx::new(1U)),
+          ),
         )
       }
     }
     if total_mem_count > 0 {
       exports.push(
-        Export::new(Name::new("memory0"), ExternIdx::mem(MemIdx::new(0U))),
+        Export::new(
+          gen_valid_name(ctx, "memory0"),
+          ExternIdx::mem(MemIdx::new(0U)),
+        ),
       )
       if gen_valid_is_topology_heavy_config(config) && total_mem_count > 1 {
         exports.push(
-          Export::new(Name::new("memory1"), ExternIdx::mem(MemIdx::new(1U))),
+          Export::new(
+            gen_valid_name(ctx, "memory1"),
+            ExternIdx::mem(MemIdx::new(1U)),
+          ),
         )
       }
     }
     if total_global_count > 0 {
       exports.push(
-        Export::new(Name::new("global0"), ExternIdx::global(GlobalIdx::new(0U))),
+        Export::new(
+          gen_valid_name(ctx, "global0"),
+          ExternIdx::global(GlobalIdx::new(0U)),
+        ),
       )
       if gen_valid_is_topology_heavy_config(config) && total_global_count > 1 {
         exports.push(
           Export::new(
-            Name::new("global1"),
+            gen_valid_name(ctx, "global1"),
             ExternIdx::global(GlobalIdx::new(1U)),
           ),
         )
@@ -9822,11 +9895,17 @@ fn gen_valid_module_once_with_config(
     }
     if total_tag_count > 0 {
       exports.push(
-        Export::new(Name::new("tag0"), ExternIdx::tag(TagIdx::new(0U))),
+        Export::new(
+          gen_valid_name(ctx, "tag0"),
+          ExternIdx::tag(TagIdx::new(0U)),
+        ),
       )
       if gen_valid_is_topology_heavy_config(config) && total_tag_count > 1 {
         exports.push(
-          Export::new(Name::new("tag1"), ExternIdx::tag(TagIdx::new(1U))),
+          Export::new(
+            gen_valid_name(ctx, "tag1"),
+            ExternIdx::tag(TagIdx::new(1U)),
+          ),
         )
       }
     }
@@ -9868,38 +9947,52 @@ fn gen_valid_module_once_with_config(
     (config.mode == CoverageForced || ctx.random_int(3) == 0) {
     let func_name_entries : Array[NameAssoc] = []
     if !funcs.is_empty() {
-      func_name_entries.push(NameAssoc::new(0U, Name::new("fzg_func0")))
+      func_name_entries.push(
+        NameAssoc::new(0U, gen_valid_name(ctx, "fzg_func0")),
+      )
     }
     let type_name_entries : Array[NameAssoc] = []
     if !type_defs.is_empty() {
-      type_name_entries.push(NameAssoc::new(0U, Name::new("fzg_type0")))
+      type_name_entries.push(
+        NameAssoc::new(0U, gen_valid_name(ctx, "fzg_type0")),
+      )
     }
     let table_name_entries : Array[NameAssoc] = []
     if total_table_count > 0 {
-      table_name_entries.push(NameAssoc::new(0U, Name::new("fzg_table0")))
+      table_name_entries.push(
+        NameAssoc::new(0U, gen_valid_name(ctx, "fzg_table0")),
+      )
     }
     let memory_name_entries : Array[NameAssoc] = []
     if total_mem_count > 0 {
-      memory_name_entries.push(NameAssoc::new(0U, Name::new("fzg_memory0")))
+      memory_name_entries.push(
+        NameAssoc::new(0U, gen_valid_name(ctx, "fzg_memory0")),
+      )
     }
     let global_name_entries : Array[NameAssoc] = []
     if total_global_count > 0 {
-      global_name_entries.push(NameAssoc::new(0U, Name::new("fzg_global0")))
+      global_name_entries.push(
+        NameAssoc::new(0U, gen_valid_name(ctx, "fzg_global0")),
+      )
     }
     let elem_name_entries : Array[NameAssoc] = []
     if !elems.is_empty() {
-      elem_name_entries.push(NameAssoc::new(0U, Name::new("fzg_elem0")))
+      elem_name_entries.push(
+        NameAssoc::new(0U, gen_valid_name(ctx, "fzg_elem0")),
+      )
     }
     let data_name_entries : Array[NameAssoc] = []
     if !datas.is_empty() {
-      data_name_entries.push(NameAssoc::new(0U, Name::new("fzg_data0")))
+      data_name_entries.push(
+        NameAssoc::new(0U, gen_valid_name(ctx, "fzg_data0")),
+      )
     }
     let tag_name_entries : Array[NameAssoc] = []
     if total_tag_count > 0 {
-      tag_name_entries.push(NameAssoc::new(0U, Name::new("fzg_tag0")))
+      tag_name_entries.push(NameAssoc::new(0U, gen_valid_name(ctx, "fzg_tag0")))
     }
     let name_sec = NameSec::new(
-      module_name=Some(Name::new("fzg_module")),
+      module_name=Some(gen_valid_name(ctx, "fzg_module")),
       func_names=if func_name_entries.is_empty() {
         None
       } else {
@@ -9945,16 +10038,21 @@ fn gen_valid_module_once_with_config(
     let custom_secs = if gen_valid_is_topology_heavy_config(config) {
       [
         @lib.CustomSec::new(
-          Name::new("fzg.custom.leading"),
-          b"valid-fzg-custom-leading",
+          gen_valid_name(ctx, "fzg.custom.leading"),
+          gen_valid_payload(ctx, b"valid-fzg-custom-leading"),
         ),
         @lib.CustomSec::new(
-          Name::new("fzg.custom.topology"),
-          b"valid-fzg-custom-topology",
+          gen_valid_name(ctx, "fzg.custom.topology"),
+          gen_valid_payload(ctx, b"valid-fzg-custom-topology"),
         ),
       ]
     } else {
-      [@lib.CustomSec::new(Name::new("fzg.custom"), b"valid-fzg-custom")]
+      [
+        @lib.CustomSec::new(
+          gen_valid_name(ctx, "fzg.custom"),
+          gen_valid_payload(ctx, b"valid-fzg-custom"),
+        ),
+      ]
     }
     mod = mod.with_custom_secs(custom_secs)
   }
@@ -10069,6 +10167,64 @@ fn gen_valid_module_expression_depth(mod_ : Module) -> Int {
 }
 
 ///|
+fn gen_valid_module_segment_payload_size(mod_ : Module) -> Int {
+  let mut total = 0
+  match mod_.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(_, bytes) = data
+        total += bytes.length()
+      }
+    None => ()
+  }
+  for custom in mod_.custom_secs {
+    let @lib.CustomSec(_, bytes) = custom
+    total += bytes.length()
+  }
+  total
+}
+
+///|
+fn gen_valid_module_byte_size_estimate(mod_ : Module) -> Int {
+  let mut total = 8
+  match mod_.type_sec {
+    Some(TypeSec(types)) => total += types.length() * 8
+    None => ()
+  }
+  match mod_.import_sec {
+    Some(ImportSec(imports)) => total += imports.length() * 12
+    None => ()
+  }
+  match mod_.func_sec {
+    Some(FuncSec(funcs)) => total += funcs.length() * 4
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(TableSec(tables)) => total += tables.length() * 8
+    None => ()
+  }
+  match mod_.mem_sec {
+    Some(MemSec(mems)) => total += mems.length() * 8
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(GlobalSec(globals)) => total += globals.length() * 12
+    None => ()
+  }
+  match mod_.tag_sec {
+    Some(TagSec(tags)) => total += tags.length() * 6
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) => total += elems.length() * 12
+    None => ()
+  }
+  total += gen_valid_module_instruction_count(mod_)
+  total += gen_valid_module_segment_payload_size(mod_)
+  total
+}
+
+///|
 fn gen_valid_budget_error(
   mod_ : Module,
   config : GenValidConfig,
@@ -10100,6 +10256,32 @@ fn gen_valid_budget_error(
       }
     }
     None => ()
+  }
+  match config.max_module_byte_size_budget {
+    Some(limit) => {
+      let actual = gen_valid_module_byte_size_estimate(mod_)
+      if actual > limit {
+        return Some(
+          (
+            ModuleByteSizeBudgetExceeded,
+            "gen-valid byte-size budget exceeded: actual \{actual}, limit \{limit}",
+          ),
+        )
+      }
+    }
+    None => ()
+  }
+  let segment_limit = config.max_segment_payload_size
+  if segment_limit < 0 {
+    let actual = gen_valid_module_segment_payload_size(mod_)
+    if actual > segment_limit {
+      return Some(
+        (
+          SegmentPayloadSizeBudgetExceeded,
+          "gen-valid segment payload budget exceeded: actual \{actual}, limit \{segment_limit}",
+        ),
+      )
+    }
   }
   None
 }

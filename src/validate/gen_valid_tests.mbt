@@ -328,6 +328,12 @@ test "pathological-valid profile sets bounded generator budgets" {
     None =>
       fail("pathological-valid should keep a bounded expression-depth budget")
   }
+  match config.max_module_byte_size_budget {
+    Some(limit) => assert_true(limit >= 4096)
+    None => fail("pathological-valid should keep a bounded byte-size budget")
+  }
+  assert_true(config.max_name_length >= 32)
+  assert_true(config.max_segment_payload_size >= 64)
 }
 
 ///|
@@ -371,6 +377,41 @@ test "gen_valid_module_result reports expression depth budget stop diagnostics" 
       )
       assert_true(failure.validation_error_message.contains("limit -1"))
     }
+  }
+}
+
+///|
+test "gen_valid_module_result reports byte-size budget stop diagnostics" {
+  let base = GenValidConfig::for_profile(NaturalSmallProfile)
+  let config = GenValidConfig::{ ..base, max_module_byte_size_budget: Some(-1) }
+  match gen_valid_module_result(@splitmix.new(seed=0xf353UL), config) {
+    Ok(_) =>
+      fail("expected negative byte-size budget to reject every candidate")
+    Err(failure) => {
+      @debug.assert_eq(failure.config, config)
+      @debug.assert_eq(failure.budget_stop, Some(ModuleByteSizeBudgetExceeded))
+      assert_true(failure.validation_error_message.contains("byte-size budget"))
+      assert_true(failure.validation_error_message.contains("limit -1"))
+    }
+  }
+}
+
+///|
+test "gen_valid segment payload cap bounds generated data payloads" {
+  let base = GenValidConfig::for_profile(MemoryHeavyProfile)
+  let config = GenValidConfig::{ ..base, max_segment_payload_size: 3 }
+  let generated = match
+    gen_valid_module_result(@splitmix.new(seed=0xf354UL), config) {
+    Ok(generated) => generated
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match generated.wasm_module.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(_, bytes) = data
+        assert_true(bytes.length() <= 3)
+      }
+    None => fail("memory-heavy coverage should generate data segments")
   }
 }
 

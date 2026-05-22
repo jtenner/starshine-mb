@@ -1162,6 +1162,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Started [`[FUZ]1035`](../../agent-todo.md) by adding optional `GenValidConfig` instruction-count and expression-depth budgets. Candidates that exceed either budget are retried, and final failures report `GenValidFailure.budget_stop` plus a clear budget-exceeded diagnostic.
 - Added the `pathological-valid` named profile with larger valid-generator topology/body limits and bounded instruction/depth caps, then updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the profile and budget contract.
+- Continued [`[FUZ]1035`](../../agent-todo.md) with optional estimated module byte-size budgets, bounded generated name length, and capped data/custom segment payload sizes. Negative byte-size budgets now produce a specific `ModuleByteSizeBudgetExceeded` stop diagnostic, and generated segment payloads are capped before validation.
 
 ## [2026-05-22] fuzzing | FUZ1027 GenValid WAT validate roundtrip
 
