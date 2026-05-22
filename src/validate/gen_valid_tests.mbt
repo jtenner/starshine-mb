@@ -3322,16 +3322,72 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include i8x16.shl",
   )
   assert_true(
+    counts.i8x16_shr_s > 0,
+    msg="SIMD exact coverage should include i8x16.shr_s",
+  )
+  assert_true(
+    counts.i8x16_shr_u > 0,
+    msg="SIMD exact coverage should include i8x16.shr_u",
+  )
+  assert_true(
+    counts.i16x8_shl > 0,
+    msg="SIMD exact coverage should include i16x8.shl",
+  )
+  assert_true(
     counts.i16x8_shr_s > 0,
     msg="SIMD exact coverage should include i16x8.shr_s",
+  )
+  assert_true(
+    counts.i16x8_shr_u > 0,
+    msg="SIMD exact coverage should include i16x8.shr_u",
+  )
+  assert_true(
+    counts.i32x4_shl > 0,
+    msg="SIMD exact coverage should include i32x4.shl",
+  )
+  assert_true(
+    counts.i32x4_shr_s > 0,
+    msg="SIMD exact coverage should include i32x4.shr_s",
   )
   assert_true(
     counts.i32x4_shr_u > 0,
     msg="SIMD exact coverage should include i32x4.shr_u",
   )
   assert_true(
+    counts.i64x2_shl > 0,
+    msg="SIMD exact coverage should include i64x2.shl",
+  )
+  assert_true(
+    counts.i64x2_shr_s > 0,
+    msg="SIMD exact coverage should include i64x2.shr_s",
+  )
+  assert_true(
+    counts.i64x2_shr_u > 0,
+    msg="SIMD exact coverage should include i64x2.shr_u",
+  )
+  assert_true(
+    counts.i32x4_all_true > 0,
+    msg="SIMD exact coverage should include i32x4.all_true",
+  )
+  assert_true(
+    counts.i64x2_bitmask > 0,
+    msg="SIMD exact coverage should include i64x2.bitmask",
+  )
+  assert_true(
+    counts.i32x4_add > 0,
+    msg="SIMD exact coverage should include i32x4.add",
+  )
+  assert_true(
     counts.i32x4_sub > 0,
     msg="SIMD exact coverage should include i32x4.sub",
+  )
+  assert_true(
+    counts.i32x4_mul > 0,
+    msg="SIMD exact coverage should include i32x4.mul",
+  )
+  assert_true(
+    counts.i32x4_min_s > 0,
+    msg="SIMD exact coverage should include i32x4.min_s",
   )
   assert_true(
     counts.i32x4_min_u > 0,
@@ -3342,12 +3398,84 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include i32x4.max_s",
   )
   assert_true(
-    counts.i64x2_shl > 0,
-    msg="SIMD exact coverage should include i64x2.shl",
+    counts.i32x4_max_u > 0,
+    msg="SIMD exact coverage should include i32x4.max_u",
+  )
+  assert_true(
+    counts.i64x2_add > 0,
+    msg="SIMD exact coverage should include i64x2.add",
   )
   assert_true(
     counts.i64x2_sub > 0,
     msg="SIMD exact coverage should include i64x2.sub",
+  )
+  assert_true(
+    counts.i64x2_mul > 0,
+    msg="SIMD exact coverage should include i64x2.mul",
+  )
+  assert_true(
+    counts.f32x4_add > 0,
+    msg="SIMD exact coverage should include f32x4.add",
+  )
+  assert_true(
+    counts.f32x4_div > 0,
+    msg="SIMD exact coverage should include f32x4.div",
+  )
+  assert_true(
+    counts.f32x4_min > 0,
+    msg="SIMD exact coverage should include f32x4.min",
+  )
+  assert_true(
+    counts.f32x4_max > 0,
+    msg="SIMD exact coverage should include f32x4.max",
+  )
+  assert_true(
+    counts.f64x2_add > 0,
+    msg="SIMD exact coverage should include f64x2.add",
+  )
+  assert_true(
+    counts.f64x2_div > 0,
+    msg="SIMD exact coverage should include f64x2.div",
+  )
+  assert_true(
+    counts.f64x2_min > 0,
+    msg="SIMD exact coverage should include f64x2.min",
+  )
+  assert_true(
+    counts.f64x2_max > 0,
+    msg="SIMD exact coverage should include f64x2.max",
+  )
+  assert_true(
+    counts.f32x4_ceil > 0,
+    msg="SIMD exact coverage should include f32x4.ceil",
+  )
+  assert_true(
+    counts.f32x4_floor > 0,
+    msg="SIMD exact coverage should include f32x4.floor",
+  )
+  assert_true(
+    counts.f32x4_trunc > 0,
+    msg="SIMD exact coverage should include f32x4.trunc",
+  )
+  assert_true(
+    counts.f32x4_nearest > 0,
+    msg="SIMD exact coverage should include f32x4.nearest",
+  )
+  assert_true(
+    counts.f64x2_ceil > 0,
+    msg="SIMD exact coverage should include f64x2.ceil",
+  )
+  assert_true(
+    counts.f64x2_floor > 0,
+    msg="SIMD exact coverage should include f64x2.floor",
+  )
+  assert_true(
+    counts.f64x2_trunc > 0,
+    msg="SIMD exact coverage should include f64x2.trunc",
+  )
+  assert_true(
+    counts.f64x2_nearest > 0,
+    msg="SIMD exact coverage should include f64x2.nearest",
   )
   assert_true(
     counts.v128_load > 0,
@@ -3448,6 +3576,34 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
   assert_true(
     counts.i8x16_narrow_i16x8_s > 0,
     msg="SIMD exact coverage should include i8x16.narrow_i16x8_s",
+  )
+  assert_true(
+    counts.i8x16_narrow_i16x8_u > 0,
+    msg="SIMD exact coverage should include i8x16.narrow_i16x8_u",
+  )
+  assert_true(
+    counts.i16x8_narrow_i32x4_s > 0,
+    msg="SIMD exact coverage should include i16x8.narrow_i32x4_s",
+  )
+  assert_true(
+    counts.i16x8_narrow_i32x4_u > 0,
+    msg="SIMD exact coverage should include i16x8.narrow_i32x4_u",
+  )
+  assert_true(
+    counts.i16x8_extadd_pairwise_i8x16_s > 0,
+    msg="SIMD exact coverage should include i16x8.extadd_pairwise_i8x16_s",
+  )
+  assert_true(
+    counts.i16x8_extadd_pairwise_i8x16_u > 0,
+    msg="SIMD exact coverage should include i16x8.extadd_pairwise_i8x16_u",
+  )
+  assert_true(
+    counts.i32x4_extadd_pairwise_i16x8_s > 0,
+    msg="SIMD exact coverage should include i32x4.extadd_pairwise_i16x8_s",
+  )
+  assert_true(
+    counts.i32x4_extadd_pairwise_i16x8_u > 0,
+    msg="SIMD exact coverage should include i32x4.extadd_pairwise_i16x8_u",
   )
   assert_true(
     counts.i32x4_dot_i16x8_s > 0,

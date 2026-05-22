@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1010 SIMD phase-2/phase-3 exact counter assertions
+
+- Continued [`[FUZ]1010`](../../agent-todo.md) by strengthening the coverage-forced GenValid standard-SIMD exact-counter regression for remaining phase-2 shift, reduction, integer arithmetic/min/max, float arithmetic, and rounding forms, plus remaining phase-3 narrow/extadd representatives.
+- These assertions close the test-ledger gap for already emitted/counted opcodes such as `i8x16.shr_s`, `i32x4.all_true`, `i64x2.bitmask`, `i32x4.mul`, `i64x2.add`, `f32x4.div`, `f64x2.max`, `f32x4`/`f64x2` rounding families, `i8x16.narrow_i16x8_u`, and `i32x4.extadd_pairwise_i16x8_u` without changing generator emission.
+
 ## [2026-05-22] fuzzing | FUZ1010 SIMD memory exact counter assertions
 
 - Continued [`[FUZ]1010`](../../agent-todo.md) by strengthening the coverage-forced GenValid standard-SIMD exact-counter regression for phase-3 memory forms.
