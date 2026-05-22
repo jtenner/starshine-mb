@@ -9,6 +9,7 @@ import {
   "jtenner/starshine/wat" @wat,
   "moonbitlang/core/env" @env,
   "moonbitlang/core/buffer" @buffer,
+  "moonbitlang/core/quickcheck" @quickcheck,
   "moonbitlang/core/quickcheck/splitmix" @splitmix,
 }
 

@@ -37,9 +37,15 @@ using @wast {
   type WastStaticAssertionResult,
   type WastStaticAssertionStage,
   evaluate_wast_static_assertion,
+  module_to_wast,
   run_wast_roundtrip_fuzz,
+  wast_ast_to_binary_module,
+  wast_to_module,
   wast_to_script,
 }
 
 ///|
 using @wat {type WatRoundtripFuzzStats, run_wat_roundtrip_fuzz}
+
+///|
+using @quickcheck {trait Arbitrary}

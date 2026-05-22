@@ -97,6 +97,8 @@ pub fn run_validate_invalid_text_case_by_stable_id(String) -> Result[String, Str
 
 pub fn run_validate_invalid_text_fuzz(String, UInt64) -> Result[ValidateInvalidTextFuzzStats, String]
 
+pub fn run_wast_validate_roundtrip_fuzz(String, UInt64) -> Result[WastValidateRoundtripFuzzStats, String]
+
 pub fn shrink_invalid_fuzz_failure_report(InvalidFuzzFailureReport) -> Result[InvalidFuzzFailureReport, String]
 
 pub fn validate_invalid_binary_registry() -> Array[ValidateInvalidBinaryStrategySpec]
@@ -1007,6 +1009,20 @@ pub struct ValidateInvalidTextStrategyStats {
   variant_attempted : Int
   variant_applicable : Int
   variant_matched_expected : Int
+} derive(Eq, @debug.Debug)
+
+pub struct WastValidateRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  printed : Int
+  print_failures : Int
+  parsed : Int
+  parse_failures : Int
+  lowered : Int
+  lower_failures : Int
+  validated : Int
+  validation_failures : Int
 } derive(Eq, @debug.Debug)
 
 // Type aliases

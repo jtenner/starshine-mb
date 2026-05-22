@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1027 WAST validate roundtrip reporting
+
+- Continued [`[FUZ]1027`](../../agent-todo.md) by adding the active `wast-validate-roundtrip` fuzz suite. It generates WAST AST modules, prints and parses them back, lowers parseable modules to Starshine's binary/lib module representation, validates lowered modules, and reports print/parse/lower/validation counts plus failure categories in JSON details.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living suite inventory and JSON details contract include the new reporting lane. Direct GenValid-lib-module-to-WAT roundtripping remains blocked on a first-class lib-module text printer usable by the wasm-gc fuzz package.
+
 ## [2026-05-22] tooling | FUZ1017 cmd-harness profile controls
 
 - Started [`[FUZ]1017`](../../agent-todo.md) by adding `cmd-harness` profile modifiers for named GenValid generator profiles, stable pass profiles, optimize idempotence, and encode/decode idempotence.
