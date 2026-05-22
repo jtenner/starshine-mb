@@ -2671,6 +2671,39 @@ fn dae_instr_has_observable_effect(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn dae_instr_has_observable_effect_or_branch(instr : @lib.Instruction) -> Bool {
+  if dae_instr_has_observable_effect(instr) {
+    return true
+  }
+  match instr {
+    @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.Return => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      body.any(fn(child) { dae_instr_has_observable_effect_or_branch(child) })
+    @lib.If(_, then_body, Some(else_body)) =>
+      then_body.any(fn(child) {
+        dae_instr_has_observable_effect_or_branch(child)
+      }) ||
+      else_body.any(fn(child) {
+        dae_instr_has_observable_effect_or_branch(child)
+      })
+    @lib.If(_, then_body, None) =>
+      then_body.any(fn(child) {
+        dae_instr_has_observable_effect_or_branch(child)
+      })
+    _ => false
+  }
+}
+
+///|
+fn dae_instrs_have_observable_effect_or_branch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  instrs.any(fn(instr) { dae_instr_has_observable_effect_or_branch(instr) })
+}
+
+///|
 fn dae_instr_is_unreachable_root(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Unreachable => true
@@ -9084,16 +9117,80 @@ fn dae_instr_prefix_has_observable_effect(
 }
 
 ///|
-fn dae_should_preserve_dropped_integer_const_after_effect(
+fn dae_should_preserve_dropped_integer_const_debris(
+  out : Array[@lib.Instruction],
+  start : Int,
+  preserve_dropped_integer_const_debris : Bool,
+) -> Bool {
+  // Current Binaryen DAE shape preserves tiny dropped integer constants after
+  // live calls/effects and inside live branch regions in the debug artifact.
+  // Keep that debris instead of shrinking it away while the frontier is
+  // shape-parity-driven.
+  out.length() - start == 1 &&
+  dae_instr_is_integer_const_leaf(out[start]) &&
+  (
+    preserve_dropped_integer_const_debris ||
+    dae_instr_prefix_has_observable_effect(out, start)
+  )
+}
+
+///|
+fn dae_should_preserve_dropped_local_get_after_same_set_stack(
   out : Array[@lib.Instruction],
   start : Int,
 ) -> Bool {
-  // Current Binaryen DAE shape preserves tiny dropped integer constants after
-  // live calls/effects in the debug artifact. Keep that debris instead of
-  // shrinking it away while the frontier is shape-parity-driven.
-  out.length() - start == 1 &&
-  dae_instr_is_integer_const_leaf(out[start]) &&
-  dae_instr_prefix_has_observable_effect(out, start)
+  if out.length() - start != 1 || start <= 0 {
+    return false
+  }
+  if start < 2 {
+    return false
+  }
+  match (out[start - 2], out[start - 1], out[start]) {
+    (@lib.LocalGet(source), @lib.LocalSet(written), @lib.LocalGet(read)) =>
+      dae_local_idx_equal(written, read) && !dae_local_idx_equal(source, read)
+    _ => false
+  }
+}
+
+///|
+fn dae_should_preserve_dropped_local_get_after_same_set_leaf(
+  out : Array[@lib.Instruction],
+  instr : @lib.Instruction,
+) -> Bool {
+  if out.length() < 2 {
+    return false
+  }
+  match (out[out.length() - 2], out[out.length() - 1], instr) {
+    (@lib.LocalGet(source), @lib.LocalSet(written), @lib.LocalGet(read)) =>
+      dae_local_idx_equal(written, read) && !dae_local_idx_equal(source, read)
+    _ => false
+  }
+}
+
+///|
+fn dae_should_preserve_dropped_local_get_after_effect_stack(
+  out : Array[@lib.Instruction],
+  start : Int,
+) -> Bool {
+  if out.length() - start != 1 {
+    return false
+  }
+  match out[start] {
+    @lib.LocalGet(_) => dae_instr_prefix_has_observable_effect(out, start)
+    _ => false
+  }
+}
+
+///|
+fn dae_should_preserve_dropped_local_get_after_effect_leaf(
+  out : Array[@lib.Instruction],
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(_) =>
+      dae_instr_prefix_has_observable_effect(out, out.length())
+    _ => false
+  }
 }
 
 ///|
@@ -9200,6 +9297,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
   allow_live_local_copy_cleanup? : Bool = true,
+  preserve_dropped_integer_const_debris? : Bool = false,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -9238,7 +9336,13 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
             out.length() - start == 1 ||
             !dae_instr_range_contains_local_get(out, start)
           ) &&
-          !dae_should_preserve_dropped_integer_const_after_effect(out, start) => {
+          !dae_should_preserve_dropped_integer_const_debris(
+            out, start, preserve_dropped_integer_const_debris,
+          ) &&
+          !dae_should_preserve_dropped_local_get_after_same_set_stack(
+            out, start,
+          ) &&
+          !dae_should_preserve_dropped_local_get_after_effect_stack(out, start) => {
           dae_truncate_instrs(out, start)
           idx += 1
           continue
@@ -9286,14 +9390,6 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
     }
     if idx + 2 < instrs.length() {
       match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
-        (@lib.LocalSet(lhs), @lib.LocalGet(rhs), drop) if dae_local_idx_equal(
-            lhs, rhs,
-          ) &&
-          drop == @lib.Instruction::drop() => {
-          out.push(@lib.Instruction::local_set(lhs))
-          idx += 3
-          continue
-        }
         (@lib.LocalSet(lhs), @lib.LocalGet(mid), @lib.LocalSet(rhs)) if dae_local_idx_equal(
             lhs, mid,
           ) &&
@@ -9504,7 +9600,15 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       dae_instr_is_droppable_pure_leaf(instrs[idx]) &&
       instrs[idx + 1] == @lib.Instruction::drop() &&
       !(dae_instr_is_integer_const_leaf(instrs[idx]) &&
-      dae_instr_prefix_has_observable_effect(out, out.length())) {
+      (
+        preserve_dropped_integer_const_debris ||
+        dae_instr_prefix_has_observable_effect(out, out.length())
+      )) &&
+      !dae_should_preserve_dropped_local_get_after_same_set_leaf(
+        out,
+        instrs[idx],
+      ) &&
+      !dae_should_preserve_dropped_local_get_after_effect_leaf(out, instrs[idx]) {
       idx += 2
       continue
     }
@@ -9544,6 +9648,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           body,
           type_sec,
           allow_live_local_copy_cleanup~,
+          preserve_dropped_integer_const_debris~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9559,6 +9664,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           body,
           type_sec,
           allow_live_local_copy_cleanup~,
+          preserve_dropped_integer_const_debris~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9574,6 +9680,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
           body,
           type_sec,
           allow_live_local_copy_cleanup~,
+          preserve_dropped_integer_const_debris~,
         )
         if dae_block_type_is_zero_param_zero_result(block_type, type_sec) &&
           rewritten_body.length() == 0 {
@@ -9589,10 +9696,18 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
         }
       }
       @lib.If(block_type, then_body, else_body) => {
+        let else_has_effect_or_branch = match else_body {
+          Some(body) => dae_instrs_have_observable_effect_or_branch(body)
+          None => false
+        }
+        let preserve_branch_integer_const_debris = preserve_dropped_integer_const_debris ||
+          dae_instrs_have_observable_effect_or_branch(then_body) ||
+          else_has_effect_or_branch
         let rewritten_then = dae_strip_nops_and_dropped_pure_leaf_instrs(
           then_body,
           type_sec,
           allow_live_local_copy_cleanup~,
+          preserve_dropped_integer_const_debris=preserve_branch_integer_const_debris,
         )
         let rewritten_else = match else_body {
           Some(body) =>
@@ -9601,6 +9716,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
                 body,
                 type_sec,
                 allow_live_local_copy_cleanup~,
+                preserve_dropped_integer_const_debris=preserve_branch_integer_const_debris,
               ),
             )
           None => None

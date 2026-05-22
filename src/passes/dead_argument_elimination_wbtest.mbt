@@ -1045,6 +1045,8 @@ test "dae raw cleanup strips local and global self assignments and tees" {
   let effect_local_set_read_drop_cleaned = [
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::drop(),
   ]
   let different_local_set_read = [
     @lib.Instruction::i32_const(@lib.I32(7)),
@@ -1560,6 +1562,121 @@ test "dae raw cleanup preserves dropped integer constants after live calls" {
     }
     None => fail("expected rewritten code section")
   }
+}
+
+///|
+test "dae raw cleanup preserves dropped local-get after same-local set debris" {
+  let tmp = @lib.LocalIdx::new(1U)
+  let mod_ = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_set(tmp),
+          @lib.Instruction::local_get(tmp),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      assert_eq(cleaned, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(tmp),
+        @lib.Instruction::local_get(tmp),
+        @lib.Instruction::drop(),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
+test "dae raw cleanup preserves dropped integer constants inside live if branches" {
+  let mod_ = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::i32_const(@lib.I32(0)), @lib.Instruction::drop()],
+            Some([
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            ]),
+          ),
+          @lib.Instruction::i32_const(@lib.I32(2)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(cleaned)) = funcs[0]
+      assert_eq(cleaned, [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [@lib.Instruction::i32_const(@lib.I32(0)), @lib.Instruction::drop()],
+          Some([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          ]),
+        ),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
+test "dae raw cleanup preserves nested dropped integer branch debris in effectful if" {
+  let mod_ = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::return_()],
+            Some([
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::i32_eq(),
+              @lib.Instruction::if_(
+                @lib.BlockType::void_(),
+                [
+                  @lib.Instruction::i32_const(@lib.I32(0)),
+                  @lib.Instruction::drop(),
+                ],
+                Some([
+                  @lib.Instruction::i32_const(@lib.I32(0)),
+                  @lib.Instruction::drop(),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let result = dae_strip_module_nops_and_dropped_pure_leaf_once(mod_, [true])
+  assert_false(result.changed)
 }
 
 ///|
