@@ -1158,10 +1158,16 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-22] fuzzing | FUZ1027 GenValid WAT validate roundtrip
+
+- Completed [`[FUZ]1027`](../../agent-todo.md) by adding the active `gen-valid-wat-validate-roundtrip` suite. It generates Starshine lib modules with a text-roundtrip-safe GenValid config, prints them through the new `@wat.lib_module_to_wat(...)` first-class lib-module WAT printer, parses the WAT, lowers through the WAST-to-lib path, validates the lowered module, and reports generated/printed/parsed/lowered/validated counters plus failure categories in JSON details.
+- The initial lib-module WAT printer covers the current GenValid text-roundtrip lane surface: function types, defined functions, locals, function exports, scalar numeric constants/operators/conversions, simple control, and a narrow type/function/export section shape. Broader module sections remain future printer work rather than hidden skips.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living suite inventory and JSON details contract include the new GenValid text lane.
+
 ## [2026-05-22] fuzzing | FUZ1027 WAST validate roundtrip reporting
 
 - Continued [`[FUZ]1027`](../../agent-todo.md) by adding the active `wast-validate-roundtrip` fuzz suite. It generates WAST AST modules, prints and parses them back, lowers parseable modules to Starshine's binary/lib module representation, validates lowered modules, and reports print/parse/lower/validation counts plus failure categories in JSON details.
-- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living suite inventory and JSON details contract include the new reporting lane. Direct GenValid-lib-module-to-WAT roundtripping remains blocked on a first-class lib-module text printer usable by the wasm-gc fuzz package.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living suite inventory and JSON details contract include the new reporting lane. Direct GenValid-lib-module-to-WAT roundtripping remained blocked at that point on a first-class lib-module text printer usable by the wasm-gc fuzz package.
 
 ## [2026-05-22] tooling | FUZ1017 cmd-harness profile controls
 

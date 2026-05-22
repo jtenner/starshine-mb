@@ -45,7 +45,11 @@ using @wast {
 }
 
 ///|
-using @wat {type WatRoundtripFuzzStats, run_wat_roundtrip_fuzz}
+using @wat {
+  type WatRoundtripFuzzStats,
+  lib_module_to_wat,
+  run_wat_roundtrip_fuzz,
+}
 
 ///|
 using @quickcheck {trait Arbitrary}

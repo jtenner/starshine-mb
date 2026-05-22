@@ -342,9 +342,11 @@ pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> GenValidConf
       allow_datas: false,
       allow_ref_types: false,
       allow_v128: false,
+      allow_calls: false,
       allow_relaxed_simd: false,
       allow_call_indirect: false,
       allow_tail_calls: false,
+      allow_branch_heavy_control: false,
       allow_memory_limit_variants: false,
       allow_table_limit_variants: false,
       allow_const_expr_variants: false,
@@ -352,7 +354,23 @@ pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> GenValidConf
       allow_memory64: false,
       allow_atomics: false,
       allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
     },
+  }
+}
+
+///|
+pub fn GenValidConfig::wat_text_roundtrip_default() -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 3,
+    max_defined_funcs: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: 0,
+    max_body_depth: 0,
   }
 }
 

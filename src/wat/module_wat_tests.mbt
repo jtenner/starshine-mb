@@ -29,6 +29,28 @@ test "script_to_wat escapes register names and can be parsed back" {
 }
 
 ///|
+test "lib_module_to_wat prints type-only GenValid-compatible modules" {
+  let mod = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  let text = match lib_module_to_wat(mod) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  assert_true(text.contains("(type (func (param i32) (result i32)))"))
+  match wat_to_module(text) {
+    Ok(_) => ()
+    Err(e) => fail("expected printed lib module WAT to parse: \{e}")
+  }
+}
+
+///|
 test "module_to_wat preserves descriptor instruction keywords" {
   let src =
     #|(module

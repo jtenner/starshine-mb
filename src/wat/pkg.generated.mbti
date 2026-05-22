@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn lib_module_to_wat(@lib.Module) -> Result[String, String]
+
 pub fn lookup_keyword(String) -> @wast.TokenType?
 
 pub fn module_to_wat(@wast.Module) -> Result[String, String]

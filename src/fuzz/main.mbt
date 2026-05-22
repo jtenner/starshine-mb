@@ -114,9 +114,9 @@ fn fuzz_ascii_lower(input : String) -> String {
 ///|
 pub fn fuzz_active_suite_names() -> Array[String] {
   [
-    "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "validate-valid",
-    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
-    "binary-roundtrip", "cmd-harness",
+    "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "gen-valid-wat-validate-roundtrip",
+    "validate-valid", "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
+    "validate-invalid-spec-seed", "binary-roundtrip", "cmd-harness",
   ]
 }
 
@@ -183,6 +183,120 @@ pub struct WastValidateRoundtripFuzzStats {
   validated : Int
   validation_failures : Int
 } derive(Eq, Debug)
+
+///|
+pub struct GenValidWatValidateRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  generated : Int
+  printed : Int
+  print_failures : Int
+  parsed : Int
+  parse_failures : Int
+  lowered : Int
+  lower_failures : Int
+  validated : Int
+  validation_failures : Int
+} derive(Eq, Debug)
+
+///|
+fn gen_valid_wat_roundtrip_config() -> GenValidConfig {
+  GenValidConfig::wat_text_roundtrip_default()
+}
+
+///|
+pub fn run_gen_valid_wat_validate_roundtrip_fuzz(
+  profile : String,
+  seed : UInt64,
+) -> Result[GenValidWatValidateRoundtripFuzzStats, String] {
+  let normalized = fuzz_ascii_lower(profile.trim().to_owned())
+  let attempts = match normalized {
+    "smoke" => 32
+    "ci" => 128
+    "stress" => 512
+    _ =>
+      return Err(
+        "unknown gen-valid-wat-validate fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+  let config = gen_valid_wat_roundtrip_config()
+  let state = @splitmix.new(seed~)
+  let mut generated = 0
+  let mut printed = 0
+  let mut print_failures = 0
+  let mut parsed = 0
+  let mut parse_failures = 0
+  let mut lowered = 0
+  let mut lower_failures = 0
+  let mut validated = 0
+  let mut validation_failures = 0
+  let mut last_print_failure = ""
+  let mut last_parse_failure = ""
+  for _ in 0..<attempts {
+    let mod_ = gen_valid_module_with_config(state, config)
+    generated += 1
+    let text = match lib_module_to_wat(mod_) {
+      Ok(v) => {
+        printed += 1
+        v
+      }
+      Err(e) => {
+        print_failures += 1
+        last_print_failure = e
+        continue
+      }
+    }
+    let parsed_module = match
+      wast_to_module(text, filename="gen-valid-wat-roundtrip.wat") {
+      Ok(v) => {
+        parsed += 1
+        v
+      }
+      Err(e) => {
+        parse_failures += 1
+        last_parse_failure = e
+        continue
+      }
+    }
+    let lowered_module = match wast_ast_to_binary_module(parsed_module) {
+      Ok(v) => {
+        lowered += 1
+        v
+      }
+      Err(_) => {
+        lower_failures += 1
+        continue
+      }
+    }
+    match validate_module(lowered_module) {
+      Ok(_) => validated += 1
+      Err(_) => validation_failures += 1
+    }
+  }
+  if generated != attempts {
+    return Err("gen-valid wat roundtrip generated count mismatch")
+  }
+  if printed <= 0 || parsed <= 0 || lowered <= 0 || validated <= 0 {
+    return Err(
+      "gen-valid wat roundtrip made no validated progress: profile=\{normalized} seed=\{seed} generated=\{generated} printed=\{printed} parsed=\{parsed} lowered=\{lowered} validated=\{validated} last_print_failure=\{last_print_failure} last_parse_failure=\{last_parse_failure}",
+    )
+  }
+  Ok(GenValidWatValidateRoundtripFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts,
+    generated,
+    printed,
+    print_failures,
+    parsed,
+    parse_failures,
+    lowered,
+    lower_failures,
+    validated,
+    validation_failures,
+  })
+}
 
 ///|
 pub fn run_wast_validate_roundtrip_fuzz(
@@ -1302,6 +1416,16 @@ fn run_single_suite(
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
+    "gen-valid-wat-validate-roundtrip" =>
+      match run_gen_valid_wat_validate_roundtrip_fuzz(profile, seed) {
+        Ok(stats) =>
+          (
+            stats.attempts,
+            Some(format_gen_valid_wat_validate_details_json(stats)),
+          )
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
     "validate-valid" =>
       match run_validate_valid_suite_detailed(profile, seed) {
         Ok(v) => v
@@ -1930,6 +2054,13 @@ fn format_wast_validate_details_json(
   stats : WastValidateRoundtripFuzzStats,
 ) -> String {
   "{\"printed\":\{stats.printed},\"print_failures\":\{stats.print_failures},\"parsed\":\{stats.parsed},\"parse_failures\":\{stats.parse_failures},\"lowered\":\{stats.lowered},\"lower_failures\":\{stats.lower_failures},\"validated\":\{stats.validated},\"validation_failures\":\{stats.validation_failures}}"
+}
+
+///|
+fn format_gen_valid_wat_validate_details_json(
+  stats : GenValidWatValidateRoundtripFuzzStats,
+) -> String {
+  "{\"generated\":\{stats.generated},\"printed\":\{stats.printed},\"print_failures\":\{stats.print_failures},\"parsed\":\{stats.parsed},\"parse_failures\":\{stats.parse_failures},\"lowered\":\{stats.lowered},\"lower_failures\":\{stats.lower_failures},\"validated\":\{stats.validated},\"validation_failures\":\{stats.validation_failures}}"
 }
 
 ///|

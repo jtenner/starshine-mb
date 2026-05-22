@@ -168,6 +168,23 @@ test "format_fuzz_run_report_json includes detailed suite ledgers" {
   assert_true(lower_report.contains("\"lowered\":"))
   assert_true(lower_report.contains("\"validated\":"))
   assert_true(lower_report.contains("\"lower_failures\":"))
+
+  let gen_text_results = match
+    run_fuzz_suite_sweep(
+      "gen-valid-wat-validate-roundtrip", "smoke", 7L, 1, 0, 1,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let gen_text_report = format_fuzz_run_report_json(
+    "gen-valid-wat-validate-roundtrip", "smoke", 7L, 1, 0, 1, gen_text_results,
+  )
+  assert_true(gen_text_report.contains("\"details\":{"))
+  assert_true(gen_text_report.contains("\"generated\":"))
+  assert_true(gen_text_report.contains("\"printed\":"))
+  assert_true(gen_text_report.contains("\"parsed\":"))
+  assert_true(gen_text_report.contains("\"lowered\":"))
+  assert_true(gen_text_report.contains("\"validated\":"))
 }
 
 ///|
@@ -494,16 +511,16 @@ test "emit_gen_valid_batch_artifacts matches the pinned Binaryen-oracle generato
 ///|
 test "fuzz suite inventory separates active and reserved suite ids" {
   @debug.assert_eq(fuzz_active_suite_names(), [
-    "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "validate-valid",
-    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
-    "binary-roundtrip", "cmd-harness",
+    "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "gen-valid-wat-validate-roundtrip",
+    "validate-valid", "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
+    "validate-invalid-spec-seed", "binary-roundtrip", "cmd-harness",
   ])
   @debug.assert_eq(fuzz_reserved_suite_names(), [])
   @debug.assert_eq(fuzz_suite_inventory_lines(), [
     "active\twast-roundtrip", "active\twat-roundtrip", "active\twast-validate-roundtrip",
-    "active\tvalidate-valid", "active\tvalidate-invalid-ast", "active\tvalidate-invalid-binary",
-    "active\tvalidate-invalid-text", "active\tvalidate-invalid-spec-seed", "active\tbinary-roundtrip",
-    "active\tcmd-harness",
+    "active\tgen-valid-wat-validate-roundtrip", "active\tvalidate-valid", "active\tvalidate-invalid-ast",
+    "active\tvalidate-invalid-binary", "active\tvalidate-invalid-text", "active\tvalidate-invalid-spec-seed",
+    "active\tbinary-roundtrip", "active\tcmd-harness",
   ])
 }
 
@@ -512,7 +529,7 @@ test "fuzz usage text distinguishes active and reserved suites" {
   let usage = fuzz_usage_text()
   assert_true(
     usage.contains(
-      "active suites: wast-roundtrip, wat-roundtrip, wast-validate-roundtrip, validate-valid, validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-spec-seed, binary-roundtrip, cmd-harness",
+      "active suites: wast-roundtrip, wat-roundtrip, wast-validate-roundtrip, gen-valid-wat-validate-roundtrip, validate-valid, validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-spec-seed, binary-roundtrip, cmd-harness",
     ),
   )
   assert_true(usage.contains("reserved suite ids: (none)"))

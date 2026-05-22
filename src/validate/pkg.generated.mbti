@@ -300,6 +300,7 @@ pub fn GenValidConfig::for_profile(GenValidProfile) -> Self
 pub fn GenValidConfig::natural_default() -> Self
 pub fn GenValidConfig::portable_coverage_forced_default() -> Self
 pub fn GenValidConfig::profile(String) -> Result[Self, String]
+pub fn GenValidConfig::wat_text_roundtrip_default() -> Self
 pub impl Show for GenValidConfig
 
 type GenValidContext

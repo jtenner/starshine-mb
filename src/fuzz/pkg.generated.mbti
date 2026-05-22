@@ -83,6 +83,8 @@ pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], S
 
 pub fn run_fuzz_suite_sweep(String, String, Int64, Int, Int, Int) -> Result[Array[FuzzSuiteResult], String]
 
+pub fn run_gen_valid_wat_validate_roundtrip_fuzz(String, UInt64) -> Result[GenValidWatValidateRoundtripFuzzStats, String]
+
 pub fn run_validate_invalid_binary_fuzz(String, UInt64) -> Result[ValidateInvalidBinaryFuzzStats, String]
 
 pub fn run_validate_invalid_spec_seed_case(ValidateInvalidSpecSeedId) -> Result[ValidateInvalidTextStage, String]
@@ -248,6 +250,21 @@ pub struct GenValidCoverageSelection {
   selected : Int
   attempts : Int
   skipped_candidates : Int
+} derive(Eq, @debug.Debug)
+
+pub struct GenValidWatValidateRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  generated : Int
+  printed : Int
+  print_failures : Int
+  parsed : Int
+  parse_failures : Int
+  lowered : Int
+  lower_failures : Int
+  validated : Int
+  validation_failures : Int
 } derive(Eq, @debug.Debug)
 
 pub struct InvalidFuzzArtifact {

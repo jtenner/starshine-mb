@@ -679,17 +679,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: deterministic two-fault examples, no-acceptance smoke tests, repro persistence tests.
   - Exit Criteria: stress fuzzing can exercise hostile multi-fault inputs while keeping diagnostic-stable lanes clean.
 
-- [FUZ]1027 - WAT/WAST Roundtrip Reporting And GenValid Text Roundtrip Lanes
-  - Status: IN PROGRESS (cron 23, 2026-05-22) - WAT roundtrip reporting slice landed: `WatRoundtripFuzzStats` now counts module print failures, parse failures, roundtrip print failures, unstable text, script render failures, and scripts with no module commands, and runner JSON/report details expose those counts. The follow-up WAST validate-reporting slice adds an active `wast-validate-roundtrip` suite that generates WAST AST modules, prints and parses them back, lowers parseable modules to Starshine lib modules, validates lowered modules, and reports print/parse/lower/validation counts plus failure categories in JSON details. TDD evidence for the WAST slice: `moon test src/fuzz` first failed on missing `wast-validate-roundtrip`, then passed after implementation and docs updates. Validation: `moon test src/fuzz` passes; `moon run src/fuzz -- wast-validate-roundtrip smoke --seed 0x5eed --jsonl` passes with `64` attempts, `64` printed, `48` parsed, `8` lowered, and `1` validated; `moon fmt`, `moon info` (only pre-existing DAE warnings), and `moon test` pass. Blocker/next: the requested true GenValid-lib-module -> WAT -> parse -> validate lane still needs a first-class lib `Module` text printer usable from the wasm-gc fuzz package; the existing WAT printer consumes WAST AST modules, while `GenValid` emits `@lib.Module`.
-  - Goal: make WAT/WAST fuzzing report why cases fail and add lanes that roundtrip GenValid modules through text.
-  - Why: current WAT/WAST roundtrip fuzz silently skips many failed generated cases and compares text by deleting all whitespace, which can hide useful parser/printer information.
-  - Deliverables: count print failures, parse failures, roundtrip print failures, unstable text, script render failures, and no-module-command failures; add `GenValid -> WAT -> parse -> validate` and `GenValid -> WAST -> lower -> binary -> decode -> validate` lanes; improve normalization or compare parsed AST/module facts rather than raw whitespace-stripped text.
-  - Required APIs: `src/wat/fuzz_tests.mbt`, `src/wast/fuzz_tests.mbt`, WAT/WAST parser/printer/lowerer, `gen_valid_module_with_config(...)`.
-  - Invariants: existing smoke success thresholds remain reasonable; do not treat unsupported WAST text syntax as a validator failure.
-  - Dependencies: [FUZ]1001 profiles and [FUZ]1000 diagnostics recommended.
-  - Suggested Tests: stats tests for failure categories, stable normalization tests with strings/comments, GenValid text roundtrip validation tests.
-  - Exit Criteria: WAT/WAST fuzz output tells agents which surface failed and can roundtrip typed GenValid modules through text when supported.
-
 - [FUZ]1028 - WAST Arbitrary Parity Exact Coverage
   - Goal: align `src/wast/arbitrary.mbt` with the GenValid coverage vocabulary through exact counters and profile-specific WAST generation.
   - Why: WAST arbitrary intentionally does not call typed GenValid, but duplicated opcode pickers can drift from the FZG ledger.
