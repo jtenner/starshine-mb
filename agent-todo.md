@@ -608,16 +608,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
-- [FUZ]1016 - Pass-Fuzz Compare Generator Profiles, Replay Modes, And Failure Metadata
-  - Goal: widen `bun fuzz compare-pass` so it can consume richer GenValid profiles and replay every failure status.
-  - Why: compare-pass currently uses one gen-valid batch config and replays command failures only. Agents need profile selection, feature-aware inputs, and replay for mismatches/validation failures too.
-  - Deliverables: add `--gen-valid-profile`, feature filters, manifest copying, replay by status (`mismatch`, `validation-failure`, `generator-failure`, `command-failure`, and optionally `match` by case index), and richer failure metadata with feature facts.
-  - Required APIs: `scripts/lib/pass-fuzz-compare-task.ts`, `scripts/test/pass-fuzz-compare-command.ts`, batch manifest from [FUZ]1015.
-  - Invariants: current `--generator both|wasm-smith|gen-valid` semantics remain; Binaryen/tool command failures must stay clearly classified as tool/generator issues, not semantic mismatches.
-  - Dependencies: [FUZ]1015.
-  - Suggested Tests: command parser tests, replay tests for non-command statuses using fake artifacts, result.json schema tests, smoke compare with a small gen-valid profile.
-  - Exit Criteria: a saved pass-fuzz run is self-contained enough for another agent to replay any interesting case by status, class, feature, or case index.
-
 - [FUZ]1017 - Command Harness Generator Profiles, Pass Profiles, And Idempotence Checks
   - Goal: turn `cmd-harness` into a stronger optimizer-pipeline fuzzer.
   - Why: `run_cmd_fuzz_harness(...)` currently uses natural GenValid and an optional pass list, but profiles do not exercise named generator configs, pass clusters, repeated passes, or idempotence by default.

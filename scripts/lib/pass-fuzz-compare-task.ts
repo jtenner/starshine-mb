@@ -16,6 +16,7 @@ import {
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
 type CompareNormalizer = "drop-consts" | "unreachable-control-debris";
+type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -40,11 +41,14 @@ type PassFuzzCompareOptions = {
   wasmToolsBin: string;
   generator: GeneratorMode;
   genValidProfile: string | null;
+  genValidRequiredFeatures: string[];
+  genValidExcludedFeatures: string[];
   maxFailures: number;
   keepGoingAfterCommandFailures: boolean;
   jobs: number;
   passFlags: string[];
   replayFailuresFrom: string | null;
+  failureStatus: CaseStatus | null;
   failureClass: CommandFailureClass | null;
   replayCaseIndex: number | null;
   normalizers: CompareNormalizer[];
@@ -65,7 +69,7 @@ type StarshineInvocation = {
 type CaseRecord = {
   caseIndex: number;
   generator: GeneratorKind;
-  status: "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure";
+  status: CaseStatus;
   detail: string;
   failureClass?: CommandFailureClass;
 };
@@ -93,6 +97,9 @@ type PassFuzzCompareSummary = {
   seed: string;
   generator: GeneratorMode;
   genValidProfile: string | null;
+  genValidRequiredFeatures: string[];
+  genValidExcludedFeatures: string[];
+  genValidManifestPath: string | null;
   generatorCounts: {
     wasmSmith: number;
     genValid: number;
@@ -114,12 +121,15 @@ const RESERVED_OPTIONS = new Set([
   "--wasm-tools-bin",
   "--generator",
   "--gen-valid-profile",
+  "--require-feature",
+  "--exclude-feature",
   "--max-failures",
   "--keep-going-after-command-failures",
   "--normalize",
   "--jobs",
   "--pass",
   "--replay-failures-from",
+  "--failure-status",
   "--failure-class",
   "--case-index",
 ]);
@@ -186,6 +196,10 @@ const HELP_TEXT = [
   "  --generator <mode>    both | wasm-smith | gen-valid. Default: both",
   "  --gen-valid-profile <name>",
   "                       Forward a named GenValid profile to batch generation",
+  "  --require-feature <feature>",
+  "                       Require a GenValid batch feature floor; may repeat",
+  "  --exclude-feature <feature>",
+  "                       Exclude GenValid batch features; may repeat",
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
@@ -193,8 +207,11 @@ const HELP_TEXT = [
   "  --jobs <n|auto>       Concurrent case jobs. Default: 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
-  "                       Replay saved command-failure inputs from a prior out dir",
-  "  --failure-class <id> Restrict replay to one failure family",
+  "                       Replay saved failure inputs from a prior out dir",
+  "  --failure-status <status>",
+  "                       Restrict replay to mismatch | validation-failure | generator-failure | command-failure",
+  "                       Defaults to command-failure for backward-compatible replay",
+  "  --failure-class <id> Restrict command-failure replay to one failure family",
   "  --case-index <n>     Restrict replay to one saved case index",
   "  --list-passes         Print supported pass names and exit",
   "  --list-failure-classes",
@@ -294,6 +311,18 @@ function normalizeCompareNormalizer(raw: string): CompareNormalizer {
       return "unreachable-control-debris";
     default:
       fail(`unsupported pass-fuzz-compare normalizer: ${raw}`);
+  }
+}
+
+function normalizeFailureStatus(raw: string): CaseStatus {
+  switch (raw.trim()) {
+    case "mismatch":
+    case "validation-failure":
+    case "generator-failure":
+    case "command-failure":
+      return raw.trim();
+    default:
+      fail(`unsupported failure status for pass-fuzz-compare: ${raw}`);
   }
 }
 
@@ -893,11 +922,13 @@ function persistFailureArtifacts(
   outDir: string,
   caseIndex: number,
   generator: GeneratorKind,
+  status: CaseStatus,
   detail: string,
   workDir: string,
   wasmToolsBin: string,
   repoRoot: string,
   passFlags: string[],
+  genValidManifestEntry: unknown | null = null,
 ): string {
   const failureDir = path.join(
     outDir,
@@ -935,8 +966,10 @@ function persistFailureArtifacts(
       {
         caseIndex,
         generator,
+        status,
         detail,
         artifacts: artifacts.sort(),
+        genValidManifestEntry,
         replay: {
           input: "input.wasm",
           passFlags,
@@ -952,6 +985,7 @@ function persistFailureArtifacts(
 function loadReplayCases(
   repoRoot: string,
   replayFailuresFrom: string,
+  failureStatus: CaseStatus | null,
   failureClass: CommandFailureClass | null,
   replayCaseIndex: number | null,
 ): ReplayCase[] {
@@ -961,6 +995,7 @@ function loadReplayCases(
     fail(`missing cases.jsonl for replay source: ${replayDir}`);
   }
 
+  const replayStatus = failureStatus ?? "command-failure";
   const replayCases: ReplayCase[] = [];
   for (const line of fs.readFileSync(casesPath, "utf8").split("\n")) {
     const trimmed = line.trim();
@@ -968,14 +1003,18 @@ function loadReplayCases(
       continue;
     }
     const record = JSON.parse(trimmed) as CaseRecord;
-    if (record.status !== "command-failure") {
+    if (record.status !== replayStatus) {
       continue;
     }
     if (replayCaseIndex !== null && record.caseIndex !== replayCaseIndex) {
       continue;
     }
-    const recordFailureClass = record.failureClass ?? classifyCommandFailure(record.detail);
-    if (failureClass !== null && recordFailureClass !== failureClass) {
+    if (record.status === "command-failure") {
+      const recordFailureClass = record.failureClass ?? classifyCommandFailure(record.detail);
+      if (failureClass !== null && recordFailureClass !== failureClass) {
+        continue;
+      }
+    } else if (failureClass !== null) {
       continue;
     }
     const failureDir = path.join(
@@ -995,7 +1034,7 @@ function loadReplayCases(
   }
 
   if (replayCases.length === 0) {
-    const detail = failureClass === null ? "command-failure" : failureClass;
+    const detail = failureClass === null ? replayStatus : `${replayStatus}/${failureClass}`;
     fail(`no replay cases found for ${detail} in ${replayDir}`);
   }
   return replayCases;
@@ -1012,11 +1051,14 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
   let generator: GeneratorMode = "both";
   let genValidProfile: string | null = null;
+  const genValidRequiredFeatures: string[] = [];
+  const genValidExcludedFeatures: string[] = [];
   let maxFailures = 20;
   let keepGoingAfterCommandFailures = false;
   let jobs = 1;
   const passFlags: string[] = [];
   let replayFailuresFrom: string | null = null;
+  let failureStatus: CaseStatus | null = null;
   let failureClass: CommandFailureClass | null = null;
   let replayCaseIndex: number | null = null;
   const normalizers: CompareNormalizer[] = [];
@@ -1086,6 +1128,14 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         genValidProfile = argv[i + 1] ?? fail("missing value for --gen-valid-profile");
         i += 2;
         break;
+      case "--require-feature":
+        genValidRequiredFeatures.push(argv[i + 1] ?? fail("missing value for --require-feature"));
+        i += 2;
+        break;
+      case "--exclude-feature":
+        genValidExcludedFeatures.push(argv[i + 1] ?? fail("missing value for --exclude-feature"));
+        i += 2;
+        break;
       case "--max-failures":
         maxFailures = parseNonNegativeInt(
           "max-failures",
@@ -1113,6 +1163,12 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         replayFailuresFrom = argv[i + 1] ?? fail("missing value for --replay-failures-from");
         i += 2;
         break;
+      case "--failure-status":
+        failureStatus = normalizeFailureStatus(
+          argv[i + 1] ?? fail("missing value for --failure-status"),
+        );
+        i += 2;
+        break;
       case "--failure-class":
         failureClass = normalizeCommandFailureClass(
           argv[i + 1] ?? fail("missing value for --failure-class"),
@@ -1129,6 +1185,16 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       default:
         if (token.startsWith("--gen-valid-profile=")) {
           genValidProfile = token.substring("--gen-valid-profile=".length);
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--require-feature=")) {
+          genValidRequiredFeatures.push(token.substring("--require-feature=".length));
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--exclude-feature=")) {
+          genValidExcludedFeatures.push(token.substring("--exclude-feature=".length));
           i += 1;
           break;
         }
@@ -1156,8 +1222,14 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   if (passFlags.length === 0) {
     fail("expected at least one pass flag to compare");
   }
+  if (failureStatus !== null && replayFailuresFrom === null) {
+    fail("--failure-status requires --replay-failures-from");
+  }
   if (failureClass !== null && replayFailuresFrom === null) {
     fail("--failure-class requires --replay-failures-from");
+  }
+  if (failureClass !== null && failureStatus !== null && failureStatus !== "command-failure") {
+    fail("--failure-class can only be combined with --failure-status command-failure");
   }
   if (replayCaseIndex !== null && replayFailuresFrom === null) {
     fail("--case-index requires --replay-failures-from");
@@ -1176,11 +1248,14 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       wasmToolsBin,
       generator,
       genValidProfile,
+      genValidRequiredFeatures,
+      genValidExcludedFeatures,
       maxFailures,
       keepGoingAfterCommandFailures,
       jobs,
       passFlags,
       replayFailuresFrom,
+      failureStatus,
       failureClass,
       replayCaseIndex,
       normalizers,
@@ -1219,6 +1294,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       : loadReplayCases(
           repoRoot,
           options.replayFailuresFrom,
+          options.failureStatus,
           options.failureClass,
           options.replayCaseIndex,
         );
@@ -1256,6 +1332,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         "--seed",
         seedHex(options.seed),
         ...(options.genValidProfile === null ? [] : ["--gen-valid-profile", options.genValidProfile]),
+        ...options.genValidRequiredFeatures.flatMap((feature) => ["--require-feature", feature]),
+        ...options.genValidExcludedFeatures.flatMap((feature) => ["--exclude-feature", feature]),
         "--out-dir",
         genValidMoonDir,
         "--manifest",
@@ -1265,6 +1343,23 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     );
   }
   const genValidInputs = genValidCount > 0 ? listGeneratedGenValidInputs(genValidDir) : [];
+  const genValidManifestPath = path.join(genValidDir, "manifest.json");
+  const genValidManifestRecords = new Map<string, unknown>();
+  if (genValidCount > 0 && fs.existsSync(genValidManifestPath)) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(genValidManifestPath, "utf8")) as { records?: unknown[] };
+      for (const record of manifest.records ?? []) {
+        if (record !== null && typeof record === "object" && "file_name" in record) {
+          const fileName = (record as { file_name?: unknown }).file_name;
+          if (typeof fileName === "string") {
+            genValidManifestRecords.set(fileName, record);
+          }
+        }
+      }
+    } catch (error) {
+      fail(`failed to read gen-valid manifest ${genValidManifestPath}: ${commandFailureDetail(error)}`);
+    }
+  }
 
   const starshineInvocation = resolveStarshineInvocation(repoRoot, options.starshineBin, options.moonBin);
   const summary: PassFuzzCompareSummary = {
@@ -1284,6 +1379,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     seed: seedHex(options.seed),
     generator: options.generator,
     genValidProfile: options.genValidProfile,
+    genValidRequiredFeatures: options.genValidRequiredFeatures,
+    genValidExcludedFeatures: options.genValidExcludedFeatures,
+    genValidManifestPath:
+      genValidCount > 0 && fs.existsSync(genValidManifestPath)
+        ? path.relative(outDir, genValidManifestPath)
+        : null,
     generatorCounts: {
       wasmSmith: 0,
       genValid: 0,
@@ -1322,6 +1423,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const binaryenPath = path.join(workDir, "binaryen.wasm");
     const starshineWatPath = path.join(workDir, "starshine.wat");
     const binaryenWatPath = path.join(workDir, "binaryen.wat");
+    let genValidManifestEntry: unknown | null = null;
 
     try {
       if (replayCase !== null) {
@@ -1330,6 +1432,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         const source =
           genValidInputs[genValidInputIndexForReplayIndex(replayIndex)] ??
           fail("not enough generated gen-valid inputs");
+        genValidManifestEntry = genValidManifestRecords.get(path.basename(source)) ?? null;
         fs.copyFileSync(source, inputPath);
       } else {
         const smith = await runSmith(
@@ -1347,6 +1450,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
               outDir,
               caseNumber,
               generator,
+              "generator-failure",
               detail,
               workDir,
               options.wasmToolsBin,
@@ -1374,11 +1478,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             outDir,
             caseNumber,
             generator,
+            "generator-failure",
             detail,
             workDir,
             options.wasmToolsBin,
             repoRoot,
             options.passFlags,
+            genValidManifestEntry,
           ),
         );
         recordCase({
@@ -1418,11 +1524,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             outDir,
             caseNumber,
             generator,
+            "command-failure",
             detail,
             workDir,
             options.wasmToolsBin,
             repoRoot,
             options.passFlags,
+            genValidManifestEntry,
           ),
         );
         recordCase({
@@ -1449,11 +1557,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             outDir,
             caseNumber,
             generator,
+            "validation-failure",
             detail,
             workDir,
             options.wasmToolsBin,
             repoRoot,
             options.passFlags,
+            genValidManifestEntry,
           ),
         );
         recordCase({
@@ -1500,11 +1610,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             outDir,
             caseNumber,
             generator,
+            "command-failure",
             detail,
             workDir,
             options.wasmToolsBin,
             repoRoot,
             options.passFlags,
+            genValidManifestEntry,
           ),
         );
         recordCase({
@@ -1551,11 +1663,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             outDir,
             caseNumber,
             generator,
+            "mismatch",
             detail,
             workDir,
             options.wasmToolsBin,
             repoRoot,
             options.passFlags,
+            genValidManifestEntry,
           ),
         );
         recordCase({

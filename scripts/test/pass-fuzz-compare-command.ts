@@ -132,6 +132,9 @@ process.exit(0);
       "2",
       "--gen-valid-profile",
       "relaxed-simd",
+      "--require-feature",
+      "v128",
+      "--exclude-feature=imports",
       "--remove-unused-brs",
     ],
     {
@@ -164,6 +167,14 @@ process.exit(0);
     JSON.stringify(moonLogs[0]).includes('"--gen-valid-profile","relaxed-simd"'),
     `expected gen-valid profile forwarding, got ${JSON.stringify(moonLogs[0], null, 2)}`,
   );
+  assert(
+    JSON.stringify(moonLogs[0]).includes('"--require-feature","v128"'),
+    `expected gen-valid required feature forwarding, got ${JSON.stringify(moonLogs[0], null, 2)}`,
+  );
+  assert(
+    JSON.stringify(moonLogs[0]).includes('"--exclude-feature","imports"'),
+    `expected gen-valid excluded feature forwarding, got ${JSON.stringify(moonLogs[0], null, 2)}`,
+  );
 
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
     requestedCount: number;
@@ -173,6 +184,8 @@ process.exit(0);
     jobs: number;
     generatorCounts: { wasmSmith: number; genValid: number };
     genValidProfile: string | null;
+    genValidRequiredFeatures: string[];
+    genValidExcludedFeatures: string[];
     passFlags: string[];
     binaryenPassFlags: string[];
   };
@@ -184,6 +197,8 @@ process.exit(0);
   assert(summary.generatorCounts.wasmSmith === 2, `unexpected wasm-smith count ${summary.generatorCounts.wasmSmith}`);
   assert(summary.generatorCounts.genValid === 2, `unexpected gen-valid count ${summary.generatorCounts.genValid}`);
   assert(summary.genValidProfile === "relaxed-simd", `unexpected gen-valid profile ${summary.genValidProfile}`);
+  assert(JSON.stringify(summary.genValidRequiredFeatures) === JSON.stringify(["v128"]), `unexpected required features ${JSON.stringify(summary.genValidRequiredFeatures)}`);
+  assert(JSON.stringify(summary.genValidExcludedFeatures) === JSON.stringify(["imports"]), `unexpected excluded features ${JSON.stringify(summary.genValidExcludedFeatures)}`);
   assert(
     JSON.stringify(summary.passFlags) === JSON.stringify(["--remove-unused-brs"]),
     `unexpected pass flags ${JSON.stringify(summary.passFlags)}`,
@@ -859,8 +874,21 @@ fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
 if (args[0] === "run" && args.includes("src/fuzz")) {
   const outDir = args[args.indexOf("--out-dir") + 1];
   fs.mkdirSync(outDir, { recursive: true });
+  const records = [];
   for (let i = 1; i <= 10; i += 1) {
-    fs.writeFileSync(path.join(outDir, "gen-valid-" + String(i).padStart(6, "0") + ".wasm"), "gen-valid-" + i);
+    const fileName = "gen-valid-" + String(i).padStart(6, "0") + ".wasm";
+    fs.writeFileSync(path.join(outDir, fileName), "gen-valid-" + i);
+    records.push({
+      file_name: fileName,
+      seed: "0x5eed",
+      index: i,
+      config_label: "fake-coverage",
+      feature_facts: { mode: "coverage-forced", has_v128: i === 1 },
+    });
+  }
+  const manifestIndex = args.indexOf("--manifest");
+  if (manifestIndex !== -1) {
+    fs.writeFileSync(args[manifestIndex + 1], JSON.stringify({ generator: "gen-valid", records }, null, 2));
   }
 }
 process.exit(0);
@@ -968,11 +996,16 @@ process.exit(0);
     detail: string;
     artifacts: string[];
     replay: { input: string; passFlags: string[] };
+    status: string;
+    genValidManifestEntry: { file_name: string; feature_facts: { has_v128: boolean } } | null;
   };
   assert(metadata.caseIndex === 1, `unexpected failure metadata case index ${metadata.caseIndex}`);
   assert(metadata.generator === "gen-valid", `unexpected failure metadata generator ${metadata.generator}`);
   assert(metadata.detail.includes("synthetic starshine failure"), `expected failure detail in metadata, got ${metadata.detail}`);
   assert(metadata.artifacts.includes("input.wasm"), `expected input.wasm in artifact manifest, got ${metadata.artifacts.join(",")}`);
+  assert(metadata.status === "command-failure", `expected command-failure metadata status, got ${metadata.status}`);
+  assert(metadata.genValidManifestEntry?.file_name === "gen-valid-000001.wasm", `expected copied gen-valid manifest entry, got ${JSON.stringify(metadata.genValidManifestEntry)}`);
+  assert(metadata.genValidManifestEntry?.feature_facts.has_v128 === true, `expected copied gen-valid feature facts, got ${JSON.stringify(metadata.genValidManifestEntry)}`);
   assert(metadata.replay.input === "input.wasm", `expected relative replay input, got ${metadata.replay.input}`);
   assert(JSON.stringify(metadata.replay.passFlags) === JSON.stringify(["--remove-unused-brs"]), `unexpected replay pass flags ${JSON.stringify(metadata.replay.passFlags)}`);
 
@@ -2585,6 +2618,118 @@ process.exit(0);
   assert(entry.failureClass === "binaryen-invalid-tag-index", `expected replayed invalid-tag-index classification, got ${JSON.stringify(entry)}`);
 }
 
+export function runPassFuzzCompareReplayMismatchStatusTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-replay-mismatch-status-"));
+  const replayDir = path.join(tmpdir, "saved");
+  const replayFailureDir = path.join(replayDir, "failures", "case-000042-gen-valid");
+  const outDir = path.join(tmpdir, "out");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+
+  fs.mkdirSync(replayFailureDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(replayDir, "cases.jsonl"),
+    JSON.stringify({
+      caseIndex: 42,
+      generator: "gen-valid",
+      status: "mismatch",
+      detail: "normalized outputs differed",
+    }) + "\n",
+  );
+  fs.writeFileSync(path.join(replayFailureDir, "input.wasm"), "saved-mismatch-input");
+
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine-replay");
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("-o");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], args.includes("-S") ? "(module ;; replay matched)\\n" : "binary");
+process.exit(0);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--out-dir",
+      outDir,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--replay-failures-from",
+      replayDir,
+      "--failure-status",
+      "mismatch",
+      "--case-index",
+      "42",
+      "--pass",
+      "remove-unused-brs",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_STARSHINE_LOG: starshineLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare replay mismatch status failed:\n${result.stderr}`);
+  }
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    requestedCount: number;
+    comparedCount: number;
+    normalizedMatchCount: number;
+    mismatchCount: number;
+  };
+  assert(summary.requestedCount === 1, `expected 1 replayed mismatch, got ${summary.requestedCount}`);
+  assert(summary.comparedCount === 1, `expected 1 compared replay case, got ${summary.comparedCount}`);
+  assert(summary.normalizedMatchCount === 1, `expected replayed mismatch to now match, got ${summary.normalizedMatchCount}`);
+  assert(summary.mismatchCount === 0, `expected no replay mismatches, got ${summary.mismatchCount}`);
+
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").filter(Boolean);
+  assert(cases.length === 1, `expected 1 replay case record, got ${cases.length}`);
+  const entry = JSON.parse(cases[0]) as { caseIndex: number; status: string };
+  assert(entry.caseIndex === 42, `expected original case index 42, got ${entry.caseIndex}`);
+  assert(entry.status === "match", `expected replayed match status, got ${entry.status}`);
+
+  const starshineLogs = fs.readFileSync(starshineLog, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as string[]);
+  assert(starshineLogs.length === 1, `expected 1 Starshine replay, got ${starshineLogs.length}`);
+  assert(starshineLogs[0].includes("--remove-unused-brs"), `expected pass flag in replay, got ${JSON.stringify(starshineLogs[0])}`);
+}
+
 export function runPassFuzzCompareMinComparedGateTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-min-compared-"));
@@ -3023,6 +3168,7 @@ if (import.meta.main) {
   runPassFuzzCompareBinaryenInvalidTagIndexClassificationTest();
   runPassFuzzCompareReplayFailureClassTest();
   runPassFuzzCompareReplayLegacyCaseIndexTest();
+  runPassFuzzCompareReplayMismatchStatusTest();
   runPassFuzzCompareMinComparedGateTest();
   runPassFuzzCompareParallelJobsRequireStarshineBinTest();
   runPassFuzzCompareDefaultStarshineInvocationTest();

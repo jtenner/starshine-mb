@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-21
+last_reviewed: 2026-05-22
 sources:
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -51,6 +51,7 @@ bun fuzz compare-pass \
   --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
   [--generator both|wasm-smith|gen-valid] \
   [--gen-valid-profile <profile>] \
+  [--require-feature <feature>] [--exclude-feature <feature>] \
   [--min-compared <n>] \
   [--max-failures 20] \
   [--keep-going-after-command-failures] \
@@ -64,8 +65,9 @@ Discovery and replay helpers:
 bun fuzz compare-pass --list-passes
 bun fuzz compare-pass --list-failure-classes
 bun fuzz compare-pass --pass <name> --replay-failures-from <dir>
+bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-status <status>
 bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-class <id>
-bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --case-index <n>
+bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-status <status> --case-index <n>
 ```
 
 `bun scripts/pass-fuzz-compare.ts ...` is the same underlying implementation. `bun fuzz compare-pass` reaches it through [`scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), which treats compare-pass as a sibling command rather than a `src/fuzz` suite.
@@ -78,7 +80,7 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --case-index <n
 | `wasm-smith` | Calls `wasm-tools smith -o <input>` with deterministic seed bytes. | External generator diversity and Binaryen parser/tool gap discovery. | Still validate every generated input; generator/tool failures are not Starshine semantic mismatches. |
 | `gen-valid` | Calls `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ... --manifest <out>/inputs/gen-valid/manifest.json`. | Starshine coverage-forced portable modules and focused regression lanes after FZG widening. | Uses the batch emitter's Binaryen-oracle-friendly config by default, not the ordinary natural `validate-valid` fuzz profile. |
 
-`--gen-valid-profile <profile>` forwards a named GenValid profile to that batch command and records the requested profile in `result.json` as `genValidProfile`. Omit it for the default Binaryen-oracle portable batch config; use it when a fuzzer slice needs a specific named profile such as `binaryen-oracle-portable`, `binaryen-oracle-relaxed-simd`, `simd-heavy`, or `relaxed-simd`. Use `binaryen-oracle-relaxed-simd` for relaxed-SIMD input generation that should avoid imports, tables, memories, globals, tags, elems, datas, ref-types, atomics, memory64, and other currently nonportable oracle surfaces while still enabling `v128` and relaxed SIMD. Non-portable profiles may still be blocked by external tool support even when Starshine's own batch validator accepts them.
+`--gen-valid-profile <profile>` forwards a named GenValid profile to that batch command and records the requested profile in `result.json` as `genValidProfile`. `--require-feature <feature>` and `--exclude-feature <feature>` may repeat; compare-pass forwards them to the batch emitter and records them as `genValidRequiredFeatures` / `genValidExcludedFeatures`. Omit the profile for the default Binaryen-oracle portable batch config; use named profiles and feature filters when a fuzzer slice needs a specific surface such as `binaryen-oracle-portable`, `binaryen-oracle-relaxed-simd`, `simd-heavy`, or `relaxed-simd`. Use `binaryen-oracle-relaxed-simd` for relaxed-SIMD input generation that should avoid imports, tables, memories, globals, tags, elems, datas, ref-types, atomics, memory64, and other currently nonportable oracle surfaces while still enabling `v128` and relaxed SIMD. Non-portable profiles may still be blocked by external tool support even when Starshine's own batch validator accepts them.
 
 The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) and [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt) even though compare-pass is not itself a MoonBit fuzz suite. Runs that generate Starshine inputs now keep `inputs/gen-valid/manifest.json` beside the saved `.wasm` files; this file records the requested profile, filters, aggregate feature stats, and per-input feature facts for replay triage.
 
@@ -117,7 +119,7 @@ Use `--list-passes` before starting a long lane; it is the script-owned list, no
 
 Every run writes:
 
-- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, requested GenValid profile, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
+- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, requested GenValid profile and feature filters, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
 - `cases.jsonl` - one case record per attempted case, sorted by case index after the run.
 - `inputs/` - saved generator inputs for generated lanes.
 - `failures/case-<index>-<generator>/` - copied per-case workdir files for generator failures, validation failures, command failures, and normalized mismatches.
@@ -127,7 +129,7 @@ Each failure directory includes:
 - `failure.txt` - human-readable detail;
 - `input.wasm` - replay input;
 - `input.print.wat` when `wasm-tools print` succeeds;
-- `failure-metadata.json` with `caseIndex`, `generator`, `detail`, copied artifact names, and relative replay input plus pass flags.
+- `failure-metadata.json` with `caseIndex`, `generator`, failure `status`, `detail`, copied artifact names, relative replay input plus pass flags, and the per-input GenValid manifest entry when the failing case came from a manifest-backed `gen-valid` batch.
 
 The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 
@@ -140,6 +142,8 @@ The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-cove
 | `validation-failure` | Starshine produced invalid wasm. | Correctness blocker for Starshine. |
 | `generator-failure` | The input generator failed or produced bytes that failed independent validation. | Tool/generator issue unless inspection says otherwise. |
 | `command-failure` | Starshine, Binaryen, or canonicalization command failed. | Classify by `failureClass`; replay before claiming pass semantics. |
+
+Replay defaults to historical command-failure behavior for backward compatibility. Use `--failure-status mismatch`, `--failure-status validation-failure`, or `--failure-status generator-failure` to replay other persisted failure kinds; combine with `--case-index <n>` to pick one saved case. `--failure-class <id>` is only meaningful for `command-failure` records.
 
 Command failures may or may not count toward `--max-failures`. By default they do; `--keep-going-after-command-failures` records them without spending the failure budget. That mode is useful when a known tool class, such as a Binaryen parser gap, would otherwise prevent collecting enough comparable cases.
 
