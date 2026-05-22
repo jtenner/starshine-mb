@@ -3294,6 +3294,26 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include i16x8.sub_sat_u",
   )
   assert_true(
+    counts.i16x8_min_s > 0,
+    msg="SIMD exact coverage should include i16x8.min_s",
+  )
+  assert_true(
+    counts.i16x8_min_u > 0,
+    msg="SIMD exact coverage should include i16x8.min_u",
+  )
+  assert_true(
+    counts.i16x8_max_s > 0,
+    msg="SIMD exact coverage should include i16x8.max_s",
+  )
+  assert_true(
+    counts.i16x8_max_u > 0,
+    msg="SIMD exact coverage should include i16x8.max_u",
+  )
+  assert_true(
+    counts.i16x8_avgr_u > 0,
+    msg="SIMD exact coverage should include i16x8.avgr_u",
+  )
+  assert_true(
     counts.i16x8_mul > 0,
     msg="SIMD exact coverage should include i16x8.mul",
   )
@@ -3310,8 +3330,24 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
     msg="SIMD exact coverage should include i32x4.shr_u",
   )
   assert_true(
+    counts.i32x4_sub > 0,
+    msg="SIMD exact coverage should include i32x4.sub",
+  )
+  assert_true(
+    counts.i32x4_min_u > 0,
+    msg="SIMD exact coverage should include i32x4.min_u",
+  )
+  assert_true(
+    counts.i32x4_max_s > 0,
+    msg="SIMD exact coverage should include i32x4.max_s",
+  )
+  assert_true(
     counts.i64x2_shl > 0,
     msg="SIMD exact coverage should include i64x2.shl",
+  )
+  assert_true(
+    counts.i64x2_sub > 0,
+    msg="SIMD exact coverage should include i64x2.sub",
   )
   assert_true(
     counts.v128_load > 0,
@@ -3376,6 +3412,38 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
   assert_true(
     counts.f64x2_convert_low_i32x4_u > 0,
     msg="SIMD exact coverage should include f64x2.convert_low_i32x4_u",
+  )
+  assert_true(
+    counts.f32x4_sub > 0,
+    msg="SIMD exact coverage should include f32x4.sub",
+  )
+  assert_true(
+    counts.f32x4_mul > 0,
+    msg="SIMD exact coverage should include f32x4.mul",
+  )
+  assert_true(
+    counts.f32x4_pmin > 0,
+    msg="SIMD exact coverage should include f32x4.pmin",
+  )
+  assert_true(
+    counts.f32x4_pmax > 0,
+    msg="SIMD exact coverage should include f32x4.pmax",
+  )
+  assert_true(
+    counts.f64x2_sub > 0,
+    msg="SIMD exact coverage should include f64x2.sub",
+  )
+  assert_true(
+    counts.f64x2_mul > 0,
+    msg="SIMD exact coverage should include f64x2.mul",
+  )
+  assert_true(
+    counts.f64x2_pmin > 0,
+    msg="SIMD exact coverage should include f64x2.pmin",
+  )
+  assert_true(
+    counts.f64x2_pmax > 0,
+    msg="SIMD exact coverage should include f64x2.pmax",
   )
 }
 
