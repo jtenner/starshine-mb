@@ -1183,6 +1183,7 @@ fn sgo_flow_scan_prefix_until(
         } else {
           return (false, reads, stack)
         }
+      @lib.ElemDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1305,6 +1306,7 @@ fn sgo_flow_scan_clean_prefix_until(
         } else {
           return (false, stack)
         }
+      @lib.ElemDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1422,6 +1424,7 @@ fn sgo_flow_arm_result_taint_and_reads(
         } else {
           return (false, reads, false)
         }
+      @lib.ElemDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1579,6 +1582,7 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         } else {
           return None
         }
+      @lib.ElemDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1691,6 +1695,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         } else {
           return (false, reads, false)
         }
+      @lib.ElemDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1929,6 +1934,7 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
         } else {
           return false
         }
+      @lib.ElemDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue

@@ -4671,6 +4671,72 @@ test "simplify-globals-optimizing keeps tainted table init operands" {
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if arm flow with clean elem drop" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table (export "t") 10 funcref)
+      #|  (elem $e funcref (ref.null func) (ref.null func))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    elem.drop $e
+      #|    i32.const 1
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("elem.drop"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps global-steered elem drop" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table (export "t") 10 funcref)
+      #|  (elem $e funcref (ref.null func) (ref.null func))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    global.get $guard
+      #|    if
+      #|      elem.drop $e
+      #|    end
+      #|    global.get $guard
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("elem.drop"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes nested-if arm flow with clean table copy" {
   let optimized = sgo_test_run(
     (
