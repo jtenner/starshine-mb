@@ -74,6 +74,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidImportedStartFuncFuncrefParam
   MissingDataCount
   UndeclaredRefFunc
+  InvalidFunctionBodyLocalIndex
+  InvalidFunctionBodyGlobalIndex
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
@@ -413,6 +415,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       seed_prerequisites=[RequiresDefinedFunc, RequiresMemoryData],
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyLocalIndex,
+      "invalid-function-body-local-index",
+      "invalid local index in function body",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyGlobalIndex,
+      "invalid-function-body-global-index",
+      "invalid global index in function body",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
       "invalid-memory-name-section-index",
       "invalid memory name index",
@@ -583,21 +599,23 @@ fn validate_invalid_ast_strategy_index(
     InvalidExportFuncIndex => 29
     StartFuncOutOfRange => 30
     MissingDataCountDataDrop => 31
-    InvalidMemoryNameSectionIndex => 32
-    CodeSecWithoutFuncSec => 33
-    InvalidTableNameSectionIndex => 34
-    InvalidGlobalNameSectionIndex => 35
-    InvalidTypeNameSectionIndex => 36
-    InvalidFieldNameSectionIndex => 37
-    InvalidElemNameSectionIndex => 38
-    InvalidDataNameSectionIndex => 39
-    InvalidExportTableIndex => 40
-    InvalidExportGlobalIndex => 41
-    InvalidExportMemoryIndex => 42
-    InvalidExportTagIndex => 43
-    InvalidTagNameSectionIndex => 44
-    DataCountMismatchTooSmall => 45
-    DataCountMismatchTooLarge => 46
+    InvalidFunctionBodyLocalIndex => 32
+    InvalidFunctionBodyGlobalIndex => 33
+    InvalidMemoryNameSectionIndex => 34
+    CodeSecWithoutFuncSec => 35
+    InvalidTableNameSectionIndex => 36
+    InvalidGlobalNameSectionIndex => 37
+    InvalidTypeNameSectionIndex => 38
+    InvalidFieldNameSectionIndex => 39
+    InvalidElemNameSectionIndex => 40
+    InvalidDataNameSectionIndex => 41
+    InvalidExportTableIndex => 42
+    InvalidExportGlobalIndex => 43
+    InvalidExportMemoryIndex => 44
+    InvalidExportTagIndex => 45
+    InvalidTagNameSectionIndex => 46
+    DataCountMismatchTooSmall => 47
+    DataCountMismatchTooLarge => 48
   }
 }
 
@@ -695,10 +713,11 @@ pub fn validate_invalid_ast_run_config(
   } else {
     validate_fuzz_ascii_lower(parts[0].trim().to_owned())
   }
+  let strategy_count = validate_invalid_ast_registry().length()
   let base_attempts = match normalized {
-    "smoke" => 47
-    "ci" => 470
-    "stress" => 4700
+    "smoke" => strategy_count
+    "ci" => strategy_count * 10
+    "stress" => strategy_count * 100
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1793,6 +1812,55 @@ fn validate_invalid_ast_mutate_missing_datacount_data_drop(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_local_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let body = Expr::new([
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyLocalIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_global_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_global_idx = GlobalIdx::new(
+    validate_invalid_ast_total_global_count(mod).reinterpret_as_uint(),
+  )
+  let body = Expr::new([
+    Instruction::global_get(bad_global_idx),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyGlobalIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_undeclared_ref_func(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2463,6 +2531,10 @@ pub fn apply_validate_invalid_ast_strategy(
       MissingDataCountDataDrop =>
         validate_invalid_ast_mutate_missing_datacount_data_drop(base)
       UndeclaredRefFunc => validate_invalid_ast_mutate_undeclared_ref_func(base)
+      InvalidFunctionBodyLocalIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_local_index(base)
+      InvalidFunctionBodyGlobalIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_global_index(base)
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
       InvalidLocalNameSectionIndex =>
@@ -2808,7 +2880,10 @@ test "validate_invalid_ast_run_config can schedule mixed seed profiles" {
     CoverageForcedSeedProfile,
     RichSeedProfile,
   ])
-  @debug.assert_eq(config.attempts, 329)
+  @debug.assert_eq(
+    config.attempts,
+    validate_invalid_ast_registry().length() * 7,
+  )
 }
 
 ///|
@@ -2823,7 +2898,10 @@ test "validate_invalid_ast_run_config accepts explicit seed profile list" {
     NaturalSeedProfile,
     RichSeedProfile,
   ])
-  @debug.assert_eq(config.attempts, 141)
+  @debug.assert_eq(
+    config.attempts,
+    validate_invalid_ast_registry().length() * 3,
+  )
 }
 
 ///|
@@ -2834,7 +2912,9 @@ test "validate_invalid_ast mixed seed fuzz records seed profile attempts" {
     Err(msg) => fail(msg)
   }
   @debug.assert_eq(stats.seed_profiles, [MinimalSeedProfile])
-  @debug.assert_eq(stats.seed_profile_attempts, [47])
+  @debug.assert_eq(stats.seed_profile_attempts, [
+    validate_invalid_ast_registry().length(),
+  ])
 }
 
 ///|
@@ -2852,12 +2932,13 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "non-constant-elem-offset", "shared-memory-without-max", "shared-memory64-without-max",
     "invalid-tag-type-index", "invalid-subtype-super-index", "invalid-subtype-super-shape",
     "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
-    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
+    "invalid-function-body-global-index", "invalid-memory-name-section-index", "codesec-without-funcsec",
+    "invalid-table-name-section-index", "invalid-global-name-section-index", "invalid-type-name-section-index",
+    "invalid-field-name-section-index", "invalid-elem-name-section-index", "invalid-data-name-section-index",
+    "invalid-export-table-index", "invalid-export-global-index", "invalid-export-memory-index",
+    "invalid-export-tag-index", "invalid-tag-name-section-index", "datacount-mismatch-too-small",
+    "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -3325,6 +3406,32 @@ test "missing datacount data.drop strategy rejects with FunctionBody family" {
 }
 
 ///|
+test "invalid local index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyLocalIndex,
+      0x5f0dUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid global index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyGlobalIndex,
+      0x5f0eUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid memory name index strategy rejects with NameSection family" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
@@ -3616,7 +3723,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  @debug.assert_eq(first.attempts, 47)
+  @debug.assert_eq(first.attempts, validate_invalid_ast_registry().length())
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)
