@@ -1172,7 +1172,10 @@ fn sgo_flow_scan_prefix_until(
         } else {
           return (false, reads, stack)
         }
-      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.TableFill(_) =>
+      @lib.MemoryCopy(_, _)
+      | @lib.MemoryFill(_)
+      | @lib.MemoryInit(_, _)
+      | @lib.TableFill(_) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1289,7 +1292,10 @@ fn sgo_flow_scan_clean_prefix_until(
         } else {
           return (false, stack)
         }
-      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.TableFill(_) =>
+      @lib.MemoryCopy(_, _)
+      | @lib.MemoryFill(_)
+      | @lib.MemoryInit(_, _)
+      | @lib.TableFill(_) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1401,7 +1407,10 @@ fn sgo_flow_arm_result_taint_and_reads(
         } else {
           return (false, reads, false)
         }
-      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.TableFill(_) =>
+      @lib.MemoryCopy(_, _)
+      | @lib.MemoryFill(_)
+      | @lib.MemoryInit(_, _)
+      | @lib.TableFill(_) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1553,7 +1562,10 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         } else {
           return None
         }
-      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.TableFill(_) =>
+      @lib.MemoryCopy(_, _)
+      | @lib.MemoryFill(_)
+      | @lib.MemoryInit(_, _)
+      | @lib.TableFill(_) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1660,7 +1672,10 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         } else {
           return (false, reads, false)
         }
-      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.TableFill(_) =>
+      @lib.MemoryCopy(_, _)
+      | @lib.MemoryFill(_)
+      | @lib.MemoryInit(_, _)
+      | @lib.TableFill(_) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1893,7 +1908,10 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
         } else {
           return false
         }
-      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.TableFill(_) =>
+      @lib.MemoryCopy(_, _)
+      | @lib.MemoryFill(_)
+      | @lib.MemoryInit(_, _)
+      | @lib.TableFill(_) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
