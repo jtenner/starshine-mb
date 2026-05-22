@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-22] binaryen | SGO clean memory.fill FlowScanner slice
+
+- Probed clean and tainted `memory.fill` neighbors against Binaryen v129. Binaryen promoted the clean exported-memory-write nested-if condition while preserving global-derived destination, fill value, and size operands, so the Starshine slice stayed limited to `memory.fill` whose three consumed operands are all clean.
+- Extended `[SGO]003` read-only-to-write FlowScanner handling for independent `memory.fill` side effects in the same six scanner paths as the clean scalar stores, using a three-clean-operand stack rule; tainted fill operands still preserve the mutable global/read-write shape. Remaining bulk memory/table operations, SIMD stores, atomics, and growth operations remain deferred pending focused oracle support.
+- Added focused positive and negative tests for clean `memory.fill` and tainted destination/value/size flow. Validation evidence: initial failing `moon test src/passes`, green `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-memory-fill-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-22] binaryen | SGO clean f64.store FlowScanner slice
 
 - Probed clean and tainted `f64.store` neighbors against Binaryen v129. Binaryen promoted the clean exported-memory-write nested-if condition while preserving both global-derived address and global-derived value operands, so the Starshine slice stayed limited to `f64.store` whose address and stored value are both clean.

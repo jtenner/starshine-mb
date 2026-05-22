@@ -701,6 +701,15 @@ fn sgo_flow_pop_clean_pair(stack : Array[SgoFlowValue]) -> Bool {
 }
 
 ///|
+fn sgo_flow_pop_clean_triple(stack : Array[SgoFlowValue]) -> Bool {
+  match (sgo_flow_pop(stack), sgo_flow_pop(stack), sgo_flow_pop(stack)) {
+    (Some(third), Some(second), Some(first)) =>
+      !third.tainted && !second.tainted && !first.tainted
+    _ => false
+  }
+}
+
+///|
 fn sgo_flow_stack_has_taint(stack : Array[SgoFlowValue]) -> Bool {
   stack.any(fn(value) { value.tainted })
 }
@@ -1163,6 +1172,12 @@ fn sgo_flow_scan_prefix_until(
         } else {
           return (false, reads, stack)
         }
+      @lib.MemoryFill(_) =>
+        if sgo_flow_pop_clean_triple(stack) {
+          continue
+        } else {
+          return (false, reads, stack)
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1274,6 +1289,12 @@ fn sgo_flow_scan_clean_prefix_until(
         } else {
           return (false, stack)
         }
+      @lib.MemoryFill(_) =>
+        if sgo_flow_pop_clean_triple(stack) {
+          continue
+        } else {
+          return (false, stack)
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1376,6 +1397,12 @@ fn sgo_flow_arm_result_taint_and_reads(
       | @lib.I64Store16(_)
       | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return (false, reads, false)
+        }
+      @lib.MemoryFill(_) =>
+        if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
           return (false, reads, false)
@@ -1526,6 +1553,12 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         } else {
           return None
         }
+      @lib.MemoryFill(_) =>
+        if sgo_flow_pop_clean_triple(stack) {
+          continue
+        } else {
+          return None
+        }
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => continue
@@ -1623,6 +1656,12 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
       | @lib.I64Store16(_)
       | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return (false, reads, false)
+        }
+      @lib.MemoryFill(_) =>
+        if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
           return (false, reads, false)
@@ -1850,6 +1889,12 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
       | @lib.I64Store16(_)
       | @lib.I64Store32(_) =>
         if sgo_flow_pop_clean_pair(stack) {
+          continue
+        } else {
+          return false
+        }
+      @lib.MemoryFill(_) =>
+        if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
           return false
