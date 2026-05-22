@@ -1149,6 +1149,7 @@ fn sgo_flow_scan_prefix_until(
         continue
       }
       @lib.TableSet(_)
+      | @lib.F32Store(_)
       | @lib.I32Store(_)
       | @lib.I64Store(_)
       | @lib.I32Store8(_)
@@ -1258,6 +1259,7 @@ fn sgo_flow_scan_clean_prefix_until(
         continue
       }
       @lib.TableSet(_)
+      | @lib.F32Store(_)
       | @lib.I32Store(_)
       | @lib.I64Store(_)
       | @lib.I32Store8(_)
@@ -1362,6 +1364,7 @@ fn sgo_flow_arm_result_taint_and_reads(
         continue
       }
       @lib.TableSet(_)
+      | @lib.F32Store(_)
       | @lib.I32Store(_)
       | @lib.I64Store(_)
       | @lib.I32Store8(_)
@@ -1506,6 +1509,7 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         continue
       }
       @lib.TableSet(_)
+      | @lib.F32Store(_)
       | @lib.I32Store(_)
       | @lib.I64Store(_)
       | @lib.I32Store8(_)
@@ -1605,6 +1609,7 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         continue
       }
       @lib.TableSet(_)
+      | @lib.F32Store(_)
       | @lib.I32Store(_)
       | @lib.I64Store(_)
       | @lib.I32Store8(_)
@@ -1830,6 +1835,7 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
         continue
       }
       @lib.TableSet(_)
+      | @lib.F32Store(_)
       | @lib.I32Store(_)
       | @lib.I64Store(_)
       | @lib.I32Store8(_)
