@@ -10400,6 +10400,127 @@ fn dae_try_spill_i32_param_loop_body_once(
 }
 
 ///|
+fn dae_try_spill_i32_param_loop_at_with_iteration_carrier(
+  body : Array[@lib.Instruction],
+  loop_idx : Int,
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  if loop_idx <= 0 || loop_idx >= body.length() {
+    return None
+  }
+  let loop_body = match body[loop_idx] {
+    @lib.Loop(block_type, @lib.Expr(loop_body)) if dae_block_type_is_single_i32_param_zero_result(
+        block_type, type_sec,
+      ) => loop_body
+    _ => return None
+  }
+  if loop_body.length() == 0 {
+    return None
+  }
+  let iteration_local = match loop_body[0] {
+    @lib.LocalTee(idx) => idx
+    _ => return None
+  }
+  dae_try_spill_i32_param_loop_at(body, loop_idx, iteration_local, type_sec)
+}
+
+///|
+fn dae_try_spill_i32_param_loop_recursive_instr_once(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      match dae_try_spill_i32_param_loop_recursive_body_once(body, type_sec) {
+        Some(rewritten) =>
+          Some(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+        None => None
+      }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      match dae_try_spill_i32_param_loop_recursive_body_once(body, type_sec) {
+        Some(rewritten) =>
+          Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
+        None => None
+      }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      match dae_try_spill_i32_param_loop_recursive_body_once(body, type_sec) {
+        Some(rewritten) =>
+          Some(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten),
+            ),
+          )
+        None => None
+      }
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      match
+        dae_try_spill_i32_param_loop_recursive_body_once(then_body, type_sec) {
+        Some(rewritten_then) =>
+          Some(
+            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
+          )
+        None =>
+          match
+            dae_try_spill_i32_param_loop_recursive_body_once(
+              else_body, type_sec,
+            ) {
+            Some(rewritten_else) =>
+              Some(
+                @lib.Instruction::if_(
+                  block_type,
+                  then_body,
+                  Some(rewritten_else),
+                ),
+              )
+            None => None
+          }
+      }
+    @lib.If(block_type, then_body, None) =>
+      match
+        dae_try_spill_i32_param_loop_recursive_body_once(then_body, type_sec) {
+        Some(rewritten_then) =>
+          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn dae_try_spill_i32_param_loop_recursive_body_once(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  let mut idx = 1
+  while idx < body.length() {
+    match
+      dae_try_spill_i32_param_loop_at_with_iteration_carrier(
+        body, idx, type_sec,
+      ) {
+      Some(rewritten) => return Some(rewritten)
+      None => ()
+    }
+    idx += 1
+  }
+  idx = 0
+  while idx < body.length() {
+    match
+      dae_try_spill_i32_param_loop_recursive_instr_once(body[idx], type_sec) {
+      Some(rewritten_instr) => {
+        let rewritten = body.copy()
+        rewritten[idx] = rewritten_instr
+        return Some(rewritten)
+      }
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
 fn dae_try_spill_selected_func237_param_loop_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -10424,11 +10545,16 @@ fn dae_try_spill_selected_func237_param_loop_once(
   if dae_instrs_reference_local_from(body, carrier_local, 1) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let rewritten = match
+  let mut rewritten = match
     dae_try_spill_i32_param_loop_body_once(body, carrier_local, mod_.type_sec) {
     Some(instrs) => instrs
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  match
+    dae_try_spill_i32_param_loop_recursive_body_once(rewritten, mod_.type_sec) {
+    Some(nested_rewritten) => rewritten = nested_rewritten
+    None => ()
   }
   if rewritten == body {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
