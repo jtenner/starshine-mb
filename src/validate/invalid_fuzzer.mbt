@@ -78,6 +78,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyGlobalIndex
   InvalidFunctionBodyTableIndex
   InvalidFunctionBodyMemoryIndex
+  InvalidFunctionBodyCallIndex
+  InvalidFunctionBodyBrLabelIndex
+  InvalidFunctionBodyBrPayloadMismatch
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
@@ -445,6 +448,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyCallIndex,
+      "invalid-function-body-call-index",
+      "invalid function index in function body",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyBrLabelIndex,
+      "invalid-function-body-branch-label-index",
+      "invalid branch label index in function body",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyBrPayloadMismatch,
+      "invalid-function-body-branch-payload-mismatch",
+      "invalid function-body branch payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
       "invalid-memory-name-section-index",
       "invalid memory name index",
@@ -619,21 +643,24 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyGlobalIndex => 33
     InvalidFunctionBodyTableIndex => 34
     InvalidFunctionBodyMemoryIndex => 35
-    InvalidMemoryNameSectionIndex => 36
-    CodeSecWithoutFuncSec => 37
-    InvalidTableNameSectionIndex => 38
-    InvalidGlobalNameSectionIndex => 39
-    InvalidTypeNameSectionIndex => 40
-    InvalidFieldNameSectionIndex => 41
-    InvalidElemNameSectionIndex => 42
-    InvalidDataNameSectionIndex => 43
-    InvalidExportTableIndex => 44
-    InvalidExportGlobalIndex => 45
-    InvalidExportMemoryIndex => 46
-    InvalidExportTagIndex => 47
-    InvalidTagNameSectionIndex => 48
-    DataCountMismatchTooSmall => 49
-    DataCountMismatchTooLarge => 50
+    InvalidFunctionBodyCallIndex => 36
+    InvalidFunctionBodyBrLabelIndex => 37
+    InvalidFunctionBodyBrPayloadMismatch => 38
+    InvalidMemoryNameSectionIndex => 39
+    CodeSecWithoutFuncSec => 40
+    InvalidTableNameSectionIndex => 41
+    InvalidGlobalNameSectionIndex => 42
+    InvalidTypeNameSectionIndex => 43
+    InvalidFieldNameSectionIndex => 44
+    InvalidElemNameSectionIndex => 45
+    InvalidDataNameSectionIndex => 46
+    InvalidExportTableIndex => 47
+    InvalidExportGlobalIndex => 48
+    InvalidExportMemoryIndex => 49
+    InvalidExportTagIndex => 50
+    InvalidTagNameSectionIndex => 51
+    DataCountMismatchTooSmall => 52
+    DataCountMismatchTooLarge => 53
   }
 }
 
@@ -1906,6 +1933,82 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_call_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_func_idx = FuncIdx::new(
+    (validate_invalid_ast_total_func_count(mod) + 1).reinterpret_as_uint(),
+  )
+  let body = Expr::new([Instruction::call(bad_func_idx), Instruction::drop()])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyCallIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_br_label_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let body = Expr::new([
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([Instruction::br(LabelIdx::new(2U))]),
+    ),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyBrLabelIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_br_payload_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i64_const(I64(0)),
+        Instruction::br(LabelIdx::new(0U)),
+      ]),
+    ),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyBrPayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_memory_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2610,6 +2713,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_table_index(base)
       InvalidFunctionBodyMemoryIndex =>
         validate_invalid_ast_mutate_invalid_function_body_memory_index(base)
+      InvalidFunctionBodyCallIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_call_index(base)
+      InvalidFunctionBodyBrLabelIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_br_label_index(base)
+      InvalidFunctionBodyBrPayloadMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_br_payload_mismatch(
+          base,
+        )
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
       InvalidLocalNameSectionIndex =>
@@ -3009,11 +3120,13 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
     "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
     "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
+    "invalid-function-body-branch-payload-mismatch", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -3525,6 +3638,45 @@ test "invalid memory index strategy rejects with FunctionBody family" {
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidFunctionBodyMemoryIndex,
       0x5f10UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid function index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyCallIndex,
+      0x5f11UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid branch label strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyBrLabelIndex,
+      0x5f12UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid branch payload strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyBrPayloadMismatch,
+      0x5f13UL,
       FunctionBodyFamily,
     ) {
     Ok(_) => ()

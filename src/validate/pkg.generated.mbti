@@ -1043,6 +1043,13 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidImportedStartFuncFuncrefParam
   MissingDataCount
   UndeclaredRefFunc
+  InvalidFunctionBodyLocalIndex
+  InvalidFunctionBodyGlobalIndex
+  InvalidFunctionBodyTableIndex
+  InvalidFunctionBodyMemoryIndex
+  InvalidFunctionBodyCallIndex
+  InvalidFunctionBodyBrLabelIndex
+  InvalidFunctionBodyBrPayloadMismatch
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
