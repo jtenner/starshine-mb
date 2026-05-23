@@ -595,6 +595,11 @@ fn sgo_count_read_only_to_write_instrs(
       }
       @lib.Loop(_, body) => {
         if pos + 1 < instrs.length() {
+          sgo_count_block_condition_read_only_to_write_read(
+            instr,
+            instrs[pos + 1],
+            safe_reads,
+          )
           sgo_count_block_wrapped_nested_if_arm_flow_read(
             instr,
             instrs[pos + 1],
@@ -3093,12 +3098,18 @@ fn sgo_count_block_condition_read_only_to_write_read(
   safe_reads : Array[Int],
 ) -> Unit {
   match (instr, next) {
-    (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
+    (
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body)),
+      @lib.If(_, then_body, None),
+    ) =>
       match sgo_single_const_global_set_idx(then_body) {
         Some(idx) if sgo_block_condition_final_read_matches(body, idx) ||
           sgo_block_condition_pure_read_matches(body, idx) ||
-          sgo_block_condition_flow_scanner_read_matches(body, idx) =>
-          sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+          (match instr {
+            @lib.Loop(_, _) => false
+            _ => sgo_block_condition_flow_scanner_read_matches(body, idx)
+          }) => sgo_count_read_only_to_write_safe_read(idx, safe_reads)
         Some(idx) =>
           match sgo_block_condition_single_read_idx(body) {
             Some(read_idx) if read_idx == idx =>
