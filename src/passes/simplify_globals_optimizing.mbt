@@ -1197,6 +1197,18 @@ fn sgo_flow_scan_prefix_until(
           return (false, reads, stack)
         }
       }
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
+          body, idx,
+        )
+        reads = reads + block_reads
+        if block_ok && reads <= 1 {
+          stack.push(sgo_flow_plain(block_tainted))
+          continue
+        } else {
+          return (false, reads, stack)
+        }
+      }
       @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
@@ -1332,6 +1344,19 @@ fn sgo_flow_scan_clean_prefix_until(
           return (false, stack)
         }
       }
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        let (block_ok, block_stack) = sgo_flow_scan_clean_prefix_until(
+          body,
+          body.length(),
+        )
+        match block_stack {
+          [value] if block_ok && !value.tainted => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return (false, stack)
+        }
+      }
       @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
@@ -1457,6 +1482,18 @@ fn sgo_flow_arm_result_taint_and_reads(
         )
         reads = reads + block_reads
         if block_ok && block_reads == 0 && !block_tainted {
+          continue
+        } else {
+          return (false, reads, false)
+        }
+      }
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
+          body, idx,
+        )
+        reads = reads + block_reads
+        if block_ok && reads <= 1 {
+          stack.push(sgo_flow_plain(block_tainted))
           continue
         } else {
           return (false, reads, false)
@@ -1633,6 +1670,22 @@ fn sgo_nested_if_arm_flow_outer_if_index(
           continue
         } else {
           return None
+        }
+      }
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        if sgo_instrs_may_reference_global(body) {
+          return None
+        }
+        let (block_ok, block_stack) = sgo_flow_scan_clean_prefix_until(
+          body,
+          body.length(),
+        )
+        match block_stack {
+          [value] if block_ok && !value.tainted => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return None
         }
       }
       @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
@@ -2007,6 +2060,17 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
           idx,
         )
         if block_ok && block_reads == 0 && block_stack.length() == 0 {
+          continue
+        } else {
+          return false
+        }
+      }
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
+          body, idx,
+        )
+        if block_ok && block_reads == 0 {
+          stack.push(sgo_flow_plain(block_tainted))
           continue
         } else {
           return false
