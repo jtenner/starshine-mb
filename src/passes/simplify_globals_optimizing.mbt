@@ -1183,7 +1183,8 @@ fn sgo_flow_scan_prefix_until(
         } else {
           return (false, reads, stack)
         }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
+      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
         let (block_ok, block_reads, block_stack) = sgo_flow_scan_prefix_until(
           body,
           body.length(),
@@ -1319,7 +1320,8 @@ fn sgo_flow_scan_clean_prefix_until(
         } else {
           return (false, stack)
         }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
+      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
         let (block_ok, block_stack) = sgo_flow_scan_clean_prefix_until(
           body,
           body.length(),
@@ -1448,7 +1450,8 @@ fn sgo_flow_arm_result_taint_and_reads(
         } else {
           return (false, reads, false)
         }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
+      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
         let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
           body, idx,
         )
@@ -1617,7 +1620,8 @@ fn sgo_nested_if_arm_flow_outer_if_index(
         } else {
           return None
         }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
+      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
         if sgo_instrs_may_reference_global(body) {
           return None
         }
@@ -1744,7 +1748,8 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         } else {
           return (false, reads, false)
         }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
+      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
         let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
           body, idx,
         )
@@ -1994,7 +1999,8 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
         } else {
           return false
         }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
+      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
         let (block_ok, block_reads, block_stack) = sgo_flow_scan_prefix_until(
           body,
           body.length(),
