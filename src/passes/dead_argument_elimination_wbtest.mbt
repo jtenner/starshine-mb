@@ -2431,6 +2431,105 @@ test "dae func237 nested zero-branch block folds into outer carrier" {
 }
 
 ///|
+test "dae func237 unreachable after if takes else branch as common br" {
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+      ],
+      Some([
+        @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+      ]),
+    ),
+    @lib.Instruction::unreachable_(),
+    @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+  ]
+  match
+    dae_try_fold_func237_unreachable_after_if_else_branch_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          Some([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+      ])
+    None => fail("expected unreachable after if to become common branch")
+  }
+}
+
+///|
+test "dae func237 terminal if takes else branch as common br" {
+  let body = [
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+      ],
+      Some([
+        @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+      ]),
+    ),
+  ]
+  match
+    dae_try_fold_func237_unreachable_after_if_else_branch_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          Some([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+      ])
+    None => fail("expected terminal if else branch to become common branch")
+  }
+}
+
+///|
+test "dae func237 common br keeps zero-depth carrier label" {
+  let body = [
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::br(@lib.LabelIdx::new(0U))],
+      Some([
+        @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::unreachable_(),
+  ]
+  match
+    dae_try_fold_func237_unreachable_after_if_else_branch_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [@lib.Instruction::br(@lib.LabelIdx::new(0U))],
+          Some([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ])
+    None => fail("expected zero-depth common branch to be preserved")
+  }
+}
+
+///|
 test "dae func237 dropped result branch carrier becomes void block" {
   let local0 = @lib.LocalIdx::new(0U)
   let local1 = @lib.LocalIdx::new(1U)

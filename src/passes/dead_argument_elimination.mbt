@@ -11046,6 +11046,248 @@ fn dae_try_fold_selected_func237_dropped_result_branch_carrier_once(
 }
 
 ///|
+fn dae_func237_body_ends_without_fallthrough(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.Br(_) | @lib.Return | @lib.Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn dae_try_fold_func237_unreachable_after_if_else_branch_at(
+  body : Array[@lib.Instruction],
+  idx : Int,
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  let has_trailing_unreachable = idx + 1 < body.length() &&
+    body[idx + 1] == @lib.Instruction::unreachable_()
+  if idx + 1 < body.length() && !has_trailing_unreachable {
+    return None
+  }
+  let (block_type, then_body, else_body) = match body[idx] {
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      (block_type, then_body, else_body)
+    _ => return None
+  }
+  if !dae_block_type_is_zero_param_zero_result(block_type, type_sec) ||
+    !dae_func237_body_ends_without_fallthrough(then_body) ||
+    else_body.length() == 0 {
+    return None
+  }
+  let final_label = match else_body[else_body.length() - 1] {
+    @lib.Br(label_idx) => label_idx
+    _ => return None
+  }
+  let depth = dae_label_idx_as_int(final_label)
+  if depth < 0 {
+    return None
+  }
+  let else_prefix = dae_copy_instr_prefix(else_body, else_body.length() - 1)
+  if dae_instrs_have_escaping_branch(else_prefix, 0) {
+    return None
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  let mut before = 0
+  while before < idx {
+    rewritten.push(body[before])
+    before += 1
+  }
+  rewritten.push(
+    @lib.Instruction::if_(block_type, then_body, Some(else_prefix)),
+  )
+  let moved_depth = if depth > 0 { depth - 1 } else { 0 }
+  rewritten.push(
+    @lib.Instruction::br(@lib.LabelIdx::new(moved_depth.reinterpret_as_uint())),
+  )
+  let mut after = if has_trailing_unreachable { idx + 2 } else { idx + 1 }
+  while after < body.length() {
+    rewritten.push(body[after])
+    after += 1
+  }
+  Some(rewritten)
+}
+
+///|
+fn dae_try_fold_func237_unreachable_after_if_else_branch_body_once(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  let mut idx = 0
+  while idx < body.length() {
+    match
+      dae_try_fold_func237_unreachable_after_if_else_branch_at(
+        body, idx, type_sec,
+      ) {
+      Some(rewritten) => return Some(rewritten)
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_fold_func237_unreachable_after_if_else_branch_instr_once(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+          body, type_sec,
+        ) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        None => None
+      }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+          body, type_sec,
+        ) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        None => None
+      }
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      match
+        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+          then_body, type_sec,
+        ) {
+        Some(rewritten_then) =>
+          Some(
+            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
+          )
+        None =>
+          match
+            dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+              else_body, type_sec,
+            ) {
+            Some(rewritten_else) =>
+              Some(
+                @lib.Instruction::if_(
+                  block_type,
+                  then_body,
+                  Some(rewritten_else),
+                ),
+              )
+            None => None
+          }
+      }
+    @lib.If(block_type, then_body, None) =>
+      match
+        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+          then_body, type_sec,
+        ) {
+        Some(rewritten_then) =>
+          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
+        None => None
+      }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+          body, type_sec,
+        ) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_body),
+            ),
+          )
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  match
+    dae_try_fold_func237_unreachable_after_if_else_branch_body_once(
+      body, type_sec,
+    ) {
+    Some(rewritten) => return Some(rewritten)
+    None => ()
+  }
+  let mut idx = 0
+  while idx < body.length() {
+    match
+      dae_try_fold_func237_unreachable_after_if_else_branch_instr_once(
+        body[idx],
+        type_sec,
+      ) {
+      Some(rewritten_instr) => {
+        let rewritten = body.copy()
+        rewritten[idx] = rewritten_instr
+        return Some(rewritten)
+      }
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_fold_selected_func237_unreachable_after_if_else_branch_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 237
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let rewritten = match
+    dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
+      body,
+      mod_.type_sec,
+    ) {
+    Some(instrs) => instrs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_shift_label_after_removed_block(
   label_idx : @lib.LabelIdx,
   removed_depth : Int,
@@ -14843,6 +15085,22 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         )
         trace(
           "pass[dae-optimizing]:selected-func237-leading-retain-call-final primary_def=\{selected_func237_retain_call_final.primary_def}",
+        )
+        changed = true
+      }
+      selected_scratch_defs[237] = true
+      let selected_func237_common_branch = dae_try_fold_selected_func237_unreachable_after_if_else_branch_once(
+        current, selected_scratch_defs,
+      )
+      selected_scratch_defs[237] = false
+      if selected_func237_common_branch.changed {
+        current = selected_func237_common_branch.mod_out
+        touched = dae_merge_touched(
+          touched,
+          selected_func237_common_branch.touched,
+        )
+        trace(
+          "pass[dae-optimizing]:selected-func237-unreachable-after-if-else-branch primary_def=\{selected_func237_common_branch.primary_def}",
         )
         changed = true
       }
