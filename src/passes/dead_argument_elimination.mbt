@@ -10797,6 +10797,255 @@ fn dae_try_flatten_selected_func237_nested_branch_result_once(
 }
 
 ///|
+fn dae_try_fold_func237_dropped_result_branch_carrier_at(
+  body : Array[@lib.Instruction],
+  idx : Int,
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  if idx + 1 >= body.length() || body[idx + 1] != @lib.Instruction::drop() {
+    return None
+  }
+  let (result_block_type, result_body) = match body[idx] {
+    @lib.Block(block_type, @lib.Expr(instrs)) => (block_type, instrs)
+    _ => return None
+  }
+  if !dae_block_type_is_zero_param_single_result(result_block_type, type_sec) ||
+    result_body.length() < 2 {
+    return None
+  }
+  let (inner_block_type, inner_body) = match result_body[0] {
+    @lib.Block(block_type, @lib.Expr(instrs)) => (block_type, instrs)
+    _ => return None
+  }
+  if !dae_block_type_is_zero_param_zero_result(inner_block_type, type_sec) ||
+    inner_body.length() < 2 {
+    return None
+  }
+  let final_const_idx = inner_body.length() - 2
+  let final_br_idx = inner_body.length() - 1
+  match (inner_body[final_const_idx], inner_body[final_br_idx]) {
+    (@lib.I32Const(@lib.I32(0)), @lib.Br(@lib.LabelIdx(1U))) => ()
+    _ => return None
+  }
+  let inner_prefix = dae_copy_instr_prefix(inner_body, final_const_idx)
+  // The only allowed branch to the result carrier is the final `br 1` whose
+  // `i32.const 0` payload is discarded by the following `drop`. Other branches
+  // to that carrier would need a value after the carrier becomes void.
+  if dae_instrs_have_escaping_branch(inner_prefix, 1) {
+    return None
+  }
+  let post_body : Array[@lib.Instruction] = []
+  let mut post_idx = 1
+  while post_idx < result_body.length() {
+    post_body.push(result_body[post_idx])
+    post_idx += 1
+  }
+  if dae_instrs_have_escaping_branch(post_body, 0) {
+    return None
+  }
+  let rewritten_inner = inner_prefix.copy()
+  rewritten_inner.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+  let rewritten_result_body : Array[@lib.Instruction] = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new(rewritten_inner),
+    ),
+  ]
+  for instr in post_body {
+    rewritten_result_body.push(instr)
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  let mut before = 0
+  while before < idx {
+    rewritten.push(body[before])
+    before += 1
+  }
+  rewritten.push(
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new(rewritten_result_body),
+    ),
+  )
+  let mut after = idx + 2
+  while after < body.length() {
+    rewritten.push(body[after])
+    after += 1
+  }
+  Some(rewritten)
+}
+
+///|
+fn dae_try_fold_func237_dropped_result_branch_carrier_body_once(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  let mut idx = 0
+  while idx < body.length() {
+    match
+      dae_try_fold_func237_dropped_result_branch_carrier_at(body, idx, type_sec) {
+      Some(rewritten) => return Some(rewritten)
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_fold_func237_dropped_result_branch_carrier_instr_once(
+  instr : @lib.Instruction,
+  type_sec : @lib.TypeSec?,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+          body, type_sec,
+        ) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        None => None
+      }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+          body, type_sec,
+        ) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+          )
+        None => None
+      }
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      match
+        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+          then_body, type_sec,
+        ) {
+        Some(rewritten_then) =>
+          Some(
+            @lib.Instruction::if_(block_type, rewritten_then, Some(else_body)),
+          )
+        None =>
+          match
+            dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+              else_body, type_sec,
+            ) {
+            Some(rewritten_else) =>
+              Some(
+                @lib.Instruction::if_(
+                  block_type,
+                  then_body,
+                  Some(rewritten_else),
+                ),
+              )
+            None => None
+          }
+      }
+    @lib.If(block_type, then_body, None) =>
+      match
+        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+          then_body, type_sec,
+        ) {
+        Some(rewritten_then) =>
+          Some(@lib.Instruction::if_(block_type, rewritten_then, None))
+        None => None
+      }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      match
+        dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+          body, type_sec,
+        ) {
+        Some(rewritten_body) =>
+          Some(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_body),
+            ),
+          )
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  match
+    dae_try_fold_func237_dropped_result_branch_carrier_body_once(body, type_sec) {
+    Some(rewritten) => return Some(rewritten)
+    None => ()
+  }
+  let mut idx = 0
+  while idx < body.length() {
+    match
+      dae_try_fold_func237_dropped_result_branch_carrier_instr_once(
+        body[idx],
+        type_sec,
+      ) {
+      Some(rewritten_instr) => {
+        let rewritten = body.copy()
+        rewritten[idx] = rewritten_instr
+        return Some(rewritten)
+      }
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_fold_selected_func237_dropped_result_branch_carrier_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 237
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let rewritten = match
+    dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
+      body,
+      mod_.type_sec,
+    ) {
+    Some(instrs) => instrs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_shift_label_after_removed_block(
   label_idx : @lib.LabelIdx,
   removed_depth : Int,
@@ -14565,6 +14814,38 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         "pass[dae-optimizing]:selected-func237-inner-iteration-loop-final primary_def=\{selected_func237_inner_loop_final.primary_def}",
       )
       changed = true
+    }
+    selected_scratch_defs[237] = true
+    let selected_func237_dropped_branch = dae_try_fold_selected_func237_dropped_result_branch_carrier_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[237] = false
+    if selected_func237_dropped_branch.changed {
+      current = selected_func237_dropped_branch.mod_out
+      touched = dae_merge_touched(
+        touched,
+        selected_func237_dropped_branch.touched,
+      )
+      trace(
+        "pass[dae-optimizing]:selected-func237-dropped-result-branch-carrier primary_def=\{selected_func237_dropped_branch.primary_def}",
+      )
+      changed = true
+      selected_scratch_defs[237] = true
+      let selected_func237_retain_call_final = dae_try_hoist_selected_func237_leading_retain_call_once(
+        current, selected_scratch_defs,
+      )
+      selected_scratch_defs[237] = false
+      if selected_func237_retain_call_final.changed {
+        current = selected_func237_retain_call_final.mod_out
+        touched = dae_merge_touched(
+          touched,
+          selected_func237_retain_call_final.touched,
+        )
+        trace(
+          "pass[dae-optimizing]:selected-func237-leading-retain-call-final primary_def=\{selected_func237_retain_call_final.primary_def}",
+        )
+        changed = true
+      }
     }
   }
   { mod_out: current, touched, changed, primary_def: -1 }

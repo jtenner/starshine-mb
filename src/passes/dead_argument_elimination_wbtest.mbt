@@ -2431,6 +2431,77 @@ test "dae func237 nested zero-branch block folds into outer carrier" {
 }
 
 ///|
+test "dae func237 dropped result branch carrier becomes void block" {
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_eq(),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [@lib.Instruction::call(@lib.FuncIdx::new(28U))],
+              Some([
+                @lib.Instruction::local_set(local1),
+                @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(local1),
+        @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+        @lib.Instruction::return_(),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(29U)),
+  ]
+  match
+    dae_try_fold_func237_dropped_result_branch_carrier_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+                @lib.Instruction::local_get(local0),
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::i32_eq(),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [@lib.Instruction::call(@lib.FuncIdx::new(28U))],
+                  Some([
+                    @lib.Instruction::local_set(local1),
+                    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::local_get(local1),
+            @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+            @lib.Instruction::return_(),
+          ]),
+        ),
+        @lib.Instruction::call(@lib.FuncIdx::new(29U)),
+      ])
+    None => fail("expected dropped result branch carrier void block fold")
+  }
+}
+
+///|
 test "dae func237 nested branch-result carrier inlines value wrapper" {
   let body = [
     @lib.Instruction::drop(),
