@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO loop-wrapped nested-if FlowScanner slice
+
+- Probed clean and tainted `loop (result i32)` wrappers around nested-if arm-flow guards against Binaryen v129. Binaryen promoted the loop-wrapped `i32.eqz` post-consumer when the candidate global only flowed to the final branch, while preserving mutable/read-write shape when the loop-wrapped post-consumer was a trapping `i32.load` fed by the candidate value.
+- Extended `[SGO]003` block-wrapped nested-if arm-flow counting to the same non-branching value-loop wrapper shape. The scanner still rejects branch/control contents through existing unsupported-instruction paths and keeps trapping global-derived post-consumers conservative.
+- Added focused positive/negative tests for loop-wrapped post-if pure consumers and tainted post-if loads, plus focused coverage for clean/tainted void-if effects inside block-wrapped nested-if flow. Validation evidence: initial failing `moon test src/passes` for the loop-wrapped pure-consumer positive, green `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-loop-wrapped-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-23] binaryen | SGO clean arm-local void-if FlowScanner slice
 
 - Probed clean and tainted arm-local void-if effects inside nested-if arm-flow guards against Binaryen v129. Binaryen promoted the clean void-if effect before the arm yielded a constant, while preserving mutable/read-write shape when that arm-local void-if consumed the candidate global before the final same-global write guard.

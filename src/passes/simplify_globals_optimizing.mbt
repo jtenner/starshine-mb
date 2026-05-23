@@ -593,7 +593,16 @@ fn sgo_count_read_only_to_write_instrs(
         }
         sgo_count_read_only_to_write_expr(body, safe_reads)
       }
-      @lib.Loop(_, body) => sgo_count_read_only_to_write_expr(body, safe_reads)
+      @lib.Loop(_, body) => {
+        if pos + 1 < instrs.length() {
+          sgo_count_block_wrapped_nested_if_arm_flow_read(
+            instr,
+            instrs[pos + 1],
+            safe_reads,
+          )
+        }
+        sgo_count_read_only_to_write_expr(body, safe_reads)
+      }
       @lib.If(_, then_body, else_body) => {
         sgo_count_nested_if_arm_flow_read(instrs, pos, safe_reads)
         sgo_count_read_only_to_write_instrs(then_body, safe_reads)
@@ -1944,7 +1953,8 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
           Some(value) if !value.tainted => continue
           _ => return (false, reads, false)
         }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
+      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
         let (block_ok, block_reads, block_tainted) = sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
           body, idx,
         )
@@ -2018,7 +2028,8 @@ fn sgo_count_block_wrapped_nested_if_arm_flow_read(
 ) -> Unit {
   match (instr, next) {
     (
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)),
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
+      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)),
       @lib.If(_, outer_then, None),
     ) => {
       let idx = match sgo_single_const_global_set_idx(outer_then) {
@@ -2028,10 +2039,11 @@ fn sgo_count_block_wrapped_nested_if_arm_flow_read(
       let (ok, reads, tainted) = sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         body, idx,
       )
-      if ok &&
-        reads == 1 &&
-        tainted &&
-        !sgo_block_condition_flow_scanner_read_matches(body, idx) {
+      let matched_by_block_condition_scanner = match instr {
+        @lib.Loop(_, _) => false
+        _ => sgo_block_condition_flow_scanner_read_matches(body, idx)
+      }
+      if ok && reads == 1 && tainted && !matched_by_block_condition_scanner {
         sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       }
     }
