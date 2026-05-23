@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 exception payload invalid AST coverage
+
+- Continued `[FUZ]1020` by adding two function-body AST invalid strategies for exception payload typing: `invalid-function-body-throw-payload-mismatch` and `invalid-function-body-try-table-catch-payload-mismatch`.
+- The new strategies start from a valid module, add a typed tag, then force either a mismatched `throw` operand stack or a mismatched `try_table` catch-target payload; focused tests prove the invalid forms reject with `FunctionBodyFamily` and the repaired matching tag/target forms validate.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living AST-invalid strategy summary names `throw` and `try_table` catch payload mismatch coverage alongside direct call and branch payload variants.
+
 ## [2026-05-22] fuzzing | FUZ1019 invalid seed prerequisite metadata
 
 - Completed `[FUZ]1019` by adding declarative `seed_prerequisites` metadata to AST-invalid strategy specs, plus public lookup helpers for strategy ids and strategy seed prerequisites.

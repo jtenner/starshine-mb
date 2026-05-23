@@ -84,6 +84,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyCallPayloadMismatch
   InvalidFunctionBodyBrIfPayloadMismatch
   InvalidFunctionBodyBrTablePayloadMismatch
+  InvalidFunctionBodyThrowPayloadMismatch
+  InvalidFunctionBodyTryTableCatchPayloadMismatch
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
@@ -493,6 +495,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyThrowPayloadMismatch,
+      "invalid-function-body-throw-payload-mismatch",
+      "invalid function-body throw payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTryTableCatchPayloadMismatch,
+      "invalid-function-body-try-table-catch-payload-mismatch",
+      "invalid function-body try_table catch payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
       "invalid-memory-name-section-index",
       "invalid memory name index",
@@ -673,21 +689,23 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyCallPayloadMismatch => 39
     InvalidFunctionBodyBrIfPayloadMismatch => 40
     InvalidFunctionBodyBrTablePayloadMismatch => 41
-    InvalidMemoryNameSectionIndex => 42
-    CodeSecWithoutFuncSec => 43
-    InvalidTableNameSectionIndex => 44
-    InvalidGlobalNameSectionIndex => 45
-    InvalidTypeNameSectionIndex => 46
-    InvalidFieldNameSectionIndex => 47
-    InvalidElemNameSectionIndex => 48
-    InvalidDataNameSectionIndex => 49
-    InvalidExportTableIndex => 50
-    InvalidExportGlobalIndex => 51
-    InvalidExportMemoryIndex => 52
-    InvalidExportTagIndex => 53
-    InvalidTagNameSectionIndex => 54
-    DataCountMismatchTooSmall => 55
-    DataCountMismatchTooLarge => 56
+    InvalidFunctionBodyThrowPayloadMismatch => 42
+    InvalidFunctionBodyTryTableCatchPayloadMismatch => 43
+    InvalidMemoryNameSectionIndex => 44
+    CodeSecWithoutFuncSec => 45
+    InvalidTableNameSectionIndex => 46
+    InvalidGlobalNameSectionIndex => 47
+    InvalidTypeNameSectionIndex => 48
+    InvalidFieldNameSectionIndex => 49
+    InvalidElemNameSectionIndex => 50
+    InvalidDataNameSectionIndex => 51
+    InvalidExportTableIndex => 52
+    InvalidExportGlobalIndex => 53
+    InvalidExportMemoryIndex => 54
+    InvalidExportTagIndex => 55
+    InvalidTagNameSectionIndex => 56
+    DataCountMismatchTooSmall => 57
+    DataCountMismatchTooLarge => 58
   }
 }
 
@@ -1058,6 +1076,28 @@ fn validate_invalid_ast_append_defined_func(
     .with_func_sec(FuncSec::new(func_types))
     .with_code_sec(CodeSec::new(code)),
     func_idx,
+    type_idx,
+  )
+}
+
+///|
+fn validate_invalid_ast_append_tag(
+  mod : Module,
+  params : Array[ValType],
+) -> (Module, TagIdx, TypeIdx) {
+  let types = validate_invalid_ast_type_entries(mod)
+  let tags = validate_invalid_ast_tag_entries(mod)
+  let type_idx = TypeIdx::new(
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+  )
+  let tag_idx = TagIdx::new(
+    validate_invalid_ast_total_tag_count(mod).reinterpret_as_uint(),
+  )
+  types.push(RecType::new(SubType::comp_type(CompType::func(params, []))))
+  tags.push(TagType::new(type_idx))
+  (
+    mod.with_type_sec(TypeSec::new(types)).with_tag_sec(TagSec::new(tags)),
+    tag_idx,
     type_idx,
   )
 }
@@ -2126,6 +2166,71 @@ fn validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_throw_payload_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let (with_tag, tag_idx, _) = validate_invalid_ast_append_tag(mod, [
+    ValType::i32(),
+  ])
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::throw_(tag_idx),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_tag,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyThrowPayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_try_table_catch_payload_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let (with_tag, tag_idx, _) = validate_invalid_ast_append_tag(mod, [
+    ValType::i64(),
+  ])
+  let body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::try_table(
+          BlockType::void_(),
+          [Catch::new(tag_idx, LabelIdx::new(0U))],
+          Expr::new([
+            Instruction::i64_const(I64(0)),
+            Instruction::throw_(tag_idx),
+          ]),
+        ),
+        Instruction::unreachable_(),
+      ]),
+    ),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_tag,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTryTableCatchPayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_memory_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2850,6 +2955,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
           base,
         )
+      InvalidFunctionBodyThrowPayloadMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_throw_payload_mismatch(
+          base,
+        )
+      InvalidFunctionBodyTryTableCatchPayloadMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_try_table_catch_payload_mismatch(
+          base,
+        )
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
       InvalidLocalNameSectionIndex =>
@@ -3252,6 +3365,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
+    "invalid-function-body-throw-payload-mismatch", "invalid-function-body-try-table-catch-payload-mismatch",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
     "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
     "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
@@ -3854,6 +3968,32 @@ test "invalid br_table payload strategy rejects with FunctionBody family" {
 }
 
 ///|
+test "invalid throw payload strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyThrowPayloadMismatch,
+      0x5f17UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid try_table catch payload strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTryTableCatchPayloadMismatch,
+      0x5f18UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "function-body call payload mutation repairs by using the callee parameter type" {
   let mutation = validate_invalid_ast_mutate_invalid_function_body_call_payload_mismatch(
     Module::new(),
@@ -3884,6 +4024,83 @@ test "function-body call payload mutation repairs by using the callee parameter 
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired call payload module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body exception payload mutations repair by matching tag and target types" {
+  let throw_mutation = validate_invalid_ast_mutate_invalid_function_body_throw_payload_mismatch(
+    Module::new(),
+  )
+  match validate_module(throw_mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched throw payload to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let catch_mutation = validate_invalid_ast_mutate_invalid_function_body_try_table_catch_payload_mismatch(
+    Module::new(),
+  )
+  match validate_module(catch_mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched try_table catch payload to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_i32_tag, tag_idx, _) = validate_invalid_ast_append_tag(
+    Module::new(),
+    [ValType::i32()],
+  )
+  let (repaired_throw, _, _) = validate_invalid_ast_append_defined_func(
+    with_i32_tag,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([Instruction::i32_const(I32(0)), Instruction::throw_(tag_idx)]),
+  )
+  match validate_module(repaired_throw) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired throw payload module to validate: \{err}")
+  }
+  let (with_i64_tag, catch_tag_idx, _) = validate_invalid_ast_append_tag(
+    Module::new(),
+    [ValType::i64()],
+  )
+  let catch_body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i64()),
+      Expr::new([
+        Instruction::try_table(
+          BlockType::void_(),
+          [Catch::new(catch_tag_idx, LabelIdx::new(0U))],
+          Expr::new([
+            Instruction::i64_const(I64(0)),
+            Instruction::throw_(catch_tag_idx),
+          ]),
+        ),
+        Instruction::unreachable_(),
+      ]),
+    ),
+    Instruction::drop(),
+  ])
+  let (repaired_catch, _, _) = validate_invalid_ast_append_defined_func(
+    with_i64_tag,
+    [],
+    [],
+    Locals::empty(),
+    catch_body,
+  )
+  match validate_module(repaired_catch) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired try_table catch payload module to validate: \{err}",
+      )
   }
 }
 
