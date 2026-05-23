@@ -220,6 +220,12 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-branch-label-index"
     InvalidFunctionBodyBrPayloadMismatch =>
       "invalid-function-body-branch-payload-mismatch"
+    InvalidFunctionBodyCallPayloadMismatch =>
+      "invalid-function-body-call-payload-mismatch"
+    InvalidFunctionBodyBrIfPayloadMismatch =>
+      "invalid-function-body-br-if-payload-mismatch"
+    InvalidFunctionBodyBrTablePayloadMismatch =>
+      "invalid-function-body-br-table-payload-mismatch"
     UndeclaredRefFunc => "undeclared-ref-func"
     InvalidNameSectionFuncIndex => "invalid-name-section-func-index"
     InvalidLocalNameSectionIndex => "invalid-local-name-section-index"

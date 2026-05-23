@@ -81,6 +81,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyCallIndex
   InvalidFunctionBodyBrLabelIndex
   InvalidFunctionBodyBrPayloadMismatch
+  InvalidFunctionBodyCallPayloadMismatch
+  InvalidFunctionBodyBrIfPayloadMismatch
+  InvalidFunctionBodyBrTablePayloadMismatch
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
@@ -469,6 +472,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyCallPayloadMismatch,
+      "invalid-function-body-call-payload-mismatch",
+      "invalid function-body call payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyBrIfPayloadMismatch,
+      "invalid-function-body-br-if-payload-mismatch",
+      "invalid function-body br_if payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyBrTablePayloadMismatch,
+      "invalid-function-body-br-table-payload-mismatch",
+      "invalid function-body br_table payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
       "invalid-memory-name-section-index",
       "invalid memory name index",
@@ -646,21 +670,24 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyCallIndex => 36
     InvalidFunctionBodyBrLabelIndex => 37
     InvalidFunctionBodyBrPayloadMismatch => 38
-    InvalidMemoryNameSectionIndex => 39
-    CodeSecWithoutFuncSec => 40
-    InvalidTableNameSectionIndex => 41
-    InvalidGlobalNameSectionIndex => 42
-    InvalidTypeNameSectionIndex => 43
-    InvalidFieldNameSectionIndex => 44
-    InvalidElemNameSectionIndex => 45
-    InvalidDataNameSectionIndex => 46
-    InvalidExportTableIndex => 47
-    InvalidExportGlobalIndex => 48
-    InvalidExportMemoryIndex => 49
-    InvalidExportTagIndex => 50
-    InvalidTagNameSectionIndex => 51
-    DataCountMismatchTooSmall => 52
-    DataCountMismatchTooLarge => 53
+    InvalidFunctionBodyCallPayloadMismatch => 39
+    InvalidFunctionBodyBrIfPayloadMismatch => 40
+    InvalidFunctionBodyBrTablePayloadMismatch => 41
+    InvalidMemoryNameSectionIndex => 42
+    CodeSecWithoutFuncSec => 43
+    InvalidTableNameSectionIndex => 44
+    InvalidGlobalNameSectionIndex => 45
+    InvalidTypeNameSectionIndex => 46
+    InvalidFieldNameSectionIndex => 47
+    InvalidElemNameSectionIndex => 48
+    InvalidDataNameSectionIndex => 49
+    InvalidExportTableIndex => 50
+    InvalidExportGlobalIndex => 51
+    InvalidExportMemoryIndex => 52
+    InvalidExportTagIndex => 53
+    InvalidTagNameSectionIndex => 54
+    DataCountMismatchTooSmall => 55
+    DataCountMismatchTooLarge => 56
   }
 }
 
@@ -2009,6 +2036,96 @@ fn validate_invalid_ast_mutate_invalid_function_body_br_payload_mismatch(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_call_payload_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let (with_callee, callee_idx, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [ValType::i32()],
+    [],
+    Locals::empty(),
+    Expr::new([]),
+  )
+  let caller_body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::call(callee_idx),
+  ])
+  let (with_caller, _, _) = validate_invalid_ast_append_defined_func(
+    with_callee,
+    [],
+    [],
+    Locals::empty(),
+    caller_body,
+  )
+  {
+    strategy: InvalidFunctionBodyCallPayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_caller,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_br_if_payload_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i64_const(I64(0)),
+        Instruction::i32_const(I32(1)),
+        Instruction::br_if(LabelIdx::new(0U)),
+      ]),
+    ),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyBrIfPayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i64_const(I64(0)),
+        Instruction::i32_const(I32(0)),
+        Instruction::br_table([], LabelIdx::new(0U)),
+      ]),
+    ),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyBrTablePayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_memory_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2721,6 +2838,18 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_br_payload_mismatch(
           base,
         )
+      InvalidFunctionBodyCallPayloadMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_call_payload_mismatch(
+          base,
+        )
+      InvalidFunctionBodyBrIfPayloadMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_br_if_payload_mismatch(
+          base,
+        )
+      InvalidFunctionBodyBrTablePayloadMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
+          base,
+        )
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
       InvalidLocalNameSectionIndex =>
@@ -3121,12 +3250,13 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
     "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
     "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
-    "invalid-function-body-branch-payload-mismatch", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
+    "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -3681,6 +3811,151 @@ test "invalid branch payload strategy rejects with FunctionBody family" {
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid call payload strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyCallPayloadMismatch,
+      0x5f14UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid br_if payload strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyBrIfPayloadMismatch,
+      0x5f15UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid br_table payload strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyBrTablePayloadMismatch,
+      0x5f16UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body call payload mutation repairs by using the callee parameter type" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_call_payload_mismatch(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched call payload to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_callee, callee_idx, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [ValType::i32()],
+    [],
+    Locals::empty(),
+    Expr::new([]),
+  )
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_callee,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([Instruction::i32_const(I32(0)), Instruction::call(callee_idx)]),
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired call payload module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body branch payload mutations repair by using target result types" {
+  let br_if_mutation = validate_invalid_ast_mutate_invalid_function_body_br_if_payload_mismatch(
+    Module::new(),
+  )
+  match validate_module(br_if_mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched br_if payload to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let br_table_mutation = validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
+    Module::new(),
+  )
+  match validate_module(br_table_mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched br_table payload to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let br_if_body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_const(I32(1)),
+        Instruction::br_if(LabelIdx::new(0U)),
+      ]),
+    ),
+    Instruction::drop(),
+  ])
+  let (repaired_br_if, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    br_if_body,
+  )
+  match validate_module(repaired_br_if) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired br_if payload module to validate: \{err}")
+  }
+  let br_table_body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_const(I32(0)),
+        Instruction::br_table([], LabelIdx::new(0U)),
+      ]),
+    ),
+    Instruction::drop(),
+  ])
+  let (repaired_br_table, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    br_table_body,
+  )
+  match validate_module(repaired_br_table) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired br_table payload module to validate: \{err}")
   }
 }
 

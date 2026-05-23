@@ -1165,6 +1165,78 @@ test "gen_invalid_ast_generate supports function-body invalid branch payload str
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body call payload mismatch strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f14UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyCallPayloadMismatch),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-call-payload-mismatch mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body br_if payload mismatch strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f15UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrIfPayloadMismatch),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-br-if-payload-mismatch mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body br_table payload mismatch strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f16UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrTablePayloadMismatch),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-br-table-payload-mismatch mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid seed helpers reuse named gen-valid profiles" {
   @debug.assert_eq(
     gen_invalid_coverage_seed_generator_config(),
