@@ -86,6 +86,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyBrTablePayloadMismatch
   InvalidFunctionBodyThrowPayloadMismatch
   InvalidFunctionBodyTryTableCatchPayloadMismatch
+  InvalidFunctionBodyMemoryAddressType
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
@@ -509,6 +510,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryAddressType,
+      "invalid-function-body-memory-address-type",
+      "invalid function-body memory address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
       "invalid-memory-name-section-index",
       "invalid memory name index",
@@ -691,21 +699,22 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyBrTablePayloadMismatch => 41
     InvalidFunctionBodyThrowPayloadMismatch => 42
     InvalidFunctionBodyTryTableCatchPayloadMismatch => 43
-    InvalidMemoryNameSectionIndex => 44
-    CodeSecWithoutFuncSec => 45
-    InvalidTableNameSectionIndex => 46
-    InvalidGlobalNameSectionIndex => 47
-    InvalidTypeNameSectionIndex => 48
-    InvalidFieldNameSectionIndex => 49
-    InvalidElemNameSectionIndex => 50
-    InvalidDataNameSectionIndex => 51
-    InvalidExportTableIndex => 52
-    InvalidExportGlobalIndex => 53
-    InvalidExportMemoryIndex => 54
-    InvalidExportTagIndex => 55
-    InvalidTagNameSectionIndex => 56
-    DataCountMismatchTooSmall => 57
-    DataCountMismatchTooLarge => 58
+    InvalidFunctionBodyMemoryAddressType => 44
+    InvalidMemoryNameSectionIndex => 45
+    CodeSecWithoutFuncSec => 46
+    InvalidTableNameSectionIndex => 47
+    InvalidGlobalNameSectionIndex => 48
+    InvalidTypeNameSectionIndex => 49
+    InvalidFieldNameSectionIndex => 50
+    InvalidElemNameSectionIndex => 51
+    InvalidDataNameSectionIndex => 52
+    InvalidExportTableIndex => 53
+    InvalidExportGlobalIndex => 54
+    InvalidExportMemoryIndex => 55
+    InvalidExportTagIndex => 56
+    InvalidTagNameSectionIndex => 57
+    DataCountMismatchTooSmall => 58
+    DataCountMismatchTooLarge => 59
   }
 }
 
@@ -2257,6 +2266,32 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_load(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryAddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_undeclared_ref_func(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2963,6 +2998,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_try_table_catch_payload_mismatch(
           base,
         )
+      InvalidFunctionBodyMemoryAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_address_type(
+          base,
+        )
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
       InvalidLocalNameSectionIndex =>
@@ -3366,11 +3405,12 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-throw-payload-mismatch", "invalid-function-body-try-table-catch-payload-mismatch",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-memory-address-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -3990,6 +4030,52 @@ test "invalid try_table catch payload strategy rejects with FunctionBody family"
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid memory address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryAddressType,
+      0x5f19UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory address mutation repairs by using i32 memory addresses" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_address_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched memory address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory address module to validate: \{err}")
   }
 }
 

@@ -230,6 +230,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-throw-payload-mismatch"
     InvalidFunctionBodyTryTableCatchPayloadMismatch =>
       "invalid-function-body-try-table-catch-payload-mismatch"
+    InvalidFunctionBodyMemoryAddressType =>
+      "invalid-function-body-memory-address-type"
     UndeclaredRefFunc => "undeclared-ref-func"
     InvalidNameSectionFuncIndex => "invalid-name-section-func-index"
     InvalidLocalNameSectionIndex => "invalid-local-name-section-index"
