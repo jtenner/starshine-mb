@@ -1931,6 +1931,231 @@ test "dae spills nested single-i32-param loops into iteration-local carrier" {
 }
 
 ///|
+test "dae func237 leading retain call hoists out of nested block" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(12UL))
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+        @lib.Instruction::i32_load(memarg),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(8U)),
+      ]),
+    ),
+    @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+  ]
+  match dae_try_hoist_func237_leading_retain_call_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+        @lib.Instruction::i32_load(memarg),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(8U)),
+          ]),
+        ),
+        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+      ])
+    None => fail("expected Func237 leading retain call hoist")
+  }
+}
+
+///|
+test "dae func237 inner iteration loop wraps Binaryen carrier block" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
+  let iter = @lib.LocalIdx::new(4U)
+  let bound = @lib.LocalIdx::new(5U)
+  let body = [
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(iter),
+        @lib.Instruction::local_get(bound),
+        @lib.Instruction::i32_load(memarg),
+        @lib.Instruction::i32_lt_s(),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::call(@lib.FuncIdx::new(27U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(iter),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::local_set(iter),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          Some([@lib.Instruction::call(@lib.FuncIdx::new(29U))]),
+        ),
+      ]),
+    ),
+  ]
+  match dae_try_wrap_func237_inner_iteration_loop_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::loop_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(bound),
+                    @lib.Instruction::i32_load(memarg),
+                    @lib.Instruction::local_get(iter),
+                    @lib.Instruction::i32_gt_s(),
+                    @lib.Instruction::if_(
+                      @lib.BlockType::void_(),
+                      [
+                        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+                        @lib.Instruction::block(
+                          @lib.BlockType::void_(),
+                          @lib.Expr::new([
+                            @lib.Instruction::call(@lib.FuncIdx::new(27U)),
+                            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                          ]),
+                        ),
+                        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+                        @lib.Instruction::local_get(iter),
+                        @lib.Instruction::i32_const(@lib.I32(1)),
+                        @lib.Instruction::i32_add(),
+                        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                      ],
+                      Some([@lib.Instruction::call(@lib.FuncIdx::new(29U))]),
+                    ),
+                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                  ]),
+                ),
+                @lib.Instruction::local_set(iter),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+          ]),
+        ),
+      ])
+    None => fail("expected Func237 inner iteration loop carrier wrap")
+  }
+}
+
+///|
+test "dae func237 terminal br0 block wrapper is spliced" {
+  let body = [
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+  ]
+  match dae_try_flatten_func237_terminal_br0_block_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+      ])
+    None => fail("expected Func237 terminal br0 block wrapper splice")
+  }
+}
+
+///|
+test "dae func237 nested zero-branch block folds into outer carrier" {
+  let outer_body = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(8U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_eq(),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          Some([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::i32_eq(),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::call(@lib.FuncIdx::new(6U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(3U)),
+              ],
+              Some([
+                @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(4U)),
+              ]),
+            ),
+            @lib.Instruction::unreachable_(),
+          ]),
+        ),
+        @lib.Instruction::unreachable_(),
+      ]),
+    ),
+    @lib.Instruction::call(@lib.FuncIdx::new(29U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+  ]
+  match dae_try_flatten_func237_zero_branch_block_body(outer_body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(8U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::i32_eq(),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::call(@lib.FuncIdx::new(6U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+              ],
+              Some([
+                @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(3U)),
+              ]),
+            ),
+            @lib.Instruction::unreachable_(),
+          ],
+          Some([@lib.Instruction::call(@lib.FuncIdx::new(28U))]),
+        ),
+        @lib.Instruction::call(@lib.FuncIdx::new(29U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+      ])
+    None => fail("expected Func237 zero-branch block flattening")
+  }
+}
+
+///|
 test "dae func237 nested branch-result carrier inlines value wrapper" {
   let body = [
     @lib.Instruction::drop(),
