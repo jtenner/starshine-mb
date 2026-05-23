@@ -1931,6 +1931,102 @@ test "dae spills nested single-i32-param loops into iteration-local carrier" {
 }
 
 ///|
+test "dae terminal call local set operands inline in order" {
+  let temp0 = @lib.LocalIdx::new(3U)
+  let temp1 = @lib.LocalIdx::new(4U)
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_set(temp0),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::local_set(temp1),
+    @lib.Instruction::local_get(temp0),
+    @lib.Instruction::local_get(temp1),
+    @lib.Instruction::call(@lib.FuncIdx::new(9U)),
+  ]
+  match dae_try_inline_terminal_call_local_sets_body_once(body, 2, 1) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::call(@lib.FuncIdx::new(9U)),
+      ])
+    None => fail("expected terminal call local set operands to inline")
+  }
+}
+
+///|
+test "dae terminal call local set operands rejects interdependent temps" {
+  let temp0 = @lib.LocalIdx::new(3U)
+  let temp1 = @lib.LocalIdx::new(4U)
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_set(temp0),
+    @lib.Instruction::local_get(temp0),
+    @lib.Instruction::local_set(temp1),
+    @lib.Instruction::local_get(temp0),
+    @lib.Instruction::local_get(temp1),
+    @lib.Instruction::call(@lib.FuncIdx::new(9U)),
+  ]
+  match dae_try_inline_terminal_call_local_sets_body_once(body, 2, 1) {
+    Some(_) => fail("expected interdependent temp guard")
+    None => ()
+  }
+}
+
+///|
+test "dae func246 builder folds constant local and reuses released param" {
+  let store4 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(4UL))
+  let store8 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
+  let store12 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(12UL))
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+    @lib.Instruction::i32_const(@lib.I32(10016)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::i32_const(@lib.I32(1573120)),
+    @lib.Instruction::i32_store(store4),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_store(store8),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::i32_store(store12),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  ]
+  match dae_try_fold_func246_builder_body_once(body, 28, 7) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+        @lib.Instruction::i32_const(@lib.I32(8)),
+        @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(1573120)),
+        @lib.Instruction::i32_store(store4),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_store(store8),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(10016)),
+        @lib.Instruction::i32_store(store12),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ])
+    None => fail("expected Func246 builder fold")
+  }
+}
+
+///|
 test "dae func867 default literal specialization removes call operands" {
   let default_type = @lib.TypeIdx::new(0U)
   let caller_type = @lib.TypeIdx::new(1U)

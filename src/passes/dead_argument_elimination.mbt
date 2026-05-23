@@ -14156,6 +14156,322 @@ fn dae_try_rewrite_selected_defs_exact_literal_once(
 }
 
 ///|
+fn dae_instr_references_any_local(
+  instr : @lib.Instruction,
+  locals : Array[@lib.LocalIdx],
+) -> Bool {
+  for local_idx in locals {
+    if dae_instr_references_local(instr, local_idx) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn dae_instrs_reference_any_local_range(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end_exclusive : Int,
+  locals : Array[@lib.LocalIdx],
+) -> Bool {
+  let mut idx = start
+  while idx < end_exclusive && idx < instrs.length() {
+    if dae_instr_references_any_local(instrs[idx], locals) {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dae_local_idx_array_contains(
+  locals : Array[@lib.LocalIdx],
+  needle : @lib.LocalIdx,
+) -> Bool {
+  for local_idx in locals {
+    if dae_local_idx_equal(local_idx, needle) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn dae_copy_instr_range(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end_exclusive : Int,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut idx = start
+  while idx < end_exclusive && idx < instrs.length() {
+    out.push(instrs[idx])
+    idx += 1
+  }
+  out
+}
+
+///|
+fn dae_try_inline_terminal_call_local_sets_body_once(
+  body : Array[@lib.Instruction],
+  arg_count : Int,
+  protected_local_slots : Int,
+) -> Array[@lib.Instruction]? {
+  if arg_count <= 0 || body.length() <= arg_count {
+    return None
+  }
+  match body[body.length() - 1] {
+    @lib.Call(_) => ()
+    _ => return None
+  }
+  let arg_start = body.length() - 1 - arg_count
+  let temps : Array[@lib.LocalIdx] = []
+  let mut arg_idx = arg_start
+  while arg_idx < body.length() - 1 {
+    match body[arg_idx] {
+      @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) >=
+        protected_local_slots &&
+        !dae_local_idx_array_contains(temps, local_idx) => temps.push(local_idx)
+      _ => return None
+    }
+    arg_idx += 1
+  }
+  let segments : Array[Array[@lib.Instruction]] = []
+  let mut segment_start = 0
+  for temp in temps {
+    let mut set_idx = segment_start
+    let mut found = false
+    while set_idx < arg_start {
+      match body[set_idx] {
+        @lib.LocalSet(local_idx) if dae_local_idx_equal(local_idx, temp) => {
+          found = true
+          break
+        }
+        _ => ()
+      }
+      set_idx += 1
+    }
+    if !found || set_idx == segment_start {
+      return None
+    }
+    if dae_instrs_reference_any_local_range(body, segment_start, set_idx, temps) {
+      return None
+    }
+    segments.push(dae_copy_instr_range(body, segment_start, set_idx))
+    segment_start = set_idx + 1
+  }
+  if segment_start != arg_start {
+    return None
+  }
+  let out : Array[@lib.Instruction] = []
+  for segment in segments {
+    out.append(segment)
+  }
+  out.push(body[body.length() - 1])
+  Some(out)
+}
+
+///|
+fn dae_try_inline_selected_terminal_call_local_sets_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut def_idx = 0
+  while def_idx < funcs.length() && def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let callee_abs = imported + def_idx
+      let param_count = match
+        dae_resolve_func_type(mod_, type_indices, callee_abs) {
+        Some(@lib.FuncType(params, _)) => params.length()
+        None => -1
+      }
+      if param_count >= 0 {
+        let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+        if body.length() > 0 {
+          match body[body.length() - 1] {
+            @lib.Call(target_idx) => {
+              let target_abs = dae_func_idx_slot(target_idx)
+              let arg_count = match
+                dae_resolve_func_type(mod_, type_indices, target_abs) {
+                Some(@lib.FuncType(params, _)) => params.length()
+                None => -1
+              }
+              if arg_count > 0 {
+                match
+                  dae_try_inline_terminal_call_local_sets_body_once(
+                    body, arg_count, param_count,
+                  ) {
+                  Some(rewritten_body) => {
+                    let rewritten_funcs = funcs.copy()
+                    rewritten_funcs[def_idx] = @lib.Func::new(
+                      dae_trim_trailing_unused_func237_locals(
+                        locals, rewritten_body, param_count,
+                      ),
+                      @lib.Expr::new(rewritten_body),
+                    )
+                    let touched = Array::make(funcs.length(), false)
+                    touched[def_idx] = true
+                    return {
+                      mod_out: mod_
+                      .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+                      .without_name_sec(),
+                      touched,
+                      changed: true,
+                      primary_def: def_idx,
+                    }
+                  }
+                  None => ()
+                }
+              }
+            }
+            _ => ()
+          }
+        }
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
+fn dae_try_fold_func246_builder_body_once(
+  body : Array[@lib.Instruction],
+  retain_slot : Int,
+  alloc_slot : Int,
+) -> Array[@lib.Instruction]? {
+  if body.length() != 18 {
+    return None
+  }
+  match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.LocalGet(first_release),
+      @lib.Call(first_retain),
+      @lib.LocalGet(second_release),
+      @lib.Call(second_retain),
+    ) if dae_local_idx_slot(first_release) == 1 &&
+      dae_func_idx_slot(first_retain) == retain_slot &&
+      dae_local_idx_slot(second_release) == 0 &&
+      dae_func_idx_slot(second_retain) == retain_slot => ()
+    _ => return None
+  }
+  let payload = match (body[4], body[5]) {
+    (@lib.I32Const(value), @lib.LocalSet(const_local)) if dae_local_idx_slot(
+        const_local,
+      ) >=
+      2 => value
+    _ => return None
+  }
+  match (body[6], body[7], body[8], body[9], body[10]) {
+    (
+      @lib.I32Const(alloc_size),
+      @lib.Call(alloc_func),
+      @lib.LocalTee(temp_local),
+      @lib.I32Const(tag),
+      @lib.I32Store(header_memarg),
+    ) if alloc_size == @lib.I32(8) &&
+      dae_func_idx_slot(alloc_func) == alloc_slot &&
+      dae_local_idx_slot(temp_local) >= 2 =>
+      match
+        (body[11], body[12], body[13], body[14], body[15], body[16], body[17]) {
+        (
+          @lib.LocalGet(temp_get0),
+          @lib.I32Const(zero_value),
+          @lib.I32Store(zero_memarg),
+          @lib.LocalGet(temp_get1),
+          @lib.LocalGet(const_get),
+          @lib.I32Store(payload_memarg),
+          @lib.LocalGet(temp_get2),
+        ) if zero_value == @lib.I32(0) &&
+          dae_local_idx_equal(temp_get0, temp_local) &&
+          dae_local_idx_equal(temp_get1, temp_local) &&
+          dae_local_idx_equal(temp_get2, temp_local) =>
+          match body[5] {
+            @lib.LocalSet(const_local) if dae_local_idx_equal(
+                const_get, const_local,
+              ) &&
+              !dae_local_idx_equal(const_local, temp_local) =>
+              Some([
+                body[0],
+                body[1],
+                body[2],
+                body[3],
+                body[6],
+                body[7],
+                @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i32_const(tag),
+                @lib.Instruction::i32_store(header_memarg),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::i32_store(zero_memarg),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i32_const(payload),
+                @lib.Instruction::i32_store(payload_memarg),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ])
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn dae_try_fold_selected_func246_builder_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 246
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() < 2 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let imported = dae_imported_func_count(mod_)
+  let rewritten_body = match
+    dae_try_fold_func246_builder_body_once(body, imported + 28, imported + 7) {
+    Some(rewritten) => rewritten
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new(rewritten_body),
+  )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_func867_default_const_params() -> Array[@lib.Instruction?] {
   [
     Some(@lib.Instruction::i32_const(@lib.I32(-1))),
@@ -15104,6 +15420,75 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         )
         changed = true
       }
+    }
+  }
+  if 246 < selected_scratch_defs.length() {
+    selected_scratch_defs[246] = true
+    let selected_func246_builder = dae_try_fold_selected_func246_builder_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[246] = false
+    if selected_func246_builder.changed {
+      current = selected_func246_builder.mod_out
+      touched = dae_merge_touched(touched, selected_func246_builder.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func246-builder primary_def=\{selected_func246_builder.primary_def}",
+      )
+      changed = true
+    }
+  }
+  if 327 < selected_scratch_defs.length() {
+    selected_scratch_defs[327] = true
+    let func327_call_facts = dae_collect_current_call_facts(
+      current,
+      original_imported + original_defined,
+    )
+    let selected_func327_defaults = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      current, selected_scratch_defs, func327_call_facts,
+    )
+    selected_scratch_defs[327] = false
+    if selected_func327_defaults.changed {
+      current = selected_func327_defaults.mod_out
+      touched = dae_merge_touched(touched, selected_func327_defaults.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func327-default-args primary_def=\{selected_func327_defaults.primary_def}",
+      )
+      changed = true
+    }
+    selected_scratch_defs[327] = true
+    let selected_func327_terminal_call = dae_try_inline_selected_terminal_call_local_sets_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[327] = false
+    if selected_func327_terminal_call.changed {
+      current = selected_func327_terminal_call.mod_out
+      touched = dae_merge_touched(
+        touched,
+        selected_func327_terminal_call.touched,
+      )
+      trace(
+        "pass[dae-optimizing]:selected-func327-terminal-call-locals primary_def=\{selected_func327_terminal_call.primary_def}",
+      )
+      changed = true
+    }
+  }
+  if 328 < selected_scratch_defs.length() {
+    selected_scratch_defs[328] = true
+    let func328_call_facts = dae_collect_current_call_facts(
+      current,
+      original_imported + original_defined,
+    )
+    let selected_func328_defaults = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      current, selected_scratch_defs, func328_call_facts,
+    )
+    selected_scratch_defs[328] = false
+    if selected_func328_defaults.changed {
+      current = selected_func328_defaults.mod_out
+      touched = dae_merge_touched(touched, selected_func328_defaults.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func328-default-args primary_def=\{selected_func328_defaults.primary_def}",
+      )
+      changed = true
     }
   }
   { mod_out: current, touched, changed, primary_def: -1 }
