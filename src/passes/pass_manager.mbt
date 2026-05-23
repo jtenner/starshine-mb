@@ -10455,11 +10455,24 @@ fn run_hot_pipeline_sgo_instrs_have_value_block_with_if(
         }
       @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
         run_hot_pipeline_sgo_instrs_have_value_block_with_if(body)
-      @lib.If(_, then_body, Some(else_body)) =>
-        run_hot_pipeline_sgo_instrs_have_value_block_with_if(then_body) ||
-        run_hot_pipeline_sgo_instrs_have_value_block_with_if(else_body)
-      @lib.If(_, then_body, None) =>
-        run_hot_pipeline_sgo_instrs_have_value_block_with_if(then_body)
+      @lib.If(block_type, then_body, Some(else_body)) =>
+        if block_type != @lib.BlockType::void_() &&
+          (
+            run_hot_pipeline_sgo_instrs_have_if(then_body) ||
+            run_hot_pipeline_sgo_instrs_have_if(else_body)
+          ) {
+          true
+        } else {
+          run_hot_pipeline_sgo_instrs_have_value_block_with_if(then_body) ||
+          run_hot_pipeline_sgo_instrs_have_value_block_with_if(else_body)
+        }
+      @lib.If(block_type, then_body, None) =>
+        if block_type != @lib.BlockType::void_() &&
+          run_hot_pipeline_sgo_instrs_have_if(then_body) {
+          true
+        } else {
+          run_hot_pipeline_sgo_instrs_have_value_block_with_if(then_body)
+        }
       _ => false
     }
   })

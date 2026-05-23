@@ -1575,6 +1575,33 @@ fn sgo_flow_arm_result_taint_and_reads(
           return (false, reads, false)
         }
       }
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+        match sgo_flow_pop(stack) {
+          Some(value) if !value.tainted => ()
+          _ => return (false, reads, false)
+        }
+        let (then_ok, then_reads, then_stack) = sgo_flow_scan_prefix_until(
+          then_body,
+          then_body.length(),
+          idx,
+        )
+        let (else_ok, else_reads, else_stack) = sgo_flow_scan_prefix_until(
+          else_body,
+          else_body.length(),
+          idx,
+        )
+        reads = reads + then_reads + else_reads
+        if then_ok &&
+          else_ok &&
+          then_reads == 0 &&
+          else_reads == 0 &&
+          then_stack.length() == 0 &&
+          else_stack.length() == 0 {
+          continue
+        } else {
+          return (false, reads, false)
+        }
+      }
       @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
         match sgo_flow_pop(stack) {
