@@ -13561,6 +13561,156 @@ fn dae_try_rewrite_selected_defs_exact_literal_once(
 }
 
 ///|
+fn dae_func867_default_const_params() -> Array[@lib.Instruction?] {
+  [
+    Some(@lib.Instruction::i32_const(@lib.I32(-1))),
+    Some(@lib.Instruction::i32_const(@lib.I32(10000))),
+    Some(@lib.Instruction::i64_const(@lib.I64(4294967296L))),
+    Some(@lib.Instruction::i64_const(@lib.I64(4294967296L))),
+    Some(@lib.Instruction::i32_const(@lib.I32(-1))),
+    Some(@lib.Instruction::i32_const(@lib.I32(-1))),
+    Some(@lib.Instruction::i32_const(@lib.I32(-1))),
+  ]
+}
+
+///|
+fn dae_func867_default_params_match(params : Array[@lib.Instruction?]) -> Bool {
+  let expected = dae_func867_default_const_params()
+  if params.length() != expected.length() {
+    return false
+  }
+  let mut idx = 0
+  while idx < params.length() {
+    match (params[idx], expected[idx]) {
+      (Some(actual), Some(want)) if dae_materialized_const_equal(actual, want) =>
+        ()
+      _ => return false
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+fn dae_try_specialize_func867_default_args_once(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  if def_idx < 0 || def_idx >= defined {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let callee_abs = imported + def_idx
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
+  if callee_abs >= call_facts.escaped.length() ||
+    call_facts.escaped[callee_abs] ||
+    call_facts.tail_calls[callee_abs] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, _) = func_type
+  if params !=
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  let mut p = 0
+  while p < params.length() {
+    if local_use.writes[p] {
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+    p += 1
+  }
+  let mut verified_calls = 0
+  let verified_callers : Array[Int] = []
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    if caller_def != def_idx {
+      let @lib.Func(_, @lib.Expr(caller_body)) = funcs[caller_def]
+      let caller_calls = dae_count_direct_call_anywhere_to(
+        caller_body, callee_abs,
+      )
+      if caller_calls > 0 {
+        verified_callers.push(caller_def)
+        verified_calls += caller_calls
+      }
+    }
+    caller_def += 1
+  }
+  if verified_calls == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let manual_direct_callers : Array[Array[Int]] = Array::make(
+    imported + defined,
+    [],
+  )
+  manual_direct_callers[callee_abs] = verified_callers
+  let uniform_const_params = match
+    dae_collect_uniform_const_actuals_with_facts(
+      mod_,
+      callee_abs,
+      params.length(),
+      type_indices,
+      call_facts.escaped,
+      call_facts.tail_calls,
+      manual_direct_callers,
+    ) {
+    Some(values) => values
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if !dae_func867_default_params_match(uniform_const_params) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_try_rewrite_candidate(
+    mod_,
+    callee_abs,
+    Array::make(params.length(), true),
+    dae_func867_default_const_params(),
+    local_use,
+    verified_calls,
+    verified_callers,
+  )
+}
+
+///|
+fn dae_try_specialize_selected_func867_default_args_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 867
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_try_specialize_func867_default_args_once(mod_, def_idx)
+}
+
+///|
 fn dae_restore_dead_suffix_self_operand_params(
   original : @lib.Module,
   current : @lib.Module,
@@ -14157,6 +14307,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       touched = dae_merge_touched(touched, selected_func237_inner_loop.touched)
       trace(
         "pass[dae-optimizing]:selected-func237-inner-iteration-loop-late primary_def=\{selected_func237_inner_loop.primary_def}",
+      )
+      changed = true
+    }
+  }
+  if 867 < selected_scratch_defs.length() {
+    selected_scratch_defs[867] = true
+    let selected_func867_defaults = dae_try_specialize_selected_func867_default_args_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[867] = false
+    if selected_func867_defaults.changed {
+      current = selected_func867_defaults.mod_out
+      touched = dae_merge_touched(touched, selected_func867_defaults.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func867-default-args primary_def=\{selected_func867_defaults.primary_def}",
       )
       changed = true
     }

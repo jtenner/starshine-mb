@@ -1931,6 +1931,72 @@ test "dae spills nested single-i32-param loops into iteration-local carrier" {
 }
 
 ///|
+test "dae func867 default literal specialization removes call operands" {
+  let default_type = @lib.TypeIdx::new(0U)
+  let caller_type = @lib.TypeIdx::new(1U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+                @lib.ValType::i64(),
+                @lib.ValType::i64(),
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+              ],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([default_type, caller_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::i32_const(@lib.I32(10000)),
+            @lib.Instruction::i64_const(@lib.I64(4294967296L)),
+            @lib.Instruction::i64_const(@lib.I64(4294967296L)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let result = dae_try_specialize_func867_default_args_once(mod_, 0)
+  assert_true(result.changed)
+  match (result.mod_out.func_sec, result.mod_out.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
+      assert_true(type_idxs[0] != default_type)
+      let @lib.Func(_, @lib.Expr(callee_body)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(caller_body)) = funcs[1]
+      assert_eq(callee_body, [@lib.Instruction::i32_const(@lib.I32(-1))])
+      assert_eq(caller_body, [@lib.Instruction::call(@lib.FuncIdx::new(0U))])
+    }
+    _ => fail("expected rewritten function and code sections")
+  }
+}
+
+///|
 test "dae func237 leading retain call hoists out of nested block" {
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(12UL))
   let body = [
