@@ -1400,6 +1400,30 @@ fn sgo_flow_scan_clean_prefix_until(
         }
         continue
       }
+      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
+        match sgo_flow_pop(stack) {
+          Some(value) if !value.tainted => ()
+          _ => return (false, stack)
+        }
+        let (then_ok, then_stack) = sgo_flow_scan_clean_prefix_until(
+          then_body,
+          then_body.length(),
+        )
+        let (else_ok, else_stack) = sgo_flow_scan_clean_prefix_until(
+          else_body,
+          else_body.length(),
+        )
+        match (then_stack, else_stack) {
+          ([then_value], [else_value]) if then_ok &&
+            else_ok &&
+            !then_value.tainted &&
+            !else_value.tainted => {
+            sgo_flow_push_clean(stack)
+            continue
+          }
+          _ => return (false, stack)
+        }
+      }
       _ => {
         if sgo_is_flowscanner_unary_pure_instr(instr) {
           if !sgo_flow_apply_unary(stack, instr) {
