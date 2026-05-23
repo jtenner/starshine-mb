@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-23] wiki | inlining current-main no-inline recheck
+
+- Added [`raw/binaryen/2026-05-23-inlining-current-main-recheck.md`](raw/binaryen/2026-05-23-inlining-current-main-recheck.md) after rechecking official Binaryen `main` for `Inlining.cpp`, `NoInline.cpp`, `pass.cpp`, and `module-utils.cpp`, confirming that the no-inline flag split and clone-survival behavior still match the existing `version_129` dossier.
+- Refreshed the living `inlining` folder pages so their source lists and freshness markers now point at the new recheck: [`binaryen/passes/inlining/index.md`](binaryen/passes/inlining/index.md), [`binaryen/passes/inlining/binaryen-strategy.md`](binaryen/passes/inlining/binaryen-strategy.md), [`binaryen/passes/inlining/implementation-structure-and-tests.md`](binaryen/passes/inlining/implementation-structure-and-tests.md), [`binaryen/passes/inlining/heuristics-splitting-and-plain-vs-optimizing.md`](binaryen/passes/inlining/heuristics-splitting-and-plain-vs-optimizing.md), [`binaryen/passes/inlining/starshine-strategy.md`](binaryen/passes/inlining/starshine-strategy.md), [`binaryen/passes/inlining/starshine-port-readiness-and-validation.md`](binaryen/passes/inlining/starshine-port-readiness-and-validation.md), and [`binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md`](binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md).
+- No new external source was needed beyond the official Binaryen GitHub current-main recheck.
+
 ## [2026-05-22] passes | dae Func236 strict debris parity
 
 - Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so the selected Func236 local-retarget lane opts out of the default raw-debris preservation and strips the `nop` / dropped-integer debris that Binaryen removes for that function.

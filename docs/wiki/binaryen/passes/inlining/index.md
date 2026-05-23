@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-05-14
+last_reviewed: 2026-05-23
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md

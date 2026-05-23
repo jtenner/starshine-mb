@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-14
+last_reviewed: 2026-05-23
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
@@ -24,7 +25,7 @@ related:
 
 # `inlining`: implementation structure and tests
 
-This page maps the upstream Binaryen owner/test surface and the current Starshine owner/test surface. Use it when you need exact follow-along files before editing code or interpreting compare artifacts.
+This page maps the upstream Binaryen owner/test surface and the current Starshine owner/test surface. A 2026-05-23 current-main recheck still matches the same upstream owner/test map. Use it when you need exact follow-along files before editing code or interpreting compare artifacts.
 
 ## Binaryen source map
 

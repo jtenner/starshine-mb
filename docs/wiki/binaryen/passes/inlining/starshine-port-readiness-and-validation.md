@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-23
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0391-2026-04-26-inlining-port-readiness.md
   - ./index.md
@@ -28,19 +29,24 @@ related:
 
 # Starshine Port Readiness And Validation For `inlining`
 
-Use this page as the bridge between Binaryen's source-backed whole-module inliner and Starshine's current boundary-only status.
+Use this page as the bridge between Binaryen's source-backed whole-module inliner and Starshine's current partial active module-pass implementation.
 
 ## Current status in one sentence
 
-Starshine currently knows the pass name and rejects active `inlining` requests as boundary-only, but it has no `src/passes/inlining.mbt` owner file, no module-pass dispatcher case, and no direct-call body-copy rewrite machinery for this pass yet.
+Starshine currently knows the pass name and ships a partial active module-pass implementation, but it still lacks full Binaryen parity in the remaining direct-call/body-copy/rewrite gaps described below.
 
 Relevant local code locations:
 
+- [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt)
+  - owns the current partial active implementation for plain `inlining` and `inlining-optimizing`.
+  - keeps the narrow direct-call and repair surface in the pass implementation, not in a HOT peephole.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - `pass_registry_boundary_only_names()` includes `"inlining"` and `"inlining-optimizing"`.
-  - `run_hot_pipeline_expand_passes(...)` rejects `BoundaryOnly` entries with an explicit not-implemented-in-hot-pipeline error.
-  - `optimize_preset_passes(...)` and `shrink_preset_passes(...)` currently contain only the active Starshine hot/module subset, not `inlining`.
-- There is no `src/passes/inlining.mbt` file today.
+  - registers `inlining`, `inlining-optimizing`, and the three `no-inline*` policy passes as module passes.
+  - public `optimize` / `shrink` presets still omit the Binaryen late `INL` slot.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+  - dispatches plain `inlining` with `optimize=false`.
+  - dispatches `inlining-optimizing` with `optimize=true`.
+  - dispatches `no-inline=<pattern>` / `no-full-inline=<pattern>` / `no-partial-inline=<pattern>` through the registry.
 
 ## Why this cannot start as a HOT peephole
 
@@ -54,11 +60,11 @@ Binaryen `inlining` is a module-level function-boundary transform:
 
 That makes a local HOT-only peephole misleading even if the first reduced test only contains one caller and one callee.
 
-## Minimum viable Starshine slice
+## Remaining parity slices
 
-A safe first implementation slice should be deliberately smaller than Binaryen's full pass:
+A safe next widening slice should still be deliberately smaller than Binaryen's full pass:
 
-1. Add an explicit module-pass landing zone for `inlining` without changing the public boundary-only behavior until tests pin the dispatch semantics.
+1. Keep the explicit module-pass landing zone for `inlining` stable while tests pin the remaining dispatch and parity gaps.
 2. Build a whole-module summary for defined functions:
    - direct-call count,
    - direct callers,
@@ -167,5 +173,5 @@ Keep exact normalization expectations separate for plain `inlining` and `inlinin
 - [`./wat-shapes.md`](./wat-shapes.md) catalogs transformed and preserved WAT shapes.
 - [`./heuristics-splitting-and-plain-vs-optimizing.md`](./heuristics-splitting-and-plain-vs-optimizing.md) covers the heuristics and sibling split.
 - [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) covers no-inline flags and metadata caveats.
-- [`./starshine-strategy.md`](./starshine-strategy.md) records the current Starshine boundary-only status.
+- [`./starshine-strategy.md`](./starshine-strategy.md) records the current Starshine partial active status.
 - [`../inlining-optimizing/index.md`](../inlining-optimizing/index.md) is the public sibling with the nested cleanup suffix.

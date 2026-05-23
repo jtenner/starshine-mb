@@ -141,7 +141,7 @@ That is exactly the split you would expect from the two booleans in `Function`.
 ## 5. Clone survival is source-confirmed, not just a pipeline accident
 
 The existing dossier already noted that `test/lit/passes/no-inline-monomorphize-inlining.wast` proves no-inline intent survives through monomorphization.
-This page closes the source-confirmation gap for why.
+This page closes the source-confirmation gap for why. A 2026-05-23 current-main recheck still shows the same flag-copy split in `Inlining.cpp`, `NoInline.cpp`, and `module-utils.cpp`.
 
 `src/ir/module-utils.cpp` copies the inliner-facing flags when cloning a function:
 
