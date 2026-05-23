@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO post-loop eqz self-guard FlowScanner slice
+
+- Probed adjacent post-loop `i32.eqz` self guards against Binaryen v129. Binaryen promoted a non-branching `loop (result i32)` that yielded the candidate global and then fed an adjacent `i32.eqz` before the final same-global write guard, while preserving mutable/read-write shape when the loop yielded a trapping `i32.load` address fed by the candidate global before the `i32.eqz`.
+- Extended `[SGO]003` block-condition eqz read-only-to-write counting to the same non-branching value-loop wrapper shape, but only when the loop body yields the direct candidate read. Branch/control contents and trapping global-derived load bodies remain conservative.
+- Added focused positive and negative tests for adjacent post-loop `i32.eqz` self guards. Validation evidence: initial failing `moon test src/passes` for the post-loop eqz positive, green `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-loop-eqz-selfguard-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-23] binaryen | SGO loop-wrapped self-guard FlowScanner slice
 
 - Probed direct and trapping loop-wrapped read-only-to-write self guards against Binaryen v129. Binaryen promoted a non-branching `loop (result i32)` that simply yielded the candidate global into a final same-global write guard, while preserving mutable/read-write shape when the loop yielded a trapping `i32.load` address fed by the candidate global.
