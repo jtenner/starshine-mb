@@ -1197,7 +1197,8 @@ fn sgo_flow_scan_prefix_until(
           return (false, reads, stack)
         }
       }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
+      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
         let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
           body, idx,
         )
@@ -1344,7 +1345,8 @@ fn sgo_flow_scan_clean_prefix_until(
           return (false, stack)
         }
       }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
+      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
         let (block_ok, block_stack) = sgo_flow_scan_clean_prefix_until(
           body,
           body.length(),
@@ -1487,7 +1489,8 @@ fn sgo_flow_arm_result_taint_and_reads(
           return (false, reads, false)
         }
       }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
+      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
         let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
           body, idx,
         )
@@ -1672,7 +1675,8 @@ fn sgo_nested_if_arm_flow_outer_if_index(
           return None
         }
       }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
+      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
         if sgo_instrs_may_reference_global(body) {
           return None
         }
@@ -2065,7 +2069,8 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
           return false
         }
       }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
+      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
         let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
           body, idx,
         )
