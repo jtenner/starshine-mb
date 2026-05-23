@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO clean void-if prefix FlowScanner slice
+
+- Probed clean and tainted void-if prefixes before nested-if arm-flow guards against Binaryen v129. Binaryen promoted a clean `if` with clean condition and clean void arms before the fake-global nested-if guard, while preserving mutable/read-write shape when a void-if arm consumed the candidate global before the later same-global write guard.
+- Extended `[SGO]003` clean-prefix and candidate-aware prefix scanning for void `if` expressions with an independent clean condition, two arms, no candidate-global reads, and no remaining arm stack values. This remains a local stack/value-flow rule and does not accept branch-target control, missing-else joins, or candidate-steered wrapper conditions.
+- Added focused positive and negative tests for a clean void-if prefix and a tainted void-if prefix. Validation evidence: initial failing `moon test src/passes`, green `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-flowscanner-void-if-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-23] binaryen | SGO clean result-if prefix FlowScanner slice
 
 - Probed clean and tainted result-if/drop prefixes before nested-if arm-flow guards against Binaryen v129. Binaryen promoted a clean `if (result i32)` whose value was dropped before the fake-global nested-if guard, while preserving mutable/read-write shape when the result-if yielded the candidate global and `drop` consumed it.

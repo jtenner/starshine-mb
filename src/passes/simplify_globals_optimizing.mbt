@@ -1251,6 +1251,33 @@ fn sgo_flow_scan_prefix_until(
         }
         continue
       }
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+        match sgo_flow_pop(stack) {
+          Some(value) if !value.tainted => ()
+          _ => return (false, reads, stack)
+        }
+        let (then_ok, then_reads, then_stack) = sgo_flow_scan_prefix_until(
+          then_body,
+          then_body.length(),
+          idx,
+        )
+        let (else_ok, else_reads, else_stack) = sgo_flow_scan_prefix_until(
+          else_body,
+          else_body.length(),
+          idx,
+        )
+        reads = reads + then_reads + else_reads
+        if then_ok &&
+          else_ok &&
+          then_reads == 0 &&
+          else_reads == 0 &&
+          then_stack.length() == 0 &&
+          else_stack.length() == 0 {
+          continue
+        } else {
+          return (false, reads, stack)
+        }
+      }
       @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
         match sgo_flow_pop(stack) {
           Some(value) if !value.tainted => ()
@@ -1399,6 +1426,28 @@ fn sgo_flow_scan_clean_prefix_until(
           return (false, stack)
         }
         continue
+      }
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+        match sgo_flow_pop(stack) {
+          Some(value) if !value.tainted => ()
+          _ => return (false, stack)
+        }
+        let (then_ok, then_stack) = sgo_flow_scan_clean_prefix_until(
+          then_body,
+          then_body.length(),
+        )
+        let (else_ok, else_stack) = sgo_flow_scan_clean_prefix_until(
+          else_body,
+          else_body.length(),
+        )
+        if then_ok &&
+          else_ok &&
+          then_stack.length() == 0 &&
+          else_stack.length() == 0 {
+          continue
+        } else {
+          return (false, stack)
+        }
       }
       @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
         match sgo_flow_pop(stack) {
