@@ -11135,6 +11135,38 @@ fn dae_try_hoist_selected_func237_leading_retain_call_once(
 }
 
 ///|
+fn dae_splice_leading_func237_terminal_br0_block(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  if instrs.length() == 0 {
+    return instrs
+  }
+  let first_body = match instrs[0] {
+    @lib.Block(block_type, @lib.Expr(body)) if dae_block_type_is_zero_param_zero_result(
+        block_type,
+        None,
+      ) => body
+    _ => return instrs
+  }
+  if first_body.length() == 0 ||
+    first_body[first_body.length() - 1] !=
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)) {
+    return instrs
+  }
+  let first_prefix = dae_copy_instr_prefix(first_body, first_body.length() - 1)
+  if dae_instrs_have_escaping_branch(first_prefix, 0) {
+    return instrs
+  }
+  let out = first_prefix.copy()
+  let mut idx = 1
+  while idx < instrs.length() {
+    out.push(instrs[idx])
+    idx += 1
+  }
+  out
+}
+
+///|
 fn dae_try_wrap_func237_inner_iteration_loop_then_body(
   then_body : Array[@lib.Instruction],
   iter_local : @lib.LocalIdx,
@@ -11175,6 +11207,47 @@ fn dae_try_wrap_func237_inner_iteration_loop_then_body(
         return None
       }
       let rewritten = prefix.copy()
+      rewritten.push(@lib.Instruction::local_get(iter_local))
+      rewritten.push(@lib.Instruction::i32_const(@lib.I32(1)))
+      rewritten.push(@lib.Instruction::i32_add())
+      rewritten.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+      Some(rewritten)
+    }
+    (
+      @lib.Block(block_type, @lib.Expr(block_body)),
+      @lib.Drop,
+      @lib.LocalGet(value_local),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Add,
+      @lib.LocalSet(set_local),
+      @lib.Br(label_idx),
+    ) if dae_block_type_is_zero_param_single_result(block_type, None) &&
+      dae_local_idx_equal(value_local, iter_local) &&
+      dae_local_idx_equal(set_local, iter_local) &&
+      dae_label_idx_as_int(label_idx) <= 1 => {
+      if block_body.length() == 0 ||
+        block_body[block_body.length() - 1] !=
+        @lib.Instruction::i32_const(@lib.I32(0)) {
+        return None
+      }
+      let prefix = dae_copy_instr_prefix(then_body, drop_const_idx)
+      if dae_instrs_have_escaping_branch(prefix, 0) {
+        return None
+      }
+      let raw_block_prefix = dae_copy_instr_prefix(
+        block_body,
+        block_body.length() - 1,
+      )
+      if dae_instrs_have_escaping_branch(raw_block_prefix, 0) {
+        return None
+      }
+      let block_prefix = dae_splice_leading_func237_terminal_br0_block(
+        raw_block_prefix,
+      )
+      let rewritten = prefix.copy()
+      for instr in block_prefix {
+        rewritten.push(instr)
+      }
       rewritten.push(@lib.Instruction::local_get(iter_local))
       rewritten.push(@lib.Instruction::i32_const(@lib.I32(1)))
       rewritten.push(@lib.Instruction::i32_add())
@@ -11387,6 +11460,36 @@ fn dae_try_wrap_func237_inner_iteration_loop_body_recursive_once(
 }
 
 ///|
+fn dae_wrap_func237_inner_iteration_loop_body_recursive_until_stable(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+  max_iters : Int,
+) -> Array[@lib.Instruction]? {
+  let mut current = body
+  let mut changed = false
+  let mut iter = 0
+  while iter < max_iters {
+    match
+      dae_try_wrap_func237_inner_iteration_loop_body_recursive_once(
+        current, type_sec,
+      ) {
+      Some(rewritten) => {
+        current = rewritten
+        changed = true
+        iter += 1
+        continue
+      }
+      None => break
+    }
+  }
+  if changed {
+    Some(current)
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_try_wrap_selected_func237_inner_iteration_loop_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -11405,9 +11508,10 @@ fn dae_try_wrap_selected_func237_inner_iteration_loop_once(
   }
   let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
   let rewritten = match
-    dae_try_wrap_func237_inner_iteration_loop_body_recursive_once(
+    dae_wrap_func237_inner_iteration_loop_body_recursive_until_stable(
       body,
       mod_.type_sec,
+      16,
     ) {
     Some(instrs) => instrs
     None =>
@@ -14324,6 +14428,24 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         "pass[dae-optimizing]:selected-func867-default-args primary_def=\{selected_func867_defaults.primary_def}",
       )
       changed = true
+      if 237 < selected_scratch_defs.length() {
+        selected_scratch_defs[237] = true
+        let selected_func237_inner_loop = dae_try_wrap_selected_func237_inner_iteration_loop_once(
+          current, selected_scratch_defs,
+        )
+        selected_scratch_defs[237] = false
+        if selected_func237_inner_loop.changed {
+          current = selected_func237_inner_loop.mod_out
+          touched = dae_merge_touched(
+            touched,
+            selected_func237_inner_loop.touched,
+          )
+          trace(
+            "pass[dae-optimizing]:selected-func237-inner-iteration-loop-after-func867 primary_def=\{selected_func237_inner_loop.primary_def}",
+          )
+          changed = true
+        }
+      }
     }
   }
   if 233 < selected_scratch_defs.length() {
@@ -14426,6 +14548,24 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       "pass[dae-optimizing]:module-raw-cleanup primary_def=\{module_raw_cleanup.primary_def}",
     )
     changed = true
+  }
+  if 237 < selected_scratch_defs.length() {
+    selected_scratch_defs[237] = true
+    let selected_func237_inner_loop_final = dae_try_wrap_selected_func237_inner_iteration_loop_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[237] = false
+    if selected_func237_inner_loop_final.changed {
+      current = selected_func237_inner_loop_final.mod_out
+      touched = dae_merge_touched(
+        touched,
+        selected_func237_inner_loop_final.touched,
+      )
+      trace(
+        "pass[dae-optimizing]:selected-func237-inner-iteration-loop-final primary_def=\{selected_func237_inner_loop_final.primary_def}",
+      )
+      changed = true
+    }
   }
   { mod_out: current, touched, changed, primary_def: -1 }
 }

@@ -2121,6 +2121,215 @@ test "dae func237 inner iteration loop wraps Binaryen carrier block" {
 }
 
 ///|
+fn dae_wbtest_func237_inner_iteration_direct_loop(
+  memarg : @lib.MemArg,
+  iter : @lib.LocalIdx,
+  bound : @lib.LocalIdx,
+  call_idx : @lib.FuncIdx,
+) -> @lib.Instruction {
+  @lib.Instruction::loop_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(iter),
+      @lib.Instruction::local_get(bound),
+      @lib.Instruction::i32_load(memarg),
+      @lib.Instruction::i32_lt_s(),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::call(call_idx),
+              @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            ]),
+          ),
+          @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::local_get(iter),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::i32_add(),
+          @lib.Instruction::local_set(iter),
+          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+        ],
+        Some([@lib.Instruction::call(@lib.FuncIdx::new(29U))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn dae_wbtest_func237_inner_iteration_wrapped_loop(
+  memarg : @lib.MemArg,
+  iter : @lib.LocalIdx,
+  bound : @lib.LocalIdx,
+  call_idx : @lib.FuncIdx,
+) -> @lib.Instruction {
+  @lib.Instruction::loop_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::local_get(bound),
+              @lib.Instruction::i32_load(memarg),
+              @lib.Instruction::local_get(iter),
+              @lib.Instruction::i32_gt_s(),
+              @lib.Instruction::if_(
+                @lib.BlockType::void_(),
+                [
+                  @lib.Instruction::block(
+                    @lib.BlockType::void_(),
+                    @lib.Expr::new([
+                      @lib.Instruction::call(call_idx),
+                      @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                    ]),
+                  ),
+                  @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+                  @lib.Instruction::local_get(iter),
+                  @lib.Instruction::i32_const(@lib.I32(1)),
+                  @lib.Instruction::i32_add(),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                ],
+                Some([@lib.Instruction::call(@lib.FuncIdx::new(29U))]),
+              ),
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+            ]),
+          ),
+          @lib.Instruction::local_set(iter),
+          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "dae func237 inner iteration loop fixed point wraps repeated direct loops" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
+  let iter = @lib.LocalIdx::new(4U)
+  let bound = @lib.LocalIdx::new(5U)
+  let first_call = @lib.FuncIdx::new(26U)
+  let second_call = @lib.FuncIdx::new(30U)
+  let body = [
+    dae_wbtest_func237_inner_iteration_direct_loop(
+      memarg, iter, bound, first_call,
+    ),
+    dae_wbtest_func237_inner_iteration_direct_loop(
+      memarg, iter, bound, second_call,
+    ),
+  ]
+  match
+    dae_wrap_func237_inner_iteration_loop_body_recursive_until_stable(
+      body,
+      None,
+      4,
+    ) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        dae_wbtest_func237_inner_iteration_wrapped_loop(
+          memarg, iter, bound, first_call,
+        ),
+        dae_wbtest_func237_inner_iteration_wrapped_loop(
+          memarg, iter, bound, second_call,
+        ),
+      ])
+    None =>
+      fail("expected repeated Func237 inner iteration loop carrier wrapping")
+  }
+}
+
+///|
+test "dae func237 inner iteration loop folds dropped result block carrier" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
+  let iter = @lib.LocalIdx::new(4U)
+  let bound = @lib.LocalIdx::new(5U)
+  let body = [
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(iter),
+        @lib.Instruction::local_get(bound),
+        @lib.Instruction::i32_load(memarg),
+        @lib.Instruction::i32_lt_s(),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    @lib.Instruction::call(@lib.FuncIdx::new(27U)),
+                    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(iter),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::local_set(iter),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          Some([@lib.Instruction::call(@lib.FuncIdx::new(29U))]),
+        ),
+      ]),
+    ),
+  ]
+  match dae_try_wrap_func237_inner_iteration_loop_body_once(body, None) {
+    Some(rewritten) =>
+      assert_eq(rewritten, [
+        @lib.Instruction::loop_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(bound),
+                    @lib.Instruction::i32_load(memarg),
+                    @lib.Instruction::local_get(iter),
+                    @lib.Instruction::i32_gt_s(),
+                    @lib.Instruction::if_(
+                      @lib.BlockType::void_(),
+                      [
+                        @lib.Instruction::call(@lib.FuncIdx::new(26U)),
+                        @lib.Instruction::call(@lib.FuncIdx::new(27U)),
+                        @lib.Instruction::call(@lib.FuncIdx::new(28U)),
+                        @lib.Instruction::local_get(iter),
+                        @lib.Instruction::i32_const(@lib.I32(1)),
+                        @lib.Instruction::i32_add(),
+                        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                      ],
+                      Some([@lib.Instruction::call(@lib.FuncIdx::new(29U))]),
+                    ),
+                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                  ]),
+                ),
+                @lib.Instruction::local_set(iter),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+          ]),
+        ),
+      ])
+    None => fail("expected dropped result block carrier fold")
+  }
+}
+
+///|
 test "dae func237 terminal br0 block wrapper is spliced" {
   let body = [
     @lib.Instruction::call(@lib.FuncIdx::new(1U)),
