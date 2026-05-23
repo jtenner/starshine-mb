@@ -609,7 +609,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
 - [FUZ]1020 (IN PROGRESS) - Invalid AST Strategy Expansion Across Validator Families
-  - Run 23 update: added function-body AST body-stack variants for invalid local/global indexes with focused tests; the remaining requested coverage gaps (branch payload, broader index families, GC/atomics/address-typing) are still pending.
+  - Run 23 update: added function-body AST body-stack variants for invalid local/global/table/memory indexes with focused tests; the remaining requested coverage gaps (branch payload, broader index families, GC/atomics/address-typing) are still pending.
   - Goal: add deeper AST-invalid mutations for type, import, function, table, memory, tag, global, element, data, datacount, start, export, code, name, and function-body families.
   - Why: every family has at least one strategy, but many families need more per-rule coverage: subtype variance, descriptor cycles, branch payload mismatches, local/global/table/memory/tag indices, GC field errors, array errors, exception payloads, atomics, memory64 address typing, and body stack typing.
   - Deliverables: add a prioritized batch of AST variants with focused tests first; include repair checks where possible (`valid -> mutate -> reject`, then `repair -> accept`); update docs/wiki family summaries.

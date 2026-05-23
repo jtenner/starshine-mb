@@ -76,6 +76,8 @@ pub enum ValidateInvalidAstStrategyId {
   UndeclaredRefFunc
   InvalidFunctionBodyLocalIndex
   InvalidFunctionBodyGlobalIndex
+  InvalidFunctionBodyTableIndex
+  InvalidFunctionBodyMemoryIndex
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
@@ -429,6 +431,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTableIndex,
+      "invalid-function-body-table-index",
+      "invalid table index in function body",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryIndex,
+      "invalid-function-body-memory-index",
+      "invalid memory index in function body",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
       "invalid-memory-name-section-index",
       "invalid memory name index",
@@ -601,21 +617,23 @@ fn validate_invalid_ast_strategy_index(
     MissingDataCountDataDrop => 31
     InvalidFunctionBodyLocalIndex => 32
     InvalidFunctionBodyGlobalIndex => 33
-    InvalidMemoryNameSectionIndex => 34
-    CodeSecWithoutFuncSec => 35
-    InvalidTableNameSectionIndex => 36
-    InvalidGlobalNameSectionIndex => 37
-    InvalidTypeNameSectionIndex => 38
-    InvalidFieldNameSectionIndex => 39
-    InvalidElemNameSectionIndex => 40
-    InvalidDataNameSectionIndex => 41
-    InvalidExportTableIndex => 42
-    InvalidExportGlobalIndex => 43
-    InvalidExportMemoryIndex => 44
-    InvalidExportTagIndex => 45
-    InvalidTagNameSectionIndex => 46
-    DataCountMismatchTooSmall => 47
-    DataCountMismatchTooLarge => 48
+    InvalidFunctionBodyTableIndex => 34
+    InvalidFunctionBodyMemoryIndex => 35
+    InvalidMemoryNameSectionIndex => 36
+    CodeSecWithoutFuncSec => 37
+    InvalidTableNameSectionIndex => 38
+    InvalidGlobalNameSectionIndex => 39
+    InvalidTypeNameSectionIndex => 40
+    InvalidFieldNameSectionIndex => 41
+    InvalidElemNameSectionIndex => 42
+    InvalidDataNameSectionIndex => 43
+    InvalidExportTableIndex => 44
+    InvalidExportGlobalIndex => 45
+    InvalidExportMemoryIndex => 46
+    InvalidExportTagIndex => 47
+    InvalidTagNameSectionIndex => 48
+    DataCountMismatchTooSmall => 49
+    DataCountMismatchTooLarge => 50
   }
 }
 
@@ -1861,6 +1879,59 @@ fn validate_invalid_ast_mutate_invalid_function_body_global_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_table_idx = TableIdx::new(
+    validate_invalid_ast_total_table_count(mod).reinterpret_as_uint(),
+  )
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::table_get(bad_table_idx),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTableIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_mem_idx = MemIdx::new(
+    validate_invalid_ast_total_mem_count(mod).reinterpret_as_uint(),
+  )
+  let body = Expr::new([
+    Instruction::memory_size(bad_mem_idx),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_undeclared_ref_func(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2535,6 +2606,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_local_index(base)
       InvalidFunctionBodyGlobalIndex =>
         validate_invalid_ast_mutate_invalid_function_body_global_index(base)
+      InvalidFunctionBodyTableIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_table_index(base)
+      InvalidFunctionBodyMemoryIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_index(base)
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
       InvalidLocalNameSectionIndex =>
@@ -2933,12 +3008,12 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-tag-type-index", "invalid-subtype-super-index", "invalid-subtype-super-shape",
     "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
     "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
-    "invalid-function-body-global-index", "invalid-memory-name-section-index", "codesec-without-funcsec",
-    "invalid-table-name-section-index", "invalid-global-name-section-index", "invalid-type-name-section-index",
-    "invalid-field-name-section-index", "invalid-elem-name-section-index", "invalid-data-name-section-index",
-    "invalid-export-table-index", "invalid-export-global-index", "invalid-export-memory-index",
-    "invalid-export-tag-index", "invalid-tag-name-section-index", "datacount-mismatch-too-small",
-    "datacount-mismatch-too-large",
+    "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -3424,6 +3499,32 @@ test "invalid global index strategy rejects with FunctionBody family" {
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidFunctionBodyGlobalIndex,
       0x5f0eUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid table index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTableIndex,
+      0x5f0fUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid memory index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryIndex,
+      0x5f10UL,
       FunctionBodyFamily,
     ) {
     Ok(_) => ()

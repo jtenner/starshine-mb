@@ -213,6 +213,8 @@ fn gen_invalid_ast_strategy_label(
     MissingDataCountDataDrop => "missing-datacount-data-drop"
     InvalidFunctionBodyLocalIndex => "invalid-function-body-local-index"
     InvalidFunctionBodyGlobalIndex => "invalid-function-body-global-index"
+    InvalidFunctionBodyTableIndex => "invalid-function-body-table-index"
+    InvalidFunctionBodyMemoryIndex => "invalid-function-body-memory-index"
     UndeclaredRefFunc => "undeclared-ref-func"
     InvalidNameSectionFuncIndex => "invalid-name-section-func-index"
     InvalidLocalNameSectionIndex => "invalid-local-name-section-index"

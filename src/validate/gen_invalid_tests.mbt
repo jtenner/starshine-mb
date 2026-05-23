@@ -1055,6 +1055,49 @@ test "gen_invalid_ast_generate supports function-body invalid global index strat
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body invalid table index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f0fUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-function-body-table-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body invalid memory index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f10UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-function-body-memory-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid seed helpers reuse named gen-valid profiles" {
   @debug.assert_eq(
     gen_invalid_coverage_seed_generator_config(),
