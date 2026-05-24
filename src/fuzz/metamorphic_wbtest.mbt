@@ -150,6 +150,50 @@ test "metamorphic unused funcref-table transform preserves validation and binary
 }
 
 ///|
+test "metamorphic unused passive funcref element transform preserves validation and binary roundtrip" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x103eUL,
+      GenValidConfig::natural_default(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected valid GenValid seed, got \{e.validation_error_message}")
+  }
+  let original_elem_count = match generated.wasm_module.elem_sec {
+    Some(@lib.ElemSec(elems)) => elems.length()
+    None => 0
+  }
+  let transformed = match
+    metamorphic_apply_transform(
+      generated.wasm_module,
+      AddUnusedPassiveFuncrefElementSegment,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-unused-passive-funcref-element-segment",
+  )
+  match transformed.wasm_module.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      @debug.assert_eq(elems.length(), original_elem_count + 1)
+      match elems[elems.length() - 1] {
+        @lib.Elem(@lib.Passive, @lib.FuncsElemKind(func_idxs)) =>
+          @debug.assert_eq(func_idxs, [])
+        _ => fail("expected trailing passive empty funcref element segment")
+      }
+    }
+    None => fail("expected transformed element section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic unused empty function-type transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -418,8 +462,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 8)
-  @debug.assert_eq(stats.validated, 8)
+  @debug.assert_eq(stats.transformed, 9)
+  @debug.assert_eq(stats.validated, 9)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -430,4 +474,7 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("add-unused-empty-function"))
   assert_true(stats.transform_ids.contains("add-unused-empty-function-type"))
   assert_true(stats.transform_ids.contains("add-unused-funcref-table"))
+  assert_true(
+    stats.transform_ids.contains("add-unused-passive-funcref-element-segment"),
+  )
 }

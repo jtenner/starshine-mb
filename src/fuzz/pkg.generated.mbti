@@ -352,6 +352,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
   AddUnusedFuncrefTable
+  AddUnusedPassiveFuncrefElementSegment
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {

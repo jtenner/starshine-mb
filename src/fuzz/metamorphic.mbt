@@ -8,6 +8,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
   AddUnusedFuncrefTable
+  AddUnusedPassiveFuncrefElementSegment
 } derive(Eq, Debug)
 
 ///|
@@ -23,6 +24,8 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedEmptyFunction => "add-unused-empty-function"
     AddUnusedEmptyFunctionType => "add-unused-empty-function-type"
     AddUnusedFuncrefTable => "add-unused-funcref-table"
+    AddUnusedPassiveFuncrefElementSegment =>
+      "add-unused-passive-funcref-element-segment"
   }
 }
 
@@ -167,6 +170,22 @@ fn metamorphic_add_unused_funcref_table(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn metamorphic_add_unused_passive_funcref_element_segment(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let elems = []
+  match mod.elem_sec {
+    Some(@lib.ElemSec(existing)) =>
+      for elem in existing {
+        elems.push(elem)
+      }
+    None => ()
+  }
+  elems.push(@lib.Elem::new(@lib.ElemMode::passive(), @lib.ElemKind::funcs([])))
+  mod.with_elem_sec(@lib.ElemSec::new(elems))
+}
+
+///|
 fn metamorphic_add_unused_empty_function_type(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -233,6 +252,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedEmptyFunction,
     AddUnusedEmptyFunctionType,
     AddUnusedFuncrefTable,
+    AddUnusedPassiveFuncrefElementSegment,
   ]
 }
 
@@ -254,6 +274,8 @@ pub fn metamorphic_apply_transform(
     AddUnusedEmptyFunctionType =>
       metamorphic_add_unused_empty_function_type(mod)
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
+    AddUnusedPassiveFuncrefElementSegment =>
+      metamorphic_add_unused_passive_funcref_element_segment(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
