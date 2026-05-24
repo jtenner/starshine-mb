@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 table.init source/destination invalid AST coverage
+
+- Continued `[FUZ]1020` by adding function-body AST invalid strategies `invalid-function-body-table-init-source-type` and `invalid-function-body-table-init-dest-type`.
+- Added focused invalid-strategy and repair tests proving `i64` source-offset and destination-index operands for memory32/table32 `table.init` reject with the function-body family while repaired `i32` operands validate against a matching nullable `funcref` table and passive function element segment.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living AST-invalid summaries name table.init source/destination coverage alongside the existing table.init length and table.copy body-stack variants.
+
 ## [2026-05-23] fuzzing | FUZ1020 table.init length invalid AST coverage
 
 - Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-table-init-length-type`.
