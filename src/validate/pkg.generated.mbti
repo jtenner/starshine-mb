@@ -1218,6 +1218,7 @@ pub enum ValidateInvalidAstStrategyId {
   MutableGlobalGetInTableInit
   NonConstantElemOffset
   InvalidElementActiveTableIndex
+  InvalidElementFuncIndex
   SharedMemoryWithoutMax
   SharedMemory64WithoutMax
   InvalidTagTypeIndex
