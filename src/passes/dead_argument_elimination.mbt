@@ -15712,7 +15712,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
-  for selected_result_def in [299, 3566, 4229] {
+  for selected_result_def in [298, 299, 3566, 4229] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true
       let selected_result_call_facts = if selected_result_def == 299 {

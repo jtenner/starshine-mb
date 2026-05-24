@@ -1275,6 +1275,59 @@ test "dae-optimizing folds selected Func1794 const-if locals before Func1795 def
 }
 
 ///|
+test "dae-optimizing removes selected Func298 dropped result from Func280 branch arms" {
+  let caller_def = 280
+  let target_def = 298
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "run") (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    if
+      #|      local.get 0
+      #|      local.get 1
+      #|      call $target
+      #|      drop
+      #|    else
+      #|      local.get 1
+      #|      local.get 0
+      #|      call $target
+      #|      drop
+      #|    end
+      #|    i32.const 0)
+    ),
+  )
+  for i = caller_def + 1; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    call $side
+      #|    local.get 1
+      #|    call $side
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add)
+      #|  (func $side (param i32))
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_results(optimized, target_def).length(), 0)
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+  assert_false(caller.contains("drop"), msg=caller)
+}
+
+///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for target_def in [299, 3566, 4229] {
     let out = StringBuilder::new()
