@@ -531,6 +531,8 @@ fn gen_invalid_ast_strategy_label(
     InvalidNameSectionFuncIndex => "invalid-name-section-func-index"
     InvalidLocalNameSectionIndex => "invalid-local-name-section-index"
     InvalidLabelNameSectionIndex => "invalid-label-name-section-index"
+    InvalidLocalNameSectionFuncIndex => "invalid-local-name-section-func-index"
+    InvalidLabelNameSectionFuncIndex => "invalid-label-name-section-func-index"
     InvalidMemoryNameSectionIndex => "invalid-memory-name-section-index"
     CodeSecWithoutFuncSec => "codesec-without-funcsec"
     InvalidTableNameSectionIndex => "invalid-table-name-section-index"

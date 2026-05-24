@@ -789,6 +789,50 @@ test "gen_invalid_ast_generate supports invalid label name index strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid local-name function index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd41UL),
+      GenInvalidAstParams::repro_seed(InvalidLocalNameSectionFuncIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-local-name-section-func-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == NameSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports invalid label-name function index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd42UL),
+      GenInvalidAstParams::repro_seed(InvalidLabelNameSectionFuncIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-label-name-section-func-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == NameSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports missing-datacount data.drop strategy" {
   let generated = match
     gen_invalid_ast_generate(

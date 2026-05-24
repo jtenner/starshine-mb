@@ -239,6 +239,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
+  InvalidLocalNameSectionFuncIndex
+  InvalidLabelNameSectionFuncIndex
   InvalidFuncTypeIndex
   FuncSecWithoutCodeSec
   MutableGlobalGetInConstInit
@@ -461,6 +463,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidLabelNameSectionIndex,
       "invalid-label-name-section-index",
       "invalid label name index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidLocalNameSectionFuncIndex,
+      "invalid-local-name-section-func-index",
+      "invalid local-name function index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidLabelNameSectionFuncIndex,
+      "invalid-label-name-section-func-index",
+      "invalid label-name function index",
       NameSectionFamily,
       required_in_smoke=false,
     ),
@@ -1891,6 +1907,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidNameSectionFuncIndex => 11
     InvalidLocalNameSectionIndex => 12
     InvalidLabelNameSectionIndex => 13
+    InvalidLocalNameSectionFuncIndex => 213
+    InvalidLabelNameSectionFuncIndex => 214
     InvalidFuncTypeIndex => 14
     FuncSecWithoutCodeSec => 15
     MutableGlobalGetInConstInit => 16
@@ -7986,6 +8004,44 @@ fn validate_invalid_ast_mutate_invalid_label_name_section_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_local_name_section_func_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = validate_invalid_ast_total_func_count(mod).reinterpret_as_uint()
+  let local_names = IndirectNameMap::new([
+    IndirectNameAssoc::new(
+      bad_idx,
+      NameMap::new([NameAssoc::new(0U, Name::new("local"))]),
+    ),
+  ])
+  {
+    strategy: InvalidLocalNameSectionFuncIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_local_names(mod, local_names),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_label_name_section_func_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = validate_invalid_ast_total_func_count(mod).reinterpret_as_uint()
+  let label_names = IndirectNameMap::new([
+    IndirectNameAssoc::new(
+      bad_idx,
+      NameMap::new([NameAssoc::new(0U, Name::new("label"))]),
+    ),
+  ])
+  {
+    strategy: InvalidLabelNameSectionFuncIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_label_names(mod, label_names),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_memory_name_section_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -9273,6 +9329,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_local_name_section_index(base)
       InvalidLabelNameSectionIndex =>
         validate_invalid_ast_mutate_invalid_label_name_section_index(base)
+      InvalidLocalNameSectionFuncIndex =>
+        validate_invalid_ast_mutate_invalid_local_name_section_func_index(base)
+      InvalidLabelNameSectionFuncIndex =>
+        validate_invalid_ast_mutate_invalid_label_name_section_func_index(base)
       InvalidMemoryNameSectionIndex =>
         validate_invalid_ast_mutate_invalid_memory_name_section_index(base)
       CodeSecWithoutFuncSec =>
@@ -9666,16 +9726,17 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-imported-start-func-multi-param", "invalid-imported-start-func-f32-param",
     "invalid-imported-start-func-externref-param", "invalid-imported-start-func-funcref-param",
     "missing-datacount", "undeclared-ref-func", "invalid-name-section-func-index",
-    "invalid-local-name-section-index", "invalid-label-name-section-index", "invalid-func-type-index",
-    "funcsec-without-codesec", "mutable-global-get-in-const-init", "non-constant-data-offset",
-    "invalid-data-active-memory-index", "invalid-imported-func-type-index", "invalid-imported-tag-type-index",
-    "mutable-global-get-in-table-init", "non-constant-elem-offset", "invalid-element-active-table-index",
-    "invalid-element-func-index", "invalid-element-typed-expr-type", "shared-memory-without-max",
-    "shared-memory64-without-max", "invalid-tag-type-index", "invalid-subtype-super-index",
-    "invalid-subtype-super-shape", "descriptor-on-func-type", "datacount-without-data-sec",
-    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
-    "invalid-function-body-local-index", "invalid-function-body-global-index", "invalid-function-body-table-index",
-    "invalid-function-body-memory-index", "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
+    "invalid-local-name-section-index", "invalid-label-name-section-index", "invalid-local-name-section-func-index",
+    "invalid-label-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
+    "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-data-active-memory-index",
+    "invalid-imported-func-type-index", "invalid-imported-tag-type-index", "mutable-global-get-in-table-init",
+    "non-constant-elem-offset", "invalid-element-active-table-index", "invalid-element-func-index",
+    "invalid-element-typed-expr-type", "shared-memory-without-max", "shared-memory64-without-max",
+    "invalid-tag-type-index", "invalid-subtype-super-index", "invalid-subtype-super-shape",
+    "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
+    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
+    "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
+    "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-if-condition-type", "invalid-function-body-if-branch-result-type",
@@ -9984,6 +10045,32 @@ test "invalid label name index strategy rejects with NameSection family" {
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidLabelNameSectionIndex,
       0x5ef12UL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid local name section function index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidLocalNameSectionFuncIndex,
+      0x5ef85UL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid label name section function index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidLabelNameSectionFuncIndex,
+      0x5ef86UL,
       NameSectionFamily,
     ) {
     Ok(_) => ()

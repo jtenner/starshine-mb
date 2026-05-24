@@ -1208,6 +1208,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
+  InvalidLocalNameSectionFuncIndex
+  InvalidLabelNameSectionFuncIndex
   InvalidFuncTypeIndex
   FuncSecWithoutCodeSec
   MutableGlobalGetInConstInit
