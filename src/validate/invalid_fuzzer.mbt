@@ -88,6 +88,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTryTableCatchPayloadMismatch
   InvalidFunctionBodyMemoryAddressType
   InvalidFunctionBodyMemory64AddressType
+  InvalidFunctionBodyMemoryStoreAddressType
+  InvalidFunctionBodyMemory64StoreAddressType
   InvalidFunctionBodyMemoryStoreValueType
   InvalidFunctionBodyMemoryGrowDeltaType
   InvalidFunctionBodyMemoryFillValueType
@@ -610,6 +612,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyMemory64AddressType,
       "invalid-function-body-memory64-address-type",
       "invalid function-body memory64 address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryStoreAddressType,
+      "invalid-function-body-memory-store-address-type",
+      "invalid function-body memory store address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemory64StoreAddressType,
+      "invalid-function-body-memory64-store-address-type",
+      "invalid function-body memory64 store address type",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -1421,6 +1437,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyTryTableCatchPayloadMismatch => 43
     InvalidFunctionBodyMemoryAddressType => 44
     InvalidFunctionBodyMemory64AddressType => 45
+    InvalidFunctionBodyMemoryStoreAddressType => 150
+    InvalidFunctionBodyMemory64StoreAddressType => 151
     InvalidFunctionBodyMemoryStoreValueType => 46
     InvalidFunctionBodyMemoryGrowDeltaType => 70
     InvalidFunctionBodyMemoryFillValueType => 71
@@ -3130,6 +3148,60 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory64_address_type(
   )
   {
     strategy: InvalidFunctionBodyMemory64AddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_store_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_store(MemArg::new(2U, None, 0UL)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryStoreAddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory64_store_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory64 = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i64(1UL, Some(1UL)))]),
+  )
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_store(MemArg::new(2U, None, 0UL)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory64,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemory64StoreAddressType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -6412,6 +6484,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory64_address_type(
           base,
         )
+      InvalidFunctionBodyMemoryStoreAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_store_address_type(
+          base,
+        )
+      InvalidFunctionBodyMemory64StoreAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory64_store_address_type(
+          base,
+        )
       InvalidFunctionBodyMemoryStoreValueType =>
         validate_invalid_ast_mutate_invalid_function_body_memory_store_value_type(
           base,
@@ -7164,6 +7244,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-throw-payload-mismatch", "invalid-function-body-try-table-catch-payload-mismatch",
     "invalid-function-body-memory-address-type", "invalid-function-body-memory64-address-type",
+    "invalid-function-body-memory-store-address-type", "invalid-function-body-memory64-store-address-type",
     "invalid-function-body-memory-store-value-type", "invalid-function-body-memory-grow-delta-type",
     "invalid-function-body-memory-fill-value-type", "invalid-function-body-memory-copy-length-type",
     "invalid-function-body-memory-copy-source-type", "invalid-function-body-memory-copy-dest-type",
@@ -7927,6 +8008,96 @@ test "function-body memory64 address mutation repairs by using i64 memory addres
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired memory64 address module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory store address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryStoreAddressType,
+      0x10d36UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid memory64 store address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemory64StoreAddressType,
+      0x10d37UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory store address mutations repair by using memory-index-typed addresses" {
+  let mem32 = validate_invalid_ast_mutate_invalid_function_body_memory_store_address_type(
+    Module::new(),
+  )
+  match validate_module(mem32.mutated_module) {
+    Ok(_) => fail("expected mismatched memory store address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let mem64 = validate_invalid_ast_mutate_invalid_function_body_memory64_store_address_type(
+    Module::new(),
+  )
+  match validate_module(mem64.mutated_module) {
+    Ok(_) => fail("expected mismatched memory64 store address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let (repaired32, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::i32_const(I32(0)),
+      Instruction::i32_const(I32(7)),
+      Instruction::i32_store(MemArg::new(2U, None, 0UL)),
+    ]),
+  )
+  match validate_module(repaired32) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory store address module to validate: \{err}")
+  }
+  let with_memory64 = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i64(1UL, Some(1UL)))]),
+  )
+  let (repaired64, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory64,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::i64_const(I64(0)),
+      Instruction::i32_const(I32(7)),
+      Instruction::i32_store(MemArg::new(2U, None, 0UL)),
+    ]),
+  )
+  match validate_module(repaired64) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired memory64 store address module to validate: \{err}",
+      )
   }
 }
 

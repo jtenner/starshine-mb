@@ -234,6 +234,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-address-type"
     InvalidFunctionBodyMemory64AddressType =>
       "invalid-function-body-memory64-address-type"
+    InvalidFunctionBodyMemoryStoreAddressType =>
+      "invalid-function-body-memory-store-address-type"
+    InvalidFunctionBodyMemory64StoreAddressType =>
+      "invalid-function-body-memory64-store-address-type"
     InvalidFunctionBodyMemoryStoreValueType =>
       "invalid-function-body-memory-store-value-type"
     InvalidFunctionBodyMemoryGrowDeltaType =>
