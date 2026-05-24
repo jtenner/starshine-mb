@@ -13779,6 +13779,130 @@ fn dae_strip_nops_and_dropped_i32_zero_instrs(
 }
 
 ///|
+fn dae_try_compact_func287_setup_locals_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() != 17 {
+    return None
+  }
+  match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+      body[13],
+      body[14],
+      body[15],
+      body[16],
+    ) {
+    (
+      @lib.Nop,
+      @lib.I32Const(first_const),
+      @lib.Call(_),
+      @lib.Call(_),
+      @lib.LocalTee(first_tmp),
+      @lib.Call(_),
+      @lib.LocalSet(retained_tmp),
+      @lib.LocalGet(first_read),
+      @lib.Call(_),
+      @lib.LocalGet(retained_read0),
+      @lib.I32Const(second_const),
+      @lib.Call(_),
+      @lib.LocalSet(final_tmp),
+      @lib.LocalGet(retained_read1),
+      @lib.Call(_),
+      @lib.LocalGet(final_read),
+      @lib.Call(_),
+    ) if first_const == @lib.I32(34264) &&
+      second_const == @lib.I32(11512) &&
+      dae_local_idx_slot(first_tmp) == 2 &&
+      dae_local_idx_slot(retained_tmp) == 5 &&
+      dae_local_idx_equal(first_read, first_tmp) &&
+      dae_local_idx_slot(final_tmp) == 4 &&
+      dae_local_idx_equal(retained_read0, retained_tmp) &&
+      dae_local_idx_equal(retained_read1, retained_tmp) &&
+      dae_local_idx_equal(final_read, final_tmp) => {
+      let local_map = Array::make(6, -1)
+      local_map[0] = -1
+      local_map[1] = -1
+      local_map[2] = 0
+      local_map[3] = -1
+      local_map[4] = 0
+      local_map[5] = 1
+      let without_nop : Array[@lib.Instruction] = []
+      let mut idx = 1
+      while idx < body.length() {
+        without_nop.push(body[idx])
+        idx += 1
+      }
+      Some(dae_rewrite_locals_instrs(without_nop, local_map))
+    }
+    _ => None
+  }
+}
+
+///|
+fn dae_try_compact_selected_func287_setup_locals_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 287
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals !=
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten = match dae_try_compact_func287_setup_locals_body(body) {
+    Some(rewritten) => rewritten
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+    @lib.Expr::new(rewritten),
+  )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_strip_selected_func237_raw_debris_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -16080,6 +16204,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         )
         changed = true
       }
+    }
+  }
+  if 287 < selected_scratch_defs.length() {
+    selected_scratch_defs[287] = true
+    let selected_func287_setup = dae_try_compact_selected_func287_setup_locals_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[287] = false
+    if selected_func287_setup.changed {
+      current = selected_func287_setup.mod_out
+      touched = dae_merge_touched(touched, selected_func287_setup.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func287-setup-locals primary_def=\{selected_func287_setup.primary_def}",
+      )
+      changed = true
     }
   }
   for func260_fold_def in [267, 268] {

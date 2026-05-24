@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func287 setup-local parity
+
+- Added a selected Func287 setup-local compaction in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that strips the leading `nop`, maps the high setup locals into Binaryen's `$0/$1` shape, and trims unused declarations after exact straight-line body checks.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the Func287 setup-local compaction.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func287-setup-locals-artifact` validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, advances the first diff to `defined=288 abs=305`, and leaves Func288 body-shape/local-declaration drift as the next frontier.
+
 ## [2026-05-24] passes | dae Func1777/288/4206 default-actual parity
 
 - Extended the selected exact-literal DAE frontier in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) to cover the inspected Func1777, Func288, and Func4206 default-actual callees on the debug artifact.

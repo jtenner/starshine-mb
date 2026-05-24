@@ -1464,6 +1464,104 @@ test "dae-optimizing removes selected Func1777 suffix default pointer" {
 }
 
 ///|
+test "dae-optimizing compacts selected Func287 setup locals after default removal" {
+  let wrap_def = 24
+  let release_def = 28
+  let caller_def = 287
+  let make_def = 288
+  let consume_def = 291
+  let map_def = 4194
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (memory 1)\n")
+  for i = 0; i < wrap_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $wrap (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add)
+    ),
+  )
+  for i = wrap_def + 1; i < release_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $release (param i32)
+      #|    i32.const 0
+      #|    local.get 0
+      #|    i32.store)
+    ),
+  )
+  for i = release_def + 1; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "run") (result i32)
+      #|    (local i32 i32 i32 i32 i32 i32)
+      #|    nop
+      #|    i32.const 34264
+      #|    call $make
+      #|    call $map
+      #|    local.tee 2
+      #|    call $wrap
+      #|    local.set 5
+      #|    local.get 2
+      #|    call $release
+      #|    local.get 5
+      #|    i32.const 11512
+      #|    call $wrap
+      #|    local.set 4
+      #|    local.get 5
+      #|    call $release
+      #|    local.get 4
+      #|    call $consume)
+    ),
+  )
+  out.write_string(
+    (
+      #|  (func $make (result i32)
+      #|    i32.const 7)
+    ),
+  )
+  for i = make_def + 1; i < consume_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $consume (param i32) (result i32)
+      #|    local.get 0)
+    ),
+  )
+  for i = consume_def + 1; i < map_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $map (param i32) (result i32)
+      #|    local.get 0)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, _) = dae_test_defined_func(optimized, caller_def)
+  @debug.assert_eq(locals.length(), 2)
+  assert_false(caller.contains("nop"), msg=caller)
+  assert_false(caller.contains("(Local 2)"), msg=caller)
+  assert_false(caller.contains("(Local 4)"), msg=caller)
+  assert_false(caller.contains("(Local 5)"), msg=caller)
+  assert_true(caller.contains("(local.set (Local 1))"), msg=caller)
+  assert_true(caller.contains("(local.tee (Local 0))"), msg=caller)
+}
+
+///|
 test "dae-optimizing removes selected Func4206 middle default before call-produced actual" {
   let first_caller_def = 285
   let second_caller_def = 1780
