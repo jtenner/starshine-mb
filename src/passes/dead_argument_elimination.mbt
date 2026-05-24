@@ -18469,6 +18469,25 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
+  if 326 < selected_scratch_defs.length() {
+    selected_scratch_defs[326] = true
+    let func326_call_facts = dae_collect_current_call_facts(
+      current,
+      original_imported + original_defined,
+    )
+    let selected_func326_zero = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      current, selected_scratch_defs, func326_call_facts,
+    )
+    selected_scratch_defs[326] = false
+    if selected_func326_zero.changed {
+      current = selected_func326_zero.mod_out
+      touched = dae_merge_touched(touched, selected_func326_zero.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func326-zero-actual primary_def=\{selected_func326_zero.primary_def}",
+      )
+      changed = true
+    }
+  }
   for high_literal_def in [1720, 1755, 1775, 1794, 2156] {
     if high_literal_def >= 0 &&
       high_literal_def < selected_scratch_defs.length() {

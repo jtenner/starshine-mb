@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func317/$326 zero-actual parity
+
+- Added a selected Func317 / `$326` zero-actual lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), routing the bounded-core-starved exact-literal candidate through the selected helper so `$326` shrinks from one `i32` param to zero params, materializes `i32.const 0`, and Func317 no longer passes the extra zero actual.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) with nine earlier exact-literal candidates and more than 1024 defined functions, proving the selected lane recovers the frontier after the fixed eight-iteration core budget.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func317-zero-actual-artifact` validates with `wasm-opt --all-features`, advances the first diff to `defined=327 abs=344`, keeps pass-local timing inside the 2x target (`1413.069ms` Starshine versus `924.052ms` Binaryen), and `.tmp/pass-fuzz-dae-func317-zero-actual-1000` preserves the current short-run no-validation-failure shape (`45/1000` compared, `26` normalized matches, `19` mismatches, `0` validation failures, `1` Binaryen/tool command failure). The new frontier is Func327's default-wrapper/local-cleanup shape.
+
 ## [2026-05-24] passes | dae Func313/$323 suffix-default parity
 
 - Added selected Func313 / `$323` suffix-default specialization in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt): the raw flattened immutable-global/default-zero suffix is removed from Func313's terminal call, `$323` shrinks from nine to seven `i32` params, and `i32.const 169472` / `i32.const 35864` are materialized in the callee body.
