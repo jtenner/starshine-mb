@@ -469,6 +469,12 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-replace-vector-type"
     InvalidFunctionBodySimdReplaceValueType =>
       "invalid-function-body-simd-replace-value-type"
+    InvalidFunctionBodySimdLoadAddressType =>
+      "invalid-function-body-simd-load-address-type"
+    InvalidFunctionBodySimdStoreAddressType =>
+      "invalid-function-body-simd-store-address-type"
+    InvalidFunctionBodySimdStoreValueType =>
+      "invalid-function-body-simd-store-value-type"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>

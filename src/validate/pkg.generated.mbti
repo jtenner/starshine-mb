@@ -1176,6 +1176,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodySimdExtractInputType
   InvalidFunctionBodySimdReplaceVectorType
   InvalidFunctionBodySimdReplaceValueType
+  InvalidFunctionBodySimdLoadAddressType
+  InvalidFunctionBodySimdStoreAddressType
+  InvalidFunctionBodySimdStoreValueType
   InvalidFunctionBodyAtomicNotifyAddressType
   InvalidFunctionBodyAtomicWaitAddressType
   InvalidFunctionBodyAtomicWaitExpectedType

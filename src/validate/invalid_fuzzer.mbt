@@ -207,6 +207,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodySimdExtractInputType
   InvalidFunctionBodySimdReplaceVectorType
   InvalidFunctionBodySimdReplaceValueType
+  InvalidFunctionBodySimdLoadAddressType
+  InvalidFunctionBodySimdStoreAddressType
+  InvalidFunctionBodySimdStoreValueType
   InvalidFunctionBodyAtomicNotifyAddressType
   InvalidFunctionBodyAtomicWaitAddressType
   InvalidFunctionBodyAtomicWaitExpectedType
@@ -1487,6 +1490,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdLoadAddressType,
+      "invalid-function-body-simd-load-address-type",
+      "invalid function-body SIMD load address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdStoreAddressType,
+      "invalid-function-body-simd-store-address-type",
+      "invalid function-body SIMD store address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdStoreValueType,
+      "invalid-function-body-simd-store-value-type",
+      "invalid function-body SIMD store value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyAtomicNotifyAddressType,
       "invalid-function-body-atomic-notify-address-type",
       "invalid function-body atomic.notify address type",
@@ -1860,6 +1884,9 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodySimdExtractInputType => 187
     InvalidFunctionBodySimdReplaceVectorType => 188
     InvalidFunctionBodySimdReplaceValueType => 189
+    InvalidFunctionBodySimdLoadAddressType => 190
+    InvalidFunctionBodySimdStoreAddressType => 191
+    InvalidFunctionBodySimdStoreValueType => 192
     InvalidFunctionBodyAtomicNotifyAddressType => 144
     InvalidFunctionBodyAtomicWaitAddressType => 145
     InvalidFunctionBodyAtomicWaitExpectedType => 146
@@ -6425,6 +6452,84 @@ fn validate_invalid_ast_mutate_invalid_function_body_simd_replace_value_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_load_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(0L)),
+    Instruction::v128_load(MemArg::new(4U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdLoadAddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_store_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(0L)),
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_store(MemArg::new(4U, None, 0UL)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdStoreAddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_store_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::v128_store(MemArg::new(4U, None, 0UL)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdStoreValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_simd_splat_input_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -8342,6 +8447,18 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_simd_replace_value_type(
           base,
         )
+      InvalidFunctionBodySimdLoadAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_load_address_type(
+          base,
+        )
+      InvalidFunctionBodySimdStoreAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_store_address_type(
+          base,
+        )
+      InvalidFunctionBodySimdStoreValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_store_value_type(
+          base,
+        )
       InvalidFunctionBodyAtomicNotifyAddressType =>
         validate_invalid_ast_mutate_invalid_function_body_atomic_notify_address_type(
           base,
@@ -8845,17 +8962,18 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-simd-store-lane-index", "invalid-function-body-simd-splat-input-type",
     "invalid-function-body-simd-swizzle-input-type", "invalid-function-body-simd-bitselect-mask-type",
     "invalid-function-body-simd-extract-input-type", "invalid-function-body-simd-replace-vector-type",
-    "invalid-function-body-simd-replace-value-type", "invalid-function-body-atomic-notify-address-type",
-    "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
-    "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
-    "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
-    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-simd-replace-value-type", "invalid-function-body-simd-load-address-type",
+    "invalid-function-body-simd-store-address-type", "invalid-function-body-simd-store-value-type",
+    "invalid-function-body-atomic-notify-address-type", "invalid-function-body-atomic-wait-address-type",
+    "invalid-function-body-atomic-wait-expected-type", "invalid-function-body-atomic-rmw-address-type",
+    "invalid-function-body-atomic-cmpxchg-address-type", "invalid-function-body-atomic-cmpxchg-expected-type",
+    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -13496,6 +13614,145 @@ test "function-body SIMD replace value type mutation repairs by using lane scala
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired SIMD replace value module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD load address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdLoadAddressType,
+      0x10d5eUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD load address type mutation repairs by using i32 address" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_load_address_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD load address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::v128_load(MemArg::new(4U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) => fail("expected repaired SIMD load module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD store address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdStoreAddressType,
+      0x10d5fUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD store address type mutation repairs by using i32 address" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_store_address_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD store address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_store(MemArg::new(4U, None, 0UL)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) => fail("expected repaired SIMD store module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD store value type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdStoreValueType,
+      0x10d60UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD store value type mutation repairs by using vector value" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_store_value_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD store value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_store(MemArg::new(4U, None, 0UL)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired SIMD store-value module to validate: \{err}")
   }
 }
 
