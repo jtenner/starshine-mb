@@ -238,6 +238,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-store-value-type"
     InvalidFunctionBodyLocalSetValueType =>
       "invalid-function-body-local-set-value-type"
+    InvalidFunctionBodyLocalTeeValueType =>
+      "invalid-function-body-local-tee-value-type"
     InvalidFunctionBodyTableSetValueType =>
       "invalid-function-body-table-set-value-type"
     InvalidFunctionBodyGlobalSetValueType =>

@@ -90,6 +90,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemory64AddressType
   InvalidFunctionBodyMemoryStoreValueType
   InvalidFunctionBodyLocalSetValueType
+  InvalidFunctionBodyLocalTeeValueType
   InvalidFunctionBodyTableSetValueType
   InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
@@ -543,6 +544,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyLocalTeeValueType,
+      "invalid-function-body-local-tee-value-type",
+      "invalid function-body local.tee value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyTableSetValueType,
       "invalid-function-body-table-set-value-type",
       "invalid function-body table.set value type",
@@ -743,6 +751,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemory64AddressType => 45
     InvalidFunctionBodyMemoryStoreValueType => 46
     InvalidFunctionBodyLocalSetValueType => 64
+    InvalidFunctionBodyLocalTeeValueType => 65
     InvalidFunctionBodyTableSetValueType => 62
     InvalidFunctionBodyGlobalSetValueType => 63
     InvalidMemoryNameSectionIndex => 47
@@ -2415,6 +2424,31 @@ fn validate_invalid_ast_mutate_invalid_function_body_local_set_value_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_local_tee_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(7)),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [ValType::i32()],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyLocalTeeValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -3198,6 +3232,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_local_set_value_type(
           base,
         )
+      InvalidFunctionBodyLocalTeeValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_local_tee_value_type(
+          base,
+        )
       InvalidFunctionBodyTableSetValueType =>
         validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
           base,
@@ -3611,12 +3649,13 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-throw-payload-mismatch", "invalid-function-body-try-table-catch-payload-mismatch",
     "invalid-function-body-memory-address-type", "invalid-function-body-memory64-address-type",
     "invalid-function-body-memory-store-value-type", "invalid-function-body-local-set-value-type",
-    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-local-tee-value-type", "invalid-function-body-table-set-value-type",
+    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -4471,6 +4510,51 @@ test "function-body local.set value mutation repairs by using matching local val
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired local.set value module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid local.tee value type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyLocalTeeValueType,
+      0x10ce2UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body local.tee value mutation repairs by using matching local values" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_local_tee_value_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched local.tee value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(7)),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [ValType::i32()],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired local.tee value module to validate: \{err}")
   }
 }
 
