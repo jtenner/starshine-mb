@@ -2481,6 +2481,204 @@ test "gen_invalid_ast_generate supports function-body array.init_data length typ
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body array.init_elem input type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d15UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayInitElemInputType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-array-init-elem-input-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body array.init_elem dest type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d16UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayInitElemDestType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-array-init-elem-dest-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body array.init_elem source type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d17UL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodyArrayInitElemSourceType,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-array-init-elem-source-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body array.init_elem length type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d18UL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodyArrayInitElemLengthType,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-array-init-elem-length-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body array.new value type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d19UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewValueType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-array-new-value-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body array.new length type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d1aUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewLengthType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-array-new-length-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body array.new_default length type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d1bUL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodyArrayNewDefaultLengthType,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-array-new-default-length-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body array.new_fixed value type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d1cUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewFixedValueType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-array-new-fixed-value-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body global.set value type strategy" {
   let generated = match
     gen_invalid_ast_generate(

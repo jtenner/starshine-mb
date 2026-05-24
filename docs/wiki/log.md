@@ -1158,6 +1158,18 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 array.new invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-array-new-value-type`, `invalid-function-body-array-new-length-type`, `invalid-function-body-array-new-default-length-type`, and `invalid-function-body-array-new-fixed-value-type` for GC array constructor stack-type mismatches.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving the `array.new` value/length, `array.new_default` length, and `array.new_fixed` element-value mutations reject while repaired constructor operand stacks validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living invalid-AST summaries name array constructor coverage alongside the previous array accessor/mutation/init variants.
+
+## [2026-05-24] fuzzing | FUZ1020 array.init_elem invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-array-init-elem-input-type`, `invalid-function-body-array-init-elem-dest-type`, `invalid-function-body-array-init-elem-source-type`, and `invalid-function-body-array-init-elem-length-type` for `array.init_elem` receiver, destination-index, source-offset, and length stack-type mismatches.
+- Added focused `gen_invalid` tests proving each mismatched `array.init_elem` operand rejects against a mutable `funcref` array plus passive function element fixture.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living invalid-AST summaries name `array.init_elem` coverage alongside `array.init_data` and earlier array variants.
+
 ## [2026-05-24] fuzzing | FUZ1020 array.init_data invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-array-init-data-input-type`, `invalid-function-body-array-init-data-dest-type`, `invalid-function-body-array-init-data-source-type`, and `invalid-function-body-array-init-data-length-type` for `array.init_data` receiver, destination-index, source-offset, and length stack-type mismatches.
