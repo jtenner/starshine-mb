@@ -731,6 +731,8 @@ test "run_fuzz_suite routes validate-invalid-text-dynamic through dynamic GenVal
       assert_true(details.contains("dynamic-gen-valid-bad-lane-index"))
       assert_true(details.contains("dynamic-gen-valid-bad-memarg-align"))
       assert_true(details.contains("source:gen-valid-wat"))
+      assert_true(details.contains("\"stream_label\":\"text-mutation-choice\""))
+      assert_true(details.contains("\"stream_seed\":"))
       assert_true(
         details.contains("\"variant_id\":\"gen-valid-wat/duplicate-export\""),
       )

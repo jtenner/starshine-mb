@@ -137,6 +137,8 @@ pub fn validate_invalid_text_dynamic_attempt_seed(UInt64, String, Int) -> UInt64
 
 pub fn validate_invalid_text_dynamic_case(UInt64, String) -> Result[ValidateInvalidTextDynamicCase, String]
 
+pub fn validate_invalid_text_dynamic_stream_seed(UInt64) -> UInt64
+
 pub fn validate_invalid_text_registry() -> Array[ValidateInvalidTextStrategySpec]
 
 pub fn validate_invalid_text_run_config(String) -> Result[ValidateInvalidTextRunConfig, String]
@@ -975,6 +977,8 @@ pub struct ValidateInvalidTextDynamicCase {
 pub struct ValidateInvalidTextDynamicFuzzStats {
   profile : String
   seed : UInt64
+  stream_label : String
+  stream_seed : UInt64
   attempts : Int
   generated : Int
   mutated : Int

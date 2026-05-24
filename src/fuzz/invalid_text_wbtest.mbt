@@ -1089,6 +1089,7 @@ test "dynamic invalid text bad memarg mutates generated valid WAT into malformed
 
 ///|
 test "dynamic invalid text attempt seeds come from text-mutation stream and stable strategy salts" {
+  let stream_seed = validate_invalid_text_dynamic_stream_seed(0x51034UL)
   let left = validate_invalid_text_dynamic_attempt_seed(
     0x51034UL, "dynamic-gen-valid-bad-opcode-token", 0,
   )
@@ -1105,6 +1106,8 @@ test "dynamic invalid text attempt seeds come from text-mutation stream and stab
   assert_true(left != next_attempt)
   assert_true(left != other_strategy)
   assert_true(left != 0x51034UL)
+  assert_true(stream_seed != 0x51034UL)
+  assert_true(left != stream_seed)
 }
 
 ///|
@@ -1126,6 +1129,11 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
   @debug.assert_eq(first.validate_rejected, 4)
   @debug.assert_eq(first.matched_expected, 20)
   @debug.assert_eq(first.strategy_stats.length(), 5)
+  @debug.assert_eq(first.stream_label, "text-mutation-choice")
+  @debug.assert_eq(
+    first.stream_seed,
+    validate_invalid_text_dynamic_stream_seed(0x5eedUL),
+  )
   @debug.assert_eq(
     first.strategy_stats[0].stable_id,
     "dynamic-gen-valid-missing-closing-paren",

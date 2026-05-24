@@ -1143,6 +1143,8 @@ pub struct ValidateInvalidTextDynamicStrategyStats {
 pub struct ValidateInvalidTextDynamicFuzzStats {
   profile : String
   seed : UInt64
+  stream_label : String
+  stream_seed : UInt64
   attempts : Int
   generated : Int
   mutated : Int
@@ -1265,18 +1267,22 @@ fn validate_invalid_text_stable_string_salt(value : String) -> UInt64 {
 }
 
 ///|
+pub fn validate_invalid_text_dynamic_stream_seed(seed : UInt64) -> UInt64 {
+  for label in gen_valid_random_stream_labels() {
+    if gen_valid_random_stream_label_name(label) == "text-mutation-choice" {
+      return gen_valid_derive_stream_seed(seed, label)
+    }
+  }
+  seed
+}
+
+///|
 pub fn validate_invalid_text_dynamic_attempt_seed(
   seed : UInt64,
   stable_id : String,
   attempt : Int,
 ) -> UInt64 {
-  let mut stream_seed = seed
-  for label in gen_valid_random_stream_labels() {
-    if gen_valid_random_stream_label_name(label) == "text-mutation-choice" {
-      stream_seed = gen_valid_derive_stream_seed(seed, label)
-    }
-  }
-  stream_seed ^
+  validate_invalid_text_dynamic_stream_seed(seed) ^
   validate_invalid_text_stable_string_salt(stable_id) ^
   ((attempt.to_uint64() + 1UL) * 0x9e3779b97f4a7c15UL)
 }
@@ -1572,6 +1578,8 @@ pub fn run_validate_invalid_text_dynamic_fuzz(
   Ok({
     profile: normalized,
     seed,
+    stream_label: "text-mutation-choice",
+    stream_seed: validate_invalid_text_dynamic_stream_seed(seed),
     attempts: total_attempts,
     generated: generated_count,
     mutated,

@@ -2347,7 +2347,7 @@ fn format_invalid_text_dynamic_details_json(
 ) -> String {
   let out = StringBuilder::new()
   out.write_string(
-    "{\"generated\":\{stats.generated},\"mutated\":\{stats.mutated},\"parse_or_lower_rejected\":\{stats.parse_or_lower_rejected},\"validate_rejected\":\{stats.validate_rejected},\"valid_before_link\":\{stats.valid_before_link},\"matched_expected\":\{stats.matched_expected},\"strategy_stats\":[",
+    "{\"stream_label\":\"\{fuzz_json_escape(stats.stream_label)}\",\"stream_seed\":\{stats.stream_seed},\"generated\":\{stats.generated},\"mutated\":\{stats.mutated},\"parse_or_lower_rejected\":\{stats.parse_or_lower_rejected},\"validate_rejected\":\{stats.validate_rejected},\"valid_before_link\":\{stats.valid_before_link},\"matched_expected\":\{stats.matched_expected},\"strategy_stats\":[",
   )
   let mut i = 0
   while i < stats.strategy_stats.length() {
