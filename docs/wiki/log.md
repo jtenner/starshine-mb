@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func408 nop cleanup
+
+- Added a selected Func408 nop cleanup in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), recursively removing `nop` instructions only from the observed selected function after the selected exact-literal and const-local lanes.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for root and nested `if`-arm nops in a large-module selected Func408 fixture.
+- `.tmp/dae-func408-postnops-artifact` validates with `wasm-opt --all-features`, keeps the raw direct debug-artifact first diff at `defined=336 abs=353`, and removes the remaining normalized Func408 nops while leaving the local/control representation frontier. `.tmp/pass-fuzz-dae-func408-postnops-1000` preserves the current short-run no-validation-failure shape (`45/1000` compared, `26` normalized matches, `19` mismatches, `0` validation failures, `1` Binaryen/tool command failure).
+
 ## [2026-05-24] passes | dae Func408 const-local cleanup
 
 - Added a selected Func408 const-local cleanup in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), reusing the existing safe single-use `i32.const; local.set` inliner after the selected exact-literal slice.

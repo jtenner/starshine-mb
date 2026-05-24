@@ -17079,6 +17079,105 @@ fn dae_try_inline_terminal_call_local_sets_body_once(
 }
 
 ///|
+fn dae_remove_nops_instr(instr : @lib.Instruction) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten, changed) = dae_remove_nops_instrs(body)
+      (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), changed)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten, changed) = dae_remove_nops_instrs(body)
+      (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), changed)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten, changed) = dae_remove_nops_instrs(body)
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten),
+        ),
+        changed,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (then_rewritten, then_changed) = dae_remove_nops_instrs(then_body)
+      let (else_rewritten, else_changed) = match else_body {
+        Some(body) => {
+          let (rewritten, changed) = dae_remove_nops_instrs(body)
+          (Some(rewritten), changed)
+        }
+        None => (None, false)
+      }
+      (
+        @lib.Instruction::if_(block_type, then_rewritten, else_rewritten),
+        then_changed || else_changed,
+      )
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn dae_remove_nops_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Nop => changed = true
+      _ => {
+        let (rewritten, nested_changed) = dae_remove_nops_instr(instr)
+        out.push(rewritten)
+        if nested_changed {
+          changed = true
+        }
+      }
+    }
+  }
+  (out, changed)
+}
+
+///|
+fn dae_try_remove_selected_nops_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut def_idx = 0
+  while def_idx < funcs.length() && def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+      let (rewritten_body, body_changed) = dae_remove_nops_instrs(body)
+      if body_changed {
+        let rewritten_funcs = funcs.copy()
+        rewritten_funcs[def_idx] = @lib.Func::new(
+          locals,
+          @lib.Expr::new(rewritten_body),
+        )
+        let touched = Array::make(funcs.length(), false)
+        touched[def_idx] = true
+        return {
+          mod_out: mod_
+          .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+          .without_name_sec(),
+          touched,
+          changed: true,
+          primary_def: def_idx,
+        }
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
 fn dae_try_inline_selected_i32_const_local_sets_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -19021,6 +19120,19 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       )
       changed = true
       func408_const_iter += 1
+    }
+    selected_scratch_defs[408] = true
+    let selected_func408_nops = dae_try_remove_selected_nops_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[408] = false
+    if selected_func408_nops.changed {
+      current = selected_func408_nops.mod_out
+      touched = dae_merge_touched(touched, selected_func408_nops.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func408-nops primary_def=\{selected_func408_nops.primary_def}",
+      )
+      changed = true
     }
   }
   if 311 < selected_scratch_defs.length() {

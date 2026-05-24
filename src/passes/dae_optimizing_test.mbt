@@ -3092,6 +3092,44 @@ test "dae-optimizing inlines selected Func408 single-use const local" {
 }
 
 ///|
+test "dae-optimizing removes selected Func408 nops" {
+  let target_def = 408
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32)
+      #|    nop
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      nop
+      #|      i32.const 0
+      #|    end)
+      #|  (func (export "run1") (result i32)
+      #|    i32.const 1
+      #|    call $target)
+      #|  (func (export "run2") (result i32)
+      #|    i32.const 2
+      #|    call $target)
+    ),
+  )
+  for i = target_def + 3; i < 1030; i = i + 1 {
+    out.write_string("  (func $tail\{i})\n")
+  }
+  out.write_string(")\n")
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_false(target.contains("nop"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes immutable global actuals for the mid-prefix exact literal slice" {
   let out = StringBuilder::new()
   out.write_string("(module\n")
