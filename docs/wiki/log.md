@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO official lit guardrail regressions
+
+- Added research note [`0578`](./raw/research/0578-2026-05-23-sgo-official-lit-guardrails.md) and three source-alignment SGO guardrail/regression tests from the 0577 inventory.
+- Pinned the official `$additional-set` read-only-to-write positive as removable fake global traffic, while allowing Starshine's cleanup to collapse Binaryen's raw dropped constant to `nop`.
+- Pinned `$side-effects-in-body` and imported-initializer/non-init-write negatives so future body-effect or same-init broadening remains conservative without exact oracle evidence.
+
 ## [2026-05-23] binaryen | SGO official lit breadth inventory
 
 - Added research note [`0577`](./raw/research/0577-2026-05-23-sgo-official-lit-breadth-inventory.md) mapping official Binaryen `simplify-globals-read_only_to_write.wast` and `simplify-globals-non-init.wast` shapes against current Starshine SGO tests.
