@@ -216,6 +216,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodySimdUnaryInputType
   InvalidFunctionBodySimdBinaryLeftType
   InvalidFunctionBodySimdBinaryRightType
+  InvalidFunctionBodySimdShiftVectorType
+  InvalidFunctionBodySimdShiftCountType
   InvalidFunctionBodyAtomicNotifyAddressType
   InvalidFunctionBodyAtomicWaitAddressType
   InvalidFunctionBodyAtomicWaitExpectedType
@@ -1559,6 +1561,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdShiftVectorType,
+      "invalid-function-body-simd-shift-vector-type",
+      "invalid function-body SIMD shift vector type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdShiftCountType,
+      "invalid-function-body-simd-shift-count-type",
+      "invalid function-body SIMD shift count type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyAtomicNotifyAddressType,
       "invalid-function-body-atomic-notify-address-type",
       "invalid function-body atomic.notify address type",
@@ -1941,6 +1957,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodySimdUnaryInputType => 196
     InvalidFunctionBodySimdBinaryLeftType => 197
     InvalidFunctionBodySimdBinaryRightType => 198
+    InvalidFunctionBodySimdShiftVectorType => 199
+    InvalidFunctionBodySimdShiftCountType => 200
     InvalidFunctionBodyAtomicNotifyAddressType => 144
     InvalidFunctionBodyAtomicWaitAddressType => 145
     InvalidFunctionBodyAtomicWaitExpectedType => 146
@@ -6742,6 +6760,61 @@ fn validate_invalid_ast_mutate_invalid_function_body_simd_binary_right_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_shift_vector_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::i8x16_shl(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdShiftVectorType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_shift_count_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i64_const(I64(1L)),
+    Instruction::i8x16_shl(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdShiftCountType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_simd_splat_input_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -8695,6 +8768,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_simd_binary_right_type(
           base,
         )
+      InvalidFunctionBodySimdShiftVectorType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_shift_vector_type(
+          base,
+        )
+      InvalidFunctionBodySimdShiftCountType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_shift_count_type(
+          base,
+        )
       InvalidFunctionBodyAtomicNotifyAddressType =>
         validate_invalid_ast_mutate_invalid_function_body_atomic_notify_address_type(
           base,
@@ -9203,6 +9284,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-simd-load-extend-address-type", "invalid-function-body-simd-load-splat-address-type",
     "invalid-function-body-simd-load-zero-address-type", "invalid-function-body-simd-unary-input-type",
     "invalid-function-body-simd-binary-left-type", "invalid-function-body-simd-binary-right-type",
+    "invalid-function-body-simd-shift-vector-type", "invalid-function-body-simd-shift-count-type",
     "invalid-function-body-atomic-notify-address-type", "invalid-function-body-atomic-wait-address-type",
     "invalid-function-body-atomic-wait-expected-type", "invalid-function-body-atomic-rmw-address-type",
     "invalid-function-body-atomic-cmpxchg-address-type", "invalid-function-body-atomic-cmpxchg-expected-type",
@@ -14276,6 +14358,102 @@ test "function-body SIMD binary right type mutation repairs by using vector righ
   match validate_module(repaired) {
     Ok(_) => ()
     Err(err) => fail("expected repaired SIMD binary module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD shift vector type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdShiftVectorType,
+      0x10d67UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD shift vector type mutation repairs by using vector operand" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_shift_vector_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD shift vector type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i32_const(I32(1)),
+    Instruction::i8x16_shl(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) => fail("expected repaired SIMD shift module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD shift count type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdShiftCountType,
+      0x10d68UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD shift count type mutation repairs by using i32 count" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_shift_count_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD shift count type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i32_const(I32(1)),
+    Instruction::i8x16_shl(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) => fail("expected repaired SIMD shift module to validate: \{err}")
   }
 }
 

@@ -487,6 +487,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-binary-left-type"
     InvalidFunctionBodySimdBinaryRightType =>
       "invalid-function-body-simd-binary-right-type"
+    InvalidFunctionBodySimdShiftVectorType =>
+      "invalid-function-body-simd-shift-vector-type"
+    InvalidFunctionBodySimdShiftCountType =>
+      "invalid-function-body-simd-shift-count-type"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>
