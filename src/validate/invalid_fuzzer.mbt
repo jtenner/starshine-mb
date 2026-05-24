@@ -96,6 +96,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemoryGrowIndex
   InvalidFunctionBodyMemoryGrowDeltaType
   InvalidFunctionBodyMemoryFillValueType
+  InvalidFunctionBodyMemoryFillDestType
+  InvalidFunctionBodyMemoryFillLengthType
   InvalidFunctionBodyMemoryCopyLengthType
   InvalidFunctionBodyMemoryCopySourceType
   InvalidFunctionBodyMemoryCopyDestType
@@ -674,6 +676,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyMemoryFillValueType,
       "invalid-function-body-memory-fill-value-type",
       "invalid function-body memory.fill value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryFillDestType,
+      "invalid-function-body-memory-fill-dest-type",
+      "invalid function-body memory.fill dest type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryFillLengthType,
+      "invalid-function-body-memory-fill-length-type",
+      "invalid function-body memory.fill length type",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -1493,6 +1509,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemoryGrowIndex => 157
     InvalidFunctionBodyMemoryGrowDeltaType => 70
     InvalidFunctionBodyMemoryFillValueType => 71
+    InvalidFunctionBodyMemoryFillDestType => 158
+    InvalidFunctionBodyMemoryFillLengthType => 159
     InvalidFunctionBodyMemoryCopyLengthType => 72
     InvalidFunctionBodyMemoryCopySourceType => 73
     InvalidFunctionBodyMemoryCopyDestType => 74
@@ -3420,6 +3438,64 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory_fill_value_type(
   )
   {
     strategy: InvalidFunctionBodyMemoryFillValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_fill_dest_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_fill(MemIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryFillDestType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_fill_length_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_fill(MemIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryFillLengthType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -6739,6 +6815,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory_fill_value_type(
           base,
         )
+      InvalidFunctionBodyMemoryFillDestType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_fill_dest_type(
+          base,
+        )
+      InvalidFunctionBodyMemoryFillLengthType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_fill_length_type(
+          base,
+        )
       InvalidFunctionBodyMemoryCopyLengthType =>
         validate_invalid_ast_mutate_invalid_function_body_memory_copy_length_type(
           base,
@@ -7495,6 +7579,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-memory-store-value-type", "invalid-function-body-memory64-store-value-type",
     "invalid-function-body-memory-size-index", "invalid-function-body-memory-grow-index",
     "invalid-function-body-memory-grow-delta-type", "invalid-function-body-memory-fill-value-type",
+    "invalid-function-body-memory-fill-dest-type", "invalid-function-body-memory-fill-length-type",
     "invalid-function-body-memory-copy-length-type", "invalid-function-body-memory-copy-source-type",
     "invalid-function-body-memory-copy-dest-type", "invalid-function-body-memory64-copy-length-type",
     "invalid-function-body-memory64-copy-source-type", "invalid-function-body-memory64-copy-dest-type",
@@ -11359,6 +11444,104 @@ test "function-body memory.fill value mutation repairs by using i32 byte values"
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired memory.fill value module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory.fill dest type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryFillDestType,
+      0x10d3eUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory.fill dest mutation repairs by using i32 destination" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_fill_dest_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched memory.fill dest type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_fill(MemIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory.fill dest module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory.fill length type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryFillLengthType,
+      0x10d3fUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory.fill length mutation repairs by using i32 length" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_fill_length_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched memory.fill length type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_fill(MemIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory.fill length module to validate: \{err}")
   }
 }
 

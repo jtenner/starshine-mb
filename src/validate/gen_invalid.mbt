@@ -250,6 +250,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-grow-delta-type"
     InvalidFunctionBodyMemoryFillValueType =>
       "invalid-function-body-memory-fill-value-type"
+    InvalidFunctionBodyMemoryFillDestType =>
+      "invalid-function-body-memory-fill-dest-type"
+    InvalidFunctionBodyMemoryFillLengthType =>
+      "invalid-function-body-memory-fill-length-type"
     InvalidFunctionBodyMemoryCopyLengthType =>
       "invalid-function-body-memory-copy-length-type"
     InvalidFunctionBodyMemoryCopySourceType =>
