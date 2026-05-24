@@ -97,6 +97,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemoryCopyLengthType
   InvalidFunctionBodyMemoryCopySourceType
   InvalidFunctionBodyMemoryCopyDestType
+  InvalidFunctionBodyMemory64CopyLengthType
+  InvalidFunctionBodyMemory64CopySourceType
+  InvalidFunctionBodyMemory64CopyDestType
   InvalidFunctionBodyMemoryInitLengthType
   InvalidFunctionBodyMemoryInitSourceType
   InvalidFunctionBodyMemoryInitDestType
@@ -676,6 +679,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyMemoryCopyDestType,
       "invalid-function-body-memory-copy-dest-type",
       "invalid function-body memory.copy dest type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemory64CopyLengthType,
+      "invalid-function-body-memory64-copy-length-type",
+      "invalid function-body memory64.copy length type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemory64CopySourceType,
+      "invalid-function-body-memory64-copy-source-type",
+      "invalid function-body memory64.copy source type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemory64CopyDestType,
+      "invalid-function-body-memory64-copy-dest-type",
+      "invalid function-body memory64.copy dest type",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -1454,6 +1478,9 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemoryCopyLengthType => 72
     InvalidFunctionBodyMemoryCopySourceType => 73
     InvalidFunctionBodyMemoryCopyDestType => 74
+    InvalidFunctionBodyMemory64CopyLengthType => 153
+    InvalidFunctionBodyMemory64CopySourceType => 154
+    InvalidFunctionBodyMemory64CopyDestType => 155
     InvalidFunctionBodyMemoryInitLengthType => 75
     InvalidFunctionBodyMemoryInitSourceType => 76
     InvalidFunctionBodyMemoryInitDestType => 77
@@ -3409,6 +3436,94 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory_copy_dest_type(
   )
   {
     strategy: InvalidFunctionBodyMemoryCopyDestType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_ensure_memory64() -> Module {
+  Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i64(1UL, Some(1UL)))]),
+  )
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory64_copy_length_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory64 = validate_invalid_ast_ensure_memory64()
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_copy(MemIdx::new(0U), MemIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory64,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemory64CopyLengthType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory64_copy_source_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory64 = validate_invalid_ast_ensure_memory64()
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_copy(MemIdx::new(0U), MemIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory64,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemory64CopySourceType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory64_copy_dest_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory64 = validate_invalid_ast_ensure_memory64()
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_copy(MemIdx::new(0U), MemIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory64,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemory64CopyDestType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -6557,6 +6672,18 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory_copy_dest_type(
           base,
         )
+      InvalidFunctionBodyMemory64CopyLengthType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory64_copy_length_type(
+          base,
+        )
+      InvalidFunctionBodyMemory64CopySourceType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory64_copy_source_type(
+          base,
+        )
+      InvalidFunctionBodyMemory64CopyDestType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory64_copy_dest_type(
+          base,
+        )
       InvalidFunctionBodyMemoryInitLengthType =>
         validate_invalid_ast_mutate_invalid_function_body_memory_init_length_type(
           base,
@@ -7289,53 +7416,55 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-memory-store-value-type", "invalid-function-body-memory64-store-value-type",
     "invalid-function-body-memory-grow-delta-type", "invalid-function-body-memory-fill-value-type",
     "invalid-function-body-memory-copy-length-type", "invalid-function-body-memory-copy-source-type",
-    "invalid-function-body-memory-copy-dest-type", "invalid-function-body-memory-init-length-type",
-    "invalid-function-body-memory-init-source-type", "invalid-function-body-memory-init-dest-type",
-    "invalid-function-body-local-set-value-type", "invalid-function-body-local-tee-value-type",
-    "invalid-function-body-return-value-type", "invalid-function-body-table-get-index-type",
-    "invalid-function-body-table-grow-value-type", "invalid-function-body-table-grow-delta-type",
-    "invalid-function-body-table-fill-value-type", "invalid-function-body-table-fill-dest-type",
-    "invalid-function-body-table-fill-length-type", "invalid-function-body-table-copy-length-type",
-    "invalid-function-body-table-copy-source-type", "invalid-function-body-table-copy-dest-type",
-    "invalid-function-body-table-init-length-type", "invalid-function-body-table-init-source-type",
-    "invalid-function-body-table-init-dest-type", "invalid-function-body-data-drop-index",
-    "invalid-function-body-elem-drop-index", "invalid-function-body-table-size-index",
-    "invalid-function-body-table-set-index-type", "invalid-function-body-call-indirect-index-type",
-    "invalid-function-body-return-call-indirect-index-type", "invalid-function-body-return-call-ref-type",
-    "invalid-function-body-call-ref-type", "invalid-function-body-ref-cast-input-type",
-    "invalid-function-body-ref-test-input-type", "invalid-function-body-ref-test-desc-input-type",
-    "invalid-function-body-ref-cast-desc-eq-input-type", "invalid-function-body-ref-get-desc-input-type",
-    "invalid-function-body-ref-eq-input-type", "invalid-function-body-array-len-input-type",
-    "invalid-function-body-array-get-input-type", "invalid-function-body-array-set-input-type",
-    "invalid-function-body-array-set-value-type", "invalid-function-body-array-fill-input-type",
-    "invalid-function-body-array-fill-value-type", "invalid-function-body-array-fill-length-type",
-    "invalid-function-body-array-copy-input-type", "invalid-function-body-array-copy-source-input-type",
-    "invalid-function-body-array-copy-length-type", "invalid-function-body-array-init-data-input-type",
-    "invalid-function-body-array-init-data-dest-type", "invalid-function-body-array-init-data-source-type",
-    "invalid-function-body-array-init-data-length-type", "invalid-function-body-array-init-elem-input-type",
-    "invalid-function-body-array-init-elem-dest-type", "invalid-function-body-array-init-elem-source-type",
-    "invalid-function-body-array-init-elem-length-type", "invalid-function-body-array-new-value-type",
-    "invalid-function-body-array-new-length-type", "invalid-function-body-array-new-default-length-type",
-    "invalid-function-body-array-new-fixed-value-type", "invalid-function-body-array-new-data-source-type",
-    "invalid-function-body-array-new-data-length-type", "invalid-function-body-array-new-elem-source-type",
-    "invalid-function-body-array-new-elem-length-type", "invalid-function-body-struct-new-value-type",
-    "invalid-function-body-struct-get-input-type", "invalid-function-body-struct-set-input-type",
-    "invalid-function-body-struct-set-value-type", "invalid-function-body-struct-get-field-index",
-    "invalid-function-body-struct-set-field-index", "invalid-function-body-struct-set-immutable-field",
-    "invalid-function-body-struct-get-signed-field-type", "invalid-function-body-atomic-notify-count-type",
-    "invalid-function-body-atomic-wait-timeout-type", "invalid-function-body-atomic-rmw-value-type",
-    "invalid-function-body-atomic-cmpxchg-replacement-type", "invalid-function-body-atomic-load-address-type",
-    "invalid-function-body-atomic-store-address-type", "invalid-function-body-atomic-store-value-type",
-    "invalid-function-body-atomic-notify-address-type", "invalid-function-body-atomic-wait-address-type",
-    "invalid-function-body-atomic-wait-expected-type", "invalid-function-body-atomic-rmw-address-type",
-    "invalid-function-body-atomic-cmpxchg-address-type", "invalid-function-body-atomic-cmpxchg-expected-type",
-    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
-    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-memory-copy-dest-type", "invalid-function-body-memory64-copy-length-type",
+    "invalid-function-body-memory64-copy-source-type", "invalid-function-body-memory64-copy-dest-type",
+    "invalid-function-body-memory-init-length-type", "invalid-function-body-memory-init-source-type",
+    "invalid-function-body-memory-init-dest-type", "invalid-function-body-local-set-value-type",
+    "invalid-function-body-local-tee-value-type", "invalid-function-body-return-value-type",
+    "invalid-function-body-table-get-index-type", "invalid-function-body-table-grow-value-type",
+    "invalid-function-body-table-grow-delta-type", "invalid-function-body-table-fill-value-type",
+    "invalid-function-body-table-fill-dest-type", "invalid-function-body-table-fill-length-type",
+    "invalid-function-body-table-copy-length-type", "invalid-function-body-table-copy-source-type",
+    "invalid-function-body-table-copy-dest-type", "invalid-function-body-table-init-length-type",
+    "invalid-function-body-table-init-source-type", "invalid-function-body-table-init-dest-type",
+    "invalid-function-body-data-drop-index", "invalid-function-body-elem-drop-index",
+    "invalid-function-body-table-size-index", "invalid-function-body-table-set-index-type",
+    "invalid-function-body-call-indirect-index-type", "invalid-function-body-return-call-indirect-index-type",
+    "invalid-function-body-return-call-ref-type", "invalid-function-body-call-ref-type",
+    "invalid-function-body-ref-cast-input-type", "invalid-function-body-ref-test-input-type",
+    "invalid-function-body-ref-test-desc-input-type", "invalid-function-body-ref-cast-desc-eq-input-type",
+    "invalid-function-body-ref-get-desc-input-type", "invalid-function-body-ref-eq-input-type",
+    "invalid-function-body-array-len-input-type", "invalid-function-body-array-get-input-type",
+    "invalid-function-body-array-set-input-type", "invalid-function-body-array-set-value-type",
+    "invalid-function-body-array-fill-input-type", "invalid-function-body-array-fill-value-type",
+    "invalid-function-body-array-fill-length-type", "invalid-function-body-array-copy-input-type",
+    "invalid-function-body-array-copy-source-input-type", "invalid-function-body-array-copy-length-type",
+    "invalid-function-body-array-init-data-input-type", "invalid-function-body-array-init-data-dest-type",
+    "invalid-function-body-array-init-data-source-type", "invalid-function-body-array-init-data-length-type",
+    "invalid-function-body-array-init-elem-input-type", "invalid-function-body-array-init-elem-dest-type",
+    "invalid-function-body-array-init-elem-source-type", "invalid-function-body-array-init-elem-length-type",
+    "invalid-function-body-array-new-value-type", "invalid-function-body-array-new-length-type",
+    "invalid-function-body-array-new-default-length-type", "invalid-function-body-array-new-fixed-value-type",
+    "invalid-function-body-array-new-data-source-type", "invalid-function-body-array-new-data-length-type",
+    "invalid-function-body-array-new-elem-source-type", "invalid-function-body-array-new-elem-length-type",
+    "invalid-function-body-struct-new-value-type", "invalid-function-body-struct-get-input-type",
+    "invalid-function-body-struct-set-input-type", "invalid-function-body-struct-set-value-type",
+    "invalid-function-body-struct-get-field-index", "invalid-function-body-struct-set-field-index",
+    "invalid-function-body-struct-set-immutable-field", "invalid-function-body-struct-get-signed-field-type",
+    "invalid-function-body-atomic-notify-count-type", "invalid-function-body-atomic-wait-timeout-type",
+    "invalid-function-body-atomic-rmw-value-type", "invalid-function-body-atomic-cmpxchg-replacement-type",
+    "invalid-function-body-atomic-load-address-type", "invalid-function-body-atomic-store-address-type",
+    "invalid-function-body-atomic-store-value-type", "invalid-function-body-atomic-notify-address-type",
+    "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
+    "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
+    "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
+    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
+    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -11150,6 +11279,153 @@ test "function-body memory.fill value mutation repairs by using i32 byte values"
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired memory.fill value module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory64.copy length type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemory64CopyLengthType,
+      0x10d39UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory64.copy length mutation repairs by using i64 length" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory64_copy_length_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched memory64.copy length type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory64 = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i64(1UL, Some(1UL)))]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_copy(MemIdx::new(0U), MemIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory64,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory64.copy length module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory64.copy source type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemory64CopySourceType,
+      0x10d3aUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory64.copy source mutation repairs by using i64 source" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory64_copy_source_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched memory64.copy source type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory64 = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i64(1UL, Some(1UL)))]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_copy(MemIdx::new(0U), MemIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory64,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory64.copy source module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory64.copy dest type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemory64CopyDestType,
+      0x10d3bUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory64.copy dest mutation repairs by using i64 dest" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory64_copy_dest_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched memory64.copy dest type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory64 = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i64(1UL, Some(1UL)))]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_copy(MemIdx::new(0U), MemIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory64,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory64.copy dest module to validate: \{err}")
   }
 }
 

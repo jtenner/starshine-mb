@@ -252,6 +252,12 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-copy-source-type"
     InvalidFunctionBodyMemoryCopyDestType =>
       "invalid-function-body-memory-copy-dest-type"
+    InvalidFunctionBodyMemory64CopyLengthType =>
+      "invalid-function-body-memory64-copy-length-type"
+    InvalidFunctionBodyMemory64CopySourceType =>
+      "invalid-function-body-memory64-copy-source-type"
+    InvalidFunctionBodyMemory64CopyDestType =>
+      "invalid-function-body-memory64-copy-dest-type"
     InvalidFunctionBodyMemoryInitLengthType =>
       "invalid-function-body-memory-init-length-type"
     InvalidFunctionBodyMemoryInitSourceType =>
