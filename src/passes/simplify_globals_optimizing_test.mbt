@@ -167,6 +167,55 @@ fn sgo_test_first_data_offset_instr(
 }
 
 ///|
+fn sgo_test_data_offset_instr(
+  mod_ : @lib.Module,
+  data_idx : Int,
+) -> @lib.Instruction raise {
+  match mod_.data_sec {
+    Some(@lib.DataSec(datas)) =>
+      match datas.get(data_idx) {
+        Some(@lib.Data(@lib.Active(_, @lib.Expr([instr])), _)) => instr
+        other =>
+          fail(
+            "expected active data offset at \{data_idx}, got \{@debug.to_string(other)}",
+          )
+      }
+    None => fail("expected data section")
+  }
+}
+
+///|
+fn sgo_test_data_is_passive(mod_ : @lib.Module, data_idx : Int) -> Bool raise {
+  match mod_.data_sec {
+    Some(@lib.DataSec(datas)) =>
+      match datas.get(data_idx) {
+        Some(@lib.Data(@lib.Passive, _)) => true
+        Some(_) => false
+        None => fail("expected data segment \{data_idx}")
+      }
+    None => fail("expected data section")
+  }
+}
+
+///|
+fn sgo_test_elem_offset_instr(
+  mod_ : @lib.Module,
+  elem_idx : Int,
+) -> @lib.Instruction raise {
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      match elems.get(elem_idx) {
+        Some(@lib.Elem(@lib.Active(_, @lib.Expr([instr])), _)) => instr
+        other =>
+          fail(
+            "expected active elem offset at \{elem_idx}, got \{@debug.to_string(other)}",
+          )
+      }
+    None => fail("expected elem section")
+  }
+}
+
+///|
 fn sgo_test_defined_global_init_instrs(
   mod_ : @lib.Module,
   defined_idx : Int,
@@ -714,6 +763,53 @@ test "simplify-globals-optimizing propagates startup globals into data offsets w
   let untouched = optimized.pretty_print_defined_func(0U)
   assert_true(untouched.contains("drop"), msg=untouched)
   assert_true(untouched.contains("I32(12)"), msg=untouched)
+}
+
+///|
+test "simplify-globals-optimizing follows Binaryen offsets lit for active segments" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    (
+      #|(module
+      #|  (import "env" "memory" (memory $memory 1))
+      #|  (import "env" "table" (table $table 2 funcref))
+      #|  (import "env" "imported" (global $imported i32))
+      #|  (func $func)
+      #|  (global $defined i32 (i32.const 42))
+      #|  (global $use-defined i32 (global.get $defined))
+      #|  (data $use-imported (global.get $imported) "hello")
+      #|  (data $use-defined (global.get $defined) "world")
+      #|  (data $passive "passive")
+      #|  (elem $use-imported (global.get $imported) $func)
+      #|  (elem $use-defined (global.get $defined) $func $func)
+      #|  (export "func" (func $func)))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_data_offset_instr(optimized, 0),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    try! sgo_test_data_offset_instr(optimized, 1),
+    @lib.Instruction::i32_const(@lib.I32(42)),
+  )
+  assert_true(try! sgo_test_data_is_passive(optimized, 2))
+  @debug.assert_eq(
+    try! sgo_test_elem_offset_instr(optimized, 0),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    try! sgo_test_elem_offset_instr(optimized, 1),
+    @lib.Instruction::i32_const(@lib.I32(42)),
+  )
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::i32_const(@lib.I32(42)),
+  ])
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup") }),
+    msg=trace.to_string(),
+  )
 }
 
 ///|

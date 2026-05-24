@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO offsets lit regression
+
+- Added research note [`0580`](./raw/research/0580-2026-05-23-sgo-offsets-lit-regression.md) and a source-alignment regression for Binaryen v129 `simplify-globals-offsets.wast`.
+- Pinned startup-only propagation of defined immutable globals into active data and elem offsets, preservation of imported offset `global.get`s, passive data tolerance, and no nested cleanup for startup-only segment/global-initializer rewrites.
+- This was a guardrail/test slice only; `[SGO]003` remains active/partial and does not claim full Binaryen `SimplifyGlobals.cpp` parity.
+
 ## [2026-05-23] binaryen | SGO remaining official lit inventory
 
 - Added research note [`0579`](./raw/research/0579-2026-05-23-sgo-remaining-lit-inventory.md) mapping the remaining official Binaryen v129 `simplify-globals*` lit files after the 0577/0578 guardrail slice.
