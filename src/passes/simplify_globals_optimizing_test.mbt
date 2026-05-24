@@ -813,6 +813,35 @@ test "simplify-globals-optimizing follows Binaryen offsets lit for active segmen
 }
 
 ///|
+test "simplify-globals-optimizing follows Binaryen nested GC initializer lit" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    (
+      #|(module
+      #|  (type $struct (struct (field i32) (field i32) (field i32)))
+      #|  (import "x" "y" (global $no i32))
+      #|  (global $a i32 (i32.const 42))
+      #|  (global $b i32 (i32.const 1337))
+      #|  (global $struct (ref $struct) (struct.new $struct
+      #|    (global.get $a)
+      #|    (global.get $no)
+      #|    (global.get $b))))
+      #|)
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 2), [
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(1337)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+  ])
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-globals-optimizing canonicalizes immutable global copy chains" {
   let optimized = sgo_test_run(
     (
