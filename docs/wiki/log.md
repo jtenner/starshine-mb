@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 imported shared-memory invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-imported-shared-memory-without-max`, a deterministic import-section AST mutation that appends a shared memory import with no maximum.
+- Added focused strategy and `gen_invalid` tests proving the mutated module rejects with the import family while the valid seed still validates.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name the imported side of the shared-memory maximum rule alongside defined-memory coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 global initializer type invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-global-init-type`, a deterministic global-section AST mutation that appends an immutable `i32` global initialized by an `i64.const` expression.
