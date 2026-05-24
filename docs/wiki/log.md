@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 return invalid AST coverage
+
+- Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-return-value-type`.
+- The new strategy appends an `i32`-result function, feeds an `i64.const` value into `return`, and uses trailing `unreachable` to keep the remaining body shape valid for the intended mismatch; focused repair coverage proves the matching `i32.const; return; unreachable` form validates.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living AST-invalid strategy summary names `return` value-type mismatch coverage alongside the existing `local.set`, `local.tee`, memory store, table.set, and global.set variants.
+
 ## [2026-05-23] fuzzing | FUZ1020 local.tee invalid AST coverage
 
 - Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-local-tee-value-type`.
