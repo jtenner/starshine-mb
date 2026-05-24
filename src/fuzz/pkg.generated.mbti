@@ -349,6 +349,7 @@ pub enum MetamorphicValidTransform {
   AddModuleNameSection
   AddUnusedPassiveDataSegment
   AddUnusedImmutableI32Global
+  AddUnusedEmptyFunction
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {

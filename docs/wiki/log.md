@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036 metamorphic valid unused function transform
+
+- Continued `[FUZ]1036` by adding the `add-unused-empty-function` metamorphic-valid transform. It starts from a validating GenValid module, appends a fresh `[] -> []` function type plus an unexported empty defined function at the end of the function/code sections, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry now names custom-section, module-name, passive-data, unused-global, and unused-function surfaces.
+
 ## [2026-05-24] fuzzing | FUZ1036 metamorphic valid unused global transform
 
 - Continued `[FUZ]1036` by adding the `add-unused-immutable-i32-global` metamorphic-valid transform. It starts from a validating GenValid module, appends an unexported immutable `i32.const 0` global after all existing defined globals so global indices are not shifted, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
