@@ -3054,6 +3054,44 @@ test "dae-optimizing materializes selected mid-prefix exact-literal callees" {
 }
 
 ///|
+test "dae-optimizing inlines selected Func408 single-use const local" {
+  let target_def = 408
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32) (local i32)
+      #|    i32.const 31480
+      #|    local.set 1
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $use)
+      #|  (func $use (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 9
+      #|    call $target)
+    ),
+  )
+  for i = target_def + 3; i < 1030; i = i + 1 {
+    out.write_string("  (func $tail\{i})\n")
+  }
+  out.write_string(")\n")
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("i32.const I32(31480)"), msg=target)
+  assert_false(target.contains("local.set (Local 1)"), msg=target)
+  assert_false(target.contains("local.get (Local 1)"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes immutable global actuals for the mid-prefix exact literal slice" {
   let out = StringBuilder::new()
   out.write_string("(module\n")

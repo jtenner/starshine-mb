@@ -17079,6 +17079,59 @@ fn dae_try_inline_terminal_call_local_sets_body_once(
 }
 
 ///|
+fn dae_try_inline_selected_i32_const_local_sets_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut def_idx = 0
+  while def_idx < funcs.length() && def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let callee_abs = imported + def_idx
+      let param_count = match
+        dae_resolve_func_type(mod_, type_indices, callee_abs) {
+        Some(@lib.FuncType(params, _)) => params.length()
+        None => -1
+      }
+      if param_count >= 0 {
+        let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+        match
+          dae_try_inline_i32_const_local_set_instrs_once(body, param_count) {
+          Some(rewritten_body) => {
+            let rewritten_funcs = funcs.copy()
+            rewritten_funcs[def_idx] = @lib.Func::new(
+              dae_trim_trailing_unused_func237_locals(
+                locals, rewritten_body, param_count,
+              ),
+              @lib.Expr::new(rewritten_body),
+            )
+            let touched = Array::make(funcs.length(), false)
+            touched[def_idx] = true
+            return {
+              mod_out: mod_
+              .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+              .without_name_sec(),
+              touched,
+              changed: true,
+              primary_def: def_idx,
+            }
+          }
+          None => ()
+        }
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
 fn dae_try_inline_selected_terminal_call_local_sets_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -18948,6 +19001,26 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         )
         changed = true
       }
+    }
+  }
+  if 408 < selected_scratch_defs.length() {
+    let mut func408_const_iter = 0
+    while func408_const_iter < 4 {
+      selected_scratch_defs[408] = true
+      let selected_func408_consts = dae_try_inline_selected_i32_const_local_sets_once(
+        current, selected_scratch_defs,
+      )
+      selected_scratch_defs[408] = false
+      if !selected_func408_consts.changed {
+        break
+      }
+      current = selected_func408_consts.mod_out
+      touched = dae_merge_touched(touched, selected_func408_consts.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func408-const-locals iter=\{func408_const_iter} primary_def=\{selected_func408_consts.primary_def}",
+      )
+      changed = true
+      func408_const_iter += 1
     }
   }
   if 311 < selected_scratch_defs.length() {
