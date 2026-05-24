@@ -246,6 +246,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-table-get-index-type"
     InvalidFunctionBodyTableGrowValueType =>
       "invalid-function-body-table-grow-value-type"
+    InvalidFunctionBodyTableFillValueType =>
+      "invalid-function-body-table-fill-value-type"
     InvalidFunctionBodyTableSetValueType =>
       "invalid-function-body-table-set-value-type"
     InvalidFunctionBodyGlobalSetValueType =>
