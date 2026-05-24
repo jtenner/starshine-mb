@@ -84,4 +84,11 @@ using @lib {
 }
 
 ///|
-using @validate {type Env, make_state}
+using @validate {
+  type Env,
+  type GenValidConfig,
+  gen_valid_module_result,
+  make_state,
+  validate_module,
+  validation_error_message,
+}

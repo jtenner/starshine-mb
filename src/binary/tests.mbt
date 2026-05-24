@@ -74,7 +74,109 @@ pub struct BinaryRoundtripFuzzStats {
   profile : String
   seed : UInt64
   attempts : Int
+  arbitrary_roundtrips : Int
+  gen_valid_modules : Int
+  gen_valid_validated : Int
 } derive(Eq, Debug)
+
+///|
+fn binary_roundtrip_gen_valid_module(
+  index : Int,
+  st : @splitmix.RandomState,
+  config : GenValidConfig,
+) -> Result[Unit, String] {
+  let generated = match gen_valid_module_result(st, config) {
+    Ok(generated) => generated
+    Err(failure) =>
+      return Err(
+        "GenValid module generation failed at case \{index}: \{failure.validation_error_message}",
+      )
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      return Err(
+        "GenValid produced invalid module at case \{index}: \{validation_error_message(err)}",
+      )
+  }
+  let bytes = match encode_module(generated.wasm_module) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      return Err("GenValid module encode failed at case \{index}: \{err}")
+  }
+  let decoded = match decode_module(bytes) {
+    Ok(module_) => module_
+    Err(err) =>
+      return Err("GenValid module decode failed at case \{index}: \{err}")
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(err) =>
+      return Err(
+        "decoded GenValid module failed validation at case \{index}: \{validation_error_message(err)}",
+      )
+  }
+  let reencoded = match encode_module(decoded) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      return Err(
+        "decoded GenValid module re-encode failed at case \{index}: \{err}",
+      )
+  }
+  let redecoded = match decode_module(reencoded) {
+    Ok(module_) => module_
+    Err(err) =>
+      return Err(
+        "re-encoded GenValid module decode failed at case \{index}: \{err}",
+      )
+  }
+  match validate_module(redecoded) {
+    Ok(_) => ()
+    Err(err) =>
+      return Err(
+        "re-encoded GenValid module failed validation at case \{index}: \{validation_error_message(err)}",
+      )
+  }
+  let canonical = match encode_module(redecoded) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      return Err(
+        "re-decoded GenValid module encode failed at case \{index}: \{err}",
+      )
+  }
+  if canonical != reencoded {
+    return Err(
+      "GenValid module canonical binary roundtrip changed bytes at case \{index}: before=\{reencoded.length()} after=\{canonical.length()}",
+    )
+  }
+  Ok(())
+}
+
+///|
+fn run_binary_roundtrip_gen_valid_fuzz(
+  normalized : String,
+  seed : UInt64,
+  count : Int,
+  config : GenValidConfig,
+) -> Result[BinaryRoundtripFuzzStats, String] {
+  let st = @splitmix.new(seed~)
+  let mut i = 0
+  while i < count {
+    match binary_roundtrip_gen_valid_module(i, st, config) {
+      Ok(_) => ()
+      Err(err) => return Err(err)
+    }
+    i += 1
+  }
+  Ok(BinaryRoundtripFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts: count,
+    arbitrary_roundtrips: 0,
+    gen_valid_modules: count,
+    gen_valid_validated: count,
+  })
+}
 
 ///|
 pub fn run_binary_roundtrip_fuzz(
@@ -95,9 +197,30 @@ pub fn run_binary_roundtrip_fuzz(
     "smoke" => (8, 24, 16, 64, 256, 512, 128, 1024)
     "ci" => (30, 100, 100, 2000, 2000, 20000, 500, 50000)
     "stress" => (50, 100, 100, 1000, 10000, 100000, 1000, 1000000)
+    "gen-valid-smoke" =>
+      return run_binary_roundtrip_gen_valid_fuzz(
+        normalized,
+        seed,
+        8,
+        GenValidConfig::natural_default(),
+      )
+    "gen-valid-ci" =>
+      return run_binary_roundtrip_gen_valid_fuzz(
+        normalized,
+        seed,
+        100,
+        GenValidConfig::coverage_forced_default(),
+      )
+    "gen-valid-stress" =>
+      return run_binary_roundtrip_gen_valid_fuzz(
+        normalized,
+        seed,
+        1000,
+        GenValidConfig::coverage_forced_default(),
+      )
     _ =>
       return Err(
-        "unknown binary fuzz profile '\{profile}'; expected smoke|ci|stress",
+        "unknown binary fuzz profile '\{profile}'; expected smoke|ci|stress|gen-valid-smoke|gen-valid-ci|gen-valid-stress",
       )
   }
   let st = @splitmix.new(seed~)
@@ -252,7 +375,14 @@ pub fn run_binary_roundtrip_fuzz(
   }
   attempts += large
 
-  Ok(BinaryRoundtripFuzzStats::{ profile: normalized, seed, attempts })
+  Ok(BinaryRoundtripFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts,
+    arbitrary_roundtrips: attempts,
+    gen_valid_modules: 0,
+    gen_valid_validated: 0,
+  })
 }
 
 ///|
@@ -330,6 +460,21 @@ test "run_binary_roundtrip_fuzz rejects unknown profile" {
   match run_binary_roundtrip_fuzz("not-a-profile", 0x5eedUL) {
     Ok(_) => fail("expected unknown binary fuzz profile error")
     Err(msg) => assert_true(msg.contains("unknown binary fuzz profile"))
+  }
+}
+
+///|
+test "run_binary_roundtrip_fuzz covers GenValid full modules" {
+  match run_binary_roundtrip_fuzz("gen-valid-smoke", 0x5eedUL) {
+    Ok(stats) => {
+      @debug.assert_eq(stats.profile, "gen-valid-smoke")
+      @debug.assert_eq(stats.seed, 0x5eedUL)
+      @debug.assert_eq(stats.arbitrary_roundtrips, 0)
+      @debug.assert_eq(stats.gen_valid_modules, 8)
+      @debug.assert_eq(stats.gen_valid_validated, 8)
+      @debug.assert_eq(stats.attempts, 8)
+    }
+    Err(msg) => fail("expected GenValid binary roundtrip success: \{msg}")
   }
 }
 

@@ -118,6 +118,9 @@ pub struct BinaryRoundtripFuzzStats {
   profile : String
   seed : UInt64
   attempts : Int
+  arbitrary_roundtrips : Int
+  gen_valid_modules : Int
+  gen_valid_validated : Int
 } derive(Eq, @debug.Debug)
 
 pub struct ModuleDecodeErrorDetail {

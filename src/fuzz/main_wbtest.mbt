@@ -724,6 +724,26 @@ test "run_fuzz_suite routes binary-roundtrip to binary runner" {
 }
 
 ///|
+test "run_fuzz_suite reports GenValid binary roundtrip details" {
+  match run_fuzz_suite("binary-roundtrip", "gen-valid-smoke", 0x5eedL) {
+    Ok(results) => {
+      @debug.assert_eq(results.length(), 1)
+      let result = results[0]
+      @debug.assert_eq(result.attempts, 8)
+      match result.details_json {
+        Some(details) => {
+          assert_true(details.contains("\"arbitrary_roundtrips\":0"))
+          assert_true(details.contains("\"gen_valid_modules\":8"))
+          assert_true(details.contains("\"gen_valid_validated\":8"))
+        }
+        None => fail("expected binary roundtrip details json")
+      }
+    }
+    Err(msg) => fail("expected GenValid binary roundtrip suite success: \{msg}")
+  }
+}
+
+///|
 test "run_fuzz_suite routes validate-valid profile errors through the validator runner" {
   match run_fuzz_suite("validate-valid", "not-a-profile", 0x5eedL) {
     Ok(_) => fail("expected validate-valid profile error")

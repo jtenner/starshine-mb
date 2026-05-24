@@ -1393,7 +1393,8 @@ fn run_single_suite(
   let (attempts, details_json) = match suite {
     "binary-roundtrip" =>
       match run_binary_roundtrip_fuzz(profile, seed) {
-        Ok(stats) => (stats.attempts, None)
+        Ok(stats) =>
+          (stats.attempts, Some(format_binary_roundtrip_details_json(stats)))
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
@@ -2053,6 +2054,13 @@ fn format_validate_valid_feature_floors_json(
 ///|
 fn format_validate_valid_details_json(stats : ValidateValidFuzzStats) -> String {
   "{\"validated\":\{stats.validated},\"generator_config\":\"\{fuzz_json_escape(gen_valid_config_label(stats.generator_config))}\",\"feature_stats\":\{format_gen_valid_feature_stats_json(stats.feature_stats)},\"feature_floors\":\{format_validate_valid_feature_floors_json(stats.feature_floors)}}"
+}
+
+///|
+fn format_binary_roundtrip_details_json(
+  stats : BinaryRoundtripFuzzStats,
+) -> String {
+  "{\"arbitrary_roundtrips\":\{stats.arbitrary_roundtrips},\"gen_valid_modules\":\{stats.gen_valid_modules},\"gen_valid_validated\":\{stats.gen_valid_validated}}"
 }
 
 ///|
