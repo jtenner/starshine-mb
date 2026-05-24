@@ -275,6 +275,68 @@ test "metamorphic memory-names transform preserves validation and binary roundtr
 }
 
 ///|
+test "metamorphic tag-names transform preserves validation and binary roundtrip" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x1047UL,
+      GenValidConfig::natural_default(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected valid GenValid seed, got \{e.validation_error_message}")
+  }
+  let imported_tag_count = match generated.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      let mut count = 0
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TagExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+      count
+    }
+    None => 0
+  }
+  let defined_tag_count = match generated.wasm_module.tag_sec {
+    Some(@lib.TagSec(tags)) => tags.length()
+    None => 0
+  }
+  let transformed = match
+    metamorphic_apply_transform(generated.wasm_module, AddTagNamesSection) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-tag-names-section")
+  match transformed.wasm_module.name_sec {
+    Some(name_sec) =>
+      match name_sec.tag_names {
+        Some(@lib.NameMap(entries)) => {
+          @debug.assert_eq(
+            entries.length(),
+            imported_tag_count + defined_tag_count,
+          )
+          if entries.length() > 0 {
+            @debug.assert_eq(
+              entries[0],
+              @lib.NameAssoc::new(
+                0U,
+                @lib.Name::from_string("metamorphic_tag_0"),
+              ),
+            )
+          }
+        }
+        None => fail("expected transformed tag names")
+      }
+    None => fail("expected transformed name section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic elem-names transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -933,8 +995,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 17)
-  @debug.assert_eq(stats.validated, 17)
+  @debug.assert_eq(stats.transformed, 18)
+  @debug.assert_eq(stats.validated, 18)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -956,4 +1018,5 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("add-memory-names-section"))
   assert_true(stats.transform_ids.contains("add-data-names-section"))
   assert_true(stats.transform_ids.contains("add-elem-names-section"))
+  assert_true(stats.transform_ids.contains("add-tag-names-section"))
 }

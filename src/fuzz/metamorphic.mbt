@@ -17,6 +17,7 @@ pub enum MetamorphicValidTransform {
   AddMemoryNamesSection
   AddDataNamesSection
   AddElemNamesSection
+  AddTagNamesSection
 } derive(Eq, Debug)
 
 ///|
@@ -42,6 +43,7 @@ pub fn metamorphic_valid_transform_id(
     AddMemoryNamesSection => "add-memory-names-section"
     AddDataNamesSection => "add-data-names-section"
     AddElemNamesSection => "add-elem-names-section"
+    AddTagNamesSection => "add-tag-names-section"
   }
 }
 
@@ -305,6 +307,32 @@ fn metamorphic_with_name_sec_elem_names(
 }
 
 ///|
+fn metamorphic_with_name_sec_tag_names(
+  mod : @lib.Module,
+  tag_names : @lib.NameMap,
+) -> @lib.Module {
+  let name_sec = match mod.name_sec {
+    Some(existing) =>
+      @lib.NameSec::new(
+        module_name=existing.module_name,
+        func_names=existing.func_names,
+        local_names=existing.local_names,
+        label_names=existing.label_names,
+        type_names=existing.type_names,
+        table_names=existing.table_names,
+        memory_names=existing.memory_names,
+        global_names=existing.global_names,
+        elem_names=existing.elem_names,
+        data_names=existing.data_names,
+        field_names=existing.field_names,
+        tag_names=Some(tag_names),
+      )
+    None => @lib.NameSec::new(tag_names=Some(tag_names))
+  }
+  mod.with_name_sec(name_sec)
+}
+
+///|
 fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
   mod.with_name_sec(
     @lib.NameSec::new(
@@ -522,6 +550,35 @@ fn metamorphic_add_elem_names_section(mod : @lib.Module) -> @lib.Module {
     )
   }
   metamorphic_with_name_sec_elem_names(mod, @lib.NameMap::new(names))
+}
+
+///|
+fn metamorphic_add_tag_names_section(mod : @lib.Module) -> @lib.Module {
+  let names = []
+  let mut count = 0
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TagExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.tag_sec {
+    Some(@lib.TagSec(tags)) => count += tags.length()
+    None => ()
+  }
+  for i = 0; i < count; i = i + 1 {
+    names.push(
+      @lib.NameAssoc::new(
+        i.reinterpret_as_uint(),
+        @lib.Name::from_string("metamorphic_tag_\{i}"),
+      ),
+    )
+  }
+  metamorphic_with_name_sec_tag_names(mod, @lib.NameMap::new(names))
 }
 
 ///|
@@ -771,6 +828,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddMemoryNamesSection,
     AddDataNamesSection,
     AddElemNamesSection,
+    AddTagNamesSection,
   ]
 }
 
@@ -802,6 +860,7 @@ pub fn metamorphic_apply_transform(
     AddMemoryNamesSection => metamorphic_add_memory_names_section(mod)
     AddDataNamesSection => metamorphic_add_data_names_section(mod)
     AddElemNamesSection => metamorphic_add_elem_names_section(mod)
+    AddTagNamesSection => metamorphic_add_tag_names_section(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
