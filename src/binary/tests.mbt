@@ -77,6 +77,11 @@ pub struct BinaryRoundtripFuzzStats {
   arbitrary_roundtrips : Int
   gen_valid_modules : Int
   gen_valid_validated : Int
+  byte_fuzz_cases : Int
+  byte_fuzz_decode_rejections : Int
+  byte_fuzz_decode_accepts : Int
+  byte_fuzz_validate_rejections : Int
+  byte_fuzz_stable_roundtrips : Int
 } derive(Eq, Debug)
 
 ///|
@@ -175,6 +180,145 @@ fn run_binary_roundtrip_gen_valid_fuzz(
     arbitrary_roundtrips: 0,
     gen_valid_modules: count,
     gen_valid_validated: count,
+    byte_fuzz_cases: 0,
+    byte_fuzz_decode_rejections: 0,
+    byte_fuzz_decode_accepts: 0,
+    byte_fuzz_validate_rejections: 0,
+    byte_fuzz_stable_roundtrips: 0,
+  })
+}
+
+///|
+fn binary_byte_fuzz_rand_index(
+  bytes : Bytes,
+  st : @splitmix.RandomState,
+) -> Int {
+  if bytes.length() == 0 {
+    0
+  } else {
+    (st.next_uint() % bytes.length().reinterpret_as_uint()).reinterpret_as_int()
+  }
+}
+
+///|
+fn binary_byte_fuzz_corrupt(
+  bytes : Bytes,
+  case_index : Int,
+  st : @splitmix.RandomState,
+) -> Bytes {
+  let mutated = bytes.to_array()
+  match case_index % 6 {
+    0 => if mutated.length() > 0 { ignore(mutated.pop()) }
+    1 =>
+      if mutated.length() > 0 {
+        mutated[0] = (mutated[0].to_int() ^ 0xff).to_byte()
+      }
+    2 =>
+      if mutated.length() > 4 {
+        mutated[4] = (mutated[4].to_int() ^ 0x03).to_byte()
+      }
+    3 => mutated.push((st.next_uint() % 256).to_byte())
+    4 =>
+      if mutated.length() > 0 {
+        let idx = binary_byte_fuzz_rand_index(bytes, st)
+        mutated[idx] = (mutated[idx].to_int() ^ 0x80).to_byte()
+      }
+    _ =>
+      if mutated.length() > 8 {
+        let idx = 8 +
+          (st.next_uint() % (mutated.length() - 8).reinterpret_as_uint()).reinterpret_as_int()
+        mutated[idx] = (0xff).to_byte()
+      } else {
+        mutated.push((0xff).to_byte())
+      }
+  }
+  Bytes::from_array(mutated)
+}
+
+///|
+fn binary_byte_fuzz_seed_bytes(
+  index : Int,
+  st : @splitmix.RandomState,
+) -> Result[Bytes, String] {
+  let generated = match
+    gen_valid_module_result(st, GenValidConfig::natural_default()) {
+    Ok(generated) => generated
+    Err(failure) =>
+      return Err(
+        "GenValid byte-fuzz module generation failed at case \{index}: \{failure.validation_error_message}",
+      )
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      return Err(
+        "GenValid byte-fuzz seed failed validation at case \{index}: \{validation_error_message(err)}",
+      )
+  }
+  match encode_module(generated.wasm_module) {
+    Ok(bytes) => Ok(bytes)
+    Err(err) =>
+      Err("GenValid byte-fuzz seed encode failed at case \{index}: \{err}")
+  }
+}
+
+///|
+fn run_binary_byte_fuzz(
+  normalized : String,
+  seed : UInt64,
+  count : Int,
+) -> Result[BinaryRoundtripFuzzStats, String] {
+  let st = @splitmix.new(seed~)
+  let mut decode_rejections = 0
+  let mut decode_accepts = 0
+  let mut validate_rejections = 0
+  let mut stable_roundtrips = 0
+  let mut i = 0
+  while i < count {
+    let seed_bytes = match binary_byte_fuzz_seed_bytes(i, st) {
+      Ok(bytes) => bytes
+      Err(msg) => return Err(msg)
+    }
+    let mutated = binary_byte_fuzz_corrupt(seed_bytes, i, st)
+    match decode_module(mutated) {
+      Err(_) => decode_rejections += 1
+      Ok(decoded) => {
+        decode_accepts += 1
+        match validate_module(decoded) {
+          Err(_) => validate_rejections += 1
+          Ok(_) => {
+            let reencoded = match encode_module(decoded) {
+              Ok(bytes) => bytes
+              Err(err) =>
+                return Err(
+                  "byte-fuzz decoded valid module failed re-encode at case \{i}: \{err}",
+                )
+            }
+            match decode_module(reencoded) {
+              Ok(_) => stable_roundtrips += 1
+              Err(err) =>
+                return Err(
+                  "byte-fuzz decoded valid module re-encode failed to decode at case \{i}: \{err}",
+                )
+            }
+          }
+        }
+      }
+    }
+    i += 1
+  }
+  Ok(BinaryRoundtripFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts: count,
+    arbitrary_roundtrips: 0,
+    gen_valid_modules: 0,
+    gen_valid_validated: 0,
+    byte_fuzz_cases: count,
+    byte_fuzz_decode_rejections: decode_rejections,
+    byte_fuzz_decode_accepts: decode_accepts,
+    byte_fuzz_validate_rejections: validate_rejections,
+    byte_fuzz_stable_roundtrips: stable_roundtrips,
   })
 }
 
@@ -218,9 +362,12 @@ pub fn run_binary_roundtrip_fuzz(
         1000,
         GenValidConfig::coverage_forced_default(),
       )
+    "byte-fuzz-smoke" => return run_binary_byte_fuzz(normalized, seed, 16)
+    "byte-fuzz-ci" => return run_binary_byte_fuzz(normalized, seed, 256)
+    "byte-fuzz-stress" => return run_binary_byte_fuzz(normalized, seed, 2048)
     _ =>
       return Err(
-        "unknown binary fuzz profile '\{profile}'; expected smoke|ci|stress|gen-valid-smoke|gen-valid-ci|gen-valid-stress",
+        "unknown binary fuzz profile '\{profile}'; expected smoke|ci|stress|gen-valid-smoke|gen-valid-ci|gen-valid-stress|byte-fuzz-smoke|byte-fuzz-ci|byte-fuzz-stress",
       )
   }
   let st = @splitmix.new(seed~)
@@ -382,6 +529,11 @@ pub fn run_binary_roundtrip_fuzz(
     arbitrary_roundtrips: attempts,
     gen_valid_modules: 0,
     gen_valid_validated: 0,
+    byte_fuzz_cases: 0,
+    byte_fuzz_decode_rejections: 0,
+    byte_fuzz_decode_accepts: 0,
+    byte_fuzz_validate_rejections: 0,
+    byte_fuzz_stable_roundtrips: 0,
   })
 }
 
@@ -472,9 +624,30 @@ test "run_binary_roundtrip_fuzz covers GenValid full modules" {
       @debug.assert_eq(stats.arbitrary_roundtrips, 0)
       @debug.assert_eq(stats.gen_valid_modules, 8)
       @debug.assert_eq(stats.gen_valid_validated, 8)
+      @debug.assert_eq(stats.byte_fuzz_cases, 0)
+      @debug.assert_eq(stats.byte_fuzz_decode_rejections, 0)
       @debug.assert_eq(stats.attempts, 8)
     }
     Err(msg) => fail("expected GenValid binary roundtrip success: \{msg}")
+  }
+}
+
+///|
+test "run_binary_roundtrip_fuzz covers byte fuzz corruptions" {
+  match run_binary_roundtrip_fuzz("byte-fuzz-smoke", 0x5eedUL) {
+    Ok(stats) => {
+      @debug.assert_eq(stats.profile, "byte-fuzz-smoke")
+      @debug.assert_eq(stats.seed, 0x5eedUL)
+      @debug.assert_eq(stats.arbitrary_roundtrips, 0)
+      @debug.assert_eq(stats.gen_valid_modules, 0)
+      @debug.assert_eq(stats.byte_fuzz_cases, 16)
+      @debug.assert_eq(stats.attempts, 16)
+      assert_true(stats.byte_fuzz_decode_rejections > 0)
+      assert_true(
+        stats.byte_fuzz_decode_accepts + stats.byte_fuzz_decode_rejections == 16,
+      )
+    }
+    Err(msg) => fail("expected byte-fuzz binary roundtrip success: \{msg}")
   }
 }
 

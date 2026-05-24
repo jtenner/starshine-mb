@@ -121,6 +121,11 @@ pub struct BinaryRoundtripFuzzStats {
   arbitrary_roundtrips : Int
   gen_valid_modules : Int
   gen_valid_validated : Int
+  byte_fuzz_cases : Int
+  byte_fuzz_decode_rejections : Int
+  byte_fuzz_decode_accepts : Int
+  byte_fuzz_validate_rejections : Int
+  byte_fuzz_stable_roundtrips : Int
 } derive(Eq, @debug.Debug)
 
 pub struct ModuleDecodeErrorDetail {

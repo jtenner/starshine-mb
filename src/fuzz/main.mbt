@@ -2060,7 +2060,7 @@ fn format_validate_valid_details_json(stats : ValidateValidFuzzStats) -> String 
 fn format_binary_roundtrip_details_json(
   stats : BinaryRoundtripFuzzStats,
 ) -> String {
-  "{\"arbitrary_roundtrips\":\{stats.arbitrary_roundtrips},\"gen_valid_modules\":\{stats.gen_valid_modules},\"gen_valid_validated\":\{stats.gen_valid_validated}}"
+  "{\"arbitrary_roundtrips\":\{stats.arbitrary_roundtrips},\"gen_valid_modules\":\{stats.gen_valid_modules},\"gen_valid_validated\":\{stats.gen_valid_validated},\"byte_fuzz_cases\":\{stats.byte_fuzz_cases},\"byte_fuzz_decode_rejections\":\{stats.byte_fuzz_decode_rejections},\"byte_fuzz_decode_accepts\":\{stats.byte_fuzz_decode_accepts},\"byte_fuzz_validate_rejections\":\{stats.byte_fuzz_validate_rejections},\"byte_fuzz_stable_roundtrips\":\{stats.byte_fuzz_stable_roundtrips}}"
 }
 
 ///|

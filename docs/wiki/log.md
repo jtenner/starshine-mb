@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1029 binary byte-fuzz roundtrip profiles
+
+- Continued `[FUZ]1029` by adding `binary-roundtrip` profiles `byte-fuzz-smoke`, `byte-fuzz-ci`, and `byte-fuzz-stress`, which start from validating GenValid binary modules, apply deterministic random/structured byte corruptions, and classify decode rejection versus decode-accepted outcomes.
+- The byte-fuzz lane counts decode-accepted validation rejections and requires any decode-accepted valid module to re-encode into decodable bytes, keeping malformed-byte stress separate from the existing arbitrary-value and GenValid full-module roundtrip counters.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the living fuzz-runner docs name the new profiles and JSON detail counters.
+
 ## [2026-05-24] fuzzing | FUZ1023 dynamic GenValid-WAT invalid text mutation
 
 - Continued `[FUZ]1023` by adding `dynamic-gen-valid-bad-lane-index` and `dynamic-gen-valid-bad-memarg-align`, which start from verified GenValid WAT and insert quoted `assert_malformed` modules that exercise WAST lowering rejection for an out-of-range SIMD lane immediate and malformed memory alignment literal.
