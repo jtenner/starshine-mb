@@ -15981,6 +15981,56 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
+  if 1794 < selected_scratch_defs.length() {
+    selected_scratch_defs[1794] = true
+    let selected_func1794_const_if = dae_try_simplify_selected_const_if_defs_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[1794] = false
+    if selected_func1794_const_if.changed {
+      current = selected_func1794_const_if.mod_out
+      touched = dae_merge_touched(touched, selected_func1794_const_if.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func1794-const-if-before-func1795-defaults primary_def=\{selected_func1794_const_if.primary_def}",
+      )
+      changed = true
+    }
+    selected_scratch_defs[1794] = true
+    let selected_func1794_terminal_call = dae_try_inline_selected_terminal_call_local_sets_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[1794] = false
+    if selected_func1794_terminal_call.changed {
+      current = selected_func1794_terminal_call.mod_out
+      touched = dae_merge_touched(
+        touched,
+        selected_func1794_terminal_call.touched,
+      )
+      trace(
+        "pass[dae-optimizing]:selected-func1794-terminal-call-locals-before-func1795-defaults primary_def=\{selected_func1794_terminal_call.primary_def}",
+      )
+      changed = true
+    }
+  }
+  if 1795 < selected_scratch_defs.length() {
+    selected_scratch_defs[1795] = true
+    let func1795_call_facts = dae_collect_current_call_facts(
+      current,
+      original_imported + original_defined,
+    )
+    let selected_func1795_defaults = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      current, selected_scratch_defs, func1795_call_facts,
+    )
+    selected_scratch_defs[1795] = false
+    if selected_func1795_defaults.changed {
+      current = selected_func1795_defaults.mod_out
+      touched = dae_merge_touched(touched, selected_func1795_defaults.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func1795-default-args primary_def=\{selected_func1795_defaults.primary_def}",
+      )
+      changed = true
+    }
+  }
   { mod_out: current, touched, changed, primary_def: -1 }
 }
 

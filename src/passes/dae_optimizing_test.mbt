@@ -1113,6 +1113,168 @@ test "dae-optimizing folds selected Func327 const-if before Func328 default args
 }
 
 ///|
+test "dae-optimizing folds selected Func1794 const-if locals before Func1795 default args" {
+  let first_caller_def = 279
+  let second_caller_def = 1794
+  let target_def = 1795
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < first_caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller279 (export "run279") (param i32 i32 i32 i32 i32 i64 i32 i32 i32 i64 i64 i32 i32 i64) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    i32.const 0
+      #|    i32.const 0
+      #|    local.get 3
+      #|    local.get 4
+      #|    local.get 5
+      #|    local.get 6
+      #|    local.get 7
+      #|    local.get 8
+      #|    local.get 9
+      #|    local.get 10
+      #|    local.get 11
+      #|    local.get 12
+      #|    local.get 13
+      #|    call $target)
+    ),
+  )
+  for i = first_caller_def + 1; i < second_caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller1794 (export "run1794") (param i32 i32 i32 i32 i64 i32 i32 i32 i64 i64 i32 i32 i64) (result i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i64 i32 i32 i32 i64 i64 i32 i32 i64)
+      #|    local.get 0
+      #|    local.set 13
+      #|    local.get 1
+      #|    local.set 14
+      #|    i32.const -1
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      i32.const -1
+      #|    end
+      #|    local.set 15
+      #|    i32.const -1
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      i32.const -1
+      #|    end
+      #|    local.set 16
+      #|    i32.const -1
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      i32.const -1
+      #|    end
+      #|    local.set 17
+      #|    local.get 2
+      #|    local.set 18
+      #|    local.get 3
+      #|    local.set 19
+      #|    local.get 4
+      #|    local.set 20
+      #|    local.get 5
+      #|    local.set 21
+      #|    local.get 6
+      #|    local.set 22
+      #|    local.get 7
+      #|    local.set 23
+      #|    local.get 8
+      #|    local.set 24
+      #|    local.get 9
+      #|    local.set 25
+      #|    local.get 10
+      #|    local.set 26
+      #|    local.get 11
+      #|    local.set 27
+      #|    local.get 12
+      #|    local.set 28
+      #|    local.get 13
+      #|    local.get 14
+      #|    local.get 15
+      #|    local.get 16
+      #|    local.get 17
+      #|    local.get 18
+      #|    local.get 19
+      #|    local.get 20
+      #|    local.get 21
+      #|    local.get 22
+      #|    local.get 23
+      #|    local.get 24
+      #|    local.get 25
+      #|    local.get 26
+      #|    local.get 27
+      #|    local.get 28
+      #|    call $target)
+      #|  (func $target (param i32 i32 i32 i32 i32 i32 i32 i64 i32 i32 i32 i64 i64 i32 i32 i64) (result i32)
+      #|    local.get 0
+      #|    drop
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop
+      #|    local.get 3
+      #|    drop
+      #|    local.get 4
+      #|    drop
+      #|    local.get 5
+      #|    drop
+      #|    local.get 6
+      #|    drop
+      #|    local.get 7
+      #|    drop
+      #|    local.get 8
+      #|    drop
+      #|    local.get 9
+      #|    drop
+      #|    local.get 10
+      #|    drop
+      #|    local.get 11
+      #|    drop
+      #|    local.get 12
+      #|    drop
+      #|    local.get 13
+      #|    drop
+      #|    local.get 14
+      #|    drop
+      #|    local.get 15
+      #|    drop
+      #|    local.get 0)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 14)
+  let first_caller = optimized.pretty_print_defined_func(
+    first_caller_def.reinterpret_as_uint(),
+  )
+  assert_true(
+    first_caller.contains("(call (Func \{target_def}))"),
+    msg=first_caller,
+  )
+  let second_caller = optimized.pretty_print_defined_func(
+    second_caller_def.reinterpret_as_uint(),
+  )
+  assert_false(second_caller.contains("if"), msg=second_caller)
+  assert_false(second_caller.contains("i32.const I32(-1)"), msg=second_caller)
+}
+
+///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for target_def in [299, 3566, 4229] {
     let out = StringBuilder::new()
