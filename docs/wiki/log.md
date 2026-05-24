@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 struct invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-struct-new-value-type`, `invalid-function-body-struct-get-input-type`, `invalid-function-body-struct-set-input-type`, and `invalid-function-body-struct-set-value-type` for GC struct constructor/accessor/mutator stack-type mismatches.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving the `struct.new`, `struct.get`, and `struct.set` mutations reject while matching immutable/mutable one-field `i32` struct operand stacks validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living invalid-AST summaries name struct coverage alongside the previous array aggregate variants.
+
 ## [2026-05-24] fuzzing | FUZ1020 array.new_data/elem invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-array-new-data-source-type`, `invalid-function-body-array-new-data-length-type`, `invalid-function-body-array-new-elem-source-type`, and `invalid-function-body-array-new-elem-length-type` for GC data/element-backed array constructor source-offset and length stack-type mismatches.

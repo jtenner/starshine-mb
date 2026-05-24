@@ -152,6 +152,10 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyArrayNewDataLengthType
   InvalidFunctionBodyArrayNewElemSourceType
   InvalidFunctionBodyArrayNewElemLengthType
+  InvalidFunctionBodyStructNewValueType
+  InvalidFunctionBodyStructGetInputType
+  InvalidFunctionBodyStructSetInputType
+  InvalidFunctionBodyStructSetValueType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -1041,6 +1045,34 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructNewValueType,
+      "invalid-function-body-struct-new-value-type",
+      "invalid function-body struct.new value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructGetInputType,
+      "invalid-function-body-struct-get-input-type",
+      "invalid function-body struct.get input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructSetInputType,
+      "invalid-function-body-struct-set-input-type",
+      "invalid function-body struct.set input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructSetValueType,
+      "invalid-function-body-struct-set-value-type",
+      "invalid function-body struct.set value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1317,6 +1349,10 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyArrayNewDataLengthType => 126
     InvalidFunctionBodyArrayNewElemSourceType => 127
     InvalidFunctionBodyArrayNewElemLengthType => 128
+    InvalidFunctionBodyStructNewValueType => 129
+    InvalidFunctionBodyStructGetInputType => 130
+    InvalidFunctionBodyStructSetInputType => 131
+    InvalidFunctionBodyStructSetValueType => 132
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -4118,6 +4154,18 @@ fn validate_invalid_ast_mut_funcref_array_with_elem_module() -> (
 }
 
 ///|
+fn validate_invalid_ast_i32_struct_module(mutability : Mut) -> Module {
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), mutability),
+      ]),
+    ),
+  )
+  Module::new().with_type_sec(TypeSec::new([struct_type]))
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -4789,6 +4837,106 @@ fn validate_invalid_ast_mutate_invalid_function_body_array_new_elem_length_type(
   )
   {
     strategy: InvalidFunctionBodyArrayNewElemLengthType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_new_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::struct_new(TypeIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructNewValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_get_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::struct_get(TypeIdx::new(0U), U32::new(0U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructGetInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_set_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::struct_set(TypeIdx::new(0U), U32::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Var),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructSetInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_set_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::struct_set(TypeIdx::new(0U), U32::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Var),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructSetValueType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -5890,6 +6038,22 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_array_new_elem_length_type(
           base,
         )
+      InvalidFunctionBodyStructNewValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_new_value_type(
+          base,
+        )
+      InvalidFunctionBodyStructGetInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_get_input_type(
+          base,
+        )
+      InvalidFunctionBodyStructSetInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_set_input_type(
+          base,
+        )
+      InvalidFunctionBodyStructSetValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_set_value_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -6342,6 +6506,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-array-new-default-length-type", "invalid-function-body-array-new-fixed-value-type",
     "invalid-function-body-array-new-data-source-type", "invalid-function-body-array-new-data-length-type",
     "invalid-function-body-array-new-elem-source-type", "invalid-function-body-array-new-elem-length-type",
+    "invalid-function-body-struct-new-value-type", "invalid-function-body-struct-get-input-type",
+    "invalid-function-body-struct-set-input-type", "invalid-function-body-struct-set-value-type",
     "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
     "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
@@ -8401,6 +8567,182 @@ test "function-body array.new_elem length mutation repairs by using i32 length" 
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired array.new_elem length module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid struct.new value type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructNewValueType,
+      0x10d21UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid struct.get input type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructGetInputType,
+      0x10d22UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid struct.set input type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructSetInputType,
+      0x10d23UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid struct.set value type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructSetValueType,
+      0x10d24UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body struct.new value mutation repairs by using field-typed values" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_new_value_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched struct.new value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::i32_const(I32(7)),
+      Instruction::struct_new(TypeIdx::new(0U)),
+      Instruction::drop(),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired struct.new value module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body struct.get input mutation repairs by using a struct reference" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_get_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched struct.get input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::struct_get(TypeIdx::new(0U), U32::new(0U)),
+      Instruction::drop(),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired struct.get input module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body struct.set input mutation repairs by using a mutable struct reference" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_set_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched struct.set input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Var),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(7)),
+      Instruction::struct_set(TypeIdx::new(0U), U32::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired struct.set input module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body struct.set value mutation repairs by using a field-typed value" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_set_value_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched struct.set value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Var),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(7)),
+      Instruction::struct_set(TypeIdx::new(0U), U32::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired struct.set value module to validate: \{err}")
   }
 }
 
