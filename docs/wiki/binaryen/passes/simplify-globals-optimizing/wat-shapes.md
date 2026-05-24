@@ -214,6 +214,7 @@ After conceptually:
 Why it works:
 
 - Binaryen proved the write does not change state relative to the initializer
+- this remains narrower than general expression equivalence: alias initializers that canonicalize to the same literal can still keep the mutable global and direct literal set in a one-shot run, and block-wrapped same-init values with real reads are preserved
 
 ## 7. `read-only-to-write` self-guard collapses away the stateful part
 
@@ -471,6 +472,7 @@ After conceptually:
 Why it works:
 
 - Binaryen tracks a cheap current-value map along the current linear trace
+- result-block-wrapped set operands are not treated as current constants by this pass alone, even if another cleanup could later simplify them to a literal
 
 ## 10. Some dominated adjacent blocks are included in that same runtime proof
 

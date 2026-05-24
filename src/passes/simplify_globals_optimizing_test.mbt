@@ -1244,6 +1244,34 @@ test "simplify-globals-optimizing canonicalizes defined global-get init before s
 }
 
 ///|
+test "simplify-globals-optimizing keeps alias-init direct literal same-init write one-shot" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $c i32 (i32.const 7))
+      #|  (global $g (mut i32) (global.get $c))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+  ])
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing second run removes canonicalized global-get init write" {
   let optimized = sgo_test_run_twice(
     (
@@ -13625,6 +13653,27 @@ test "simplify-globals-optimizing propagates runtime block facts past pure instr
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("I32(12)"), msg=pretty)
   assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps block-wrapped runtime set operands conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (result i32)
+      #|    block (result i32)
+      #|      i32.const 5
+      #|    end
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
 }
 
 ///|

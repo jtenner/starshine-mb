@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO same-init/runtime guardrails
+
+- Added research note [`0576`](./raw/research/0576-2026-05-23-sgo-same-init-runtime-guardrails.md) and two guardrail tests from the 0574 probe inventory.
+- Pinned alias-initializer plus direct-literal same-init writes as one-shot mutable/preserved-set behavior, while allowing same-function runtime read replacement.
+- Pinned block-wrapped runtime-set operands as conservative: no current runtime fact is learned from a result block even when it contains a literal constant.
+
 ## [2026-05-23] binaryen | SGO dominance lit regression
 
 - Added research note [`0575`](./raw/research/0575-2026-05-23-sgo-dominance-lit-regression.md) after comparing official `simplify-globals-dominance.wast` against Starshine's runtime propagation tests.
