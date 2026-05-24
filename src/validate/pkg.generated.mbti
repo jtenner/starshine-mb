@@ -1216,6 +1216,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidImportedTagTypeIndex
   MutableGlobalGetInTableInit
   NonConstantElemOffset
+  InvalidElementActiveTableIndex
   SharedMemoryWithoutMax
   SharedMemory64WithoutMax
   InvalidTagTypeIndex

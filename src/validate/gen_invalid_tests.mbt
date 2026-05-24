@@ -400,6 +400,35 @@ test "gen_invalid_ast_generate supports element-section invalid offset strategy"
 }
 
 ///|
+test "gen_invalid_ast_generate supports element-section active table index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef81UL),
+      GenInvalidAstParams::repro_seed(InvalidElementActiveTableIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-element-active-table-index base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-element-active-table-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ElementSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports tag-section invalid type strategy" {
   let generated = match
     gen_invalid_ast_generate(
