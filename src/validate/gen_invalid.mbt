@@ -286,6 +286,8 @@ fn gen_invalid_ast_strategy_label(
     InvalidFunctionBodyElemDropIndex => "invalid-function-body-elem-drop-index"
     InvalidFunctionBodyTableSizeIndex =>
       "invalid-function-body-table-size-index"
+    InvalidFunctionBodyTableSetIndexType =>
+      "invalid-function-body-table-set-index-type"
     InvalidFunctionBodyTableSetValueType =>
       "invalid-function-body-table-set-value-type"
     InvalidFunctionBodyGlobalSetValueType =>
