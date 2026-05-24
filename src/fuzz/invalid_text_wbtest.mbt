@@ -1088,6 +1088,26 @@ test "dynamic invalid text bad memarg mutates generated valid WAT into malformed
 }
 
 ///|
+test "dynamic invalid text attempt seeds come from text-mutation stream and stable strategy salts" {
+  let left = validate_invalid_text_dynamic_attempt_seed(
+    0x51034UL, "dynamic-gen-valid-bad-opcode-token", 0,
+  )
+  let left_again = validate_invalid_text_dynamic_attempt_seed(
+    0x51034UL, "dynamic-gen-valid-bad-opcode-token", 0,
+  )
+  let next_attempt = validate_invalid_text_dynamic_attempt_seed(
+    0x51034UL, "dynamic-gen-valid-bad-opcode-token", 1,
+  )
+  let other_strategy = validate_invalid_text_dynamic_attempt_seed(
+    0x51034UL, "dynamic-gen-valid-bad-memarg-align", 0,
+  )
+  @debug.assert_eq(left, left_again)
+  assert_true(left != next_attempt)
+  assert_true(left != other_strategy)
+  assert_true(left != 0x51034UL)
+}
+
+///|
 test "dynamic invalid text fuzz is deterministic and records generated mutation stats" {
   let first = match run_validate_invalid_text_dynamic_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v

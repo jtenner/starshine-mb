@@ -1253,14 +1253,47 @@ fn validate_invalid_text_dynamic_source_feature_facts(
 }
 
 ///|
+fn validate_invalid_text_stable_string_salt(value : String) -> UInt64 {
+  let mut hash = 1469598103934665603UL
+  let mut i = 0
+  while i < value.length() {
+    hash = hash ^ value[i].to_uint64()
+    hash = hash * 1099511628211UL
+    i += 1
+  }
+  hash
+}
+
+///|
+pub fn validate_invalid_text_dynamic_attempt_seed(
+  seed : UInt64,
+  stable_id : String,
+  attempt : Int,
+) -> UInt64 {
+  let mut stream_seed = seed
+  for label in gen_valid_random_stream_labels() {
+    if gen_valid_random_stream_label_name(label) == "text-mutation-choice" {
+      stream_seed = gen_valid_derive_stream_seed(seed, label)
+    }
+  }
+  stream_seed ^
+  validate_invalid_text_stable_string_salt(stable_id) ^
+  ((attempt.to_uint64() + 1UL) * 0x9e3779b97f4a7c15UL)
+}
+
+///|
 fn validate_invalid_text_dynamic_base_source(
   seed : UInt64,
 ) -> Result[String, String] {
-  let mod_ = gen_valid_module_with_config(
-    @splitmix.new(seed~),
-    GenValidConfig::wat_text_roundtrip_default(),
-  )
-  let text = match lib_module_to_wat(mod_) {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      seed,
+      GenValidConfig::wat_text_roundtrip_default(),
+    ) {
+    Ok(v) => v
+    Err(failure) => return Err(failure.validation_error_message)
+  }
+  let text = match lib_module_to_wat(generated.wasm_module) {
     Ok(v) => v
     Err(msg) => return Err("failed to print generated valid WAT: \{msg}")
   }
@@ -1472,7 +1505,10 @@ pub fn run_validate_invalid_text_dynamic_fuzz(
     let mut i = 0
     while i < attempts {
       let generated = match
-        validate_invalid_text_dynamic_case(seed + i.to_uint64(), stable_id) {
+        validate_invalid_text_dynamic_case(
+          validate_invalid_text_dynamic_attempt_seed(seed, stable_id, i),
+          stable_id,
+        ) {
         Ok(v) => v
         Err(msg) =>
           return Err(
