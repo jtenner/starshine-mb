@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO loop self-guard inventory and deferral slice
+
+- Recorded the post-loop self-guard mini-series as intentionally complete for the current small subset: non-branching `loop (result i32)` bodies may yield a direct candidate read or simple nontrapping pure condition chain into adjacent direct, `i32.eqz`, compare-const, or reverse compare-const self guards, with final same-global constant writes.
+- Confirmed the no-op const/drop prefix candidate is already covered by the shared direct/pure condition matchers rather than needing a new implementation slice.
+- Deferred broader loop FlowScanner reuse and risky control/effect surfaces without fresh oracle-backed slices: branches/`br_if`, returns/control transfer, trapping loads, memory/table growth, atomics, SIMD memory operations, relaxed SIMD, broad bulk operations, calls with candidate operands, and other effectful or trapping consumers remain outside `[SGO]003`'s current loop policy.
+
 ## [2026-05-23] binaryen | SGO post-loop reverse pure-compare self-guard FlowScanner slice
 
 - Probed reverse adjacent post-loop pure compare-const self guards against Binaryen v129. Binaryen promoted `i32.const 0; loop (result i32) global.get $g; i32.const 1; i32.add end; i32.eq` before the final same-global write guard, while preserving mutable/read-write shape when the loop body first performed a trapping `i32.load(global.get $g)` before the pure add and compare.

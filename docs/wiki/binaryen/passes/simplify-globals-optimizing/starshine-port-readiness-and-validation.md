@@ -94,6 +94,8 @@ The current first slice covers fact collection, single-use initializer folding i
 
 Any future breadth implementation should name the newly supported subset and rerun focused oracle evidence instead of reopening the accepted v0.1.0 supported surface by default. The 2026-05-20 `[SGO]003` reopening is a product-goal change toward full Binaryen breadth; it supersedes only the interpretation that v0.1.0 signoff meant full parity, not the signoff itself.
 
+The 2026-05-23 loop self-guard inventory closes the current micro-series around adjacent post-loop self-guard conditions: direct candidate reads and simple nontrapping pure chains are accepted for direct, `i32.eqz`, compare-const, and reverse compare-const consumers, while no-op const/drop prefixes are already covered by the shared condition matchers. Treat further loop work as new risk, not cleanup: do not enable the broad block FlowScanner in loops or add branch/control, trapping, growth, atomic, SIMD-memory, relaxed SIMD, broad bulk, or candidate-fed call surfaces without a focused Binaryen oracle fixture and paired guardrail negative.
+
 ## Transformed-shape coverage to preserve
 
 The first tests should be organized around the shape catalog in [`./wat-shapes.md`](./wat-shapes.md):
