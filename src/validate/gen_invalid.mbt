@@ -292,6 +292,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-init-source-type"
     InvalidFunctionBodyMemoryInitDestType =>
       "invalid-function-body-memory-init-dest-type"
+    InvalidFunctionBodyMemoryInitDataIndex =>
+      "invalid-function-body-memory-init-data-index"
     InvalidFunctionBodyLocalSetValueType =>
       "invalid-function-body-local-set-value-type"
     InvalidFunctionBodyLocalTeeValueType =>
@@ -322,6 +324,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-table-init-source-type"
     InvalidFunctionBodyTableInitDestType =>
       "invalid-function-body-table-init-dest-type"
+    InvalidFunctionBodyTableInitElemIndex =>
+      "invalid-function-body-table-init-elem-index"
     InvalidFunctionBodyDataDropIndex => "invalid-function-body-data-drop-index"
     InvalidFunctionBodyElemDropIndex => "invalid-function-body-elem-drop-index"
     InvalidFunctionBodyTableSizeIndex =>

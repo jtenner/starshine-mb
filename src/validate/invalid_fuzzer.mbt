@@ -117,6 +117,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemoryInitLengthType
   InvalidFunctionBodyMemoryInitSourceType
   InvalidFunctionBodyMemoryInitDestType
+  InvalidFunctionBodyMemoryInitDataIndex
   InvalidFunctionBodyLocalSetValueType
   InvalidFunctionBodyLocalTeeValueType
   InvalidFunctionBodyReturnValueType
@@ -132,6 +133,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableInitLengthType
   InvalidFunctionBodyTableInitSourceType
   InvalidFunctionBodyTableInitDestType
+  InvalidFunctionBodyTableInitElemIndex
   InvalidFunctionBodyDataDropIndex
   InvalidFunctionBodyElemDropIndex
   InvalidFunctionBodyTableSizeIndex
@@ -837,6 +839,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryInitDataIndex,
+      "invalid-function-body-memory-init-data-index",
+      "invalid function-body memory.init data index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyLocalSetValueType,
       "invalid-function-body-local-set-value-type",
       "invalid function-body local.set value type",
@@ -938,6 +947,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyTableInitDestType,
       "invalid-function-body-table-init-dest-type",
       "invalid function-body table.init dest type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTableInitElemIndex,
+      "invalid-function-body-table-init-elem-index",
+      "invalid function-body table.init elem index",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -1610,6 +1626,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemoryInitLengthType => 75
     InvalidFunctionBodyMemoryInitSourceType => 76
     InvalidFunctionBodyMemoryInitDestType => 77
+    InvalidFunctionBodyMemoryInitDataIndex => 170
     InvalidFunctionBodyLocalSetValueType => 64
     InvalidFunctionBodyLocalTeeValueType => 65
     InvalidFunctionBodyReturnValueType => 66
@@ -1625,6 +1642,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyTableInitLengthType => 81
     InvalidFunctionBodyTableInitSourceType => 82
     InvalidFunctionBodyTableInitDestType => 83
+    InvalidFunctionBodyTableInitElemIndex => 171
     InvalidFunctionBodyDataDropIndex => 84
     InvalidFunctionBodyElemDropIndex => 85
     InvalidFunctionBodyTableSizeIndex => 86
@@ -4130,6 +4148,37 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory_init_dest_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_init_data_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let (with_data, _) = validate_invalid_ast_append_passive_data(with_memory)
+  let with_count = with_data.with_data_cnt_sec(DataCntSec::new(U32(1U)))
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_init(DataIdx::new(1U), MemIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_count,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryInitDataIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_local_set_value_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -4568,6 +4617,32 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_init_dest_type(
   )
   {
     strategy: InvalidFunctionBodyTableInitDestType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_init_elem_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_init(ElemIdx::new(1U), TableIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_table_init_base_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTableInitElemIndex,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -7252,6 +7327,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory_init_dest_type(
           base,
         )
+      InvalidFunctionBodyMemoryInitDataIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_init_data_index(
+          base,
+        )
       InvalidFunctionBodyLocalSetValueType =>
         validate_invalid_ast_mutate_invalid_function_body_local_set_value_type(
           base,
@@ -7310,6 +7389,10 @@ pub fn apply_validate_invalid_ast_strategy(
         )
       InvalidFunctionBodyTableInitDestType =>
         validate_invalid_ast_mutate_invalid_function_body_table_init_dest_type(
+          base,
+        )
+      InvalidFunctionBodyTableInitElemIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_table_init_elem_index(
           base,
         )
       InvalidFunctionBodyDataDropIndex =>
@@ -7982,14 +8065,15 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-memory-copy-dest-type", "invalid-function-body-memory64-copy-length-type",
     "invalid-function-body-memory64-copy-source-type", "invalid-function-body-memory64-copy-dest-type",
     "invalid-function-body-memory-init-length-type", "invalid-function-body-memory-init-source-type",
-    "invalid-function-body-memory-init-dest-type", "invalid-function-body-local-set-value-type",
-    "invalid-function-body-local-tee-value-type", "invalid-function-body-return-value-type",
-    "invalid-function-body-table-get-index-type", "invalid-function-body-table-grow-value-type",
-    "invalid-function-body-table-grow-delta-type", "invalid-function-body-table-fill-value-type",
-    "invalid-function-body-table-fill-dest-type", "invalid-function-body-table-fill-length-type",
-    "invalid-function-body-table-copy-length-type", "invalid-function-body-table-copy-source-type",
-    "invalid-function-body-table-copy-dest-type", "invalid-function-body-table-init-length-type",
-    "invalid-function-body-table-init-source-type", "invalid-function-body-table-init-dest-type",
+    "invalid-function-body-memory-init-dest-type", "invalid-function-body-memory-init-data-index",
+    "invalid-function-body-local-set-value-type", "invalid-function-body-local-tee-value-type",
+    "invalid-function-body-return-value-type", "invalid-function-body-table-get-index-type",
+    "invalid-function-body-table-grow-value-type", "invalid-function-body-table-grow-delta-type",
+    "invalid-function-body-table-fill-value-type", "invalid-function-body-table-fill-dest-type",
+    "invalid-function-body-table-fill-length-type", "invalid-function-body-table-copy-length-type",
+    "invalid-function-body-table-copy-source-type", "invalid-function-body-table-copy-dest-type",
+    "invalid-function-body-table-init-length-type", "invalid-function-body-table-init-source-type",
+    "invalid-function-body-table-init-dest-type", "invalid-function-body-table-init-elem-index",
     "invalid-function-body-data-drop-index", "invalid-function-body-elem-drop-index",
     "invalid-function-body-table-size-index", "invalid-function-body-table-set-index-type",
     "invalid-function-body-call-indirect-index-type", "invalid-function-body-return-call-indirect-index-type",
@@ -11654,6 +11738,107 @@ test "function-body table.init dest mutation repairs by using i32 destination" {
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired table.init dest module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory.init data index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryInitDataIndex,
+      0x10d4aUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory.init data index mutation repairs by using declared passive data" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_init_data_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad memory.init data index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let (with_data, data_idx) = validate_invalid_ast_append_passive_data(
+    with_memory,
+  )
+  let with_count = with_data.with_data_cnt_sec(DataCntSec::new(U32(1U)))
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_init(data_idx, MemIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_count,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired memory.init data index module to validate: \{err}",
+      )
+  }
+}
+
+///|
+test "invalid table.init elem index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTableInitElemIndex,
+      0x10d4bUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body table.init elem index mutation repairs by using declared passive elem" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_table_init_elem_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad table.init elem index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_init(ElemIdx::new(0U), TableIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_table_init_base_module(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired table.init elem index module to validate: \{err}")
   }
 }
 

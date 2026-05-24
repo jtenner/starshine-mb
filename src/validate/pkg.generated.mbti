@@ -1086,6 +1086,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemoryInitLengthType
   InvalidFunctionBodyMemoryInitSourceType
   InvalidFunctionBodyMemoryInitDestType
+  InvalidFunctionBodyMemoryInitDataIndex
   InvalidFunctionBodyLocalSetValueType
   InvalidFunctionBodyLocalTeeValueType
   InvalidFunctionBodyReturnValueType
@@ -1101,6 +1102,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableInitLengthType
   InvalidFunctionBodyTableInitSourceType
   InvalidFunctionBodyTableInitDestType
+  InvalidFunctionBodyTableInitElemIndex
   InvalidFunctionBodyDataDropIndex
   InvalidFunctionBodyElemDropIndex
   InvalidFunctionBodyTableSizeIndex
