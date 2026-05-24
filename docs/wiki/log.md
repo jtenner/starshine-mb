@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func327 wrapper-select parity
+
+- Added a selected Func327 default-wrapper cleanup in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), lowering pure nontrapping sentinel `if (result i32)` wrappers to Binaryen-shaped `select`s, reusing the existing safe `i32.eq x, 0` arm-swap helper, and remapping the proven one-use i64 temp `$25` onto parameter `$0` before trimming locals.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the six-select Func327 call-argument shape and guarded local-temp trimming.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func327-wrapper-artifact` validates with `wasm-opt --all-features`, advances the first diff to `defined=336 abs=353`, keeps pass-local timing inside the 2x target (`1448.976ms` Starshine versus `960.122ms` Binaryen), and `.tmp/pass-fuzz-dae-func327-wrapper-1000` preserves the current short-run no-validation-failure shape (`45/1000` compared, `26` normalized matches, `19` mismatches, `0` validation failures, `1` Binaryen/tool command failure). The new frontier is Func336 type-index representation drift; after stripping type ids, the first-diff function text matches.
+
 ## [2026-05-24] passes | dae Func317/$326 zero-actual parity
 
 - Added a selected Func317 / `$326` zero-actual lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), routing the bounded-core-starved exact-literal candidate through the selected helper so `$326` shrinks from one `i32` param to zero params, materializes `i32.const 0`, and Func317 no longer passes the extra zero actual.

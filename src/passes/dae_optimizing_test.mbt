@@ -104,6 +104,30 @@ fn dae_test_instrs_reference_local(
 }
 
 ///|
+fn dae_test_count_select_instr(instr : @lib.Instruction) -> Int {
+  match instr {
+    @lib.Select(_) => 1
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) => dae_test_count_select_instrs(body)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_test_count_select_instrs(then_body) +
+      dae_test_count_select_instrs(else_body)
+    @lib.If(_, then_body, None) => dae_test_count_select_instrs(then_body)
+    _ => 0
+  }
+}
+
+///|
+fn dae_test_count_select_instrs(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count += dae_test_count_select_instr(instr)
+  }
+  count
+}
+
+///|
 fn dae_test_call_ref_fixture() -> @lib.Module {
   let call_ref_type = @lib.TypeIdx::new(0U)
   let f_type = @lib.TypeIdx::new(1U)
@@ -1956,6 +1980,148 @@ test "dae-optimizing folds selected Func327 const-if before Func328 default args
   )
   assert_false(caller.contains("if"), msg=caller)
   assert_false(caller.contains("i32.const I32(-1)"), msg=caller)
+}
+
+///|
+test "dae-optimizing lowers selected Func327 pure default wrappers to selects" {
+  let caller_def = 327
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (memory 1)\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "run") (param i64 i64 i32 i64 i32 i32 i32 i32) (result i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i64 i64 i64 i64 i64 i64)
+      #|    local.get 0
+      #|    i64.const 4294967296
+      #|    i64.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      local.get 0
+      #|      i32.wrap_i64
+      #|    end
+      #|    local.get 1
+      #|    i64.const 4294967296
+      #|    i64.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      local.get 1
+      #|      i32.wrap_i64
+      #|    end
+      #|    local.get 2
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 2
+      #|      if
+      #|        local.get 2
+      #|        call $release
+      #|      end
+      #|      call $default
+      #|    else
+      #|      local.get 2
+      #|    end
+      #|    local.get 3
+      #|    i64.const 4294967296
+      #|    i64.eq
+      #|    if (result i32)
+      #|      i32.const 5
+      #|    else
+      #|      local.get 3
+      #|      i32.wrap_i64
+      #|    end
+      #|    local.get 4
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      local.get 4
+      #|    end
+      #|    local.get 5
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      local.get 5
+      #|    end
+      #|    local.get 6
+      #|    call $check
+      #|    i32.const 1
+      #|    i32.eq
+      #|    if (result i64)
+      #|      local.get 6
+      #|      i64.load offset=8 align=1
+      #|      local.set 25
+      #|      local.get 6
+      #|      call $release
+      #|      local.get 25
+      #|    else
+      #|      local.get 6
+      #|      call $release
+      #|      i64.const 1024
+      #|    end
+      #|    local.get 7
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      local.get 7
+      #|    end
+      #|    call $zero
+      #|    i32.const 1
+      #|    call $target)
+      #|  (func $target (param i32 i32 i32 i32 i32 i32 i64 i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add
+      #|    local.get 2
+      #|    i32.add
+      #|    local.get 3
+      #|    i32.add
+      #|    local.get 4
+      #|    i32.add
+      #|    local.get 5
+      #|    i32.add
+      #|    local.get 6
+      #|    i32.wrap_i64
+      #|    i32.add
+      #|    local.get 7
+      #|    i32.add
+      #|    local.get 8
+      #|    i32.add
+      #|    local.get 9
+      #|    i32.add)
+      #|  (func $release (param i32))
+      #|  (func $default (result i32)
+      #|    i32.const 100)
+      #|  (func $check (param i32) (result i32)
+      #|    i32.const 1)
+      #|  (func $zero (result i32)
+      #|    i32.const 0)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, caller_def,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(dae_test_count_select_instrs(body), 6, msg=caller)
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(25U)),
+    msg=caller,
+  )
+  assert_true(caller.contains("local.set (Local 0)"), msg=caller)
 }
 
 ///|
