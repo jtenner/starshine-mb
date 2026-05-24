@@ -244,6 +244,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-copy-length-type"
     InvalidFunctionBodyMemoryCopySourceType =>
       "invalid-function-body-memory-copy-source-type"
+    InvalidFunctionBodyMemoryCopyDestType =>
+      "invalid-function-body-memory-copy-dest-type"
     InvalidFunctionBodyLocalSetValueType =>
       "invalid-function-body-local-set-value-type"
     InvalidFunctionBodyLocalTeeValueType =>
