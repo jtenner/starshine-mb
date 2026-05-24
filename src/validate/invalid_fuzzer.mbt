@@ -204,6 +204,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodySimdSplatInputType
   InvalidFunctionBodySimdSwizzleInputType
   InvalidFunctionBodySimdBitselectMaskType
+  InvalidFunctionBodySimdBitselectLeftType
+  InvalidFunctionBodySimdBitselectRightType
   InvalidFunctionBodySimdExtractInputType
   InvalidFunctionBodySimdReplaceVectorType
   InvalidFunctionBodySimdReplaceValueType
@@ -1579,6 +1581,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdBitselectLeftType,
+      "invalid-function-body-simd-bitselect-left-type",
+      "invalid function-body SIMD bitselect left operand type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdBitselectRightType,
+      "invalid-function-body-simd-bitselect-right-type",
+      "invalid function-body SIMD bitselect right operand type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodySimdExtractInputType,
       "invalid-function-body-simd-extract-input-type",
       "invalid function-body SIMD extract input type",
@@ -2115,6 +2131,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodySimdSplatInputType => 184
     InvalidFunctionBodySimdSwizzleInputType => 185
     InvalidFunctionBodySimdBitselectMaskType => 186
+    InvalidFunctionBodySimdBitselectLeftType => 221
+    InvalidFunctionBodySimdBitselectRightType => 222
     InvalidFunctionBodySimdExtractInputType => 187
     InvalidFunctionBodySimdReplaceVectorType => 188
     InvalidFunctionBodySimdReplaceValueType => 189
@@ -7304,6 +7322,72 @@ fn validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_mask_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_left_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::v128_const(
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+    ),
+    Instruction::v128_const(
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+    ),
+    Instruction::v128_bitselect(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdBitselectLeftType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_right_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i32_const(I32(1)),
+    Instruction::v128_const(
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+    ),
+    Instruction::v128_bitselect(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdBitselectRightType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_atomic_load_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -9360,6 +9444,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_mask_type(
           base,
         )
+      InvalidFunctionBodySimdBitselectLeftType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_left_type(
+          base,
+        )
+      InvalidFunctionBodySimdBitselectRightType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_right_type(
+          base,
+        )
       InvalidFunctionBodySimdExtractInputType =>
         validate_invalid_ast_mutate_invalid_function_body_simd_extract_input_type(
           base,
@@ -9980,6 +10072,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-simd-replace-lane-index", "invalid-function-body-simd-load-lane-index",
     "invalid-function-body-simd-store-lane-index", "invalid-function-body-simd-splat-input-type",
     "invalid-function-body-simd-swizzle-input-type", "invalid-function-body-simd-bitselect-mask-type",
+    "invalid-function-body-simd-bitselect-left-type", "invalid-function-body-simd-bitselect-right-type",
     "invalid-function-body-simd-extract-input-type", "invalid-function-body-simd-replace-vector-type",
     "invalid-function-body-simd-replace-value-type", "invalid-function-body-simd-load-address-type",
     "invalid-function-body-simd-store-address-type", "invalid-function-body-simd-store-value-type",
@@ -14612,6 +14705,32 @@ test "invalid SIMD bitselect mask type strategy rejects with FunctionBody family
 }
 
 ///|
+test "invalid SIMD bitselect left type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdBitselectLeftType,
+      0x10d6aUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid SIMD bitselect right type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdBitselectRightType,
+      0x10d6bUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "function-body SIMD bitselect mask type mutation repairs by using vector mask" {
   let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_mask_type(
     Module::new(),
@@ -14651,6 +14770,62 @@ test "function-body SIMD bitselect mask type mutation repairs by using vector ma
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired SIMD bitselect module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body SIMD bitselect left/right type mutations repair with vector operands" {
+  let left_mutation = validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_left_type(
+    Module::new(),
+  )
+  match validate_module(left_mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD bitselect left operand type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let right_mutation = validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_right_type(
+    Module::new(),
+  )
+  match validate_module(right_mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD bitselect right operand type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_const(
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+    ),
+    Instruction::v128_const(
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+    ),
+    Instruction::v128_bitselect(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired SIMD bitselect left/right module to validate: \{err}",
+      )
   }
 }
 
