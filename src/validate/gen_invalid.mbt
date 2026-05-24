@@ -375,6 +375,14 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-struct-set-immutable-field"
     InvalidFunctionBodyStructGetSignedFieldType =>
       "invalid-function-body-struct-get-signed-field-type"
+    InvalidFunctionBodyAtomicNotifyCountType =>
+      "invalid-function-body-atomic-notify-count-type"
+    InvalidFunctionBodyAtomicWaitTimeoutType =>
+      "invalid-function-body-atomic-wait-timeout-type"
+    InvalidFunctionBodyAtomicRmwValueType =>
+      "invalid-function-body-atomic-rmw-value-type"
+    InvalidFunctionBodyAtomicCmpxchgReplacementType =>
+      "invalid-function-body-atomic-cmpxchg-replacement-type"
     InvalidFunctionBodyBrOnCastInputType =>
       "invalid-function-body-br-on-cast-input-type"
     InvalidFunctionBodyBrOnCastFailInputType =>

@@ -160,6 +160,10 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyStructSetFieldIndex
   InvalidFunctionBodyStructSetImmutableField
   InvalidFunctionBodyStructGetSignedFieldType
+  InvalidFunctionBodyAtomicNotifyCountType
+  InvalidFunctionBodyAtomicWaitTimeoutType
+  InvalidFunctionBodyAtomicRmwValueType
+  InvalidFunctionBodyAtomicCmpxchgReplacementType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -1105,6 +1109,34 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicNotifyCountType,
+      "invalid-function-body-atomic-notify-count-type",
+      "invalid function-body atomic.notify count type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicWaitTimeoutType,
+      "invalid-function-body-atomic-wait-timeout-type",
+      "invalid function-body atomic.wait timeout type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicRmwValueType,
+      "invalid-function-body-atomic-rmw-value-type",
+      "invalid function-body atomic.rmw value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicCmpxchgReplacementType,
+      "invalid-function-body-atomic-cmpxchg-replacement-type",
+      "invalid function-body atomic.cmpxchg replacement type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1389,6 +1421,10 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyStructSetFieldIndex => 134
     InvalidFunctionBodyStructSetImmutableField => 135
     InvalidFunctionBodyStructGetSignedFieldType => 136
+    InvalidFunctionBodyAtomicNotifyCountType => 137
+    InvalidFunctionBodyAtomicWaitTimeoutType => 138
+    InvalidFunctionBodyAtomicRmwValueType => 139
+    InvalidFunctionBodyAtomicCmpxchgReplacementType => 140
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -1825,6 +1861,13 @@ fn validate_invalid_ast_ensure_memory(mod : Module) -> Module {
     return mod
   }
   mod.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]))
+}
+
+///|
+fn validate_invalid_ast_shared_memory_module() -> Module {
+  Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)), shared=true)]),
+  )
 }
 
 ///|
@@ -5092,6 +5135,115 @@ fn validate_invalid_ast_mutate_invalid_function_body_struct_get_signed_field_typ
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_notify_count_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_atomic_notify(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicNotifyCountType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_wait_timeout_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_atomic_wait32(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicWaitTimeoutType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_rmw_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(7)),
+    Instruction::atomic_rmw(AtomicRmwOp::i32_add(), MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicRmwValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_replacement_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::i64_const(I64(2)),
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i32(),
+      MemArg::new(2U, None, 0UL),
+    ),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicCmpxchgReplacementType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_make_br_on_cast_input_type_body(
   instr : Instruction,
 ) -> Expr {
@@ -6218,6 +6370,22 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_struct_get_signed_field_type(
           base,
         )
+      InvalidFunctionBodyAtomicNotifyCountType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_notify_count_type(
+          base,
+        )
+      InvalidFunctionBodyAtomicWaitTimeoutType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_wait_timeout_type(
+          base,
+        )
+      InvalidFunctionBodyAtomicRmwValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_rmw_value_type(
+          base,
+        )
+      InvalidFunctionBodyAtomicCmpxchgReplacementType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_replacement_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -6674,6 +6842,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-struct-set-input-type", "invalid-function-body-struct-set-value-type",
     "invalid-function-body-struct-get-field-index", "invalid-function-body-struct-set-field-index",
     "invalid-function-body-struct-set-immutable-field", "invalid-function-body-struct-get-signed-field-type",
+    "invalid-function-body-atomic-notify-count-type", "invalid-function-body-atomic-wait-timeout-type",
+    "invalid-function-body-atomic-rmw-value-type", "invalid-function-body-atomic-cmpxchg-replacement-type",
     "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
     "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
@@ -8837,6 +9007,141 @@ test "invalid struct.get signed field type strategy rejects with FunctionBody fa
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.notify count type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicNotifyCountType,
+      0x10d29UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.wait timeout type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicWaitTimeoutType,
+      0x10d2aUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.rmw value type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicRmwValueType,
+      0x10d2bUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.cmpxchg replacement type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicCmpxchgReplacementType,
+      0x10d2cUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body atomic type mutations repair with matching operand types" {
+  let notify = validate_invalid_ast_mutate_invalid_function_body_atomic_notify_count_type(
+    Module::new(),
+  )
+  match validate_module(notify.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.notify count type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let wait = validate_invalid_ast_mutate_invalid_function_body_atomic_wait_timeout_type(
+    Module::new(),
+  )
+  match validate_module(wait.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.wait timeout type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let rmw = validate_invalid_ast_mutate_invalid_function_body_atomic_rmw_value_type(
+    Module::new(),
+  )
+  match validate_module(rmw.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.rmw value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let cmpxchg = validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_replacement_type(
+    Module::new(),
+  )
+  match validate_module(cmpxchg.mutated_module) {
+    Ok(_) =>
+      fail("expected mismatched atomic.cmpxchg replacement type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_atomic_notify(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_atomic_wait32(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::atomic_rmw(AtomicRmwOp::i32_add(), MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_const(I32(2)),
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i32(),
+      MemArg::new(2U, None, 0UL),
+    ),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) => fail("expected repaired atomic type module to validate: \{err}")
   }
 }
 

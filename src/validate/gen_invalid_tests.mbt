@@ -2971,6 +2971,104 @@ test "gen_invalid_ast_generate supports function-body struct.get signed field ty
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body atomic.notify count type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d29UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicNotifyCountType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-atomic-notify-count-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body atomic.wait timeout type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d2aUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicWaitTimeoutType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-atomic-wait-timeout-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body atomic.rmw value type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d2bUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicRmwValueType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-atomic-rmw-value-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body atomic.cmpxchg replacement type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d2cUL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodyAtomicCmpxchgReplacementType,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-atomic-cmpxchg-replacement-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body global.set value type strategy" {
   let generated = match
     gen_invalid_ast_generate(
