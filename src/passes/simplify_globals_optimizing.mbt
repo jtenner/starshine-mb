@@ -664,6 +664,12 @@ fn sgo_count_read_only_to_write_instrs(
             instrs[pos + 2],
             safe_reads,
           )
+          sgo_count_try_table_ref_is_null_read_only_to_write_read(
+            instr,
+            instrs[pos + 1],
+            instrs[pos + 2],
+            safe_reads,
+          )
           sgo_count_block_condition_reverse_compare_read_only_to_write_read(
             instrs, pos, safe_reads,
           )
@@ -710,6 +716,14 @@ fn sgo_count_read_only_to_write_instrs(
               instrs, pos, safe_reads,
             )
             sgo_count_block_condition_compare_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              safe_reads,
+            )
+            sgo_count_try_table_ref_is_null_if_return_set_read(
               instr,
               instrs[pos + 1],
               instrs[pos + 2],
@@ -3386,6 +3400,28 @@ fn sgo_count_block_condition_eqz_read_only_to_write_read(
 }
 
 ///|
+fn sgo_count_try_table_ref_is_null_read_only_to_write_read(
+  instr : @lib.Instruction,
+  ref_is_null : @lib.Instruction,
+  if_instr : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  match (instr, ref_is_null, if_instr) {
+    (
+      @lib.TryTable(_, catches, @lib.Expr(body)),
+      @lib.RefIsNull,
+      @lib.If(_, then_body, None),
+    ) if catches.length() == 0 =>
+      match sgo_single_const_global_set_idx(then_body) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
 fn sgo_count_block_condition_compare_read_only_to_write_read(
   instr : @lib.Instruction,
   const_instr : @lib.Instruction,
@@ -3549,6 +3585,28 @@ fn sgo_count_block_condition_eqz_if_return_set_read(
     (@lib.TryTable(_, catches, @lib.Expr(body)), @lib.GlobalSet(idx)) if catches.length() ==
       0 &&
       eqz == @lib.Instruction::i32_eqz() &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_try_table_ref_is_null_if_return_set_read(
+  instr : @lib.Instruction,
+  ref_is_null : @lib.Instruction,
+  if_instr : @lib.Instruction,
+  value : @lib.Instruction,
+  set : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  match (instr, ref_is_null, set) {
+    (
+      @lib.TryTable(_, catches, @lib.Expr(body)),
+      @lib.RefIsNull,
+      @lib.GlobalSet(idx),
+    ) if catches.length() == 0 &&
       sgo_is_return_guard(if_instr) &&
       sgo_const_instr(value) != None =>
       sgo_count_block_condition_safe_body_read(body, idx, safe_reads)

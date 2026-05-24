@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO try_table ref.is_null read-only-to-write
+
+- Added research note [`0606`](./raw/research/0606-2026-05-24-sgo-try-table-ref-is-null-read-only-to-write.md) and implemented a narrow no-catch `try_table` + `ref.is_null` read-only-to-write extension.
+- No-catch `try_table (result funcref)` wrappers may now feed `ref.is_null` condition self guards and exact `if return; set` guards; catch-bearing wrappers remain conservative.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-try-table-ref-is-null-rotw-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO try_table if-return read-only-to-write
 
 - Added research note [`0605`](./raw/research/0605-2026-05-24-sgo-try-table-if-return-read-only-to-write.md) and implemented the exact `if return; set` follow-up for no-catch transparent `try_table` read-only-to-write conditions.
