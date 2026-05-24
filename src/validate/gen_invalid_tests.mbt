@@ -344,6 +344,34 @@ test "gen_invalid_ast_generate supports data-section invalid offset strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid global initializer type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef41UL),
+      GenInvalidAstParams::repro_seed(InvalidGlobalInitType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-global-init-type base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-global-init-type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == GlobalSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports import-section invalid func type strategy" {
   let generated = match
     gen_invalid_ast_generate(

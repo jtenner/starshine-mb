@@ -244,6 +244,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFuncTypeIndex
   FuncSecWithoutCodeSec
   MutableGlobalGetInConstInit
+  InvalidGlobalInitType
   NonConstantDataOffset
   InvalidDataActiveMemoryIndex
   InvalidImportedFuncTypeIndex
@@ -501,6 +502,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "mutable-global-get-in-const-init",
       "mutable global.get in const global initializer",
       GlobalSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidGlobalInitType,
+      "invalid-global-init-type",
+      "global initializer result type mismatch",
+      GlobalSectionFamily,
+      required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
       NonConstantDataOffset,
@@ -1944,6 +1952,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFuncTypeIndex => 14
     FuncSecWithoutCodeSec => 15
     MutableGlobalGetInConstInit => 16
+    InvalidGlobalInitType => 219
     NonConstantDataOffset => 17
     InvalidDataActiveMemoryIndex => 210
     InvalidImportedFuncTypeIndex => 18
@@ -8333,6 +8342,25 @@ fn validate_invalid_ast_mutate_mutable_global_get_in_const_init(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_global_init_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let globals = validate_invalid_ast_global_entries(mod)
+  globals.push(
+    Global::new(
+      GlobalType::new(ValType::i32(), false),
+      Expr::new([Instruction::i64_const(I64(1L))]),
+    ),
+  )
+  {
+    strategy: InvalidGlobalInitType,
+    applicable: true,
+    expected_family: GlobalSectionFamily,
+    mutated_module: mod.with_global_sec(GlobalSec::new(globals)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_non_constant_data_offset(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -9463,6 +9491,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_funcsec_without_codesec(base)
       MutableGlobalGetInConstInit =>
         validate_invalid_ast_mutate_mutable_global_get_in_const_init(base)
+      InvalidGlobalInitType =>
+        validate_invalid_ast_mutate_invalid_global_init_type(base)
       NonConstantDataOffset =>
         validate_invalid_ast_mutate_non_constant_data_offset(base)
       InvalidDataActiveMemoryIndex =>
@@ -9844,11 +9874,11 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "missing-datacount", "undeclared-ref-func", "invalid-name-section-func-index",
     "invalid-local-name-section-index", "invalid-label-name-section-index", "invalid-local-name-section-func-index",
     "invalid-label-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
-    "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-data-active-memory-index",
-    "invalid-imported-func-type-index", "invalid-imported-tag-type-index", "mutable-global-get-in-table-init",
-    "non-constant-elem-offset", "invalid-element-active-table-index", "invalid-element-func-index",
-    "invalid-element-typed-expr-type", "invalid-memory-limit-range", "invalid-table-limit-range",
-    "invalid-imported-memory-limit-range", "invalid-imported-table-limit-range",
+    "mutable-global-get-in-const-init", "invalid-global-init-type", "non-constant-data-offset",
+    "invalid-data-active-memory-index", "invalid-imported-func-type-index", "invalid-imported-tag-type-index",
+    "mutable-global-get-in-table-init", "non-constant-elem-offset", "invalid-element-active-table-index",
+    "invalid-element-func-index", "invalid-element-typed-expr-type", "invalid-memory-limit-range",
+    "invalid-table-limit-range", "invalid-imported-memory-limit-range", "invalid-imported-table-limit-range",
     "shared-memory-without-max", "shared-memory64-without-max", "invalid-tag-type-index",
     "invalid-subtype-super-index", "invalid-subtype-super-shape", "descriptor-on-func-type",
     "datacount-without-data-sec", "invalid-export-func-index", "start-func-out-of-range",
@@ -10228,6 +10258,19 @@ test "mutable global.get const-init strategy rejects with GlobalSection family" 
     invalid_ast_expect_strategy_rejects_with_family(
       MutableGlobalGetInConstInit,
       0x5ef4UL,
+      GlobalSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid global initializer type strategy rejects with GlobalSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidGlobalInitType,
+      0x5ef41UL,
       GlobalSectionFamily,
     ) {
     Ok(_) => ()
