@@ -1087,6 +1087,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableSetIndexType
   InvalidFunctionBodyCallIndirectIndexType
   InvalidFunctionBodyReturnCallIndirectIndexType
+  InvalidFunctionBodyReturnCallRefType
   InvalidFunctionBodyTableSetValueType
   InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
