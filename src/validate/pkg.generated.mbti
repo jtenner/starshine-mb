@@ -1091,6 +1091,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyCallRefType
   InvalidFunctionBodyRefCastInputType
   InvalidFunctionBodyRefTestInputType
+  InvalidFunctionBodyRefTestDescInputType
   InvalidFunctionBodyTableSetValueType
   InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
