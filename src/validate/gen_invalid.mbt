@@ -449,6 +449,14 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-atomic-rmw-index"
     InvalidFunctionBodyAtomicCmpxchgIndex =>
       "invalid-function-body-atomic-cmpxchg-index"
+    InvalidFunctionBodySimdExtractLaneIndex =>
+      "invalid-function-body-simd-extract-lane-index"
+    InvalidFunctionBodySimdReplaceLaneIndex =>
+      "invalid-function-body-simd-replace-lane-index"
+    InvalidFunctionBodySimdLoadLaneIndex =>
+      "invalid-function-body-simd-load-lane-index"
+    InvalidFunctionBodySimdStoreLaneIndex =>
+      "invalid-function-body-simd-store-lane-index"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>

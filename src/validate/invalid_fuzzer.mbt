@@ -197,6 +197,10 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicWaitIndex
   InvalidFunctionBodyAtomicRmwIndex
   InvalidFunctionBodyAtomicCmpxchgIndex
+  InvalidFunctionBodySimdExtractLaneIndex
+  InvalidFunctionBodySimdReplaceLaneIndex
+  InvalidFunctionBodySimdLoadLaneIndex
+  InvalidFunctionBodySimdStoreLaneIndex
   InvalidFunctionBodyAtomicNotifyAddressType
   InvalidFunctionBodyAtomicWaitAddressType
   InvalidFunctionBodyAtomicWaitExpectedType
@@ -1407,6 +1411,34 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdExtractLaneIndex,
+      "invalid-function-body-simd-extract-lane-index",
+      "invalid function-body SIMD extract lane index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdReplaceLaneIndex,
+      "invalid-function-body-simd-replace-lane-index",
+      "invalid function-body SIMD replace lane index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdLoadLaneIndex,
+      "invalid-function-body-simd-load-lane-index",
+      "invalid function-body SIMD load lane index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdStoreLaneIndex,
+      "invalid-function-body-simd-store-lane-index",
+      "invalid function-body SIMD store lane index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyAtomicNotifyAddressType,
       "invalid-function-body-atomic-notify-address-type",
       "invalid function-body atomic.notify address type",
@@ -1770,6 +1802,10 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyAtomicWaitIndex => 177
     InvalidFunctionBodyAtomicRmwIndex => 178
     InvalidFunctionBodyAtomicCmpxchgIndex => 179
+    InvalidFunctionBodySimdExtractLaneIndex => 180
+    InvalidFunctionBodySimdReplaceLaneIndex => 181
+    InvalidFunctionBodySimdLoadLaneIndex => 182
+    InvalidFunctionBodySimdStoreLaneIndex => 183
     InvalidFunctionBodyAtomicNotifyAddressType => 144
     InvalidFunctionBodyAtomicWaitAddressType => 145
     InvalidFunctionBodyAtomicWaitExpectedType => 146
@@ -6141,6 +6177,120 @@ fn validate_invalid_ast_mutate_invalid_function_body_struct_get_signed_field_typ
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_extract_lane_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i64x2_extract_lane(LaneIdx::new(2)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdExtractLaneIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_replace_lane_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i32_const(I32(9)),
+    Instruction::i16x8_replace_lane(LaneIdx::new(8)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdReplaceLaneIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_load_lane_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_load64_lane(MemArg::new(3U, None, 0UL), LaneIdx::new(2)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdLoadLaneIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_store_lane_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_store32_lane(MemArg::new(2U, None, 0UL), LaneIdx::new(4)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdStoreLaneIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_atomic_load_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -7931,6 +8081,22 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_index(
           base,
         )
+      InvalidFunctionBodySimdExtractLaneIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_extract_lane_index(
+          base,
+        )
+      InvalidFunctionBodySimdReplaceLaneIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_replace_lane_index(
+          base,
+        )
+      InvalidFunctionBodySimdLoadLaneIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_load_lane_index(
+          base,
+        )
+      InvalidFunctionBodySimdStoreLaneIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_store_lane_index(
+          base,
+        )
       InvalidFunctionBodyAtomicNotifyAddressType =>
         validate_invalid_ast_mutate_invalid_function_body_atomic_notify_address_type(
           base,
@@ -8429,7 +8595,9 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-atomic-store-value-type", "invalid-function-body-atomic-load-index",
     "invalid-function-body-atomic-store-index", "invalid-function-body-atomic-notify-index",
     "invalid-function-body-atomic-wait-index", "invalid-function-body-atomic-rmw-index",
-    "invalid-function-body-atomic-cmpxchg-index", "invalid-function-body-atomic-notify-address-type",
+    "invalid-function-body-atomic-cmpxchg-index", "invalid-function-body-simd-extract-lane-index",
+    "invalid-function-body-simd-replace-lane-index", "invalid-function-body-simd-load-lane-index",
+    "invalid-function-body-simd-store-lane-index", "invalid-function-body-atomic-notify-address-type",
     "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
     "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
     "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
@@ -12588,6 +12756,200 @@ test "function-body memory store memarg index mutation repairs by using declared
       fail(
         "expected repaired memory store memarg index module to validate: \{err}",
       )
+  }
+}
+
+///|
+test "invalid SIMD extract lane index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdExtractLaneIndex,
+      0x10d54UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD extract lane index mutation repairs by using in-range lane" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_extract_lane_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD extract lane index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i64x2_extract_lane(LaneIdx::new(1)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired SIMD extract lane module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD replace lane index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdReplaceLaneIndex,
+      0x10d55UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD replace lane index mutation repairs by using in-range lane" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_replace_lane_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD replace lane index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i32_const(I32(9)),
+    Instruction::i16x8_replace_lane(LaneIdx::new(7)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired SIMD replace lane module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD load lane index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdLoadLaneIndex,
+      0x10d56UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD load lane index mutation repairs by using in-range lane" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_load_lane_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD load lane index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_load64_lane(MemArg::new(3U, None, 0UL), LaneIdx::new(1)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired SIMD load lane module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD store lane index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdStoreLaneIndex,
+      0x10d57UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD store lane index mutation repairs by using in-range lane" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_store_lane_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD store lane index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_store32_lane(MemArg::new(2U, None, 0UL), LaneIdx::new(3)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ensure_memory(Module::new()),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired SIMD store lane module to validate: \{err}")
   }
 }
 

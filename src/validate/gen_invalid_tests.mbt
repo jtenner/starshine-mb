@@ -2209,6 +2209,90 @@ test "gen_invalid_ast_generate supports function-body atomic cmpxchg memarg inde
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body SIMD extract lane index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d54UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdExtractLaneIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD extract lane index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body SIMD replace lane index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d55UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdReplaceLaneIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD replace lane index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body SIMD load lane index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d56UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdLoadLaneIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD load lane index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body SIMD store lane index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d57UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdStoreLaneIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD store lane index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body memory.init data index strategy" {
   let generated = match
     gen_invalid_ast_generate(

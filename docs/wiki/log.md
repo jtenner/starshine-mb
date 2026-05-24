@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 SIMD lane-index invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-simd-extract-lane-index`, `invalid-function-body-simd-replace-lane-index`, `invalid-function-body-simd-load-lane-index`, and `invalid-function-body-simd-store-lane-index` for shape-specific SIMD lane immediate bounds.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving out-of-range lane immediates reject with the function-body family while maximum in-range extract/replace/load-lane/store-lane fixtures validate.
+- Updated [`validate/simd-lane-immediates.md`](validate/simd-lane-immediates.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living docs state that binary/library-origin shape-specific lane bounds now reject during typecheck.
+
 ## [2026-05-24] fuzzing | FUZ1020 atomic extended memarg memory-index invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-atomic-notify-index`, `invalid-function-body-atomic-wait-index`, `invalid-function-body-atomic-rmw-index`, and `invalid-function-body-atomic-cmpxchg-index` for shared-memory atomic instructions whose memargs name an out-of-range explicit memory index.

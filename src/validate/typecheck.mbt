@@ -2267,8 +2267,30 @@ fn typecheck_v128_shift(st : TcState) -> TcResult {
 }
 
 ///|
-fn typecheck_lane_extract(st : TcState, out : ValType) -> TcResult {
+fn typecheck_lane_index(
+  lane : LaneIdx,
+  lane_count : Byte,
+) -> Result[Unit, String] {
+  let LaneIdx(n) = lane
+  if n < lane_count {
+    Ok(())
+  } else {
+    Err("invalid lane index")
+  }
+}
+
+///|
+fn typecheck_lane_extract(
+  st : TcState,
+  out : ValType,
+  lane : LaneIdx,
+  lane_count : Byte,
+) -> TcResult {
   // v128 -> out (lane index is an immediate, not on stack)
+  match typecheck_lane_index(lane, lane_count) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   let st1 = match st.pop_expect(ValType::v128()) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2277,8 +2299,17 @@ fn typecheck_lane_extract(st : TcState, out : ValType) -> TcResult {
 }
 
 ///|
-fn typecheck_lane_replace(st : TcState, in_v : ValType) -> TcResult {
+fn typecheck_lane_replace(
+  st : TcState,
+  in_v : ValType,
+  lane : LaneIdx,
+  lane_count : Byte,
+) -> TcResult {
   // v128, in_v -> v128
+  match typecheck_lane_index(lane, lane_count) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   let st1 = match st.pop_expect(in_v) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2347,7 +2378,17 @@ fn typecheck_v128_mem_load_zero(
 }
 
 ///|
-fn typecheck_v128_load_lane(st : TcState, ma : MemArg, nbits : Int) -> TcResult {
+fn typecheck_v128_load_lane(
+  st : TcState,
+  ma : MemArg,
+  nbits : Int,
+  lane : LaneIdx,
+  lane_count : Byte,
+) -> TcResult {
+  match typecheck_lane_index(lane, lane_count) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
@@ -2373,7 +2414,13 @@ fn typecheck_v128_store_lane(
   st : TcState,
   ma : MemArg,
   nbits : Int,
+  lane : LaneIdx,
+  lane_count : Byte,
 ) -> TcResult {
+  match typecheck_lane_index(lane, lane_count) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
@@ -3548,16 +3595,24 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     V128Load64Splat(ma) => typecheck_v128_mem_load_splat(st, ma, 64)
 
     // Lane loads
-    V128Load8Lane(ma, _) => typecheck_v128_load_lane(st, ma, 8)
-    V128Load16Lane(ma, _) => typecheck_v128_load_lane(st, ma, 16)
-    V128Load32Lane(ma, _) => typecheck_v128_load_lane(st, ma, 32)
-    V128Load64Lane(ma, _) => typecheck_v128_load_lane(st, ma, 64)
+    V128Load8Lane(ma, lane) =>
+      typecheck_v128_load_lane(st, ma, 8, lane, b'\x10')
+    V128Load16Lane(ma, lane) =>
+      typecheck_v128_load_lane(st, ma, 16, lane, b'\x08')
+    V128Load32Lane(ma, lane) =>
+      typecheck_v128_load_lane(st, ma, 32, lane, b'\x04')
+    V128Load64Lane(ma, lane) =>
+      typecheck_v128_load_lane(st, ma, 64, lane, b'\x02')
 
     // Lane stores
-    V128Store8Lane(ma, _) => typecheck_v128_store_lane(st, ma, 8)
-    V128Store16Lane(ma, _) => typecheck_v128_store_lane(st, ma, 16)
-    V128Store32Lane(ma, _) => typecheck_v128_store_lane(st, ma, 32)
-    V128Store64Lane(ma, _) => typecheck_v128_store_lane(st, ma, 64)
+    V128Store8Lane(ma, lane) =>
+      typecheck_v128_store_lane(st, ma, 8, lane, b'\x10')
+    V128Store16Lane(ma, lane) =>
+      typecheck_v128_store_lane(st, ma, 16, lane, b'\x08')
+    V128Store32Lane(ma, lane) =>
+      typecheck_v128_store_lane(st, ma, 32, lane, b'\x04')
+    V128Store64Lane(ma, lane) =>
+      typecheck_v128_store_lane(st, ma, 64, lane, b'\x02')
 
     // load*_zero
     V128Load32Zero(ma) => typecheck_v128_mem_load_zero(st, ma, 32)
@@ -3574,20 +3629,34 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     I64x2Splat => typecheck_splat(st, ValType::i64()) // i64 -> v128
     F32x4Splat => typecheck_splat(st, ValType::f32()) // f32 -> v128
     F64x2Splat => typecheck_splat(st, ValType::f64()) // f64 -> v128
-    I8x16ExtractLaneS(_) => typecheck_lane_extract(st, ValType::i32())
-    I8x16ExtractLaneU(_) => typecheck_lane_extract(st, ValType::i32())
-    I16x8ExtractLaneS(_) => typecheck_lane_extract(st, ValType::i32())
-    I16x8ExtractLaneU(_) => typecheck_lane_extract(st, ValType::i32())
-    I32x4ExtractLane(_) => typecheck_lane_extract(st, ValType::i32())
-    I64x2ExtractLane(_) => typecheck_lane_extract(st, ValType::i64())
-    F32x4ExtractLane(_) => typecheck_lane_extract(st, ValType::f32())
-    F64x2ExtractLane(_) => typecheck_lane_extract(st, ValType::f64())
-    I8x16ReplaceLane(_) => typecheck_lane_replace(st, ValType::i32())
-    I16x8ReplaceLane(_) => typecheck_lane_replace(st, ValType::i32())
-    I32x4ReplaceLane(_) => typecheck_lane_replace(st, ValType::i32())
-    I64x2ReplaceLane(_) => typecheck_lane_replace(st, ValType::i64())
-    F32x4ReplaceLane(_) => typecheck_lane_replace(st, ValType::f32())
-    F64x2ReplaceLane(_) => typecheck_lane_replace(st, ValType::f64())
+    I8x16ExtractLaneS(lane) =>
+      typecheck_lane_extract(st, ValType::i32(), lane, b'\x10')
+    I8x16ExtractLaneU(lane) =>
+      typecheck_lane_extract(st, ValType::i32(), lane, b'\x10')
+    I16x8ExtractLaneS(lane) =>
+      typecheck_lane_extract(st, ValType::i32(), lane, b'\x08')
+    I16x8ExtractLaneU(lane) =>
+      typecheck_lane_extract(st, ValType::i32(), lane, b'\x08')
+    I32x4ExtractLane(lane) =>
+      typecheck_lane_extract(st, ValType::i32(), lane, b'\x04')
+    I64x2ExtractLane(lane) =>
+      typecheck_lane_extract(st, ValType::i64(), lane, b'\x02')
+    F32x4ExtractLane(lane) =>
+      typecheck_lane_extract(st, ValType::f32(), lane, b'\x04')
+    F64x2ExtractLane(lane) =>
+      typecheck_lane_extract(st, ValType::f64(), lane, b'\x02')
+    I8x16ReplaceLane(lane) =>
+      typecheck_lane_replace(st, ValType::i32(), lane, b'\x10')
+    I16x8ReplaceLane(lane) =>
+      typecheck_lane_replace(st, ValType::i32(), lane, b'\x08')
+    I32x4ReplaceLane(lane) =>
+      typecheck_lane_replace(st, ValType::i32(), lane, b'\x04')
+    I64x2ReplaceLane(lane) =>
+      typecheck_lane_replace(st, ValType::i64(), lane, b'\x02')
+    F32x4ReplaceLane(lane) =>
+      typecheck_lane_replace(st, ValType::f32(), lane, b'\x04')
+    F64x2ReplaceLane(lane) =>
+      typecheck_lane_replace(st, ValType::f64(), lane, b'\x02')
     I8x16Eq => typecheck_v128_compare(st)
     I8x16Ne => typecheck_v128_compare(st)
     I8x16LtS => typecheck_v128_compare(st)
