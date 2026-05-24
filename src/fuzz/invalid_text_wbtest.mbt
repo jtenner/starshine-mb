@@ -948,6 +948,62 @@ test "dynamic spec-seed sampler filters scanned assertions by file kind and occu
 }
 
 ///|
+test "dynamic invalid text missing paren mutates generated valid WAT into malformed assertion" {
+  let generated = match
+    validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-missing-closing-paren",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    generated.stable_id,
+    "dynamic-gen-valid-missing-closing-paren",
+  )
+  @debug.assert_eq(generated.variant_id, "gen-valid-wat")
+  @debug.assert_eq(
+    validate_invalid_text_stage_name(generated.expected_stage),
+    "parse-or-lower-rejected",
+  )
+  assert_true(generated.base_source.contains("(module"))
+  assert_true(generated.assertion_source.contains("(assert_malformed"))
+  assert_true(generated.assertion_source.contains("module quote"))
+  assert_false(generated.assertion_source.contains(generated.base_source))
+  match
+    run_validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-missing-closing-paren",
+    ) {
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "dynamic invalid text fuzz is deterministic and records generated mutation stats" {
+  let first = match run_validate_invalid_text_dynamic_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let second = match run_validate_invalid_text_dynamic_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(first == second)
+  @debug.assert_eq(first.profile, "smoke")
+  @debug.assert_eq(first.attempts, 4)
+  @debug.assert_eq(first.generated, 4)
+  @debug.assert_eq(first.mutated, 4)
+  @debug.assert_eq(first.parse_or_lower_rejected, 4)
+  @debug.assert_eq(first.matched_expected, 4)
+  @debug.assert_eq(first.strategy_stats.length(), 1)
+  @debug.assert_eq(
+    first.strategy_stats[0].stable_id,
+    "dynamic-gen-valid-missing-closing-paren",
+  )
+  @debug.assert_eq(first.strategy_stats[0].variant_id, "gen-valid-wat")
+}
+
+///|
 test "run_validate_invalid_text_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_text_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v

@@ -97,6 +97,10 @@ pub fn run_validate_invalid_text_case(ValidateInvalidTextStrategyId) -> Result[V
 
 pub fn run_validate_invalid_text_case_by_stable_id(String) -> Result[String, String]
 
+pub fn run_validate_invalid_text_dynamic_case(UInt64, String) -> Result[String, String]
+
+pub fn run_validate_invalid_text_dynamic_fuzz(String, UInt64) -> Result[ValidateInvalidTextDynamicFuzzStats, String]
+
 pub fn run_validate_invalid_text_fuzz(String, UInt64) -> Result[ValidateInvalidTextFuzzStats, String]
 
 pub fn run_wast_validate_roundtrip_fuzz(String, UInt64) -> Result[WastValidateRoundtripFuzzStats, String]
@@ -126,6 +130,8 @@ pub fn validate_invalid_spec_seed_scan_paths(Array[String]) -> Result[Array[Vali
 pub fn validate_invalid_spec_seed_scan_source(String, String) -> Result[Array[ValidateInvalidDynamicSpecSeed], String]
 
 pub fn validate_invalid_spec_seed_select(Array[ValidateInvalidDynamicSpecSeed], path_filter? : String, assertion_kind_filter? : ValidateInvalidTextAssertionKind?, occurrence_filter? : Int?, feature_family_filter? : String) -> Array[ValidateInvalidDynamicSpecSeed]
+
+pub fn validate_invalid_text_dynamic_case(UInt64, String) -> Result[ValidateInvalidTextDynamicCase, String]
 
 pub fn validate_invalid_text_registry() -> Array[ValidateInvalidTextStrategySpec]
 
@@ -945,6 +951,40 @@ pub enum ValidateInvalidTextAssertionKind {
   MalformedTextAssertion
   InvalidTextAssertion
   UnlinkableTextAssertion
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidTextDynamicCase {
+  stable_id : String
+  variant_id : String
+  base_source : String
+  assertion_source : String
+  expected_stage : ValidateInvalidTextStage
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidTextDynamicFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  generated : Int
+  mutated : Int
+  parse_or_lower_rejected : Int
+  validate_rejected : Int
+  valid_before_link : Int
+  matched_expected : Int
+  strategy_stats : Array[ValidateInvalidTextDynamicStrategyStats]
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidTextDynamicStrategyStats {
+  stable_id : String
+  variant_id : String
+  expected_stage : ValidateInvalidTextStage
+  attempted : Int
+  generated : Int
+  mutated : Int
+  parse_or_lower_rejected : Int
+  validate_rejected : Int
+  valid_before_link : Int
+  matched_expected : Int
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidTextFuzzStats {

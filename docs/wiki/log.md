@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1023 dynamic GenValid-WAT invalid text mutation
+
+- Started `[FUZ]1023` by adding a separate dynamic invalid-text helper that generates valid WAT through the GenValid text-roundtrip profile, verifies the base text parses, lowers, and validates, then removes the final closing paren and replays the mutated specimen as an `assert_malformed (module quote ...)` static assertion.
+- Added focused whitebox coverage for the `dynamic-gen-valid-missing-closing-paren` strategy plus deterministic smoke stats for generated, mutated, stage, and expected-match counters.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so the text/spec invalidation docs distinguish the smoke-stable inline registry from the new generated-text mutation surface.
+
 ## [2026-05-24] fuzzing | FUZ1020 code-section length mismatch invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `codesec-length-mismatch-too-small` and `codesec-length-mismatch-too-large`, deterministic code-section AST mutations that build valid type/function/code sections except for the declared-function/body-count mismatch direction under test.
