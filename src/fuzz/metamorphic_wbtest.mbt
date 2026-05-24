@@ -105,6 +105,75 @@ test "metamorphic leading custom-section transform preserves validation and bina
 }
 
 ///|
+test "metamorphic local-names transform preserves validation and binary roundtrip" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x1040UL,
+      GenValidConfig::natural_default(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected valid GenValid seed, got \{e.validation_error_message}")
+  }
+  let imported_func_count = match generated.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      let mut count = 0
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+      count
+    }
+    None => 0
+  }
+  let defined_func_count = match generated.wasm_module.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
+    None => 0
+  }
+  let transformed = match
+    metamorphic_apply_transform(generated.wasm_module, AddLocalNamesSection) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-local-names-section")
+  match transformed.wasm_module.name_sec {
+    Some(name_sec) =>
+      match name_sec.local_names {
+        Some(@lib.IndirectNameMap(entries)) => {
+          @debug.assert_eq(
+            entries.length(),
+            imported_func_count + defined_func_count,
+          )
+          if entries.length() > 0 {
+            match entries[0] {
+              @lib.IndirectNameAssoc(func_idx, @lib.NameMap(local_entries)) => {
+                @debug.assert_eq(func_idx, 0U)
+                if local_entries.length() > 0 {
+                  @debug.assert_eq(
+                    local_entries[0],
+                    @lib.NameAssoc::new(
+                      0U,
+                      @lib.Name::from_string("metamorphic_local_0_0"),
+                    ),
+                  )
+                }
+              }
+            }
+          }
+        }
+        None => fail("expected transformed local names")
+      }
+    None => fail("expected transformed name section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic function-names transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -524,8 +593,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 10)
-  @debug.assert_eq(stats.validated, 10)
+  @debug.assert_eq(stats.transformed, 11)
+  @debug.assert_eq(stats.validated, 11)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -540,4 +609,5 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
     stats.transform_ids.contains("add-unused-passive-funcref-element-segment"),
   )
   assert_true(stats.transform_ids.contains("add-function-names-section"))
+  assert_true(stats.transform_ids.contains("add-local-names-section"))
 }

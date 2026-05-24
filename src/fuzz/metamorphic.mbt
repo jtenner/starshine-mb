@@ -10,6 +10,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   AddFunctionNamesSection
+  AddLocalNamesSection
 } derive(Eq, Debug)
 
 ///|
@@ -28,6 +29,7 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedPassiveFuncrefElementSegment =>
       "add-unused-passive-funcref-element-segment"
     AddFunctionNamesSection => "add-function-names-section"
+    AddLocalNamesSection => "add-local-names-section"
   }
 }
 
@@ -109,6 +111,32 @@ fn metamorphic_with_name_sec_func_names(
 }
 
 ///|
+fn metamorphic_with_name_sec_local_names(
+  mod : @lib.Module,
+  local_names : @lib.IndirectNameMap,
+) -> @lib.Module {
+  let name_sec = match mod.name_sec {
+    Some(existing) =>
+      @lib.NameSec::new(
+        module_name=existing.module_name,
+        func_names=existing.func_names,
+        local_names=Some(local_names),
+        label_names=existing.label_names,
+        type_names=existing.type_names,
+        table_names=existing.table_names,
+        memory_names=existing.memory_names,
+        global_names=existing.global_names,
+        elem_names=existing.elem_names,
+        data_names=existing.data_names,
+        field_names=existing.field_names,
+        tag_names=existing.tag_names,
+      )
+    None => @lib.NameSec::new(local_names=Some(local_names))
+  }
+  mod.with_name_sec(name_sec)
+}
+
+///|
 fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
   mod.with_name_sec(
     @lib.NameSec::new(
@@ -150,6 +178,119 @@ fn metamorphic_add_function_names_section(mod : @lib.Module) -> @lib.Module {
     )
   }
   metamorphic_with_name_sec_func_names(mod, @lib.NameMap::new(names))
+}
+
+///|
+fn metamorphic_flatten_types(mod : @lib.Module) -> Array[@lib.SubType] {
+  let subtypes : Array[@lib.SubType] = []
+  match mod.type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(sub_type) => subtypes.push(sub_type)
+          @lib.GroupRecType(group) =>
+            for sub_type in group {
+              subtypes.push(sub_type)
+            }
+        }
+      }
+    None => ()
+  }
+  subtypes
+}
+
+///|
+fn metamorphic_func_param_count(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> Int {
+  match type_idx {
+    @lib.TypeIdx(i) =>
+      match subtypes.get(i.reinterpret_as_int()) {
+        Some(sub_type) =>
+          match sub_type.get_comptype() {
+            @lib.FuncCompType(params, _) => params.length()
+            _ => 0
+          }
+        None => 0
+      }
+    @lib.RecIdx(_) => 0
+  }
+}
+
+///|
+fn metamorphic_add_local_names_section(mod : @lib.Module) -> @lib.Module {
+  let subtypes = metamorphic_flatten_types(mod)
+  let entries : Array[@lib.IndirectNameAssoc] = []
+  let mut abs_func_idx = 0
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(type_idx)) => {
+            let local_entries : Array[@lib.NameAssoc] = []
+            let count = metamorphic_func_param_count(subtypes, type_idx)
+            for local_idx = 0; local_idx < count; local_idx = local_idx + 1 {
+              local_entries.push(
+                @lib.NameAssoc::new(
+                  local_idx.reinterpret_as_uint(),
+                  @lib.Name::from_string(
+                    "metamorphic_local_\{abs_func_idx}_\{local_idx}",
+                  ),
+                ),
+              )
+            }
+            entries.push(
+              @lib.IndirectNameAssoc::new(
+                abs_func_idx.reinterpret_as_uint(),
+                @lib.NameMap::new(local_entries),
+              ),
+            )
+            abs_func_idx += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match (mod.func_sec, mod.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
+      let count = if type_idxs.length() < funcs.length() {
+        type_idxs.length()
+      } else {
+        funcs.length()
+      }
+      for def_idx = 0; def_idx < count; def_idx = def_idx + 1 {
+        let param_count = metamorphic_func_param_count(
+          subtypes,
+          type_idxs[def_idx],
+        )
+        let local_count = match funcs[def_idx] {
+          @lib.Func(locals, _) => param_count + locals.length()
+        }
+        let local_entries : Array[@lib.NameAssoc] = []
+        for local_idx = 0; local_idx < local_count; local_idx = local_idx + 1 {
+          local_entries.push(
+            @lib.NameAssoc::new(
+              local_idx.reinterpret_as_uint(),
+              @lib.Name::from_string(
+                "metamorphic_local_\{abs_func_idx}_\{local_idx}",
+              ),
+            ),
+          )
+        }
+        entries.push(
+          @lib.IndirectNameAssoc::new(
+            abs_func_idx.reinterpret_as_uint(),
+            @lib.NameMap::new(local_entries),
+          ),
+        )
+        abs_func_idx += 1
+      }
+    }
+    _ => ()
+  }
+  metamorphic_with_name_sec_local_names(mod, @lib.IndirectNameMap::new(entries))
 }
 
 ///|
@@ -317,6 +458,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     AddFunctionNamesSection,
+    AddLocalNamesSection,
   ]
 }
 
@@ -341,6 +483,7 @@ pub fn metamorphic_apply_transform(
     AddUnusedPassiveFuncrefElementSegment =>
       metamorphic_add_unused_passive_funcref_element_segment(mod)
     AddFunctionNamesSection => metamorphic_add_function_names_section(mod)
+    AddLocalNamesSection => metamorphic_add_local_names_section(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
