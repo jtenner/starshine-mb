@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO post-loop reverse pure-compare self-guard FlowScanner slice
+
+- Probed reverse adjacent post-loop pure compare-const self guards against Binaryen v129. Binaryen promoted `i32.const 0; loop (result i32) global.get $g; i32.const 1; i32.add end; i32.eq` before the final same-global write guard, while preserving mutable/read-write shape when the loop body first performed a trapping `i32.load(global.get $g)` before the pure add and compare.
+- Extended `[SGO]003` reverse loop compare-const read-only-to-write counting to use the existing simple nontrapping pure-condition matcher for the loop body, without enabling the broader FlowScanner matcher for loops. Branch/control contents and trapping global-derived loads remain conservative.
+- Added focused positive and negative tests for reverse adjacent post-loop pure compare-const self guards. Validation evidence: initial failing `moon test src/passes` for the reverse pure post-loop compare positive, green `moon test src/passes`, `moon info && moon fmt && moon test`, and `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-loop-reverse-pure-compare-selfguard-10k` (`9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, `25` Binaryen/tool command failures).
+
 ## [2026-05-23] binaryen | SGO post-loop pure-compare self-guard FlowScanner slice
 
 - Probed adjacent post-loop pure compare-const self guards against Binaryen v129. Binaryen promoted `loop (result i32) global.get $g; i32.const 1; i32.add end; i32.const 0; i32.eq` before the final same-global write guard, while preserving mutable/read-write shape when the loop body first performed a trapping `i32.load(global.get $g)` before the pure add and compare.
