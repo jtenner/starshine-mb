@@ -250,6 +250,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-init-length-type"
     InvalidFunctionBodyMemoryInitSourceType =>
       "invalid-function-body-memory-init-source-type"
+    InvalidFunctionBodyMemoryInitDestType =>
+      "invalid-function-body-memory-init-dest-type"
     InvalidFunctionBodyLocalSetValueType =>
       "invalid-function-body-local-set-value-type"
     InvalidFunctionBodyLocalTeeValueType =>

@@ -1597,6 +1597,30 @@ test "gen_invalid_ast_generate supports function-body memory.init source type st
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body memory.init dest type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10ceeUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryInitDestType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-memory-init-dest-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body return value type strategy" {
   let generated = match
     gen_invalid_ast_generate(
