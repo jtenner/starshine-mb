@@ -213,6 +213,30 @@ test "streamed gen-valid keeps function type choices stable when metadata budget
 }
 
 ///|
+test "streamed gen-valid keeps GC type topology off module-topology stream" {
+  let config = {
+    ..GenValidConfig::natural_default(),
+    max_type_defs: 10,
+    features: {
+      ..GenValidFeatureToggles::natural_default(),
+      allow_ref_types: true,
+      allow_subtyping_topology: true,
+    },
+  }
+  for offset in 0..<128 {
+    let seed = 0x51234UL + offset.to_uint64()
+    let left_ctx = GenValidContext::new_streamed(seed, config)
+    let right_ctx = GenValidContext::new_streamed(seed, config)
+    for burn in 0..<8 {
+      ignore(right_ctx.random_int_from(ModuleTopologyStream, 7 + burn))
+    }
+    let (left_defs, _) = gen_valid_gc_type_defs(left_ctx, 4, 6)
+    let (right_defs, _) = gen_valid_gc_type_defs(right_ctx, 4, 6)
+    @debug.assert_eq(left_defs, right_defs)
+  }
+}
+
+///|
 test "coverage-forced prelude records deterministic randomized template order" {
   let config = GenValidConfig::coverage_forced_default()
   let left = match

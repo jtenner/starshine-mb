@@ -3085,11 +3085,6 @@ fn GenValidContext::random_int_from(
 }
 
 ///|
-fn GenValidContext::random_int(self : GenValidContext, max : Int) -> Int {
-  self.random_int_from(ModuleTopologyStream, max)
-}
-
-///|
 fn GenValidContext::random_bool_from(
   self : GenValidContext,
   label : GenValidRandomStreamLabel,
@@ -3665,7 +3660,10 @@ fn gen_valid_gc_type_defs(
   }
 
   let want_mutual_struct_array_group = ctx.config.features.allow_subtyping_topology &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) &&
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 4) == 0
+    ) &&
     remaining_type_budget - (type_idx_cursor - next_type_idx) >= 2
   if want_mutual_struct_array_group {
     let struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
@@ -4159,7 +4157,7 @@ fn gen_valid_pick_callable_with_results(
   if matches.is_empty() {
     None
   } else {
-    Some(matches[ctx.random_int(matches.length())])
+    Some(matches[ctx.random_int_from(BodyStream, matches.length())])
   }
 }
 
@@ -4178,7 +4176,7 @@ fn gen_valid_pick_callable_with_result(
   if matches.is_empty() {
     None
   } else {
-    Some(matches[ctx.random_int(matches.length())])
+    Some(matches[ctx.random_int_from(BodyStream, matches.length())])
   }
 }
 
@@ -4190,7 +4188,7 @@ fn gen_valid_pick_callable(
   if funcs.is_empty() {
     None
   } else {
-    Some(funcs[ctx.random_int(funcs.length())])
+    Some(funcs[ctx.random_int_from(BodyStream, funcs.length())])
   }
 }
 
@@ -4218,16 +4216,20 @@ fn gen_valid_pick_func_idx(
 ) -> FuncIdx {
   if total_func_count <= 0 {
     preferred_idx
-  } else if ctx.config.mode == CoverageForced || ctx.random_int(3) == 0 {
+  } else if ctx.config.mode == CoverageForced ||
+    ctx.random_int_from(ElemStream, 3) == 0 {
     preferred_idx
   } else {
-    FuncIdx::new(ctx.random_int(total_func_count).reinterpret_as_uint())
+    FuncIdx::new(
+      ctx.random_int_from(ElemStream, total_func_count).reinterpret_as_uint(),
+    )
   }
 }
 
 ///|
 fn gen_valid_funcref_expr(ctx : GenValidContext, func_idx : FuncIdx) -> Expr {
-  if ctx.config.mode == CoverageForced || ctx.random_int(4) != 0 {
+  if ctx.config.mode == CoverageForced ||
+    ctx.random_int_from(ElemStream, 4) != 0 {
     Expr::new([Instruction::ref_func(func_idx)])
   } else {
     Expr::new([
@@ -9678,7 +9680,10 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     gen_valid_bool_count(config.features.allow_globals) +
     gen_valid_bool_count(config.features.allow_tags)
   while remaining_imports > 0 {
-    let mut choice = ctx.random_int(import_choice_count)
+    let mut choice = ctx.random_int_from(
+      ModuleTopologyStream,
+      import_choice_count,
+    )
     if choice == 0 {
       import_plan = { ..import_plan, func_count: import_plan.func_count + 1 }
     } else {
@@ -10597,7 +10602,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
 
   let topology_export_mode = if gen_valid_is_topology_heavy_config(config) {
-    ctx.random_int(8)
+    ctx.random_int_from(ModuleTopologyStream, 8)
   } else {
     7
   }
@@ -10734,7 +10739,10 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     mod = mod.with_data_sec(DataSec::new(datas))
   }
   if config.features.allow_name_custom_sections &&
-    (config.mode == CoverageForced || ctx.random_int(3) == 0) {
+    (
+      config.mode == CoverageForced ||
+      ctx.random_int_from(ModuleTopologyStream, 3) == 0
+    ) {
     let func_name_entries : Array[NameAssoc] = []
     if !funcs.is_empty() {
       func_name_entries.push(
