@@ -1387,6 +1387,48 @@ test "gen_invalid_ast_generate supports invalid imported tag type index strategy
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid imported table ref type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f0abUL),
+      GenInvalidAstParams::repro_seed(InvalidImportedTableRefType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-imported-table-ref-type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ImportSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports invalid imported global ref type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f0acUL),
+      GenInvalidAstParams::repro_seed(InvalidImportedGlobalRefType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-imported-global-ref-type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ImportSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports datacount mismatch too-small strategy" {
   let generated = match
     gen_invalid_ast_generate(

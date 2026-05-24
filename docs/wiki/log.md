@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 imported ref-type invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-imported-table-ref-type` and `invalid-imported-global-ref-type`, deterministic import-section AST mutations that append table/global imports whose reference type points at a missing heap type index.
+- Added focused strategy and `gen_invalid` tests proving both mutated modules reject with the import family while valid seeds still validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name imported table/global ref-type coverage alongside imported resource-limit and shared-memory coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 tag result invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-tag-result-type` and `invalid-imported-tag-result-type`, deterministic AST mutations that point defined/imported tags at function types with non-empty result lists.

@@ -562,6 +562,8 @@ fn gen_invalid_ast_strategy_label(
     InvalidImportedFuncTypeIndex => "invalid-imported-func-type-index"
     InvalidImportedTagTypeIndex => "invalid-imported-tag-type-index"
     InvalidImportedTagResultType => "invalid-imported-tag-result-type"
+    InvalidImportedTableRefType => "invalid-imported-table-ref-type"
+    InvalidImportedGlobalRefType => "invalid-imported-global-ref-type"
     MutableGlobalGetInTableInit => "mutable-global-get-in-table-init"
     NonConstantElemOffset => "non-constant-elem-offset"
     InvalidElementActiveTableIndex => "invalid-element-active-table-index"
