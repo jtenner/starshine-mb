@@ -7,6 +7,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedImmutableI32Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
+  AddUnusedFuncrefTable
 } derive(Eq, Debug)
 
 ///|
@@ -21,6 +22,7 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedImmutableI32Global => "add-unused-immutable-i32-global"
     AddUnusedEmptyFunction => "add-unused-empty-function"
     AddUnusedEmptyFunctionType => "add-unused-empty-function-type"
+    AddUnusedFuncrefTable => "add-unused-funcref-table"
   }
 }
 
@@ -143,6 +145,28 @@ fn metamorphic_count_flat_types(rec_types : Array[@lib.RecType]) -> Int {
 }
 
 ///|
+fn metamorphic_add_unused_funcref_table(mod : @lib.Module) -> @lib.Module {
+  let tables = []
+  match mod.table_sec {
+    Some(@lib.TableSec(existing)) =>
+      for table in existing {
+        tables.push(table)
+      }
+    None => ()
+  }
+  tables.push(
+    @lib.Table::new(
+      @lib.TableType::new(
+        @lib.RefType::abs(@lib.AbsHeapType::func()),
+        @lib.Limits::i32(0U, Some(0U)),
+      ),
+      None,
+    ),
+  )
+  mod.with_table_sec(@lib.TableSec::new(tables))
+}
+
+///|
 fn metamorphic_add_unused_empty_function_type(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -208,6 +232,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedImmutableI32Global,
     AddUnusedEmptyFunction,
     AddUnusedEmptyFunctionType,
+    AddUnusedFuncrefTable,
   ]
 }
 
@@ -228,6 +253,7 @@ pub fn metamorphic_apply_transform(
     AddUnusedEmptyFunction => metamorphic_add_unused_empty_function(mod)
     AddUnusedEmptyFunctionType =>
       metamorphic_add_unused_empty_function_type(mod)
+    AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>

@@ -351,6 +351,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedImmutableI32Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
+  AddUnusedFuncrefTable
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {
