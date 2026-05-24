@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO official lit breadth inventory
+
+- Added research note [`0577`](./raw/research/0577-2026-05-23-sgo-official-lit-breadth-inventory.md) mapping official Binaryen `simplify-globals-read_only_to_write.wast` and `simplify-globals-non-init.wast` shapes against current Starshine SGO tests.
+- Found no obvious low-risk uncovered positive implementation slice in those two lit files; most source-shaped gaps are exact guardrail/regression tests for `$additional-set`, `$side-effects-in-body`, and imported-initializer/non-init-write conservatism.
+- Kept `[SGO]003` active/partial and preserved the rule that broad same-init expression matching, body-effect broadening, and control-flow broadening need fresh focused Binaryen positives plus paired negatives.
+
 ## [2026-05-23] binaryen | SGO same-init/runtime guardrails
 
 - Added research note [`0576`](./raw/research/0576-2026-05-23-sgo-same-init-runtime-guardrails.md) and two guardrail tests from the 0574 probe inventory.
