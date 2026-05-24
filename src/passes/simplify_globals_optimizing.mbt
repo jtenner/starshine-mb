@@ -642,6 +642,16 @@ fn sgo_count_read_only_to_write_instrs(
         }
       }
       @lib.TryTable(_, _, body) => {
+        sgo_count_block_condition_external_pure_read(instrs, pos, safe_reads)
+        sgo_count_block_condition_external_pure_if_return_read(
+          instrs, pos, safe_reads,
+        )
+        sgo_count_block_condition_reverse_external_pure_read(
+          instrs, pos, safe_reads,
+        )
+        sgo_count_block_condition_reverse_external_pure_if_return_read(
+          instrs, pos, safe_reads,
+        )
         if pos + 1 < instrs.length() {
           sgo_count_block_condition_read_only_to_write_read(
             instr,
@@ -3130,6 +3140,22 @@ fn sgo_count_block_condition_external_pure_read(
           }
         None => ()
       }
+    @lib.TryTable(_, catches, @lib.Expr(body)) if catches.length() == 0 =>
+      match sgo_block_condition_external_pure_if_index(instrs, pos) {
+        Some(if_index) =>
+          match instrs[if_index] {
+            @lib.If(_, then_body, None) =>
+              match sgo_single_const_global_set_idx(then_body) {
+                Some(idx) =>
+                  sgo_count_block_condition_safe_body_read(
+                    body, idx, safe_reads,
+                  )
+                None => ()
+              }
+            _ => ()
+          }
+        None => ()
+      }
     _ => ()
   }
 }
@@ -3142,6 +3168,25 @@ fn sgo_count_block_condition_external_pure_if_return_read(
 ) -> Unit {
   match instrs[pos] {
     @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_external_pure_if_index(instrs, pos) {
+        Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
+          if if_index + 3 == instrs.length() {
+            match instrs[if_index + 2] {
+              @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) !=
+                None =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              _ => ()
+            }
+          } else if if_index + 2 == instrs.length() {
+            match sgo_block_set_tail_idx(instrs[if_index + 1]) {
+              Some(idx) =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    @lib.TryTable(_, catches, @lib.Expr(body)) if catches.length() == 0 =>
       match sgo_block_condition_external_pure_if_index(instrs, pos) {
         Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
           if if_index + 3 == instrs.length() {
@@ -3187,6 +3232,22 @@ fn sgo_count_block_condition_reverse_external_pure_read(
           }
         None => ()
       }
+    @lib.TryTable(_, catches, @lib.Expr(body)) if catches.length() == 0 =>
+      match sgo_block_condition_reverse_external_pure_if_index(instrs, pos) {
+        Some(if_index) =>
+          match instrs[if_index] {
+            @lib.If(_, then_body, None) =>
+              match sgo_single_const_global_set_idx(then_body) {
+                Some(idx) =>
+                  sgo_count_block_condition_safe_body_read(
+                    body, idx, safe_reads,
+                  )
+                None => ()
+              }
+            _ => ()
+          }
+        None => ()
+      }
     _ => ()
   }
 }
@@ -3199,6 +3260,25 @@ fn sgo_count_block_condition_reverse_external_pure_if_return_read(
 ) -> Unit {
   match instrs[pos] {
     @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_reverse_external_pure_if_index(instrs, pos) {
+        Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
+          if if_index + 3 == instrs.length() {
+            match instrs[if_index + 2] {
+              @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) !=
+                None =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              _ => ()
+            }
+          } else if if_index + 2 == instrs.length() {
+            match sgo_block_set_tail_idx(instrs[if_index + 1]) {
+              Some(idx) =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    @lib.TryTable(_, catches, @lib.Expr(body)) if catches.length() == 0 =>
       match sgo_block_condition_reverse_external_pure_if_index(instrs, pos) {
         Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
           if if_index + 3 == instrs.length() {
