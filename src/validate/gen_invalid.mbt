@@ -270,6 +270,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-table-copy-source-type"
     InvalidFunctionBodyTableCopyDestType =>
       "invalid-function-body-table-copy-dest-type"
+    InvalidFunctionBodyTableInitLengthType =>
+      "invalid-function-body-table-init-length-type"
     InvalidFunctionBodyTableSetValueType =>
       "invalid-function-body-table-set-value-type"
     InvalidFunctionBodyGlobalSetValueType =>

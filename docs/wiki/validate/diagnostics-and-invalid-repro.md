@@ -108,7 +108,7 @@ The AST-invalid lane is the strictest diagnostic-family oracle because it starts
 Key surfaces:
 
 - [`ValidateInvalidAstStrategySpec`](../../../src/validate/invalid_fuzzer.mbt#L116-L125) stores `stable_id`, default `variant_id`, display name, source `layer`, `expected_family`, exact `expected_issue_kind`, and `required_in_smoke`.
-- [`validate_invalid_ast_registry()`](../../../src/validate/invalid_fuzzer.mbt#L190-L501) is the checked-in registry of stable ids such as `duplicate-export-name`, `missing-datacount`, `undeclared-ref-func`, `invalid-func-type-index`, `datacount-mismatch-too-small`, `datacount-without-data-sec`, and function-body stack typing cases such as `invalid-function-body-table-copy-length-type`, `invalid-function-body-table-copy-source-type`, and `invalid-function-body-table-copy-dest-type`.
+- [`validate_invalid_ast_registry()`](../../../src/validate/invalid_fuzzer.mbt#L190-L501) is the checked-in registry of stable ids such as `duplicate-export-name`, `missing-datacount`, `undeclared-ref-func`, `invalid-func-type-index`, `datacount-mismatch-too-small`, `datacount-without-data-sec`, and function-body stack typing cases such as `invalid-function-body-table-copy-length-type`, `invalid-function-body-table-copy-source-type`, `invalid-function-body-table-copy-dest-type`, and `invalid-function-body-table-init-length-type`.
 - [`ValidateInvalidAstMutation`](../../../src/validate/invalid_fuzzer.mbt#L136-L141) records whether the strategy was applicable, the expected family, and the mutated module.
 - [`ValidateInvalidAstStrategyStats`](../../../src/validate/invalid_fuzzer.mbt#L144-L160) separately counts attempted, applicable, mutated, rejected, rejected-for-expected-family, default variant attempts/applicability/mutations/rejections, and exact issue-kind matches.
 
@@ -125,7 +125,7 @@ A new validator family is not done when the validator rejects. It is done when a
 5. Apply the invalid mutation.
 6. Validate that the mutated module rejects with the strategy's expected family.
 
-The tests in [`src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt) lock the important cases: valid seed before mutation, expected family after mutation, minimal seeds, seed-profile naming, prereq widening, representative type/import/function/element/tag/datacount/export/start families, and focused function-body operand-stack mismatches for call, branch, exception, memory, table, local, global, and return instructions.
+The tests in [`src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt) lock the important cases: valid seed before mutation, expected family after mutation, minimal seeds, seed-profile naming, prereq widening, representative type/import/function/element/tag/datacount/export/start families, and focused function-body operand-stack mismatches for call, branch, exception, memory, table, bulk-table, local, global, and return instructions.
 
 Use `repro_seed(...)` for persisted reports by default. It keeps artifacts compact while preserving the semantic seed profile in report metadata.
 
