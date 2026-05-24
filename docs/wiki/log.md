@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 array.len input invalid AST coverage
+
+- Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-array-len-input-type`.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving a scalar `i32` operand for `array.len` rejects with the function-body family while a nullable `arrayref` operand repair validates.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living invalid-AST summaries name array reference input coverage alongside the recent reference-instruction input variants.
+
 ## [2026-05-24] fuzzing | FUZ1020 ref.get_desc input invalid AST coverage
 
 - Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-ref-get-desc-input-type`.
