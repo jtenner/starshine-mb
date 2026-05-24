@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 atomic operand invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-atomic-notify-address-type`, `invalid-function-body-atomic-wait-address-type`, `invalid-function-body-atomic-wait-expected-type`, `invalid-function-body-atomic-rmw-address-type`, `invalid-function-body-atomic-cmpxchg-address-type`, and `invalid-function-body-atomic-cmpxchg-expected-type` for the remaining shared-memory atomic stack operand roles not covered by the prior atomic body slices.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving mismatched notify/wait/RMW/cmpxchg address and expected-value operands reject while matching shared-memory operand stacks validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living invalid-AST summaries name the widened atomic operand coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 atomic address/store invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-atomic-load-address-type`, `invalid-function-body-atomic-store-address-type`, and `invalid-function-body-atomic-store-value-type` for shared-memory atomic load/store stack-type rule failures.

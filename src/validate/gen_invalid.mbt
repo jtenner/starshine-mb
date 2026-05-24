@@ -389,6 +389,18 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-atomic-store-address-type"
     InvalidFunctionBodyAtomicStoreValueType =>
       "invalid-function-body-atomic-store-value-type"
+    InvalidFunctionBodyAtomicNotifyAddressType =>
+      "invalid-function-body-atomic-notify-address-type"
+    InvalidFunctionBodyAtomicWaitAddressType =>
+      "invalid-function-body-atomic-wait-address-type"
+    InvalidFunctionBodyAtomicWaitExpectedType =>
+      "invalid-function-body-atomic-wait-expected-type"
+    InvalidFunctionBodyAtomicRmwAddressType =>
+      "invalid-function-body-atomic-rmw-address-type"
+    InvalidFunctionBodyAtomicCmpxchgAddressType =>
+      "invalid-function-body-atomic-cmpxchg-address-type"
+    InvalidFunctionBodyAtomicCmpxchgExpectedType =>
+      "invalid-function-body-atomic-cmpxchg-expected-type"
     InvalidFunctionBodyBrOnCastInputType =>
       "invalid-function-body-br-on-cast-input-type"
     InvalidFunctionBodyBrOnCastFailInputType =>

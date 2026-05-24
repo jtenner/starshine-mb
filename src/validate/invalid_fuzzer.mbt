@@ -167,6 +167,12 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicLoadAddressType
   InvalidFunctionBodyAtomicStoreAddressType
   InvalidFunctionBodyAtomicStoreValueType
+  InvalidFunctionBodyAtomicNotifyAddressType
+  InvalidFunctionBodyAtomicWaitAddressType
+  InvalidFunctionBodyAtomicWaitExpectedType
+  InvalidFunctionBodyAtomicRmwAddressType
+  InvalidFunctionBodyAtomicCmpxchgAddressType
+  InvalidFunctionBodyAtomicCmpxchgExpectedType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -1161,6 +1167,48 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicNotifyAddressType,
+      "invalid-function-body-atomic-notify-address-type",
+      "invalid function-body atomic.notify address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicWaitAddressType,
+      "invalid-function-body-atomic-wait-address-type",
+      "invalid function-body atomic.wait address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicWaitExpectedType,
+      "invalid-function-body-atomic-wait-expected-type",
+      "invalid function-body atomic.wait expected type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicRmwAddressType,
+      "invalid-function-body-atomic-rmw-address-type",
+      "invalid function-body atomic.rmw address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicCmpxchgAddressType,
+      "invalid-function-body-atomic-cmpxchg-address-type",
+      "invalid function-body atomic.cmpxchg address type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicCmpxchgExpectedType,
+      "invalid-function-body-atomic-cmpxchg-expected-type",
+      "invalid function-body atomic.cmpxchg expected type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1452,6 +1500,12 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyAtomicLoadAddressType => 141
     InvalidFunctionBodyAtomicStoreAddressType => 142
     InvalidFunctionBodyAtomicStoreValueType => 143
+    InvalidFunctionBodyAtomicNotifyAddressType => 144
+    InvalidFunctionBodyAtomicWaitAddressType => 145
+    InvalidFunctionBodyAtomicWaitExpectedType => 146
+    InvalidFunctionBodyAtomicRmwAddressType => 147
+    InvalidFunctionBodyAtomicCmpxchgAddressType => 148
+    InvalidFunctionBodyAtomicCmpxchgExpectedType => 149
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -5346,6 +5400,172 @@ fn validate_invalid_ast_mutate_invalid_function_body_atomic_store_value_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_notify_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_atomic_notify(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicNotifyAddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_wait_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_atomic_wait32(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicWaitAddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_wait_expected_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::memory_atomic_wait32(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicWaitExpectedType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_rmw_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::atomic_rmw(AtomicRmwOp::i32_add(), MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicRmwAddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_address_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_const(I32(2)),
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i32(),
+      MemArg::new(2U, None, 0UL),
+    ),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicCmpxchgAddressType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_expected_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(1)),
+    Instruction::i32_const(I32(2)),
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i32(),
+      MemArg::new(2U, None, 0UL),
+    ),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicCmpxchgExpectedType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_make_br_on_cast_input_type_body(
   instr : Instruction,
 ) -> Expr {
@@ -6500,6 +6720,30 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_atomic_store_value_type(
           base,
         )
+      InvalidFunctionBodyAtomicNotifyAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_notify_address_type(
+          base,
+        )
+      InvalidFunctionBodyAtomicWaitAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_wait_address_type(
+          base,
+        )
+      InvalidFunctionBodyAtomicWaitExpectedType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_wait_expected_type(
+          base,
+        )
+      InvalidFunctionBodyAtomicRmwAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_rmw_address_type(
+          base,
+        )
+      InvalidFunctionBodyAtomicCmpxchgAddressType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_address_type(
+          base,
+        )
+      InvalidFunctionBodyAtomicCmpxchgExpectedType =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_expected_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -6959,7 +7203,10 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-atomic-notify-count-type", "invalid-function-body-atomic-wait-timeout-type",
     "invalid-function-body-atomic-rmw-value-type", "invalid-function-body-atomic-cmpxchg-replacement-type",
     "invalid-function-body-atomic-load-address-type", "invalid-function-body-atomic-store-address-type",
-    "invalid-function-body-atomic-store-value-type", "invalid-function-body-br-on-cast-input-type",
+    "invalid-function-body-atomic-store-value-type", "invalid-function-body-atomic-notify-address-type",
+    "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
+    "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
+    "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
     "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
     "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
     "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
@@ -9218,6 +9465,84 @@ test "invalid atomic.store value type strategy rejects with FunctionBody family"
 }
 
 ///|
+test "invalid atomic.notify address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicNotifyAddressType,
+      0x10d30UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.wait address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicWaitAddressType,
+      0x10d31UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.wait expected type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicWaitExpectedType,
+      0x10d32UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.rmw address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicRmwAddressType,
+      0x10d33UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.cmpxchg address type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicCmpxchgAddressType,
+      0x10d34UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic.cmpxchg expected type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicCmpxchgExpectedType,
+      0x10d35UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "function-body atomic type mutations repair with matching operand types" {
   let notify = validate_invalid_ast_mutate_invalid_function_body_atomic_notify_count_type(
     Module::new(),
@@ -9291,6 +9616,72 @@ test "function-body atomic type mutations repair with matching operand types" {
   )
   match validate_module(store_value.mutated_module) {
     Ok(_) => fail("expected mismatched atomic.store value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let notify_address = validate_invalid_ast_mutate_invalid_function_body_atomic_notify_address_type(
+    Module::new(),
+  )
+  match validate_module(notify_address.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.notify address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let wait_address = validate_invalid_ast_mutate_invalid_function_body_atomic_wait_address_type(
+    Module::new(),
+  )
+  match validate_module(wait_address.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.wait address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let wait_expected = validate_invalid_ast_mutate_invalid_function_body_atomic_wait_expected_type(
+    Module::new(),
+  )
+  match validate_module(wait_expected.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.wait expected type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let rmw_address = validate_invalid_ast_mutate_invalid_function_body_atomic_rmw_address_type(
+    Module::new(),
+  )
+  match validate_module(rmw_address.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.rmw address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let cmpxchg_address = validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_address_type(
+    Module::new(),
+  )
+  match validate_module(cmpxchg_address.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.cmpxchg address type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let cmpxchg_expected = validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_expected_type(
+    Module::new(),
+  )
+  match validate_module(cmpxchg_expected.mutated_module) {
+    Ok(_) => fail("expected mismatched atomic.cmpxchg expected type to reject")
     Err(err) =>
       assert_true(
         validation_issue_family(validation_error_diagnostic(err).issue) ==
