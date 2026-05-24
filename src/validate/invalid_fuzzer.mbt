@@ -96,6 +96,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemory64StoreAddressType
   InvalidFunctionBodyMemoryStoreValueType
   InvalidFunctionBodyMemory64StoreValueType
+  InvalidFunctionBodyMemoryLoadAlignment
+  InvalidFunctionBodyMemoryStoreAlignment
   InvalidFunctionBodyMemorySizeIndex
   InvalidFunctionBodyMemoryGrowIndex
   InvalidFunctionBodyMemoryGrowDeltaType
@@ -680,6 +682,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyMemory64StoreValueType,
       "invalid-function-body-memory64-store-value-type",
       "invalid function-body memory64 store value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryLoadAlignment,
+      "invalid-function-body-memory-load-alignment",
+      "invalid function-body memory load alignment",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryStoreAlignment,
+      "invalid-function-body-memory-store-alignment",
+      "invalid function-body memory store alignment",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -1541,6 +1557,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemory64StoreAddressType => 151
     InvalidFunctionBodyMemoryStoreValueType => 46
     InvalidFunctionBodyMemory64StoreValueType => 152
+    InvalidFunctionBodyMemoryLoadAlignment => 164
+    InvalidFunctionBodyMemoryStoreAlignment => 165
     InvalidFunctionBodyMemorySizeIndex => 156
     InvalidFunctionBodyMemoryGrowIndex => 157
     InvalidFunctionBodyMemoryGrowDeltaType => 70
@@ -3467,6 +3485,58 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory64_store_value_type(
   )
   {
     strategy: InvalidFunctionBodyMemory64StoreValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_load_alignment(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load(MemArg::new(3U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryLoadAlignment,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_store_alignment(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_store(MemArg::new(3U, None, 0UL)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryStoreAlignment,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -6954,6 +7024,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory64_store_value_type(
           base,
         )
+      InvalidFunctionBodyMemoryLoadAlignment =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_load_alignment(
+          base,
+        )
+      InvalidFunctionBodyMemoryStoreAlignment =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_store_alignment(
+          base,
+        )
       InvalidFunctionBodyMemorySizeIndex =>
         validate_invalid_ast_mutate_invalid_function_body_memory_size_index(
           base,
@@ -7734,6 +7812,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-memory-address-type", "invalid-function-body-memory64-address-type",
     "invalid-function-body-memory-store-address-type", "invalid-function-body-memory64-store-address-type",
     "invalid-function-body-memory-store-value-type", "invalid-function-body-memory64-store-value-type",
+    "invalid-function-body-memory-load-alignment", "invalid-function-body-memory-store-alignment",
     "invalid-function-body-memory-size-index", "invalid-function-body-memory-grow-index",
     "invalid-function-body-memory-grow-delta-type", "invalid-function-body-memory-fill-value-type",
     "invalid-function-body-memory-fill-dest-type", "invalid-function-body-memory-fill-length-type",
@@ -11552,6 +11631,100 @@ test "function-body table.size index mutation repairs by using declared table in
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired table.size index module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory load alignment strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryLoadAlignment,
+      0x10d44UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory load alignment mutation repairs by using natural alignment" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_load_alignment(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected over-aligned memory load to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory load alignment module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory store alignment strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryStoreAlignment,
+      0x10d45UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory store alignment mutation repairs by using natural alignment" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_store_alignment(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected over-aligned memory store to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_store(MemArg::new(2U, None, 0UL)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired memory store alignment module to validate: \{err}",
+      )
   }
 }
 

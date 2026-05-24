@@ -250,6 +250,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-store-value-type"
     InvalidFunctionBodyMemory64StoreValueType =>
       "invalid-function-body-memory64-store-value-type"
+    InvalidFunctionBodyMemoryLoadAlignment =>
+      "invalid-function-body-memory-load-alignment"
+    InvalidFunctionBodyMemoryStoreAlignment =>
+      "invalid-function-body-memory-store-alignment"
     InvalidFunctionBodyMemorySizeIndex =>
       "invalid-function-body-memory-size-index"
     InvalidFunctionBodyMemoryGrowIndex =>
