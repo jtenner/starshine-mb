@@ -15890,6 +15890,112 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
 }
 
 ///|
+fn dae_try_unwrap_func313_suffix_staging_block_once(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 3 {
+    return None
+  }
+  let call_idx = body.length() - 1
+  let (raw_local_get_idx, raw_const_idx) = match body[body.length() - 2] {
+    @lib.LocalGet(_) => (body.length() - 2, -1)
+    @lib.I32Const(@lib.I32(35864)) if body.length() >= 7 =>
+      (body.length() - 3, body.length() - 2)
+    _ => (-1, -1)
+  }
+  if raw_local_get_idx >= 5 {
+    let dead_if_idx = raw_local_get_idx - 1
+    let dead_cond_idx = raw_local_get_idx - 2
+    let global_set_idx = raw_local_get_idx - 3
+    let global_if_idx = raw_local_get_idx - 4
+    let global_cond_idx = raw_local_get_idx - 5
+    match
+      (
+        body[global_cond_idx],
+        body[global_if_idx],
+        body[global_set_idx],
+        body[dead_cond_idx],
+        body[dead_if_idx],
+        body[raw_local_get_idx],
+        body[call_idx],
+      ) {
+      (
+        @lib.GlobalGet(_),
+        @lib.If(global_block_type, _, _),
+        @lib.LocalSet(global_temp_set),
+        @lib.I32Const(@lib.I32(0)),
+        @lib.If(dead_block_type, _, _),
+        @lib.LocalGet(global_temp_get),
+        @lib.Call(_),
+      ) if global_block_type == @lib.BlockType::val_type(@lib.ValType::i32()) &&
+        dead_block_type == @lib.BlockType::void_() &&
+        dae_local_idx_equal(global_temp_set, global_temp_get) => {
+        let rewritten = dae_copy_instr_prefix(body, global_cond_idx)
+        rewritten.push(body[global_cond_idx])
+        rewritten.push(body[global_if_idx])
+        if raw_const_idx >= 0 {
+          rewritten.push(body[raw_const_idx])
+        }
+        rewritten.push(body[call_idx])
+        return Some(rewritten)
+      }
+      _ => ()
+    }
+  }
+  let (block_idx, global_get_idx, const_idx) = match body[body.length() - 2] {
+    @lib.LocalGet(_) => (body.length() - 3, body.length() - 2, -1)
+    @lib.I32Const(@lib.I32(35864)) if body.length() >= 4 =>
+      (body.length() - 4, body.length() - 3, body.length() - 2)
+    _ => return None
+  }
+  match (body[block_idx], body[global_get_idx], body[call_idx]) {
+    (
+      @lib.Block(block_type, @lib.Expr(block_body)),
+      @lib.LocalGet(global_temp_get),
+      @lib.Call(_),
+    ) if block_type == @lib.BlockType::val_type(@lib.ValType::i32()) &&
+      block_body.length() == 9 =>
+      match
+        (
+          block_body[1],
+          block_body[2],
+          block_body[4],
+          block_body[5],
+          block_body[6],
+          block_body[7],
+          block_body[8],
+        ) {
+        (
+          @lib.If(param_block_type, _, _),
+          @lib.LocalSet(param_temp),
+          @lib.If(global_block_type, _, _),
+          @lib.LocalSet(global_temp_set),
+          @lib.I32Const(@lib.I32(0)),
+          @lib.If(dead_block_type, _, _),
+          @lib.LocalGet(param_temp_get),
+        ) if param_block_type == @lib.BlockType::val_type(@lib.ValType::i32()) &&
+          global_block_type == @lib.BlockType::val_type(@lib.ValType::i32()) &&
+          dead_block_type == @lib.BlockType::void_() &&
+          dae_local_idx_equal(param_temp, param_temp_get) &&
+          dae_local_idx_equal(global_temp_set, global_temp_get) => {
+          let rewritten = dae_copy_instr_prefix(body, block_idx)
+          rewritten.push(block_body[0])
+          rewritten.push(block_body[1])
+          rewritten.push(block_body[3])
+          rewritten.push(block_body[4])
+          if const_idx >= 0 {
+            rewritten.push(body[const_idx])
+          }
+          rewritten.push(body[call_idx])
+          Some(rewritten)
+        }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn dae_try_rewrite_selected_func313_terminal_call_args_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -15929,7 +16035,7 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
   }
   let param_count = 7
   let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  if locals.length() < 18 || body.length() == 0 {
+  if locals.length() < 2 || body.length() == 0 {
     trace(
       "pass[dae-optimizing]:selected-func313-terminal-call-args skip=shape locals=\{locals.length()} body=\{body.length()}",
     )
@@ -15971,6 +16077,13 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
         }
       }
   }
+  match dae_try_unwrap_func313_suffix_staging_block_once(rewritten) {
+    Some(unwrapped) => {
+      rewritten = unwrapped
+      changed = true
+    }
+    None => ()
+  }
   if !changed || rewritten == body {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -15983,6 +16096,404 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
   touched[def_idx] = true
   {
     mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
+fn dae_defined_i32_global_const_equals(
+  mod_ : @lib.Module,
+  global_idx : @lib.GlobalIdx,
+  expected : Int,
+) -> Bool {
+  let slot = dae_global_idx_slot(global_idx)
+  let mut imported_globals = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.GlobalExternType(_)) => {
+            if imported_globals == slot {
+              return false
+            }
+            imported_globals += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let defined_slot = slot - imported_globals
+  if defined_slot < 0 {
+    return false
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) if defined_slot < globals.length() =>
+      match globals[defined_slot] {
+        @lib.Global(
+          @lib.GlobalType(val_type, false),
+          @lib.Expr([@lib.I32Const(@lib.I32(value))])
+        ) => val_type == @lib.ValType::i32() && value == expected
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn dae_instr_matches_func313_global_suffix_block(
+  mod_ : @lib.Module,
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) if block_type ==
+      @lib.BlockType::val_type(@lib.ValType::i32()) &&
+      body.length() >= 5 =>
+      match body[0] {
+        @lib.GlobalGet(global_idx) => {
+          if !dae_defined_i32_global_const_equals(mod_, global_idx, 169472) {
+            return false
+          }
+          match body[1] {
+            @lib.If(global_block_type, _, _) if global_block_type ==
+              @lib.BlockType::val_type(@lib.ValType::i32()) => ()
+            _ => return false
+          }
+          let mut idx = 2
+          while idx < body.length() {
+            match body[idx] {
+              @lib.LocalSet(_) | @lib.LocalGet(_) => ()
+              @lib.I32Const(@lib.I32(0)) => ()
+              @lib.If(dead_block_type, _, None) =>
+                if dead_block_type != @lib.BlockType::void_() ||
+                  idx == 0 ||
+                  body[idx - 1] != @lib.Instruction::i32_const(@lib.I32(0)) {
+                  return false
+                }
+              _ => return false
+            }
+            idx += 1
+          }
+          true
+        }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn dae_try_strip_func313_dropped_call323_global_suffix(
+  mod_ : @lib.Module,
+  funcs : Array[@lib.Func],
+  caller_def : Int,
+  callee_abs : Int,
+) -> @lib.Func? {
+  if caller_def < 0 || caller_def >= funcs.length() {
+    return None
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[caller_def]
+  if body.length() < 3 {
+    return None
+  }
+  let call_idx = body.length() - 1
+  let drop_idx = body.length() - 2
+  let block_idx = body.length() - 3
+  match body[call_idx] {
+    @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => ()
+    _ => return None
+  }
+  if body[drop_idx] != @lib.Instruction::drop() ||
+    !dae_instr_matches_func313_global_suffix_block(mod_, body[block_idx]) {
+    return None
+  }
+  let rewritten = dae_copy_instr_prefix(body, block_idx)
+  rewritten.push(body[call_idx])
+  Some(
+    @lib.Func::new(
+      dae_trim_trailing_unused_func237_locals(locals, rewritten, 7),
+      @lib.Expr::new(rewritten),
+    ),
+  )
+}
+
+///|
+fn dae_try_rewrite_func313_call323_global_suffix(
+  mod_ : @lib.Module,
+  funcs : Array[@lib.Func],
+  type_indices : Array[@lib.TypeIdx],
+  caller_def : Int,
+  callee_abs : Int,
+) -> @lib.Func? {
+  if caller_def < 0 || caller_def >= funcs.length() {
+    return None
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[caller_def]
+  if body.length() < 4 {
+    return None
+  }
+  let call_idx = body.length() - 1
+  match body[call_idx] {
+    @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => ()
+    _ => return None
+  }
+  if body.length() >= 6 {
+    let global_idx = body.length() - 6
+    let global_if_idx = body.length() - 5
+    let dead_const_idx = body.length() - 4
+    let dead_if_idx = body.length() - 3
+    let const_idx = body.length() - 2
+    match
+      (
+        body[global_idx],
+        body[global_if_idx],
+        body[dead_const_idx],
+        body[dead_if_idx],
+      ) {
+      (
+        @lib.GlobalGet(suffix_global),
+        @lib.If(global_block_type, _, _),
+        @lib.I32Const(@lib.I32(0)),
+        @lib.If(dead_block_type, _, _),
+      ) if global_block_type == @lib.BlockType::val_type(@lib.ValType::i32()) &&
+        dead_block_type == @lib.BlockType::void_() &&
+        dae_defined_i32_global_const_equals(mod_, suffix_global, 169472) &&
+        body[const_idx] == @lib.Instruction::i32_const(@lib.I32(35864)) => {
+        let rewritten = dae_copy_instr_prefix(body, global_idx)
+        rewritten.push(body[call_idx])
+        return Some(
+          @lib.Func::new(
+            dae_trim_trailing_unused_func237_locals(locals, rewritten, 7),
+            @lib.Expr::new(rewritten),
+          ),
+        )
+      }
+      _ => ()
+    }
+  }
+  if body.length() >= 3 {
+    let block_idx = body.length() - 3
+    let const_idx = body.length() - 2
+    if body[const_idx] == @lib.Instruction::i32_const(@lib.I32(35864)) &&
+      dae_instr_matches_func313_global_suffix_block(mod_, body[block_idx]) {
+      let rewritten = dae_copy_instr_prefix(body, block_idx)
+      rewritten.push(body[call_idx])
+      return Some(
+        @lib.Func::new(
+          dae_trim_trailing_unused_func237_locals(locals, rewritten, 7),
+          @lib.Expr::new(rewritten),
+        ),
+      )
+    }
+  }
+  let (shapes, cursor) = match
+    dae_collect_callsite_shapes(body, call_idx, 9, 0, mod_, type_indices) {
+    Some(result) => result
+    None => return None
+  }
+  if cursor != 0 {
+    return None
+  }
+  if shapes[7].end != shapes[7].start + 1 ||
+    !dae_instr_matches_func313_global_suffix_block(mod_, body[shapes[7].start]) {
+    return None
+  }
+  if shapes[8].end != shapes[8].start + 1 ||
+    body[shapes[8].start] != @lib.Instruction::i32_const(@lib.I32(35864)) {
+    return None
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  let mut p = 0
+  while p < 7 {
+    let mut j = shapes[p].start
+    while j < shapes[p].end {
+      rewritten.push(body[j])
+      j += 1
+    }
+    p += 1
+  }
+  rewritten.push(body[call_idx])
+  Some(
+    @lib.Func::new(
+      dae_trim_trailing_unused_func237_locals(locals, rewritten, 7),
+      @lib.Expr::new(rewritten),
+    ),
+  )
+}
+
+///|
+fn dae_try_rewrite_selected_func323_global_suffix_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  trace : (String) -> Unit,
+) -> DaePassResult {
+  let def_idx = 323
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let callee_abs = imported + def_idx
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) if def_idx < funcs.length() => funcs
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(func_type) => func_type
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params.length() == 7 && results == [@lib.ValType::i32()] {
+    match
+      dae_try_strip_func313_dropped_call323_global_suffix(
+        mod_, funcs, 313, callee_abs,
+      ) {
+      Some(rewritten_caller) => {
+        let rewritten_funcs = funcs.copy()
+        rewritten_funcs[313] = rewritten_caller
+        let touched = Array::make(funcs.length(), false)
+        touched[313] = true
+        return {
+          mod_out: mod_
+          .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+          .without_name_sec(),
+          touched,
+          changed: true,
+          primary_def: 313,
+        }
+      }
+      None => ()
+    }
+  }
+  if (params.length() != 8 && params.length() != 9) ||
+    results != [@lib.ValType::i32()] {
+    trace(
+      "pass[dae-optimizing]:selected-func323-global-suffix skip=type params=\{params.length()} results=\{results.length()}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut p = 0
+  while p < params.length() {
+    if params[p] != @lib.ValType::i32() {
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+    p += 1
+  }
+  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
+  if callee_abs >= call_facts.direct_calls.length() ||
+    call_facts.direct_calls[callee_abs] != 1 ||
+    call_facts.escaped[callee_abs] ||
+    call_facts.tail_calls[callee_abs] ||
+    call_facts.direct_callers[callee_abs].length() != 1 ||
+    call_facts.direct_callers[callee_abs][0] != 313 {
+    trace("pass[dae-optimizing]:selected-func323-global-suffix skip=calls")
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  if local_use.writes[7] || (params.length() == 9 && local_use.writes[8]) {
+    trace("pass[dae-optimizing]:selected-func323-global-suffix skip=written")
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let remove = Array::make(params.length(), false)
+  remove[7] = true
+  if params.length() == 9 {
+    remove[8] = true
+  }
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  const_params[7] = Some(@lib.Instruction::i32_const(@lib.I32(169472)))
+  if params.length() == 9 {
+    const_params[8] = Some(@lib.Instruction::i32_const(@lib.I32(35864)))
+  }
+  if params.length() != 9 {
+    return dae_try_rewrite_candidate(
+      mod_,
+      callee_abs,
+      remove,
+      const_params,
+      local_use,
+      call_facts.direct_calls[callee_abs],
+      call_facts.direct_callers[callee_abs],
+    )
+  }
+  let (func_types, _) = match (mod_.func_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(_)) => (type_idxs.copy(), true)
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_caller = match
+    dae_try_rewrite_func313_call323_global_suffix(
+      mod_, funcs, type_indices, 313, callee_abs,
+    ) {
+    Some(func) => func
+    None => {
+      trace(
+        "pass[dae-optimizing]:selected-func323-global-suffix skip=caller-suffix",
+      )
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[313] = rewritten_caller
+  let kept_params : Array[@lib.ValType] = []
+  let removed_written_types : Array[@lib.ValType] = []
+  let mut p2 = 0
+  while p2 < params.length() {
+    if remove[p2] {
+      if local_use.writes[p2] {
+        removed_written_types.push(params[p2])
+      }
+    } else {
+      kept_params.push(params[p2])
+    }
+    p2 += 1
+  }
+  let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
+  let local_map = dae_build_local_map(
+    params.length(),
+    old_locals.length(),
+    remove,
+    local_use,
+  )
+  let new_body = dae_simplify_rewritten_add_zero_instrs(
+    dae_simplify_rewritten_control_instrs(
+      dae_rewrite_locals_instrs(
+        dae_rewrite_param_const_instrs(old_body, const_params),
+        local_map,
+      ),
+    ),
+  )
+  let new_locals = @lib.Locals::from_types(removed_written_types)
+  new_locals.append(old_locals)
+  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
+    @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
+  )
+  let (next_type_sec, new_type_idx) = match mod_.type_sec {
+    Some(type_sec) => dae_append_new_func_type(type_sec, kept_params, results)
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  func_types[def_idx] = new_type_idx
+  let touched = Array::make(funcs.length(), false)
+  touched[313] = true
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(func_types))
     .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
     .without_name_sec(),
     touched,
@@ -17941,6 +18452,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       )
       changed = true
       func313_arg_iter += 1
+    }
+  }
+  if 323 < selected_scratch_defs.length() {
+    selected_scratch_defs[323] = true
+    let selected_func323_global = dae_try_rewrite_selected_func323_global_suffix_once(
+      current, selected_scratch_defs, trace,
+    )
+    selected_scratch_defs[323] = false
+    if selected_func323_global.changed {
+      current = selected_func323_global.mod_out
+      touched = dae_merge_touched(touched, selected_func323_global.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func323-global-suffix primary_def=\{selected_func323_global.primary_def}",
+      )
+      changed = true
     }
   }
   for high_literal_def in [1720, 1755, 1775, 1794, 2156] {

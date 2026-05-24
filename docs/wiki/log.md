@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func313/$323 suffix-default parity
+
+- Added selected Func313 / `$323` suffix-default specialization in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt): the raw flattened immutable-global/default-zero suffix is removed from Func313's terminal call, `$323` shrinks from nine to seven `i32` params, and `i32.const 169472` / `i32.const 35864` are materialized in the callee body.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for both the Func313 suffix staging block cleanup and the flattened `$323` suffix specialization shape.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func323-flat-suffix-artifact` validates with `wasm-opt --all-features`, advances the first diff to `defined=317 abs=334`, keeps pass-local timing inside the 2x target (`1400.700ms` Starshine versus `936.342ms` Binaryen), and `.tmp/pass-fuzz-dae-func323-suffix-1000` preserves the current short-run no-validation-failure shape (`45/1000` compared, `26` normalized matches, `19` mismatches, `0` validation failures, `1` Binaryen/tool command failure). The new frontier is Func317's extra zero actual into `$326`.
+
 ## [2026-05-24] passes | dae Func313 terminal-call partial parity
 
 - Added a selected Func313 terminal-call staging lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that folds the constant default-zero wrapper, swaps local/global `i32.eq x, 0` wrappers into Binaryen's direct truthy condition form, and inlines the safely proven staged locals into the terminal `$323` call.

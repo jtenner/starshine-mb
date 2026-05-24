@@ -1590,6 +1590,180 @@ test "dae-optimizing inlines selected Func313 staged terminal call args" {
 }
 
 ///|
+test "dae-optimizing unwraps selected Func313 suffix staging block" {
+  let target_def = 313
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (memory 1)\n  (global $g i32 (i32.const 42))\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (export "target") (param i32 i32 i32 i32 i32 i32 i32) (result i32)
+      #|    (local i32 i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    local.get 3
+      #|    local.get 4
+      #|    local.get 5
+      #|    block (result i32)
+      #|      local.get 6
+      #|      if (result i32)
+      #|        local.get 6
+      #|      else
+      #|        local.get 6
+      #|        if
+      #|          local.get 6
+      #|          call $release
+      #|        end
+      #|        i32.const 1006
+      #|      end
+      #|      local.set 8
+      #|      global.get $g
+      #|      if (result i32)
+      #|        global.get $g
+      #|      else
+      #|        global.get $g
+      #|        if
+      #|          global.get $g
+      #|          call $release
+      #|        end
+      #|        i32.const 1007
+      #|      end
+      #|      local.set 7
+      #|      i32.const 0
+      #|      if
+      #|        i32.const 0
+      #|        call $release
+      #|      end
+      #|      local.get 8
+      #|    end
+      #|    local.get 7
+      #|    i32.const 1008
+      #|    call $callee)
+      #|  (func $callee (param i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)
+      #|    local.get 6
+      #|    drop
+      #|    local.get 7
+      #|    drop
+      #|    local.get 8
+      #|    drop
+      #|    i32.const 7)
+      #|  (func $release (param i32))
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, target_def,
+  )
+  assert_false(locals.length() != 0, msg=target)
+  assert_false(target.contains("block"), msg=target)
+  assert_false(target.contains("local.set (Local7)"), msg=target)
+  assert_false(target.contains("local.set (Local8)"), msg=target)
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(7U)),
+    msg=target,
+  )
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(8U)),
+    msg=target,
+  )
+  assert_true(target.contains("global.get"), msg=target)
+  assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
+}
+
+///|
+test "dae-optimizing specializes selected Func323 default suffix params" {
+  let caller_def = 313
+  let callee_def = 323
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (global $g i32 (i32.const 169472))\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "caller") (param i32 i32 i32 i32 i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    local.get 3
+      #|    local.get 4
+      #|    local.get 5
+      #|    local.get 6
+      #|    global.get $g
+      #|    if (result i32)
+      #|      global.get $g
+      #|    else
+      #|      global.get $g
+      #|      if
+      #|        global.get $g
+      #|        call $release
+      #|      end
+      #|      i32.const 35880
+      #|    end
+      #|    i32.const 0
+      #|    if
+      #|      i32.const 0
+      #|      call $release
+      #|    end
+      #|    i32.const 35864
+      #|    call $callee)
+    ),
+  )
+  for i = caller_def + 1; i < callee_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $callee (param i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    drop
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop
+      #|    local.get 3
+      #|    drop
+      #|    local.get 4
+      #|    drop
+      #|    local.get 5
+      #|    drop
+      #|    local.get 6
+      #|    drop
+      #|    local.get 7
+      #|    local.get 8
+      #|    i32.add)
+      #|  (func $release (param i32))
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, caller_def,
+  )
+  let @lib.FuncType(params, _) = dae_test_func_type(optimized, callee_def)
+  @debug.assert_eq(params.length(), 7)
+  assert_true(locals.length() == 0, msg=caller)
+  assert_false(caller.contains("global.get"), msg=caller)
+  assert_false(caller.contains("35864"), msg=caller)
+  assert_false(caller.contains("block"), msg=caller)
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(7U)),
+    msg=caller,
+  )
+  assert_true(caller.contains("(call (Func \{callee_def}))"), msg=caller)
+}
+
+///|
 test "dae-optimizing materializes selected Func260 helper exact literals" {
   for target_def in [267, 268] {
     let out = StringBuilder::new()
