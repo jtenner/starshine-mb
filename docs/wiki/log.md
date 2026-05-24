@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+
+- Continued `[FUZ]1028` by adding `WastArbitraryFeatureStats` / `wast_arbitrary_feature_stats` for exact parser/printer mirror counts over WAST arbitrary modules.
+- The WAST smoke roundtrip stats now accumulate the deterministic widened-prelude counters, proving the 16-module smoke floor covers GC type fields, exported tags, descriptor-ref ops, memory/table bulk ops, tail-call ops, exception ops, and SIMD const text shapes.
+- Updated [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md) so the plan distinguishes these exact text-surface counters from typed GenValid validity evidence.
+
 ## [2026-05-24] fuzzing | FUZ1029 binary boundary corpus profile
 
 - Continued `[FUZ]1029` by adding the `binary-roundtrip` `boundary-smoke` profile and `boundary_roundtrips` stats/details counter.

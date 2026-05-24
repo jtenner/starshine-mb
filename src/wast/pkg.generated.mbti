@@ -28,6 +28,8 @@ pub fn script_to_wast(WastScript) -> Result[String, String]
 
 pub fn script_to_wast_with_context(WastScript, @lib.PrettyPrintContext) -> Result[String, String]
 
+pub fn wast_arbitrary_feature_stats(Module) -> WastArbitraryFeatureStats
+
 pub fn wast_ast_to_binary_module(Module) -> Result[@lib.Module, String]
 
 pub fn wast_text_binary_roundtrip(String, filename? : String) -> Result[(String, @lib.Module), String]
@@ -1192,6 +1194,17 @@ pub impl @lib.PrettyPrint for WastActionType
 pub impl Show for WastActionType
 pub impl @quickcheck.Arbitrary for WastActionType
 
+pub struct WastArbitraryFeatureStats {
+  gc_type_fields : Int
+  exported_tags : Int
+  descriptor_ref_ops : Int
+  bulk_memory_ops : Int
+  bulk_table_ops : Int
+  tail_call_ops : Int
+  exception_ops : Int
+  simd_const_ops : Int
+} derive(Eq, @debug.Debug)
+
 pub enum WastCommand {
   Module(Module)
   ModuleBinary(String?, Bytes)
@@ -1266,6 +1279,7 @@ pub struct WastRoundtripFuzzStats {
   script_iterations : Int
   module_commands : Int
   rendered_scripts : Int
+  feature_stats : WastArbitraryFeatureStats
 } derive(Eq, @debug.Debug)
 
 pub struct WastScript {

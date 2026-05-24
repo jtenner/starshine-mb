@@ -17,6 +17,117 @@ fn bytes_of(s : String) -> Bytes {
   bytes.to_bytes()
 }
 
+// Exact text-surface counters for WAST arbitrary's FZG mirror prelude.
+// These are parser/printer counters, not typed GenValid validity proof.
+
+///|
+pub struct WastArbitraryFeatureStats {
+  gc_type_fields : Int
+  exported_tags : Int
+  descriptor_ref_ops : Int
+  bulk_memory_ops : Int
+  bulk_table_ops : Int
+  tail_call_ops : Int
+  exception_ops : Int
+  simd_const_ops : Int
+} derive(Eq, Debug)
+
+///|
+fn wast_arbitrary_empty_feature_stats() -> WastArbitraryFeatureStats {
+  {
+    gc_type_fields: 0,
+    exported_tags: 0,
+    descriptor_ref_ops: 0,
+    bulk_memory_ops: 0,
+    bulk_table_ops: 0,
+    tail_call_ops: 0,
+    exception_ops: 0,
+    simd_const_ops: 0,
+  }
+}
+
+///|
+fn wast_arbitrary_add_feature_stats(
+  a : WastArbitraryFeatureStats,
+  b : WastArbitraryFeatureStats,
+) -> WastArbitraryFeatureStats {
+  {
+    gc_type_fields: a.gc_type_fields + b.gc_type_fields,
+    exported_tags: a.exported_tags + b.exported_tags,
+    descriptor_ref_ops: a.descriptor_ref_ops + b.descriptor_ref_ops,
+    bulk_memory_ops: a.bulk_memory_ops + b.bulk_memory_ops,
+    bulk_table_ops: a.bulk_table_ops + b.bulk_table_ops,
+    tail_call_ops: a.tail_call_ops + b.tail_call_ops,
+    exception_ops: a.exception_ops + b.exception_ops,
+    simd_const_ops: a.simd_const_ops + b.simd_const_ops,
+  }
+}
+
+///|
+fn wast_arbitrary_count_instructions(
+  instrs : Array[Instruction],
+) -> WastArbitraryFeatureStats {
+  let mut stats = wast_arbitrary_empty_feature_stats()
+  for instr in instrs {
+    let current = match instr {
+      RefTestDesc(_, _) | RefCastDescEq(_, _) =>
+        { ..wast_arbitrary_empty_feature_stats(), descriptor_ref_ops: 1 }
+      MemoryFill | MemoryCopy | MemoryInit(_) | DataDrop(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), bulk_memory_ops: 1 }
+      TableFill(_) | TableCopy(_, _) | TableInit(_, _) | ElemDrop(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), bulk_table_ops: 1 }
+      ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), tail_call_ops: 1 }
+      Throw(_) | TryTable(_, _, _) =>
+        { ..wast_arbitrary_empty_feature_stats(), exception_ops: 1 }
+      V128Const(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), simd_const_ops: 1 }
+      _ => wast_arbitrary_empty_feature_stats()
+    }
+    stats = wast_arbitrary_add_feature_stats(stats, current)
+    let nested = match instr {
+      Block(_, body) | Loop(_, body) => wast_arbitrary_count_instructions(body)
+      If(_, then_body, else_body) =>
+        wast_arbitrary_add_feature_stats(
+          wast_arbitrary_count_instructions(then_body),
+          wast_arbitrary_count_instructions(else_body),
+        )
+      TryTable(_, _, body) => wast_arbitrary_count_instructions(body)
+      _ => wast_arbitrary_empty_feature_stats()
+    }
+    stats = wast_arbitrary_add_feature_stats(stats, nested)
+  }
+  stats
+}
+
+///|
+pub fn wast_arbitrary_feature_stats(mod : Module) -> WastArbitraryFeatureStats {
+  let mut stats = wast_arbitrary_empty_feature_stats()
+  for field in mod.fields {
+    let current = match field {
+      TypeField(t) =>
+        match t.body {
+          Struct(_) | Array(_) =>
+            { ..wast_arbitrary_empty_feature_stats(), gc_type_fields: 1 }
+          _ => wast_arbitrary_empty_feature_stats()
+        }
+      TagField(t) =>
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          exported_tags: if t.exports.length() > 0 {
+            1
+          } else {
+            0
+          },
+        }
+      FuncField(f) => wast_arbitrary_count_instructions(f.body)
+      _ => wast_arbitrary_empty_feature_stats()
+    }
+    stats = wast_arbitrary_add_feature_stats(stats, current)
+  }
+  stats
+}
+
 ///|
 fn rand_len(size : Int, st : RandomState, max_len : UInt) -> Int {
   let base : UInt = if size <= 0 { 1 } else { size.reinterpret_as_uint() + 1 }
@@ -533,6 +644,21 @@ fn gen_module(size : Int, st : RandomState) -> Module {
     }
   }
   { id: None, fields }
+}
+
+///|
+test "wast arbitrary widened prelude reports exact FZG mirror counters" {
+  let fields : Array[ModuleField] = []
+  append_wide_wast_surface(fields)
+  let stats = wast_arbitrary_feature_stats({ id: None, fields })
+  @debug.assert_eq(stats.gc_type_fields, 1)
+  @debug.assert_eq(stats.exported_tags, 1)
+  @debug.assert_eq(stats.descriptor_ref_ops, 2)
+  @debug.assert_eq(stats.bulk_memory_ops, 4)
+  @debug.assert_eq(stats.bulk_table_ops, 4)
+  @debug.assert_eq(stats.tail_call_ops, 3)
+  @debug.assert_eq(stats.exception_ops, 2)
+  @debug.assert_eq(stats.simd_const_ops, 1)
 }
 
 ///|

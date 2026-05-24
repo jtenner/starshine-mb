@@ -33,6 +33,7 @@ pub struct WastRoundtripFuzzStats {
   script_iterations : Int
   module_commands : Int
   rendered_scripts : Int
+  feature_stats : WastArbitraryFeatureStats
 } derive(Eq, Debug)
 
 ///|
@@ -55,9 +56,11 @@ pub fn run_wast_roundtrip_fuzz(
   let mut successes = 0
   let mut stable = 0
   let mut attempts = 0
+  let mut feature_stats = wast_arbitrary_empty_feature_stats()
   while attempts < max_attempts && successes < success_target {
     attempts += 1
     let wmod : Module = Arbitrary::arbitrary(5, state)
+    let wmod_feature_stats = wast_arbitrary_feature_stats(wmod)
     match module_to_wast(wmod) {
       Err(_) => continue
       Ok(printed) => {
@@ -70,6 +73,9 @@ pub fn run_wast_roundtrip_fuzz(
           Ok(text) => text
         }
         successes += 1
+        feature_stats = wast_arbitrary_add_feature_stats(
+          feature_stats, wmod_feature_stats,
+        )
         if normalize_text_for_compare(printed) ==
           normalize_text_for_compare(printed_round) {
           stable += 1
@@ -125,6 +131,7 @@ pub fn run_wast_roundtrip_fuzz(
     script_iterations: script_iters,
     module_commands,
     rendered_scripts,
+    feature_stats,
   })
 }
 
@@ -147,6 +154,24 @@ test "wast module conversion basic roundtrip" {
     normalize_text_for_compare(text1),
     normalize_text_for_compare(text2),
   )
+}
+
+///|
+test "run_wast_roundtrip_fuzz reports WAST arbitrary FZG mirror counters" {
+  match run_wast_roundtrip_fuzz("smoke", 0x5eedUL) {
+    Ok(stats) => {
+      @debug.assert_eq(stats.successes, 16)
+      @debug.assert_eq(stats.feature_stats.gc_type_fields, 16)
+      @debug.assert_eq(stats.feature_stats.exported_tags, 16)
+      @debug.assert_eq(stats.feature_stats.descriptor_ref_ops, 32)
+      @debug.assert_eq(stats.feature_stats.bulk_memory_ops, 64)
+      @debug.assert_eq(stats.feature_stats.bulk_table_ops, 64)
+      @debug.assert_eq(stats.feature_stats.tail_call_ops, 48)
+      @debug.assert_eq(stats.feature_stats.exception_ops, 32)
+      @debug.assert_eq(stats.feature_stats.simd_const_ops, 16)
+    }
+    Err(msg) => fail("expected smoke WAST roundtrip success: \{msg}")
+  }
 }
 
 ///|

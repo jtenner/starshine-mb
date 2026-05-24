@@ -697,7 +697,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: deterministic two-fault examples, no-acceptance smoke tests, repro persistence tests.
   - Exit Criteria: stress fuzzing can exercise hostile multi-fault inputs while keeping diagnostic-stable lanes clean.
 
-- [FUZ]1028 (p1) - WAST Arbitrary Parity Exact Coverage
+- [FUZ]1028 (IN PROGRESS, p1) - WAST Arbitrary Parity Exact Coverage
   - Goal: align `src/wast/arbitrary.mbt` with the GenValid coverage vocabulary through exact counters and profile-specific WAST generation.
   - Why: WAST arbitrary intentionally does not call typed GenValid, but duplicated opcode pickers can drift from the FZG ledger.
   - Deliverables: add WAST arbitrary feature/opcode counters, floors for FZG mirror families, profiles for valid-only modules, parser-stress modules, static assertions, scripts, and module-only output; generate WAST assertion scripts where feasible.
@@ -705,6 +705,8 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Invariants: do not claim WAST support for core instructions the local parser/printer cannot represent; keep unsupported text gaps documented.
   - Dependencies: [FUZ]1013 exact ledger and [FUZ]1027 reporting.
   - Suggested Tests: exact WAST opcode counter tests, parity floor tests, WAST parse-back tests for widened prelude, docs updates.
+  - Current run evidence: added `WastArbitraryFeatureStats` plus `wast_arbitrary_feature_stats` for exact FZG mirror counters over WAST arbitrary modules, covering GC type fields, exported tags, descriptor-ref ops, memory/table bulk ops, tail-call ops, exception ops, and SIMD consts. `run_wast_roundtrip_fuzz("smoke", 0x5eed)` now accumulates those counters and locks the deterministic 16-module widened-prelude floor. TDD first failed in `moon test src/wast` because the counter function/stat field was missing, then passed after implementation. Docs updated in `docs/wiki/fuzzing/wast-arbitrary-parity-plan.md` and `docs/wiki/log.md`.
+  - Remaining: add broader opcode-family counters for the random pickers beyond the deterministic widened prelude, then add profile-specific WAST generation modes for valid-only modules, parser-stress modules, static assertions, scripts, and module-only output before closing this task.
   - Exit Criteria: WAST arbitrary coverage can be compared against GenValid coverage by feature name and exact supported text shape.
 
 - [FUZ]1031 (p2) - Standard Fuzz Output Directory And Corpus Workflow
