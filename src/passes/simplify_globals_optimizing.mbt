@@ -666,6 +666,15 @@ fn sgo_count_read_only_to_write_instrs(
         sgo_count_try_table_select_reverse_compare_if_return_read(
           instrs, pos, safe_reads,
         )
+        sgo_count_try_table_ref_is_null_compare_read_only_to_write_read(
+          instrs, pos, safe_reads,
+        )
+        sgo_count_try_table_ref_is_null_reverse_compare_read_only_to_write_read(
+          instrs, pos, safe_reads,
+        )
+        sgo_count_try_table_ref_is_null_reverse_compare_if_return_read(
+          instrs, pos, safe_reads,
+        )
         sgo_count_try_table_ref_is_null_select_read_only_to_write_read(
           instrs, pos, safe_reads,
         )
@@ -3528,6 +3537,123 @@ fn sgo_count_try_table_ref_is_null_read_only_to_write_read(
         Some(idx) =>
           sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
         None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_try_table_ref_is_null_compare_if_index(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+) -> Int? {
+  if pos + 4 >= instrs.length() {
+    return None
+  }
+  match (instrs[pos], instrs[pos + 1]) {
+    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
+      0 => ()
+    _ => return None
+  }
+  if sgo_const_instr(instrs[pos + 2]) == None ||
+    !sgo_is_compare_instr(instrs[pos + 3]) {
+    return None
+  }
+  Some(pos + 4)
+}
+
+///|
+fn sgo_try_table_ref_is_null_reverse_compare_if_index(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+) -> Int? {
+  if pos <= 0 || pos + 3 >= instrs.length() {
+    return None
+  }
+  match (instrs[pos], instrs[pos + 1]) {
+    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
+      0 => ()
+    _ => return None
+  }
+  if sgo_const_instr(instrs[pos - 1]) == None ||
+    !sgo_is_compare_instr(instrs[pos + 2]) {
+    return None
+  }
+  Some(pos + 3)
+}
+
+///|
+fn sgo_count_try_table_ref_is_null_compare_read_only_to_write_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  match (instrs[pos], sgo_try_table_ref_is_null_compare_if_index(instrs, pos)) {
+    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
+      match instrs[if_index] {
+        @lib.If(_, then_body, None) =>
+          match sgo_single_const_global_set_idx(then_body) {
+            Some(idx) =>
+              sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+            None => ()
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_try_table_ref_is_null_reverse_compare_read_only_to_write_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  match
+    (
+      instrs[pos],
+      sgo_try_table_ref_is_null_reverse_compare_if_index(instrs, pos),
+    ) {
+    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
+      match instrs[if_index] {
+        @lib.If(_, then_body, None) =>
+          match sgo_single_const_global_set_idx(then_body) {
+            Some(idx) =>
+              sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+            None => ()
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_count_try_table_ref_is_null_reverse_compare_if_return_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  match
+    (
+      instrs[pos],
+      sgo_try_table_ref_is_null_reverse_compare_if_index(instrs, pos),
+    ) {
+    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) if sgo_is_return_guard(
+        instrs[if_index],
+      ) =>
+      if if_index + 3 == instrs.length() {
+        match instrs[if_index + 2] {
+          @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) != None =>
+            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+          _ => ()
+        }
+      } else if if_index + 2 == instrs.length() {
+        match sgo_block_set_tail_idx(instrs[if_index + 1]) {
+          Some(idx) =>
+            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+          None => ()
+        }
       }
     _ => ()
   }
