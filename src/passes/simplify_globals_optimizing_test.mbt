@@ -13774,6 +13774,34 @@ test "simplify-globals-optimizing propagates runtime facts into nested then bloc
 }
 
 ///|
+test "simplify-globals-optimizing rewrites dominated then reads before recursive call barriers" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func $test (export "test") (param $p i32) (result i32)
+      #|    i32.const 10
+      #|    global.set $g
+      #|    local.get $p
+      #|    if (result i32)
+      #|      global.get $g
+      #|      i32.const 0
+      #|      call $test
+      #|      i32.add
+      #|    else
+      #|      i32.const 0
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing stops then-body runtime propagation at calls with else arms" {
   let optimized = sgo_test_run(
     (

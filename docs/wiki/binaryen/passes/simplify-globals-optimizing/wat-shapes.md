@@ -505,6 +505,7 @@ After conceptually:
 Why it works:
 
 - `LinearExecutionWalker` connects some adjacent dominated blocks cheaply
+- the official dominance lit also permits the dominated read before a recursive call barrier to see the current value; calls still clear facts for later reads, and else-arm reads remain conservative
 
 ## 11. GC / reference-type constant replacement can be more refined than the old `global.get`
 

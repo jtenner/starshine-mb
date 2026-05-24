@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO dominance lit regression
+
+- Added research note [`0575`](./raw/research/0575-2026-05-23-sgo-dominance-lit-regression.md) after comparing official `simplify-globals-dominance.wast` against Starshine's runtime propagation tests.
+- Added a lit-aligned regression proving a dominated then-body read is rewritten before a recursive call barrier while call/else/post-if conservatism remains the intended boundary.
+- This was a test/documentation slice; `[SGO]003` remains active/partial and does not claim full Binaryen `SimplifyGlobals.cpp` parity.
+
 ## [2026-05-23] binaryen | SGO next breadth probe inventory
 
 - Added research note [`0574`](./raw/research/0574-2026-05-23-sgo-next-breadth-probe-inventory.md) to rank the next `[SGO]003` probes after the loop self-guard micro-series.
