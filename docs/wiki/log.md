@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func1777/288/4206 default-actual parity
+
+- Extended the selected exact-literal DAE frontier in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) to cover the inspected Func1777, Func288, and Func4206 default-actual callees on the debug artifact.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for a suffix pointer default and a middle default immediately before a call-produced actual.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func288-1777-4206-defaults-artifact` validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, removes the Func285/Func286/Func287 call-operand default drifts, and leaves the current first diff at `defined=287 abs=304` on remaining Func287 local/debris shape.
+
 ## [2026-05-24] passes | dae Func3737 wrapper-param parity
 
 - Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) with a selected Func3737 wrapper-param lane that removes Func281's immediate `i32.const 1024` suffix operand and rewrites Func3737 to three params after checking the exact caller, immediate literal, and non-written param guards.

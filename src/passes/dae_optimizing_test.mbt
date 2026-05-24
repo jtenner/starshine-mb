@@ -1420,6 +1420,120 @@ test "dae-optimizing removes selected Func3737 wrapper default from folded multi
 }
 
 ///|
+test "dae-optimizing removes selected Func1777 suffix default pointer" {
+  let caller_def = 286
+  let target_def = 1777
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (memory 1)\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 10000
+      #|    call $target)
+    ),
+  )
+  for i = caller_def + 1; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 1
+      #|    i32.load
+      #|    drop
+      #|    local.get 0)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 1)
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+  assert_false(caller.contains("i32.const I32(10000)"), msg=caller)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("i32.const I32(10000)"), msg=target)
+}
+
+///|
+test "dae-optimizing removes selected Func4206 middle default before call-produced actual" {
+  let first_caller_def = 285
+  let second_caller_def = 1780
+  let third_caller_def = 1822
+  let fourth_caller_def = 1825
+  let target_def = 4206
+  let make_def = 4207
+  let caller_defs = [
+    first_caller_def, second_caller_def, third_caller_def, fourth_caller_def,
+  ]
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  let mut next_def = 0
+  for caller_def in caller_defs {
+    while next_def < caller_def {
+      out.write_string("  (func $pad\{next_def})\n")
+      next_def += 1
+    }
+    out.write_string(
+      "  (func $caller\{caller_def} (export \"run\{caller_def}\") (param i32 i32) (result i32)\n",
+    )
+    out.write_string("    local.get 0\n")
+    out.write_string("    local.get 1\n")
+    out.write_string("    i32.const 0\n")
+    out.write_string("    i32.const 17624\n")
+    out.write_string("    call $make\n")
+    out.write_string("    call $target)\n")
+    next_def += 1
+  }
+  while next_def < target_def {
+    out.write_string("  (func $pad\{next_def})\n")
+    next_def += 1
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    local.get 3
+      #|    i32.add
+      #|    i32.add
+      #|    i32.add)
+    ),
+  )
+  next_def += 1
+  @debug.assert_eq(next_def, make_def)
+  out.write_string(
+    (
+      #|  (func $make (param i32) (result i32)
+      #|    local.get 0)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 3)
+  for caller_def in caller_defs {
+    let caller = optimized.pretty_print_defined_func(
+      caller_def.reinterpret_as_uint(),
+    )
+    assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+    assert_false(caller.contains("i32.const I32(0)"), msg=caller)
+  }
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_false(target.contains("(Local 3)"), msg=target)
+}
+
+///|
 test "dae-optimizing removes selected Func298 dropped result from Func280 branch arms" {
   let caller_def = 280
   let target_def = 298

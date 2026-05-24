@@ -16065,7 +16065,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       }
     }
   }
-  for mid_literal_def in [267, 268, 287, 311, 869] {
+  for mid_literal_def in [267, 268, 287, 288, 311, 869, 1777, 4206] {
     if mid_literal_def >= 0 && mid_literal_def < selected_scratch_defs.length() {
       selected_scratch_defs[mid_literal_def] = true
       let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
