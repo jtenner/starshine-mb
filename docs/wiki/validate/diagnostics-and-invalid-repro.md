@@ -108,7 +108,7 @@ The AST-invalid lane is the strictest diagnostic-family oracle because it starts
 Key surfaces:
 
 - [`ValidateInvalidAstStrategySpec`](../../../src/validate/invalid_fuzzer.mbt#L116-L125) stores `stable_id`, default `variant_id`, display name, source `layer`, `expected_family`, exact `expected_issue_kind`, and `required_in_smoke`.
-- [`validate_invalid_ast_registry()`](../../../src/validate/invalid_fuzzer.mbt#L190-L501) is the checked-in registry of stable ids such as `duplicate-export-name`, `missing-datacount`, `undeclared-ref-func`, `invalid-func-type-index`, `datacount-mismatch-too-small`, `datacount-without-data-sec`, and function-body stack typing cases such as `invalid-function-body-table-copy-length-type` and `invalid-function-body-table-copy-source-type`.
+- [`validate_invalid_ast_registry()`](../../../src/validate/invalid_fuzzer.mbt#L190-L501) is the checked-in registry of stable ids such as `duplicate-export-name`, `missing-datacount`, `undeclared-ref-func`, `invalid-func-type-index`, `datacount-mismatch-too-small`, `datacount-without-data-sec`, and function-body stack typing cases such as `invalid-function-body-table-copy-length-type`, `invalid-function-body-table-copy-source-type`, and `invalid-function-body-table-copy-dest-type`.
 - [`ValidateInvalidAstMutation`](../../../src/validate/invalid_fuzzer.mbt#L136-L141) records whether the strategy was applicable, the expected family, and the mutated module.
 - [`ValidateInvalidAstStrategyStats`](../../../src/validate/invalid_fuzzer.mbt#L144-L160) separately counts attempted, applicable, mutated, rejected, rejected-for-expected-family, default variant attempts/applicability/mutations/rejections, and exact issue-kind matches.
 

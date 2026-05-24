@@ -105,6 +105,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableFillValueType
   InvalidFunctionBodyTableCopyLengthType
   InvalidFunctionBodyTableCopySourceType
+  InvalidFunctionBodyTableCopyDestType
   InvalidFunctionBodyTableSetValueType
   InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
@@ -663,6 +664,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTableCopyDestType,
+      "invalid-function-body-table-copy-dest-type",
+      "invalid function-body table.copy dest type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyTableSetValueType,
       "invalid-function-body-table-set-value-type",
       "invalid function-body table.set value type",
@@ -878,6 +886,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyTableFillValueType => 69
     InvalidFunctionBodyTableCopyLengthType => 78
     InvalidFunctionBodyTableCopySourceType => 79
+    InvalidFunctionBodyTableCopyDestType => 80
     InvalidFunctionBodyTableSetValueType => 62
     InvalidFunctionBodyGlobalSetValueType => 63
     InvalidMemoryNameSectionIndex => 47
@@ -3002,6 +3011,38 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_copy_source_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_copy_dest_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let with_table = Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_copy(TableIdx::new(0U), TableIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_table,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTableCopyDestType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -3845,6 +3886,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_table_copy_source_type(
           base,
         )
+      InvalidFunctionBodyTableCopyDestType =>
+        validate_invalid_ast_mutate_invalid_function_body_table_copy_dest_type(
+          base,
+        )
       InvalidFunctionBodyTableSetValueType =>
         validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
           base,
@@ -4265,13 +4310,13 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-local-tee-value-type", "invalid-function-body-return-value-type",
     "invalid-function-body-table-get-index-type", "invalid-function-body-table-grow-value-type",
     "invalid-function-body-table-fill-value-type", "invalid-function-body-table-copy-length-type",
-    "invalid-function-body-table-copy-source-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-table-copy-source-type", "invalid-function-body-table-copy-dest-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -5306,6 +5351,19 @@ test "function-body table.copy length mutation repairs by using i32 length" {
 }
 
 ///|
+test "invalid table.copy dest type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTableCopyDestType,
+      0x10cf1UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "function-body table.copy source mutation repairs by using i32 source" {
   let mutation = validate_invalid_ast_mutate_invalid_function_body_table_copy_source_type(
     Module::new(),
@@ -5341,6 +5399,45 @@ test "function-body table.copy source mutation repairs by using i32 source" {
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired table.copy source module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body table.copy dest mutation repairs by using i32 dest" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_table_copy_dest_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched table.copy dest type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let with_table = Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_copy(TableIdx::new(0U), TableIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_table,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired table.copy dest module to validate: \{err}")
   }
 }
 
