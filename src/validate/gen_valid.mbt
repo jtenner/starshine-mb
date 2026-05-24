@@ -3105,8 +3105,9 @@ fn gen_valid_ref_valtype_pool(
 }
 
 ///|
-pub fn gen_valid_valtype_with_extra_refs(
+fn gen_valid_valtype_with_extra_refs_from(
   ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
   extra_ref_types : Array[ValType],
 ) -> ValType {
   let scalar_choice_count = 4 +
@@ -3117,7 +3118,7 @@ pub fn gen_valid_valtype_with_extra_refs(
     []
   }
   let choice = ctx.random_int_from(
-    TypeStream,
+    label,
     scalar_choice_count + ref_pool.length(),
   )
   if choice == 0 {
@@ -3135,6 +3136,14 @@ pub fn gen_valid_valtype_with_extra_refs(
   } else {
     ref_pool[choice - scalar_choice_count]
   }
+}
+
+///|
+pub fn gen_valid_valtype_with_extra_refs(
+  ctx : GenValidContext,
+  extra_ref_types : Array[ValType],
+) -> ValType {
+  gen_valid_valtype_with_extra_refs_from(ctx, TypeStream, extra_ref_types)
 }
 
 ///|
@@ -3237,22 +3246,24 @@ fn gen_local_types(
   extra_ref_types? : Array[ValType] = [],
 ) -> Array[ValType] {
   let count = ctx.random_int_from(
-    TypeStream,
+    FuncStream,
     gen_valid_clamp_non_negative(ctx.config.max_locals) + 1,
   )
   let locals : Array[ValType] = []
   for i = 0; i < count; i = i + 1 {
     if i == 0 &&
       !extra_ref_types.is_empty() &&
-      ctx.random_int_from(TypeStream, 4) == 0 {
+      ctx.random_int_from(FuncStream, 4) == 0 {
       locals.push(
         extra_ref_types[ctx.random_int_from(
-          TypeStream,
+          FuncStream,
           extra_ref_types.length(),
         )],
       )
     } else {
-      locals.push(gen_valid_valtype_with_extra_refs(ctx, extra_ref_types))
+      locals.push(
+        gen_valid_valtype_with_extra_refs_from(ctx, FuncStream, extra_ref_types),
+      )
     }
   }
   locals
@@ -4781,7 +4792,9 @@ fn gen_valid_append_typed_payload_control_blocks(
     payload_br_if_body.push(instr)
   }
   payload_br_if_body.push(
-    Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+    Instruction::i32_const(
+      I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+    ),
   )
   payload_br_if_body.push(Instruction::br_if(LabelIdx::new(0U)))
   out.push(
@@ -4793,7 +4806,9 @@ fn gen_valid_append_typed_payload_control_blocks(
   for instr in gen_valid_typed_expr(ctx, child, [vt], fuel - 1) {
     payload_br_table_body.push(instr)
   }
-  payload_br_table_body.push(Instruction::i32_const(I32(ctx.random_int(3))))
+  payload_br_table_body.push(
+    Instruction::i32_const(I32(ctx.random_int_from(BodyStream, 3))),
+  )
   payload_br_table_body.push(
     Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
   )
@@ -4820,17 +4835,21 @@ fn gen_valid_append_nested_payload_branch_block(
   for instr in gen_valid_typed_expr(ctx, child, [vt], fuel - 1) {
     inner_body.push(instr)
   }
-  let selector = ctx.random_int(3)
+  let selector = ctx.random_int_from(BodyStream, 3)
   if selector == 0 {
     inner_body.push(Instruction::br(LabelIdx::new(1U)))
   } else if selector == 1 {
     inner_body.push(
-      Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+      Instruction::i32_const(
+        I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+      ),
     )
     inner_body.push(Instruction::br_if(LabelIdx::new(1U)))
     inner_body.push(Instruction::br(LabelIdx::new(1U)))
   } else {
-    inner_body.push(Instruction::i32_const(I32(ctx.random_int(3))))
+    inner_body.push(
+      Instruction::i32_const(I32(ctx.random_int_from(BodyStream, 3))),
+    )
     inner_body.push(
       Instruction::br_table([LabelIdx::new(1U)], LabelIdx::new(1U)),
     )
@@ -4911,7 +4930,11 @@ fn gen_valid_typed_stmt(
     ),
   )
   out.push(Instruction::drop())
-  out.push(Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })))
+  out.push(
+    Instruction::i32_const(
+      I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+    ),
+  )
   out.push(
     Instruction::if_(
       BlockType::val_type(ValType::i32()),
@@ -4924,7 +4947,9 @@ fn gen_valid_typed_stmt(
     Instruction::block(
       BlockType::void_(),
       Expr::new([
-        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+        Instruction::i32_const(
+          I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+        ),
         Instruction::br_if(LabelIdx::new(0U)),
       ]),
     ),
@@ -4933,8 +4958,10 @@ fn gen_valid_typed_stmt(
     Instruction::block(
       BlockType::val_type(ValType::i32()),
       Expr::new([
-        Instruction::i32_const(I32(ctx.random_int(1000))),
-        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+        Instruction::i32_const(I32(ctx.random_int_from(BodyStream, 1000))),
+        Instruction::i32_const(
+          I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+        ),
         Instruction::br_if(LabelIdx::new(0U)),
       ]),
     ),
@@ -4944,8 +4971,8 @@ fn gen_valid_typed_stmt(
     Instruction::block(
       BlockType::val_type(ValType::i32()),
       Expr::new([
-        Instruction::i32_const(I32(ctx.random_int(1000))),
-        Instruction::i32_const(I32(ctx.random_int(3))),
+        Instruction::i32_const(I32(ctx.random_int_from(BodyStream, 1000))),
+        Instruction::i32_const(I32(ctx.random_int_from(BodyStream, 3))),
         Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
         Instruction::unreachable_(),
       ]),
@@ -5024,7 +5051,7 @@ fn append_value_instrs(
   env : GenValidBodyEnv,
   prefer_local? : Bool = true,
 ) -> Unit {
-  if prefer_local && ctx.random_bool() {
+  if prefer_local && ctx.random_bool_from(BodyStream) {
     match gen_matching_local_idx(env.local_types, vt) {
       Some(idx) => {
         out.push(Instruction::local_get(idx))
@@ -5034,7 +5061,7 @@ fn append_value_instrs(
     }
   }
   match gen_matching_global_idx(env.globals, vt) {
-    Some(idx) if ctx.random_int(5) == 0 => {
+    Some(idx) if ctx.random_int_from(BodyStream, 5) == 0 => {
       out.push(Instruction::global_get(idx))
       return
     }
@@ -5045,7 +5072,7 @@ fn append_value_instrs(
     !env.gc_type_plan.concrete_ref_types.is_empty()) {
     if ctx.config.features.allow_calls {
       match gen_valid_pick_callable_with_result(ctx, env.funcs, vt) {
-        Some(target) if ctx.random_int(4) == 0 => {
+        Some(target) if ctx.random_int_from(BodyStream, 4) == 0 => {
           gen_valid_append_call_args(out, ctx, env, target.params)
           out.push(Instruction::call(target.idx))
           return
@@ -5053,13 +5080,15 @@ fn append_value_instrs(
         _ => ()
       }
     }
-    if !env.mems.is_empty() && vt == ValType::i32() && ctx.random_int(5) == 0 {
+    if !env.mems.is_empty() &&
+      vt == ValType::i32() &&
+      ctx.random_int_from(BodyStream, 5) == 0 {
       out.push(Instruction::memory_size(MemIdx::new(0U)))
       return
     }
     if ctx.config.features.allow_call_indirect && !env.tables.is_empty() {
       match gen_valid_pick_callable_with_result(ctx, env.funcs, vt) {
-        Some(target) if ctx.random_int(4) == 0 => {
+        Some(target) if ctx.random_int_from(BodyStream, 4) == 0 => {
           gen_valid_append_call_args(out, ctx, env, target.params)
           out.push(Instruction::i32_const(I32(0)))
           out.push(
@@ -5070,21 +5099,25 @@ fn append_value_instrs(
         _ => ()
       }
     }
-    if ctx.config.features.allow_branch_heavy_control && ctx.random_int(5) == 0 {
+    if ctx.config.features.allow_branch_heavy_control &&
+      ctx.random_int_from(BodyStream, 5) == 0 {
       let then_body : Array[Instruction] = []
       let else_body : Array[Instruction] = []
       let child = gen_valid_body_env_child(env)
       append_value_instrs(then_body, ctx, vt, child, prefer_local=false)
       append_value_instrs(else_body, ctx, vt, child, prefer_local=false)
       out.push(
-        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+        Instruction::i32_const(
+          I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+        ),
       )
       out.push(
         Instruction::if_(BlockType::val_type(vt), then_body, Some(else_body)),
       )
       return
     }
-    if ctx.config.features.allow_branch_heavy_control && ctx.random_int(5) == 0 {
+    if ctx.config.features.allow_branch_heavy_control &&
+      ctx.random_int_from(BodyStream, 5) == 0 {
       let child_body : Array[Instruction] = []
       append_value_instrs(
         child_body,
@@ -5100,7 +5133,7 @@ fn append_value_instrs(
     }
     if !env.tables.is_empty() {
       let TableType(rt, _) = env.tables[0]
-      if vt == ValType::ref_type(rt) && ctx.random_int(4) == 0 {
+      if vt == ValType::ref_type(rt) && ctx.random_int_from(BodyStream, 4) == 0 {
         out.push(Instruction::i32_const(I32(0)))
         out.push(Instruction::table_get(TableIdx::new(0U)))
         return
@@ -5109,22 +5142,22 @@ fn append_value_instrs(
     if !env.mems.is_empty() {
       let memarg = gen_valid_memarg()
       match vt {
-        NumTypeValType(I32NumType) if ctx.random_int(4) == 0 => {
+        NumTypeValType(I32NumType) if ctx.random_int_from(BodyStream, 4) == 0 => {
           out.push(Instruction::i32_const(I32(0)))
           out.push(Instruction::i32_load(memarg))
           return
         }
-        NumTypeValType(I64NumType) if ctx.random_int(4) == 0 => {
+        NumTypeValType(I64NumType) if ctx.random_int_from(BodyStream, 4) == 0 => {
           out.push(Instruction::i32_const(I32(0)))
           out.push(Instruction::i64_load(memarg))
           return
         }
-        NumTypeValType(F32NumType) if ctx.random_int(4) == 0 => {
+        NumTypeValType(F32NumType) if ctx.random_int_from(BodyStream, 4) == 0 => {
           out.push(Instruction::i32_const(I32(0)))
           out.push(Instruction::f32_load(memarg))
           return
         }
-        NumTypeValType(F64NumType) if ctx.random_int(4) == 0 => {
+        NumTypeValType(F64NumType) if ctx.random_int_from(BodyStream, 4) == 0 => {
           out.push(Instruction::i32_const(I32(0)))
           out.push(Instruction::f64_load(memarg))
           return
@@ -5132,7 +5165,9 @@ fn append_value_instrs(
         _ => ()
       }
     }
-    if !env.tables.is_empty() && vt == ValType::i32() && ctx.random_int(4) == 0 {
+    if !env.tables.is_empty() &&
+      vt == ValType::i32() &&
+      ctx.random_int_from(BodyStream, 4) == 0 {
       out.push(Instruction::table_size(TableIdx::new(0U)))
       return
     }
@@ -5142,7 +5177,7 @@ fn append_value_instrs(
       let heap_type = rt.get_heap_type()
       if ValType::ref_type(rt) == ValType::funcref() {
         match env.declared_ref_func_idx {
-          Some(func_idx) if ctx.random_bool() => {
+          Some(func_idx) if ctx.random_bool_from(BodyStream) => {
             out.push(Instruction::ref_func(func_idx))
             return
           }
@@ -5155,7 +5190,11 @@ fn append_value_instrs(
             env.gc_type_plan.string_wtf16_array_idx,
             env.gc_type_plan.string_utf8_array_idx,
           ) {
-          (Some(string_wtf16_array_idx), _) if ctx.random_int(3) == 0 => {
+          (Some(string_wtf16_array_idx), _) if ctx.random_int_from(
+              BodyStream,
+              3,
+            ) ==
+            0 => {
             out.push(Instruction::i32_const(I32(4)))
             out.push(Instruction::array_new_default(string_wtf16_array_idx))
             out.push(Instruction::i32_const(I32(0)))
@@ -5163,13 +5202,14 @@ fn append_value_instrs(
             out.push(Instruction::string_new_wtf16_array())
             return
           }
-          (_, Some(string_utf8_array_idx)) if ctx.random_int(3) == 0 => {
+          (_, Some(string_utf8_array_idx)) if ctx.random_int_from(BodyStream, 3) ==
+            0 => {
             out.push(Instruction::i32_const(I32(16)))
             out.push(Instruction::array_new_default(string_utf8_array_idx))
             out.push(Instruction::i32_const(I32(0)))
             out.push(Instruction::i32_const(I32(4)))
             out.push(
-              if ctx.random_bool() {
+              if ctx.random_bool_from(BodyStream) {
                 Instruction::string_new_lossy_utf8_array()
               } else {
                 Instruction::string_new_wtf8_array()
@@ -5182,13 +5222,13 @@ fn append_value_instrs(
       }
       if vt == ValType::ref_null_exn() &&
         !env.tags.is_empty() &&
-        ctx.random_int(3) == 0 {
+        ctx.random_int_from(BodyStream, 3) == 0 {
         let tag_idx = TagIdx::new(0U)
         out.push(
           Instruction::try_table(
             BlockType::val_type(vt),
             [
-              if ctx.random_bool() {
+              if ctx.random_bool_from(BodyStream) {
                 Catch::ref_(tag_idx, LabelIdx::new(0U))
               } else {
                 Catch::all_ref(LabelIdx::new(0U))
@@ -5208,14 +5248,14 @@ fn append_value_instrs(
             ) {
             (Some(described_idx), Some(descriptor_idx)) if type_idx ==
               described_idx &&
-              ctx.random_int(3) == 0 => {
+              ctx.random_int_from(BodyStream, 3) == 0 => {
               out.push(Instruction::struct_new_default(descriptor_idx))
               out.push(Instruction::struct_new_default_desc(described_idx))
               return
             }
             (Some(_described_idx), Some(descriptor_idx)) if type_idx ==
               descriptor_idx &&
-              ctx.random_int(3) == 0 => {
+              ctx.random_int_from(BodyStream, 3) == 0 => {
               out.push(Instruction::struct_new_default(descriptor_idx))
               return
             }
@@ -5225,19 +5265,19 @@ fn append_value_instrs(
               env.gc_type_plan.struct_type_idxs,
               type_idx,
             ) &&
-            ctx.random_int(3) == 0 {
+            ctx.random_int_from(BodyStream, 3) == 0 {
             out.push(Instruction::struct_new_default(type_idx))
             return
           }
           match env.gc_type_plan.bulk_data_array_idx {
             Some(array_idx) if type_idx == array_idx &&
-              ctx.random_int(4) == 0 &&
+              ctx.random_int_from(BodyStream, 4) == 0 &&
               gen_valid_append_array_data_seed_instrs(out, env) => return
             _ => ()
           }
           match env.gc_type_plan.bulk_elem_array_idx {
             Some(array_idx) if type_idx == array_idx &&
-              ctx.random_int(4) == 0 &&
+              ctx.random_int_from(BodyStream, 4) == 0 &&
               gen_valid_append_array_elem_seed_instrs(out, env) => return
             _ => ()
           }
@@ -5245,7 +5285,7 @@ fn append_value_instrs(
               env.gc_type_plan.array_type_idxs,
               type_idx,
             ) &&
-            ctx.random_int(3) == 0 {
+            ctx.random_int_from(BodyStream, 3) == 0 {
             out.push(Instruction::i32_const(I32(1)))
             out.push(Instruction::array_new_default(type_idx))
             return
@@ -5254,7 +5294,7 @@ fn append_value_instrs(
         _ => ()
       }
       if env.depth_left > 0 {
-        if !rt.is_nullable() && ctx.random_int(4) == 0 {
+        if !rt.is_nullable() && ctx.random_int_from(BodyStream, 4) == 0 {
           out.push(
             Instruction::block(
               BlockType::val_type(ValType::ref_type(rt)),
@@ -5267,7 +5307,8 @@ fn append_value_instrs(
           )
           return
         }
-        if rt == RefType::abs(AbsHeapType::any()) && ctx.random_int(5) == 0 {
+        if rt == RefType::abs(AbsHeapType::any()) &&
+          ctx.random_int_from(BodyStream, 5) == 0 {
           out.push(
             Instruction::block(
               BlockType::val_type(ValType::ref_type(rt)),
@@ -5285,7 +5326,8 @@ fn append_value_instrs(
           )
           return
         }
-        if rt == RefType::abs(AbsHeapType::any()) && ctx.random_int(5) == 0 {
+        if rt == RefType::abs(AbsHeapType::any()) &&
+          ctx.random_int_from(BodyStream, 5) == 0 {
           out.push(
             Instruction::block(
               BlockType::val_type(ValType::ref_type(rt)),
@@ -5355,7 +5397,7 @@ fn gen_valid_append_natural_bulk_array_stmt(
   ctx : GenValidContext,
   env : GenValidBodyEnv,
 ) -> Bool {
-  match ctx.random_int(4) {
+  match ctx.random_int_from(BodyStream, 4) {
     0 =>
       if gen_valid_append_array_data_seed_instrs(out, env) {
         out.push(Instruction::drop())
@@ -5425,7 +5467,7 @@ fn gen_valid_append_natural_mixed_catch_stmt(
     return false
   }
   let tag_idx = TagIdx::new(0U)
-  if ctx.random_bool() {
+  if ctx.random_bool_from(BodyStream) {
     out.push(
       Instruction::block(
         BlockType::void_(),
@@ -5471,7 +5513,7 @@ fn gen_valid_append_natural_mixed_catch_stmt(
               BlockType::void_(),
               Expr::new([
                 Instruction::i32_const(
-                  I32(if ctx.random_bool() { 1 } else { 0 }),
+                  I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
                 ),
                 Instruction::br_if(LabelIdx::new(0U)),
               ]),
@@ -5495,7 +5537,7 @@ fn gen_valid_append_natural_gc_stmt(
   if ctx.config.mode != Natural || !ctx.config.features.allow_ref_types {
     return false
   }
-  match ctx.random_int(10) {
+  match ctx.random_int_from(BodyStream, 10) {
     0 =>
       match
         (
@@ -5570,9 +5612,9 @@ fn gen_valid_append_natural_gc_stmt(
           out.push(Instruction::i32_const(I32(16)))
           out.push(Instruction::array_new_default(string_utf8_array_idx))
           out.push(Instruction::i32_const(I32(0)))
-          if ctx.random_bool() {
+          if ctx.random_bool_from(BodyStream) {
             out.push(Instruction::string_encode_utf8_array())
-          } else if ctx.random_bool() {
+          } else if ctx.random_bool_from(BodyStream) {
             out.push(Instruction::string_encode_lossy_utf8_array())
           } else {
             out.push(Instruction::string_encode_wtf8_array())
@@ -5583,7 +5625,7 @@ fn gen_valid_append_natural_gc_stmt(
           out.push(Instruction::array_new_default(string_utf8_array_idx))
           out.push(Instruction::i32_const(I32(0)))
           out.push(Instruction::i32_const(I32(4)))
-          if ctx.random_bool() {
+          if ctx.random_bool_from(BodyStream) {
             out.push(Instruction::string_new_lossy_utf8_array())
           } else {
             out.push(Instruction::string_new_wtf8_array())
@@ -5710,7 +5752,7 @@ fn append_void_stmt(
   env : GenValidBodyEnv,
 ) -> Unit {
   let branchy = ctx.config.features.allow_branch_heavy_control
-  match ctx.random_int(if branchy { 14 } else { 10 }) {
+  match ctx.random_int_from(BodyStream, if branchy { 14 } else { 10 }) {
     0 => out.push(Instruction::nop())
     1 => {
       let vt = gen_valid_valtype(ctx)
@@ -5721,7 +5763,7 @@ fn append_void_stmt(
       if env.local_types.is_empty() {
         out.push(Instruction::nop())
       } else {
-        let idx = ctx.random_int(env.local_types.length())
+        let idx = ctx.random_int_from(BodyStream, env.local_types.length())
         let vt = env.local_types[idx]
         if ctx.config.mode == CoverageForced {
           out.push(gen_const_instr(ctx, vt))
@@ -5832,7 +5874,9 @@ fn append_void_stmt(
       gen_valid_append_nested_void_instrs(body, ctx, env)
       if branchy {
         body.push(
-          Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+          Instruction::i32_const(
+            I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+          ),
         )
         body.push(Instruction::br_if(LabelIdx::new(0U)))
       }
@@ -5848,15 +5892,19 @@ fn append_void_stmt(
         append_void_stmt(else_body, ctx, child)
       }
       out.push(
-        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+        Instruction::i32_const(
+          I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+        ),
       )
       out.push(Instruction::if_(BlockType::void_(), then_body, Some(else_body)))
     }
     _ =>
       if branchy && env.label_depth > 0 {
-        if ctx.random_bool() {
+        if ctx.random_bool_from(BodyStream) {
           out.push(
-            Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+            Instruction::i32_const(
+              I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+            ),
           )
           out.push(Instruction::br_if(LabelIdx::new(0U)))
         } else {
@@ -6273,7 +6321,11 @@ fn gen_valid_append_typed_select(
 ) -> Unit {
   out.push(gen_const_instr(ctx, vt))
   out.push(gen_const_instr(ctx, vt))
-  out.push(Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })))
+  out.push(
+    Instruction::i32_const(
+      I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+    ),
+  )
   out.push(Instruction::select(types=Some([vt])))
   out.push(Instruction::drop())
 }
@@ -7175,7 +7227,9 @@ fn gen_valid_append_exception_try_table_matrix_ops(
             Catch::all(LabelIdx::new(0U)),
           ],
           Expr::new([
-            Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+            Instruction::i32_const(
+              I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+            ),
             Instruction::if_(
               BlockType::void_(),
               [Instruction::throw_(tag_idx)],
@@ -8848,7 +8902,7 @@ fn gen_valid_append_coverage_prelude(
     }
   }
   gen_valid_append_memory_table_global_template_ops(out, ctx, env)
-  let branch_first = ctx.random_bool()
+  let branch_first = ctx.random_bool_from(BodyStream)
   let branch_block_body = [
     Instruction::i32_const(I32(if branch_first { 1 } else { 0 })),
     Instruction::br_if(LabelIdx::new(0U)),
@@ -8856,7 +8910,9 @@ fn gen_valid_append_coverage_prelude(
   let branch_loop = Instruction::loop_(
     BlockType::void_(),
     Expr::new([
-      Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+      Instruction::i32_const(
+        I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+      ),
       Instruction::br_if(LabelIdx::new(0U)),
     ]),
   )
@@ -8871,7 +8927,11 @@ fn gen_valid_append_coverage_prelude(
     out.push(branch_loop)
     out.push(branch_block)
   }
-  out.push(Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })))
+  out.push(
+    Instruction::i32_const(
+      I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+    ),
+  )
   out.push(
     Instruction::if_(
       BlockType::void_(),
@@ -8916,7 +8976,8 @@ fn gen_valid_append_return_value_instrs(
             env.declared_ref_func_idx,
             vt,
           ) {
-          Some(target) if !ctx.config.features.allow_calls || ctx.random_bool() => {
+          Some(target) if !ctx.config.features.allow_calls ||
+            ctx.random_bool_from(BodyStream) => {
             gen_valid_append_call_args(out, ctx, env, target.params)
             out.push(Instruction::ref_func(target.idx))
             out.push(Instruction::call_ref(target.type_idx))
@@ -9103,9 +9164,9 @@ fn gen_valid_build_func(
   gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
   if ctx.config.mode == Natural && ctx.config.features.allow_ref_types {
     let gc_stmt_count = if gc_type_plan.concrete_ref_types.is_empty() {
-      1 + ctx.random_int(2)
+      1 + ctx.random_int_from(BodyStream, 2)
     } else {
-      2 + ctx.random_int(2)
+      2 + ctx.random_int_from(BodyStream, 2)
     }
     for _ in 0..<gc_stmt_count {
       ignore(gen_valid_append_natural_gc_stmt(body_instrs, ctx, env))

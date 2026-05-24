@@ -81,6 +81,68 @@ test "streamed gen-valid keeps type choices stable when body budget changes" {
 }
 
 ///|
+test "streamed gen-valid keeps function-local shapes stable when metadata budgets change" {
+  let base_config = {
+    ..GenValidConfig::natural_default(),
+    max_defined_funcs: 3,
+    max_type_defs: 5,
+    max_imports: 0,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_body_statements: 5,
+    features: {
+      ..GenValidFeatureToggles::natural_default(),
+      allow_start: false,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_typed_body_generator: false,
+      allow_imports: false,
+    },
+    section_bias: {
+      ..GenValidSectionBias::natural_default(),
+      globals_percent: 100,
+    },
+  }
+  let metadata_heavy_config = { ..base_config, max_globals: 4 }
+  let mut checked = 0
+  for offset in 0..<64 {
+    let seed = 0x51134UL + offset.to_uint64()
+    let left = match gen_valid_module_result_from_seed(seed, base_config) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    let right = match
+      gen_valid_module_result_from_seed(seed, metadata_heavy_config) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    if left.attempts == 1 &&
+      right.attempts == 1 &&
+      gen_valid_test_defined_func_type_idxs(left.wasm_module) ==
+      gen_valid_test_defined_func_type_idxs(right.wasm_module) {
+      checked += 1
+      @debug.assert_eq(
+        gen_valid_test_defined_func_locals(left.wasm_module),
+        gen_valid_test_defined_func_locals(right.wasm_module),
+      )
+      match validate_module(left.wasm_module) {
+        Ok(_) => ()
+        Err(err) => fail(validation_error_message(err))
+      }
+      match validate_module(right.wasm_module) {
+        Ok(_) => ()
+        Err(err) => fail(validation_error_message(err))
+      }
+    }
+  }
+  assert_true(checked > 0)
+}
+
+///|
 test "streamed gen-valid keeps function type choices stable when metadata budgets change" {
   let base_config = {
     ..GenValidConfig::natural_default(),
@@ -1097,6 +1159,21 @@ fn gen_valid_test_defined_func_type_idxs(mod_ : Module) -> Array[Int] {
       let out : Array[Int] = []
       for type_idx in type_idxs {
         out.push(gen_valid_test_typeidx_to_int(type_idx))
+      }
+      out
+    }
+    None => []
+  }
+}
+
+///|
+fn gen_valid_test_defined_func_locals(mod_ : Module) -> Array[Locals] {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      let out : Array[Locals] = []
+      for func in funcs {
+        let Func(locals, _) = func
+        out.push(locals)
       }
       out
     }
