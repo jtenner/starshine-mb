@@ -737,14 +737,34 @@ pub fn gen_invalid_ast_seed_module(
 }
 
 ///|
-pub fn gen_invalid_ast_generate(
-  rnd : RandomState,
+fn gen_invalid_ast_seed_module_from_seed(
+  seed : UInt64,
+  params : GenInvalidAstParams,
+) -> Result[Module, String] {
+  let base = match params.seed_mode {
+    RandomValidSeed => {
+      let seeded_config = gen_invalid_ast_seed_config(params)
+      match gen_valid_module_result_from_seed(seed, seeded_config) {
+        Ok(generated) => generated.wasm_module
+        Err(failure) => failure.last_candidate
+      }
+    }
+    MinimalValidSeed => gen_invalid_ast_minimal_seed_module(params.strategy)
+  }
+  match validate_module(base) {
+    Ok(_) => Ok(base)
+    Err(err) =>
+      Err(
+        "gen-invalid base generation failed before mutation: strategy=\{gen_invalid_ast_strategy_label(params.strategy)} error=\{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn gen_invalid_ast_generate_from_base(
+  base : Module,
   params : GenInvalidAstParams,
 ) -> Result[GenInvalidAstGenerated, String] {
-  let base = match gen_invalid_ast_seed_module(rnd, params) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
-  }
   let mutation = match
     apply_validate_invalid_ast_strategy(params.strategy, base) {
     Ok(v) => v
@@ -756,4 +776,28 @@ pub fn gen_invalid_ast_generate(
     )
   }
   Ok({ base_module: base, mutation })
+}
+
+///|
+pub fn gen_invalid_ast_generate(
+  rnd : RandomState,
+  params : GenInvalidAstParams,
+) -> Result[GenInvalidAstGenerated, String] {
+  let base = match gen_invalid_ast_seed_module(rnd, params) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  gen_invalid_ast_generate_from_base(base, params)
+}
+
+///|
+fn gen_invalid_ast_generate_from_seed(
+  seed : UInt64,
+  params : GenInvalidAstParams,
+) -> Result[GenInvalidAstGenerated, String] {
+  let base = match gen_invalid_ast_seed_module_from_seed(seed, params) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  gen_invalid_ast_generate_from_base(base, params)
 }

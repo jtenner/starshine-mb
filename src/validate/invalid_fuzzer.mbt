@@ -10180,6 +10180,44 @@ fn validate_invalid_ast_join(values : Array[String], sep : String) -> String {
 }
 
 ///|
+fn validate_invalid_ast_stable_string_salt(value : String) -> UInt64 {
+  let mut hash = 1469598103934665603UL
+  let mut i = 0
+  while i < value.length() {
+    hash = hash ^ value[i].to_uint64()
+    hash = hash * 1099511628211UL
+    i += 1
+  }
+  hash
+}
+
+///|
+fn validate_invalid_ast_seed_profile_salt(
+  seed_profile : GenInvalidNamedSeedProfile,
+) -> UInt64 {
+  match seed_profile {
+    NaturalSeedProfile => 0x6e61747572616cUL
+    CoverageForcedSeedProfile => 0x636f766572616765UL
+    SmallNaturalSeedProfile => 0x736d616c6c6e6174UL
+    SmallCoverageForcedSeedProfile => 0x736d616c6c636f76UL
+    ReproSeedProfile => 0x726570726fUL
+    MinimalSeedProfile => 0x6d696e696d616cUL
+    RichSeedProfile => 0x72696368UL
+  }
+}
+
+///|
+fn validate_invalid_ast_attempt_seed(
+  seed : UInt64,
+  stable_id : String,
+  seed_profile : GenInvalidNamedSeedProfile,
+) -> UInt64 {
+  gen_valid_derive_stream_seed(seed, InvalidMutationChoiceStream) ^
+  validate_invalid_ast_stable_string_salt(stable_id) ^
+  validate_invalid_ast_seed_profile_salt(seed_profile)
+}
+
+///|
 fn validate_invalid_ast_params_for_seed_profile(
   strategy : ValidateInvalidAstStrategyId,
   seed_profile : GenInvalidNamedSeedProfile,
@@ -10217,7 +10255,6 @@ pub fn run_validate_invalid_ast_fuzz(
   if registry.is_empty() {
     return Err("validate-invalid-ast registry must not be empty")
   }
-  let rnd = @splitmix.new(seed~)
   let stats = validate_invalid_ast_empty_strategy_stats()
   let seed_profile_attempts = seed_profiles.map(fn(_) { 0 })
   let mut attempt = 0
@@ -10237,8 +10274,8 @@ pub fn run_validate_invalid_ast_fuzz(
       variant_attempted=current.variant_attempted + 1,
     )
     let generated = match
-      gen_invalid_ast_generate(
-        rnd,
+      gen_invalid_ast_generate_from_seed(
+        validate_invalid_ast_attempt_seed(seed, spec.stable_id, seed_profile),
         validate_invalid_ast_params_for_seed_profile(
           spec.id,
           seed_profile,
@@ -10367,6 +10404,44 @@ test "validate_invalid_ast mixed seed fuzz records seed profile attempts" {
   @debug.assert_eq(stats.seed_profile_attempts, [
     validate_invalid_ast_registry().length(),
   ])
+}
+
+///|
+test "validate_invalid_ast attempt seeds are stable by strategy and seed profile" {
+  let registry = validate_invalid_ast_registry()
+  let first = registry[0]
+  let second = registry[1]
+  let first_minimal = validate_invalid_ast_attempt_seed(
+    0x51034UL,
+    first.stable_id,
+    MinimalSeedProfile,
+  )
+  @debug.assert_eq(
+    first_minimal,
+    validate_invalid_ast_attempt_seed(
+      0x51034UL,
+      first.stable_id,
+      MinimalSeedProfile,
+    ),
+  )
+  @debug.assert_eq(
+    first_minimal !=
+    validate_invalid_ast_attempt_seed(
+      0x51034UL,
+      second.stable_id,
+      MinimalSeedProfile,
+    ),
+    true,
+  )
+  @debug.assert_eq(
+    first_minimal !=
+    validate_invalid_ast_attempt_seed(
+      0x51034UL,
+      first.stable_id,
+      RichSeedProfile,
+    ),
+    true,
+  )
 }
 
 ///|
