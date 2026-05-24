@@ -90,6 +90,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemory64AddressType
   InvalidFunctionBodyMemoryStoreValueType
   InvalidFunctionBodyTableSetValueType
+  InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
@@ -541,6 +542,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyGlobalSetValueType,
+      "invalid-function-body-global-set-value-type",
+      "invalid function-body global.set value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
       "invalid-memory-name-section-index",
       "invalid memory name index",
@@ -727,6 +735,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemory64AddressType => 45
     InvalidFunctionBodyMemoryStoreValueType => 46
     InvalidFunctionBodyTableSetValueType => 62
+    InvalidFunctionBodyGlobalSetValueType => 63
     InvalidMemoryNameSectionIndex => 47
     CodeSecWithoutFuncSec => 48
     InvalidTableNameSectionIndex => 49
@@ -2404,6 +2413,36 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_global_set_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let globals = [
+    Global::new(
+      GlobalType::new(ValType::i32(), true),
+      Expr::new([Instruction::i32_const(I32(0))]),
+    ),
+  ]
+  let body = Expr::new([
+    Instruction::i64_const(I64(7)),
+    Instruction::global_set(GlobalIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new().with_global_sec(GlobalSec::new(globals)),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyGlobalSetValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_undeclared_ref_func(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -3126,6 +3165,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
           base,
         )
+      InvalidFunctionBodyGlobalSetValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_global_set_value_type(
+          base,
+        )
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
       InvalidLocalNameSectionIndex =>
@@ -3531,11 +3574,12 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-throw-payload-mismatch", "invalid-function-body-try-table-catch-payload-mismatch",
     "invalid-function-body-memory-address-type", "invalid-function-body-memory64-address-type",
     "invalid-function-body-memory-store-value-type", "invalid-function-body-table-set-value-type",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -4346,6 +4390,56 @@ test "function-body table.set value mutation repairs by using matching table ref
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired table.set value module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid global.set value type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyGlobalSetValueType,
+      0x5f1dUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body global.set value mutation repairs by using matching global values" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_global_set_value_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched global.set value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let globals = [
+    Global::new(
+      GlobalType::new(ValType::i32(), true),
+      Expr::new([Instruction::i32_const(I32(0))]),
+    ),
+  ]
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(7)),
+    Instruction::global_set(GlobalIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new().with_global_sec(GlobalSec::new(globals)),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired global.set value module to validate: \{err}")
   }
 }
 

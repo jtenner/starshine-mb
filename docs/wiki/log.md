@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 global.set invalid AST coverage
+
+- Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-global-set-value-type`.
+- The new strategy builds a mutable `i32` global and feeds an `i64.const` value into `global.set`, expecting `FunctionBodyFamily`; focused repair coverage proves a matching `i32.const` value validates.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living AST-invalid strategy summary names global.set value-type mismatch coverage alongside the existing memory store and table.set value-type variants.
+
 ## [2026-05-23] fuzzing | FUZ1020 table.set invalid AST coverage
 
 - Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-table-set-value-type`.
