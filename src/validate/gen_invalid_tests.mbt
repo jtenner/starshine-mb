@@ -1885,6 +1885,54 @@ test "gen_invalid_ast_generate supports function-body table.fill value type stra
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body select condition type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d40UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySelectConditionType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-select-condition-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body select operand type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d41UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySelectOperandType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-select-operand-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body memory.size index strategy" {
   let generated = match
     gen_invalid_ast_generate(

@@ -84,6 +84,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyCallPayloadMismatch
   InvalidFunctionBodyBrIfPayloadMismatch
   InvalidFunctionBodyBrTablePayloadMismatch
+  InvalidFunctionBodySelectConditionType
+  InvalidFunctionBodySelectOperandType
   InvalidFunctionBodyThrowPayloadMismatch
   InvalidFunctionBodyTryTableCatchPayloadMismatch
   InvalidFunctionBodyMemoryAddressType
@@ -592,6 +594,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyBrTablePayloadMismatch,
       "invalid-function-body-br-table-payload-mismatch",
       "invalid function-body br_table payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySelectConditionType,
+      "invalid-function-body-select-condition-type",
+      "invalid function-body select condition type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySelectOperandType,
+      "invalid-function-body-select-operand-type",
+      "invalid function-body select operand type",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -1497,6 +1513,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyCallPayloadMismatch => 39
     InvalidFunctionBodyBrIfPayloadMismatch => 40
     InvalidFunctionBodyBrTablePayloadMismatch => 41
+    InvalidFunctionBodySelectConditionType => 160
+    InvalidFunctionBodySelectOperandType => 161
     InvalidFunctionBodyThrowPayloadMismatch => 42
     InvalidFunctionBodyTryTableCatchPayloadMismatch => 43
     InvalidFunctionBodyMemoryAddressType => 44
@@ -3075,6 +3093,58 @@ fn validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
   )
   {
     strategy: InvalidFunctionBodyBrTablePayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_select_condition_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let body = Expr::new([
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_const(I32(2)),
+    Instruction::i64_const(I64(0)),
+    Instruction::select(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySelectConditionType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_select_operand_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let body = Expr::new([
+    Instruction::i32_const(I32(1)),
+    Instruction::i64_const(I64(2)),
+    Instruction::i32_const(I32(0)),
+    Instruction::select(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySelectOperandType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -6767,6 +6837,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
           base,
         )
+      InvalidFunctionBodySelectConditionType =>
+        validate_invalid_ast_mutate_invalid_function_body_select_condition_type(
+          base,
+        )
+      InvalidFunctionBodySelectOperandType =>
+        validate_invalid_ast_mutate_invalid_function_body_select_operand_type(
+          base,
+        )
       InvalidFunctionBodyThrowPayloadMismatch =>
         validate_invalid_ast_mutate_invalid_function_body_throw_payload_mismatch(
           base,
@@ -7573,6 +7651,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
+    "invalid-function-body-select-condition-type", "invalid-function-body-select-operand-type",
     "invalid-function-body-throw-payload-mismatch", "invalid-function-body-try-table-catch-payload-mismatch",
     "invalid-function-body-memory-address-type", "invalid-function-body-memory64-address-type",
     "invalid-function-body-memory-store-address-type", "invalid-function-body-memory64-store-address-type",
@@ -11395,6 +11474,100 @@ test "function-body table.size index mutation repairs by using declared table in
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired table.size index module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid select condition type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySelectConditionType,
+      0x10d40UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body select condition mutation repairs by using i32 condition" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_select_condition_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched select condition type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_const(I32(2)),
+    Instruction::i32_const(I32(0)),
+    Instruction::select(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired select condition module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid select operand type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySelectOperandType,
+      0x10d41UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body select operand mutation repairs by using matching operand types" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_select_operand_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched select operand type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_const(I32(2)),
+    Instruction::i32_const(I32(0)),
+    Instruction::select(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired select operand module to validate: \{err}")
   }
 }
 
