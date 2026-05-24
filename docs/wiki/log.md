@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO if-return negative lit guardrails
+
+- Added research note [`0597`](./raw/research/0597-2026-05-23-sgo-if-return-negative-lit-guardrails.md) and a direct SGO guardrail for three Binaryen v129 `simplify-globals-read_only_to_write.wast` `if return; set` negatives.
+- Pinned that an extra trailing body element, an `if` with an `else` arm, and an `if` body that is not `return` remain mutable and preserve their `global.get` / `global.set` traffic.
+- Confirmed this was a tests/docs-only slice; it does not broaden branch/return/control-transfer matching, and `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO non-init imported-initializer negative
 
 - Added research note [`0596`](./raw/research/0596-2026-05-23-sgo-non-init-imported-initializer-lit.md) and an exact direct SGO guardrail from the third Binaryen v129 `simplify-globals-non-init.wast` module.

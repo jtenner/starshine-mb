@@ -12485,6 +12485,53 @@ test "simplify-globals-optimizing removes exact if-return read-only-to-write gua
 }
 
 ///|
+test "simplify-globals-optimizing follows Binaryen if-return read-only-to-write negative lit" {
+  let optimized = sgo_test_run_twice(
+    (
+      #|(module
+      #|  (global $too-many-elements (mut i32) (i32.const 0))
+      #|  (global $if-has-else (mut i32) (i32.const 0))
+      #|  (global $body-not-return (mut i32) (i32.const 0))
+      #|  (func $too_many_elements
+      #|    (if
+      #|      (global.get $too-many-elements)
+      #|      (then
+      #|        (return)))
+      #|    (global.set $too-many-elements
+      #|      (i32.const 1))
+      #|    (nop))
+      #|  (func $if_has_else
+      #|    (if
+      #|      (global.get $if-has-else)
+      #|      (then
+      #|        (return))
+      #|      (else
+      #|        (nop)))
+      #|    (global.set $if-has-else
+      #|      (i32.const 1)))
+      #|  (func $body_not_return
+      #|    (if
+      #|      (global.get $body-not-return)
+      #|      (then
+      #|        (nop)))
+      #|    (global.set $body-not-return
+      #|      (i32.const 1))))
+      #|,
+    ),
+  )
+
+  for i = 0; i < 3; i = i + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_type(optimized, i),
+      @lib.GlobalType::new(@lib.ValType::i32(), true),
+    )
+    let pretty = optimized.pretty_print_defined_func(i.reinterpret_as_uint())
+    assert_true(pretty.contains("global.get (Global \{i})"), msg=pretty)
+    assert_true(pretty.contains("global.set (Global \{i})"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-globals-optimizing removes eqz if-return read-only-to-write guards" {
   let optimized = sgo_test_run(
     (
