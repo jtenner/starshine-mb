@@ -485,6 +485,34 @@ test "gen_invalid_ast_generate supports element-section function index strategy"
 }
 
 ///|
+test "gen_invalid_ast_generate supports element-section typed expression type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef84UL),
+      GenInvalidAstParams::repro_seed(InvalidElementTypedExprType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-element-typed-expr-type base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-element-typed-expr-type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ElementSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports tag-section invalid type strategy" {
   let generated = match
     gen_invalid_ast_generate(

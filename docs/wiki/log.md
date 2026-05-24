@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 element typed-expression invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-element-typed-expr-type`, a deterministic element-section AST mutation that inserts a passive typed funcref element segment initialized with an externref null.
+- Added focused strategy and `gen_invalid` tests proving the mutated module rejects with the element family while the valid seed still validates.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name typed element-expression coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 element function-index invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-element-func-index`, a deterministic element-section AST mutation that keeps at least one valid function in the seed but inserts a passive function-index element segment containing the first out-of-range function index.

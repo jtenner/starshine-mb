@@ -557,6 +557,7 @@ fn gen_invalid_ast_strategy_label(
     InvalidElementActiveTableIndex => "invalid-element-active-table-index"
     InvalidDataActiveMemoryIndex => "invalid-data-active-memory-index"
     InvalidElementFuncIndex => "invalid-element-func-index"
+    InvalidElementTypedExprType => "invalid-element-typed-expr-type"
     SharedMemoryWithoutMax => "shared-memory-without-max"
     SharedMemory64WithoutMax => "shared-memory64-without-max"
     InvalidTagTypeIndex => "invalid-tag-type-index"

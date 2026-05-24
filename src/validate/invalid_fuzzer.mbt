@@ -250,6 +250,7 @@ pub enum ValidateInvalidAstStrategyId {
   NonConstantElemOffset
   InvalidElementActiveTableIndex
   InvalidElementFuncIndex
+  InvalidElementTypedExprType
   SharedMemoryWithoutMax
   SharedMemory64WithoutMax
   InvalidTagTypeIndex
@@ -529,6 +530,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidElementFuncIndex,
       "invalid-element-func-index",
       "element function index out of range",
+      ElementSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidElementTypedExprType,
+      "invalid-element-typed-expr-type",
+      "element typed expression type mismatch",
       ElementSectionFamily,
       required_in_smoke=false,
     ),
@@ -1894,6 +1902,7 @@ fn validate_invalid_ast_strategy_index(
     NonConstantElemOffset => 21
     InvalidElementActiveTableIndex => 209
     InvalidElementFuncIndex => 211
+    InvalidElementTypedExprType => 212
     SharedMemoryWithoutMax => 22
     SharedMemory64WithoutMax => 23
     InvalidTagTypeIndex => 24
@@ -8429,6 +8438,28 @@ fn validate_invalid_ast_mutate_invalid_element_func_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_element_typed_expr_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let elems = validate_invalid_ast_elem_entries(mod)
+  let elem_ref_type = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  elems.push(
+    Elem::new(
+      ElemMode::passive(),
+      ElemKind::typed_exprs(elem_ref_type, [
+        Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::extern_()))]),
+      ]),
+    ),
+  )
+  {
+    strategy: InvalidElementTypedExprType,
+    applicable: true,
+    expected_family: ElementSectionFamily,
+    mutated_module: mod.with_elem_sec(ElemSec::new(elems)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_shared_memory_without_max(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -9280,6 +9311,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_element_active_table_index(base)
       InvalidElementFuncIndex =>
         validate_invalid_ast_mutate_invalid_element_func_index(base)
+      InvalidElementTypedExprType =>
+        validate_invalid_ast_mutate_invalid_element_typed_expr_type(base)
       SharedMemoryWithoutMax =>
         validate_invalid_ast_mutate_shared_memory_without_max(base)
       SharedMemory64WithoutMax =>
@@ -9637,12 +9670,12 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "funcsec-without-codesec", "mutable-global-get-in-const-init", "non-constant-data-offset",
     "invalid-data-active-memory-index", "invalid-imported-func-type-index", "invalid-imported-tag-type-index",
     "mutable-global-get-in-table-init", "non-constant-elem-offset", "invalid-element-active-table-index",
-    "invalid-element-func-index", "shared-memory-without-max", "shared-memory64-without-max",
-    "invalid-tag-type-index", "invalid-subtype-super-index", "invalid-subtype-super-shape",
-    "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
-    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
-    "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
-    "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
+    "invalid-element-func-index", "invalid-element-typed-expr-type", "shared-memory-without-max",
+    "shared-memory64-without-max", "invalid-tag-type-index", "invalid-subtype-super-index",
+    "invalid-subtype-super-shape", "descriptor-on-func-type", "datacount-without-data-sec",
+    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
+    "invalid-function-body-local-index", "invalid-function-body-global-index", "invalid-function-body-table-index",
+    "invalid-function-body-memory-index", "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-if-condition-type", "invalid-function-body-if-branch-result-type",
@@ -10094,6 +10127,19 @@ test "invalid element function index strategy rejects with ElementSection family
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidElementFuncIndex,
       0x5ef83UL,
+      ElementSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid element typed expression type strategy rejects with ElementSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidElementTypedExprType,
+      0x5ef84UL,
       ElementSectionFamily,
     ) {
     Ok(_) => ()
