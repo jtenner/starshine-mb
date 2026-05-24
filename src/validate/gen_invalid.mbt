@@ -315,6 +315,12 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-array-set-input-type"
     InvalidFunctionBodyArraySetValueType =>
       "invalid-function-body-array-set-value-type"
+    InvalidFunctionBodyArrayFillInputType =>
+      "invalid-function-body-array-fill-input-type"
+    InvalidFunctionBodyArrayFillValueType =>
+      "invalid-function-body-array-fill-value-type"
+    InvalidFunctionBodyArrayFillLengthType =>
+      "invalid-function-body-array-fill-length-type"
     InvalidFunctionBodyBrOnCastInputType =>
       "invalid-function-body-br-on-cast-input-type"
     InvalidFunctionBodyBrOnCastFailInputType =>
