@@ -15380,6 +15380,164 @@ test "simplify-globals-optimizing keeps caught try_table ref.is_null select eqz 
 }
 
 ///|
+test "simplify-globals-optimizing treats transparent try_table ref.is_null select-value guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut funcref) (ref.null func))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run")
+      #|    (if
+      #|      (select
+      #|        (ref.is_null
+      #|          (try_table (result funcref)
+      #|            (global.get $g)))
+      #|        (i32.const 1)
+      #|        (i32.const 1))
+      #|      (then
+      #|        (global.set $g (ref.func $f))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table ref.is_null select-second-value guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut funcref) (ref.null func))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run")
+      #|    (if
+      #|      (select
+      #|        (i32.const 1)
+      #|        (ref.is_null
+      #|          (try_table (result funcref)
+      #|            (global.get $g)))
+      #|        (i32.const 0))
+      #|      (then
+      #|        (global.set $g (ref.func $f))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table ref.is_null select-value eqz guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut funcref) (ref.null func))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.eqz
+      #|        (select
+      #|          (ref.is_null
+      #|            (try_table (result funcref)
+      #|              (global.get $g)))
+      #|          (i32.const 1)
+      #|          (i32.const 1)))
+      #|      (then
+      #|        (global.set $g (ref.func $f))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table ref.is_null select-second-value reverse compare guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut funcref) (ref.null func))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.eq
+      #|        (i32.const 0)
+      #|        (select
+      #|          (i32.const 1)
+      #|          (ref.is_null
+      #|            (try_table (result funcref)
+      #|              (global.get $g)))
+      #|          (i32.const 0)))
+      #|      (then
+      #|        (global.set $g (ref.func $f))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps caught try_table ref.is_null select-value guards conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (global $g (mut funcref) (ref.null func))
+      #|  (func $f)
+      #|  (elem declare func $f)
+      #|  (func (export "run")
+      #|    block $exit
+      #|      (if
+      #|        (select
+      #|          (ref.is_null
+      #|            (try_table (result funcref) (catch $e $exit)
+      #|              (global.get $g)))
+      #|          (i32.const 1)
+      #|          (i32.const 1))
+      #|        (then
+      #|          (global.set $g (ref.func $f))))
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::funcref(), true),
+  )
+}
+
+///|
 test "simplify-globals-optimizing keeps caught try_table ref.is_null select guards conservative" {
   let optimized = sgo_test_run(
     (

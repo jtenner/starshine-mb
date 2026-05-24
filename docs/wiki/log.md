@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO try_table ref.is_null select value-position read-only-to-write
+
+- Added research note [`0614`](./raw/research/0614-2026-05-24-sgo-try-table-ref-is-null-select-value-positions.md) and broadened the no-catch `try_table (result funcref)` + `ref.is_null` + pure-constant-sibling select helper to selected-value positions.
+- No-catch `try_table` wrappers may now feed `ref.is_null` into a select condition, first selected value, or second selected value, including supported post-select pure and leading-constant reverse-compare tails; catch-bearing wrappers remain conservative.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-try-table-ref-is-null-select-value-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO try_table ref.is_null select reverse-compare read-only-to-write
 
 - Added research note [`0613`](./raw/research/0613-2026-05-24-sgo-try-table-ref-is-null-select-reverse-compare.md) and implemented the no-catch `try_table (result funcref)` + `ref.is_null` + select leading-constant reverse-compare shape.
