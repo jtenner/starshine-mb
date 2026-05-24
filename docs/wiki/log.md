@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO try_table select reverse-compare read-only-to-write
+
+- Added research note [`0610`](./raw/research/0610-2026-05-24-sgo-try-table-select-reverse-compare-read-only-to-write.md) and implemented the probed no-catch `try_table` select leading-constant reverse-compare read-only-to-write shape.
+- No-catch `try_table (result i32)` wrappers may now feed a select condition whose result is compared against a leading constant, including exact reverse-compare `if return; set` tails; catch-bearing wrappers remain conservative.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-try-table-select-reverse-compare-rotw-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO try_table select pure read-only-to-write
 
 - Added research note [`0609`](./raw/research/0609-2026-05-24-sgo-try-table-select-pure-read-only-to-write.md) and routed no-catch `try_table` + pure-constant-sibling `select` guards through the existing external pure-condition scanner.
