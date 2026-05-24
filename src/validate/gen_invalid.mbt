@@ -499,6 +499,14 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-store-lane-address-type"
     InvalidFunctionBodySimdStoreLaneVectorType =>
       "invalid-function-body-simd-store-lane-vector-type"
+    InvalidFunctionBodySimdLoadMemoryIndex =>
+      "invalid-function-body-simd-load-memory-index"
+    InvalidFunctionBodySimdStoreMemoryIndex =>
+      "invalid-function-body-simd-store-memory-index"
+    InvalidFunctionBodySimdLoadLaneMemoryIndex =>
+      "invalid-function-body-simd-load-lane-memory-index"
+    InvalidFunctionBodySimdStoreLaneMemoryIndex =>
+      "invalid-function-body-simd-store-lane-memory-index"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>
