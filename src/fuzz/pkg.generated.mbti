@@ -958,7 +958,9 @@ pub struct ValidateInvalidTextDynamicCase {
   variant_id : String
   base_source : String
   assertion_source : String
+  assertion_kind : ValidateInvalidTextAssertionKind
   expected_stage : ValidateInvalidTextStage
+  source_feature_facts : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidTextDynamicFuzzStats {
@@ -985,6 +987,7 @@ pub struct ValidateInvalidTextDynamicStrategyStats {
   validate_rejected : Int
   valid_before_link : Int
   matched_expected : Int
+  source_feature_facts : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidTextFuzzStats {

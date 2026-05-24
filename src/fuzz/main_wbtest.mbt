@@ -515,14 +515,15 @@ test "fuzz suite inventory separates active and reserved suite ids" {
   @debug.assert_eq(fuzz_active_suite_names(), [
     "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "gen-valid-wat-validate-roundtrip",
     "validate-valid", "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
-    "validate-invalid-spec-seed", "binary-roundtrip", "cmd-harness",
+    "validate-invalid-text-dynamic", "validate-invalid-spec-seed", "binary-roundtrip",
+    "cmd-harness",
   ])
   @debug.assert_eq(fuzz_reserved_suite_names(), [])
   @debug.assert_eq(fuzz_suite_inventory_lines(), [
     "active\twast-roundtrip", "active\twat-roundtrip", "active\twast-validate-roundtrip",
     "active\tgen-valid-wat-validate-roundtrip", "active\tvalidate-valid", "active\tvalidate-invalid-ast",
-    "active\tvalidate-invalid-binary", "active\tvalidate-invalid-text", "active\tvalidate-invalid-spec-seed",
-    "active\tbinary-roundtrip", "active\tcmd-harness",
+    "active\tvalidate-invalid-binary", "active\tvalidate-invalid-text", "active\tvalidate-invalid-text-dynamic",
+    "active\tvalidate-invalid-spec-seed", "active\tbinary-roundtrip", "active\tcmd-harness",
   ])
 }
 
@@ -531,7 +532,7 @@ test "fuzz usage text distinguishes active and reserved suites" {
   let usage = fuzz_usage_text()
   assert_true(
     usage.contains(
-      "active suites: wast-roundtrip, wat-roundtrip, wast-validate-roundtrip, gen-valid-wat-validate-roundtrip, validate-valid, validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-spec-seed, binary-roundtrip, cmd-harness",
+      "active suites: wast-roundtrip, wat-roundtrip, wast-validate-roundtrip, gen-valid-wat-validate-roundtrip, validate-valid, validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-text-dynamic, validate-invalid-spec-seed, binary-roundtrip, cmd-harness",
     ),
   )
   assert_true(usage.contains("reserved suite ids: (none)"))
@@ -641,6 +642,46 @@ test "run_fuzz_suite routes validate-invalid-text profile errors through the tex
     Ok(_) => fail("expected validate-invalid-text profile error")
     Err(msg) => {
       assert_true(msg.contains("unknown validate-invalid-text fuzz profile"))
+      assert_false(msg.contains("reserved"))
+      assert_false(msg.contains("unknown suite"))
+    }
+  }
+}
+
+///|
+test "run_fuzz_suite routes validate-invalid-text-dynamic through dynamic GenValid WAT runner" {
+  let result = match
+    run_fuzz_suite("validate-invalid-text-dynamic", "smoke", 0x5eedL) {
+    Ok([single]) => single
+    Ok(_) => fail("expected exactly one dynamic invalid text suite result")
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(result.suite, "validate-invalid-text-dynamic")
+  @debug.assert_eq(result.profile, "smoke")
+  @debug.assert_eq(result.attempts, 12)
+  match result.details_json {
+    Some(details) => {
+      assert_true(details.contains("dynamic-gen-valid-missing-closing-paren"))
+      assert_true(details.contains("dynamic-gen-valid-duplicate-export"))
+      assert_true(details.contains("dynamic-gen-valid-bad-opcode-token"))
+      assert_true(details.contains("source:gen-valid-wat"))
+      assert_true(
+        details.contains("\"variant_id\":\"gen-valid-wat/duplicate-export\""),
+      )
+    }
+    None => fail("expected dynamic invalid text suite details")
+  }
+}
+
+///|
+test "run_fuzz_suite routes validate-invalid-text-dynamic profile errors through dynamic runner" {
+  match
+    run_fuzz_suite("validate-invalid-text-dynamic", "not-a-profile", 0x5eedL) {
+    Ok(_) => fail("expected validate-invalid-text-dynamic profile error")
+    Err(msg) => {
+      assert_true(
+        msg.contains("unknown validate-invalid-text dynamic fuzz profile"),
+      )
       assert_false(msg.contains("reserved"))
       assert_false(msg.contains("unknown suite"))
     }

@@ -960,7 +960,7 @@ test "dynamic invalid text missing paren mutates generated valid WAT into malfor
     generated.stable_id,
     "dynamic-gen-valid-missing-closing-paren",
   )
-  @debug.assert_eq(generated.variant_id, "gen-valid-wat")
+  @debug.assert_eq(generated.variant_id, "gen-valid-wat/missing-closing-paren")
   @debug.assert_eq(
     validate_invalid_text_stage_name(generated.expected_stage),
     "parse-or-lower-rejected",
@@ -979,6 +979,61 @@ test "dynamic invalid text missing paren mutates generated valid WAT into malfor
 }
 
 ///|
+test "dynamic invalid text duplicate export mutates generated valid WAT into invalid assertion" {
+  let generated = match
+    validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-duplicate-export",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(generated.stable_id, "dynamic-gen-valid-duplicate-export")
+  @debug.assert_eq(generated.variant_id, "gen-valid-wat/duplicate-export")
+  @debug.assert_eq(
+    validate_invalid_text_stage_name(generated.expected_stage),
+    "validate-rejected",
+  )
+  assert_true(generated.source_feature_facts.contains("source:gen-valid-wat"))
+  assert_true(generated.assertion_source.contains("(assert_invalid"))
+  assert_true(generated.assertion_source.contains("dynamic duplicate export"))
+  assert_true(generated.assertion_source.contains("dynamic_duplicate_export"))
+  match
+    run_validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-duplicate-export",
+    ) {
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "dynamic invalid text bad opcode mutates generated valid WAT into malformed assertion" {
+  let generated = match
+    validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-bad-opcode-token",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(generated.stable_id, "dynamic-gen-valid-bad-opcode-token")
+  @debug.assert_eq(generated.variant_id, "gen-valid-wat/bad-opcode-token")
+  @debug.assert_eq(
+    validate_invalid_text_stage_name(generated.expected_stage),
+    "parse-or-lower-rejected",
+  )
+  assert_true(generated.source_feature_facts.contains("source:gen-valid-wat"))
+  assert_true(generated.assertion_source.contains("(assert_malformed"))
+  assert_true(generated.assertion_source.contains("dynamic.unknown_opcode"))
+  match
+    run_validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-bad-opcode-token",
+    ) {
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "dynamic invalid text fuzz is deterministic and records generated mutation stats" {
   let first = match run_validate_invalid_text_dynamic_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -990,17 +1045,42 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
   }
   assert_true(first == second)
   @debug.assert_eq(first.profile, "smoke")
-  @debug.assert_eq(first.attempts, 4)
-  @debug.assert_eq(first.generated, 4)
-  @debug.assert_eq(first.mutated, 4)
-  @debug.assert_eq(first.parse_or_lower_rejected, 4)
-  @debug.assert_eq(first.matched_expected, 4)
-  @debug.assert_eq(first.strategy_stats.length(), 1)
+  @debug.assert_eq(first.attempts, 12)
+  @debug.assert_eq(first.generated, 12)
+  @debug.assert_eq(first.mutated, 12)
+  @debug.assert_eq(first.parse_or_lower_rejected, 8)
+  @debug.assert_eq(first.validate_rejected, 4)
+  @debug.assert_eq(first.matched_expected, 12)
+  @debug.assert_eq(first.strategy_stats.length(), 3)
   @debug.assert_eq(
     first.strategy_stats[0].stable_id,
     "dynamic-gen-valid-missing-closing-paren",
   )
-  @debug.assert_eq(first.strategy_stats[0].variant_id, "gen-valid-wat")
+  @debug.assert_eq(
+    first.strategy_stats[0].variant_id,
+    "gen-valid-wat/missing-closing-paren",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[1].stable_id,
+    "dynamic-gen-valid-duplicate-export",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[1].variant_id,
+    "gen-valid-wat/duplicate-export",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[2].stable_id,
+    "dynamic-gen-valid-bad-opcode-token",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[2].variant_id,
+    "gen-valid-wat/bad-opcode-token",
+  )
+  assert_true(
+    first.strategy_stats[2].source_feature_facts.contains(
+      "source:gen-valid-wat",
+    ),
+  )
 }
 
 ///|

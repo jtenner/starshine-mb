@@ -1119,7 +1119,9 @@ pub struct ValidateInvalidTextDynamicCase {
   variant_id : String
   base_source : String
   assertion_source : String
+  assertion_kind : ValidateInvalidTextAssertionKind
   expected_stage : ValidateInvalidTextStage
+  source_feature_facts : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -1134,6 +1136,7 @@ pub struct ValidateInvalidTextDynamicStrategyStats {
   validate_rejected : Int
   valid_before_link : Int
   matched_expected : Int
+  source_feature_facts : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -1152,7 +1155,17 @@ pub struct ValidateInvalidTextDynamicFuzzStats {
 
 ///|
 fn validate_invalid_text_dynamic_supported_strategy(stable_id : String) -> Bool {
-  stable_id == "dynamic-gen-valid-missing-closing-paren"
+  stable_id == "dynamic-gen-valid-missing-closing-paren" ||
+  stable_id == "dynamic-gen-valid-duplicate-export" ||
+  stable_id == "dynamic-gen-valid-bad-opcode-token"
+}
+
+///|
+fn validate_invalid_text_dynamic_strategies() -> Array[String] {
+  [
+    "dynamic-gen-valid-missing-closing-paren", "dynamic-gen-valid-duplicate-export",
+    "dynamic-gen-valid-bad-opcode-token",
+  ]
 }
 
 ///|
@@ -1191,6 +1204,50 @@ fn validate_invalid_text_drop_last_closing_paren(
     i -= 1
   }
   Err("generated WAT did not contain a closing paren to mutate")
+}
+
+///|
+fn validate_invalid_text_insert_before_last_closing_paren(
+  source : String,
+  inserted : String,
+) -> Result[String, String] {
+  let mut i = source.length() - 1
+  while i >= 0 {
+    if source[i] == ')' {
+      let out = StringBuilder::new()
+      let mut j = 0
+      while j < source.length() {
+        if j == i {
+          out.write_string(inserted)
+        }
+        out.write_char(source[j].unsafe_to_char())
+        j += 1
+      }
+      return Ok(out.to_string())
+    }
+    i -= 1
+  }
+  Err("generated WAT did not contain a closing paren to mutate")
+}
+
+///|
+fn validate_invalid_text_dynamic_source_feature_facts(
+  source : String,
+) -> Array[String] {
+  let facts : Array[String] = ["source:gen-valid-wat"]
+  if source.contains("(func") {
+    facts.push("wat-field:func")
+  }
+  if source.contains("(memory") {
+    facts.push("wat-field:memory")
+  }
+  if source.contains("(table") {
+    facts.push("wat-field:table")
+  }
+  if source.contains("(global") {
+    facts.push("wat-field:global")
+  }
+  facts
 }
 
 ///|
@@ -1235,19 +1292,68 @@ pub fn validate_invalid_text_dynamic_case(
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
-  let mutated_source = match
-    validate_invalid_text_drop_last_closing_paren(base_source) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
-  }
-  let escaped = validate_invalid_text_escape_quote_source(mutated_source)
-  Ok({
-    stable_id,
-    variant_id: "gen-valid-wat",
+  let source_feature_facts = validate_invalid_text_dynamic_source_feature_facts(
     base_source,
-    assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic missing closing paren\")",
-    expected_stage: ParseOrLowerRejectedStage,
-  })
+  )
+  match stable_id {
+    "dynamic-gen-valid-missing-closing-paren" => {
+      let mutated_source = match
+        validate_invalid_text_drop_last_closing_paren(base_source) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      let escaped = validate_invalid_text_escape_quote_source(mutated_source)
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/missing-closing-paren",
+        base_source,
+        assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic missing closing paren\")",
+        assertion_kind: MalformedTextAssertion,
+        expected_stage: ParseOrLowerRejectedStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-duplicate-export" => {
+      let inserted = "\n  (func (export \"dynamic_duplicate_export\"))\n  (func (export \"dynamic_duplicate_export\"))\n"
+      let mutated_source = match
+        validate_invalid_text_insert_before_last_closing_paren(
+          base_source, inserted,
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/duplicate-export",
+        base_source,
+        assertion_source: "(assert_invalid \{mutated_source} \"dynamic duplicate export\")",
+        assertion_kind: InvalidTextAssertion,
+        expected_stage: ValidateRejectedStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-bad-opcode-token" => {
+      let inserted = "\n  (func (result i32)\n    i32.const 0\n    dynamic.unknown_opcode)\n"
+      let mutated_source = match
+        validate_invalid_text_insert_before_last_closing_paren(
+          base_source, inserted,
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      let escaped = validate_invalid_text_escape_quote_source(mutated_source)
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/bad-opcode-token",
+        base_source,
+        assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad opcode token\")",
+        assertion_kind: MalformedTextAssertion,
+        expected_stage: ParseOrLowerRejectedStage,
+        source_feature_facts,
+      })
+    }
+    _ => Err("unknown validate-invalid-text dynamic strategy '\{stable_id}'")
+  }
 }
 
 ///|
@@ -1263,7 +1369,7 @@ pub fn run_validate_invalid_text_dynamic_case(
     evaluate_validate_invalid_text_assertion_source(
       generated.assertion_source,
       "dynamic-text-invalid/\{generated.stable_id}.wast",
-      MalformedTextAssertion,
+      generated.assertion_kind,
     ) {
     Ok(v) => v
     Err(msg) => return Err(msg)
@@ -1302,77 +1408,100 @@ pub fn run_validate_invalid_text_dynamic_fuzz(
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
-  let stable_id = "dynamic-gen-valid-missing-closing-paren"
+  let strategies = validate_invalid_text_dynamic_strategies()
+  let total_attempts = attempts * strategies.length()
   let mut generated_count = 0
   let mut mutated = 0
   let mut parse_or_lower_rejected = 0
   let mut validate_rejected = 0
   let mut valid_before_link = 0
   let mut matched_expected = 0
-  let mut i = 0
-  while i < attempts {
-    let generated = match
-      validate_invalid_text_dynamic_case(seed + i.to_uint64(), stable_id) {
-      Ok(v) => v
-      Err(msg) =>
-        return Err(
-          "validate-invalid-text dynamic generation failed: profile=\{normalized} seed=\{seed} attempt=\{i + 1} strategy=\{stable_id} error=\{msg}",
-        )
+  let stats : Array[ValidateInvalidTextDynamicStrategyStats] = []
+  for stable_id in strategies {
+    let mut strategy_generated = 0
+    let mut strategy_mutated = 0
+    let mut strategy_parse_or_lower_rejected = 0
+    let mut strategy_validate_rejected = 0
+    let mut strategy_valid_before_link = 0
+    let mut strategy_matched_expected = 0
+    let mut variant_id = ""
+    let mut expected_stage = ParseOrLowerRejectedStage
+    let mut source_feature_facts : Array[String] = []
+    let mut i = 0
+    while i < attempts {
+      let generated = match
+        validate_invalid_text_dynamic_case(seed + i.to_uint64(), stable_id) {
+        Ok(v) => v
+        Err(msg) =>
+          return Err(
+            "validate-invalid-text dynamic generation failed: profile=\{normalized} seed=\{seed} attempt=\{i + 1} strategy=\{stable_id} error=\{msg}",
+          )
+      }
+      variant_id = generated.variant_id
+      expected_stage = generated.expected_stage
+      source_feature_facts = generated.source_feature_facts
+      generated_count += 1
+      strategy_generated += 1
+      mutated += 1
+      strategy_mutated += 1
+      let stage = match
+        evaluate_validate_invalid_text_assertion_source(
+          generated.assertion_source,
+          "dynamic-text-invalid/\{stable_id}.wast",
+          generated.assertion_kind,
+        ) {
+        Ok(v) => v
+        Err(msg) =>
+          return Err(
+            "validate-invalid-text dynamic execution failed: profile=\{normalized} seed=\{seed} attempt=\{i + 1} strategy=\{stable_id} error=\{msg}",
+          )
+      }
+      if stage == ParseOrLowerRejectedStage {
+        parse_or_lower_rejected += 1
+        strategy_parse_or_lower_rejected += 1
+      } else if stage == ValidateRejectedStage {
+        validate_rejected += 1
+        strategy_validate_rejected += 1
+      } else if stage == ValidBeforeLinkStage {
+        valid_before_link += 1
+        strategy_valid_before_link += 1
+      }
+      if stage == generated.expected_stage {
+        matched_expected += 1
+        strategy_matched_expected += 1
+      }
+      i += 1
     }
-    generated_count += 1
-    mutated += 1
-    let stage = match
-      evaluate_validate_invalid_text_assertion_source(
-        generated.assertion_source,
-        "dynamic-text-invalid/\{stable_id}.wast",
-        MalformedTextAssertion,
-      ) {
-      Ok(v) => v
-      Err(msg) =>
-        return Err(
-          "validate-invalid-text dynamic execution failed: profile=\{normalized} seed=\{seed} attempt=\{i + 1} strategy=\{stable_id} error=\{msg}",
-        )
+    if strategy_matched_expected != attempts {
+      return Err(
+        "validate-invalid-text dynamic strategy floors failed: profile=\{normalized} seed=\{seed} \{stable_id}: matched_expected=\{strategy_matched_expected} attempts=\{attempts}",
+      )
     }
-    if stage == ParseOrLowerRejectedStage {
-      parse_or_lower_rejected += 1
-    } else if stage == ValidateRejectedStage {
-      validate_rejected += 1
-    } else if stage == ValidBeforeLinkStage {
-      valid_before_link += 1
-    }
-    if stage == generated.expected_stage {
-      matched_expected += 1
-    }
-    i += 1
-  }
-  let stat = ValidateInvalidTextDynamicStrategyStats::{
-    stable_id,
-    variant_id: "gen-valid-wat",
-    expected_stage: ParseOrLowerRejectedStage,
-    attempted: attempts,
-    generated: generated_count,
-    mutated,
-    parse_or_lower_rejected,
-    validate_rejected,
-    valid_before_link,
-    matched_expected,
-  }
-  if matched_expected != attempts {
-    return Err(
-      "validate-invalid-text dynamic strategy floors failed: profile=\{normalized} seed=\{seed} \{stable_id}: matched_expected=\{matched_expected} attempts=\{attempts}",
-    )
+    stats.push(ValidateInvalidTextDynamicStrategyStats::{
+      stable_id,
+      variant_id,
+      expected_stage,
+      attempted: attempts,
+      generated: strategy_generated,
+      mutated: strategy_mutated,
+      parse_or_lower_rejected: strategy_parse_or_lower_rejected,
+      validate_rejected: strategy_validate_rejected,
+      valid_before_link: strategy_valid_before_link,
+      matched_expected: strategy_matched_expected,
+      source_feature_facts,
+    })
   }
   Ok({
     profile: normalized,
     seed,
-    attempts,
+    attempts: total_attempts,
     generated: generated_count,
     mutated,
     parse_or_lower_rejected,
     validate_rejected,
     valid_before_link,
     matched_expected,
-    strategy_stats: [stat],
+    strategy_stats: stats,
   })
 }
 

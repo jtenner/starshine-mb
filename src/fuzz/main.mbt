@@ -116,7 +116,8 @@ pub fn fuzz_active_suite_names() -> Array[String] {
   [
     "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "gen-valid-wat-validate-roundtrip",
     "validate-valid", "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
-    "validate-invalid-spec-seed", "binary-roundtrip", "cmd-harness",
+    "validate-invalid-text-dynamic", "validate-invalid-spec-seed", "binary-roundtrip",
+    "cmd-harness",
   ]
 }
 
@@ -1453,6 +1454,16 @@ fn run_single_suite(
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
+    "validate-invalid-text-dynamic" =>
+      match run_validate_invalid_text_dynamic_fuzz(profile, seed) {
+        Ok(stats) =>
+          (
+            stats.attempts,
+            Some(format_invalid_text_dynamic_details_json(stats)),
+          )
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
     "validate-invalid-spec-seed" =>
       match run_validate_invalid_spec_seed_fuzz(profile, seed) {
         Ok(stats) =>
@@ -2142,6 +2153,40 @@ fn format_invalid_text_details_json(
     out.write_string(
       "{\"stable_id\":\"\{fuzz_json_escape(item.stable_id)}\",\"attempted\":\{item.attempted},\"applicable\":\{item.applicable},\"parse_or_lower_rejected\":\{item.parse_or_lower_rejected},\"validate_rejected\":\{item.validate_rejected},\"valid_before_link\":\{item.valid_before_link},\"matched_expected\":\{item.matched_expected}}",
     )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
+fn format_invalid_text_dynamic_details_json(
+  stats : ValidateInvalidTextDynamicFuzzStats,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"generated\":\{stats.generated},\"mutated\":\{stats.mutated},\"parse_or_lower_rejected\":\{stats.parse_or_lower_rejected},\"validate_rejected\":\{stats.validate_rejected},\"valid_before_link\":\{stats.valid_before_link},\"matched_expected\":\{stats.matched_expected},\"strategy_stats\":[",
+  )
+  let mut i = 0
+  while i < stats.strategy_stats.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let item = stats.strategy_stats[i]
+    out.write_string(
+      "{\"stable_id\":\"\{fuzz_json_escape(item.stable_id)}\",\"variant_id\":\"\{fuzz_json_escape(item.variant_id)}\",\"expected_stage\":\"\{validate_invalid_text_stage_name(item.expected_stage)}\",\"attempted\":\{item.attempted},\"generated\":\{item.generated},\"mutated\":\{item.mutated},\"parse_or_lower_rejected\":\{item.parse_or_lower_rejected},\"validate_rejected\":\{item.validate_rejected},\"valid_before_link\":\{item.valid_before_link},\"matched_expected\":\{item.matched_expected},\"source_feature_facts\":[",
+    )
+    let mut fact_idx = 0
+    while fact_idx < item.source_feature_facts.length() {
+      if fact_idx > 0 {
+        out.write_char(',')
+      }
+      out.write_string(
+        "\"\{fuzz_json_escape(item.source_feature_facts[fact_idx])}\"",
+      )
+      fact_idx += 1
+    }
+    out.write_string("]}")
     i += 1
   }
   out.write_string("]}")
