@@ -724,6 +724,28 @@ test "run_fuzz_suite routes binary-roundtrip to binary runner" {
 }
 
 ///|
+test "run_fuzz_suite reports arbitrary binary coverage details" {
+  match run_fuzz_suite("binary-roundtrip", "smoke", 0x5eedL) {
+    Ok(results) => {
+      @debug.assert_eq(results.length(), 1)
+      let result = results[0]
+      @debug.assert_eq(result.attempts, 2944)
+      match result.details_json {
+        Some(details) => {
+          assert_true(details.contains("\"arbitrary_roundtrips\":2944"))
+          assert_true(details.contains("\"instruction_roundtrips\":1024"))
+          assert_true(details.contains("\"section_roundtrips\":224"))
+          assert_true(details.contains("\"immediate_roundtrips\":1208"))
+        }
+        None => fail("expected binary roundtrip details json")
+      }
+    }
+    Err(msg) =>
+      fail("expected arbitrary binary roundtrip suite success: \{msg}")
+  }
+}
+
+///|
 test "run_fuzz_suite reports GenValid binary roundtrip details" {
   match run_fuzz_suite("binary-roundtrip", "gen-valid-smoke", 0x5eedL) {
     Ok(results) => {
@@ -737,6 +759,9 @@ test "run_fuzz_suite reports GenValid binary roundtrip details" {
           assert_true(details.contains("\"gen_valid_validated\":8"))
           assert_true(details.contains("\"byte_fuzz_cases\":0"))
           assert_true(details.contains("\"byte_fuzz_decode_rejections\":0"))
+          assert_true(details.contains("\"instruction_roundtrips\":0"))
+          assert_true(details.contains("\"section_roundtrips\":0"))
+          assert_true(details.contains("\"immediate_roundtrips\":0"))
         }
         None => fail("expected binary roundtrip details json")
       }
@@ -757,6 +782,9 @@ test "run_fuzz_suite reports byte-fuzz binary roundtrip details" {
           assert_true(details.contains("\"byte_fuzz_cases\":16"))
           assert_true(details.contains("\"byte_fuzz_decode_rejections\":"))
           assert_true(details.contains("\"byte_fuzz_decode_accepts\":"))
+          assert_true(details.contains("\"instruction_roundtrips\":0"))
+          assert_true(details.contains("\"section_roundtrips\":0"))
+          assert_true(details.contains("\"immediate_roundtrips\":0"))
         }
         None => fail("expected binary roundtrip details json")
       }

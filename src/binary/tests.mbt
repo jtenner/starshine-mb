@@ -82,6 +82,9 @@ pub struct BinaryRoundtripFuzzStats {
   byte_fuzz_decode_accepts : Int
   byte_fuzz_validate_rejections : Int
   byte_fuzz_stable_roundtrips : Int
+  instruction_roundtrips : Int
+  section_roundtrips : Int
+  immediate_roundtrips : Int
 } derive(Eq, Debug)
 
 ///|
@@ -185,6 +188,9 @@ fn run_binary_roundtrip_gen_valid_fuzz(
     byte_fuzz_decode_accepts: 0,
     byte_fuzz_validate_rejections: 0,
     byte_fuzz_stable_roundtrips: 0,
+    instruction_roundtrips: 0,
+    section_roundtrips: 0,
+    immediate_roundtrips: 0,
   })
 }
 
@@ -319,6 +325,9 @@ fn run_binary_byte_fuzz(
     byte_fuzz_decode_accepts: decode_accepts,
     byte_fuzz_validate_rejections: validate_rejections,
     byte_fuzz_stable_roundtrips: stable_roundtrips,
+    instruction_roundtrips: 0,
+    section_roundtrips: 0,
+    immediate_roundtrips: 0,
   })
 }
 
@@ -372,6 +381,15 @@ pub fn run_binary_roundtrip_fuzz(
   }
   let st = @splitmix.new(seed~)
   let mut attempts = 0
+  let instruction_roundtrips = instructions
+  let section_roundtrips = section_count * 14
+  let immediate_roundtrips = small +
+    medium +
+    medium +
+    block_types +
+    floats +
+    floats +
+    signed_ints
 
   let _ : Array[TypeIdx] = roundtrip_arbitrary_with_state(small, st) catch {
     _ => return Err("binary fuzz failed while roundtripping TypeIdx values")
@@ -534,6 +552,9 @@ pub fn run_binary_roundtrip_fuzz(
     byte_fuzz_decode_accepts: 0,
     byte_fuzz_validate_rejections: 0,
     byte_fuzz_stable_roundtrips: 0,
+    instruction_roundtrips,
+    section_roundtrips,
+    immediate_roundtrips,
   })
 }
 
@@ -626,6 +647,9 @@ test "run_binary_roundtrip_fuzz covers GenValid full modules" {
       @debug.assert_eq(stats.gen_valid_validated, 8)
       @debug.assert_eq(stats.byte_fuzz_cases, 0)
       @debug.assert_eq(stats.byte_fuzz_decode_rejections, 0)
+      @debug.assert_eq(stats.instruction_roundtrips, 0)
+      @debug.assert_eq(stats.section_roundtrips, 0)
+      @debug.assert_eq(stats.immediate_roundtrips, 0)
       @debug.assert_eq(stats.attempts, 8)
     }
     Err(msg) => fail("expected GenValid binary roundtrip success: \{msg}")
@@ -646,8 +670,25 @@ test "run_binary_roundtrip_fuzz covers byte fuzz corruptions" {
       assert_true(
         stats.byte_fuzz_decode_accepts + stats.byte_fuzz_decode_rejections == 16,
       )
+      @debug.assert_eq(stats.instruction_roundtrips, 0)
+      @debug.assert_eq(stats.section_roundtrips, 0)
+      @debug.assert_eq(stats.immediate_roundtrips, 0)
     }
     Err(msg) => fail("expected byte-fuzz binary roundtrip success: \{msg}")
+  }
+}
+
+///|
+test "run_binary_roundtrip_fuzz reports exact arbitrary coverage counters" {
+  match run_binary_roundtrip_fuzz("smoke", 0x5eedUL) {
+    Ok(stats) => {
+      @debug.assert_eq(stats.profile, "smoke")
+      @debug.assert_eq(stats.instruction_roundtrips, 1024)
+      @debug.assert_eq(stats.section_roundtrips, 224)
+      @debug.assert_eq(stats.immediate_roundtrips, 1208)
+      assert_true(stats.arbitrary_roundtrips >= stats.instruction_roundtrips)
+    }
+    Err(msg) => fail("expected smoke binary roundtrip success: \{msg}")
   }
 }
 

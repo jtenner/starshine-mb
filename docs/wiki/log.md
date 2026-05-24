@@ -1158,6 +1158,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1029 binary roundtrip exact counters
+
+- Continued `[FUZ]1029` by adding exact instruction-, section-, and immediate-shape counters to `BinaryRoundtripFuzzStats` and `binary-roundtrip` details JSON for the ordinary arbitrary-value profiles, with focused smoke coverage locking `1024` instruction roundtrips, `224` section roundtrips, and `1208` immediate roundtrips.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the binary-roundtrip suite contract names these exact coverage counters.
+
 ## [2026-05-24] fuzzing | FUZ1029 binary byte-fuzz roundtrip profiles
 
 - Continued `[FUZ]1029` by adding `binary-roundtrip` profiles `byte-fuzz-smoke`, `byte-fuzz-ci`, and `byte-fuzz-stress`, which start from validating GenValid binary modules, apply deterministic random/structured byte corruptions, and classify decode rejection versus decode-accepted outcomes.
