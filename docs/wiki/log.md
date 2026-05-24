@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1029 binary boundary corpus profile
+
+- Continued `[FUZ]1029` by adding the `binary-roundtrip` `boundary-smoke` profile and `boundary_roundtrips` stats/details counter.
+- The fixed boundary corpus currently covers high/edge TypeIdx, FuncIdx, LocalIdx, memarg offset/memory-index shapes, SIMD lane immediates, void/value/type-index blocktypes, signed integer extremes, and signed-zero float/double immediates.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the suite contract documents the new boundary profile and JSON detail field.
+
 ## [2026-05-24] fuzzing | FUZ1029 binary roundtrip exact counters
 
 - Continued `[FUZ]1029` by adding exact instruction-, section-, and immediate-shape counters to `BinaryRoundtripFuzzStats` and `binary-roundtrip` details JSON for the ordinary arbitrary-value profiles, with focused smoke coverage locking `1024` instruction roundtrips, `224` section roundtrips, and `1208` immediate roundtrips.

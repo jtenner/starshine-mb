@@ -82,6 +82,7 @@ pub struct BinaryRoundtripFuzzStats {
   byte_fuzz_decode_accepts : Int
   byte_fuzz_validate_rejections : Int
   byte_fuzz_stable_roundtrips : Int
+  boundary_roundtrips : Int
   instruction_roundtrips : Int
   section_roundtrips : Int
   immediate_roundtrips : Int
@@ -188,6 +189,115 @@ fn run_binary_roundtrip_gen_valid_fuzz(
     byte_fuzz_decode_accepts: 0,
     byte_fuzz_validate_rejections: 0,
     byte_fuzz_stable_roundtrips: 0,
+    boundary_roundtrips: 0,
+    instruction_roundtrips: 0,
+    section_roundtrips: 0,
+    immediate_roundtrips: 0,
+  })
+}
+
+///|
+fn binary_roundtrip_boundary_corpus(
+  normalized : String,
+  seed : UInt64,
+) -> Result[BinaryRoundtripFuzzStats, String] {
+  let mut count = 0
+  let idx_values : Array[UInt] = [0U, 1U, 127U, 128U, 624485U, 0xffffffffU]
+  for v in idx_values {
+    roundtrip(TypeIdx::new(v)) catch {
+      _ => return Err("boundary corpus failed TypeIdx \{v}")
+    }
+    roundtrip(FuncIdx::new(v)) catch {
+      _ => return Err("boundary corpus failed FuncIdx \{v}")
+    }
+    roundtrip(LocalIdx::new(v)) catch {
+      _ => return Err("boundary corpus failed LocalIdx \{v}")
+    }
+    count += 3
+  }
+  let memargs = [
+    MemArg::new(0U, None, 0UL),
+    MemArg::new(2U, None, 0xffffffffUL),
+    MemArg::new(4U, Some(MemIdx::new(1U)), 0xffffffffffffffffUL),
+  ]
+  for memarg in memargs {
+    roundtrip(memarg) catch {
+      _ => return Err("boundary corpus failed MemArg")
+    }
+    count += 1
+  }
+  let lanes = [
+    LaneIdx::new(0),
+    LaneIdx::new(1),
+    LaneIdx::new(14),
+    LaneIdx::new(15),
+  ]
+  for lane in lanes {
+    roundtrip(lane) catch {
+      _ => return Err("boundary corpus failed LaneIdx")
+    }
+    count += 1
+  }
+  let blocks = [
+    BlockType::void_(),
+    BlockType::val_type(ValType::i32()),
+    BlockType::type_idx(TypeIdx::new(0xffffffffU)),
+  ]
+  for block in blocks {
+    roundtrip(block) catch {
+      _ => return Err("boundary corpus failed BlockType")
+    }
+    count += 1
+  }
+  let immediates_i64 : Array[I64] = [
+    I64::new(0L),
+    I64::new(-1L),
+    I64::new(9223372036854775807L),
+    I64::new(-9223372036854775807L - 1L),
+  ]
+  for value in immediates_i64 {
+    roundtrip(value) catch {
+      _ => return Err("boundary corpus failed I64")
+    }
+    count += 1
+  }
+  let floats : Array[F32] = [
+    F32::new(0.0),
+    F32::new(-0.0),
+    F32::new(1.0),
+    F32::new(-1.0),
+  ]
+  for value in floats {
+    roundtrip(value) catch {
+      _ => return Err("boundary corpus failed F32")
+    }
+    count += 1
+  }
+  let doubles : Array[F64] = [
+    F64::new(0.0),
+    F64::new(-0.0),
+    F64::new(1.0),
+    F64::new(-1.0),
+  ]
+  for value in doubles {
+    roundtrip(value) catch {
+      _ => return Err("boundary corpus failed F64")
+    }
+    count += 1
+  }
+  Ok(BinaryRoundtripFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts: count,
+    arbitrary_roundtrips: 0,
+    gen_valid_modules: 0,
+    gen_valid_validated: 0,
+    byte_fuzz_cases: 0,
+    byte_fuzz_decode_rejections: 0,
+    byte_fuzz_decode_accepts: 0,
+    byte_fuzz_validate_rejections: 0,
+    byte_fuzz_stable_roundtrips: 0,
+    boundary_roundtrips: count,
     instruction_roundtrips: 0,
     section_roundtrips: 0,
     immediate_roundtrips: 0,
@@ -325,6 +435,7 @@ fn run_binary_byte_fuzz(
     byte_fuzz_decode_accepts: decode_accepts,
     byte_fuzz_validate_rejections: validate_rejections,
     byte_fuzz_stable_roundtrips: stable_roundtrips,
+    boundary_roundtrips: 0,
     instruction_roundtrips: 0,
     section_roundtrips: 0,
     immediate_roundtrips: 0,
@@ -374,9 +485,11 @@ pub fn run_binary_roundtrip_fuzz(
     "byte-fuzz-smoke" => return run_binary_byte_fuzz(normalized, seed, 16)
     "byte-fuzz-ci" => return run_binary_byte_fuzz(normalized, seed, 256)
     "byte-fuzz-stress" => return run_binary_byte_fuzz(normalized, seed, 2048)
+    "boundary-smoke" =>
+      return binary_roundtrip_boundary_corpus(normalized, seed)
     _ =>
       return Err(
-        "unknown binary fuzz profile '\{profile}'; expected smoke|ci|stress|gen-valid-smoke|gen-valid-ci|gen-valid-stress|byte-fuzz-smoke|byte-fuzz-ci|byte-fuzz-stress",
+        "unknown binary fuzz profile '\{profile}'; expected smoke|ci|stress|gen-valid-smoke|gen-valid-ci|gen-valid-stress|byte-fuzz-smoke|byte-fuzz-ci|byte-fuzz-stress|boundary-smoke",
       )
   }
   let st = @splitmix.new(seed~)
@@ -552,6 +665,7 @@ pub fn run_binary_roundtrip_fuzz(
     byte_fuzz_decode_accepts: 0,
     byte_fuzz_validate_rejections: 0,
     byte_fuzz_stable_roundtrips: 0,
+    boundary_roundtrips: 0,
     instruction_roundtrips,
     section_roundtrips,
     immediate_roundtrips,
@@ -647,6 +761,7 @@ test "run_binary_roundtrip_fuzz covers GenValid full modules" {
       @debug.assert_eq(stats.gen_valid_validated, 8)
       @debug.assert_eq(stats.byte_fuzz_cases, 0)
       @debug.assert_eq(stats.byte_fuzz_decode_rejections, 0)
+      @debug.assert_eq(stats.boundary_roundtrips, 0)
       @debug.assert_eq(stats.instruction_roundtrips, 0)
       @debug.assert_eq(stats.section_roundtrips, 0)
       @debug.assert_eq(stats.immediate_roundtrips, 0)
@@ -670,11 +785,32 @@ test "run_binary_roundtrip_fuzz covers byte fuzz corruptions" {
       assert_true(
         stats.byte_fuzz_decode_accepts + stats.byte_fuzz_decode_rejections == 16,
       )
+      @debug.assert_eq(stats.boundary_roundtrips, 0)
       @debug.assert_eq(stats.instruction_roundtrips, 0)
       @debug.assert_eq(stats.section_roundtrips, 0)
       @debug.assert_eq(stats.immediate_roundtrips, 0)
     }
     Err(msg) => fail("expected byte-fuzz binary roundtrip success: \{msg}")
+  }
+}
+
+///|
+test "run_binary_roundtrip_fuzz covers explicit boundary corpus" {
+  match run_binary_roundtrip_fuzz("boundary-smoke", 0x5eedUL) {
+    Ok(stats) => {
+      @debug.assert_eq(stats.profile, "boundary-smoke")
+      @debug.assert_eq(stats.seed, 0x5eedUL)
+      @debug.assert_eq(stats.arbitrary_roundtrips, 0)
+      @debug.assert_eq(stats.gen_valid_modules, 0)
+      @debug.assert_eq(stats.byte_fuzz_cases, 0)
+      @debug.assert_eq(stats.boundary_roundtrips, 40)
+      @debug.assert_eq(stats.attempts, 40)
+      @debug.assert_eq(stats.instruction_roundtrips, 0)
+      @debug.assert_eq(stats.section_roundtrips, 0)
+      @debug.assert_eq(stats.immediate_roundtrips, 0)
+    }
+    Err(msg) =>
+      fail("expected boundary corpus binary roundtrip success: \{msg}")
   }
 }
 

@@ -126,6 +126,7 @@ pub struct BinaryRoundtripFuzzStats {
   byte_fuzz_decode_accepts : Int
   byte_fuzz_validate_rejections : Int
   byte_fuzz_stable_roundtrips : Int
+  boundary_roundtrips : Int
   instruction_roundtrips : Int
   section_roundtrips : Int
   immediate_roundtrips : Int

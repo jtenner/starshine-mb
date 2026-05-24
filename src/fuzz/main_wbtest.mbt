@@ -782,6 +782,7 @@ test "run_fuzz_suite reports byte-fuzz binary roundtrip details" {
           assert_true(details.contains("\"byte_fuzz_cases\":16"))
           assert_true(details.contains("\"byte_fuzz_decode_rejections\":"))
           assert_true(details.contains("\"byte_fuzz_decode_accepts\":"))
+          assert_true(details.contains("\"boundary_roundtrips\":0"))
           assert_true(details.contains("\"instruction_roundtrips\":0"))
           assert_true(details.contains("\"section_roundtrips\":0"))
           assert_true(details.contains("\"immediate_roundtrips\":0"))
@@ -791,6 +792,28 @@ test "run_fuzz_suite reports byte-fuzz binary roundtrip details" {
     }
     Err(msg) =>
       fail("expected byte-fuzz binary roundtrip suite success: \{msg}")
+  }
+}
+
+///|
+test "run_fuzz_suite reports boundary corpus binary roundtrip details" {
+  match run_fuzz_suite("binary-roundtrip", "boundary-smoke", 0x5eedL) {
+    Ok(results) => {
+      @debug.assert_eq(results.length(), 1)
+      let result = results[0]
+      @debug.assert_eq(result.attempts, 40)
+      match result.details_json {
+        Some(details) => {
+          assert_true(details.contains("\"boundary_roundtrips\":40"))
+          assert_true(details.contains("\"arbitrary_roundtrips\":0"))
+          assert_true(details.contains("\"byte_fuzz_cases\":0"))
+          assert_true(details.contains("\"instruction_roundtrips\":0"))
+        }
+        None => fail("expected binary roundtrip details json")
+      }
+    }
+    Err(msg) =>
+      fail("expected boundary corpus binary roundtrip suite success: \{msg}")
   }
 }
 
