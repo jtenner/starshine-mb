@@ -2029,6 +2029,50 @@ test "gen_invalid_ast_generate supports function-body memory.copy source index s
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body memory load memarg index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d4cUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryLoadIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-function-body-memory-load-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body memory store memarg index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d4dUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryStoreIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-function-body-memory-store-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body memory.init data index strategy" {
   let generated = match
     gen_invalid_ast_generate(
