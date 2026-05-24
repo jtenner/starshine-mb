@@ -69,6 +69,10 @@ pub fn invalid_fuzz_suite_name_for_source_kind(InvalidFuzzSourceKind) -> String
 
 pub fn invalid_fuzz_text_source_kind() -> InvalidFuzzSourceKind
 
+pub fn metamorphic_apply_transform(@lib.Module, MetamorphicValidTransform) -> Result[MetamorphicValidTransformResult, String]
+
+pub fn metamorphic_valid_transform_id(MetamorphicValidTransform) -> String
+
 pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
 
 pub fn parse_fuzz_cli_command(Array[String]) -> FuzzCliCommand
@@ -104,6 +108,8 @@ pub fn run_validate_invalid_text_dynamic_case(UInt64, String) -> Result[String, 
 pub fn run_validate_invalid_text_dynamic_fuzz(String, UInt64) -> Result[ValidateInvalidTextDynamicFuzzStats, String]
 
 pub fn run_validate_invalid_text_fuzz(String, UInt64) -> Result[ValidateInvalidTextFuzzStats, String]
+
+pub fn run_validate_valid_metamorphic_fuzz(String, UInt64) -> Result[ValidateValidMetamorphicFuzzStats, String]
 
 pub fn run_wast_validate_roundtrip_fuzz(String, UInt64) -> Result[WastValidateRoundtripFuzzStats, String]
 
@@ -335,6 +341,15 @@ pub enum InvalidFuzzSourceKind {
   BinaryInvalidSource
   TextInvalidSource
   SpecSeedInvalidSource
+} derive(Eq, @debug.Debug)
+
+pub enum MetamorphicValidTransform {
+  AddNonNameCustomSection
+} derive(Eq, @debug.Debug)
+
+pub struct MetamorphicValidTransformResult {
+  transform_id : String
+  wasm_module : @lib.Module
 } derive(Eq, @debug.Debug)
 
 pub enum ValidateInvalidBinaryExpectedResult {
@@ -1092,6 +1107,15 @@ pub struct ValidateInvalidTextStrategyStats {
   variant_attempted : Int
   variant_applicable : Int
   variant_matched_expected : Int
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateValidMetamorphicFuzzStats {
+  profile : String
+  attempts : Int
+  generated : Int
+  transformed : Int
+  validated : Int
+  transform_ids : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct WastValidateRoundtripFuzzStats {

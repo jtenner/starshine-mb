@@ -727,7 +727,8 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested Tests: command parser tests for property flags, fake normalizer property tests, small real pass smoke with `--check-idempotent`.
   - Exit Criteria: agents can battle-test passes for repeatability and composition robustness using the same artifact/replay workflow as compare-pass.
 
-- [FUZ]1036 (p1) - Metamorphic Valid Module Transformer Suite
+- [FUZ]1036 (IN PROGRESS, p1) - Metamorphic Valid Module Transformer Suite
+  - Status: active. Run 23 continuation update: added the first metamorphic-valid suite surface with `validate-valid-metamorphic` and the `add-non-name-custom-section` transform. The transform starts from a GenValid module, appends a non-`name` custom section payload, validates the transformed module, and reports the transform id through suite details; focused tests also prove binary encode/decode roundtrip plus validation after transformation. TDD first failed in `moon test src/fuzz` because the metamorphic APIs were missing, then passed after adding the transform registry, smoke runner, suite wiring, focused wbtests, and generator-ledger docs. Final validation for this slice is in the commit message.
   - Goal: generate new valid test cases by applying semantics-preserving rewrites to already-valid modules.
   - Why: mutating valid modules in controlled ways exercises encoders, validators, and optimizers without requiring every shape to be born directly from GenValid.
   - Deliverables: add metamorphic transforms such as renaming locals/exports, inserting dead functions/globals, wrapping expressions in identity blocks, adding harmless drops, reordering independent custom sections, splitting/merging local declarations, duplicating equivalent types, and adding unused passive segments where valid.

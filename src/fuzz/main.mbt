@@ -115,9 +115,9 @@ fn fuzz_ascii_lower(input : String) -> String {
 pub fn fuzz_active_suite_names() -> Array[String] {
   [
     "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "gen-valid-wat-validate-roundtrip",
-    "validate-valid", "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
-    "validate-invalid-text-dynamic", "validate-invalid-spec-seed", "binary-roundtrip",
-    "cmd-harness",
+    "validate-valid", "validate-valid-metamorphic", "validate-invalid-ast", "validate-invalid-binary",
+    "validate-invalid-text", "validate-invalid-text-dynamic", "validate-invalid-spec-seed",
+    "binary-roundtrip", "cmd-harness",
   ]
 }
 
@@ -1434,6 +1434,16 @@ fn run_single_suite(
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
+    "validate-valid-metamorphic" =>
+      match run_validate_valid_metamorphic_fuzz(profile, seed) {
+        Ok(stats) =>
+          (
+            stats.attempts,
+            Some(format_validate_valid_metamorphic_details_json(stats)),
+          )
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
     "validate-invalid-ast" =>
       match run_validate_invalid_ast_fuzz(profile, seed) {
         Ok(stats) =>
@@ -2228,6 +2238,26 @@ fn format_validate_valid_feature_floors_json(
 ///|
 fn format_validate_valid_details_json(stats : ValidateValidFuzzStats) -> String {
   "{\"validated\":\{stats.validated},\"generator_config\":\"\{fuzz_json_escape(gen_valid_config_label(stats.generator_config))}\",\"feature_stats\":\{format_gen_valid_feature_stats_json(stats.feature_stats)},\"feature_floors\":\{format_validate_valid_feature_floors_json(stats.feature_floors)}}"
+}
+
+///|
+fn format_validate_valid_metamorphic_details_json(
+  stats : ValidateValidMetamorphicFuzzStats,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"generated\":\{stats.generated},\"transformed\":\{stats.transformed},\"validated\":\{stats.validated},\"transform_ids\":[",
+  )
+  let mut i = 0
+  while i < stats.transform_ids.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string("\"\{fuzz_json_escape(stats.transform_ids[i])}\"")
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
 }
 
 ///|
