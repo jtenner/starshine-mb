@@ -9,6 +9,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedEmptyFunctionType
   AddUnusedFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
+  AddFunctionNamesSection
 } derive(Eq, Debug)
 
 ///|
@@ -26,6 +27,7 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedFuncrefTable => "add-unused-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
       "add-unused-passive-funcref-element-segment"
+    AddFunctionNamesSection => "add-function-names-section"
   }
 }
 
@@ -81,12 +83,73 @@ fn metamorphic_add_leading_non_name_custom_section(
 }
 
 ///|
+fn metamorphic_with_name_sec_func_names(
+  mod : @lib.Module,
+  func_names : @lib.NameMap,
+) -> @lib.Module {
+  let name_sec = match mod.name_sec {
+    Some(existing) =>
+      @lib.NameSec::new(
+        module_name=existing.module_name,
+        func_names=Some(func_names),
+        local_names=existing.local_names,
+        label_names=existing.label_names,
+        type_names=existing.type_names,
+        table_names=existing.table_names,
+        memory_names=existing.memory_names,
+        global_names=existing.global_names,
+        elem_names=existing.elem_names,
+        data_names=existing.data_names,
+        field_names=existing.field_names,
+        tag_names=existing.tag_names,
+      )
+    None => @lib.NameSec::new(func_names=Some(func_names))
+  }
+  mod.with_name_sec(name_sec)
+}
+
+///|
 fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
   mod.with_name_sec(
     @lib.NameSec::new(
       module_name=Some(@lib.Name::from_string("starshine.metamorphic.module")),
     ),
   )
+}
+
+///|
+fn metamorphic_total_func_count(mod : @lib.Module) -> Int {
+  let mut count = 0
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => count += type_idxs.length()
+    None => ()
+  }
+  count
+}
+
+///|
+fn metamorphic_add_function_names_section(mod : @lib.Module) -> @lib.Module {
+  let names = []
+  let count = metamorphic_total_func_count(mod)
+  for i = 0; i < count; i = i + 1 {
+    names.push(
+      @lib.NameAssoc::new(
+        i.reinterpret_as_uint(),
+        @lib.Name::from_string("metamorphic_func_\{i}"),
+      ),
+    )
+  }
+  metamorphic_with_name_sec_func_names(mod, @lib.NameMap::new(names))
 }
 
 ///|
@@ -253,6 +316,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedEmptyFunctionType,
     AddUnusedFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
+    AddFunctionNamesSection,
   ]
 }
 
@@ -276,6 +340,7 @@ pub fn metamorphic_apply_transform(
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>
       metamorphic_add_unused_passive_funcref_element_segment(mod)
+    AddFunctionNamesSection => metamorphic_add_function_names_section(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
