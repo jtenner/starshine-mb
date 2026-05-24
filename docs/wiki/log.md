@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func313 terminal-call partial parity
+
+- Added a selected Func313 terminal-call staging lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that folds the constant default-zero wrapper, swaps local/global `i32.eq x, 0` wrappers into Binaryen's direct truthy condition form, and inlines the safely proven staged locals into the terminal `$323` call.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the selected Func313 staged terminal-call family.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func313-terminal-call-artifact` validates with `wasm-opt --all-features`, keeps the first diff at `defined=313 abs=330`, reduces the Func313 diff to the remaining block/local staging around parameter 6 plus `$323` suffix-operand specialization, and keeps the short fuzz smoke at `45/1000` compared, `26` normalized matches, `19` mismatches, `0` validation failures, and `1` Binaryen/tool command failure.
+
 ## [2026-05-24] passes | dae Func311 temp-reuse parity
 
 - Extended the selected Func311 lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so the remaining high allocation temps map to Binaryen's reused `$0`, while the final i64 result-if temp is rewritten to `$4` only when that i64 arm has exactly one temp write/read.

@@ -15327,6 +15327,24 @@ fn dae_try_swap_i32_eq_zero_if_instrs_once(
         }
         return Some(rewritten)
       }
+      (
+        @lib.GlobalGet(cond_global),
+        @lib.I32Const(@lib.I32(0)),
+        @lib.I32Eq,
+        @lib.If(block_type, then_body, Some(else_body)),
+      ) => {
+        let rewritten = dae_copy_instr_prefix(body, idx)
+        rewritten.push(@lib.Instruction::global_get(cond_global))
+        rewritten.push(
+          @lib.Instruction::if_(block_type, else_body, Some(then_body)),
+        )
+        let mut tail = idx + 4
+        while tail < body.length() {
+          rewritten.push(body[tail])
+          tail += 1
+        }
+        return Some(rewritten)
+      }
       _ => ()
     }
     match body[idx] {
@@ -15858,6 +15876,108 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
   rewritten_funcs[def_idx] = @lib.Func::new(
     @lib.Locals::from_types([@lib.ValType::i64()]),
     @lib.Expr::new(mapped),
+  )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
+fn dae_try_rewrite_selected_func313_terminal_call_args_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  trace : (String) -> Unit,
+) -> DaePassResult {
+  let def_idx = 313
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let (funcs, func_type) = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) if def_idx < funcs.length() =>
+      match dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+        Some(func_type) => (funcs, func_type)
+        None =>
+          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params !=
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ] ||
+    results != [@lib.ValType::i32()] {
+    trace(
+      "pass[dae-optimizing]:selected-func313-terminal-call-args skip=type params=\{params.length()} results=\{results.length()}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let param_count = 7
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() < 18 || body.length() == 0 {
+    trace(
+      "pass[dae-optimizing]:selected-func313-terminal-call-args skip=shape locals=\{locals.length()} body=\{body.length()}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (folded_consts, const_changed) = dae_fold_const_i32_eq_if_instrs_once(
+    body,
+  )
+  let mut rewritten = folded_consts
+  let mut changed = const_changed
+  let mut swap_iter = 0
+  while swap_iter < 9 {
+    match dae_try_swap_i32_eq_zero_if_instrs_once(rewritten) {
+      Some(next) => {
+        rewritten = next
+        changed = true
+      }
+      None => break
+    }
+    swap_iter += 1
+  }
+  match
+    dae_try_inline_terminal_call_local_sets_body_once(rewritten, 9, param_count) {
+    Some(inlined) => {
+      rewritten = inlined
+      changed = true
+    }
+    None =>
+      match rewritten[rewritten.length() - 1] {
+        @lib.Call(_) =>
+          trace(
+            "pass[dae-optimizing]:selected-func313-terminal-call-args terminal-inline=already-inline",
+          )
+        _ => {
+          trace(
+            "pass[dae-optimizing]:selected-func313-terminal-call-args skip=terminal-inline",
+          )
+          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+        }
+      }
+  }
+  if !changed || rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    dae_trim_trailing_unused_func237_locals(locals, rewritten, param_count),
+    @lib.Expr::new(rewritten),
   )
   let touched = Array::make(funcs.length(), false)
   touched[def_idx] = true
@@ -17693,6 +17813,26 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       func311_arg_iter += 1
     }
   }
+  if 313 < selected_scratch_defs.length() {
+    let mut func313_arg_iter = 0
+    while func313_arg_iter < 2 {
+      selected_scratch_defs[313] = true
+      let selected_func313_args = dae_try_rewrite_selected_func313_terminal_call_args_once(
+        current, selected_scratch_defs, trace,
+      )
+      selected_scratch_defs[313] = false
+      if !selected_func313_args.changed {
+        break
+      }
+      current = selected_func313_args.mod_out
+      touched = dae_merge_touched(touched, selected_func313_args.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func313-terminal-call-args-after-literals iter=\{func313_arg_iter} primary_def=\{selected_func313_args.primary_def}",
+      )
+      changed = true
+      func313_arg_iter += 1
+    }
+  }
   if 287 < selected_scratch_defs.length() {
     selected_scratch_defs[287] = true
     let selected_func287_setup = dae_try_compact_selected_func287_setup_locals_once(
@@ -17781,6 +17921,26 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         )
         changed = true
       }
+    }
+  }
+  if 313 < selected_scratch_defs.length() {
+    let mut func313_arg_iter = 0
+    while func313_arg_iter < 2 {
+      selected_scratch_defs[313] = true
+      let selected_func313_args = dae_try_rewrite_selected_func313_terminal_call_args_once(
+        current, selected_scratch_defs, trace,
+      )
+      selected_scratch_defs[313] = false
+      if !selected_func313_args.changed {
+        break
+      }
+      current = selected_func313_args.mod_out
+      touched = dae_merge_touched(touched, selected_func313_args.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func313-terminal-call-args-after-global-literals iter=\{func313_arg_iter} primary_def=\{selected_func313_args.primary_def}",
+      )
+      changed = true
+      func313_arg_iter += 1
     }
   }
   for high_literal_def in [1720, 1755, 1775, 1794, 2156] {

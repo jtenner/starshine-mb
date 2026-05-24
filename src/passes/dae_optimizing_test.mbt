@@ -1396,6 +1396,200 @@ test "dae-optimizing remaps selected Func311 final i64 temp to Binaryen local" {
 }
 
 ///|
+test "dae-optimizing inlines selected Func313 staged terminal call args" {
+  let target_def = 313
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (memory 1)\n  (global $g i32 (i32.const 42))\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (export "target") (param i32 i32 i32 i32 i32 i32 i32) (result i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+      #|    local.get 0
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 0
+      #|      if
+      #|        local.get 0
+      #|        call $release
+      #|      end
+      #|      i32.const 1000
+      #|    else
+      #|      local.get 0
+      #|    end
+      #|    local.set 7
+      #|    local.get 1
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 1
+      #|      if
+      #|        local.get 1
+      #|        call $release
+      #|      end
+      #|      i32.const 1001
+      #|    else
+      #|      local.get 1
+      #|    end
+      #|    local.set 9
+      #|    local.get 2
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 2
+      #|      if
+      #|        local.get 2
+      #|        call $release
+      #|      end
+      #|      i32.const 1002
+      #|    else
+      #|      local.get 2
+      #|    end
+      #|    local.set 11
+      #|    local.get 3
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 3
+      #|      if
+      #|        local.get 3
+      #|        call $release
+      #|      end
+      #|      i32.const 1003
+      #|    else
+      #|      local.get 3
+      #|    end
+      #|    local.set 13
+      #|    local.get 4
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 4
+      #|      if
+      #|        local.get 4
+      #|        call $release
+      #|      end
+      #|      i32.const 1004
+      #|    else
+      #|      local.get 4
+      #|    end
+      #|    local.set 15
+      #|    local.get 5
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 5
+      #|      if
+      #|        local.get 5
+      #|        call $release
+      #|      end
+      #|      i32.const 1005
+      #|    else
+      #|      local.get 5
+      #|    end
+      #|    local.set 17
+      #|    local.get 6
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 6
+      #|      if
+      #|        local.get 6
+      #|        call $release
+      #|      end
+      #|      i32.const 1006
+      #|    else
+      #|      local.get 6
+      #|    end
+      #|    local.set 19
+      #|    global.get $g
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      global.get $g
+      #|      if
+      #|        global.get $g
+      #|        call $release
+      #|      end
+      #|      i32.const 1007
+      #|    else
+      #|      global.get $g
+      #|    end
+      #|    local.set 21
+      #|    i32.const 0
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|      if
+      #|        i32.const 0
+      #|        call $release
+      #|      end
+      #|      i32.const 1008
+      #|    else
+      #|      i32.const 0
+      #|    end
+      #|    local.set 23
+      #|    local.get 7
+      #|    local.get 9
+      #|    local.get 11
+      #|    local.get 13
+      #|    local.get 15
+      #|    local.get 17
+      #|    local.get 19
+      #|    local.get 21
+      #|    local.get 23
+      #|    call $callee)
+      #|  (func $callee (param i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    drop
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop
+      #|    local.get 3
+      #|    drop
+      #|    local.get 4
+      #|    drop
+      #|    local.get 5
+      #|    drop
+      #|    local.get 6
+      #|    drop
+      #|    local.get 7
+      #|    drop
+      #|    local.get 8
+      #|    drop
+      #|    i32.const 7)
+      #|  (func $release (param i32))
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, target_def,
+  )
+  @debug.assert_eq(locals.length(), 0)
+  for slot in [7, 9, 11, 13, 15, 17, 19, 21, 23] {
+    assert_false(
+      dae_test_instrs_reference_local(
+        body,
+        @lib.LocalIdx::new(slot.reinterpret_as_uint()),
+      ),
+      msg=target,
+    )
+  }
+  assert_false(target.contains("local.set (Local7)"), msg=target)
+  assert_false(target.contains("i32.eq"), msg=target)
+  assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes selected Func260 helper exact literals" {
   for target_def in [267, 268] {
     let out = StringBuilder::new()
