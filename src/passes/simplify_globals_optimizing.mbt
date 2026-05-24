@@ -623,6 +623,9 @@ fn sgo_count_read_only_to_write_instrs(
             safe_reads,
           )
         }
+        sgo_count_block_condition_reverse_compare_read_only_to_write_read(
+          instrs, pos, safe_reads,
+        )
         sgo_count_read_only_to_write_expr(body, safe_reads)
       }
       @lib.If(_, then_body, else_body) => {
@@ -3325,6 +3328,20 @@ fn sgo_count_block_condition_reverse_compare_read_only_to_write_read(
       match sgo_single_const_global_set_idx(then_body) {
         Some(idx) =>
           sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    (@lib.Loop(_, @lib.Expr(body)), @lib.If(_, then_body, None)) if sgo_const_instr(
+        const_instr,
+      ) !=
+      None &&
+      sgo_is_compare_instr(cmp_instr) =>
+      match sgo_single_const_global_set_idx(then_body) {
+        Some(idx) =>
+          match sgo_block_condition_direct_read_idx(body) {
+            Some(read_idx) if read_idx == idx =>
+              sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+            _ => ()
+          }
         None => ()
       }
     _ => ()
