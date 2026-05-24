@@ -94,6 +94,8 @@ pub struct InvalidFuzzFailureReport {
   seed_profile : String?
   seed_mode : String?
   seed_require_strategy_prereqs : Bool?
+  stream_label : String?
+  stream_seed : UInt64?
   source_path : String?
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
@@ -114,6 +116,8 @@ pub fn InvalidFuzzFailureReport::new(
   seed_profile? : String? = None,
   seed_mode? : String? = None,
   seed_require_strategy_prereqs? : Bool? = None,
+  stream_label? : String? = None,
+  stream_seed? : UInt64? = None,
   source_path? : String? = None,
   artifacts? : Array[InvalidFuzzArtifact] = [],
   reduced_artifacts? : Array[InvalidFuzzArtifact] = [],
@@ -132,6 +136,8 @@ pub fn InvalidFuzzFailureReport::new(
     seed_profile,
     seed_mode,
     seed_require_strategy_prereqs,
+    stream_label,
+    stream_seed,
     source_path,
     artifacts,
     reduced_artifacts,
@@ -158,6 +164,8 @@ fn invalid_fuzz_failure_report_copy(
     seed_profile=report.seed_profile,
     seed_mode=report.seed_mode,
     seed_require_strategy_prereqs=report.seed_require_strategy_prereqs,
+    stream_label=report.stream_label,
+    stream_seed=report.stream_seed,
     source_path~,
     artifacts=report.artifacts,
     reduced_artifacts~,
@@ -347,6 +355,14 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
       report.seed_require_strategy_prereqs,
     ) {
     Some(line) => lines.push(line)
+    None => ()
+  }
+  match invalid_fuzz_optional_meta_line("stream_label", report.stream_label) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match report.stream_seed {
+    Some(v) => lines.push("stream_seed=" + v.to_string())
     None => ()
   }
   match invalid_fuzz_optional_meta_line("source_path", report.source_path) {
@@ -564,6 +580,8 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut seed_profile : String? = None
   let mut seed_mode : String? = None
   let mut seed_require_strategy_prereqs : Bool? = None
+  let mut stream_label : String? = None
+  let mut stream_seed : UInt64? = None
   let mut source_path : String? = None
   let artifacts : Array[InvalidFuzzArtifact] = []
   let reduced_artifacts : Array[InvalidFuzzArtifact] = []
@@ -604,6 +622,12 @@ pub fn parse_invalid_fuzz_failure_report(
       "seed_require_strategy_prereqs" =>
         match invalid_fuzz_parse_bool(value, "seed_require_strategy_prereqs") {
           Ok(v) => seed_require_strategy_prereqs = Some(v)
+          Err(msg) => return Err(msg)
+        }
+      "stream_label" => stream_label = Some(value)
+      "stream_seed" =>
+        match invalid_fuzz_parse_uint64(value, "stream_seed") {
+          Ok(v) => stream_seed = Some(v)
           Err(msg) => return Err(msg)
         }
       "source_path" => source_path = Some(value)
@@ -667,6 +691,8 @@ pub fn parse_invalid_fuzz_failure_report(
       seed_profile~,
       seed_mode~,
       seed_require_strategy_prereqs~,
+      stream_label~,
+      stream_seed~,
       source_path~,
       artifacts~,
       reduced_artifacts~,
@@ -706,6 +732,16 @@ fn invalid_fuzz_report_outcome_matches(
     return false
   }
   replay.diagnostic_family == expected_diagnostic_family
+}
+
+///|
+fn invalid_fuzz_stream_seed_by_label(seed : UInt64, wanted : String) -> UInt64? {
+  for label in gen_valid_random_stream_labels() {
+    if gen_valid_random_stream_label_name(label) == wanted {
+      return Some(gen_valid_derive_stream_seed(seed, label))
+    }
+  }
+  None
 }
 
 ///|
@@ -825,6 +861,10 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
       seed_require_strategy_prereqs=Some(
         resolved_params.require_strategy_prereqs,
       ),
+      stream_label=Some("invalid-mutation-choice"),
+      stream_seed=invalid_fuzz_stream_seed_by_label(
+        seed, "invalid-mutation-choice",
+      ),
       artifacts=[artifact, seed_artifact],
     ),
   )
@@ -896,6 +936,10 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
       ),
       seed_require_strategy_prereqs=Some(
         resolved_params.require_strategy_prereqs,
+      ),
+      stream_label=Some("invalid-mutation-choice"),
+      stream_seed=invalid_fuzz_stream_seed_by_label(
+        seed, "invalid-mutation-choice",
       ),
       artifacts=[artifact, seed_artifact],
     ),
