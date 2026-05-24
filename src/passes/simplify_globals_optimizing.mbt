@@ -666,28 +666,7 @@ fn sgo_count_read_only_to_write_instrs(
         sgo_count_try_table_select_reverse_compare_if_return_read(
           instrs, pos, safe_reads,
         )
-        sgo_count_try_table_ref_is_null_compare_read_only_to_write_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_compare_if_return_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_compare_pure_read_only_to_write_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_compare_pure_if_return_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_reverse_compare_read_only_to_write_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_reverse_compare_pure_read_only_to_write_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_reverse_compare_pure_if_return_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_reverse_compare_if_return_read(
+        sgo_count_try_table_ref_is_null_compare_guard_read(
           instrs, pos, safe_reads,
         )
         sgo_count_try_table_ref_is_null_select_read_only_to_write_read(
@@ -3558,65 +3537,35 @@ fn sgo_count_try_table_ref_is_null_read_only_to_write_read(
 }
 
 ///|
-fn sgo_try_table_ref_is_null_compare_if_index(
+fn sgo_try_table_ref_is_null_prefix_matches(
   instrs : Array[@lib.Instruction],
   pos : Int,
-) -> Int? {
-  if pos + 4 >= instrs.length() {
-    return None
+) -> Bool {
+  if pos + 1 >= instrs.length() {
+    return false
   }
   match (instrs[pos], instrs[pos + 1]) {
-    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
-      0 => ()
-    _ => return None
+    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) =>
+      catches.length() == 0
+    _ => false
   }
-  if sgo_const_instr(instrs[pos + 2]) == None ||
-    !sgo_is_compare_instr(instrs[pos + 3]) {
-    return None
-  }
-  Some(pos + 4)
 }
 
 ///|
-fn sgo_try_table_ref_is_null_reverse_compare_if_index(
+fn sgo_scan_optional_external_pure_if_index(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  start : Int,
 ) -> Int? {
-  if pos <= 0 || pos + 3 >= instrs.length() {
+  if start >= instrs.length() {
     return None
   }
-  match (instrs[pos], instrs[pos + 1]) {
-    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
-      0 => ()
-    _ => return None
-  }
-  if sgo_const_instr(instrs[pos - 1]) == None ||
-    !sgo_is_compare_instr(instrs[pos + 2]) {
-    return None
-  }
-  Some(pos + 3)
-}
-
-///|
-fn sgo_try_table_ref_is_null_compare_pure_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  if pos + 4 >= instrs.length() {
-    return None
-  }
-  match (instrs[pos], instrs[pos + 1]) {
-    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
-      0 => ()
-    _ => return None
-  }
-  if sgo_const_instr(instrs[pos + 2]) == None ||
-    !sgo_is_compare_instr(instrs[pos + 3]) {
-    return None
+  match instrs[start] {
+    @lib.If(_, _, _) => return Some(start)
+    _ => ()
   }
   let mut depth = 1
   let mut pure_count = 0
-  for scan = pos + 4; scan < instrs.length(); scan = scan + 1 {
+  for scan = start; scan < instrs.length(); scan = scan + 1 {
     match instrs[scan] {
       @lib.If(_, _, _) =>
         if pure_count > 0 && depth == 1 {
@@ -3638,251 +3587,87 @@ fn sgo_try_table_ref_is_null_compare_pure_if_index(
 }
 
 ///|
-fn sgo_count_try_table_ref_is_null_compare_read_only_to_write_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  match (instrs[pos], sgo_try_table_ref_is_null_compare_if_index(instrs, pos)) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
-      match instrs[if_index] {
-        @lib.If(_, then_body, None) =>
-          match sgo_single_const_global_set_idx(then_body) {
-            Some(idx) =>
-              sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-            None => ()
-          }
-        _ => ()
-      }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_try_table_ref_is_null_compare_if_return_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  match (instrs[pos], sgo_try_table_ref_is_null_compare_if_index(instrs, pos)) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) if sgo_is_return_guard(
-        instrs[if_index],
-      ) =>
-      if if_index + 3 == instrs.length() {
-        match instrs[if_index + 2] {
-          @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) != None =>
-            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-          _ => ()
-        }
-      } else if if_index + 2 == instrs.length() {
-        match sgo_block_set_tail_idx(instrs[if_index + 1]) {
-          Some(idx) =>
-            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-          None => ()
-        }
-      }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_try_table_ref_is_null_compare_pure_read_only_to_write_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  match
-    (instrs[pos], sgo_try_table_ref_is_null_compare_pure_if_index(instrs, pos)) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
-      match instrs[if_index] {
-        @lib.If(_, then_body, None) =>
-          match sgo_single_const_global_set_idx(then_body) {
-            Some(idx) =>
-              sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-            None => ()
-          }
-        _ => ()
-      }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_try_table_ref_is_null_compare_pure_if_return_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  match
-    (instrs[pos], sgo_try_table_ref_is_null_compare_pure_if_index(instrs, pos)) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) if sgo_is_return_guard(
-        instrs[if_index],
-      ) =>
-      if if_index + 3 == instrs.length() {
-        match instrs[if_index + 2] {
-          @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) != None =>
-            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-          _ => ()
-        }
-      } else if if_index + 2 == instrs.length() {
-        match sgo_block_set_tail_idx(instrs[if_index + 1]) {
-          Some(idx) =>
-            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-          None => ()
-        }
-      }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_try_table_ref_is_null_reverse_compare_pure_if_index(
+fn sgo_try_table_ref_is_null_compare_guard_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
 ) -> Int? {
-  if pos <= 0 || pos + 3 >= instrs.length() {
+  if !sgo_try_table_ref_is_null_prefix_matches(instrs, pos) {
     return None
   }
-  match (instrs[pos], instrs[pos + 1]) {
-    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
-      0 => ()
-    _ => return None
+  if pos + 3 < instrs.length() &&
+    sgo_const_instr(instrs[pos + 2]) != None &&
+    sgo_is_compare_instr(instrs[pos + 3]) {
+    return sgo_scan_optional_external_pure_if_index(instrs, pos + 4)
   }
-  if sgo_const_instr(instrs[pos - 1]) == None ||
-    !sgo_is_compare_instr(instrs[pos + 2]) {
-    return None
-  }
-  let mut depth = 1
-  let mut pure_count = 0
-  for scan = pos + 3; scan < instrs.length(); scan = scan + 1 {
-    match instrs[scan] {
-      @lib.If(_, _, _) =>
-        if pure_count > 0 && depth == 1 {
-          return Some(scan)
-        } else {
-          return None
-        }
-      instr =>
-        match sgo_external_condition_stack_after(instr, depth) {
-          Some(next_depth) => {
-            depth = next_depth
-            pure_count = pure_count + 1
-          }
-          None => return None
-        }
-    }
+  if pos > 0 &&
+    pos + 2 < instrs.length() &&
+    sgo_const_instr(instrs[pos - 1]) != None &&
+    sgo_is_compare_instr(instrs[pos + 2]) {
+    return sgo_scan_optional_external_pure_if_index(instrs, pos + 3)
   }
   None
 }
 
 ///|
-fn sgo_count_try_table_ref_is_null_reverse_compare_read_only_to_write_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
+fn sgo_count_try_table_body_direct_if_set_read(
+  body : Array[@lib.Instruction],
+  if_instr : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  match
-    (
-      instrs[pos],
-      sgo_try_table_ref_is_null_reverse_compare_if_index(instrs, pos),
-    ) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
-      match instrs[if_index] {
-        @lib.If(_, then_body, None) =>
-          match sgo_single_const_global_set_idx(then_body) {
-            Some(idx) =>
-              sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-            None => ()
-          }
-        _ => ()
+  match if_instr {
+    @lib.If(_, then_body, None) =>
+      match sgo_single_const_global_set_idx(then_body) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
       }
     _ => ()
   }
 }
 
 ///|
-fn sgo_count_try_table_ref_is_null_reverse_compare_pure_read_only_to_write_read(
+fn sgo_count_try_table_body_if_return_tail_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  body : Array[@lib.Instruction],
+  if_index : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  match
-    (
-      instrs[pos],
-      sgo_try_table_ref_is_null_reverse_compare_pure_if_index(instrs, pos),
-    ) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
-      match instrs[if_index] {
-        @lib.If(_, then_body, None) =>
-          match sgo_single_const_global_set_idx(then_body) {
-            Some(idx) =>
-              sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-            None => ()
-          }
-        _ => ()
-      }
-    _ => ()
+  if !sgo_is_return_guard(instrs[if_index]) {
+    return
+  }
+  if if_index + 3 == instrs.length() {
+    match instrs[if_index + 2] {
+      @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) != None =>
+        sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+      _ => ()
+    }
+  } else if if_index + 2 == instrs.length() {
+    match sgo_block_set_tail_idx(instrs[if_index + 1]) {
+      Some(idx) =>
+        sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+      None => ()
+    }
   }
 }
 
 ///|
-fn sgo_count_try_table_ref_is_null_reverse_compare_pure_if_return_read(
+fn sgo_count_try_table_ref_is_null_compare_guard_read(
   instrs : Array[@lib.Instruction],
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
   match
-    (
-      instrs[pos],
-      sgo_try_table_ref_is_null_reverse_compare_pure_if_index(instrs, pos),
-    ) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) if sgo_is_return_guard(
+    (instrs[pos], sgo_try_table_ref_is_null_compare_guard_if_index(instrs, pos)) {
+    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) => {
+      sgo_count_try_table_body_direct_if_set_read(
+        body,
         instrs[if_index],
-      ) =>
-      if if_index + 3 == instrs.length() {
-        match instrs[if_index + 2] {
-          @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) != None =>
-            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-          _ => ()
-        }
-      } else if if_index + 2 == instrs.length() {
-        match sgo_block_set_tail_idx(instrs[if_index + 1]) {
-          Some(idx) =>
-            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-          None => ()
-        }
-      }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_try_table_ref_is_null_reverse_compare_if_return_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  match
-    (
-      instrs[pos],
-      sgo_try_table_ref_is_null_reverse_compare_if_index(instrs, pos),
-    ) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) if sgo_is_return_guard(
-        instrs[if_index],
-      ) =>
-      if if_index + 3 == instrs.length() {
-        match instrs[if_index + 2] {
-          @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) != None =>
-            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-          _ => ()
-        }
-      } else if if_index + 2 == instrs.length() {
-        match sgo_block_set_tail_idx(instrs[if_index + 1]) {
-          Some(idx) =>
-            sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-          None => ()
-        }
-      }
+        safe_reads,
+      )
+      sgo_count_try_table_body_if_return_tail_read(
+        instrs, body, if_index, safe_reads,
+      )
+    }
     _ => ()
   }
 }
