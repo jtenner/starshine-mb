@@ -15138,6 +15138,155 @@ fn dae_try_retarget_selected_func298_loop_carriers_once(
 }
 
 ///|
+fn dae_try_swap_inverted_i32_eqz_if_instrs_once(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let mut idx = 0
+  while idx + 1 < body.length() {
+    match (body[idx], body[idx + 1]) {
+      (@lib.I32Eqz, @lib.If(block_type, then_body, Some(else_body))) => {
+        let rewritten = dae_copy_instr_prefix(body, idx)
+        rewritten.push(
+          @lib.Instruction::if_(block_type, else_body, Some(then_body)),
+        )
+        let mut tail = idx + 2
+        while tail < body.length() {
+          rewritten.push(body[tail])
+          tail += 1
+        }
+        return Some(rewritten)
+      }
+      _ => ()
+    }
+    match body[idx] {
+      @lib.Block(block_type, @lib.Expr(child_body)) =>
+        match dae_try_swap_inverted_i32_eqz_if_instrs_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::block(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.Loop(block_type, @lib.Expr(child_body)) =>
+        match dae_try_swap_inverted_i32_eqz_if_instrs_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::loop_(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.TryTable(block_type, catches, @lib.Expr(child_body)) =>
+        match dae_try_swap_inverted_i32_eqz_if_instrs_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        match dae_try_swap_inverted_i32_eqz_if_instrs_once(then_body) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              Some(else_body),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+        match dae_try_swap_inverted_i32_eqz_if_instrs_once(else_body) {
+          Some(rewritten_else) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              then_body,
+              Some(rewritten_else),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, None) =>
+        match dae_try_swap_inverted_i32_eqz_if_instrs_once(then_body) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              None,
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_swap_selected_func299_inverted_result_if_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 299
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let rewritten_body = match
+    dae_try_swap_inverted_i32_eqz_if_instrs_once(body) {
+    Some(rewritten_body) => rewritten_body
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_locals = dae_trim_trailing_unused_func237_locals(
+    locals, rewritten_body, 2,
+  )
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    rewritten_locals,
+    @lib.Expr::new(rewritten_body),
+  )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_retarget_selected_func236_locals_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -16903,6 +17052,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       touched = dae_merge_touched(touched, selected_func298_loop.touched)
       trace(
         "pass[dae-optimizing]:selected-func298-loop-carriers primary_def=\{selected_func298_loop.primary_def}",
+      )
+      changed = true
+    }
+  }
+  if 299 < selected_scratch_defs.length() {
+    selected_scratch_defs[299] = true
+    let selected_func299_if = dae_try_swap_selected_func299_inverted_result_if_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[299] = false
+    if selected_func299_if.changed {
+      current = selected_func299_if.mod_out
+      touched = dae_merge_touched(touched, selected_func299_if.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func299-inverted-result-if primary_def=\{selected_func299_if.primary_def}",
       )
       changed = true
     }

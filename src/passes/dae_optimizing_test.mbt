@@ -1060,6 +1060,59 @@ test "dae-optimizing compacts selected Func298 loop carriers and strips debris" 
 }
 
 ///|
+test "dae-optimizing swaps selected Func299 inverted result-if" {
+  let target_def = 299
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (export "target") (param i32 i32)
+      #|    (local i32)
+      #|    local.get 1
+      #|    call $side
+      #|    local.get 0
+      #|    call $side
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $check
+      #|    i32.eqz
+      #|    if (result i32)
+      #|      local.get 0
+      #|      local.get 1
+      #|      call $slow
+      #|    else
+      #|      local.get 1
+      #|      call $release
+      #|      local.get 0
+      #|      call $release
+      #|      i32.const 0
+      #|    end
+      #|    drop)
+      #|  (func $side (param i32))
+      #|  (func $check (param i32 i32) (result i32)
+      #|    i32.const 1)
+      #|  (func $slow (param i32 i32) (result i32)
+      #|    i32.const 7)
+      #|  (func $release (param i32))
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, _) = dae_test_defined_func(optimized, target_def)
+  @debug.assert_eq(locals.length(), 0)
+  assert_false(target.contains("i32.eqz"), msg=target)
+  assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
+  assert_true(target.contains("(call (Func \{target_def + 2}))"), msg=target)
+  assert_true(target.contains("(call (Func \{target_def + 3}))"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes selected Func260 helper exact literals" {
   for target_def in [267, 268] {
     let out = StringBuilder::new()

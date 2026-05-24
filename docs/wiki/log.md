@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func299 result-if parity
+
+- Added a selected Func299 result-if lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that removes a nontrapping `i32.eqz` in front of a dropped result `if`, swaps the arms to preserve semantics, and trims the now-unused local.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the selected Func299 inverted result-if shape.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func299-result-if-artifact` validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, advances the first diff to `defined=311 abs=328`, and leaves Func311's call-argument staging/local/constant-if shape as the next frontier.
+
 ## [2026-05-24] passes | dae Func298 loop-carrier parity
 
 - Added a selected Func298 loop-carrier lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that spills the raw one-i32-param loop carrier, remaps the observed `$11/$12` locals onto Binaryen's `$2/$3`, rewrites the pure counted-loop comparison into Binaryen's `load > idx` order, wraps the loop in the result-block carrier shape, and strips the dead zero before `return`.
