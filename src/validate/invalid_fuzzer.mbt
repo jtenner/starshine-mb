@@ -127,6 +127,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyRefGetDescInputType
   InvalidFunctionBodyRefEqInputType
   InvalidFunctionBodyArrayLenInputType
+  InvalidFunctionBodyArrayGetInputType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -841,6 +842,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArrayGetInputType,
+      "invalid-function-body-array-get-input-type",
+      "invalid function-body array.get input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1092,6 +1100,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyRefGetDescInputType => 101
     InvalidFunctionBodyRefEqInputType => 102
     InvalidFunctionBodyArrayLenInputType => 103
+    InvalidFunctionBodyArrayGetInputType => 104
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -3839,6 +3848,44 @@ fn validate_invalid_ast_mutate_invalid_function_body_array_len_input_type(
 }
 
 ///|
+fn validate_invalid_ast_i32_array_module() -> Module {
+  let array_type = RecType::new(
+    SubType::comp_type(
+      CompType::array(
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ),
+    ),
+  )
+  Module::new().with_type_sec(TypeSec::new([array_type]))
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::array_get(TypeIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArrayGetInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_make_br_on_cast_input_type_body(
   instr : Instruction,
 ) -> Expr {
@@ -4833,6 +4880,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_array_len_input_type(
           base,
         )
+      InvalidFunctionBodyArrayGetInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -5272,14 +5323,14 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-ref-cast-input-type", "invalid-function-body-ref-test-input-type",
     "invalid-function-body-ref-test-desc-input-type", "invalid-function-body-ref-cast-desc-eq-input-type",
     "invalid-function-body-ref-get-desc-input-type", "invalid-function-body-ref-eq-input-type",
-    "invalid-function-body-array-len-input-type", "invalid-function-body-br-on-cast-input-type",
-    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-array-len-input-type", "invalid-function-body-array-get-input-type",
+    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -6669,6 +6720,38 @@ test "function-body array.len input mutation repairs by using an array reference
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired array.len input module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body array.get input mutation repairs by using array ref and i32 index operands" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched array.get input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(0)),
+      Instruction::array_get(TypeIdx::new(0U)),
+      Instruction::drop(),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired array.get input module to validate: \{err}")
   }
 }
 
