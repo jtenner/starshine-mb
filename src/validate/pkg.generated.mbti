@@ -1187,6 +1187,10 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodySimdBinaryRightType
   InvalidFunctionBodySimdShiftVectorType
   InvalidFunctionBodySimdShiftCountType
+  InvalidFunctionBodySimdLoadLaneAddressType
+  InvalidFunctionBodySimdLoadLaneVectorType
+  InvalidFunctionBodySimdStoreLaneAddressType
+  InvalidFunctionBodySimdStoreLaneVectorType
   InvalidFunctionBodyAtomicNotifyAddressType
   InvalidFunctionBodyAtomicWaitAddressType
   InvalidFunctionBodyAtomicWaitExpectedType

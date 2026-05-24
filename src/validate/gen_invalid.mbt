@@ -491,6 +491,14 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-shift-vector-type"
     InvalidFunctionBodySimdShiftCountType =>
       "invalid-function-body-simd-shift-count-type"
+    InvalidFunctionBodySimdLoadLaneAddressType =>
+      "invalid-function-body-simd-load-lane-address-type"
+    InvalidFunctionBodySimdLoadLaneVectorType =>
+      "invalid-function-body-simd-load-lane-vector-type"
+    InvalidFunctionBodySimdStoreLaneAddressType =>
+      "invalid-function-body-simd-store-lane-address-type"
+    InvalidFunctionBodySimdStoreLaneVectorType =>
+      "invalid-function-body-simd-store-lane-vector-type"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>
