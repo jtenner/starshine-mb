@@ -98,6 +98,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemory64StoreValueType
   InvalidFunctionBodyMemoryLoadAlignment
   InvalidFunctionBodyMemoryStoreAlignment
+  InvalidFunctionBodyMemoryLoadOffsetRange
+  InvalidFunctionBodyMemoryStoreOffsetRange
   InvalidFunctionBodyMemorySizeIndex
   InvalidFunctionBodyMemoryGrowIndex
   InvalidFunctionBodyMemoryGrowDeltaType
@@ -696,6 +698,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyMemoryStoreAlignment,
       "invalid-function-body-memory-store-alignment",
       "invalid function-body memory store alignment",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryLoadOffsetRange,
+      "invalid-function-body-memory-load-offset-range",
+      "invalid function-body memory load offset range",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryStoreOffsetRange,
+      "invalid-function-body-memory-store-offset-range",
+      "invalid function-body memory store offset range",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -1559,6 +1575,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemory64StoreValueType => 152
     InvalidFunctionBodyMemoryLoadAlignment => 164
     InvalidFunctionBodyMemoryStoreAlignment => 165
+    InvalidFunctionBodyMemoryLoadOffsetRange => 166
+    InvalidFunctionBodyMemoryStoreOffsetRange => 167
     InvalidFunctionBodyMemorySizeIndex => 156
     InvalidFunctionBodyMemoryGrowIndex => 157
     InvalidFunctionBodyMemoryGrowDeltaType => 70
@@ -3537,6 +3555,58 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory_store_alignment(
   )
   {
     strategy: InvalidFunctionBodyMemoryStoreAlignment,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_load_offset_range(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load(MemArg::new(2U, None, U64(4294967296))),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryLoadOffsetRange,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_store_offset_range(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_store(MemArg::new(2U, None, U64(4294967296))),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryStoreOffsetRange,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -7032,6 +7102,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory_store_alignment(
           base,
         )
+      InvalidFunctionBodyMemoryLoadOffsetRange =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_load_offset_range(
+          base,
+        )
+      InvalidFunctionBodyMemoryStoreOffsetRange =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_store_offset_range(
+          base,
+        )
       InvalidFunctionBodyMemorySizeIndex =>
         validate_invalid_ast_mutate_invalid_function_body_memory_size_index(
           base,
@@ -7813,6 +7891,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-memory-store-address-type", "invalid-function-body-memory64-store-address-type",
     "invalid-function-body-memory-store-value-type", "invalid-function-body-memory64-store-value-type",
     "invalid-function-body-memory-load-alignment", "invalid-function-body-memory-store-alignment",
+    "invalid-function-body-memory-load-offset-range", "invalid-function-body-memory-store-offset-range",
     "invalid-function-body-memory-size-index", "invalid-function-body-memory-grow-index",
     "invalid-function-body-memory-grow-delta-type", "invalid-function-body-memory-fill-value-type",
     "invalid-function-body-memory-fill-dest-type", "invalid-function-body-memory-fill-length-type",
@@ -11725,6 +11804,98 @@ test "function-body memory store alignment mutation repairs by using natural ali
       fail(
         "expected repaired memory store alignment module to validate: \{err}",
       )
+  }
+}
+
+///|
+test "invalid memory load offset range strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryLoadOffsetRange,
+      0x10d46UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory load offset range mutation repairs by using in-range offset" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_load_offset_range(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected out-of-range memory load offset to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load(MemArg::new(2U, None, U64(4294967295))),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory load offset module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory store offset range strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryStoreOffsetRange,
+      0x10d47UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory store offset range mutation repairs by using in-range offset" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_store_offset_range(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected out-of-range memory store offset to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = validate_invalid_ast_ensure_memory(Module::new())
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_store(MemArg::new(2U, None, U64(4294967295))),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory store offset module to validate: \{err}")
   }
 }
 

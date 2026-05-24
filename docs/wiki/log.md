@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 memarg offset invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-memory-load-offset-range` and `invalid-function-body-memory-store-offset-range` for scalar memory32 load/store memargs whose static offset is outside the i32 address range.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving `2^32` offsets reject while `2^32-1` offsets validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name the new memarg-offset coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 memarg alignment invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-memory-load-alignment` and `invalid-function-body-memory-store-alignment` for scalar memory load/store memargs whose alignment exceeds the natural access width.

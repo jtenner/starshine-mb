@@ -254,6 +254,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-load-alignment"
     InvalidFunctionBodyMemoryStoreAlignment =>
       "invalid-function-body-memory-store-alignment"
+    InvalidFunctionBodyMemoryLoadOffsetRange =>
+      "invalid-function-body-memory-load-offset-range"
+    InvalidFunctionBodyMemoryStoreOffsetRange =>
+      "invalid-function-body-memory-store-offset-range"
     InvalidFunctionBodyMemorySizeIndex =>
       "invalid-function-body-memory-size-index"
     InvalidFunctionBodyMemoryGrowIndex =>

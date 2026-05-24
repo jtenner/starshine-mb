@@ -1933,6 +1933,54 @@ test "gen_invalid_ast_generate supports function-body memory store alignment str
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body memory load offset range strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d46UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryLoadOffsetRange),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-memory-load-offset-range mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body memory store offset range strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d47UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryStoreOffsetRange),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-memory-store-offset-range mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body if condition type strategy" {
   let generated = match
     gen_invalid_ast_generate(
