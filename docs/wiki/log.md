@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 atomic extended memarg memory-index invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-atomic-notify-index`, `invalid-function-body-atomic-wait-index`, `invalid-function-body-atomic-rmw-index`, and `invalid-function-body-atomic-cmpxchg-index` for shared-memory atomic instructions whose memargs name an out-of-range explicit memory index.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving out-of-range index `1` rejects in a one-shared-memory module while explicit memory index `0` validates for notify, wait, RMW, and cmpxchg forms.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name the widened atomic memarg memory-index coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 atomic memarg memory-index invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-atomic-load-index` and `invalid-function-body-atomic-store-index` for validator-rejected AST modules whose shared-memory atomic load/store memargs name an out-of-range explicit memory index.

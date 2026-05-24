@@ -1162,6 +1162,10 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicStoreValueType
   InvalidFunctionBodyAtomicLoadIndex
   InvalidFunctionBodyAtomicStoreIndex
+  InvalidFunctionBodyAtomicNotifyIndex
+  InvalidFunctionBodyAtomicWaitIndex
+  InvalidFunctionBodyAtomicRmwIndex
+  InvalidFunctionBodyAtomicCmpxchgIndex
   InvalidFunctionBodyAtomicNotifyAddressType
   InvalidFunctionBodyAtomicWaitAddressType
   InvalidFunctionBodyAtomicWaitExpectedType
