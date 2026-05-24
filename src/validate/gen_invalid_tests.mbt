@@ -745,6 +745,62 @@ test "gen_invalid_ast_generate supports tag-section invalid type strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports tag-section result type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef8bUL),
+      GenInvalidAstParams::repro_seed(InvalidTagResultType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-tag-result-type base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-tag-result-type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == TagSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports imported tag result type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef8cUL),
+      GenInvalidAstParams::repro_seed(InvalidImportedTagResultType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-imported-tag-result-type base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-imported-tag-result-type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ImportSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports datacount-section invalid strategy" {
   let generated = match
     gen_invalid_ast_generate(

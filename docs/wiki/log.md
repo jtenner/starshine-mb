@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 tag result invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-tag-result-type` and `invalid-imported-tag-result-type`, deterministic AST mutations that point defined/imported tags at function types with non-empty result lists.
+- Added focused strategy and `gen_invalid` tests proving defined-tag mutations reject with the tag family and imported-tag mutations reject with the import family while the valid seeds still validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name exception-tag empty-result coverage for both defined and imported tags.
+
 ## [2026-05-24] fuzzing | FUZ1020 imported shared-memory64 invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-imported-shared-memory64-without-max`, a deterministic import-section AST mutation that appends a shared memory64 import with no maximum.

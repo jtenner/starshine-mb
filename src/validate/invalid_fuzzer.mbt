@@ -252,6 +252,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidDataActiveMemoryIndex
   InvalidImportedFuncTypeIndex
   InvalidImportedTagTypeIndex
+  InvalidImportedTagResultType
   MutableGlobalGetInTableInit
   NonConstantElemOffset
   InvalidElementActiveTableIndex
@@ -266,6 +267,7 @@ pub enum ValidateInvalidAstStrategyId {
   SharedMemoryWithoutMax
   SharedMemory64WithoutMax
   InvalidTagTypeIndex
+  InvalidTagResultType
   InvalidSubtypeSuperIndex
   InvalidSubtypeSuperShape
   DescriptorOnFuncType
@@ -542,6 +544,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidImportedTagResultType,
+      "invalid-imported-tag-result-type",
+      "imported tag type with non-empty result",
+      ImportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       MutableGlobalGetInTableInit,
       "mutable-global-get-in-table-init",
       "mutable global.get in table initializer",
@@ -632,6 +641,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "invalid-tag-type-index",
       "invalid tag type index",
       TagSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidTagResultType,
+      "invalid-tag-result-type",
+      "tag type with non-empty result",
+      TagSectionFamily,
+      required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
       InvalidSubtypeSuperIndex,
@@ -1997,6 +2013,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidDataActiveMemoryIndex => 210
     InvalidImportedFuncTypeIndex => 18
     InvalidImportedTagTypeIndex => 19
+    InvalidImportedTagResultType => 225
     MutableGlobalGetInTableInit => 20
     NonConstantElemOffset => 21
     InvalidElementActiveTableIndex => 209
@@ -2011,6 +2028,7 @@ fn validate_invalid_ast_strategy_index(
     SharedMemoryWithoutMax => 22
     SharedMemory64WithoutMax => 23
     InvalidTagTypeIndex => 24
+    InvalidTagResultType => 226
     InvalidSubtypeSuperIndex => 25
     InvalidSubtypeSuperShape => 26
     DescriptorOnFuncType => 27
@@ -8590,6 +8608,35 @@ fn validate_invalid_ast_mutate_invalid_imported_tag_type_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_imported_tag_result_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  let imports = validate_invalid_ast_import_entries(mod)
+  let type_idx = TypeIdx::new(
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+  )
+  types.push(
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+  )
+  imports.push(
+    Import::new(
+      Name::new("env"),
+      Name::new("bad_tag_result"),
+      ExternType::tag(TagType::new(type_idx)),
+    ),
+  )
+  {
+    strategy: InvalidImportedTagResultType,
+    applicable: true,
+    expected_family: ImportSectionFamily,
+    mutated_module: mod
+    .with_type_sec(TypeSec::new(types))
+    .with_import_sec(ImportSec::new(imports)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_mutable_global_get_in_table_init(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -8870,6 +8917,29 @@ fn validate_invalid_ast_mutate_invalid_tag_type_index(
     applicable: true,
     expected_family: TagSectionFamily,
     mutated_module: mod.with_tag_sec(TagSec::new(tags)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_tag_result_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  let tags = validate_invalid_ast_tag_entries(mod)
+  let type_idx = TypeIdx::new(
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+  )
+  types.push(
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+  )
+  tags.push(TagType::new(type_idx))
+  {
+    strategy: InvalidTagResultType,
+    applicable: true,
+    expected_family: TagSectionFamily,
+    mutated_module: mod
+    .with_type_sec(TypeSec::new(types))
+    .with_tag_sec(TagSec::new(tags)),
   }
 }
 
@@ -9690,6 +9760,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_imported_func_type_index(base)
       InvalidImportedTagTypeIndex =>
         validate_invalid_ast_mutate_invalid_imported_tag_type_index(base)
+      InvalidImportedTagResultType =>
+        validate_invalid_ast_mutate_invalid_imported_tag_result_type(base)
       MutableGlobalGetInTableInit =>
         validate_invalid_ast_mutate_mutable_global_get_in_table_init(base)
       NonConstantElemOffset =>
@@ -9722,6 +9794,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_shared_memory64_without_max(base)
       InvalidTagTypeIndex =>
         validate_invalid_ast_mutate_invalid_tag_type_index(base)
+      InvalidTagResultType =>
+        validate_invalid_ast_mutate_invalid_tag_result_type(base)
       InvalidSubtypeSuperIndex =>
         validate_invalid_ast_mutate_invalid_subtype_super_index(base)
       InvalidSubtypeSuperShape =>
@@ -10073,11 +10147,12 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-label-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
     "mutable-global-get-in-const-init", "invalid-global-init-type", "non-constant-data-offset",
     "invalid-data-active-memory-index", "invalid-imported-func-type-index", "invalid-imported-tag-type-index",
-    "mutable-global-get-in-table-init", "non-constant-elem-offset", "invalid-element-active-table-index",
-    "invalid-element-func-index", "invalid-element-typed-expr-type", "invalid-memory-limit-range",
-    "invalid-table-limit-range", "invalid-imported-memory-limit-range", "invalid-imported-table-limit-range",
-    "invalid-imported-shared-memory-without-max", "invalid-imported-shared-memory64-without-max",
-    "shared-memory-without-max", "shared-memory64-without-max", "invalid-tag-type-index",
+    "invalid-imported-tag-result-type", "mutable-global-get-in-table-init", "non-constant-elem-offset",
+    "invalid-element-active-table-index", "invalid-element-func-index", "invalid-element-typed-expr-type",
+    "invalid-memory-limit-range", "invalid-table-limit-range", "invalid-imported-memory-limit-range",
+    "invalid-imported-table-limit-range", "invalid-imported-shared-memory-without-max",
+    "invalid-imported-shared-memory64-without-max", "shared-memory-without-max",
+    "shared-memory64-without-max", "invalid-tag-type-index", "invalid-tag-result-type",
     "invalid-subtype-super-index", "invalid-subtype-super-shape", "descriptor-on-func-type",
     "datacount-without-data-sec", "invalid-export-func-index", "start-func-out-of-range",
     "missing-datacount-data-drop", "invalid-function-body-local-index", "invalid-function-body-global-index",
@@ -10705,6 +10780,32 @@ test "invalid tag type index strategy rejects with TagSection family" {
       InvalidTagTypeIndex,
       0x5efaUL,
       TagSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid tag result type strategy rejects with TagSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidTagResultType,
+      0x5ef8bUL,
+      TagSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported tag result type strategy rejects with ImportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidImportedTagResultType,
+      0x5ef8cUL,
+      ImportSectionFamily,
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
