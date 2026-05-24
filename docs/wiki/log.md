@@ -1167,6 +1167,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Continued the migration by moving function-count and function-signature assignment onto the `funcs` stream, memory/table/data/element counts and local shape choices onto their matching streams, and keeping the metadata-budget stability test green for single-attempt generated candidates.
 - Continued the stream-map audit by adding dedicated `globals`, `tags`, and `start` stream labels to GenValid manifests, then routing defined-global counts, global reference/type/init choices, defined-tag counts, and start-section rollout through those streams instead of the module-topology fallback.
 - Continued the named-stream migration by moving invalid-AST base-module generation onto per-strategy/per-seed-profile seeds derived from the `invalid-mutation-choice` stream. Each invalid strategy now gets a stable GenValid root seed independent of neighboring strategy scheduling, and the seeded generation path reuses `gen_valid_module_result_from_seed(...)` instead of advancing one shared monolithic `RandomState` across the whole invalid-AST run.
+- Continued the named-stream migration by deriving GenValid batch candidate root seeds from the `harness-shuffling` stream before per-candidate salting, replacing the previous direct `seed ^ index` batch path while preserving deterministic candidate order and manifest stream labels.
 
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary profile modes and FZG mirror counters
 

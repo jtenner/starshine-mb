@@ -1695,6 +1695,23 @@ fn gen_valid_coverage_contributes(
 }
 
 ///|
+fn emit_gen_valid_batch_harness_stream_seed(seed : UInt64) -> UInt64 {
+  let mut stream_seed = seed
+  for label in gen_valid_random_stream_labels() {
+    if gen_valid_random_stream_label_name(label) == "harness-shuffling" {
+      stream_seed = gen_valid_derive_stream_seed(seed, label)
+    }
+  }
+  stream_seed
+}
+
+///|
+fn emit_gen_valid_batch_candidate_seed(seed : UInt64, index : Int) -> UInt64 {
+  emit_gen_valid_batch_harness_stream_seed(seed) ^
+  (index.to_uint64() * 0x9e3779b97f4a7c15UL)
+}
+
+///|
 pub fn emit_gen_valid_batch_artifacts_until_features(
   count : Int,
   seed : UInt64,
@@ -1718,7 +1735,10 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
   while attempts < max_attempts && selected < count {
     attempts += 1
     let generated = match
-      gen_valid_module_result_from_seed(seed ^ attempts.to_uint64(), config) {
+      gen_valid_module_result_from_seed(
+        emit_gen_valid_batch_candidate_seed(seed, attempts),
+        config,
+      ) {
       Ok(v) => v
       Err(failure) =>
         return Err(
@@ -1802,7 +1822,10 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
   let mut i = 0
   while i < count {
     let generated = match
-      gen_valid_module_result_from_seed(seed ^ (i + 1).to_uint64(), config) {
+      gen_valid_module_result_from_seed(
+        emit_gen_valid_batch_candidate_seed(seed, i + 1),
+        config,
+      ) {
       Ok(v) => v
       Err(failure) =>
         return Err(
@@ -1851,7 +1874,10 @@ pub fn emit_gen_valid_batch_artifacts(
   let mut i = 0
   while i < count {
     let mod = match
-      gen_valid_module_result_from_seed(seed ^ (i + 1).to_uint64(), config) {
+      gen_valid_module_result_from_seed(
+        emit_gen_valid_batch_candidate_seed(seed, i + 1),
+        config,
+      ) {
       Ok(generated) => generated.wasm_module
       Err(failure) => failure.last_candidate
     }

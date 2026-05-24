@@ -418,6 +418,18 @@ test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
 }
 
 ///|
+test "gen-valid batch candidate seeds come from harness-shuffling stream" {
+  let first = emit_gen_valid_batch_candidate_seed(0x51034UL, 1)
+  let first_again = emit_gen_valid_batch_candidate_seed(0x51034UL, 1)
+  let second = emit_gen_valid_batch_candidate_seed(0x51034UL, 2)
+  let other_root = emit_gen_valid_batch_candidate_seed(0x51035UL, 1)
+  @debug.assert_eq(first, first_again)
+  assert_true(first != second)
+  assert_true(first != other_root)
+  assert_true(first != (0x51034UL ^ 1UL))
+}
+
+///|
 test "emit_gen_valid_batch_to_dir creates the output directory for selected modules" {
   let v128_floor = match
     @validate.validate_valid_feature_floor_by_label("v128", 1) {
@@ -503,7 +515,11 @@ test "emit_gen_valid_batch_artifacts matches the pinned Binaryen-oracle generato
     Ok(v) => v
     Err(e) => fail("expected gen-valid artifact success, got \{e}")
   }
-  let direct = match gen_valid_module_result_from_seed(0x5eedUL ^ 1UL, config) {
+  let direct = match
+    gen_valid_module_result_from_seed(
+      emit_gen_valid_batch_candidate_seed(0x5eedUL, 1),
+      config,
+    ) {
     Ok(generated) => generated.wasm_module
     Err(failure) => failure.last_candidate
   }
