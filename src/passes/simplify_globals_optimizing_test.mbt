@@ -13646,6 +13646,38 @@ test "simplify-globals-optimizing does not carry non-constant runtime block writ
 }
 
 ///|
+test "simplify-globals-optimizing carries direct function effects through plain blocks" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $A (mut i32) (i32.const 10))
+      #|  (global $B (mut i32) (i32.const 20))
+      #|  (func $setA
+      #|    (global.set $A
+      #|      (i32.const 0)))
+      #|  (func (export "run") (result i32)
+      #|    (global.set $A
+      #|      (i32.const 11))
+      #|    (global.set $B
+      #|      (i32.const 22))
+      #|    (block
+      #|      (call $setA))
+      #|    (i32.add
+      #|      (global.get $A)
+      #|      (global.get $B)))
+      #|)
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("global.get (Global 0)"), msg=pretty)
+  assert_false(pretty.contains("global.get (Global 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(22)"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps block runtime facts private across calls" {
   let optimized = sgo_test_run(
     (

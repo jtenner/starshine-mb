@@ -4220,11 +4220,13 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn sgo_runtime_trace_expr_has_barrier(expr : @lib.Expr) -> Bool {
+fn sgo_runtime_trace_expr_has_uncarryable_barrier(expr : @lib.Expr) -> Bool {
   let @lib.Expr(instrs) = expr
   instrs.any(fn(instr) {
     match instr {
-      @lib.Block(_, body) => sgo_runtime_trace_expr_has_barrier(body)
+      @lib.Call(_) => false
+      @lib.Block(_, body) =>
+        sgo_runtime_trace_expr_has_uncarryable_barrier(body)
       _ => sgo_runtime_trace_barrier(instr)
     }
   })
@@ -4326,7 +4328,9 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         }
       }
       @lib.Block(block_type, body) => {
-        let body_has_barrier = sgo_runtime_trace_expr_has_barrier(body)
+        let body_has_uncarryable_barrier = sgo_runtime_trace_expr_has_uncarryable_barrier(
+          body,
+        )
         let body_facts = facts.copy()
         let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
           body, infos, effects, body_facts,
@@ -4339,7 +4343,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           },
         )
         changed = changed || body_changed
-        if body_has_barrier {
+        if body_has_uncarryable_barrier {
           sgo_runtime_trace_clear(facts)
         } else {
           sgo_runtime_trace_copy_facts(facts, body_facts)
