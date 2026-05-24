@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO prefer-earlier lit regression
+
+- Added research note [`0581`](./raw/research/0581-2026-05-23-sgo-prefer-earlier-lit-regression.md) and a source-alignment regression for Binaryen v129 `simplify-globals-prefer_earlier.wast`.
+- Pinned immutable imported-global copy-chain canonicalization so later global initializers and live function-body reads prefer the earliest equivalent global.
+- This was a guardrail/test slice only; `[SGO]003` remains active/partial and does not claim full Binaryen `SimplifyGlobals.cpp` parity.
+
 ## [2026-05-23] binaryen | SGO offsets lit regression
 
 - Added research note [`0580`](./raw/research/0580-2026-05-23-sgo-offsets-lit-regression.md) and a source-alignment regression for Binaryen v129 `simplify-globals-offsets.wast`.

@@ -835,6 +835,40 @@ test "simplify-globals-optimizing canonicalizes immutable global copy chains" {
 }
 
 ///|
+test "simplify-globals-optimizing follows Binaryen prefer-earlier copy-chain lit" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "a" "b" (global $global1 i32))
+      #|  (global $global2 i32 (global.get $global1))
+      #|  (global $global3 i32 (global.get $global2))
+      #|  (global $global4 i32 (global.get $global3))
+      #|  (func $simple (result i32)
+      #|    (i32.add
+      #|      (i32.add
+      #|        (global.get $global1)
+      #|        (global.get $global2))
+      #|      (i32.add
+      #|        (global.get $global3)
+      #|        (global.get $global4)))))
+      #|,
+    ),
+  )
+
+  for defined_idx = 0; defined_idx < 3; defined_idx = defined_idx + 1 {
+    @debug.assert_eq(
+      try! sgo_test_defined_global_init_instrs(optimized, defined_idx),
+      [@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))],
+    )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get (Global 0)"), msg=pretty)
+  assert_false(pretty.contains("global.get (Global 1)"), msg=pretty)
+  assert_false(pretty.contains("global.get (Global 2)"), msg=pretty)
+  assert_false(pretty.contains("global.get (Global 3)"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing folds single-use multi-instruction global initializers without nested cleanup" {
   let (optimized, trace) = sgo_test_run_with_trace(
     (
