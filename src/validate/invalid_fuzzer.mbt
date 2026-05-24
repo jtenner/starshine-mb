@@ -124,6 +124,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyRefTestInputType
   InvalidFunctionBodyRefTestDescInputType
   InvalidFunctionBodyRefCastDescEqInputType
+  InvalidFunctionBodyRefGetDescInputType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -817,6 +818,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyRefGetDescInputType,
+      "invalid-function-body-ref-get-desc-input-type",
+      "invalid function-body ref.get_desc input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1065,6 +1073,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyRefTestInputType => 96
     InvalidFunctionBodyRefTestDescInputType => 97
     InvalidFunctionBodyRefCastDescEqInputType => 98
+    InvalidFunctionBodyRefGetDescInputType => 101
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -3721,6 +3730,46 @@ fn validate_invalid_ast_mutate_invalid_function_body_ref_cast_desc_eq_input_type
 }
 
 ///|
+fn validate_invalid_ast_ref_get_desc_module() -> Module {
+  let described = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::rec(1))),
+  )
+  let descriptor = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(0))),
+  )
+  Module::new().with_type_sec(
+    TypeSec::new([RecType::group([described, descriptor])]),
+  )
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_ref_get_desc_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_get_desc(TypeIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ref_get_desc_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyRefGetDescInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_make_br_on_cast_input_type_body(
   instr : Instruction,
 ) -> Expr {
@@ -4703,6 +4752,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_ref_cast_desc_eq_input_type(
           base,
         )
+      InvalidFunctionBodyRefGetDescInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_ref_get_desc_input_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -5141,13 +5194,14 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-return-call-ref-type", "invalid-function-body-call-ref-type",
     "invalid-function-body-ref-cast-input-type", "invalid-function-body-ref-test-input-type",
     "invalid-function-body-ref-test-desc-input-type", "invalid-function-body-ref-cast-desc-eq-input-type",
-    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
-    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-ref-get-desc-input-type", "invalid-function-body-br-on-cast-input-type",
+    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
+    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -6269,6 +6323,19 @@ test "invalid ref.cast_desc_eq input type strategy rejects with FunctionBody fam
 }
 
 ///|
+test "invalid ref.get_desc input type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyRefGetDescInputType,
+      0x10d06UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid br_on_cast input type strategy rejects with FunctionBody family" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
@@ -6417,6 +6484,37 @@ test "function-body ref.cast_desc_eq input mutation repairs by using a reference
       fail(
         "expected repaired ref.cast_desc_eq input module to validate: \{err}",
       )
+  }
+}
+
+///|
+test "function-body ref.get_desc input mutation repairs by using a reference operand" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_ref_get_desc_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched ref.get_desc input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_ref_get_desc_module(),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::ref_get_desc(TypeIdx::new(0U)),
+      Instruction::drop(),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired ref.get_desc input module to validate: \{err}")
   }
 }
 

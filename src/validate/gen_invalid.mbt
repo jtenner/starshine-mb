@@ -303,6 +303,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-ref-test-desc-input-type"
     InvalidFunctionBodyRefCastDescEqInputType =>
       "invalid-function-body-ref-cast-desc-eq-input-type"
+    InvalidFunctionBodyRefGetDescInputType =>
+      "invalid-function-body-ref-get-desc-input-type"
     InvalidFunctionBodyBrOnCastInputType =>
       "invalid-function-body-br-on-cast-input-type"
     InvalidFunctionBodyBrOnCastFailInputType =>
