@@ -1357,6 +1357,30 @@ test "gen_invalid_ast_generate supports function-body table.set value type strat
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body table.get index type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10ce4UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableGetIndexType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-table-get-index-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body return value type strategy" {
   let generated = match
     gen_invalid_ast_generate(

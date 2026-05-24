@@ -242,6 +242,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-local-tee-value-type"
     InvalidFunctionBodyReturnValueType =>
       "invalid-function-body-return-value-type"
+    InvalidFunctionBodyTableGetIndexType =>
+      "invalid-function-body-table-get-index-type"
     InvalidFunctionBodyTableSetValueType =>
       "invalid-function-body-table-set-value-type"
     InvalidFunctionBodyGlobalSetValueType =>
