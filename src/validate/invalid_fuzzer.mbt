@@ -191,6 +191,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicLoadAddressType
   InvalidFunctionBodyAtomicStoreAddressType
   InvalidFunctionBodyAtomicStoreValueType
+  InvalidFunctionBodyAtomicLoadIndex
+  InvalidFunctionBodyAtomicStoreIndex
   InvalidFunctionBodyAtomicNotifyAddressType
   InvalidFunctionBodyAtomicWaitAddressType
   InvalidFunctionBodyAtomicWaitExpectedType
@@ -1359,6 +1361,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicLoadIndex,
+      "invalid-function-body-atomic-load-index",
+      "invalid function-body atomic.load memarg index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicStoreIndex,
+      "invalid-function-body-atomic-store-index",
+      "invalid function-body atomic.store memarg index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyAtomicNotifyAddressType,
       "invalid-function-body-atomic-notify-address-type",
       "invalid function-body atomic.notify address type",
@@ -1716,6 +1732,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyAtomicLoadAddressType => 141
     InvalidFunctionBodyAtomicStoreAddressType => 142
     InvalidFunctionBodyAtomicStoreValueType => 143
+    InvalidFunctionBodyAtomicLoadIndex => 174
+    InvalidFunctionBodyAtomicStoreIndex => 175
     InvalidFunctionBodyAtomicNotifyAddressType => 144
     InvalidFunctionBodyAtomicWaitAddressType => 145
     InvalidFunctionBodyAtomicWaitExpectedType => 146
@@ -6087,6 +6105,58 @@ fn validate_invalid_ast_mutate_invalid_function_body_struct_get_signed_field_typ
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_load_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let bad_mem_idx = MemIdx::new(1U)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_atomic_load(MemArg::new(2U, Some(bad_mem_idx), 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicLoadIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_store_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let bad_mem_idx = MemIdx::new(1U)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(3)),
+    Instruction::i32_atomic_store(MemArg::new(2U, Some(bad_mem_idx), 0UL)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicStoreIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_atomic_notify_count_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -7687,6 +7757,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_atomic_store_value_type(
           base,
         )
+      InvalidFunctionBodyAtomicLoadIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_load_index(
+          base,
+        )
+      InvalidFunctionBodyAtomicStoreIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_store_index(
+          base,
+        )
       InvalidFunctionBodyAtomicNotifyAddressType =>
         validate_invalid_ast_mutate_invalid_function_body_atomic_notify_address_type(
           base,
@@ -8182,7 +8260,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-atomic-notify-count-type", "invalid-function-body-atomic-wait-timeout-type",
     "invalid-function-body-atomic-rmw-value-type", "invalid-function-body-atomic-cmpxchg-replacement-type",
     "invalid-function-body-atomic-load-address-type", "invalid-function-body-atomic-store-address-type",
-    "invalid-function-body-atomic-store-value-type", "invalid-function-body-atomic-notify-address-type",
+    "invalid-function-body-atomic-store-value-type", "invalid-function-body-atomic-load-index",
+    "invalid-function-body-atomic-store-index", "invalid-function-body-atomic-notify-address-type",
     "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
     "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
     "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
@@ -12340,6 +12419,100 @@ test "function-body memory store memarg index mutation repairs by using declared
     Err(err) =>
       fail(
         "expected repaired memory store memarg index module to validate: \{err}",
+      )
+  }
+}
+
+///|
+test "invalid atomic load memarg index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicLoadIndex,
+      0x10d4eUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body atomic load memarg index mutation repairs by using declared shared memory" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_atomic_load_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad atomic load memarg index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_atomic_load(MemArg::new(2U, Some(MemIdx::new(0U)), 0UL)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired atomic load memarg index module to validate: \{err}",
+      )
+  }
+}
+
+///|
+test "invalid atomic store memarg index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicStoreIndex,
+      0x10d4fUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body atomic store memarg index mutation repairs by using declared shared memory" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_atomic_store_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad atomic store memarg index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(3)),
+    Instruction::i32_atomic_store(MemArg::new(2U, Some(MemIdx::new(0U)), 0UL)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired atomic store memarg index module to validate: \{err}",
       )
   }
 }

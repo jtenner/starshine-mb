@@ -437,6 +437,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-atomic-store-address-type"
     InvalidFunctionBodyAtomicStoreValueType =>
       "invalid-function-body-atomic-store-value-type"
+    InvalidFunctionBodyAtomicLoadIndex =>
+      "invalid-function-body-atomic-load-index"
+    InvalidFunctionBodyAtomicStoreIndex =>
+      "invalid-function-body-atomic-store-index"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>
