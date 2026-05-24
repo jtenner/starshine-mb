@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 table.grow delta invalid AST coverage
+
+- Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-table-grow-delta-type`.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving an `i64` page-delta operand for `table.grow` rejects with the function-body family while the repaired nullable `funcref` plus `i32` delta form validates.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living AST-invalid summaries name table.grow delta coverage alongside the existing table.grow value and bulk-table body-stack variants.
+
 ## [2026-05-23] fuzzing | FUZ1020 data.drop/elem.drop invalid AST coverage
 
 - Continued `[FUZ]1020` by adding function-body AST invalid strategies `invalid-function-body-data-drop-index` and `invalid-function-body-elem-drop-index`.
