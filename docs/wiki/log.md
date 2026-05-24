@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO try_table if-return read-only-to-write
+
+- Added research note [`0605`](./raw/research/0605-2026-05-24-sgo-try-table-if-return-read-only-to-write.md) and implemented the exact `if return; set` follow-up for no-catch transparent `try_table` read-only-to-write conditions.
+- No-catch `try_table (result i32)` wrappers may now feed direct, adjacent `i32.eqz`, compare-with-const, reverse-compare-with-const, and block-wrapped-set `if return; set` guards; catch-bearing wrappers remain conservative.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-try-table-if-return-rotw-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO try_table eqz/compare read-only-to-write
 
 - Added research note [`0604`](./raw/research/0604-2026-05-24-sgo-try-table-eqz-compare-read-only-to-write.md) and implemented the adjacent `i32.eqz` / compare-with-const follow-up for no-catch transparent `try_table` read-only-to-write conditions.

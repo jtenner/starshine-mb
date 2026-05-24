@@ -14610,6 +14610,182 @@ test "simplify-globals-optimizing treats transparent try_table compare condition
 }
 
 ///|
+test "simplify-globals-optimizing treats transparent try_table if-return guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block
+      #|      (if
+      #|        (try_table (result i32)
+      #|          (global.get $g))
+      #|        (then
+      #|          (return)))
+      #|      (global.set $g (i32.const 1))
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table eqz if-return guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block
+      #|      (if
+      #|        (i32.eqz
+      #|          (try_table (result i32)
+      #|            (global.get $g)))
+      #|        (then
+      #|          (return)))
+      #|      (global.set $g (i32.const 1))
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table compare if-return guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block
+      #|      (if
+      #|        (i32.eq
+      #|          (try_table (result i32)
+      #|            (global.get $g))
+      #|          (i32.const 0))
+      #|        (then
+      #|          (return)))
+      #|      (global.set $g (i32.const 1))
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table reverse compare if-return guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block
+      #|      (if
+      #|        (i32.eq
+      #|          (i32.const 0)
+      #|          (try_table (result i32)
+      #|            (global.get $g)))
+      #|        (then
+      #|          (return)))
+      #|      (global.set $g (i32.const 1))
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table if-return block sets as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block
+      #|      (if
+      #|        (try_table (result i32)
+      #|          (global.get $g))
+      #|        (then
+      #|          (return)))
+      #|      block
+      #|        (global.set $g (i32.const 1))
+      #|      end
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps caught try_table if-return guards conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block $exit
+      #|      (if
+      #|        (try_table (result i32) (catch $e $exit)
+      #|          (global.get $g))
+      #|        (then
+      #|          (return)))
+      #|      (global.set $g (i32.const 1))
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps caught try_table conditions conservative" {
   let optimized = sgo_test_run(
     (

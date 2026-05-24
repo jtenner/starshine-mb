@@ -650,6 +650,14 @@ fn sgo_count_read_only_to_write_instrs(
           )
         }
         if pos + 2 < instrs.length() {
+          if pos + 3 == instrs.length() {
+            sgo_count_block_condition_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              safe_reads,
+            )
+          }
           sgo_count_block_condition_eqz_read_only_to_write_read(
             instr,
             instrs[pos + 1],
@@ -661,6 +669,25 @@ fn sgo_count_read_only_to_write_instrs(
           )
         }
         if pos + 3 < instrs.length() {
+          if pos + 4 == instrs.length() {
+            sgo_count_block_condition_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              safe_reads,
+            )
+            sgo_count_block_condition_eqz_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              safe_reads,
+            )
+            sgo_count_block_condition_reverse_compare_if_return_block_set_read(
+              instrs, pos, safe_reads,
+            )
+          }
           sgo_count_block_condition_compare_read_only_to_write_read(
             instr,
             instrs[pos + 1],
@@ -668,6 +695,42 @@ fn sgo_count_read_only_to_write_instrs(
             instrs[pos + 3],
             safe_reads,
           )
+        }
+        if pos + 4 < instrs.length() {
+          if pos + 5 == instrs.length() {
+            sgo_count_block_condition_eqz_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              safe_reads,
+            )
+            sgo_count_block_condition_reverse_compare_if_return_set_read(
+              instrs, pos, safe_reads,
+            )
+            sgo_count_block_condition_compare_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              safe_reads,
+            )
+          }
+        }
+        if pos + 5 < instrs.length() {
+          if pos + 6 == instrs.length() {
+            sgo_count_block_condition_compare_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              instrs[pos + 5],
+              safe_reads,
+            )
+          }
         }
         sgo_count_read_only_to_write_expr(body, safe_reads)
       }
@@ -3431,6 +3494,16 @@ fn sgo_count_block_condition_if_return_block_set_read(
           sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
         None => ()
       }
+    (
+      @lib.TryTable(_, catches, @lib.Expr(body)),
+      if_instr,
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(tail)),
+    ) if catches.length() == 0 && sgo_is_return_guard(if_instr) =>
+      match sgo_single_const_global_set_idx(tail) {
+        Some(idx) =>
+          sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
+        None => ()
+      }
     _ => ()
   }
 }
@@ -3449,6 +3522,11 @@ fn sgo_count_block_condition_if_return_set_read(
       ) &&
       sgo_const_instr(value) != None =>
       sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
+    (@lib.TryTable(_, catches, @lib.Expr(body)), if_instr, @lib.GlobalSet(idx)) if catches.length() ==
+      0 &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
     _ => ()
   }
 }
@@ -3465,6 +3543,12 @@ fn sgo_count_block_condition_eqz_if_return_set_read(
   match (instr, set) {
     (@lib.Block(_, @lib.Expr(body)), @lib.GlobalSet(idx)) if eqz ==
       @lib.Instruction::i32_eqz() &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+    (@lib.TryTable(_, catches, @lib.Expr(body)), @lib.GlobalSet(idx)) if catches.length() ==
+      0 &&
+      eqz == @lib.Instruction::i32_eqz() &&
       sgo_is_return_guard(if_instr) &&
       sgo_const_instr(value) != None =>
       sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
@@ -3497,6 +3581,14 @@ fn sgo_count_block_condition_eqz_if_return_block_set_read(
           sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
         None => ()
       }
+    @lib.TryTable(_, catches, @lib.Expr(body)) if catches.length() == 0 &&
+      eqz == @lib.Instruction::i32_eqz() &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
     _ => ()
   }
 }
@@ -3520,6 +3612,13 @@ fn sgo_count_block_condition_compare_if_return_set_read(
       sgo_is_return_guard(if_instr) &&
       sgo_const_instr(value) != None =>
       sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+    (@lib.TryTable(_, catches, @lib.Expr(body)), @lib.GlobalSet(idx)) if catches.length() ==
+      0 &&
+      sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
     _ => ()
   }
 }
@@ -3535,6 +3634,15 @@ fn sgo_count_block_condition_compare_if_return_block_set_read(
 ) -> Unit {
   match instr {
     @lib.Block(_, @lib.Expr(body)) if sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    @lib.TryTable(_, catches, @lib.Expr(body)) if catches.length() == 0 &&
+      sgo_const_instr(const_instr) != None &&
       sgo_is_compare_instr(cmp_instr) &&
       sgo_is_return_guard(if_instr) =>
       match sgo_block_set_tail_idx(block_tail) {
@@ -3570,6 +3678,13 @@ fn sgo_count_block_condition_reverse_compare_if_return_set_read(
       sgo_is_return_guard(if_instr) &&
       sgo_const_instr(value) != None =>
       sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+    (@lib.TryTable(_, catches, @lib.Expr(body)), @lib.GlobalSet(idx)) if catches.length() ==
+      0 &&
+      sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
     _ => ()
   }
 }
@@ -3590,6 +3705,15 @@ fn sgo_count_block_condition_reverse_compare_if_return_block_set_read(
   let block_tail = instrs[pos + 3]
   match instr {
     @lib.Block(_, @lib.Expr(body)) if sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    @lib.TryTable(_, catches, @lib.Expr(body)) if catches.length() == 0 &&
+      sgo_const_instr(const_instr) != None &&
       sgo_is_compare_instr(cmp_instr) &&
       sgo_is_return_guard(if_instr) =>
       match sgo_block_set_tail_idx(block_tail) {
