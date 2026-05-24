@@ -128,6 +128,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyRefEqInputType
   InvalidFunctionBodyArrayLenInputType
   InvalidFunctionBodyArrayGetInputType
+  InvalidFunctionBodyArraySetInputType
+  InvalidFunctionBodyArraySetValueType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -849,6 +851,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArraySetInputType,
+      "invalid-function-body-array-set-input-type",
+      "invalid function-body array.set input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArraySetValueType,
+      "invalid-function-body-array-set-value-type",
+      "invalid function-body array.set value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1101,6 +1117,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyRefEqInputType => 102
     InvalidFunctionBodyArrayLenInputType => 103
     InvalidFunctionBodyArrayGetInputType => 104
+    InvalidFunctionBodyArraySetInputType => 105
+    InvalidFunctionBodyArraySetValueType => 106
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -3860,6 +3878,18 @@ fn validate_invalid_ast_i32_array_module() -> Module {
 }
 
 ///|
+fn validate_invalid_ast_mut_i32_array_module() -> Module {
+  let array_type = RecType::new(
+    SubType::comp_type(
+      CompType::array(
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ),
+    ),
+  )
+  Module::new().with_type_sec(TypeSec::new([array_type]))
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -3879,6 +3909,58 @@ fn validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
   )
   {
     strategy: InvalidFunctionBodyArrayGetInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_set_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::array_set(TypeIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArraySetInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_set_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::array_set(TypeIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArraySetValueType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -4884,6 +4966,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
           base,
         )
+      InvalidFunctionBodyArraySetInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_set_input_type(
+          base,
+        )
+      InvalidFunctionBodyArraySetValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_set_value_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -5324,6 +5414,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-ref-test-desc-input-type", "invalid-function-body-ref-cast-desc-eq-input-type",
     "invalid-function-body-ref-get-desc-input-type", "invalid-function-body-ref-eq-input-type",
     "invalid-function-body-array-len-input-type", "invalid-function-body-array-get-input-type",
+    "invalid-function-body-array-set-input-type", "invalid-function-body-array-set-value-type",
     "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
     "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
@@ -6752,6 +6843,70 @@ test "function-body array.get input mutation repairs by using array ref and i32 
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired array.get input module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body array.set input mutation repairs by using array ref, i32 index, and value operands" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_array_set_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched array.set input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(0)),
+      Instruction::i32_const(I32(7)),
+      Instruction::array_set(TypeIdx::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired array.set input module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body array.set value mutation repairs by using an element-typed value" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_array_set_value_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched array.set value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(0)),
+      Instruction::i32_const(I32(7)),
+      Instruction::array_set(TypeIdx::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired array.set value module to validate: \{err}")
   }
 }
 
