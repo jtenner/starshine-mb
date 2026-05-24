@@ -348,6 +348,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingNonNameCustomSection
   AddModuleNameSection
   AddUnusedPassiveDataSegment
+  AddUnusedImmutableI32Global
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {

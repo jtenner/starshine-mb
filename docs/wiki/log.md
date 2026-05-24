@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036 metamorphic valid unused global transform
+
+- Continued `[FUZ]1036` by adding the `add-unused-immutable-i32-global` metamorphic-valid transform. It starts from a validating GenValid module, appends an unexported immutable `i32.const 0` global after all existing defined globals so global indices are not shifted, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the custom-section, module-name, passive-data, and unused-global surfaces.
+
 ## [2026-05-24] fuzzing | FUZ1034 GenValid PRNG stream split batch migration
 
 - Continued `[FUZ]1034` by adding `gen_valid_module_result_from_seed(...)`, an explicit root-seed GenValid entry point that derives named candidate substreams instead of consuming one monolithic `RandomState`.

@@ -93,6 +93,54 @@ test "metamorphic leading custom-section transform preserves validation and bina
 }
 
 ///|
+test "metamorphic unused immutable-global transform preserves validation and binary roundtrip" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x103aUL,
+      GenValidConfig::natural_default(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected valid GenValid seed, got \{e.validation_error_message}")
+  }
+  let original_global_count = match generated.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals.length()
+    None => 0
+  }
+  let transformed = match
+    metamorphic_apply_transform(
+      generated.wasm_module,
+      AddUnusedImmutableI32Global,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-unused-immutable-i32-global")
+  match transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      @debug.assert_eq(globals.length(), original_global_count + 1)
+      match globals[globals.length() - 1] {
+        @lib.Global(global_type, init) => {
+          @debug.assert_eq(
+            global_type,
+            @lib.GlobalType::new(@lib.ValType::i32(), false),
+          )
+          @debug.assert_eq(
+            init,
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          )
+        }
+      }
+    }
+    None => fail("expected transformed global section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic unused passive-data transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -181,12 +229,13 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 4)
-  @debug.assert_eq(stats.validated, 4)
+  @debug.assert_eq(stats.transformed, 5)
+  @debug.assert_eq(stats.validated, 5)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
   )
   assert_true(stats.transform_ids.contains("add-module-name-section"))
   assert_true(stats.transform_ids.contains("add-unused-passive-data-segment"))
+  assert_true(stats.transform_ids.contains("add-unused-immutable-i32-global"))
 }

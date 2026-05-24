@@ -4,6 +4,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingNonNameCustomSection
   AddModuleNameSection
   AddUnusedPassiveDataSegment
+  AddUnusedImmutableI32Global
 } derive(Eq, Debug)
 
 ///|
@@ -15,6 +16,7 @@ pub fn metamorphic_valid_transform_id(
     AddLeadingNonNameCustomSection => "add-leading-non-name-custom-section"
     AddModuleNameSection => "add-module-name-section"
     AddUnusedPassiveDataSegment => "add-unused-passive-data-segment"
+    AddUnusedImmutableI32Global => "add-unused-immutable-i32-global"
   }
 }
 
@@ -104,12 +106,34 @@ fn metamorphic_add_unused_passive_data_segment(
 }
 
 ///|
+fn metamorphic_add_unused_immutable_i32_global(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let globals = []
+  match mod.global_sec {
+    Some(@lib.GlobalSec(existing)) =>
+      for global in existing {
+        globals.push(global)
+      }
+    None => ()
+  }
+  globals.push(
+    @lib.Global::new(
+      @lib.GlobalType::new(@lib.ValType::i32(), false),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    ),
+  )
+  mod.with_global_sec(@lib.GlobalSec::new(globals))
+}
+
+///|
 fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
   [
     AddNonNameCustomSection,
     AddLeadingNonNameCustomSection,
     AddModuleNameSection,
     AddUnusedPassiveDataSegment,
+    AddUnusedImmutableI32Global,
   ]
 }
 
@@ -125,6 +149,8 @@ pub fn metamorphic_apply_transform(
     AddModuleNameSection => metamorphic_add_module_name_section(mod)
     AddUnusedPassiveDataSegment =>
       metamorphic_add_unused_passive_data_segment(mod)
+    AddUnusedImmutableI32Global =>
+      metamorphic_add_unused_immutable_i32_global(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
