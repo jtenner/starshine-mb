@@ -23,6 +23,30 @@ test "gen_valid_module_result reports success diagnostics" {
 }
 
 ///|
+test "gen-valid PRNG stream labels have stable seed derivations" {
+  @debug.assert_eq(gen_valid_random_stream_labels().length(), 12)
+  @debug.assert_eq(
+    gen_valid_random_stream_label_name(ModuleTopologyStream),
+    "module-topology",
+  )
+  @debug.assert_eq(gen_valid_random_stream_label_name(BodyStream), "bodies")
+  @debug.assert_eq(
+    gen_valid_derive_stream_seed(0x5eedUL, ModuleTopologyStream),
+    gen_valid_derive_stream_seed(0x5eedUL, ModuleTopologyStream),
+  )
+  assert_true(
+    gen_valid_derive_stream_seed(0x5eedUL, ModuleTopologyStream) !=
+    gen_valid_derive_stream_seed(0x5eedUL, TypeStream),
+    msg="different stream labels should derive independent seeds from the same root seed",
+  )
+  assert_true(
+    gen_valid_derive_stream_seed(0x5eedUL, TypeStream) !=
+    gen_valid_derive_stream_seed(0x5eeeUL, TypeStream),
+    msg="same stream label should still vary when the root seed changes",
+  )
+}
+
+///|
 test "coverage-forced prelude records deterministic randomized template order" {
   let config = GenValidConfig::coverage_forced_default()
   let left = match

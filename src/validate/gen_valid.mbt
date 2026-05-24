@@ -1434,6 +1434,96 @@ pub fn GenValidFeatureStats::record(
 }
 
 ///|
+pub enum GenValidRandomStreamLabel {
+  ModuleTopologyStream
+  TypeStream
+  FuncStream
+  BodyStream
+  MemoryStream
+  TableStream
+  DataStream
+  ElemStream
+  InvalidStrategyChoiceStream
+  InvalidMutationChoiceStream
+  TextMutationChoiceStream
+  HarnessShufflingStream
+} derive(Eq, Debug)
+
+///|
+pub fn gen_valid_random_stream_labels() -> Array[GenValidRandomStreamLabel] {
+  [
+    ModuleTopologyStream,
+    TypeStream,
+    FuncStream,
+    BodyStream,
+    MemoryStream,
+    TableStream,
+    DataStream,
+    ElemStream,
+    InvalidStrategyChoiceStream,
+    InvalidMutationChoiceStream,
+    TextMutationChoiceStream,
+    HarnessShufflingStream,
+  ]
+}
+
+///|
+pub fn gen_valid_random_stream_label_name(
+  label : GenValidRandomStreamLabel,
+) -> String {
+  match label {
+    ModuleTopologyStream => "module-topology"
+    TypeStream => "types"
+    FuncStream => "funcs"
+    BodyStream => "bodies"
+    MemoryStream => "memories"
+    TableStream => "tables"
+    DataStream => "data"
+    ElemStream => "elems"
+    InvalidStrategyChoiceStream => "invalid-strategy-choice"
+    InvalidMutationChoiceStream => "invalid-mutation-choice"
+    TextMutationChoiceStream => "text-mutation-choice"
+    HarnessShufflingStream => "harness-shuffling"
+  }
+}
+
+///|
+fn gen_valid_random_stream_label_salt(
+  label : GenValidRandomStreamLabel,
+) -> UInt64 {
+  match label {
+    ModuleTopologyStream => 0x1001UL
+    TypeStream => 0x2002UL
+    FuncStream => 0x3003UL
+    BodyStream => 0x4004UL
+    MemoryStream => 0x5005UL
+    TableStream => 0x6006UL
+    DataStream => 0x7007UL
+    ElemStream => 0x8008UL
+    InvalidStrategyChoiceStream => 0x9009UL
+    InvalidMutationChoiceStream => 0xa00aUL
+    TextMutationChoiceStream => 0xb00bUL
+    HarnessShufflingStream => 0xc00cUL
+  }
+}
+
+///|
+pub fn gen_valid_derive_stream_seed(
+  root_seed : UInt64,
+  label : GenValidRandomStreamLabel,
+) -> UInt64 {
+  root_seed ^ gen_valid_random_stream_label_salt(label) ^ 0x9e3779b97f4a7c15UL
+}
+
+///|
+pub fn gen_valid_stream_random_state(
+  root_seed : UInt64,
+  label : GenValidRandomStreamLabel,
+) -> RandomState {
+  @splitmix.new(seed=gen_valid_derive_stream_seed(root_seed, label))
+}
+
+///|
 struct GenValidContext {
   rnd : RandomState
   config : GenValidConfig

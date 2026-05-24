@@ -1898,13 +1898,33 @@ fn format_gen_valid_batch_feature_keys_json(
 }
 
 ///|
+fn format_gen_valid_stream_derivations_json(seed : UInt64) -> String {
+  let labels = gen_valid_random_stream_labels()
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let mut i = 0
+  while i < labels.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let label = labels[i]
+    out.write_string(
+      "{\"label\":\"\{fuzz_json_escape(gen_valid_random_stream_label_name(label))}\",\"derived_seed\":\{gen_valid_derive_stream_seed(seed, label)}}",
+    )
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
 fn format_gen_valid_batch_manifest_json(
   args : EmitGenValidBatchArgs,
   selection : GenValidCoverageSelection,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string(
-    "{\"generator\":\"gen-valid\",\"seed\":\{args.seed},\"count\":\{args.count},\"profile\":\"\{fuzz_json_escape(args.profile)}\",\"max_attempts\":\{args.max_attempts},\"attempts\":\{selection.attempts},\"selected\":\{selection.selected},\"skipped_candidates\":\{selection.skipped_candidates},\"required_features\":\{format_validate_valid_feature_floors_json(args.required_features)},\"excluded_features\":\{format_gen_valid_batch_feature_keys_json(args.excluded_features)},\"feature_stats\":\{format_gen_valid_feature_stats_json(selection.feature_stats)},\"records\":[",
+    "{\"generator\":\"gen-valid\",\"seed\":\{args.seed},\"count\":\{args.count},\"profile\":\"\{fuzz_json_escape(args.profile)}\",\"max_attempts\":\{args.max_attempts},\"attempts\":\{selection.attempts},\"selected\":\{selection.selected},\"skipped_candidates\":\{selection.skipped_candidates},\"required_features\":\{format_validate_valid_feature_floors_json(args.required_features)},\"excluded_features\":\{format_gen_valid_batch_feature_keys_json(args.excluded_features)},\"feature_stats\":\{format_gen_valid_feature_stats_json(selection.feature_stats)},\"stream_derivations\":\{format_gen_valid_stream_derivations_json(args.seed)},\"records\":[",
   )
   let mut i = 0
   while i < selection.manifest.length() {

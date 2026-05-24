@@ -408,6 +408,10 @@ test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
   assert_true(manifest.contains("\"file_name\":\"gen-valid-000001.wasm\""))
   assert_true(manifest.contains("\"validated\":true"))
   assert_true(manifest.contains("\"feature_stats\":"))
+  assert_true(manifest.contains("\"stream_derivations\":"))
+  assert_true(manifest.contains("\"label\":\"module-topology\""))
+  assert_true(manifest.contains("\"label\":\"bodies\""))
+  assert_true(manifest.contains("\"derived_seed\":"))
 }
 
 ///|
