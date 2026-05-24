@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO non-init same-init lit regression
+
+- Added research note [`0594`](./raw/research/0594-2026-05-23-sgo-non-init-same-init-lit-regression.md) and an exact direct SGO guardrail from the first Binaryen v129 `simplify-globals-non-init.wast` module.
+- Pinned that mutable scalar globals written only to their initial literal values become immutable and that the corresponding direct global traffic disappears, without requiring Binaryen's raw `drop(i32.const ...)` text shape after nested cleanup.
+- Confirmed this was a tests/docs-only slice and does not broaden same-init expression equivalence; `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO function-effects generated-effects boundary
 
 - Added research note [`0593`](./raw/research/0593-2026-05-23-sgo-function-effects-generated-effects-boundary.md) and a direct SGO guardrail for the first Binaryen v129 `simplify-globals_func-effects.wast` module whose positive behavior depends on `--generate-global-effects`.

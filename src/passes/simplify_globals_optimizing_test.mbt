@@ -1571,6 +1571,41 @@ test "simplify-globals-optimizing removes same-as-init writes before reads" {
 }
 
 ///|
+test "simplify-globals-optimizing follows Binaryen non-init same-init writes lit" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $global-0 (mut i32) (i32.const 0))
+      #|  (global $global-1 (mut i32) (i32.const 1))
+      #|  (func $sets
+      #|    (global.set $global-0 (i32.const 0))
+      #|    (global.set $global-0 (i32.const 0))
+      #|    (global.set $global-1 (i32.const 1))
+      #|    (global.set $global-1 (i32.const 1)))
+      #|  (func $gets
+      #|    (drop (global.get $global-0))
+      #|    (drop (global.get $global-1))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let sets_pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(sets_pretty.contains("global.set"), msg=sets_pretty)
+  assert_false(sets_pretty.contains("global.get"), msg=sets_pretty)
+  let gets_pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(gets_pretty.contains("global.set"), msg=gets_pretty)
+  assert_false(gets_pretty.contains("global.get"), msg=gets_pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes ref-null same-as-init writes before reads" {
   let optimized = sgo_test_run(
     (
