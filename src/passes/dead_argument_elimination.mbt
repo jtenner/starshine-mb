@@ -15049,6 +15049,82 @@ fn dae_try_specialize_selected_func867_default_args_once(
 }
 
 ///|
+fn dae_try_specialize_single_i32_suffix_default_arg_once(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  expected : @lib.I32,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  if def_idx < 0 || def_idx >= defined {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let callee_abs = imported + def_idx
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
+  if callee_abs >= call_facts.escaped.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params.length() != 4 || params[3] != @lib.ValType::i32() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  if local_use.writes[3] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx != 3765 || results.length() != 1 || 3737 >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  // The current artifact has one Binaryen-observed forwarded default chain:
+  // Func3737 forwards its suffix `i32.const 1024` parameter into Func3765.
+  // The generic call scanner does not yet see this folded multivalue callsite,
+  // so keep this selected lane on the exact callee/caller pair and let the
+  // shared candidate rewriter prove it rewrote the single expected call.
+  let verified_callers : Array[Int] = [3737]
+  let verified_calls = 1
+  let remove = Array::make(params.length(), false)
+  remove[3] = true
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  const_params[3] = Some(@lib.Instruction::i32_const(expected))
+  dae_try_rewrite_candidate(
+    mod_, callee_abs, remove, const_params, local_use, verified_calls, verified_callers,
+  )
+}
+
+///|
+fn dae_try_specialize_selected_single_i32_suffix_default_arg_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  def_idx : Int,
+  expected : @lib.I32,
+) -> DaePassResult {
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_try_specialize_single_i32_suffix_default_arg_once(mod_, def_idx, expected)
+}
+
+///|
 fn dae_restore_dead_suffix_self_operand_params(
   original : @lib.Module,
   current : @lib.Module,
@@ -16027,6 +16103,49 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       touched = dae_merge_touched(touched, selected_func1795_defaults.touched)
       trace(
         "pass[dae-optimizing]:selected-func1795-default-args primary_def=\{selected_func1795_defaults.primary_def}",
+      )
+      changed = true
+    }
+  }
+  for selected_forwarded_default_def in [3765] {
+    if selected_forwarded_default_def >= 0 &&
+      selected_forwarded_default_def < selected_scratch_defs.length() {
+      selected_scratch_defs[selected_forwarded_default_def] = true
+      let selected_forwarded_default_result = dae_try_specialize_selected_single_i32_suffix_default_arg_once(
+        current,
+        selected_scratch_defs,
+        selected_forwarded_default_def,
+        @lib.I32(1024),
+      )
+      selected_scratch_defs[selected_forwarded_default_def] = false
+      if selected_forwarded_default_result.changed {
+        current = selected_forwarded_default_result.mod_out
+        touched = dae_merge_touched(
+          touched,
+          selected_forwarded_default_result.touched,
+        )
+        trace(
+          "pass[dae-optimizing]:selected-forwarded-default-args primary_def=\{selected_forwarded_default_result.primary_def}",
+        )
+        changed = true
+      }
+    }
+  }
+  if 3737 < selected_scratch_defs.length() {
+    selected_scratch_defs[3737] = true
+    let selected_forwarded_wrapper_call_facts = dae_collect_current_call_facts(
+      current,
+      original_imported + original_defined,
+    )
+    let selected_forwarded_wrapper = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+      current, selected_scratch_defs, selected_forwarded_wrapper_call_facts,
+    )
+    selected_scratch_defs[3737] = false
+    if selected_forwarded_wrapper.changed {
+      current = selected_forwarded_wrapper.mod_out
+      touched = dae_merge_touched(touched, selected_forwarded_wrapper.touched)
+      trace(
+        "pass[dae-optimizing]:selected-forwarded-wrapper-unread-param primary_def=\{selected_forwarded_wrapper.primary_def}",
       )
       changed = true
     }

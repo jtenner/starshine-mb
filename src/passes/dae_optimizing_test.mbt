@@ -1275,6 +1275,76 @@ test "dae-optimizing folds selected Func1794 const-if locals before Func1795 def
 }
 
 ///|
+test "dae-optimizing removes selected Func3737 and Func3765 forwarded default argument" {
+  let caller_def = 281
+  let target_def = 3737
+  let forwarded_def = 3765
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "run") (param i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    i32.const 1024
+      #|    call $target
+      #|    drop
+      #|    drop
+      #|    i32.const 7)
+    ),
+  )
+  for i = caller_def + 1; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32 i32 i32) (result i32 i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    local.get 3
+      #|    call $forwarded)
+    ),
+  )
+  for i = target_def + 1; i < forwarded_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $forwarded (param i32 i32 i32 i32) (result i32 i32)
+      #|    local.get 0
+      #|    drop
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop
+      #|    local.get 3
+      #|    drop
+      #|    i32.const 1
+      #|    i32.const 2)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 3)
+  @debug.assert_eq(dae_test_func_params(optimized, forwarded_def).length(), 3)
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+  assert_false(caller.contains("i32.const I32(1024)"), msg=caller)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("(call (Func \{forwarded_def}))"), msg=target)
+  assert_false(target.contains("i32.const I32(1024)"), msg=target)
+}
+
+///|
 test "dae-optimizing removes selected Func298 dropped result from Func280 branch arms" {
   let caller_def = 280
   let target_def = 298
