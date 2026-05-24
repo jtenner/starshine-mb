@@ -1,6 +1,7 @@
 ///|
 pub enum MetamorphicValidTransform {
   AddNonNameCustomSection
+  AddLeadingNonNameCustomSection
   AddModuleNameSection
 } derive(Eq, Debug)
 
@@ -10,6 +11,7 @@ pub fn metamorphic_valid_transform_id(
 ) -> String {
   match transform {
     AddNonNameCustomSection => "add-non-name-custom-section"
+    AddLeadingNonNameCustomSection => "add-leading-non-name-custom-section"
     AddModuleNameSection => "add-module-name-section"
   }
 }
@@ -48,6 +50,24 @@ fn metamorphic_add_non_name_custom_section(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn metamorphic_add_leading_non_name_custom_section(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let custom_secs = [
+    @lib.CustomSec::new(
+      @lib.Name::from_string(
+        "starshine.metamorphic.add-leading-non-name-custom-section",
+      ),
+      b"semantics-preserving leading custom payload",
+    ),
+  ]
+  for sec in mod.custom_secs {
+    custom_secs.push(sec)
+  }
+  mod.with_custom_secs(custom_secs)
+}
+
+///|
 fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
   mod.with_name_sec(
     @lib.NameSec::new(
@@ -58,7 +78,11 @@ fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
 
 ///|
 fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
-  [AddNonNameCustomSection, AddModuleNameSection]
+  [
+    AddNonNameCustomSection,
+    AddLeadingNonNameCustomSection,
+    AddModuleNameSection,
+  ]
 }
 
 ///|
@@ -68,6 +92,8 @@ pub fn metamorphic_apply_transform(
 ) -> Result[MetamorphicValidTransformResult, String] {
   let transformed = match transform {
     AddNonNameCustomSection => metamorphic_add_non_name_custom_section(mod)
+    AddLeadingNonNameCustomSection =>
+      metamorphic_add_leading_non_name_custom_section(mod)
     AddModuleNameSection => metamorphic_add_module_name_section(mod)
   }
   match validate_module(transformed) {

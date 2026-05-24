@@ -51,6 +51,48 @@ test "metamorphic add-custom transform preserves validation and binary roundtrip
 }
 
 ///|
+test "metamorphic leading custom-section transform preserves validation and binary roundtrip" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x1038UL,
+      GenValidConfig::natural_default(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected valid GenValid seed, got \{e.validation_error_message}")
+  }
+  let transformed = match
+    metamorphic_apply_transform(
+      generated.wasm_module,
+      AddLeadingNonNameCustomSection,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-leading-non-name-custom-section",
+  )
+  @debug.assert_eq(
+    transformed.wasm_module.custom_secs.length(),
+    generated.wasm_module.custom_secs.length() + 1,
+  )
+  match transformed.wasm_module.custom_secs[0] {
+    @lib.CustomSec(name, _) =>
+      @debug.assert_eq(
+        name,
+        @lib.Name::from_string(
+          "starshine.metamorphic.add-leading-non-name-custom-section",
+        ),
+      )
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic module-name transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -93,8 +135,11 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 2)
-  @debug.assert_eq(stats.validated, 2)
+  @debug.assert_eq(stats.transformed, 3)
+  @debug.assert_eq(stats.validated, 3)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
+  assert_true(
+    stats.transform_ids.contains("add-leading-non-name-custom-section"),
+  )
   assert_true(stats.transform_ids.contains("add-module-name-section"))
 }
