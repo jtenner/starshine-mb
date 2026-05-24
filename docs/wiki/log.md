@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae selected zero-tee split
+
+- Added a selected zero-tee split lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) for the observed debug-artifact functions `215`, `260`, `261`, `1137`, and `1978`, rewriting `i32.const 0; local.tee x; local.set y` to Binaryen-shaped `i32.const 0; local.set x; local.get x; local.set y` only when `x != y`.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the selected Func215 single-copy shape and selected Func260 multi-copy shape.
+- `.tmp/dae-func215-localtee-artifact` validates with `wasm-opt --all-features`, keeps the raw direct debug-artifact first diff at `defined=336 abs=353`, and advances the first type-normalized body drift to Func348 call/drop and tuple/block carrier representation. `.tmp/pass-fuzz-dae-func215-localtee-1000` preserves the current short-run no-validation-failure shape (`45/1000` compared, `26` normalized matches, `19` mismatches, `0` validation failures, `1` Binaryen/tool command failure).
+
 ## [2026-05-24] passes | dae unique function-type updates
 
 - Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so DAE signature rewrites replace a function's existing type entry in place when that type is uniquely owned by the rewritten defined function and has no non-`func_sec` type references; otherwise the pass still appends a fresh function type.

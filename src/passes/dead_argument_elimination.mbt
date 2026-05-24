@@ -17449,6 +17449,162 @@ fn dae_try_cleanup_selected_func327_default_wrappers_once(
 }
 
 ///|
+fn dae_try_split_zero_tee_set_body_once(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 2 < body.length() {
+      match (body[idx], body[idx + 1], body[idx + 2]) {
+        (
+          @lib.I32Const(value),
+          @lib.LocalTee(found_tee),
+          @lib.LocalSet(found_copy),
+        ) if value == @lib.I32(0) && !dae_local_idx_equal(found_tee, found_copy) => {
+          let rewritten = dae_copy_instr_prefix(body, idx)
+          rewritten.push(body[idx])
+          rewritten.push(@lib.Instruction::local_set(found_tee))
+          rewritten.push(@lib.Instruction::local_get(found_tee))
+          rewritten.push(body[idx + 2])
+          let mut tail = idx + 3
+          while tail < body.length() {
+            rewritten.push(body[tail])
+            tail += 1
+          }
+          return Some(rewritten)
+        }
+        _ => ()
+      }
+    }
+    match body[idx] {
+      @lib.Block(block_type, @lib.Expr(child_body)) =>
+        match dae_try_split_zero_tee_set_body_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::block(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.Loop(block_type, @lib.Expr(child_body)) =>
+        match dae_try_split_zero_tee_set_body_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::loop_(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.TryTable(block_type, catches, @lib.Expr(child_body)) =>
+        match dae_try_split_zero_tee_set_body_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        match dae_try_split_zero_tee_set_body_once(then_body) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              Some(else_body),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+        match dae_try_split_zero_tee_set_body_once(else_body) {
+          Some(rewritten_else) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              then_body,
+              Some(rewritten_else),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, None) =>
+        match dae_try_split_zero_tee_set_body_once(then_body) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              None,
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_split_selected_zero_tee_set_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  def_idx : Int,
+) -> DaePassResult {
+  if def_idx < 0 || def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) if def_idx < funcs.length() => funcs
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let mut rewritten = body
+  let mut changed = false
+  let mut iter = 0
+  while iter < 8 {
+    match dae_try_split_zero_tee_set_body_once(rewritten) {
+      Some(next) => {
+        rewritten = next
+        changed = true
+      }
+      None => break
+    }
+    iter += 1
+  }
+  if !changed || rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_fold_func246_builder_body_once(
   body : Array[@lib.Instruction],
   retain_slot : Int,
@@ -19006,6 +19162,23 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       "pass[dae-optimizing]:module-raw-cleanup primary_def=\{module_raw_cleanup.primary_def}",
     )
     changed = true
+  }
+  for zero_tee_def in [215, 260, 261, 1137, 1978] {
+    if zero_tee_def >= 0 && zero_tee_def < selected_scratch_defs.length() {
+      selected_scratch_defs[zero_tee_def] = true
+      let selected_zero_tee = dae_try_split_selected_zero_tee_set_once(
+        current, selected_scratch_defs, zero_tee_def,
+      )
+      selected_scratch_defs[zero_tee_def] = false
+      if selected_zero_tee.changed {
+        current = selected_zero_tee.mod_out
+        touched = dae_merge_touched(touched, selected_zero_tee.touched)
+        trace(
+          "pass[dae-optimizing]:selected-zero-tee-set primary_def=\{selected_zero_tee.primary_def}",
+        )
+        changed = true
+      }
+    }
   }
   if 237 < selected_scratch_defs.length() {
     selected_scratch_defs[237] = true
