@@ -266,6 +266,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-table-grow-delta-type"
     InvalidFunctionBodyTableFillValueType =>
       "invalid-function-body-table-fill-value-type"
+    InvalidFunctionBodyTableFillDestType =>
+      "invalid-function-body-table-fill-dest-type"
+    InvalidFunctionBodyTableFillLengthType =>
+      "invalid-function-body-table-fill-length-type"
     InvalidFunctionBodyTableCopyLengthType =>
       "invalid-function-body-table-copy-length-type"
     InvalidFunctionBodyTableCopySourceType =>

@@ -104,6 +104,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableGrowValueType
   InvalidFunctionBodyTableGrowDeltaType
   InvalidFunctionBodyTableFillValueType
+  InvalidFunctionBodyTableFillDestType
+  InvalidFunctionBodyTableFillLengthType
   InvalidFunctionBodyTableCopyLengthType
   InvalidFunctionBodyTableCopySourceType
   InvalidFunctionBodyTableCopyDestType
@@ -664,6 +666,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTableFillDestType,
+      "invalid-function-body-table-fill-dest-type",
+      "invalid function-body table.fill dest type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTableFillLengthType,
+      "invalid-function-body-table-fill-length-type",
+      "invalid function-body table.fill length type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyTableCopyLengthType,
       "invalid-function-body-table-copy-length-type",
       "invalid function-body table.copy length type",
@@ -941,6 +957,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyTableGrowValueType => 68
     InvalidFunctionBodyTableGrowDeltaType => 87
     InvalidFunctionBodyTableFillValueType => 69
+    InvalidFunctionBodyTableFillDestType => 88
+    InvalidFunctionBodyTableFillLengthType => 89
     InvalidFunctionBodyTableCopyLengthType => 78
     InvalidFunctionBodyTableCopySourceType => 79
     InvalidFunctionBodyTableCopyDestType => 80
@@ -3010,16 +3028,20 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_grow_delta_type(
 }
 
 ///|
-fn validate_invalid_ast_mutate_invalid_function_body_table_fill_value_type(
-  mod : Module,
-) -> ValidateInvalidAstMutation {
-  ignore(mod)
+fn validate_invalid_ast_func_table_module() -> Module {
   let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
-  let with_table = Module::new().with_table_sec(
+  Module::new().with_table_sec(
     TableSec::new([
       Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
     ]),
   )
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_fill_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
   let body = Expr::new([
     Instruction::i32_const(I32(0)),
     Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
@@ -3027,7 +3049,7 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_fill_value_type(
     Instruction::table_fill(TableIdx::new(0U)),
   ])
   let (with_func, _, _) = validate_invalid_ast_append_defined_func(
-    with_table,
+    validate_invalid_ast_func_table_module(),
     [],
     [],
     Locals::empty(),
@@ -3035,6 +3057,58 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_fill_value_type(
   )
   {
     strategy: InvalidFunctionBodyTableFillValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_fill_dest_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_fill(TableIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_func_table_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTableFillDestType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_fill_length_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+    Instruction::i64_const(I64(1)),
+    Instruction::table_fill(TableIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_func_table_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTableFillLengthType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -4140,6 +4214,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_table_fill_value_type(
           base,
         )
+      InvalidFunctionBodyTableFillDestType =>
+        validate_invalid_ast_mutate_invalid_function_body_table_fill_dest_type(
+          base,
+        )
+      InvalidFunctionBodyTableFillLengthType =>
+        validate_invalid_ast_mutate_invalid_function_body_table_fill_length_type(
+          base,
+        )
       InvalidFunctionBodyTableCopyLengthType =>
         validate_invalid_ast_mutate_invalid_function_body_table_copy_length_type(
           base,
@@ -4590,6 +4672,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-local-tee-value-type", "invalid-function-body-return-value-type",
     "invalid-function-body-table-get-index-type", "invalid-function-body-table-grow-value-type",
     "invalid-function-body-table-grow-delta-type", "invalid-function-body-table-fill-value-type",
+    "invalid-function-body-table-fill-dest-type", "invalid-function-body-table-fill-length-type",
     "invalid-function-body-table-copy-length-type", "invalid-function-body-table-copy-source-type",
     "invalid-function-body-table-copy-dest-type", "invalid-function-body-table-init-length-type",
     "invalid-function-body-table-init-source-type", "invalid-function-body-table-init-dest-type",
@@ -5618,6 +5701,110 @@ test "function-body table.fill value mutation repairs by using matching table re
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired table.fill value module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid table.fill dest type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTableFillDestType,
+      0x10cf9UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body table.fill dest mutation repairs by using i32 destination" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_table_fill_dest_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched table.fill dest type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let with_table = Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_fill(TableIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_table,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired table.fill dest module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid table.fill length type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTableFillLengthType,
+      0x10cfaUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body table.fill length mutation repairs by using i32 length" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_table_fill_length_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched table.fill length type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let with_table = Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_fill(TableIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_table,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired table.fill length module to validate: \{err}")
   }
 }
 
