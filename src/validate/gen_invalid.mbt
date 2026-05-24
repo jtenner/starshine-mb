@@ -351,6 +351,14 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-array-new-default-length-type"
     InvalidFunctionBodyArrayNewFixedValueType =>
       "invalid-function-body-array-new-fixed-value-type"
+    InvalidFunctionBodyArrayNewDataSourceType =>
+      "invalid-function-body-array-new-data-source-type"
+    InvalidFunctionBodyArrayNewDataLengthType =>
+      "invalid-function-body-array-new-data-length-type"
+    InvalidFunctionBodyArrayNewElemSourceType =>
+      "invalid-function-body-array-new-elem-source-type"
+    InvalidFunctionBodyArrayNewElemLengthType =>
+      "invalid-function-body-array-new-elem-length-type"
     InvalidFunctionBodyBrOnCastInputType =>
       "invalid-function-body-br-on-cast-input-type"
     InvalidFunctionBodyBrOnCastFailInputType =>
