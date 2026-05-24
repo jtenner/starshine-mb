@@ -89,6 +89,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemoryAddressType
   InvalidFunctionBodyMemory64AddressType
   InvalidFunctionBodyMemoryStoreValueType
+  InvalidFunctionBodyTableSetValueType
   InvalidNameSectionFuncIndex
   InvalidLocalNameSectionIndex
   InvalidLabelNameSectionIndex
@@ -533,6 +534,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTableSetValueType,
+      "invalid-function-body-table-set-value-type",
+      "invalid function-body table.set value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidMemoryNameSectionIndex,
       "invalid-memory-name-section-index",
       "invalid memory name index",
@@ -718,6 +726,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemoryAddressType => 44
     InvalidFunctionBodyMemory64AddressType => 45
     InvalidFunctionBodyMemoryStoreValueType => 46
+    InvalidFunctionBodyTableSetValueType => 62
     InvalidMemoryNameSectionIndex => 47
     CodeSecWithoutFuncSec => 48
     InvalidTableNameSectionIndex => 49
@@ -2364,6 +2373,37 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory_store_value_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let with_table = Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::table_set(TableIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_table,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTableSetValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_undeclared_ref_func(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -3082,6 +3122,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory_store_value_type(
           base,
         )
+      InvalidFunctionBodyTableSetValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
+          base,
+        )
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
       InvalidLocalNameSectionIndex =>
@@ -3486,12 +3530,12 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-throw-payload-mismatch", "invalid-function-body-try-table-catch-payload-mismatch",
     "invalid-function-body-memory-address-type", "invalid-function-body-memory64-address-type",
-    "invalid-function-body-memory-store-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-memory-store-value-type", "invalid-function-body-table-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -4251,6 +4295,57 @@ test "function-body memory store value mutation repairs by using i32 stored valu
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired memory store value module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid table.set value type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTableSetValueType,
+      0x5f1cUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body table.set value mutation repairs by using matching table refs" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched table.set value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let with_table = Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+    Instruction::table_set(TableIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_table,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired table.set value module to validate: \{err}")
   }
 }
 
