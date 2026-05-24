@@ -109,6 +109,8 @@ pub fn run_wast_validate_roundtrip_fuzz(String, UInt64) -> Result[WastValidateRo
 
 pub fn shrink_invalid_fuzz_failure_report(InvalidFuzzFailureReport) -> Result[InvalidFuzzFailureReport, String]
 
+pub fn validate_invalid_binary_attempt_seed(UInt64, String, String) -> UInt64
+
 pub fn validate_invalid_binary_registry() -> Array[ValidateInvalidBinaryStrategySpec]
 
 pub fn validate_invalid_binary_run_config(String) -> Result[ValidateInvalidBinaryRunConfig, String]
@@ -308,11 +310,12 @@ pub struct InvalidFuzzFailureReport {
   seed_require_strategy_prereqs : Bool?
   stream_label : String?
   stream_seed : UInt64?
+  attempt_seed : UInt64?
   source_path : String?
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
 } derive(Eq, @debug.Debug)
-pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, source_path? : String?, artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
+pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
 
 pub struct InvalidFuzzPersistIO {
   ensure_dir : (String) -> Result[Unit, String]

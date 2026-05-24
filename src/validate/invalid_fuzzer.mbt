@@ -10218,6 +10218,25 @@ fn validate_invalid_ast_attempt_seed(
 }
 
 ///|
+pub fn validate_invalid_ast_attempt_seed_for_profile(
+  seed : UInt64,
+  stable_id : String,
+  seed_profile : String,
+) -> UInt64 {
+  let profile = match seed_profile {
+    "natural" => NaturalSeedProfile
+    "coverage-forced" => CoverageForcedSeedProfile
+    "small-natural" => SmallNaturalSeedProfile
+    "small-coverage-forced" => SmallCoverageForcedSeedProfile
+    "repro" => ReproSeedProfile
+    "minimal" => MinimalSeedProfile
+    "rich" => RichSeedProfile
+    _ => ReproSeedProfile
+  }
+  validate_invalid_ast_attempt_seed(seed, stable_id, profile)
+}
+
+///|
 fn validate_invalid_ast_params_for_seed_profile(
   strategy : ValidateInvalidAstStrategyId,
   seed_profile : GenInvalidNamedSeedProfile,

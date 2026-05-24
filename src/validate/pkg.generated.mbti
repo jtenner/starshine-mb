@@ -26,6 +26,8 @@ pub fn empty_env() -> Env
 
 pub fn gen_invalid_ast_generate(@splitmix.RandomState, GenInvalidAstParams) -> Result[GenInvalidAstGenerated, String]
 
+pub fn gen_invalid_ast_generate_from_seed(UInt64, GenInvalidAstParams) -> Result[GenInvalidAstGenerated, String]
+
 pub fn gen_invalid_ast_params_profile_name(GenInvalidAstParams) -> String
 
 pub fn gen_invalid_ast_seed_config(GenInvalidAstParams) -> GenValidConfig
@@ -135,6 +137,8 @@ pub fn validate_funcsec(@lib.FuncSec?, Env) -> Result[Env, String]
 pub fn validate_globalsec(@lib.GlobalSec?, Env) -> Result[Env, String]
 
 pub fn validate_importsec(@lib.ImportSec?, Env) -> Result[Env, String]
+
+pub fn validate_invalid_ast_attempt_seed_for_profile(UInt64, String, String) -> UInt64
 
 pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec]
 

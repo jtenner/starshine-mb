@@ -836,6 +836,28 @@ test "validate_invalid_binary mixed seed fuzz records seed profile attempts" {
 }
 
 ///|
+test "validate_invalid_binary_attempt_seed isolates strategy and profile salts" {
+  let base = validate_invalid_binary_attempt_seed(
+    0x51034UL, "trailing-garbage", "repro",
+  )
+  @debug.assert_eq(
+    base,
+    validate_invalid_binary_attempt_seed(0x51034UL, "trailing-garbage", "repro"),
+  )
+  assert_true(
+    base !=
+    validate_invalid_binary_attempt_seed(
+      0x51034UL, "trailing-garbage", "minimal",
+    ),
+  )
+  assert_true(
+    base !=
+    validate_invalid_binary_attempt_seed(0x51034UL, "bad-magic-header", "repro"),
+  )
+  assert_true(base != 0x51034UL)
+}
+
+///|
 test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_binary_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v

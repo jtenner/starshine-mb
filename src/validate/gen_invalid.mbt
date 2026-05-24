@@ -791,7 +791,7 @@ pub fn gen_invalid_ast_generate(
 }
 
 ///|
-fn gen_invalid_ast_generate_from_seed(
+pub fn gen_invalid_ast_generate_from_seed(
   seed : UInt64,
   params : GenInvalidAstParams,
 ) -> Result[GenInvalidAstGenerated, String] {

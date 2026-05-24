@@ -253,6 +253,7 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted seed metadata" {
   assert_true(meta_text.contains("seed_require_strategy_prereqs=false"))
   assert_true(meta_text.contains("stream_label=invalid-mutation-choice"))
   assert_true(meta_text.contains("stream_seed="))
+  assert_true(meta_text.contains("attempt_seed="))
   let parsed = match
     parse_invalid_fuzz_failure_report(meta_text, fn(name) {
       for path in artifact_paths {
@@ -273,6 +274,7 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted seed metadata" {
   @debug.assert_eq(parsed.seed_require_strategy_prereqs, Some(false))
   @debug.assert_eq(parsed.stream_label, Some("invalid-mutation-choice"))
   @debug.assert_eq(parsed.stream_seed, report.stream_seed)
+  @debug.assert_eq(parsed.attempt_seed, report.attempt_seed)
 }
 
 ///|
@@ -288,6 +290,10 @@ test "build_invalid_fuzz_ast_failure_report_by_stable_id records invalid mutatio
   match report.stream_seed {
     Some(v) => assert_true(v != 0x51034UL)
     None => fail("missing invalid mutation stream seed")
+  }
+  match report.attempt_seed {
+    Some(v) => assert_true(v != report.stream_seed.unwrap())
+    None => fail("missing invalid mutation attempt seed")
   }
 }
 

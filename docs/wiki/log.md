@@ -1171,6 +1171,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added a manifest stream-derivation roundtrip helper for `[FUZ]1034` so `stream_derivations` can be parsed back into stable `{ label, derived_seed }` records, and locked the harness-shuffling derived seed with a focused whitebox test.
 - Continued the repro-audit slice by exposing `validate_invalid_text_dynamic_stream_seed(...)` and recording the dynamic invalid-text `text-mutation-choice` stream label plus derived stream seed in suite detail JSON, so dynamic GenValid-WAT failures can cite the owning named PRNG stream directly.
 - Continued the persisted-repro audit by adding optional stream-label/stream-seed fields to `InvalidFuzzFailureReport`; AST and binary invalid repro builders now persist the `invalid-mutation-choice` stream label plus derived stream seed, and metadata parse/load roundtrips preserve those fields.
+- Continued the attempt-level repro audit by adding optional `attempt_seed` metadata to `InvalidFuzzFailureReport`; AST and binary invalid repro builders now persist the exact per-strategy/profile GenValid root seed, and the binary invalid runner now derives attempts from the same `invalid-mutation-choice` stream plus stable strategy/profile salts instead of advancing one monolithic binary invalid `RandomState`.
 
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary profile modes and FZG mirror counters
 

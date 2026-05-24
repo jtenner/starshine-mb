@@ -17557,6 +17557,53 @@ fn validate_invalid_binary_required_failure_messages(
 }
 
 ///|
+fn validate_invalid_binary_stable_string_salt(value : String) -> UInt64 {
+  let mut hash = 1469598103934665603UL
+  let mut i = 0
+  while i < value.length() {
+    hash = hash ^ value[i].to_uint64()
+    hash = hash * 1099511628211UL
+    i += 1
+  }
+  hash
+}
+
+///|
+fn validate_invalid_binary_seed_profile_salt(seed_profile : String) -> UInt64 {
+  match seed_profile {
+    "natural" => 0x6e61747572616cUL
+    "coverage-forced" => 0x636f766572616765UL
+    "small-natural" => 0x736d616c6c6e6174UL
+    "small-coverage-forced" => 0x736d616c6c636f76UL
+    "repro" => 0x726570726fUL
+    "minimal" => 0x6d696e696d616cUL
+    "rich" => 0x72696368UL
+    _ => validate_invalid_binary_stable_string_salt(seed_profile)
+  }
+}
+
+///|
+fn validate_invalid_binary_stream_seed(seed : UInt64) -> UInt64 {
+  for label in gen_valid_random_stream_labels() {
+    if gen_valid_random_stream_label_name(label) == "invalid-mutation-choice" {
+      return gen_valid_derive_stream_seed(seed, label)
+    }
+  }
+  seed
+}
+
+///|
+pub fn validate_invalid_binary_attempt_seed(
+  seed : UInt64,
+  stable_id : String,
+  seed_profile : String,
+) -> UInt64 {
+  validate_invalid_binary_stream_seed(seed) ^
+  validate_invalid_binary_stable_string_salt(stable_id) ^
+  validate_invalid_binary_seed_profile_salt(seed_profile)
+}
+
+///|
 fn validate_invalid_binary_params_for_seed_profile(
   strategy : ValidateInvalidBinaryStrategyId,
   seed_profile : String,
@@ -17592,7 +17639,6 @@ pub fn run_validate_invalid_binary_fuzz(
   if registry.is_empty() {
     return Err("validate-invalid-binary registry must not be empty")
   }
-  let rnd = @splitmix.new(seed~)
   let stats = validate_invalid_binary_empty_strategy_stats()
   let seed_profile_attempts = seed_profiles.map(fn(_) { 0 })
   let mut attempt = 0
@@ -17618,7 +17664,13 @@ pub fn run_validate_invalid_binary_fuzz(
     )
     let generated = match
       gen_invalid_binary_generate(
-        rnd,
+        @splitmix.new(
+          seed=validate_invalid_binary_attempt_seed(
+            seed,
+            spec.stable_id,
+            seed_profile,
+          ),
+        ),
         validate_invalid_binary_params_for_seed_profile(
           spec.id,
           seed_profile,

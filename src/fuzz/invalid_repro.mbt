@@ -96,6 +96,7 @@ pub struct InvalidFuzzFailureReport {
   seed_require_strategy_prereqs : Bool?
   stream_label : String?
   stream_seed : UInt64?
+  attempt_seed : UInt64?
   source_path : String?
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
@@ -118,6 +119,7 @@ pub fn InvalidFuzzFailureReport::new(
   seed_require_strategy_prereqs? : Bool? = None,
   stream_label? : String? = None,
   stream_seed? : UInt64? = None,
+  attempt_seed? : UInt64? = None,
   source_path? : String? = None,
   artifacts? : Array[InvalidFuzzArtifact] = [],
   reduced_artifacts? : Array[InvalidFuzzArtifact] = [],
@@ -138,6 +140,7 @@ pub fn InvalidFuzzFailureReport::new(
     seed_require_strategy_prereqs,
     stream_label,
     stream_seed,
+    attempt_seed,
     source_path,
     artifacts,
     reduced_artifacts,
@@ -166,6 +169,7 @@ fn invalid_fuzz_failure_report_copy(
     seed_require_strategy_prereqs=report.seed_require_strategy_prereqs,
     stream_label=report.stream_label,
     stream_seed=report.stream_seed,
+    attempt_seed=report.attempt_seed,
     source_path~,
     artifacts=report.artifacts,
     reduced_artifacts~,
@@ -363,6 +367,10 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
   }
   match report.stream_seed {
     Some(v) => lines.push("stream_seed=" + v.to_string())
+    None => ()
+  }
+  match report.attempt_seed {
+    Some(v) => lines.push("attempt_seed=" + v.to_string())
     None => ()
   }
   match invalid_fuzz_optional_meta_line("source_path", report.source_path) {
@@ -582,6 +590,7 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut seed_require_strategy_prereqs : Bool? = None
   let mut stream_label : String? = None
   let mut stream_seed : UInt64? = None
+  let mut attempt_seed : UInt64? = None
   let mut source_path : String? = None
   let artifacts : Array[InvalidFuzzArtifact] = []
   let reduced_artifacts : Array[InvalidFuzzArtifact] = []
@@ -628,6 +637,11 @@ pub fn parse_invalid_fuzz_failure_report(
       "stream_seed" =>
         match invalid_fuzz_parse_uint64(value, "stream_seed") {
           Ok(v) => stream_seed = Some(v)
+          Err(msg) => return Err(msg)
+        }
+      "attempt_seed" =>
+        match invalid_fuzz_parse_uint64(value, "attempt_seed") {
+          Ok(v) => attempt_seed = Some(v)
           Err(msg) => return Err(msg)
         }
       "source_path" => source_path = Some(value)
@@ -693,6 +707,7 @@ pub fn parse_invalid_fuzz_failure_report(
       seed_require_strategy_prereqs~,
       stream_label~,
       stream_seed~,
+      attempt_seed~,
       source_path~,
       artifacts~,
       reduced_artifacts~,
@@ -806,8 +821,14 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
     Some(v) => v
     None => @validate.GenInvalidAstParams::repro_seed(spec.id)
   }
+  let seed_profile_name = @validate.gen_invalid_ast_params_profile_name(
+    resolved_params,
+  )
+  let attempt_seed = @validate.validate_invalid_ast_attempt_seed_for_profile(
+    seed, strategy_id, seed_profile_name,
+  )
   let generated = match
-    @validate.gen_invalid_ast_generate(@splitmix.new(seed~), resolved_params) {
+    @validate.gen_invalid_ast_generate_from_seed(attempt_seed, resolved_params) {
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
@@ -852,9 +873,7 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
       expected_diagnostic_family=expected_family,
       actual_stage=replay.stage,
       actual_diagnostic_family=replay.diagnostic_family,
-      seed_profile=Some(
-        @validate.gen_invalid_ast_params_profile_name(resolved_params),
-      ),
+      seed_profile=Some(seed_profile_name),
       seed_mode=Some(
         @validate.gen_invalid_seed_mode_name(resolved_params.seed_mode),
       ),
@@ -865,6 +884,7 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
       stream_seed=invalid_fuzz_stream_seed_by_label(
         seed, "invalid-mutation-choice",
       ),
+      attempt_seed=Some(attempt_seed),
       artifacts=[artifact, seed_artifact],
     ),
   )
@@ -886,8 +906,17 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
     Some(v) => v
     None => GenInvalidBinaryParams::repro_seed(spec.id)
   }
+  let seed_profile_name = gen_invalid_binary_params_profile_name(
+    resolved_params,
+  )
+  let attempt_seed = validate_invalid_binary_attempt_seed(
+    seed, strategy_id, seed_profile_name,
+  )
   let generated = match
-    gen_invalid_binary_generate(@splitmix.new(seed~), resolved_params) {
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=attempt_seed),
+      resolved_params,
+    ) {
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
@@ -930,7 +959,7 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
       expected_diagnostic_family=expected_family,
       actual_stage=replay.stage,
       actual_diagnostic_family=replay.diagnostic_family,
-      seed_profile=Some(gen_invalid_binary_params_profile_name(resolved_params)),
+      seed_profile=Some(seed_profile_name),
       seed_mode=Some(
         gen_invalid_binary_seed_mode_name(resolved_params.seed_mode),
       ),
@@ -941,6 +970,7 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
       stream_seed=invalid_fuzz_stream_seed_by_label(
         seed, "invalid-mutation-choice",
       ),
+      attempt_seed=Some(attempt_seed),
       artifacts=[artifact, seed_artifact],
     ),
   )
