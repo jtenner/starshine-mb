@@ -1046,6 +1046,73 @@ test "dae-optimizing materializes selected Func260 helper exact literals" {
 }
 
 ///|
+test "dae-optimizing folds selected Func327 const-if before Func328 default args" {
+  let caller_def = 327
+  let target_def = 328
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "run") (param i32 i32 i32 i32 i32 i32 i64 i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    local.get 3
+      #|    i32.const -1
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      i32.const -1
+      #|    end
+      #|    local.get 4
+      #|    local.get 5
+      #|    local.get 6
+      #|    local.get 7
+      #|    local.get 8
+      #|    local.get 9
+      #|    call $target)
+      #|  (func $target (param i32 i32 i32 i32 i32 i32 i32 i64 i32 i32 i32) (result i32)
+      #|    local.get 0
+      #|    drop
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop
+      #|    local.get 3
+      #|    drop
+      #|    local.get 4
+      #|    drop
+      #|    local.get 5
+      #|    drop
+      #|    local.get 6
+      #|    drop
+      #|    local.get 7
+      #|    drop
+      #|    local.get 8
+      #|    drop
+      #|    local.get 9
+      #|    drop
+      #|    local.get 10
+      #|    drop
+      #|    local.get 0)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 10)
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  assert_false(caller.contains("if"), msg=caller)
+  assert_false(caller.contains("i32.const I32(-1)"), msg=caller)
+}
+
+///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for target_def in [299, 3566, 4229] {
     let out = StringBuilder::new()

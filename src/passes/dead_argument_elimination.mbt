@@ -15947,6 +15947,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
+  if 327 < selected_scratch_defs.length() {
+    selected_scratch_defs[327] = true
+    let selected_func327_const_if = dae_try_simplify_selected_const_if_defs_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[327] = false
+    if selected_func327_const_if.changed {
+      current = selected_func327_const_if.mod_out
+      touched = dae_merge_touched(touched, selected_func327_const_if.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func327-const-if-before-func328-defaults primary_def=\{selected_func327_const_if.primary_def}",
+      )
+      changed = true
+    }
+  }
   if 328 < selected_scratch_defs.length() {
     selected_scratch_defs[328] = true
     let func328_call_facts = dae_collect_current_call_facts(
