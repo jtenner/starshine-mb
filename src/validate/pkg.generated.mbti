@@ -1224,6 +1224,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidElementTypedExprType
   InvalidMemoryLimitRange
   InvalidTableLimitRange
+  InvalidImportedMemoryLimitRange
+  InvalidImportedTableLimitRange
   SharedMemoryWithoutMax
   SharedMemory64WithoutMax
   InvalidTagTypeIndex

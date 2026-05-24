@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 imported resource limit invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-imported-memory-limit-range` and `invalid-imported-table-limit-range`, deterministic import-section AST mutations that append memory/table import descriptors whose minimum limit is greater than their maximum.
+- Added focused strategy and `gen_invalid` tests proving both mutated modules reject with the import family while the valid seeds still validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name imported resource-limit coverage alongside defined memory/table limit coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 indirect name-map function-index invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-local-name-section-func-index` and `invalid-label-name-section-func-index`, deterministic name-section AST mutations that corrupt the outer function index of local-name and label-name indirect maps.

@@ -569,6 +569,64 @@ test "gen_invalid_ast_generate supports table-section invalid limit range strate
 }
 
 ///|
+test "gen_invalid_ast_generate supports imported memory invalid limit range strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef87UL),
+      GenInvalidAstParams::repro_seed(InvalidImportedMemoryLimitRange),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-imported-memory-limit-range base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-imported-memory-limit-range mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ImportSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports imported table invalid limit range strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef88UL),
+      GenInvalidAstParams::repro_seed(InvalidImportedTableLimitRange),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-imported-table-limit-range base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-imported-table-limit-range mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ImportSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports tag-section invalid type strategy" {
   let generated = match
     gen_invalid_ast_generate(

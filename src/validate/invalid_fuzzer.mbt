@@ -255,6 +255,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidElementTypedExprType
   InvalidMemoryLimitRange
   InvalidTableLimitRange
+  InvalidImportedMemoryLimitRange
+  InvalidImportedTableLimitRange
   SharedMemoryWithoutMax
   SharedMemory64WithoutMax
   InvalidTagTypeIndex
@@ -570,6 +572,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "invalid-table-limit-range",
       "table limit minimum greater than maximum",
       TableSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidImportedMemoryLimitRange,
+      "invalid-imported-memory-limit-range",
+      "imported memory limit minimum greater than maximum",
+      ImportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidImportedTableLimitRange,
+      "invalid-imported-table-limit-range",
+      "imported table limit minimum greater than maximum",
+      ImportSectionFamily,
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
@@ -1939,6 +1955,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidElementTypedExprType => 212
     InvalidMemoryLimitRange => 215
     InvalidTableLimitRange => 216
+    InvalidImportedMemoryLimitRange => 217
+    InvalidImportedTableLimitRange => 218
     SharedMemoryWithoutMax => 22
     SharedMemory64WithoutMax => 23
     InvalidTagTypeIndex => 24
@@ -8565,6 +8583,47 @@ fn validate_invalid_ast_mutate_invalid_table_limit_range(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_imported_memory_limit_range(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let imports = validate_invalid_ast_import_entries(mod)
+  imports.push(
+    Import::new(
+      Name::new("env"),
+      Name::new("bad_mem_limits"),
+      ExternType::mem(MemType::new(Limits::i32(2U, Some(1U)))),
+    ),
+  )
+  {
+    strategy: InvalidImportedMemoryLimitRange,
+    applicable: true,
+    expected_family: ImportSectionFamily,
+    mutated_module: mod.with_import_sec(ImportSec::new(imports)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_imported_table_limit_range(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let imports = validate_invalid_ast_import_entries(mod)
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  imports.push(
+    Import::new(
+      Name::new("env"),
+      Name::new("bad_table_limits"),
+      ExternType::table(TableType::new(func_ref, Limits::i32(2U, Some(1U)))),
+    ),
+  )
+  {
+    strategy: InvalidImportedTableLimitRange,
+    applicable: true,
+    expected_family: ImportSectionFamily,
+    mutated_module: mod.with_import_sec(ImportSec::new(imports)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_shared_memory_without_max(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -9426,6 +9485,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_memory_limit_range(base)
       InvalidTableLimitRange =>
         validate_invalid_ast_mutate_invalid_table_limit_range(base)
+      InvalidImportedMemoryLimitRange =>
+        validate_invalid_ast_mutate_invalid_imported_memory_limit_range(base)
+      InvalidImportedTableLimitRange =>
+        validate_invalid_ast_mutate_invalid_imported_table_limit_range(base)
       SharedMemoryWithoutMax =>
         validate_invalid_ast_mutate_shared_memory_without_max(base)
       SharedMemory64WithoutMax =>
@@ -9785,6 +9848,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-imported-func-type-index", "invalid-imported-tag-type-index", "mutable-global-get-in-table-init",
     "non-constant-elem-offset", "invalid-element-active-table-index", "invalid-element-func-index",
     "invalid-element-typed-expr-type", "invalid-memory-limit-range", "invalid-table-limit-range",
+    "invalid-imported-memory-limit-range", "invalid-imported-table-limit-range",
     "shared-memory-without-max", "shared-memory64-without-max", "invalid-tag-type-index",
     "invalid-subtype-super-index", "invalid-subtype-super-shape", "descriptor-on-func-type",
     "datacount-without-data-sec", "invalid-export-func-index", "start-func-out-of-range",
@@ -10308,6 +10372,32 @@ test "invalid table limit range strategy rejects with TableSection family" {
       InvalidTableLimitRange,
       0x5ef86UL,
       TableSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported memory limit range strategy rejects with ImportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidImportedMemoryLimitRange,
+      0x5ef87UL,
+      ImportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported table limit range strategy rejects with ImportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidImportedTableLimitRange,
+      0x5ef88UL,
+      ImportSectionFamily,
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

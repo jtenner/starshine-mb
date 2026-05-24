@@ -562,6 +562,8 @@ fn gen_invalid_ast_strategy_label(
     InvalidElementTypedExprType => "invalid-element-typed-expr-type"
     InvalidMemoryLimitRange => "invalid-memory-limit-range"
     InvalidTableLimitRange => "invalid-table-limit-range"
+    InvalidImportedMemoryLimitRange => "invalid-imported-memory-limit-range"
+    InvalidImportedTableLimitRange => "invalid-imported-table-limit-range"
     SharedMemoryWithoutMax => "shared-memory-without-max"
     SharedMemory64WithoutMax => "shared-memory64-without-max"
     InvalidTagTypeIndex => "invalid-tag-type-index"
