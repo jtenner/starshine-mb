@@ -457,6 +457,12 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-load-lane-index"
     InvalidFunctionBodySimdStoreLaneIndex =>
       "invalid-function-body-simd-store-lane-index"
+    InvalidFunctionBodySimdSplatInputType =>
+      "invalid-function-body-simd-splat-input-type"
+    InvalidFunctionBodySimdSwizzleInputType =>
+      "invalid-function-body-simd-swizzle-input-type"
+    InvalidFunctionBodySimdBitselectMaskType =>
+      "invalid-function-body-simd-bitselect-mask-type"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>

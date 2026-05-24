@@ -2293,6 +2293,69 @@ test "gen_invalid_ast_generate supports function-body SIMD store lane index stra
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body SIMD splat input type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d58UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdSplatInputType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD splat input type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body SIMD swizzle input type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d59UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdSwizzleInputType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD swizzle input type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body SIMD bitselect mask type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d5aUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdBitselectMaskType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD bitselect mask type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body memory.init data index strategy" {
   let generated = match
     gen_invalid_ast_generate(

@@ -201,6 +201,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodySimdReplaceLaneIndex
   InvalidFunctionBodySimdLoadLaneIndex
   InvalidFunctionBodySimdStoreLaneIndex
+  InvalidFunctionBodySimdSplatInputType
+  InvalidFunctionBodySimdSwizzleInputType
+  InvalidFunctionBodySimdBitselectMaskType
   InvalidFunctionBodyAtomicNotifyAddressType
   InvalidFunctionBodyAtomicWaitAddressType
   InvalidFunctionBodyAtomicWaitExpectedType
@@ -1439,6 +1442,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdSplatInputType,
+      "invalid-function-body-simd-splat-input-type",
+      "invalid function-body SIMD splat input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdSwizzleInputType,
+      "invalid-function-body-simd-swizzle-input-type",
+      "invalid function-body SIMD swizzle input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodySimdBitselectMaskType,
+      "invalid-function-body-simd-bitselect-mask-type",
+      "invalid function-body SIMD bitselect mask type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyAtomicNotifyAddressType,
       "invalid-function-body-atomic-notify-address-type",
       "invalid function-body atomic.notify address type",
@@ -1806,6 +1830,9 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodySimdReplaceLaneIndex => 181
     InvalidFunctionBodySimdLoadLaneIndex => 182
     InvalidFunctionBodySimdStoreLaneIndex => 183
+    InvalidFunctionBodySimdSplatInputType => 184
+    InvalidFunctionBodySimdSwizzleInputType => 185
+    InvalidFunctionBodySimdBitselectMaskType => 186
     InvalidFunctionBodyAtomicNotifyAddressType => 144
     InvalidFunctionBodyAtomicWaitAddressType => 145
     InvalidFunctionBodyAtomicWaitExpectedType => 146
@@ -6291,6 +6318,93 @@ fn validate_invalid_ast_mutate_invalid_function_body_simd_store_lane_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_splat_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::f32_const(1.0),
+    Instruction::i8x16_splat(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdSplatInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_swizzle_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::i32_const(I32(0)),
+    Instruction::i8x16_swizzle(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdSwizzleInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_mask_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_const(
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+    ),
+    Instruction::i32_const(I32(1)),
+    Instruction::v128_bitselect(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodySimdBitselectMaskType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_atomic_load_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -8097,6 +8211,18 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_simd_store_lane_index(
           base,
         )
+      InvalidFunctionBodySimdSplatInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_splat_input_type(
+          base,
+        )
+      InvalidFunctionBodySimdSwizzleInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_swizzle_input_type(
+          base,
+        )
+      InvalidFunctionBodySimdBitselectMaskType =>
+        validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_mask_type(
+          base,
+        )
       InvalidFunctionBodyAtomicNotifyAddressType =>
         validate_invalid_ast_mutate_invalid_function_body_atomic_notify_address_type(
           base,
@@ -8597,17 +8723,18 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-atomic-wait-index", "invalid-function-body-atomic-rmw-index",
     "invalid-function-body-atomic-cmpxchg-index", "invalid-function-body-simd-extract-lane-index",
     "invalid-function-body-simd-replace-lane-index", "invalid-function-body-simd-load-lane-index",
-    "invalid-function-body-simd-store-lane-index", "invalid-function-body-atomic-notify-address-type",
-    "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
-    "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
-    "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
-    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-simd-store-lane-index", "invalid-function-body-simd-splat-input-type",
+    "invalid-function-body-simd-swizzle-input-type", "invalid-function-body-simd-bitselect-mask-type",
+    "invalid-function-body-atomic-notify-address-type", "invalid-function-body-atomic-wait-address-type",
+    "invalid-function-body-atomic-wait-expected-type", "invalid-function-body-atomic-rmw-address-type",
+    "invalid-function-body-atomic-cmpxchg-address-type", "invalid-function-body-atomic-cmpxchg-expected-type",
+    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -12950,6 +13077,158 @@ test "function-body SIMD store lane index mutation repairs by using in-range lan
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired SIMD store lane module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD splat input type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdSplatInputType,
+      0x10d58UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD splat input type mutation repairs by using scalar operand" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_splat_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD splat input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i8x16_splat(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) => fail("expected repaired SIMD splat module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD swizzle input type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdSwizzleInputType,
+      0x10d59UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD swizzle input type mutation repairs by using vector operands" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_swizzle_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD swizzle input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_const(
+      b'\x00', b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06', b'\x07', b'\x08',
+      b'\x09', b'\x0a', b'\x0b', b'\x0c', b'\x0d', b'\x0e', b'\x0f',
+    ),
+    Instruction::i8x16_swizzle(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired SIMD swizzle module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid SIMD bitselect mask type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodySimdBitselectMaskType,
+      0x10d5aUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body SIMD bitselect mask type mutation repairs by using vector mask" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_simd_bitselect_mask_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad SIMD bitselect mask type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_const(
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+    ),
+    Instruction::v128_const(
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+    ),
+    Instruction::v128_bitselect(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired SIMD bitselect module to validate: \{err}")
   }
 }
 
