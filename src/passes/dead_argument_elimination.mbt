@@ -14054,22 +14054,25 @@ fn dae_func288_local_map() -> Array[Int] {
   for slot in [3, 6] {
     local_map[slot] = 1
   }
-  for slot in [32, 37, 43, 44, 45, 46, 48, 50, 52, 54, 55, 56, 57, 58, 59, 60] {
+  for slot in [32, 37, 43, 44, 46, 48, 51, 52, 54, 55, 56, 57, 58, 59, 60] {
     local_map[slot] = 0
   }
-  for slot in [49, 51, 53] {
+  for slot in [45, 49, 50, 53] {
     local_map[slot] = 2
   }
-  for slot in [61, 62, 63, 66, 70, 71, 72, 73, 74, 75, 84, 87] {
+  for slot in [61, 62, 63, 66, 69, 70, 71, 72, 73, 74, 75, 84, 87] {
     local_map[slot] = 1
   }
-  for slot in [64, 65, 67, 68, 69, 76, 77, 78, 79, 80, 81, 82, 83, 86, 89, 90] {
+  for slot in [64, 67] {
+    local_map[slot] = 2
+  }
+  for slot in [65, 68, 76, 77, 78, 79, 80, 81, 82, 83, 86, 89, 90] {
     local_map[slot] = 0
   }
-  for slot in [91, 93, 95, 97, 99, 101, 103, 105, 109, 111, 115] {
+  for slot in [91, 93, 95, 97, 99, 101, 103, 105, 109, 113, 115] {
     local_map[slot] = 1
   }
-  for slot in [107, 113] {
+  for slot in [107, 111] {
     local_map[slot] = 2
   }
   local_map
@@ -14120,6 +14123,296 @@ fn dae_try_compact_selected_func288_switch_carriers_once(
     ]),
     @lib.Expr::new(rewritten),
   )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
+fn dae_try_shift_func288_label_after_return_wrapper(
+  label_idx : @lib.LabelIdx,
+  wrapper_depth : Int,
+) -> @lib.LabelIdx? {
+  let depth = dae_label_idx_as_int(label_idx)
+  if depth == wrapper_depth {
+    return None
+  }
+  if depth > wrapper_depth {
+    return Some(@lib.LabelIdx::new((depth - 1).reinterpret_as_uint()))
+  }
+  Some(label_idx)
+}
+
+///|
+fn dae_try_rewrite_func288_return_wrapper_instr(
+  instr : @lib.Instruction,
+  wrapper_depth : Int,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Br(label_idx) => {
+      let depth = dae_label_idx_as_int(label_idx)
+      if depth == wrapper_depth {
+        return Some(@lib.Instruction::return_())
+      }
+      match
+        dae_try_shift_func288_label_after_return_wrapper(
+          label_idx, wrapper_depth,
+        ) {
+        Some(shifted) => Some(@lib.Instruction::br(shifted))
+        None => None
+      }
+    }
+    @lib.BrIf(label_idx) =>
+      match
+        dae_try_shift_func288_label_after_return_wrapper(
+          label_idx, wrapper_depth,
+        ) {
+        Some(shifted) => Some(@lib.Instruction::br_if(shifted))
+        None => None
+      }
+    @lib.BrTable(labels, fallback) => {
+      let shifted_labels : Array[@lib.LabelIdx] = []
+      for label in labels {
+        match
+          dae_try_shift_func288_label_after_return_wrapper(label, wrapper_depth) {
+          Some(shifted) => shifted_labels.push(shifted)
+          None => return None
+        }
+      }
+      match
+        dae_try_shift_func288_label_after_return_wrapper(
+          fallback, wrapper_depth,
+        ) {
+        Some(shifted_fallback) =>
+          Some(@lib.Instruction::br_table(shifted_labels, shifted_fallback))
+        None => None
+      }
+    }
+    @lib.BrOnNull(label_idx) =>
+      match
+        dae_try_shift_func288_label_after_return_wrapper(
+          label_idx, wrapper_depth,
+        ) {
+        Some(shifted) => Some(@lib.Instruction::br_on_null(shifted))
+        None => None
+      }
+    @lib.BrOnNonNull(label_idx) =>
+      match
+        dae_try_shift_func288_label_after_return_wrapper(
+          label_idx, wrapper_depth,
+        ) {
+        Some(shifted) => Some(@lib.Instruction::br_on_non_null(shifted))
+        None => None
+      }
+    @lib.BrOnCast(_, _, _, _) | @lib.BrOnCastFail(_, _, _, _) => None
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_rewrite_func288_return_wrapper_instrs(body, wrapper_depth + 1) {
+        Some(rewritten) =>
+          Some(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+        None => None
+      }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      match
+        dae_try_rewrite_func288_return_wrapper_instrs(body, wrapper_depth + 1) {
+        Some(rewritten) =>
+          Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
+        None => None
+      }
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      match
+        (
+          dae_try_rewrite_func288_return_wrapper_instrs(
+            then_body,
+            wrapper_depth + 1,
+          ),
+          dae_try_rewrite_func288_return_wrapper_instrs(
+            else_body,
+            wrapper_depth + 1,
+          ),
+        ) {
+        (Some(then_rewritten), Some(else_rewritten)) =>
+          Some(
+            @lib.Instruction::if_(
+              block_type,
+              then_rewritten,
+              Some(else_rewritten),
+            ),
+          )
+        _ => None
+      }
+    @lib.If(block_type, then_body, None) =>
+      match
+        dae_try_rewrite_func288_return_wrapper_instrs(
+          then_body,
+          wrapper_depth + 1,
+        ) {
+        Some(then_rewritten) =>
+          Some(@lib.Instruction::if_(block_type, then_rewritten, None))
+        None => None
+      }
+    @lib.TryTable(_, _, _) => None
+    _ => Some(instr)
+  }
+}
+
+///|
+fn dae_try_rewrite_func288_return_wrapper_instrs(
+  instrs : Array[@lib.Instruction],
+  wrapper_depth : Int,
+) -> Array[@lib.Instruction]? {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match dae_try_rewrite_func288_return_wrapper_instr(instr, wrapper_depth) {
+      Some(rewritten) => out.push(rewritten)
+      None => return None
+    }
+  }
+  Some(out)
+}
+
+///|
+fn dae_try_flatten_func288_return_wrapper_body_once(
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  let mut idx = 0
+  while idx + 1 < body.length() {
+    match (body[idx], body[idx + 1]) {
+      (@lib.Block(block_type, @lib.Expr(wrapper_body)), @lib.Return) if dae_block_type_is_zero_param_single_result(
+          block_type, type_sec,
+        ) &&
+        wrapper_body.length() > 0 &&
+        wrapper_body[wrapper_body.length() - 1] ==
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)) => {
+        let shifted = match
+          dae_try_rewrite_func288_return_wrapper_instrs(wrapper_body, 0) {
+          Some(shifted) => shifted
+          None => return None
+        }
+        let rewritten = dae_copy_instr_prefix(body, idx)
+        rewritten.append(shifted)
+        let mut tail = idx + 2
+        while tail < body.length() {
+          rewritten.push(body[tail])
+          tail += 1
+        }
+        return Some(rewritten)
+      }
+      _ => ()
+    }
+    match body[idx] {
+      @lib.Block(block_type, @lib.Expr(child_body)) =>
+        match
+          dae_try_flatten_func288_return_wrapper_body_once(child_body, type_sec) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::block(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.Loop(block_type, @lib.Expr(child_body)) =>
+        match
+          dae_try_flatten_func288_return_wrapper_body_once(child_body, type_sec) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::loop_(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        match
+          dae_try_flatten_func288_return_wrapper_body_once(then_body, type_sec) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              Some(else_body),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+        match
+          dae_try_flatten_func288_return_wrapper_body_once(else_body, type_sec) {
+          Some(rewritten_else) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              then_body,
+              Some(rewritten_else),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, None) =>
+        match
+          dae_try_flatten_func288_return_wrapper_body_once(then_body, type_sec) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              None,
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_flatten_selected_func288_return_wrapper_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 288
+  if def_idx >= selected_defs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() != 3 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten = match
+    dae_try_flatten_func288_return_wrapper_body_once(body, mod_.type_sec) {
+    Some(rewritten) => rewritten
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
   let touched = Array::make(funcs.length(), false)
   touched[def_idx] = true
   {
@@ -16419,7 +16712,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       }
     }
   }
-  for mid_literal_def in [267, 268, 287, 288, 311, 869, 1777, 4206] {
+  for mid_literal_def in [267, 268, 287, 288, 311, 869, 1777, 4206, 4368] {
     if mid_literal_def >= 0 && mid_literal_def < selected_scratch_defs.length() {
       selected_scratch_defs[mid_literal_def] = true
       let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
@@ -16462,6 +16755,22 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       touched = dae_merge_touched(touched, selected_func288_carriers.touched)
       trace(
         "pass[dae-optimizing]:selected-func288-switch-carriers primary_def=\{selected_func288_carriers.primary_def}",
+      )
+      changed = true
+    }
+    selected_scratch_defs[288] = true
+    let selected_func288_return_wrapper = dae_try_flatten_selected_func288_return_wrapper_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[288] = false
+    if selected_func288_return_wrapper.changed {
+      current = selected_func288_return_wrapper.mod_out
+      touched = dae_merge_touched(
+        touched,
+        selected_func288_return_wrapper.touched,
+      )
+      trace(
+        "pass[dae-optimizing]:selected-func288-return-wrapper primary_def=\{selected_func288_return_wrapper.primary_def}",
       )
       changed = true
     }

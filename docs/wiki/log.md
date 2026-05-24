@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func288/289 frontier parity
+
+- Added a selected Func288 return-wrapper flattening lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), plus tail low-local map corrections, so Func288 now matches normalized Binaryen after the earlier switch-carrier compaction.
+- Extended the selected exact-literal list to Func4368, removing Func289's uniform zero actual and materializing the zero inside the callee.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the Func288 return-wrapper flatten and Func4368 zero-default rewrite.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func4368-default-artifact` validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, advances the first diff to `defined=298 abs=315`, and leaves Func298 local/control/debris shape as the next frontier.
+
 ## [2026-05-24] passes | dae Func288 switch-carrier parity
 
 - Added a selected Func288 switch-carrier compaction in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that replaces the observed zero-address scratch locals with constants, remaps the switch-carrier locals into Binaryen's `$0/$1/$2` shape, strips self-copies/`nop`s, and folds zero-base load offsets into constant addresses.

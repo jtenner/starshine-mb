@@ -1608,6 +1608,79 @@ test "dae-optimizing compacts selected Func288 switch carrier locals" {
 }
 
 ///|
+test "dae-optimizing flattens selected Func288 return result wrapper" {
+  let caller_def = 288
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "run") (result i32)
+      #|    (local i32 i32 i32)
+      #|    (block
+      #|      (return
+      #|        (block (result i32)
+      #|          (block
+      #|            br 2)
+      #|          i32.const 7
+      #|          br 0)))
+      #|    i32.const 11)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  assert_false(caller.contains("(return\n    (block"), msg=caller)
+  assert_false(caller.contains("(br (Label 2))"), msg=caller)
+  assert_true(caller.contains("(br (Label 1))"), msg=caller)
+  assert_true(caller.contains("return"), msg=caller)
+}
+
+///|
+test "dae-optimizing removes selected Func4368 zero default from Func289" {
+  let caller_def = 289
+  let target_def = 4368
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $caller (export "run") (result i32)
+      #|    i32.const 0
+      #|    call $target)
+    ),
+  )
+  for i = caller_def + 1; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.eqz)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+  assert_false(caller.contains("i32.const I32(0)"), msg=caller)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("i32.const I32(0)"), msg=target)
+}
+
+///|
 test "dae-optimizing removes selected Func4206 middle default before call-produced actual" {
   let first_caller_def = 285
   let second_caller_def = 1780
