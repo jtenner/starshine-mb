@@ -3009,7 +3009,11 @@ fn gen_valid_min_int(left : Int, right : Int) -> Int {
 }
 
 ///|
-fn gen_valid_roll_percent(ctx : GenValidContext, percent : Int) -> Bool {
+fn gen_valid_roll_percent_from(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  percent : Int,
+) -> Bool {
   let bounded = if percent < 0 {
     0
   } else if percent > 100 {
@@ -3022,8 +3026,13 @@ fn gen_valid_roll_percent(ctx : GenValidContext, percent : Int) -> Bool {
   } else if bounded >= 100 {
     true
   } else {
-    ctx.random_int(100) < bounded
+    ctx.random_int_from(label, 100) < bounded
   }
+}
+
+///|
+fn gen_valid_roll_percent(ctx : GenValidContext, percent : Int) -> Bool {
+  gen_valid_roll_percent_from(ctx, ModuleTopologyStream, percent)
 }
 
 ///|
@@ -3332,7 +3341,8 @@ fn gen_valid_gc_type_defs(
   if !ctx.config.features.allow_ref_types || remaining_type_budget <= 0 {
     return ([], gen_valid_gc_type_plan_empty())
   }
-  if ctx.config.mode != CoverageForced && ctx.random_int(3) != 0 {
+  if ctx.config.mode != CoverageForced &&
+    ctx.random_int_from(TypeStream, 3) != 0 {
     return ([], gen_valid_gc_type_plan_empty())
   }
 
@@ -3342,31 +3352,56 @@ fn gen_valid_gc_type_defs(
   plan.concrete_ref_types.push(ValType::ref_null_exn())
   let mut type_idx_cursor = next_type_idx
 
-  let want_struct = ctx.config.mode == CoverageForced || ctx.random_int(4) != 0
+  let want_struct = ctx.config.mode == CoverageForced ||
+    ctx.random_int_from(TypeStream, 4) != 0
   let want_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) != 0)
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 3) != 0
+    )
   let want_packed_struct = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 3) == 0
+    )
   let want_packed_i8_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 3) == 0
+    )
   let want_packed_i16_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 3) == 0
+    )
   let want_descriptor_group = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 3) == 0
+    )
   let want_elem_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 3) == 0
+    )
   let want_string_wtf16_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_bool())
+    (ctx.config.mode == CoverageForced || ctx.random_bool_from(TypeStream))
   let want_string_utf8_array = remaining_type_budget - defs.length() > 0 &&
     (
       ctx.config.mode == CoverageForced ||
       ctx.config.mode == Natural ||
-      ctx.random_bool()
+      ctx.random_bool_from(TypeStream)
     )
   let want_group = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0)
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 4) == 0
+    )
   if ctx.config.features.allow_subtyping_topology &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(5) == 0) &&
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TypeStream, 5) == 0
+    ) &&
     remaining_type_budget - defs.length() >= 5 {
     let base_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
     let child_idx = TypeIdx::new((type_idx_cursor + 1).reinterpret_as_uint())
@@ -9108,8 +9143,9 @@ pub fn gen_valid_tfunc(
 }
 
 ///|
-fn gen_valid_choose_optional_count_with_coverage_floor(
+fn gen_valid_choose_optional_count_with_coverage_floor_from(
   ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
   allow : Bool,
   max_count : Int,
   percent : Int,
@@ -9123,12 +9159,43 @@ fn gen_valid_choose_optional_count_with_coverage_floor(
       bounded_max,
       gen_valid_clamp_non_negative(coverage_floor),
     )
-    floor + ctx.random_int(bounded_max - floor + 1)
-  } else if gen_valid_roll_percent(ctx, percent) {
-    1 + ctx.random_int(bounded_max)
+    floor + ctx.random_int_from(label, bounded_max - floor + 1)
+  } else if gen_valid_roll_percent_from(ctx, label, percent) {
+    1 + ctx.random_int_from(label, bounded_max)
   } else {
     0
   }
+}
+
+///|
+fn gen_valid_choose_optional_count_with_coverage_floor(
+  ctx : GenValidContext,
+  allow : Bool,
+  max_count : Int,
+  percent : Int,
+  coverage_floor : Int,
+) -> Int {
+  gen_valid_choose_optional_count_with_coverage_floor_from(
+    ctx,
+    ModuleTopologyStream,
+    allow,
+    max_count,
+    percent,
+    coverage_floor,
+  )
+}
+
+///|
+fn gen_valid_choose_optional_count_from(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  allow : Bool,
+  max_count : Int,
+  percent : Int,
+) -> Int {
+  gen_valid_choose_optional_count_with_coverage_floor_from(
+    ctx, label, allow, max_count, percent, 1,
+  )
 }
 
 ///|
@@ -9138,8 +9205,12 @@ fn gen_valid_choose_optional_count(
   max_count : Int,
   percent : Int,
 ) -> Int {
-  gen_valid_choose_optional_count_with_coverage_floor(
-    ctx, allow, max_count, percent, 1,
+  gen_valid_choose_optional_count_from(
+    ctx,
+    ModuleTopologyStream,
+    allow,
+    max_count,
+    percent,
   )
 }
 
@@ -9150,14 +9221,30 @@ fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
     1
   } else if gen_valid_is_topology_heavy_config(ctx.config) {
     let floor = gen_valid_min_int(10, bounded_max)
-    floor + ctx.random_int(bounded_max - floor + 1)
+    floor + ctx.random_int_from(FuncStream, bounded_max - floor + 1)
   } else if gen_valid_is_control_heavy_config(ctx.config) && bounded_max > 3 {
-    4 + ctx.random_int(bounded_max - 3)
+    4 + ctx.random_int_from(FuncStream, bounded_max - 3)
   } else if ctx.config.mode == CoverageForced {
-    2 + ctx.random_int(bounded_max - 1)
+    2 + ctx.random_int_from(FuncStream, bounded_max - 1)
   } else {
-    1 + ctx.random_int(bounded_max)
+    1 + ctx.random_int_from(FuncStream, bounded_max)
   }
+}
+
+///|
+fn gen_valid_active_i32_offset_from(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  global_idx? : GlobalIdx? = None,
+) -> Expr {
+  if ctx.config.features.allow_const_expr_variants &&
+    (ctx.config.mode == CoverageForced || ctx.random_int_from(label, 4) == 0) {
+    match global_idx {
+      Some(idx) => return Expr::new([Instruction::global_get(idx)])
+      None => ()
+    }
+  }
+  Expr::new([Instruction::i32_const(I32(ctx.random_int_from(label, 4)))])
 }
 
 ///|
@@ -9165,14 +9252,7 @@ fn gen_valid_active_i32_offset(
   ctx : GenValidContext,
   global_idx? : GlobalIdx? = None,
 ) -> Expr {
-  if ctx.config.features.allow_const_expr_variants &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) {
-    match global_idx {
-      Some(idx) => return Expr::new([Instruction::global_get(idx)])
-      None => ()
-    }
-  }
-  Expr::new([Instruction::i32_const(I32(ctx.random_int(4)))])
+  gen_valid_active_i32_offset_from(ctx, ModuleTopologyStream, global_idx~)
 }
 
 ///|
@@ -9202,11 +9282,17 @@ fn gen_valid_mem_type(ctx : GenValidContext, total_mem_idx : Int) -> MemType {
     if variants && ctx.config.mode == CoverageForced {
       gen_valid_memory_limits_i32(0U, None, false)
     } else {
-      let min = if variants && ctx.random_int(5) == 0 { 0U } else { 1U }
-      let max = if variants && ctx.random_int(4) == 0 {
+      let min = if variants && ctx.random_int_from(MemoryStream, 5) == 0 {
+        0U
+      } else {
+        1U
+      }
+      let max = if variants && ctx.random_int_from(MemoryStream, 4) == 0 {
         None
       } else {
-        Some(min + 1U + ctx.random_int(4).reinterpret_as_uint())
+        Some(
+          min + 1U + ctx.random_int_from(MemoryStream, 4).reinterpret_as_uint(),
+        )
       }
       gen_valid_memory_limits_i32(min, max, false)
     }
@@ -9218,24 +9304,40 @@ fn gen_valid_mem_type(ctx : GenValidContext, total_mem_idx : Int) -> MemType {
     ctx.config.mode == CoverageForced &&
     total_mem_idx == 2 {
     gen_valid_memory_limits_i64(1UL, Some(2UL), false)
-  } else if shared_enabled && ctx.random_int(6) == 0 {
-    let min = if variants && ctx.random_int(3) == 0 { 0U } else { 1U }
-    let max = Some(min + 1U + ctx.random_int(4).reinterpret_as_uint())
+  } else if shared_enabled && ctx.random_int_from(MemoryStream, 6) == 0 {
+    let min = if variants && ctx.random_int_from(MemoryStream, 3) == 0 {
+      0U
+    } else {
+      1U
+    }
+    let max = Some(
+      min + 1U + ctx.random_int_from(MemoryStream, 4).reinterpret_as_uint(),
+    )
     gen_valid_memory_limits_i32(min, max, true)
-  } else if memory64_enabled && ctx.random_int(5) == 0 {
-    let min = if variants && ctx.random_int(3) == 0 { 0UL } else { 1UL }
-    let max = if variants && ctx.random_int(4) == 0 {
+  } else if memory64_enabled && ctx.random_int_from(MemoryStream, 5) == 0 {
+    let min = if variants && ctx.random_int_from(MemoryStream, 3) == 0 {
+      0UL
+    } else {
+      1UL
+    }
+    let max = if variants && ctx.random_int_from(MemoryStream, 4) == 0 {
       None
     } else {
-      Some(min + 1UL + ctx.random_int(4).to_uint64())
+      Some(min + 1UL + ctx.random_int_from(MemoryStream, 4).to_uint64())
     }
     gen_valid_memory_limits_i64(min, max, false)
   } else {
-    let min = if variants && ctx.random_int(5) == 0 { 0U } else { 1U }
-    let max = if variants && ctx.random_int(4) == 0 {
+    let min = if variants && ctx.random_int_from(MemoryStream, 5) == 0 {
+      0U
+    } else {
+      1U
+    }
+    let max = if variants && ctx.random_int_from(MemoryStream, 4) == 0 {
       None
     } else {
-      Some(min + 1U + ctx.random_int(4).reinterpret_as_uint())
+      Some(
+        min + 1U + ctx.random_int_from(MemoryStream, 4).reinterpret_as_uint(),
+      )
     }
     gen_valid_memory_limits_i32(min, max, false)
   }
@@ -9256,16 +9358,16 @@ fn gen_valid_table_limits_i32(
     Limits::i32(1U, None)
   } else {
     let min = if ctx.config.features.allow_table_limit_variants &&
-      ctx.random_int(5) == 0 {
+      ctx.random_int_from(TableStream, 5) == 0 {
       0U
     } else {
       1U
     }
     let max = if ctx.config.features.allow_table_limit_variants &&
-      ctx.random_int(4) == 0 {
+      ctx.random_int_from(TableStream, 4) == 0 {
       None
     } else {
-      Some(min + 1U + ctx.random_int(4).reinterpret_as_uint())
+      Some(min + 1U + ctx.random_int_from(TableStream, 4).reinterpret_as_uint())
     }
     Limits::i32(min, max)
   }
@@ -9295,12 +9397,16 @@ fn gen_valid_table_ref_type(
     total_table_idx >= 4 {
     RefType::new(true, HeapType::abs(AbsHeapType::func()))
   } else if ctx.config.features.allow_table_limit_variants &&
-    ctx.random_int(6) == 0 {
+    ctx.random_int_from(TableStream, 6) == 0 {
     RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
   } else if !gc_type_plan.concrete_ref_types.is_empty() &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TableStream, 3) == 0
+    ) {
     match
-      gc_type_plan.concrete_ref_types[ctx.random_int(
+      gc_type_plan.concrete_ref_types[ctx.random_int_from(
+        TableStream,
         gc_type_plan.concrete_ref_types.length(),
       )] {
       RefTypeValType(rt) => rt
@@ -9332,7 +9438,10 @@ fn gen_valid_table_init_expr(
   imported_global_types : Array[GlobalType],
 ) -> Expr? {
   if ctx.config.features.allow_const_expr_variants &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) {
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.random_int_from(TableStream, 4) == 0
+    ) {
     match
       gen_matching_immutable_global_idx(
         imported_global_types,
@@ -9347,7 +9456,7 @@ fn gen_valid_table_init_expr(
     total_table_idx > 0 {
     Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~))
   } else if ctx.config.features.allow_table_limit_variants &&
-    ctx.random_int(5) == 0 {
+    ctx.random_int_from(TableStream, 5) == 0 {
     Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~))
   } else {
     None
@@ -9372,8 +9481,20 @@ fn gen_valid_rec_types_flat_count(rec_types : Array[RecType]) -> Int {
 }
 
 ///|
-fn gen_valid_pick_type_idx(ctx : GenValidContext, type_count : Int) -> TypeIdx {
-  TypeIdx::new(ctx.random_int(type_count).reinterpret_as_uint())
+fn gen_valid_pick_type_idx_from(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  type_count : Int,
+) -> TypeIdx {
+  TypeIdx::new(ctx.random_int_from(label, type_count).reinterpret_as_uint())
+}
+
+///|
+fn gen_valid_pick_func_type_idx(
+  ctx : GenValidContext,
+  type_count : Int,
+) -> TypeIdx {
+  gen_valid_pick_type_idx_from(ctx, FuncStream, type_count)
 }
 
 ///|
@@ -9521,8 +9642,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let import_tag_count = import_plan.tag_count
 
   let defined_func_count = gen_valid_choose_defined_func_count(ctx)
-  let defined_table_count = gen_valid_choose_optional_count_with_coverage_floor(
+  let defined_table_count = gen_valid_choose_optional_count_with_coverage_floor_from(
     ctx,
+    TableStream,
     config.features.allow_tables,
     config.max_tables,
     config.section_bias.tables_percent,
@@ -9533,8 +9655,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       1
     },
   )
-  let defined_mem_count = gen_valid_choose_optional_count_with_coverage_floor(
+  let defined_mem_count = gen_valid_choose_optional_count_with_coverage_floor_from(
     ctx,
+    MemoryStream,
     config.features.allow_mems,
     config.max_mems,
     config.section_bias.mems_percent,
@@ -9570,8 +9693,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let total_tag_count = import_tag_count + defined_tag_count
 
   let elem_count = if total_table_count > 0 {
-    gen_valid_choose_optional_count_with_coverage_floor(
+    gen_valid_choose_optional_count_with_coverage_floor_from(
       ctx,
+      ElemStream,
       config.features.allow_elems,
       config.max_elems,
       config.section_bias.elems_percent,
@@ -9585,8 +9709,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     0
   }
   let data_count = if total_mem_count > 0 {
-    gen_valid_choose_optional_count_with_coverage_floor(
+    gen_valid_choose_optional_count_with_coverage_floor_from(
       ctx,
+      DataStream,
       config.features.allow_datas,
       config.max_datas,
       config.section_bias.datas_percent,
@@ -9623,9 +9748,13 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   let mut func_type_count = if ctx.config.mode == CoverageForced &&
     total_type_users > 1 {
-    1 + ctx.random_int(gen_valid_min_int(func_type_cap, total_type_users - 1))
+    1 +
+    ctx.random_int_from(
+      TypeStream,
+      gen_valid_min_int(func_type_cap, total_type_users - 1),
+    )
   } else {
-    1 + ctx.random_int(func_type_cap)
+    1 + ctx.random_int_from(TypeStream, func_type_cap)
   }
   let typed_body_min_func_types = if gen_valid_is_control_heavy_config(
       ctx.config,
@@ -9707,7 +9836,8 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       [ValType::i32(), ValType::i64()]
     } else if exact_result_slot == Some(i) {
       [
-        gc_type_plan.exact_ref_types[ctx.random_int(
+        gc_type_plan.exact_ref_types[ctx.random_int_from(
+          TypeStream,
           gc_type_plan.exact_ref_types.length(),
         )],
       ]
@@ -9736,7 +9866,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
 
   let imports : Array[Import] = []
   for i = 0; i < import_func_count; i = i + 1 {
-    let type_idx = gen_valid_pick_type_idx(ctx, func_type_count)
+    let type_idx = gen_valid_pick_func_type_idx(ctx, func_type_count)
     imports.push(
       Import::new(
         gen_valid_import_module_name(ctx, i),
@@ -9929,7 +10059,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
         func_type_count > 1 {
         TypeIdx::new(1U)
       } else {
-        gen_valid_pick_type_idx(ctx, func_type_count)
+        gen_valid_pick_func_type_idx(ctx, func_type_count)
       },
     )
   }
@@ -10029,7 +10159,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       let gc_table_choice = if table_types.length() > 1 {
         Some(
           TableIdx::new(
-            (1 + ctx.random_int(table_types.length() - 1)).reinterpret_as_uint(),
+            (1 + ctx.random_int_from(ElemStream, table_types.length() - 1)).reinterpret_as_uint(),
           ),
         )
       } else {
@@ -10047,7 +10177,11 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
         Elem::new(
           ElemMode::active(
             TableIdx::new(0U),
-            gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
+            gen_valid_active_i32_offset_from(
+              ctx,
+              ElemStream,
+              global_idx=const_i32_global_idx,
+            ),
           ),
           ElemKind::funcs([func_idx, second_func_idx]),
         )
@@ -10069,8 +10203,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             Elem::new(
               ElemMode::active(
                 table_idx,
-                gen_valid_active_i32_offset(
+                gen_valid_active_i32_offset_from(
                   ctx,
+                  ElemStream,
                   global_idx=const_i32_global_idx,
                 ),
               ),
@@ -10106,7 +10241,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             }
         }
       } else if (match gc_type_plan.bulk_elem_ref_type {
-          Some(_) => ctx.random_int(4) == 0
+          Some(_) => ctx.random_int_from(ElemStream, 4) == 0
           None => false
         }) {
         match gc_type_plan.bulk_elem_ref_type {
@@ -10120,7 +10255,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       } else if (match gc_table_ref_type {
           Some(rt) =>
             ValType::ref_type(rt) != ValType::funcref() &&
-            ctx.random_int(3) == 0
+            ctx.random_int_from(ElemStream, 3) == 0
           None => false
         }) {
         match (gc_table_choice, gc_table_ref_type) {
@@ -10128,8 +10263,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             Elem::new(
               ElemMode::active(
                 table_idx,
-                gen_valid_active_i32_offset(
+                gen_valid_active_i32_offset_from(
                   ctx,
+                  ElemStream,
                   global_idx=const_i32_global_idx,
                 ),
               ),
@@ -10138,13 +10274,14 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
         }
       } else {
-        match ctx.random_int(7) {
+        match ctx.random_int_from(ElemStream, 7) {
           0 =>
             Elem::new(
               ElemMode::active(
                 TableIdx::new(0U),
-                gen_valid_active_i32_offset(
+                gen_valid_active_i32_offset_from(
                   ctx,
+                  ElemStream,
                   global_idx=const_i32_global_idx,
                 ),
               ),
@@ -10163,8 +10300,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             Elem::new(
               ElemMode::active(
                 TableIdx::new(0U),
-                gen_valid_active_i32_offset(
+                gen_valid_active_i32_offset_from(
                   ctx,
+                  ElemStream,
                   global_idx=const_i32_global_idx,
                 ),
               ),
@@ -10238,7 +10376,11 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             } else {
               MemIdx::new(0U)
             },
-            gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
+            gen_valid_active_i32_offset_from(
+              ctx,
+              DataStream,
+              global_idx=const_i32_global_idx,
+            ),
           ),
           gen_valid_payload(ctx, b"gen-valid-active-with-a-larger-payload"),
         )
@@ -10258,24 +10400,31 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           gen_valid_payload(ctx, b"\x00\x01\x02\x03\x04\x05\x06\x07"),
         )
       } else {
-        let payload = match ctx.random_int(4) {
+        let payload = match ctx.random_int_from(DataStream, 4) {
           0 => b""
           1 => b"gen-valid"
           2 => b"bulk-seed"
           _ => b"\x00\x01\x02"
         }
-        if ctx.random_int(3) == 0 {
+        if ctx.random_int_from(DataStream, 3) == 0 {
           Data::new(DataMode::passive(), gen_valid_payload(ctx, payload))
         } else {
-          let mem_idx = if total_mem_count > 1 && ctx.random_int(4) == 0 {
+          let mem_idx = if total_mem_count > 1 &&
+            ctx.random_int_from(DataStream, 4) == 0 {
             MemIdx::new(1U)
           } else {
             MemIdx::new(0U)
           }
-          let offset = if ctx.random_int(3) == 0 {
-            Expr::new([Instruction::i32_const(ctx.random_int(4))])
+          let offset = if ctx.random_int_from(DataStream, 3) == 0 {
+            Expr::new([
+              Instruction::i32_const(ctx.random_int_from(DataStream, 4)),
+            ])
           } else {
-            gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx)
+            gen_valid_active_i32_offset_from(
+              ctx,
+              DataStream,
+              global_idx=const_i32_global_idx,
+            )
           }
           Data::new(
             DataMode::active(mem_idx, offset),

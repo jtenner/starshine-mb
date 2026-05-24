@@ -1164,6 +1164,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Continued `[FUZ]1034` by adding `gen_valid_module_result_from_seed(...)`, an explicit root-seed GenValid entry point that derives named candidate substreams instead of consuming one monolithic `RandomState`.
 - The first migrated streams route function type/result/local choices through the `types` stream and body statement counts through the `bodies` stream, while preserving the legacy `RandomState` API for callers that need old seed behavior.
 - GenValid batch emitters now use the root-seed API per candidate so batch manifests' existing `stream_derivations` describe real generation choices, and focused tests lock type-choice stability when only the body budget changes.
+- Continued the migration by moving function-count and function-signature assignment onto the `funcs` stream, memory/table/data/element counts and local shape choices onto their matching streams, and keeping the metadata-budget stability test green for single-attempt generated candidates.
 
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary profile modes and FZG mirror counters
 
