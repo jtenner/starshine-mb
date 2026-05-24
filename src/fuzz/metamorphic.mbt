@@ -6,6 +6,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedPassiveDataSegment
   AddUnusedImmutableI32Global
   AddUnusedEmptyFunction
+  AddUnusedEmptyFunctionType
 } derive(Eq, Debug)
 
 ///|
@@ -19,6 +20,7 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedPassiveDataSegment => "add-unused-passive-data-segment"
     AddUnusedImmutableI32Global => "add-unused-immutable-i32-global"
     AddUnusedEmptyFunction => "add-unused-empty-function"
+    AddUnusedEmptyFunctionType => "add-unused-empty-function-type"
   }
 }
 
@@ -141,6 +143,22 @@ fn metamorphic_count_flat_types(rec_types : Array[@lib.RecType]) -> Int {
 }
 
 ///|
+fn metamorphic_add_unused_empty_function_type(mod : @lib.Module) -> @lib.Module {
+  let types = []
+  match mod.type_sec {
+    Some(@lib.TypeSec(existing)) =>
+      for rec_type in existing {
+        types.push(rec_type)
+      }
+    None => ()
+  }
+  types.push(
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+  )
+  mod.with_type_sec(@lib.TypeSec::new(types))
+}
+
+///|
 fn metamorphic_add_unused_empty_function(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -189,6 +207,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedPassiveDataSegment,
     AddUnusedImmutableI32Global,
     AddUnusedEmptyFunction,
+    AddUnusedEmptyFunctionType,
   ]
 }
 
@@ -207,6 +226,8 @@ pub fn metamorphic_apply_transform(
     AddUnusedImmutableI32Global =>
       metamorphic_add_unused_immutable_i32_global(mod)
     AddUnusedEmptyFunction => metamorphic_add_unused_empty_function(mod)
+    AddUnusedEmptyFunctionType =>
+      metamorphic_add_unused_empty_function_type(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>

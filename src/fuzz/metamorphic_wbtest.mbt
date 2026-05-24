@@ -105,6 +105,64 @@ test "metamorphic leading custom-section transform preserves validation and bina
 }
 
 ///|
+test "metamorphic unused empty function-type transform preserves validation and binary roundtrip" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x103cUL,
+      GenValidConfig::natural_default(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected valid GenValid seed, got \{e.validation_error_message}")
+  }
+  let original_rec_type_count = match generated.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => types.length()
+    None => 0
+  }
+  let original_flat_type_count = match generated.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => metamorphic_wbtest_flat_type_count(types)
+    None => 0
+  }
+  let transformed = match
+    metamorphic_apply_transform(
+      generated.wasm_module,
+      AddUnusedEmptyFunctionType,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-unused-empty-function-type")
+  match transformed.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      @debug.assert_eq(types.length(), original_rec_type_count + 1)
+      match types[types.length() - 1] {
+        @lib.SingleRecType(
+          @lib.CompTypeSubType(_, @lib.FuncCompType(params, results))
+        ) => {
+          @debug.assert_eq(params, [])
+          @debug.assert_eq(results, [])
+        }
+        _ => fail("expected trailing [] -> [] function type")
+      }
+    }
+    None => fail("expected transformed type section")
+  }
+  @debug.assert_eq(
+    metamorphic_wbtest_flat_type_count(
+      match transformed.wasm_module.type_sec {
+        Some(@lib.TypeSec(types)) => types
+        None => []
+      },
+    ),
+    original_flat_type_count + 1,
+  )
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic unused empty-function transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -315,8 +373,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 6)
-  @debug.assert_eq(stats.validated, 6)
+  @debug.assert_eq(stats.transformed, 7)
+  @debug.assert_eq(stats.validated, 7)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -325,4 +383,5 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("add-unused-passive-data-segment"))
   assert_true(stats.transform_ids.contains("add-unused-immutable-i32-global"))
   assert_true(stats.transform_ids.contains("add-unused-empty-function"))
+  assert_true(stats.transform_ids.contains("add-unused-empty-function-type"))
 }
