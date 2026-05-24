@@ -8177,21 +8177,37 @@ fn dae_fold_const_i32_eq_if_instrs_once(
           @lib.I32Const(@lib.I32(rhs)),
           @lib.I32Eq,
           @lib.If(_, then_body, else_body),
-        ) =>
+        ) => {
           if lhs == rhs {
             out.append(then_body)
-            changed = true
-            idx += 4
-            continue
           } else {
             match else_body {
               Some(body) => out.append(body)
               None => ()
             }
-            changed = true
-            idx += 4
-            continue
           }
+          changed = true
+          idx += 4
+          continue
+        }
+        (
+          @lib.I64Const(@lib.I64(lhs)),
+          @lib.I64Const(@lib.I64(rhs)),
+          @lib.I64Eq,
+          @lib.If(_, then_body, else_body),
+        ) => {
+          if lhs == rhs {
+            out.append(then_body)
+          } else {
+            match else_body {
+              Some(body) => out.append(body)
+              None => ()
+            }
+          }
+          changed = true
+          idx += 4
+          continue
+        }
         _ => ()
       }
     }
@@ -15287,6 +15303,493 @@ fn dae_try_swap_selected_func299_inverted_result_if_once(
 }
 
 ///|
+fn dae_try_swap_i32_eq_zero_if_instrs_once(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let mut idx = 0
+  while idx + 3 < body.length() {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.LocalGet(cond_local),
+        @lib.I32Const(@lib.I32(0)),
+        @lib.I32Eq,
+        @lib.If(block_type, then_body, Some(else_body)),
+      ) => {
+        let rewritten = dae_copy_instr_prefix(body, idx)
+        rewritten.push(@lib.Instruction::local_get(cond_local))
+        rewritten.push(
+          @lib.Instruction::if_(block_type, else_body, Some(then_body)),
+        )
+        let mut tail = idx + 4
+        while tail < body.length() {
+          rewritten.push(body[tail])
+          tail += 1
+        }
+        return Some(rewritten)
+      }
+      _ => ()
+    }
+    match body[idx] {
+      @lib.Block(block_type, @lib.Expr(child_body)) =>
+        match dae_try_swap_i32_eq_zero_if_instrs_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::block(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.Loop(block_type, @lib.Expr(child_body)) =>
+        match dae_try_swap_i32_eq_zero_if_instrs_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::loop_(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.TryTable(block_type, catches, @lib.Expr(child_body)) =>
+        match dae_try_swap_i32_eq_zero_if_instrs_once(child_body) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        match dae_try_swap_i32_eq_zero_if_instrs_once(then_body) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              Some(else_body),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+        match dae_try_swap_i32_eq_zero_if_instrs_once(else_body) {
+          Some(rewritten_else) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              then_body,
+              Some(rewritten_else),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, None) =>
+        match dae_try_swap_i32_eq_zero_if_instrs_once(then_body) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              None,
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_replace_local_get_with_i32_const_instr(
+  instr : @lib.Instruction,
+  target_local : @lib.LocalIdx,
+  value : @lib.I32,
+) -> @lib.Instruction {
+  match instr {
+    @lib.LocalGet(idx) if dae_local_idx_equal(idx, target_local) =>
+      @lib.Instruction::i32_const(value)
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::block(
+        block_type,
+        @lib.Expr::new(
+          dae_replace_local_get_with_i32_const_instrs(body, target_local, value),
+        ),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(
+          dae_replace_local_get_with_i32_const_instrs(body, target_local, value),
+        ),
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      @lib.Instruction::try_table(
+        block_type,
+        catches,
+        @lib.Expr::new(
+          dae_replace_local_get_with_i32_const_instrs(body, target_local, value),
+        ),
+      )
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      @lib.Instruction::if_(
+        block_type,
+        dae_replace_local_get_with_i32_const_instrs(
+          then_body, target_local, value,
+        ),
+        Some(
+          dae_replace_local_get_with_i32_const_instrs(
+            else_body, target_local, value,
+          ),
+        ),
+      )
+    @lib.If(block_type, then_body, None) =>
+      @lib.Instruction::if_(
+        block_type,
+        dae_replace_local_get_with_i32_const_instrs(
+          then_body, target_local, value,
+        ),
+        None,
+      )
+    _ => instr
+  }
+}
+
+///|
+fn dae_replace_local_get_with_i32_const_instrs(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+  value : @lib.I32,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    out.push(
+      dae_replace_local_get_with_i32_const_instr(instr, target_local, value),
+    )
+  }
+  out
+}
+
+///|
+fn dae_try_inline_i32_const_local_set_flat_once(
+  body : Array[@lib.Instruction],
+  protected_local_slots : Int,
+) -> Array[@lib.Instruction]? {
+  let mut idx = 0
+  while idx + 1 < body.length() {
+    match (body[idx], body[idx + 1]) {
+      (@lib.I32Const(value), @lib.LocalSet(local_idx)) if dae_local_idx_slot(
+          local_idx,
+        ) >=
+        protected_local_slots &&
+        dae_count_local_writes_instrs(body, local_idx) == 1 &&
+        dae_count_local_gets_instrs(body, local_idx) == 1 => {
+        let without_set : Array[@lib.Instruction] = []
+        let mut copy_idx = 0
+        while copy_idx < body.length() {
+          if copy_idx == idx {
+            copy_idx += 2
+            continue
+          }
+          without_set.push(body[copy_idx])
+          copy_idx += 1
+        }
+        return Some(
+          dae_replace_local_get_with_i32_const_instrs(
+            without_set, local_idx, value,
+          ),
+        )
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_inline_i32_const_local_set_instrs_once(
+  body : Array[@lib.Instruction],
+  protected_local_slots : Int,
+) -> Array[@lib.Instruction]? {
+  match
+    dae_try_inline_i32_const_local_set_flat_once(body, protected_local_slots) {
+    Some(rewritten) => return Some(rewritten)
+    None => ()
+  }
+  let mut idx = 0
+  while idx < body.length() {
+    match body[idx] {
+      @lib.Block(block_type, @lib.Expr(child_body)) =>
+        match
+          dae_try_inline_i32_const_local_set_instrs_once(
+            child_body, protected_local_slots,
+          ) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::block(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.Loop(block_type, @lib.Expr(child_body)) =>
+        match
+          dae_try_inline_i32_const_local_set_instrs_once(
+            child_body, protected_local_slots,
+          ) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::loop_(
+              block_type,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.TryTable(block_type, catches, @lib.Expr(child_body)) =>
+        match
+          dae_try_inline_i32_const_local_set_instrs_once(
+            child_body, protected_local_slots,
+          ) {
+          Some(rewritten_child) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_child),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        match
+          dae_try_inline_i32_const_local_set_instrs_once(
+            then_body, protected_local_slots,
+          ) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              Some(else_body),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+        match
+          dae_try_inline_i32_const_local_set_instrs_once(
+            else_body, protected_local_slots,
+          ) {
+          Some(rewritten_else) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              then_body,
+              Some(rewritten_else),
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      }
+      @lib.If(block_type, then_body, None) =>
+        match
+          dae_try_inline_i32_const_local_set_instrs_once(
+            then_body, protected_local_slots,
+          ) {
+          Some(rewritten_then) => {
+            let rewritten = body.copy()
+            rewritten[idx] = @lib.Instruction::if_(
+              block_type,
+              rewritten_then,
+              None,
+            )
+            return Some(rewritten)
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_rewrite_selected_func311_terminal_call_args_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  trace : (String) -> Unit,
+) -> DaePassResult {
+  let def_idx = 311
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let (funcs, func_type) = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) if def_idx < funcs.length() =>
+      match dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+        Some(func_type) => (funcs, func_type)
+        None =>
+          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params !=
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ] ||
+    results != [@lib.ValType::i32()] {
+    trace(
+      "pass[dae-optimizing]:selected-func311-terminal-call-args skip=type params=\{params.length()} results=\{results.length()}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let param_count = 4
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() < 24 {
+    trace(
+      "pass[dae-optimizing]:selected-func311-terminal-call-args skip=locals locals=\{locals.length()}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (folded_consts, const_changed) = dae_fold_const_i32_eq_if_instrs_once(
+    body,
+  )
+  let mut rewritten = folded_consts
+  let mut changed = const_changed
+  let mut swap_iter = 0
+  while swap_iter < 4 {
+    match dae_try_swap_i32_eq_zero_if_instrs_once(rewritten) {
+      Some(next) => {
+        rewritten = next
+        changed = true
+      }
+      None => break
+    }
+    swap_iter += 1
+  }
+  match
+    dae_try_inline_terminal_call_local_sets_body_once(rewritten, 9, param_count) {
+    Some(inlined) => {
+      rewritten = inlined
+      changed = true
+    }
+    None =>
+      match rewritten[rewritten.length() - 1] {
+        @lib.Call(_) =>
+          trace(
+            "pass[dae-optimizing]:selected-func311-terminal-call-args terminal-inline=already-inline",
+          )
+        _ => {
+          trace(
+            "pass[dae-optimizing]:selected-func311-terminal-call-args skip=terminal-inline",
+          )
+          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+        }
+      }
+  }
+  let mut const_local_iter = 0
+  while const_local_iter < 4 {
+    match
+      dae_try_inline_i32_const_local_set_instrs_once(rewritten, param_count) {
+      Some(next) => {
+        rewritten = next
+        changed = true
+      }
+      None => break
+    }
+    const_local_iter += 1
+  }
+  let total_locals = param_count + locals.length()
+  if total_locals <= 27 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let local_map = Array::make(total_locals, 0)
+  let mut map_idx = 0
+  while map_idx < local_map.length() {
+    local_map[map_idx] = map_idx
+    map_idx += 1
+  }
+  local_map[20] = 0
+  local_map[21] = 0
+  local_map[22] = 0
+  local_map[27] = 4
+  let mapped = dae_rewrite_locals_instrs(rewritten, local_map)
+  if dae_instrs_reference_local_at_or_above(mapped, 5) {
+    let max_local = dae_max_referenced_local_slot_instrs(mapped, -1)
+    let max_idx = @lib.LocalIdx::new(max_local.reinterpret_as_uint())
+    let max_gets = dae_count_local_gets_instrs(mapped, max_idx)
+    let max_writes = dae_count_local_writes_instrs(mapped, max_idx)
+    trace(
+      "pass[dae-optimizing]:selected-func311-terminal-call-args partial=keep-high-local max=\{max_local} gets=\{max_gets} writes=\{max_writes}",
+    )
+    if !changed || rewritten == body {
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+    let rewritten_funcs = funcs.copy()
+    rewritten_funcs[def_idx] = @lib.Func::new(
+      dae_trim_trailing_unused_func237_locals(locals, rewritten, param_count),
+      @lib.Expr::new(rewritten),
+    )
+    let touched = Array::make(funcs.length(), false)
+    touched[def_idx] = true
+    return {
+      mod_out: mod_
+      .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+      .without_name_sec(),
+      touched,
+      changed: true,
+      primary_def: def_idx,
+    }
+  }
+  if !changed &&
+    mapped == body &&
+    locals == @lib.Locals::from_types([@lib.ValType::i64()]) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::i64()]),
+    @lib.Expr::new(mapped),
+  )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_retarget_selected_func236_locals_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -17086,6 +17589,26 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         )
         changed = true
       }
+    }
+  }
+  if 311 < selected_scratch_defs.length() {
+    let mut func311_arg_iter = 0
+    while func311_arg_iter < 2 {
+      selected_scratch_defs[311] = true
+      let selected_func311_args = dae_try_rewrite_selected_func311_terminal_call_args_once(
+        current, selected_scratch_defs, trace,
+      )
+      selected_scratch_defs[311] = false
+      if !selected_func311_args.changed {
+        break
+      }
+      current = selected_func311_args.mod_out
+      touched = dae_merge_touched(touched, selected_func311_args.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func311-terminal-call-args-after-literals iter=\{func311_arg_iter} primary_def=\{selected_func311_args.primary_def}",
+      )
+      changed = true
+      func311_arg_iter += 1
     }
   }
   if 287 < selected_scratch_defs.length() {

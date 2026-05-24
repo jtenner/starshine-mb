@@ -1113,6 +1113,227 @@ test "dae-optimizing swaps selected Func299 inverted result-if" {
 }
 
 ///|
+test "dae-optimizing inlines selected Func311 staged terminal call args" {
+  let target_def = 311
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (memory 1)\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (export "target") (param i32 i32 i32 i32) (result i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i64 i64 i64 i64 i64)
+      #|    local.get 0
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 0
+      #|      if
+      #|        local.get 0
+      #|        call $release
+      #|      end
+      #|      i32.const 10016
+      #|      local.set 18
+      #|      i32.const 8
+      #|      call $alloc
+      #|      local.tee 22
+      #|      i32.const 1573120
+      #|      i32.store offset=4 align=1
+      #|      local.get 22
+      #|      i32.const 0
+      #|      i32.store offset=8 align=1
+      #|      local.get 22
+      #|      local.get 18
+      #|      i32.store offset=12 align=1
+      #|      local.get 22
+      #|    else
+      #|      local.get 0
+      #|    end
+      #|    local.set 4
+      #|    local.get 1
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 1
+      #|      if
+      #|        local.get 1
+      #|        call $release
+      #|      end
+      #|      i32.const 10016
+      #|      local.set 17
+      #|      i32.const 8
+      #|      call $alloc
+      #|      local.tee 21
+      #|      i32.const 1573120
+      #|      i32.store offset=4 align=1
+      #|      local.get 21
+      #|      i32.const 0
+      #|      i32.store offset=8 align=1
+      #|      local.get 21
+      #|      local.get 17
+      #|      i32.store offset=12 align=1
+      #|      local.get 21
+      #|    else
+      #|      local.get 1
+      #|    end
+      #|    local.set 6
+      #|    local.get 2
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      local.get 2
+      #|      if
+      #|        local.get 2
+      #|        call $release
+      #|      end
+      #|      i32.const 10016
+      #|      local.set 16
+      #|      i32.const 8
+      #|      call $alloc
+      #|      local.tee 20
+      #|      i32.const 1573120
+      #|      i32.store offset=4 align=1
+      #|      local.get 20
+      #|      i32.const 0
+      #|      i32.store offset=8 align=1
+      #|      local.get 20
+      #|      local.get 16
+      #|      i32.store offset=12 align=1
+      #|      local.get 20
+      #|    else
+      #|      local.get 2
+      #|    end
+      #|    local.set 8
+      #|    i64.const 4294967296
+      #|    i64.const 4294967296
+      #|    i64.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      i64.const 4294967296
+      #|      i32.wrap_i64
+      #|    end
+      #|    local.set 10
+      #|    i64.const 4294967296
+      #|    i64.const 4294967296
+      #|    i64.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      i64.const 4294967296
+      #|      i32.wrap_i64
+      #|    end
+      #|    local.set 11
+      #|    i32.const -1
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      i32.const -1
+      #|    end
+      #|    local.set 12
+      #|    i64.const 4294967296
+      #|    i64.const 4294967296
+      #|    i64.eq
+      #|    if (result i32)
+      #|      i32.const 5
+      #|    else
+      #|      i64.const 4294967296
+      #|      i32.wrap_i64
+      #|    end
+      #|    local.set 13
+      #|    i32.const -1
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      i32.const -1
+      #|    end
+      #|    local.set 14
+      #|    local.get 3
+      #|    call $check
+      #|    i32.const 1
+      #|    i32.eq
+      #|    if (result i64)
+      #|      local.get 3
+      #|      i64.load offset=8 align=1
+      #|      local.set 27
+      #|      local.get 3
+      #|      call $release
+      #|      local.get 27
+      #|    else
+      #|      local.get 3
+      #|      call $release
+      #|      i64.const 1024
+      #|    end
+      #|    local.set 26
+      #|    local.get 4
+      #|    local.get 6
+      #|    local.get 8
+      #|    local.get 10
+      #|    local.get 11
+      #|    local.get 12
+      #|    local.get 13
+      #|    local.get 14
+      #|    local.get 26
+      #|    call $callee)
+      #|  (func $callee (param i32 i32 i32 i32 i32 i32 i32 i32 i64) (result i32)
+      #|    local.get 0
+      #|    drop
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop
+      #|    local.get 3
+      #|    drop
+      #|    local.get 4
+      #|    drop
+      #|    local.get 5
+      #|    drop
+      #|    local.get 6
+      #|    drop
+      #|    local.get 7
+      #|    drop
+      #|    local.get 8
+      #|    drop
+      #|    i32.const 7)
+      #|  (func $release (param i32))
+      #|  (func $alloc (param i32) (result i32)
+      #|    i32.const 16)
+      #|  (func $check (param i32) (result i32)
+      #|    i32.const 1)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, target_def,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
+  for slot in [5, 6, 8, 10, 11, 12, 13, 14, 16, 17, 18, 20, 21, 22, 26, 27] {
+    assert_false(
+      dae_test_instrs_reference_local(
+        body,
+        @lib.LocalIdx::new(slot.reinterpret_as_uint()),
+      ),
+      msg=target,
+    )
+  }
+  assert_false(target.contains("i64.eq"), msg=target)
+  assert_false(target.contains("i32.wrap_i64"), msg=target)
+  assert_false(target.contains("local.set (Local26)"), msg=target)
+  assert_true(target.contains("local.tee (Local 0)"), msg=target)
+  assert_true(target.contains("local.set (Local 4)"), msg=target)
+  assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes selected Func260 helper exact literals" {
   for target_def in [267, 268] {
     let out = StringBuilder::new()

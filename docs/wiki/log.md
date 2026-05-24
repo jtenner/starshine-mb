@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func311 terminal-call staging parity
+
+- Added a selected Func311 terminal-call lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that folds constant result-`if` wrappers, swaps nontrapping `i32.eq x, 0` default-object wrappers to Binaryen's direct condition shape, inlines staged terminal-call locals, and removes single-use payload-constant locals.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the selected Func311 call-argument staging family and the one-local full synthetic shape.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func311-terminal-call-artifact` validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, keeps the first diff at `defined=311 abs=328`, and narrows the remaining Func311 drift to allocation/final i64 temp-local reuse.
+
 ## [2026-05-24] passes | dae Func299 result-if parity
 
 - Added a selected Func299 result-if lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that removes a nontrapping `i32.eqz` in front of a dropped result `if`, swaps the arms to preserve semantics, and trims the now-unused local.
