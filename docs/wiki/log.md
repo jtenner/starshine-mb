@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO remaining official lit inventory
+
+- Added research note [`0579`](./raw/research/0579-2026-05-23-sgo-remaining-lit-inventory.md) mapping the remaining official Binaryen v129 `simplify-globals*` lit files after the 0577/0578 guardrail slice.
+- Ranked exact offsets source-alignment as the best next tiny `[SGO]003` regression candidate, with prefer-earlier copy-chain coverage second.
+- Deferred function-effects, broad GC/refinalization, sibling `propagate-globals-globally`, same-init expression broadening, and loop/control broadening without focused oracle evidence.
+
 ## [2026-05-23] binaryen | SGO official lit guardrail regressions
 
 - Added research note [`0578`](./raw/research/0578-2026-05-23-sgo-official-lit-guardrails.md) and three source-alignment SGO guardrail/regression tests from the 0577 inventory.
