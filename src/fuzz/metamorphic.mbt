@@ -1,6 +1,7 @@
 ///|
 pub enum MetamorphicValidTransform {
   AddNonNameCustomSection
+  AddModuleNameSection
 } derive(Eq, Debug)
 
 ///|
@@ -9,6 +10,7 @@ pub fn metamorphic_valid_transform_id(
 ) -> String {
   match transform {
     AddNonNameCustomSection => "add-non-name-custom-section"
+    AddModuleNameSection => "add-module-name-section"
   }
 }
 
@@ -46,12 +48,27 @@ fn metamorphic_add_non_name_custom_section(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
+  mod.with_name_sec(
+    @lib.NameSec::new(
+      module_name=Some(@lib.Name::from_string("starshine.metamorphic.module")),
+    ),
+  )
+}
+
+///|
+fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
+  [AddNonNameCustomSection, AddModuleNameSection]
+}
+
+///|
 pub fn metamorphic_apply_transform(
   mod : @lib.Module,
   transform : MetamorphicValidTransform,
 ) -> Result[MetamorphicValidTransformResult, String] {
   let transformed = match transform {
     AddNonNameCustomSection => metamorphic_add_non_name_custom_section(mod)
+    AddModuleNameSection => metamorphic_add_module_name_section(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
@@ -99,8 +116,8 @@ pub fn run_validate_valid_metamorphic_fuzz(
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
-  let transform = AddNonNameCustomSection
-  let transform_id = metamorphic_valid_transform_id(transform)
+  let transforms = metamorphic_valid_transforms()
+  let transform_ids = transforms.map(metamorphic_valid_transform_id)
   let mut attempts = 0
   let mut generated_count = 0
   let mut transformed_count = 0
@@ -115,12 +132,14 @@ pub fn run_validate_valid_metamorphic_fuzz(
     }
     attempts += generated.attempts
     generated_count += 1
-    match metamorphic_apply_transform(generated.wasm_module, transform) {
-      Ok(_) => {
-        transformed_count += 1
-        validated_count += 1
+    for transform in transforms {
+      match metamorphic_apply_transform(generated.wasm_module, transform) {
+        Ok(_) => {
+          transformed_count += 1
+          validated_count += 1
+        }
+        Err(msg) => return Err(msg)
       }
-      Err(msg) => return Err(msg)
     }
     i += 1
   }
@@ -130,6 +149,6 @@ pub fn run_validate_valid_metamorphic_fuzz(
     generated: generated_count,
     transformed: transformed_count,
     validated: validated_count,
-    transform_ids: [transform_id],
+    transform_ids,
   })
 }

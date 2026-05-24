@@ -345,6 +345,7 @@ pub enum InvalidFuzzSourceKind {
 
 pub enum MetamorphicValidTransform {
   AddNonNameCustomSection
+  AddModuleNameSection
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {
