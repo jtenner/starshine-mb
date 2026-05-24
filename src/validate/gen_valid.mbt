@@ -1443,6 +1443,9 @@ pub enum GenValidRandomStreamLabel {
   TableStream
   DataStream
   ElemStream
+  GlobalStream
+  TagStream
+  StartStream
   InvalidStrategyChoiceStream
   InvalidMutationChoiceStream
   TextMutationChoiceStream
@@ -1460,6 +1463,9 @@ pub fn gen_valid_random_stream_labels() -> Array[GenValidRandomStreamLabel] {
     TableStream,
     DataStream,
     ElemStream,
+    GlobalStream,
+    TagStream,
+    StartStream,
     InvalidStrategyChoiceStream,
     InvalidMutationChoiceStream,
     TextMutationChoiceStream,
@@ -1480,6 +1486,9 @@ pub fn gen_valid_random_stream_label_name(
     TableStream => "tables"
     DataStream => "data"
     ElemStream => "elems"
+    GlobalStream => "globals"
+    TagStream => "tags"
+    StartStream => "start"
     InvalidStrategyChoiceStream => "invalid-strategy-choice"
     InvalidMutationChoiceStream => "invalid-mutation-choice"
     TextMutationChoiceStream => "text-mutation-choice"
@@ -1500,6 +1509,9 @@ fn gen_valid_random_stream_label_salt(
     TableStream => 0x6006UL
     DataStream => 0x7007UL
     ElemStream => 0x8008UL
+    GlobalStream => 0xd00dUL
+    TagStream => 0xe00eUL
+    StartStream => 0xf00fUL
     InvalidStrategyChoiceStream => 0x9009UL
     InvalidMutationChoiceStream => 0xa00aUL
     TextMutationChoiceStream => 0xb00bUL
@@ -1534,6 +1546,9 @@ struct GenValidContext {
   table_rnd : RandomState
   data_rnd : RandomState
   elem_rnd : RandomState
+  global_rnd : RandomState
+  tag_rnd : RandomState
+  start_rnd : RandomState
   use_named_streams : Bool
   config : GenValidConfig
 }
@@ -1995,6 +2010,9 @@ fn GenValidContext::new(
     table_rnd: rnd,
     data_rnd: rnd,
     elem_rnd: rnd,
+    global_rnd: rnd,
+    tag_rnd: rnd,
+    start_rnd: rnd,
     use_named_streams: false,
     config,
   }
@@ -2018,6 +2036,9 @@ fn GenValidContext::new_streamed(
     table_rnd: gen_valid_stream_random_state(root_seed, TableStream),
     data_rnd: gen_valid_stream_random_state(root_seed, DataStream),
     elem_rnd: gen_valid_stream_random_state(root_seed, ElemStream),
+    global_rnd: gen_valid_stream_random_state(root_seed, GlobalStream),
+    tag_rnd: gen_valid_stream_random_state(root_seed, TagStream),
+    start_rnd: gen_valid_stream_random_state(root_seed, StartStream),
     use_named_streams: true,
     config,
   }
@@ -3031,11 +3052,6 @@ fn gen_valid_roll_percent_from(
 }
 
 ///|
-fn gen_valid_roll_percent(ctx : GenValidContext, percent : Int) -> Bool {
-  gen_valid_roll_percent_from(ctx, ModuleTopologyStream, percent)
-}
-
-///|
 fn GenValidContext::random_int_from(
   self : GenValidContext,
   label : GenValidRandomStreamLabel,
@@ -3057,6 +3073,9 @@ fn GenValidContext::random_int_from(
     TableStream => self.table_rnd.next_int()
     DataStream => self.data_rnd.next_int()
     ElemStream => self.elem_rnd.next_int()
+    GlobalStream => self.global_rnd.next_int()
+    TagStream => self.tag_rnd.next_int()
+    StartStream => self.start_rnd.next_int()
     InvalidStrategyChoiceStream
     | InvalidMutationChoiceStream
     | TextMutationChoiceStream
@@ -3068,11 +3087,6 @@ fn GenValidContext::random_int_from(
 ///|
 fn GenValidContext::random_int(self : GenValidContext, max : Int) -> Int {
   self.random_int_from(ModuleTopologyStream, max)
-}
-
-///|
-fn GenValidContext::random_bool(self : GenValidContext) -> Bool {
-  self.random_int(2) == 0
 }
 
 ///|
@@ -3162,23 +3176,31 @@ pub fn gen_valid_numtype(ctx : GenValidContext) -> NumType {
 }
 
 ///|
-fn gen_const_expr(ctx : GenValidContext, vt : ValType) -> Expr {
-  Expr::new([gen_const_instr(ctx, vt)])
+fn gen_const_expr_from(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  vt : ValType,
+) -> Expr {
+  Expr::new([gen_const_instr_from(ctx, label, vt)])
 }
 
 ///|
-fn gen_const_instr(ctx : GenValidContext, vt : ValType) -> Instruction {
+fn gen_const_instr_from(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  vt : ValType,
+) -> Instruction {
   match vt {
     NumTypeValType(I32NumType) =>
-      Instruction::i32_const(I32(ctx.random_int(1000)))
+      Instruction::i32_const(I32(ctx.random_int_from(label, 1000)))
     NumTypeValType(I64NumType) =>
-      Instruction::i64_const(I64(ctx.random_int(1000).to_int64()))
+      Instruction::i64_const(I64(ctx.random_int_from(label, 1000).to_int64()))
     NumTypeValType(F32NumType) =>
       Instruction::f32_const(
-        F32(Float::from_double(ctx.random_int(100).to_double())),
+        F32(Float::from_double(ctx.random_int_from(label, 100).to_double())),
       )
     NumTypeValType(F64NumType) =>
-      Instruction::f64_const(F64(ctx.random_int(100).to_double()))
+      Instruction::f64_const(F64(ctx.random_int_from(label, 100).to_double()))
     VecTypeValType =>
       Instruction::v128_const(
         b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
@@ -3193,6 +3215,11 @@ fn gen_const_instr(ctx : GenValidContext, vt : ValType) -> Instruction {
       }
     BotValType => Instruction::unreachable_()
   }
+}
+
+///|
+fn gen_const_instr(ctx : GenValidContext, vt : ValType) -> Instruction {
+  gen_const_instr_from(ctx, ModuleTopologyStream, vt)
 }
 
 ///|
@@ -3932,24 +3959,32 @@ fn gen_valid_const_expr_for_global(
   if ctx.config.features.allow_const_expr_variants {
     match gen_matching_immutable_global_idx(prior_globals, vt) {
       Some(idx) if vt == ValType::i32() &&
-        (ctx.config.mode == CoverageForced || ctx.random_bool()) =>
-        return Expr::new([Instruction::global_get(idx)])
+        (
+          ctx.config.mode == CoverageForced ||
+          ctx.random_bool_from(GlobalStream)
+        ) => return Expr::new([Instruction::global_get(idx)])
       _ => ()
     }
     if vt == ValType::funcref() &&
-      (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) {
+      (
+        ctx.config.mode == CoverageForced ||
+        ctx.random_int_from(GlobalStream, 4) == 0
+      ) {
       return Expr::new([Instruction::ref_func(func_idx)])
     }
     match vt {
       RefTypeValType(HeapTypeRefType(true, _, HeapType(type_idx))) =>
         if gen_valid_contains_type_idx(gc_type_plan.struct_type_idxs, type_idx) &&
-          (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) {
+          (
+            ctx.config.mode == CoverageForced ||
+            ctx.random_int_from(GlobalStream, 4) == 0
+          ) {
           return Expr::new([Instruction::struct_new_default(type_idx)])
         }
       _ => ()
     }
   }
-  gen_const_expr(ctx, vt)
+  gen_const_expr_from(ctx, GlobalStream, vt)
 }
 
 ///|
@@ -9260,22 +9295,6 @@ fn gen_valid_choose_optional_count_from(
 }
 
 ///|
-fn gen_valid_choose_optional_count(
-  ctx : GenValidContext,
-  allow : Bool,
-  max_count : Int,
-  percent : Int,
-) -> Int {
-  gen_valid_choose_optional_count_from(
-    ctx,
-    ModuleTopologyStream,
-    allow,
-    max_count,
-    percent,
-  )
-}
-
-///|
 fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
   let bounded_max = gen_valid_clamp_non_negative(ctx.config.max_defined_funcs)
   if bounded_max <= 1 {
@@ -9730,8 +9749,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       1
     },
   )
-  let defined_global_count = gen_valid_choose_optional_count_with_coverage_floor(
+  let defined_global_count = gen_valid_choose_optional_count_with_coverage_floor_from(
     ctx,
+    GlobalStream,
     config.features.allow_globals,
     config.max_globals,
     config.section_bias.globals_percent,
@@ -9741,8 +9761,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       1
     },
   )
-  let defined_tag_count = gen_valid_choose_optional_count(
+  let defined_tag_count = gen_valid_choose_optional_count_from(
     ctx,
+    TagStream,
     config.features.allow_tags,
     config.max_tags,
     config.section_bias.tags_percent,
@@ -9785,7 +9806,11 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let has_start = config.features.allow_start &&
     (
       ctx.config.mode == CoverageForced ||
-      gen_valid_roll_percent(ctx, config.section_bias.start_percent)
+      gen_valid_roll_percent_from(
+        ctx,
+        StartStream,
+        config.section_bias.start_percent,
+      )
     )
   let total_type_users = import_func_count +
     defined_func_count +
@@ -9975,27 +10000,38 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       ValType::externref()
     } else if i == 0 &&
       !gc_type_plan.exact_ref_types.is_empty() &&
-      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
-      gc_type_plan.exact_ref_types[ctx.random_int(
+      (
+        ctx.config.mode == CoverageForced ||
+        ctx.random_int_from(GlobalStream, 3) == 0
+      ) {
+      gc_type_plan.exact_ref_types[ctx.random_int_from(
+        GlobalStream,
         gc_type_plan.exact_ref_types.length(),
       )]
     } else if i == 0 &&
       !gc_type_plan.concrete_ref_types.is_empty() &&
-      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
+      (
+        ctx.config.mode == CoverageForced ||
+        ctx.random_int_from(GlobalStream, 3) == 0
+      ) {
       gc_type_plan.concrete_ref_types[0]
     } else {
       let global_ref_types = gc_type_plan.concrete_ref_types.copy()
       for vt in gc_type_plan.exact_ref_types {
         global_ref_types.push(vt)
       }
-      gen_valid_valtype_with_extra_refs(ctx, global_ref_types)
+      gen_valid_valtype_with_extra_refs_from(
+        ctx,
+        GlobalStream,
+        global_ref_types,
+      )
     }
     let is_mut = if ctx.config.features.allow_const_expr_variants &&
       ctx.config.mode == CoverageForced &&
       i <= 1 {
       false
     } else {
-      ctx.config.mode == CoverageForced || ctx.random_bool()
+      ctx.config.mode == CoverageForced || ctx.random_bool_from(GlobalStream)
     }
     let global_type = GlobalType::new(global_vt, is_mut)
     imported_global_types.push(global_type)
@@ -10067,27 +10103,38 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0U))))
     } else if i == 0 &&
       !gc_type_plan.exact_ref_types.is_empty() &&
-      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
-      gc_type_plan.exact_ref_types[ctx.random_int(
+      (
+        ctx.config.mode == CoverageForced ||
+        ctx.random_int_from(GlobalStream, 3) == 0
+      ) {
+      gc_type_plan.exact_ref_types[ctx.random_int_from(
+        GlobalStream,
         gc_type_plan.exact_ref_types.length(),
       )]
     } else if i == 0 &&
       !gc_type_plan.concrete_ref_types.is_empty() &&
-      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
+      (
+        ctx.config.mode == CoverageForced ||
+        ctx.random_int_from(GlobalStream, 3) == 0
+      ) {
       gc_type_plan.concrete_ref_types[0]
     } else {
       let global_ref_types = gc_type_plan.concrete_ref_types.copy()
       for exact_vt in gc_type_plan.exact_ref_types {
         global_ref_types.push(exact_vt)
       }
-      gen_valid_valtype_with_extra_refs(ctx, global_ref_types)
+      gen_valid_valtype_with_extra_refs_from(
+        ctx,
+        GlobalStream,
+        global_ref_types,
+      )
     }
     let is_mut = if ctx.config.features.allow_const_expr_variants &&
       ctx.config.mode == CoverageForced &&
       i <= 1 {
       false
     } else {
-      ctx.config.mode == CoverageForced || ctx.random_bool()
+      ctx.config.mode == CoverageForced || ctx.random_bool_from(GlobalStream)
     }
     let global_type = GlobalType::new(vt, is_mut)
     globals.push(

@@ -410,6 +410,9 @@ test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
   assert_true(manifest.contains("\"feature_stats\":"))
   assert_true(manifest.contains("\"stream_derivations\":"))
   assert_true(manifest.contains("\"label\":\"module-topology\""))
+  assert_true(manifest.contains("\"label\":\"globals\""))
+  assert_true(manifest.contains("\"label\":\"tags\""))
+  assert_true(manifest.contains("\"label\":\"start\""))
   assert_true(manifest.contains("\"label\":\"bodies\""))
   assert_true(manifest.contains("\"derived_seed\":"))
 }

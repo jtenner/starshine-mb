@@ -975,6 +975,9 @@ pub enum GenValidRandomStreamLabel {
   TableStream
   DataStream
   ElemStream
+  GlobalStream
+  TagStream
+  StartStream
   InvalidStrategyChoiceStream
   InvalidMutationChoiceStream
   TextMutationChoiceStream
