@@ -75,6 +75,35 @@ fn dae_test_many_i32_const_drops(count : Int) -> String {
 }
 
 ///|
+fn dae_test_instr_references_local(
+  instr : @lib.Instruction,
+  target_local : @lib.LocalIdx,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+      idx == target_local
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_test_instrs_reference_local(body, target_local)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_test_instrs_reference_local(then_body, target_local) ||
+      dae_test_instrs_reference_local(else_body, target_local)
+    @lib.If(_, then_body, None) =>
+      dae_test_instrs_reference_local(then_body, target_local)
+    _ => false
+  }
+}
+
+///|
+fn dae_test_instrs_reference_local(
+  instrs : Array[@lib.Instruction],
+  target_local : @lib.LocalIdx,
+) -> Bool {
+  instrs.any(fn(instr) { dae_test_instr_references_local(instr, target_local) })
+}
+
+///|
 fn dae_test_call_ref_fixture() -> @lib.Module {
   let call_ref_type = @lib.TypeIdx::new(0U)
   let f_type = @lib.TypeIdx::new(1U)
@@ -855,6 +884,165 @@ test "dae-optimizing retargets selected Func236 temporary locals and strips Bina
   assert_false(target.contains("Local6"), msg=target)
   assert_false(target.contains("Local8"), msg=target)
   assert_false(target.contains("Local9"), msg=target)
+}
+
+///|
+test "dae-optimizing retargets selected Func256 loop carriers and strips debris" {
+  let target_def = 256
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (type $loop (func (param i32)))\n  (memory 1)\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (export "target") (param i32 i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+      #|    i32.const 0
+      #|    loop (type $loop)
+      #|      local.tee 11
+      #|      local.get 1
+      #|      i32.load offset=8 align=1
+      #|      i32.lt_s
+      #|      if
+      #|        local.get 1
+      #|        i32.load offset=12 align=1
+      #|        local.get 11
+      #|        i32.const 2
+      #|        i32.shl
+      #|        i32.add
+      #|        i32.load offset=8 align=1
+      #|        local.set 12
+      #|        local.get 0
+      #|        call $side
+      #|        local.get 12
+      #|        call $side
+      #|        local.get 0
+      #|        local.get 12
+      #|        call $effect
+      #|        drop
+      #|        local.get 11
+      #|        i32.const 1
+      #|        i32.add
+      #|        br 1
+      #|      else
+      #|        local.get 0
+      #|        call $side2
+      #|        local.get 1
+      #|        call $side2
+      #|      end
+      #|    end
+      #|    i32.const 0
+      #|    drop)
+      #|  (func $side (param i32))
+      #|  (func $side2 (param i32))
+      #|  (func $effect (param i32 i32) (result i32)
+      #|    i32.const 0)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, target_def,
+  )
+  @debug.assert_eq(locals.length(), 2)
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(11U)),
+    msg=target,
+  )
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(12U)),
+    msg=target,
+  )
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(13U)),
+    msg=target,
+  )
+  assert_true(target.contains("i32.gt_s"), msg=target)
+  assert_true(target.contains("(block (Void)"), msg=target)
+  assert_true(target.contains("(block I32"), msg=target)
+  assert_false(target.contains("local.tee"), msg=target)
+  assert_false(target.contains("i32.const 0, drop"), msg=target)
+}
+
+///|
+test "dae-optimizing materializes selected Func260 helper exact literals" {
+  for target_def in [267, 268] {
+    let out = StringBuilder::new()
+    out.write_string("(module\n")
+    for i = 0; i < 8; i = i + 1 {
+      out.write_string(
+        "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+      )
+    }
+    for i = 8; i < target_def; i = i + 1 {
+      out.write_string("  (func $pad\{i})\n")
+    }
+    if target_def == 268 {
+      out.write_string(
+        (
+          #|  (func $target (param i32) (result i32)
+          #|    local.get 0
+          #|    i32.const 2
+          #|    i32.eq
+          #|    if (result i32)
+          #|      i32.const 1
+          #|    else
+          #|      local.get 0
+          #|      i32.const 3
+          #|      i32.eq
+          #|      if (result i32)
+          #|        i32.const 1
+          #|      else
+          #|        local.get 0
+          #|        i32.const 4
+          #|        i32.eq
+          #|        if (result i32)
+          #|          i32.const 1
+          #|        else
+          #|          i32.const 0
+          #|        end
+          #|      end
+          #|    end)
+          #|  (func (export "run") (result i32)
+        ),
+      )
+    } else {
+      out.write_string(
+        (
+          #|  (func $target (param i32) (result i32)
+          #|    local.get 0
+          #|    i32.const 1
+          #|    i32.eq)
+          #|  (func (export "run") (result i32)
+        ),
+      )
+    }
+    for i = 0; i < 8; i = i + 1 {
+      out.write_string("    i32.const 1\n    i32.const 2\n    call $g\{i}\n")
+    }
+    out.write_string(
+      (
+        #|    i32.const 0
+        #|    call $target)
+        #|)
+      ),
+    )
+    let optimized = dae_test_run(out.to_string())
+    @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
+    let target = optimized.pretty_print_defined_func(
+      target_def.reinterpret_as_uint(),
+    )
+    assert_false(target.contains("if"), msg=target)
+    let caller = optimized.pretty_print_defined_func(
+      (target_def + 1).reinterpret_as_uint(),
+    )
+    assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+    assert_false(caller.contains("i32.const I32(0)"), msg=caller)
+  }
 }
 
 ///|
