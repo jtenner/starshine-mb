@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 memory.grow invalid AST coverage
+
+- Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-memory-grow-delta-type`.
+- Added focused invalid-strategy and repair tests proving an `i64` page-delta operand for memory32 `memory.grow` rejects with the function-body family while the repaired `i32` operand validates.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living AST-invalid strategy summary names `memory.grow` page-delta coverage alongside memory address/store variants.
+
 ## [2026-05-23] fuzzing | FUZ1020 table.fill invalid AST coverage
 
 - Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-table-fill-value-type`.

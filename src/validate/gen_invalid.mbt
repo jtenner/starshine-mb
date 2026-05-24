@@ -236,6 +236,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory64-address-type"
     InvalidFunctionBodyMemoryStoreValueType =>
       "invalid-function-body-memory-store-value-type"
+    InvalidFunctionBodyMemoryGrowDeltaType =>
+      "invalid-function-body-memory-grow-delta-type"
     InvalidFunctionBodyLocalSetValueType =>
       "invalid-function-body-local-set-value-type"
     InvalidFunctionBodyLocalTeeValueType =>
