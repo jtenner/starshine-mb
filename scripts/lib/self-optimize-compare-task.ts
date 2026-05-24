@@ -21,6 +21,7 @@ type SelfOptimizeCompareOptions = {
   binaryenNopRoundtrips: number;
   binaryenNopUntilStableMaxRoundtrips: number | null;
   requireBinaryenNopConverged: boolean;
+  canonicalizeBinaryenOutput: boolean;
   passFlags: string[];
 };
 
@@ -33,6 +34,7 @@ type ComparisonSummary = {
   binaryenNopRoundtrips: number;
   binaryenNopConverged: boolean | null;
   binaryenNopUntilStableMaxRoundtrips: number | null;
+  canonicalizeBinaryenOutput: boolean;
   starshineCommand: string[];
   binaryenCommand: string[];
   starshineSize: number;
@@ -1397,6 +1399,7 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
   let binaryenNopRoundtrips = 0;
   let binaryenNopUntilStableMaxRoundtrips: number | null = null;
   let requireBinaryenNopConverged = false;
+  let canonicalizeBinaryenOutput = false;
   const passFlags: string[] = [];
 
   for (let i = 0; i < argv.length; ) {
@@ -1432,6 +1435,10 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
         break;
       case "--require-binaryen-nop-converged":
         requireBinaryenNopConverged = true;
+        i += 1;
+        break;
+      case "--canonicalize-binaryen-output":
+        canonicalizeBinaryenOutput = true;
         i += 1;
         break;
       default:
@@ -1475,6 +1482,7 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
     binaryenNopRoundtrips,
     binaryenNopUntilStableMaxRoundtrips,
     requireBinaryenNopConverged,
+    canonicalizeBinaryenOutput,
     passFlags,
   };
 }
@@ -1586,10 +1594,14 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     starshineRun.stderr,
   );
   canonicalizeWasm(options.wasmOptBin, starshineRawOutputPath, starshineOutputPath, repoRoot);
-  // Binaryen's direct output is the reference artifact we want to match; keep
-  // it verbatim so the published compare pair answers "did Starshine reach the
-  // Binaryen bytes?" instead of "did both survive another rewrite step?".
-  fs.copyFileSync(binaryenRawOutputPath, binaryenOutputPath);
+  if (options.canonicalizeBinaryenOutput) {
+    canonicalizeWasm(options.wasmOptBin, binaryenRawOutputPath, binaryenOutputPath, repoRoot);
+  } else {
+    // Binaryen's direct output is the reference artifact we want to match; keep
+    // it verbatim so the published compare pair answers "did Starshine reach the
+    // Binaryen bytes?" instead of "did both survive another rewrite step?".
+    fs.copyFileSync(binaryenRawOutputPath, binaryenOutputPath);
+  }
 
   printNormalizedWat(options.wasmOptBin, starshineOutputPath, repoRoot, starshineWatPath);
   printNormalizedWat(options.wasmOptBin, binaryenOutputPath, repoRoot, binaryenWatPath);
@@ -1649,6 +1661,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenNopRoundtrips: binaryenNopPrep.roundtripsApplied,
     binaryenNopConverged: binaryenNopPrep.converged,
     binaryenNopUntilStableMaxRoundtrips: binaryenNopPrep.untilStableMaxRoundtrips,
+    canonicalizeBinaryenOutput: options.canonicalizeBinaryenOutput,
     starshineCommand: [starshineInvocation.command, ...starshineArgs],
     binaryenCommand: [options.wasmOptBin, ...binaryenArgs],
     starshineSize: fs.statSync(starshineOutputPath).size,
@@ -1684,6 +1697,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Starshine wasm: ${starshineOutputPath}\n`);
   process.stdout.write(`Binaryen wasm: ${binaryenOutputPath}\n`);
   process.stdout.write(`Binaryen no-pass roundtrips: ${summary.binaryenNopRoundtrips}\n`);
+  process.stdout.write(`Canonicalize Binaryen output: ${summary.canonicalizeBinaryenOutput ? "yes" : "no"}\n`);
   if (summary.binaryenNopConverged !== null) {
     process.stdout.write(`Binaryen no-pass converged: ${summary.binaryenNopConverged ? "yes" : "no"}\n`);
   }
