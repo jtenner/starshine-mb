@@ -1885,6 +1885,50 @@ test "gen_invalid_ast_generate supports function-body table.fill value type stra
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body memory.size index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d3cUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemorySizeIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-function-body-memory-size-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body memory.grow index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d3dUL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryGrowIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-function-body-memory-grow-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body memory.grow delta type strategy" {
   let generated = match
     gen_invalid_ast_generate(

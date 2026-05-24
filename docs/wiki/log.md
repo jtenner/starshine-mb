@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 memory index invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-memory-size-index` and `invalid-function-body-memory-grow-index` for out-of-range memory immediate indices on `memory.size` and `memory.grow`.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving the bad memory-index immediates reject while declared memory index `0` validates for both instructions.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name the new memory-index coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 memory64 copy invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-memory64-copy-length-type`, `invalid-function-body-memory64-copy-source-type`, and `invalid-function-body-memory64-copy-dest-type` for memory64-to-memory64 `memory.copy` stack-type failures.

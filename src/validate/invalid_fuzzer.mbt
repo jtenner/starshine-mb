@@ -92,6 +92,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemory64StoreAddressType
   InvalidFunctionBodyMemoryStoreValueType
   InvalidFunctionBodyMemory64StoreValueType
+  InvalidFunctionBodyMemorySizeIndex
+  InvalidFunctionBodyMemoryGrowIndex
   InvalidFunctionBodyMemoryGrowDeltaType
   InvalidFunctionBodyMemoryFillValueType
   InvalidFunctionBodyMemoryCopyLengthType
@@ -644,6 +646,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyMemory64StoreValueType,
       "invalid-function-body-memory64-store-value-type",
       "invalid function-body memory64 store value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemorySizeIndex,
+      "invalid-function-body-memory-size-index",
+      "invalid function-body memory.size index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryGrowIndex,
+      "invalid-function-body-memory-grow-index",
+      "invalid function-body memory.grow index",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -1473,6 +1489,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemory64StoreAddressType => 151
     InvalidFunctionBodyMemoryStoreValueType => 46
     InvalidFunctionBodyMemory64StoreValueType => 152
+    InvalidFunctionBodyMemorySizeIndex => 156
+    InvalidFunctionBodyMemoryGrowIndex => 157
     InvalidFunctionBodyMemoryGrowDeltaType => 70
     InvalidFunctionBodyMemoryFillValueType => 71
     InvalidFunctionBodyMemoryCopyLengthType => 72
@@ -3292,6 +3310,59 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory64_store_value_type(
   )
   {
     strategy: InvalidFunctionBodyMemory64StoreValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_size_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_mem_idx = MemIdx::new(
+    validate_invalid_ast_total_mem_count(mod).reinterpret_as_uint(),
+  )
+  let body = Expr::new([
+    Instruction::memory_size(bad_mem_idx),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemorySizeIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_grow_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_mem_idx = MemIdx::new(
+    validate_invalid_ast_total_mem_count(mod).reinterpret_as_uint(),
+  )
+  let body = Expr::new([
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_grow(bad_mem_idx),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryGrowIndex,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -6652,6 +6723,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory64_store_value_type(
           base,
         )
+      InvalidFunctionBodyMemorySizeIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_size_index(
+          base,
+        )
+      InvalidFunctionBodyMemoryGrowIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_grow_index(
+          base,
+        )
       InvalidFunctionBodyMemoryGrowDeltaType =>
         validate_invalid_ast_mutate_invalid_function_body_memory_grow_delta_type(
           base,
@@ -7414,6 +7493,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-memory-address-type", "invalid-function-body-memory64-address-type",
     "invalid-function-body-memory-store-address-type", "invalid-function-body-memory64-store-address-type",
     "invalid-function-body-memory-store-value-type", "invalid-function-body-memory64-store-value-type",
+    "invalid-function-body-memory-size-index", "invalid-function-body-memory-grow-index",
     "invalid-function-body-memory-grow-delta-type", "invalid-function-body-memory-fill-value-type",
     "invalid-function-body-memory-copy-length-type", "invalid-function-body-memory-copy-source-type",
     "invalid-function-body-memory-copy-dest-type", "invalid-function-body-memory64-copy-length-type",
@@ -11738,6 +11818,91 @@ test "function-body memory.init dest mutation repairs by using matching dest typ
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired memory.init dest module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory.size index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemorySizeIndex,
+      0x10d3cUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory.size index mutation repairs by using declared memory index" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_size_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("memory.size with out-of-range memory index should reject")
+    Err(_) => ()
+  }
+  let repaired_body = Expr::new([
+    Instruction::memory_size(MemIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new().with_mem_sec(
+      MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+    ),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("repaired memory.size index module should validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory.grow index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryGrowIndex,
+      0x10d3dUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory.grow index mutation repairs by using declared memory index" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_grow_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("memory.grow with out-of-range memory index should reject")
+    Err(_) => ()
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_grow(MemIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new().with_mem_sec(
+      MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+    ),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("repaired memory.grow index module should validate: \{err}")
   }
 }
 
