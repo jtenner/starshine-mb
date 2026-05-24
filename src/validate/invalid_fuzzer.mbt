@@ -117,6 +117,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableSizeIndex
   InvalidFunctionBodyTableSetIndexType
   InvalidFunctionBodyCallIndirectIndexType
+  InvalidFunctionBodyReturnCallIndirectIndexType
   InvalidFunctionBodyTableSetValueType
   InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
@@ -759,6 +760,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyReturnCallIndirectIndexType,
+      "invalid-function-body-return-call-indirect-index-type",
+      "invalid function-body return_call_indirect table index type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyTableSetValueType,
       "invalid-function-body-table-set-value-type",
       "invalid function-body table.set value type",
@@ -986,6 +994,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyTableSizeIndex => 86
     InvalidFunctionBodyTableSetIndexType => 90
     InvalidFunctionBodyCallIndirectIndexType => 91
+    InvalidFunctionBodyReturnCallIndirectIndexType => 92
     InvalidFunctionBodyTableSetValueType => 62
     InvalidFunctionBodyGlobalSetValueType => 63
     InvalidMemoryNameSectionIndex => 47
@@ -3424,26 +3433,30 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_set_index_type(
 }
 
 ///|
+fn validate_invalid_ast_make_indirect_call_base() -> Module {
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+  )
+  .with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_call_indirect_index_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
   ignore(mod)
-  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
-  let with_table = Module::new()
-    .with_type_sec(
-      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
-    )
-    .with_table_sec(
-      TableSec::new([
-        Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
-      ]),
-    )
   let body = Expr::new([
     Instruction::i64_const(I64(0)),
     Instruction::call_indirect(TypeIdx::new(0U), TableIdx::new(0U)),
   ])
   let (with_func, _, _) = validate_invalid_ast_append_defined_func(
-    with_table,
+    validate_invalid_ast_make_indirect_call_base(),
     [],
     [],
     Locals::empty(),
@@ -3451,6 +3464,30 @@ fn validate_invalid_ast_mutate_invalid_function_body_call_indirect_index_type(
   )
   {
     strategy: InvalidFunctionBodyCallIndirectIndexType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_return_call_indirect_index_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i64_const(I64(0)),
+    Instruction::return_call_indirect(TypeIdx::new(0U), TableIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_make_indirect_call_base(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyReturnCallIndirectIndexType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -4343,6 +4380,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_call_indirect_index_type(
           base,
         )
+      InvalidFunctionBodyReturnCallIndirectIndexType =>
+        validate_invalid_ast_mutate_invalid_function_body_return_call_indirect_index_type(
+          base,
+        )
       InvalidFunctionBodyTableSetValueType =>
         validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
           base,
@@ -4769,13 +4810,13 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-table-init-source-type", "invalid-function-body-table-init-dest-type",
     "invalid-function-body-data-drop-index", "invalid-function-body-elem-drop-index",
     "invalid-function-body-table-size-index", "invalid-function-body-table-set-index-type",
-    "invalid-function-body-call-indirect-index-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-call-indirect-index-type", "invalid-function-body-return-call-indirect-index-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -5691,6 +5732,64 @@ test "function-body call_indirect index mutation repairs by using i32 table indi
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired call_indirect index module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid return_call_indirect index type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyReturnCallIndirectIndexType,
+      0x10cfdUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body return_call_indirect index mutation repairs by using i32 table indices" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_return_call_indirect_index_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected mismatched return_call_indirect table index type to reject",
+      )
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let with_table = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+    )
+    .with_table_sec(
+      TableSec::new([
+        Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+      ]),
+    )
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_table,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::i32_const(I32(0)),
+      Instruction::return_call_indirect(TypeIdx::new(0U), TableIdx::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired return_call_indirect index module to validate: \{err}",
+      )
   }
 }
 
