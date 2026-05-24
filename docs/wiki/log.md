@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 table.copy table-index invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-table-copy-dest-index` and `invalid-function-body-table-copy-source-index`, deterministic function-body AST mutations that keep `table.copy` operands well typed while corrupting destination/source table immediates independently to the first out-of-range table index.
+- Added focused strategy, repair, and `gen_invalid` tests proving both mutated modules reject with the function-body family while the declared-table `table.copy` form validates.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries distinguish `table.copy` operand stack typing from table-immediate coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 imported ref-type invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-imported-table-ref-type` and `invalid-imported-global-ref-type`, deterministic import-section AST mutations that append table/global imports whose reference type points at a missing heap type index.

@@ -132,6 +132,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableCopyLengthType
   InvalidFunctionBodyTableCopySourceType
   InvalidFunctionBodyTableCopyDestType
+  InvalidFunctionBodyTableCopyDestIndex
+  InvalidFunctionBodyTableCopySourceIndex
   InvalidFunctionBodyTableInitLengthType
   InvalidFunctionBodyTableInitSourceType
   InvalidFunctionBodyTableInitDestType
@@ -1114,6 +1116,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidFunctionBodyTableCopyDestType,
       "invalid-function-body-table-copy-dest-type",
       "invalid function-body table.copy dest type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTableCopyDestIndex,
+      "invalid-function-body-table-copy-dest-index",
+      "invalid function-body table.copy destination table index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyTableCopySourceIndex,
+      "invalid-function-body-table-copy-source-index",
+      "invalid function-body table.copy source table index",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -2112,6 +2128,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyTableCopyLengthType => 78
     InvalidFunctionBodyTableCopySourceType => 79
     InvalidFunctionBodyTableCopyDestType => 80
+    InvalidFunctionBodyTableCopyDestIndex => 229
+    InvalidFunctionBodyTableCopySourceIndex => 230
     InvalidFunctionBodyTableInitLengthType => 81
     InvalidFunctionBodyTableInitSourceType => 82
     InvalidFunctionBodyTableInitDestType => 83
@@ -5090,6 +5108,68 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_copy_dest_type(
   )
   {
     strategy: InvalidFunctionBodyTableCopyDestType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_table_copy_base_module() -> Module {
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_copy_dest_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_copy(TableIdx::new(1U), TableIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_table_copy_base_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTableCopyDestIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_table_copy_source_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_copy(TableIdx::new(0U), TableIdx::new(1U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_table_copy_base_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyTableCopySourceIndex,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -9374,6 +9454,14 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_table_copy_dest_type(
           base,
         )
+      InvalidFunctionBodyTableCopyDestIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_table_copy_dest_index(
+          base,
+        )
+      InvalidFunctionBodyTableCopySourceIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_table_copy_source_index(
+          base,
+        )
       InvalidFunctionBodyTableInitLengthType =>
         validate_invalid_ast_mutate_invalid_function_body_table_init_length_type(
           base,
@@ -10262,6 +10350,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-table-fill-value-type", "invalid-function-body-table-fill-dest-type",
     "invalid-function-body-table-fill-length-type", "invalid-function-body-table-copy-length-type",
     "invalid-function-body-table-copy-source-type", "invalid-function-body-table-copy-dest-type",
+    "invalid-function-body-table-copy-dest-index", "invalid-function-body-table-copy-source-index",
     "invalid-function-body-table-init-length-type", "invalid-function-body-table-init-source-type",
     "invalid-function-body-table-init-dest-type", "invalid-function-body-table-init-elem-index",
     "invalid-function-body-table-init-table-index", "invalid-function-body-data-drop-index",
@@ -13922,6 +14011,72 @@ test "invalid table.copy dest type strategy rejects with FunctionBody family" {
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid table.copy dest index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTableCopyDestIndex,
+      0x10d70UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid table.copy source index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyTableCopySourceIndex,
+      0x10d71UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body table.copy index mutations repair by using declared tables" {
+  for
+    mutation in [
+      validate_invalid_ast_mutate_invalid_function_body_table_copy_dest_index(
+        Module::new(),
+      ),
+      validate_invalid_ast_mutate_invalid_function_body_table_copy_source_index(
+        Module::new(),
+      ),
+    ] {
+    match validate_module(mutation.mutated_module) {
+      Ok(_) => fail("expected out-of-range table.copy table index to reject")
+      Err(err) =>
+        assert_true(
+          validation_issue_family(validation_error_diagnostic(err).issue) ==
+          FunctionBodyFamily,
+        )
+    }
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::table_copy(TableIdx::new(0U), TableIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_table_copy_base_module(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired table.copy index module to validate: \{err}")
   }
 }
 

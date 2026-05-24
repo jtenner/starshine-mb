@@ -1101,6 +1101,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableCopyLengthType
   InvalidFunctionBodyTableCopySourceType
   InvalidFunctionBodyTableCopyDestType
+  InvalidFunctionBodyTableCopyDestIndex
+  InvalidFunctionBodyTableCopySourceIndex
   InvalidFunctionBodyTableInitLengthType
   InvalidFunctionBodyTableInitSourceType
   InvalidFunctionBodyTableInitDestType

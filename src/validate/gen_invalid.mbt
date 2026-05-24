@@ -322,6 +322,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-table-copy-source-type"
     InvalidFunctionBodyTableCopyDestType =>
       "invalid-function-body-table-copy-dest-type"
+    InvalidFunctionBodyTableCopyDestIndex =>
+      "invalid-function-body-table-copy-dest-index"
+    InvalidFunctionBodyTableCopySourceIndex =>
+      "invalid-function-body-table-copy-source-index"
     InvalidFunctionBodyTableInitLengthType =>
       "invalid-function-body-table-init-length-type"
     InvalidFunctionBodyTableInitSourceType =>
