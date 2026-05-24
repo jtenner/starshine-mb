@@ -14,6 +14,7 @@ pub enum MetamorphicValidTransform {
   AddTypeNamesSection
   AddGlobalNamesSection
   AddTableNamesSection
+  AddMemoryNamesSection
 } derive(Eq, Debug)
 
 ///|
@@ -36,6 +37,7 @@ pub fn metamorphic_valid_transform_id(
     AddTypeNamesSection => "add-type-names-section"
     AddGlobalNamesSection => "add-global-names-section"
     AddTableNamesSection => "add-table-names-section"
+    AddMemoryNamesSection => "add-memory-names-section"
   }
 }
 
@@ -221,6 +223,32 @@ fn metamorphic_with_name_sec_table_names(
 }
 
 ///|
+fn metamorphic_with_name_sec_memory_names(
+  mod : @lib.Module,
+  memory_names : @lib.NameMap,
+) -> @lib.Module {
+  let name_sec = match mod.name_sec {
+    Some(existing) =>
+      @lib.NameSec::new(
+        module_name=existing.module_name,
+        func_names=existing.func_names,
+        local_names=existing.local_names,
+        label_names=existing.label_names,
+        type_names=existing.type_names,
+        table_names=existing.table_names,
+        memory_names=Some(memory_names),
+        global_names=existing.global_names,
+        elem_names=existing.elem_names,
+        data_names=existing.data_names,
+        field_names=existing.field_names,
+        tag_names=existing.tag_names,
+      )
+    None => @lib.NameSec::new(memory_names=Some(memory_names))
+  }
+  mod.with_name_sec(name_sec)
+}
+
+///|
 fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
   mod.with_name_sec(
     @lib.NameSec::new(
@@ -373,6 +401,35 @@ fn metamorphic_add_table_names_section(mod : @lib.Module) -> @lib.Module {
     )
   }
   metamorphic_with_name_sec_table_names(mod, @lib.NameMap::new(names))
+}
+
+///|
+fn metamorphic_add_memory_names_section(mod : @lib.Module) -> @lib.Module {
+  let names = []
+  let mut count = 0
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.MemExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.mem_sec {
+    Some(@lib.MemSec(mems)) => count += mems.length()
+    None => ()
+  }
+  for i = 0; i < count; i = i + 1 {
+    names.push(
+      @lib.NameAssoc::new(
+        i.reinterpret_as_uint(),
+        @lib.Name::from_string("metamorphic_memory_\{i}"),
+      ),
+    )
+  }
+  metamorphic_with_name_sec_memory_names(mod, @lib.NameMap::new(names))
 }
 
 ///|
@@ -619,6 +676,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTypeNamesSection,
     AddGlobalNamesSection,
     AddTableNamesSection,
+    AddMemoryNamesSection,
   ]
 }
 
@@ -647,6 +705,7 @@ pub fn metamorphic_apply_transform(
     AddTypeNamesSection => metamorphic_add_type_names_section(mod)
     AddGlobalNamesSection => metamorphic_add_global_names_section(mod)
     AddTableNamesSection => metamorphic_add_table_names_section(mod)
+    AddMemoryNamesSection => metamorphic_add_memory_names_section(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>

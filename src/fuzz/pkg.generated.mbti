@@ -358,6 +358,7 @@ pub enum MetamorphicValidTransform {
   AddTypeNamesSection
   AddGlobalNamesSection
   AddTableNamesSection
+  AddMemoryNamesSection
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {
