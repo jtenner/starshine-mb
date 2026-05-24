@@ -2415,6 +2415,58 @@ test "simplify-globals-optimizing keeps read-only-to-write body side effects" {
 }
 
 ///|
+test "simplify-globals-optimizing keeps function-effects generated-effects positive conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $A (mut i32) (i32.const 10))
+      #|  (global $B (mut i32) (i32.const 20))
+      #|  (global $C (mut i32) (i32.const 30))
+      #|  (func $set
+      #|    (global.set $A
+      #|      (i32.const 0)))
+      #|  (func $test (result i32)
+      #|    (global.set $A
+      #|      (i32.const 11))
+      #|    (global.set $C
+      #|      (i32.const 33))
+      #|    (drop
+      #|      (global.get $A))
+      #|    (drop
+      #|      (global.get $B))
+      #|    (drop
+      #|      (global.get $C))
+      #|    (call $set)
+      #|    (i32.add
+      #|      (i32.add
+      #|        (global.get $A)
+      #|        (global.get $B))
+      #|      (global.get $C)))
+      #|)
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 2),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let test_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(test_pretty.contains("call (Func 0)"), msg=test_pretty)
+  assert_true(test_pretty.contains("global.get (Global 0)"), msg=test_pretty)
+  assert_true(test_pretty.contains("global.get (Global 2)"), msg=test_pretty)
+  assert_true(test_pretty.contains("I32(20)"), msg=test_pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps function-effects get-call read-only-to-write negative" {
   let optimized = sgo_test_run(
     (
