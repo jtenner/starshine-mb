@@ -3257,12 +3257,9 @@ fn sgo_count_block_condition_eqz_read_only_to_write_read(
     (@lib.Loop(_, @lib.Expr(body)), @lib.If(_, then_body, None)) if eqz ==
       @lib.Instruction::i32_eqz() =>
       match sgo_single_const_global_set_idx(then_body) {
-        Some(idx) =>
-          match sgo_block_condition_direct_read_idx(body) {
-            Some(read_idx) if read_idx == idx =>
-              sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-            _ => ()
-          }
+        Some(idx) if sgo_block_condition_pure_read_matches(body, idx) =>
+          sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+        Some(_) => ()
         None => ()
       }
     _ => ()
