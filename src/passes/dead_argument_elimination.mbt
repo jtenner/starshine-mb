@@ -17236,7 +17236,7 @@ fn dae_try_rewrite_func408_pair_if_carrier_body_once(
         let mut pure_prefix_idx = idx + 4
         while pure_prefix_idx < result_get_idx {
           match body[pure_prefix_idx] {
-            @lib.I32Const(_) | @lib.LocalGet(_) => ()
+            @lib.I32Const(_) | @lib.LocalGet(_) | @lib.Nop => ()
             _ => return None
           }
           pure_prefix_idx += 1

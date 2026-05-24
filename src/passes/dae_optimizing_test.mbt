@@ -3114,6 +3114,7 @@ test "dae-optimizing reshapes selected Func408 pair-if carrier" {
       #|      return
       #|    end
       #|    local.set 1
+      #|    nop
       #|    i32.const 1
       #|    local.get 0
       #|    local.get 1
