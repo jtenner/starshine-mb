@@ -463,6 +463,12 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-swizzle-input-type"
     InvalidFunctionBodySimdBitselectMaskType =>
       "invalid-function-body-simd-bitselect-mask-type"
+    InvalidFunctionBodySimdExtractInputType =>
+      "invalid-function-body-simd-extract-input-type"
+    InvalidFunctionBodySimdReplaceVectorType =>
+      "invalid-function-body-simd-replace-vector-type"
+    InvalidFunctionBodySimdReplaceValueType =>
+      "invalid-function-body-simd-replace-value-type"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>

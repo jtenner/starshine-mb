@@ -125,7 +125,7 @@ A new validator family is not done when the validator rejects. It is done when a
 5. Apply the invalid mutation.
 6. Validate that the mutated module rejects with the strategy's expected family.
 
-The tests in [`src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt) lock the important cases: valid seed before mutation, expected family after mutation, minimal seeds, seed-profile naming, prereq widening, representative type/import/function/element/tag/datacount/export/start families, and focused function-body operand-stack mismatches for call, branch, `if`, untyped select, exception, memory, table, bulk-table, local, global, return, reference-cast, reference-test, reference-branch cast, SIMD lane-index, and SIMD operand stack-type instructions.
+The tests in [`src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt) lock the important cases: valid seed before mutation, expected family after mutation, minimal seeds, seed-profile naming, prereq widening, representative type/import/function/element/tag/datacount/export/start families, and focused function-body operand-stack mismatches for call, branch, `if`, untyped select, exception, memory, table, bulk-table, local, global, return, reference-cast, reference-test, reference-branch cast, SIMD lane-index, and SIMD operand stack-type instructions including splat, swizzle, bitselect, extract, and replace forms.
 
 Use `repro_seed(...)` for persisted reports by default. It keeps artifacts compact while preserving the semantic seed profile in report metadata.
 
