@@ -13903,6 +13903,236 @@ fn dae_try_compact_selected_func287_setup_locals_once(
 }
 
 ///|
+fn dae_func288_zero_address_local_slot(slot : Int) -> Bool {
+  slot == 15 ||
+  slot == 17 ||
+  slot == 19 ||
+  slot == 21 ||
+  slot == 23 ||
+  slot == 25 ||
+  slot == 27 ||
+  slot == 29 ||
+  slot == 31 ||
+  slot == 34 ||
+  slot == 36 ||
+  slot == 39 ||
+  slot == 41
+}
+
+///|
+fn dae_prepare_func288_zero_address_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(idx) if dae_func288_zero_address_local_slot(
+          dae_local_idx_slot(idx),
+        ) => out.push(@lib.Instruction::i32_const(@lib.I32(0)))
+      @lib.LocalTee(idx) if dae_func288_zero_address_local_slot(
+          dae_local_idx_slot(idx),
+        ) =>
+        if out.length() == 0 ||
+          out[out.length() - 1] != @lib.Instruction::i32_const(@lib.I32(0)) {
+          return None
+        }
+      @lib.I32Load(@lib.MemArg(align, mem_idx, offset)) => {
+        let folded_const = match offset {
+          @lib.U64(8) => Some(@lib.I32(8))
+          @lib.U64(12) => Some(@lib.I32(12))
+          _ => None
+        }
+        match folded_const {
+          Some(const_value) if out.length() > 0 &&
+            out[out.length() - 1] == @lib.Instruction::i32_const(@lib.I32(0)) => {
+            out[out.length() - 1] = @lib.Instruction::i32_const(const_value)
+            out.push(
+              @lib.Instruction::i32_load(
+                @lib.MemArg::new(align, mem_idx, @lib.U64(0)),
+              ),
+            )
+          }
+          _ => out.push(instr)
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        match dae_prepare_func288_zero_address_instrs(body) {
+          Some(rewritten) =>
+            out.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(rewritten)),
+            )
+          None => return None
+        }
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        match dae_prepare_func288_zero_address_instrs(body) {
+          Some(rewritten) =>
+            out.push(
+              @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)),
+            )
+          None => return None
+        }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        match dae_prepare_func288_zero_address_instrs(body) {
+          Some(rewritten) =>
+            out.push(
+              @lib.Instruction::try_table(
+                block_type,
+                catches,
+                @lib.Expr::new(rewritten),
+              ),
+            )
+          None => return None
+        }
+      @lib.If(block_type, then_body, Some(else_body)) =>
+        match
+          (
+            dae_prepare_func288_zero_address_instrs(then_body),
+            dae_prepare_func288_zero_address_instrs(else_body),
+          ) {
+          (Some(then_rewritten), Some(else_rewritten)) =>
+            out.push(
+              @lib.Instruction::if_(
+                block_type,
+                then_rewritten,
+                Some(else_rewritten),
+              ),
+            )
+          _ => return None
+        }
+      @lib.If(block_type, then_body, None) =>
+        match dae_prepare_func288_zero_address_instrs(then_body) {
+          Some(then_rewritten) =>
+            out.push(@lib.Instruction::if_(block_type, then_rewritten, None))
+          None => return None
+        }
+      _ => out.push(instr)
+    }
+  }
+  Some(out)
+}
+
+///|
+fn dae_func288_instrs_reference_unmapped_local(
+  instrs : Array[@lib.Instruction],
+  local_map : Array[Int],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) => {
+        let slot = dae_local_idx_slot(idx)
+        if slot < 0 || slot >= local_map.length() || local_map[slot] < 0 {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if dae_func288_instrs_reference_unmapped_local(body, local_map) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if dae_func288_instrs_reference_unmapped_local(then_body, local_map) ||
+          dae_func288_instrs_reference_unmapped_local(else_body, local_map) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if dae_func288_instrs_reference_unmapped_local(then_body, local_map) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn dae_func288_local_map() -> Array[Int] {
+  let local_map = Array::make(118, -1)
+  for slot in [0, 1, 2, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14] {
+    local_map[slot] = 0
+  }
+  for slot in [3, 6] {
+    local_map[slot] = 1
+  }
+  for slot in [32, 37, 43, 44, 45, 46, 48, 50, 52, 54, 55, 56, 57, 58, 59, 60] {
+    local_map[slot] = 0
+  }
+  for slot in [49, 51, 53] {
+    local_map[slot] = 2
+  }
+  for slot in [61, 62, 63, 66, 70, 71, 72, 73, 74, 75, 84, 87] {
+    local_map[slot] = 1
+  }
+  for slot in [64, 65, 67, 68, 69, 76, 77, 78, 79, 80, 81, 82, 83, 86, 89, 90] {
+    local_map[slot] = 0
+  }
+  for slot in [91, 93, 95, 97, 99, 101, 103, 105, 109, 111, 115] {
+    local_map[slot] = 1
+  }
+  for slot in [107, 113] {
+    local_map[slot] = 2
+  }
+  local_map
+}
+
+///|
+fn dae_try_compact_selected_func288_switch_carriers_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let def_idx = 288
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() != 118 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let prepared = match dae_prepare_func288_zero_address_instrs(body) {
+    Some(prepared) => prepared
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let local_map = dae_func288_local_map()
+  if dae_func288_instrs_reference_unmapped_local(prepared, local_map) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(
+    dae_rewrite_locals_instrs(prepared, local_map),
+  )
+  if rewritten == body {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+    @lib.Expr::new(rewritten),
+  )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
 fn dae_try_strip_selected_func237_raw_debris_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -16217,6 +16447,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       touched = dae_merge_touched(touched, selected_func287_setup.touched)
       trace(
         "pass[dae-optimizing]:selected-func287-setup-locals primary_def=\{selected_func287_setup.primary_def}",
+      )
+      changed = true
+    }
+  }
+  if 288 < selected_scratch_defs.length() {
+    selected_scratch_defs[288] = true
+    let selected_func288_carriers = dae_try_compact_selected_func288_switch_carriers_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[288] = false
+    if selected_func288_carriers.changed {
+      current = selected_func288_carriers.mod_out
+      touched = dae_merge_touched(touched, selected_func288_carriers.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func288-switch-carriers primary_def=\{selected_func288_carriers.primary_def}",
       )
       changed = true
     }

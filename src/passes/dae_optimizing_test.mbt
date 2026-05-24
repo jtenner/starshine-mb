@@ -1562,6 +1562,52 @@ test "dae-optimizing compacts selected Func287 setup locals after default remova
 }
 
 ///|
+test "dae-optimizing compacts selected Func288 switch carrier locals" {
+  let caller_def = 288
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (memory 1)\n")
+  for i = 0; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    "  (func $caller (export \"run\") (result i32)\n    " +
+    dae_test_many_i32_locals(118) +
+    (
+      #|
+      #|    nop
+      #|    i32.const 0
+      #|    local.tee 15
+      #|    i32.load offset=8 align=1
+      #|    local.set 76
+      #|    local.get 15
+      #|    i32.load align=1
+      #|    local.tee 91
+      #|    drop
+      #|    local.get 76
+      #|    local.set 14
+      #|    local.get 14)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, _) = dae_test_defined_func(optimized, caller_def)
+  @debug.assert_eq(locals.length(), 3)
+  assert_false(caller.contains("nop"), msg=caller)
+  assert_false(caller.contains("(Local 14)"), msg=caller)
+  assert_false(caller.contains("(Local 15)"), msg=caller)
+  assert_false(caller.contains("(Local 76)"), msg=caller)
+  assert_false(caller.contains("(Local 91)"), msg=caller)
+  assert_false(caller.contains("offset=U64(8)"), msg=caller)
+  assert_true(caller.contains("i32.const I32(8)"), msg=caller)
+  assert_true(caller.contains("(local.set (Local 0))"), msg=caller)
+  assert_true(caller.contains("(local.set (Local 1))"), msg=caller)
+}
+
+///|
 test "dae-optimizing removes selected Func4206 middle default before call-produced actual" {
   let first_caller_def = 285
   let second_caller_def = 1780

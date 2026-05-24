@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func288 switch-carrier parity
+
+- Added a selected Func288 switch-carrier compaction in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that replaces the observed zero-address scratch locals with constants, remaps the switch-carrier locals into Binaryen's `$0/$1/$2` shape, strips self-copies/`nop`s, and folds zero-base load offsets into constant addresses.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the selected Func288 local compaction and zero-base offset fold.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func288-carrier-offset-artifact` validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, keeps the first diff at `defined=288 abs=305`, and leaves Func288's outer `return (block (result i32) ...)` wrapper/control-label shape as the next frontier.
+
 ## [2026-05-24] passes | dae Func287 setup-local parity
 
 - Added a selected Func287 setup-local compaction in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that strips the leading `nop`, maps the high setup locals into Binaryen's `$0/$1` shape, and trims unused declarations after exact straight-line body checks.
