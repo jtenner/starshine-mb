@@ -1526,6 +1526,15 @@ pub fn gen_valid_stream_random_state(
 ///|
 struct GenValidContext {
   rnd : RandomState
+  module_topology_rnd : RandomState
+  type_rnd : RandomState
+  func_rnd : RandomState
+  body_rnd : RandomState
+  memory_rnd : RandomState
+  table_rnd : RandomState
+  data_rnd : RandomState
+  elem_rnd : RandomState
+  use_named_streams : Bool
   config : GenValidConfig
 }
 
@@ -1976,7 +1985,42 @@ fn GenValidContext::new(
   rnd : RandomState,
   config : GenValidConfig,
 ) -> GenValidContext {
-  { rnd, config }
+  {
+    rnd,
+    module_topology_rnd: rnd,
+    type_rnd: rnd,
+    func_rnd: rnd,
+    body_rnd: rnd,
+    memory_rnd: rnd,
+    table_rnd: rnd,
+    data_rnd: rnd,
+    elem_rnd: rnd,
+    use_named_streams: false,
+    config,
+  }
+}
+
+///|
+fn GenValidContext::new_streamed(
+  root_seed : UInt64,
+  config : GenValidConfig,
+) -> GenValidContext {
+  {
+    rnd: gen_valid_stream_random_state(root_seed, ModuleTopologyStream),
+    module_topology_rnd: gen_valid_stream_random_state(
+      root_seed,
+      ModuleTopologyStream,
+    ),
+    type_rnd: gen_valid_stream_random_state(root_seed, TypeStream),
+    func_rnd: gen_valid_stream_random_state(root_seed, FuncStream),
+    body_rnd: gen_valid_stream_random_state(root_seed, BodyStream),
+    memory_rnd: gen_valid_stream_random_state(root_seed, MemoryStream),
+    table_rnd: gen_valid_stream_random_state(root_seed, TableStream),
+    data_rnd: gen_valid_stream_random_state(root_seed, DataStream),
+    elem_rnd: gen_valid_stream_random_state(root_seed, ElemStream),
+    use_named_streams: true,
+    config,
+  }
 }
 
 ///|
@@ -2983,17 +3027,51 @@ fn gen_valid_roll_percent(ctx : GenValidContext, percent : Int) -> Bool {
 }
 
 ///|
-fn GenValidContext::random_int(self : GenValidContext, max : Int) -> Int {
+fn GenValidContext::random_int_from(
+  self : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  max : Int,
+) -> Int {
   if max <= 0 {
-    0
-  } else {
-    (self.rnd.next_int().reinterpret_as_uint() % max.reinterpret_as_uint()).reinterpret_as_int()
+    return 0
   }
+  if !self.use_named_streams {
+    return (self.rnd.next_int().reinterpret_as_uint() %
+    max.reinterpret_as_uint()).reinterpret_as_int()
+  }
+  let value = match label {
+    ModuleTopologyStream => self.module_topology_rnd.next_int()
+    TypeStream => self.type_rnd.next_int()
+    FuncStream => self.func_rnd.next_int()
+    BodyStream => self.body_rnd.next_int()
+    MemoryStream => self.memory_rnd.next_int()
+    TableStream => self.table_rnd.next_int()
+    DataStream => self.data_rnd.next_int()
+    ElemStream => self.elem_rnd.next_int()
+    InvalidStrategyChoiceStream
+    | InvalidMutationChoiceStream
+    | TextMutationChoiceStream
+    | HarnessShufflingStream => self.rnd.next_int()
+  }
+  (value.reinterpret_as_uint() % max.reinterpret_as_uint()).reinterpret_as_int()
+}
+
+///|
+fn GenValidContext::random_int(self : GenValidContext, max : Int) -> Int {
+  self.random_int_from(ModuleTopologyStream, max)
 }
 
 ///|
 fn GenValidContext::random_bool(self : GenValidContext) -> Bool {
   self.random_int(2) == 0
+}
+
+///|
+fn GenValidContext::random_bool_from(
+  self : GenValidContext,
+  label : GenValidRandomStreamLabel,
+) -> Bool {
+  self.random_int_from(label, 2) == 0
 }
 
 ///|
@@ -3029,7 +3107,10 @@ pub fn gen_valid_valtype_with_extra_refs(
   } else {
     []
   }
-  let choice = ctx.random_int(scalar_choice_count + ref_pool.length())
+  let choice = ctx.random_int_from(
+    TypeStream,
+    scalar_choice_count + ref_pool.length(),
+  )
   if choice == 0 {
     ValType::i32()
   } else if choice == 1 {
@@ -3054,7 +3135,7 @@ pub fn gen_valid_valtype(ctx : GenValidContext) -> ValType {
 
 ///|
 pub fn gen_valid_numtype(ctx : GenValidContext) -> NumType {
-  match ctx.random_int(4) {
+  match ctx.random_int_from(TypeStream, 4) {
     0 => NumType::i32()
     1 => NumType::i64()
     2 => NumType::f32()
@@ -3102,16 +3183,24 @@ fn gen_result_types(
   extra_ref_types? : Array[ValType] = [],
 ) -> Array[ValType] {
   let max_results = gen_valid_clamp_non_negative(ctx.config.max_results)
-  if max_results <= 0 || ctx.random_bool() {
+  if max_results <= 0 || ctx.random_bool_from(TypeStream) {
     []
   } else {
-    let result_count = 1 + ctx.random_int(max_results)
+    let result_count = 1 + ctx.random_int_from(TypeStream, max_results)
     let results : Array[ValType] = []
     for i = 0; i < result_count; i = i + 1 {
       if i == 0 &&
         !extra_ref_types.is_empty() &&
-        (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
-        results.push(extra_ref_types[ctx.random_int(extra_ref_types.length())])
+        (
+          ctx.config.mode == CoverageForced ||
+          ctx.random_int_from(TypeStream, 3) == 0
+        ) {
+        results.push(
+          extra_ref_types[ctx.random_int_from(
+            TypeStream,
+            extra_ref_types.length(),
+          )],
+        )
       } else {
         results.push(gen_valid_valtype_with_extra_refs(ctx, extra_ref_types))
       }
@@ -3122,7 +3211,8 @@ fn gen_result_types(
 
 ///|
 fn gen_param_types(ctx : GenValidContext) -> Array[ValType] {
-  let count = ctx.random_int(
+  let count = ctx.random_int_from(
+    TypeStream,
     gen_valid_clamp_non_negative(ctx.config.max_params) + 1,
   )
   let params : Array[ValType] = []
@@ -3137,13 +3227,21 @@ fn gen_local_types(
   ctx : GenValidContext,
   extra_ref_types? : Array[ValType] = [],
 ) -> Array[ValType] {
-  let count = ctx.random_int(
+  let count = ctx.random_int_from(
+    TypeStream,
     gen_valid_clamp_non_negative(ctx.config.max_locals) + 1,
   )
   let locals : Array[ValType] = []
   for i = 0; i < count; i = i + 1 {
-    if i == 0 && !extra_ref_types.is_empty() && ctx.random_int(4) == 0 {
-      locals.push(extra_ref_types[ctx.random_int(extra_ref_types.length())])
+    if i == 0 &&
+      !extra_ref_types.is_empty() &&
+      ctx.random_int_from(TypeStream, 4) == 0 {
+      locals.push(
+        extra_ref_types[ctx.random_int_from(
+          TypeStream,
+          extra_ref_types.length(),
+        )],
+      )
     } else {
       locals.push(gen_valid_valtype_with_extra_refs(ctx, extra_ref_types))
     }
@@ -3868,7 +3966,7 @@ fn gen_valid_body_stmt_count(ctx : GenValidContext, depth_left : Int) -> Int {
   } else {
     gen_valid_min_int(3, bounded)
   }
-  1 + ctx.random_int(capped)
+  1 + ctx.random_int_from(BodyStream, capped)
 }
 
 ///|
@@ -9320,11 +9418,8 @@ fn gen_valid_import_module_name(ctx : GenValidContext, index : Int) -> Name {
 }
 
 ///|
-fn gen_valid_module_once_with_config(
-  rnd : RandomState,
-  config : GenValidConfig,
-) -> Module {
-  let ctx = GenValidContext::new(rnd, config)
+fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
+  let config = ctx.config
   let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
     config.features.allow_imports,
@@ -10515,6 +10610,24 @@ fn gen_valid_module_once_with_config(
 }
 
 ///|
+fn gen_valid_module_once_with_config(
+  rnd : RandomState,
+  config : GenValidConfig,
+) -> Module {
+  gen_valid_module_once_with_context(GenValidContext::new(rnd, config))
+}
+
+///|
+fn gen_valid_module_once_with_stream_seed(
+  seed : UInt64,
+  config : GenValidConfig,
+) -> Module {
+  gen_valid_module_once_with_context(
+    GenValidContext::new_streamed(seed, config),
+  )
+}
+
+///|
 fn gen_valid_instruction_count_expr(expr : Expr) -> Int {
   let Expr(instrs) = expr
   gen_valid_instruction_count_instrs(instrs)
@@ -10891,6 +11004,57 @@ pub fn gen_valid_module_result(
     }
     if attempt < max_attempts {
       last = gen_valid_module_once_with_config(rnd, config)
+    }
+    attempt += 1
+  }
+  Err({
+    last_candidate: last,
+    config,
+    config_label,
+    attempts: max_attempts,
+    validation_error_message: last_error_message,
+    budget_stop: last_budget_stop,
+  })
+}
+
+///|
+pub fn gen_valid_module_result_from_seed(
+  seed : UInt64,
+  config : GenValidConfig,
+) -> Result[GenValidGenerated, GenValidFailure] {
+  let max_attempts = if config.mode == CoverageForced { 512 } else { 64 }
+  let config_label = gen_valid_config_label(config)
+  let mut attempt = 1
+  let mut last = gen_valid_module_once_with_stream_seed(seed, config)
+  let mut last_error_message = ""
+  let mut last_budget_stop = None
+  while attempt <= max_attempts {
+    match gen_valid_budget_error(last, config) {
+      Some((stop, message)) => {
+        last_budget_stop = Some(stop)
+        last_error_message = message
+      }
+      None =>
+        match validate_module(last) {
+          Ok(_) =>
+            return Ok({
+              wasm_module: last,
+              config,
+              config_label,
+              attempts: attempt,
+              facts: gen_valid_feature_facts(last, config.mode),
+            })
+          Err(err) => {
+            last_budget_stop = None
+            last_error_message = validation_error_message(err)
+          }
+        }
+    }
+    if attempt < max_attempts {
+      last = gen_valid_module_once_with_stream_seed(
+        seed ^ attempt.to_uint64(),
+        config,
+      )
     }
     attempt += 1
   }

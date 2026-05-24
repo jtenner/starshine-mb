@@ -1159,6 +1159,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1034 GenValid PRNG stream split batch migration
+
+- Continued `[FUZ]1034` by adding `gen_valid_module_result_from_seed(...)`, an explicit root-seed GenValid entry point that derives named candidate substreams instead of consuming one monolithic `RandomState`.
+- The first migrated streams route function type/result/local choices through the `types` stream and body statement counts through the `bodies` stream, while preserving the legacy `RandomState` API for callers that need old seed behavior.
+- GenValid batch emitters now use the root-seed API per candidate so batch manifests' existing `stream_derivations` describe real generation choices, and focused tests lock type-choice stability when only the body budget changes.
+
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary profile modes and FZG mirror counters
 
 - Continued `[FUZ]1028` by adding WAST roundtrip generation-mode modifiers: `+parser-stress`, `+valid-only`, `+static-assertions`, `+scripts`, and `+module-only`; `WastRoundtripFuzzStats` now records the selected mode plus validated-module and static-assertion counts.

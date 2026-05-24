@@ -1709,7 +1709,6 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
   if max_attempts < 0 {
     return Err("max_attempts must be non-negative")
   }
-  let rnd = @splitmix.new(seed~)
   let artifacts : Array[(String, Bytes)] = []
   let manifest : Array[GenValidBatchManifestEntry] = []
   let mut feature_stats = GenValidFeatureStats::empty(config.mode)
@@ -1718,7 +1717,8 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
   let mut skipped_candidates = 0
   while attempts < max_attempts && selected < count {
     attempts += 1
-    let generated = match gen_valid_module_result(rnd, config) {
+    let generated = match
+      gen_valid_module_result_from_seed(seed ^ attempts.to_uint64(), config) {
       Ok(v) => v
       Err(failure) =>
         return Err(
@@ -1796,13 +1796,13 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
   if count < 0 {
     return Err("count must be non-negative")
   }
-  let rnd = @splitmix.new(seed~)
   let config = emit_gen_valid_batch_config()
   let artifacts : Array[(String, Bytes)] = []
   let manifest : Array[GenValidBatchManifestEntry] = []
   let mut i = 0
   while i < count {
-    let generated = match gen_valid_module_result(rnd, config) {
+    let generated = match
+      gen_valid_module_result_from_seed(seed ^ (i + 1).to_uint64(), config) {
       Ok(v) => v
       Err(failure) =>
         return Err(
@@ -1846,12 +1846,15 @@ pub fn emit_gen_valid_batch_artifacts(
   if count < 0 {
     return Err("count must be non-negative")
   }
-  let rnd = @splitmix.new(seed~)
   let config = emit_gen_valid_batch_config()
   let artifacts : Array[(String, Bytes)] = []
   let mut i = 0
   while i < count {
-    let mod = gen_valid_module_with_config(rnd, config)
+    let mod = match
+      gen_valid_module_result_from_seed(seed ^ (i + 1).to_uint64(), config) {
+      Ok(generated) => generated.wasm_module
+      Err(failure) => failure.last_candidate
+    }
     match validate_module(mod) {
       Ok(_) => ()
       Err(err) =>

@@ -500,10 +500,10 @@ test "emit_gen_valid_batch_artifacts matches the pinned Binaryen-oracle generato
     Ok(v) => v
     Err(e) => fail("expected gen-valid artifact success, got \{e}")
   }
-  let direct = gen_valid_module_with_config(
-    @splitmix.new(seed=0x5eedUL),
-    config,
-  )
+  let direct = match gen_valid_module_result_from_seed(0x5eedUL ^ 1UL, config) {
+    Ok(generated) => generated.wasm_module
+    Err(failure) => failure.last_candidate
+  }
   let encoded = match encode_module(direct) {
     Ok(v) => v
     Err(e) =>

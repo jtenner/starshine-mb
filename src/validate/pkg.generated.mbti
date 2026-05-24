@@ -58,6 +58,8 @@ pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
 
 pub fn gen_valid_module_result(@splitmix.RandomState, GenValidConfig) -> Result[GenValidGenerated, GenValidFailure]
 
+pub fn gen_valid_module_result_from_seed(UInt64, GenValidConfig) -> Result[GenValidGenerated, GenValidFailure]
+
 pub fn gen_valid_module_with_config(@splitmix.RandomState, GenValidConfig) -> @lib.Module
 
 pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType

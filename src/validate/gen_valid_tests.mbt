@@ -47,6 +47,40 @@ test "gen-valid PRNG stream labels have stable seed derivations" {
 }
 
 ///|
+test "streamed gen-valid keeps type choices stable when body budget changes" {
+  let base_config = {
+    ..GenValidConfig::natural_default(),
+    max_defined_funcs: 3,
+    max_type_defs: 5,
+    max_params: 3,
+    max_results: 2,
+    max_body_statements: 1,
+  }
+  let bigger_body_config = { ..base_config, max_body_statements: 6 }
+  let left = match gen_valid_module_result_from_seed(0x51034UL, base_config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let right = match
+    gen_valid_module_result_from_seed(0x51034UL, bigger_body_config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    gen_valid_test_flat_func_types(left.wasm_module),
+    gen_valid_test_flat_func_types(right.wasm_module),
+  )
+  match validate_module(left.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match validate_module(right.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+}
+
+///|
 test "coverage-forced prelude records deterministic randomized template order" {
   let config = GenValidConfig::coverage_forced_default()
   let left = match
