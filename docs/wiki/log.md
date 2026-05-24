@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 SIMD unary/binary invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-simd-unary-input-type`, `invalid-function-body-simd-binary-left-type`, and `invalid-function-body-simd-binary-right-type` for representative SIMD `v128.not` and `i8x16.add` stack-operand typing failures.
+- Added focused strategy, `gen_invalid`, and repair tests proving the unary/binary mutations reject with the function-body family while matching vector operand forms validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name the widened SIMD unary/binary operand-stack coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 SIMD load variant invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-simd-load-extend-address-type`, `invalid-function-body-simd-load-splat-address-type`, and `invalid-function-body-simd-load-zero-address-type` for SIMD load-extend/load-splat/load-zero address stack-typing failures.

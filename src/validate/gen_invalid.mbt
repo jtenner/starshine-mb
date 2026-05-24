@@ -481,6 +481,12 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-load-splat-address-type"
     InvalidFunctionBodySimdLoadZeroAddressType =>
       "invalid-function-body-simd-load-zero-address-type"
+    InvalidFunctionBodySimdUnaryInputType =>
+      "invalid-function-body-simd-unary-input-type"
+    InvalidFunctionBodySimdBinaryLeftType =>
+      "invalid-function-body-simd-binary-left-type"
+    InvalidFunctionBodySimdBinaryRightType =>
+      "invalid-function-body-simd-binary-right-type"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>
