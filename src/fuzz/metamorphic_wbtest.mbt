@@ -93,6 +93,52 @@ test "metamorphic leading custom-section transform preserves validation and bina
 }
 
 ///|
+test "metamorphic unused passive-data transform preserves validation and binary roundtrip" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x1039UL,
+      GenValidConfig::natural_default(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected valid GenValid seed, got \{e.validation_error_message}")
+  }
+  let original_data_count = match generated.wasm_module.data_sec {
+    Some(@lib.DataSec(datas)) => datas.length()
+    None => 0
+  }
+  let transformed = match
+    metamorphic_apply_transform(
+      generated.wasm_module,
+      AddUnusedPassiveDataSegment,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-unused-passive-data-segment")
+  match transformed.wasm_module.data_sec {
+    Some(@lib.DataSec(datas)) => {
+      @debug.assert_eq(datas.length(), original_data_count + 1)
+      match datas[datas.length() - 1] {
+        @lib.Data(@lib.Passive, payload) =>
+          @debug.assert_eq(payload, b"starshine metamorphic passive data")
+        _ => fail("expected trailing passive data segment")
+      }
+    }
+    None => fail("expected transformed data section")
+  }
+  match transformed.wasm_module.data_cnt_sec {
+    Some(@lib.DataCntSec(@lib.U32(count))) =>
+      @debug.assert_eq(count, (original_data_count + 1).reinterpret_as_uint())
+    None => fail("expected transformed data-count section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic module-name transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -135,11 +181,12 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 3)
-  @debug.assert_eq(stats.validated, 3)
+  @debug.assert_eq(stats.transformed, 4)
+  @debug.assert_eq(stats.validated, 4)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
   )
   assert_true(stats.transform_ids.contains("add-module-name-section"))
+  assert_true(stats.transform_ids.contains("add-unused-passive-data-segment"))
 }

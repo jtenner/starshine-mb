@@ -3,6 +3,7 @@ pub enum MetamorphicValidTransform {
   AddNonNameCustomSection
   AddLeadingNonNameCustomSection
   AddModuleNameSection
+  AddUnusedPassiveDataSegment
 } derive(Eq, Debug)
 
 ///|
@@ -13,6 +14,7 @@ pub fn metamorphic_valid_transform_id(
     AddNonNameCustomSection => "add-non-name-custom-section"
     AddLeadingNonNameCustomSection => "add-leading-non-name-custom-section"
     AddModuleNameSection => "add-module-name-section"
+    AddUnusedPassiveDataSegment => "add-unused-passive-data-segment"
   }
 }
 
@@ -77,11 +79,37 @@ fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn metamorphic_add_unused_passive_data_segment(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let datas = []
+  match mod.data_sec {
+    Some(@lib.DataSec(existing)) =>
+      for data in existing {
+        datas.push(data)
+      }
+    None => ()
+  }
+  datas.push(
+    @lib.Data::new(
+      @lib.DataMode::passive(),
+      b"starshine metamorphic passive data",
+    ),
+  )
+  mod
+  .with_data_cnt_sec(
+    @lib.DataCntSec::new(@lib.U32(datas.length().reinterpret_as_uint())),
+  )
+  .with_data_sec(@lib.DataSec::new(datas))
+}
+
+///|
 fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
   [
     AddNonNameCustomSection,
     AddLeadingNonNameCustomSection,
     AddModuleNameSection,
+    AddUnusedPassiveDataSegment,
   ]
 }
 
@@ -95,6 +123,8 @@ pub fn metamorphic_apply_transform(
     AddLeadingNonNameCustomSection =>
       metamorphic_add_leading_non_name_custom_section(mod)
     AddModuleNameSection => metamorphic_add_module_name_section(mod)
+    AddUnusedPassiveDataSegment =>
+      metamorphic_add_unused_passive_data_segment(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
