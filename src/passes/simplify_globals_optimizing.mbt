@@ -3721,21 +3721,41 @@ fn sgo_try_table_select_reverse_compare_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
 ) -> Int? {
-  if pos <= 2 || pos + 2 >= instrs.length() {
+  if pos >= instrs.length() {
     return None
   }
   match instrs[pos] {
     @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 => ()
     _ => return None
   }
-  if sgo_const_instr(instrs[pos - 3]) == None ||
-    sgo_const_instr(instrs[pos - 2]) == None ||
-    sgo_const_instr(instrs[pos - 1]) == None ||
-    !sgo_is_select_instr(instrs[pos + 1]) ||
-    !sgo_is_compare_instr(instrs[pos + 2]) {
-    return None
+  if pos > 2 &&
+    pos + 2 < instrs.length() &&
+    sgo_const_instr(instrs[pos - 3]) != None &&
+    sgo_const_instr(instrs[pos - 2]) != None &&
+    sgo_const_instr(instrs[pos - 1]) != None &&
+    sgo_is_select_instr(instrs[pos + 1]) &&
+    sgo_is_compare_instr(instrs[pos + 2]) {
+    return Some(pos + 2)
   }
-  Some(pos + 2)
+  if pos > 0 &&
+    pos + 4 < instrs.length() &&
+    sgo_const_instr(instrs[pos - 1]) != None &&
+    sgo_const_instr(instrs[pos + 1]) != None &&
+    sgo_const_instr(instrs[pos + 2]) != None &&
+    sgo_is_select_instr(instrs[pos + 3]) &&
+    sgo_is_compare_instr(instrs[pos + 4]) {
+    return Some(pos + 4)
+  }
+  if pos > 1 &&
+    pos + 3 < instrs.length() &&
+    sgo_const_instr(instrs[pos - 2]) != None &&
+    sgo_const_instr(instrs[pos - 1]) != None &&
+    sgo_const_instr(instrs[pos + 1]) != None &&
+    sgo_is_select_instr(instrs[pos + 2]) &&
+    sgo_is_compare_instr(instrs[pos + 3]) {
+    return Some(pos + 3)
+  }
+  None
 }
 
 ///|

@@ -14907,6 +14907,129 @@ test "simplify-globals-optimizing treats transparent try_table select reverse co
 }
 
 ///|
+test "simplify-globals-optimizing treats transparent try_table select-value reverse compare guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.eq
+      #|        (i32.const 0)
+      #|        (select
+      #|          (try_table (result i32)
+      #|            (global.get $g))
+      #|          (i32.const 1)
+      #|          (i32.const 1)))
+      #|      (then
+      #|        (global.set $g (i32.const 1))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table select-second-value reverse compare guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.eq
+      #|        (i32.const 0)
+      #|        (select
+      #|          (i32.const 1)
+      #|          (try_table (result i32)
+      #|            (global.get $g))
+      #|          (i32.const 0)))
+      #|      (then
+      #|        (global.set $g (i32.const 1))))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing treats transparent try_table select-value reverse compare if-return guards as read-only-to-write" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block
+      #|      (if
+      #|        (i32.eq
+      #|          (i32.const 0)
+      #|          (select
+      #|            (try_table (result i32)
+      #|              (global.get $g))
+      #|            (i32.const 1)
+      #|            (i32.const 1)))
+      #|        (then
+      #|          (return)))
+      #|      (global.set $g (i32.const 1))
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps caught try_table select-value reverse compare guards conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    block $exit
+      #|      (if
+      #|        (i32.eq
+      #|          (i32.const 0)
+      #|          (select
+      #|            (try_table (result i32) (catch $e $exit)
+      #|              (global.get $g))
+      #|            (i32.const 1)
+      #|            (i32.const 1)))
+      #|        (then
+      #|          (global.set $g (i32.const 1))))
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+}
+
+///|
 test "simplify-globals-optimizing keeps caught try_table select reverse compare guards conservative" {
   let optimized = sgo_test_run(
     (
