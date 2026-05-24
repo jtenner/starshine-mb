@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO next breadth probe inventory
+
+- Added research note [`0574`](./raw/research/0574-2026-05-23-sgo-next-breadth-probe-inventory.md) to rank the next `[SGO]003` probes after the loop self-guard micro-series.
+- Binaryen probes confirmed that direct same-init literal writes with later reads remain a positive baseline, but block-wrapped same-init values, alias-init/direct-write one-shot removal, else-arm runtime reads, and block-wrapped runtime-set operands are not safe implementation targets without a more exact oracle-positive fixture.
+- Recommended the next behavior slice start from official `simplify-globals-dominance.wast` linear-trace subshapes, with same-init expression-looking cases used as guardrail negatives rather than broad expression-equivalence work.
+
 ## [2026-05-23] binaryen | SGO loop self-guard inventory and deferral slice
 
 - Recorded the post-loop self-guard mini-series as intentionally complete for the current small subset: non-branching `loop (result i32)` bodies may yield a direct candidate read or simple nontrapping pure condition chain into adjacent direct, `i32.eqz`, compare-const, or reverse compare-const self guards, with final same-global constant writes.
