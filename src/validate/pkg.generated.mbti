@@ -1060,6 +1060,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemoryStoreValueType
   InvalidFunctionBodyMemoryGrowDeltaType
   InvalidFunctionBodyMemoryFillValueType
+  InvalidFunctionBodyMemoryCopyLengthType
   InvalidFunctionBodyLocalSetValueType
   InvalidFunctionBodyLocalTeeValueType
   InvalidFunctionBodyReturnValueType

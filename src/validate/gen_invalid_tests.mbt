@@ -1477,6 +1477,30 @@ test "gen_invalid_ast_generate supports function-body memory.fill value type str
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body memory.copy length type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10ce9UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryCopyLengthType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-memory-copy-length-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body return value type strategy" {
   let generated = match
     gen_invalid_ast_generate(

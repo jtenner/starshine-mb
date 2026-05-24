@@ -240,6 +240,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory-grow-delta-type"
     InvalidFunctionBodyMemoryFillValueType =>
       "invalid-function-body-memory-fill-value-type"
+    InvalidFunctionBodyMemoryCopyLengthType =>
+      "invalid-function-body-memory-copy-length-type"
     InvalidFunctionBodyLocalSetValueType =>
       "invalid-function-body-local-set-value-type"
     InvalidFunctionBodyLocalTeeValueType =>
