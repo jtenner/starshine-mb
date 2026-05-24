@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO non-init imported-initializer negative
+
+- Added research note [`0596`](./raw/research/0596-2026-05-23-sgo-non-init-imported-initializer-lit.md) and an exact direct SGO guardrail from the third Binaryen v129 `simplify-globals-non-init.wast` module.
+- Pinned that a mutable global initialized from an imported global stays mutable after a non-init write, keeps its imported `global.get` initializer, and preserves reads/writes of both imported and defined globals.
+- Confirmed this was a tests/docs-only slice; the parser-supported `simplify-globals-non-init.wast` modules are now exactly traceable locally, and `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO non-init changed-write negative
 
 - Added research note [`0595`](./raw/research/0595-2026-05-23-sgo-non-init-changed-write-negative-lit.md) and an exact direct SGO guardrail from the second Binaryen v129 `simplify-globals-non-init.wast` module.
