@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO try_table ref.is_null compare if-return read-only-to-write
+
+- Added research note [`0617`](./raw/research/0617-2026-05-24-sgo-try-table-ref-is-null-compare-if-return.md) and implemented the no-catch `try_table (result funcref)` + `ref.is_null` normal compare-with-const exact `if return; set` tail.
+- No-catch `try_table` wrappers may now feed `ref.is_null` into a trailing-constant compare guard before exact `if return; global.set` or block-wrapped-set tails; catch-bearing wrappers remain conservative.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-try-table-ref-is-null-compare-if-return-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO try_table ref.is_null compare read-only-to-write
 
 - Added research note [`0616`](./raw/research/0616-2026-05-24-sgo-try-table-ref-is-null-compare.md) and implemented no-catch `try_table (result funcref)` + `ref.is_null` adjacent compare-with-const guards.
