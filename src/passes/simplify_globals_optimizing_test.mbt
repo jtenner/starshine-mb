@@ -955,6 +955,34 @@ test "simplify-globals-optimizing follows Binaryen single-use GC initializer lit
 }
 
 ///|
+test "simplify-globals-optimizing follows Binaryen nested single-use GC initializer lit" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    (
+      #|(module
+      #|  (type $A (struct (field anyref)))
+      #|  (global $single-use anyref (struct.new $A
+      #|    (ref.i31
+      #|      (i32.const 42))))
+      #|  (global $other anyref (struct.new $A
+      #|    (global.get $single-use))))
+      #|)
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+  ])
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-globals-optimizing keeps reference global gets in typed element item expressions" {
   let null_rt = @lib.RefType::abs(@lib.AbsHeapType::none())
   let array_rt = @lib.RefType::abs(@lib.AbsHeapType::array())
