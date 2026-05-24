@@ -555,6 +555,7 @@ fn gen_invalid_ast_strategy_label(
     MutableGlobalGetInTableInit => "mutable-global-get-in-table-init"
     NonConstantElemOffset => "non-constant-elem-offset"
     InvalidElementActiveTableIndex => "invalid-element-active-table-index"
+    InvalidDataActiveMemoryIndex => "invalid-data-active-memory-index"
     SharedMemoryWithoutMax => "shared-memory-without-max"
     SharedMemory64WithoutMax => "shared-memory64-without-max"
     InvalidTagTypeIndex => "invalid-tag-type-index"

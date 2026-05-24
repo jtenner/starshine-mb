@@ -400,6 +400,34 @@ test "gen_invalid_ast_generate supports element-section invalid offset strategy"
 }
 
 ///|
+test "gen_invalid_ast_generate supports data-section active memory index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef82UL),
+      GenInvalidAstParams::repro_seed(InvalidDataActiveMemoryIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-data-active-memory-index base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-data-active-memory-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == DataSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports element-section active table index strategy" {
   let generated = match
     gen_invalid_ast_generate(

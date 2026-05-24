@@ -1212,6 +1212,7 @@ pub enum ValidateInvalidAstStrategyId {
   FuncSecWithoutCodeSec
   MutableGlobalGetInConstInit
   NonConstantDataOffset
+  InvalidDataActiveMemoryIndex
   InvalidImportedFuncTypeIndex
   InvalidImportedTagTypeIndex
   MutableGlobalGetInTableInit
