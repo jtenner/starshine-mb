@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 table.grow invalid AST coverage
+
+- Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-table-grow-value-type`.
+- The new strategy appends a function over a nullable `funcref` table, feeds an `externref` null plus an `i32` grow delta into `table.grow`, and expects the validator to reject the mismatched reference value in `FunctionBodyFamily`; focused repair coverage proves the matching nullable `funcref` value form validates.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living AST-invalid strategy summary names `table.grow` value mismatch coverage alongside the existing table.get/table.set/global.set variants.
+
 ## [2026-05-23] fuzzing | FUZ1020 table.get invalid AST coverage
 
 - Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-table-get-index-type`.
