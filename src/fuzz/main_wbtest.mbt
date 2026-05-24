@@ -418,6 +418,47 @@ test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
 }
 
 ///|
+test "gen-valid batch manifest stream derivations roundtrip through parser" {
+  let args = EmitGenValidBatchArgs::new(
+    1,
+    0x51034UL,
+    ".tmp/fuzz-main-wbtest-gen-valid-stream-roundtrip",
+    profile="coverage-forced",
+    max_attempts=4,
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(e) => fail("expected gen-valid selection, got \{e}")
+  }
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  let derivations = match
+    parse_gen_valid_batch_manifest_stream_derivations(manifest) {
+    Ok(v) => v
+    Err(e) => fail("expected stream derivation manifest parse, got \{e}")
+  }
+  @debug.assert_eq(
+    derivations.length(),
+    gen_valid_random_stream_labels().length(),
+  )
+  @debug.assert_eq(derivations[0].label, "module-topology")
+  @debug.assert_eq(
+    derivations[0].derived_seed,
+    gen_valid_derive_stream_seed(0x51034UL, gen_valid_random_stream_labels()[0]),
+  )
+  let mut saw_harness = false
+  for derivation in derivations {
+    if derivation.label == "harness-shuffling" {
+      saw_harness = true
+      @debug.assert_eq(
+        derivation.derived_seed,
+        emit_gen_valid_batch_harness_stream_seed(0x51034UL),
+      )
+    }
+  }
+  assert_true(saw_harness)
+}
+
+///|
 test "gen-valid batch candidate seeds come from harness-shuffling stream" {
   let first = emit_gen_valid_batch_candidate_seed(0x51034UL, 1)
   let first_again = emit_gen_valid_batch_candidate_seed(0x51034UL, 1)

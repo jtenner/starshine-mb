@@ -1927,6 +1927,131 @@ fn format_gen_valid_batch_feature_keys_json(
 }
 
 ///|
+pub struct GenValidStreamDerivation {
+  label : String
+  derived_seed : UInt64
+} derive(Eq, Debug)
+
+///|
+fn fuzz_find_text_from(text : String, needle : String, start : Int) -> Int {
+  if needle.length() == 0 {
+    return start
+  }
+  let mut i = start
+  while i + needle.length() <= text.length() {
+    let mut matches = true
+    let mut j = 0
+    while j < needle.length() {
+      if text[i + j] != needle[j] {
+        matches = false
+        break
+      }
+      j += 1
+    }
+    if matches {
+      return i
+    }
+    i += 1
+  }
+  -1
+}
+
+///|
+fn fuzz_parse_uint64_decimal_at(text : String, start : Int) -> (UInt64, Int)? {
+  let mut i = start
+  let mut value = 0UL
+  let mut digits = 0
+  while i < text.length() {
+    let c = text[i]
+    if c < '0' || c > '9' {
+      break
+    }
+    value = value * 10UL + (c.to_int() - '0'.to_int()).to_uint64()
+    digits += 1
+    i += 1
+  }
+  if digits == 0 {
+    None
+  } else {
+    Some((value, i))
+  }
+}
+
+///|
+fn fuzz_parse_simple_json_string_at(
+  text : String,
+  start : Int,
+) -> (String, Int)? {
+  if start >= text.length() || text[start] != '"' {
+    return None
+  }
+  let mut i = start + 1
+  while i < text.length() {
+    if text[i] == '\\' {
+      return None
+    }
+    if text[i] == '"' {
+      return Some((text.sub(start=start + 1, end=i).to_owned(), i + 1))
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+pub fn parse_gen_valid_batch_manifest_stream_derivations(
+  manifest_json : String,
+) -> Result[Array[GenValidStreamDerivation], String] {
+  let array_key = "\"stream_derivations\":["
+  let array_start = fuzz_find_text_from(manifest_json, array_key, 0)
+  if array_start < 0 {
+    return Err("missing stream_derivations array")
+  }
+  let body_start = array_start + array_key.length()
+  let array_end = fuzz_find_text_from(manifest_json, "]", body_start)
+  if array_end < 0 {
+    return Err("unterminated stream_derivations array")
+  }
+  let label_key = "\"label\":"
+  let seed_key = "\"derived_seed\":"
+  let out : Array[GenValidStreamDerivation] = []
+  let mut pos = body_start
+  while pos < array_end {
+    let label_pos = fuzz_find_text_from(manifest_json, label_key, pos)
+    if label_pos < 0 || label_pos >= array_end {
+      break
+    }
+    let parsed_label = match
+      fuzz_parse_simple_json_string_at(
+        manifest_json,
+        label_pos + label_key.length(),
+      ) {
+      Some(v) => v
+      None => return Err("malformed stream derivation label")
+    }
+    let seed_pos = fuzz_find_text_from(manifest_json, seed_key, parsed_label.1)
+    if seed_pos < 0 || seed_pos >= array_end {
+      return Err("missing stream derivation derived_seed for \{parsed_label.0}")
+    }
+    let parsed_seed = match
+      fuzz_parse_uint64_decimal_at(manifest_json, seed_pos + seed_key.length()) {
+      Some(v) => v
+      None =>
+        return Err(
+          "malformed stream derivation derived_seed for \{parsed_label.0}",
+        )
+    }
+    out.push({ label: parsed_label.0, derived_seed: parsed_seed.0 })
+    pos = parsed_seed.1
+  }
+  if out.is_empty() {
+    Err("empty stream_derivations array")
+  } else {
+    Ok(out)
+  }
+}
+
+///|
 fn format_gen_valid_stream_derivations_json(seed : UInt64) -> String {
   let labels = gen_valid_random_stream_labels()
   let out = StringBuilder::new()
