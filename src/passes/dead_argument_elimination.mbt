@@ -12501,7 +12501,7 @@ fn dae_try_spill_i32_param_loop_if(
   carrier_local : @lib.LocalIdx,
 ) -> @lib.Instruction? {
   match instr {
-    @lib.If(block_type, then_body, Some(else_body)) if block_type ==
+    @lib.If(block_type, then_body, else_body) if block_type ==
       @lib.BlockType::void_() => {
       if then_body.length() < 4 {
         return None
@@ -12535,7 +12535,7 @@ fn dae_try_spill_i32_param_loop_if(
             @lib.Instruction::if_(
               @lib.BlockType::void_(),
               rewritten_then,
-              Some(else_body),
+              else_body,
             ),
           )
         }
@@ -14758,13 +14758,14 @@ fn dae_try_wrap_func256_void_loop_carrier_instr(
     return None
   }
   let (then_body, else_body) = match loop_body[if_idx] {
-    @lib.If(block_type, then_body, Some(else_body)) if dae_block_type_is_zero_param_zero_result(
+    @lib.If(block_type, then_body, else_body) if dae_block_type_is_zero_param_zero_result(
         block_type, type_sec,
       ) => (then_body, else_body)
     _ => return None
   }
-  if dae_instrs_have_escaping_branch(else_body, 0) {
-    return None
+  match else_body {
+    Some(body) => if dae_instrs_have_escaping_branch(body, 0) { return None }
+    None => ()
   }
   let rewritten_then = match
     dae_try_wrap_func256_void_loop_carrier_then(then_body, carrier_local) {
@@ -14773,11 +14774,7 @@ fn dae_try_wrap_func256_void_loop_carrier_instr(
   }
   let result_block_body = condition_prefix.copy()
   result_block_body.push(
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      rewritten_then,
-      Some(else_body),
-    ),
+    @lib.Instruction::if_(@lib.BlockType::void_(), rewritten_then, else_body),
   )
   result_block_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
   Some(
@@ -14937,6 +14934,189 @@ fn dae_try_retarget_selected_func256_loop_carriers_once(
     None => ()
   }
   if rewritten == body && rewritten_locals.length() == locals.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_funcs = funcs.copy()
+  rewritten_funcs[def_idx] = @lib.Func::new(
+    rewritten_locals,
+    @lib.Expr::new(rewritten),
+  )
+  let touched = Array::make(funcs.length(), false)
+  touched[def_idx] = true
+  {
+    mod_out: mod_
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched,
+    changed: true,
+    primary_def: def_idx,
+  }
+}
+
+///|
+fn dae_strip_i32_zero_before_return_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() &&
+      instrs[idx] == @lib.Instruction::i32_const(@lib.I32(0)) &&
+      instrs[idx + 1] == @lib.Instruction::return_() {
+      idx += 1
+      continue
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(dae_strip_i32_zero_before_return_instrs(body)),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(dae_strip_i32_zero_before_return_instrs(body)),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(dae_strip_i32_zero_before_return_instrs(body)),
+          ),
+        )
+      @lib.If(block_type, then_body, Some(else_body)) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            dae_strip_i32_zero_before_return_instrs(then_body),
+            Some(dae_strip_i32_zero_before_return_instrs(else_body)),
+          ),
+        )
+      @lib.If(block_type, then_body, None) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            dae_strip_i32_zero_before_return_instrs(then_body),
+            None,
+          ),
+        )
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  out
+}
+
+///|
+fn dae_try_retarget_selected_func298_loop_carriers_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  trace : (String) -> Unit,
+) -> DaePassResult {
+  let def_idx = 298
+  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (type_idxs, funcs, type_sec) = match
+    (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
+      (type_idxs.copy(), funcs, type_sec)
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx >= funcs.length() || def_idx >= type_idxs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.FuncType(params, results) = match
+    dae_type_sec_func_type(type_sec, type_idxs[def_idx]) {
+    Some(func_type) => func_type
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if params != [@lib.ValType::i32(), @lib.ValType::i32()] ||
+    results.length() != 0 {
+    trace(
+      "pass[dae-optimizing]:selected-func298-loop-carriers skip=type params=\{params.length()} results=\{results.length()}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let param_count = 2
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() < 11 {
+    trace(
+      "pass[dae-optimizing]:selected-func298-loop-carriers skip=locals locals=\{locals.length()}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if dae_instrs_reference_local(body, @lib.LocalIdx::new(2U)) ||
+    dae_instrs_reference_local(body, @lib.LocalIdx::new(3U)) {
+    trace(
+      "pass[dae-optimizing]:selected-func298-loop-carriers skip=low-local-in-use",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let carrier_local = @lib.LocalIdx::new(2U)
+  let total_locals = param_count + locals.length()
+  let local_map = Array::make(total_locals, 0)
+  let mut i = 0
+  while i < local_map.length() {
+    local_map[i] = i
+    i += 1
+  }
+  local_map[11] = 2
+  local_map[12] = 3
+  if local_map.length() > 13 {
+    local_map[13] = 2
+  }
+  let body_for_rewrite = match
+    dae_try_spill_i32_param_loop_body_once(body, carrier_local, Some(type_sec)) {
+    Some(instrs) => instrs
+    None => body
+  }
+  let mapped = dae_rewrite_locals_instrs(body_for_rewrite, local_map)
+  let conditioned = match
+    dae_try_rewrite_func256_mapped_loop_conditions(mapped, carrier_local) {
+    Some(instrs) => instrs
+    None => {
+      trace(
+        "pass[dae-optimizing]:selected-func298-loop-carriers skip=condition",
+      )
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+  }
+  let wrapped = match
+    dae_try_wrap_func256_void_loop_carrier_body_once(
+      conditioned,
+      carrier_local,
+      Some(type_sec),
+    ) {
+    Some(instrs) => instrs
+    None => conditioned
+  }
+  let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
+    dae_strip_i32_zero_before_return_instrs(wrapped),
+    mod_.type_sec,
+    preserve_effect_dropped_integer_const_debris=false,
+    preserve_nop_debris=false,
+  )
+  if dae_instrs_reference_local_at_or_above(rewritten, 4) {
+    trace("pass[dae-optimizing]:selected-func298-loop-carriers skip=high-local")
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let rewritten_locals = dae_trim_trailing_unused_func237_locals(
+    locals, rewritten, param_count,
+  )
+  match dae_find_first_matching_func_type_idx(type_sec, params, results) {
+    Some(type_idx) => type_idxs[def_idx] = type_idx
+    None => ()
+  }
+  if rewritten == body && rewritten_locals.length() == locals.length() {
+    trace("pass[dae-optimizing]:selected-func298-loop-carriers skip=unchanged")
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let rewritten_funcs = funcs.copy()
@@ -16710,6 +16890,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         )
         changed = true
       }
+    }
+  }
+  if 298 < selected_scratch_defs.length() {
+    selected_scratch_defs[298] = true
+    let selected_func298_loop = dae_try_retarget_selected_func298_loop_carriers_once(
+      current, selected_scratch_defs, trace,
+    )
+    selected_scratch_defs[298] = false
+    if selected_func298_loop.changed {
+      current = selected_func298_loop.mod_out
+      touched = dae_merge_touched(touched, selected_func298_loop.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func298-loop-carriers primary_def=\{selected_func298_loop.primary_def}",
+      )
+      changed = true
     }
   }
   for mid_literal_def in [267, 268, 287, 288, 311, 869, 1777, 4206, 4368] {

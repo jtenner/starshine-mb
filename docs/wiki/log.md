@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func298 loop-carrier parity
+
+- Added a selected Func298 loop-carrier lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that spills the raw one-i32-param loop carrier, remaps the observed `$11/$12` locals onto Binaryen's `$2/$3`, rewrites the pure counted-loop comparison into Binaryen's `load > idx` order, wraps the loop in the result-block carrier shape, and strips the dead zero before `return`.
+- Broadened the shared i32-param loop spill/wrap helpers to support the no-else loop family observed at Func298 while preserving the existing selected Func256 coverage.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the raw Func298 loop-param/debris shape.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func298-loop-carrier-artifact` validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, advances the first diff to `defined=299 abs=316`, and leaves Func299's inverted result-if condition/arm order plus one extra local as the next frontier.
+
 ## [2026-05-24] passes | dae Func288/289 frontier parity
 
 - Added a selected Func288 return-wrapper flattening lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), plus tail low-local map corrections, so Func288 now matches normalized Binaryen after the earlier switch-carrier compaction.

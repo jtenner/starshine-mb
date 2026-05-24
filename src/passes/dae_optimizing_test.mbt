@@ -969,6 +969,97 @@ test "dae-optimizing retargets selected Func256 loop carriers and strips debris"
 }
 
 ///|
+test "dae-optimizing compacts selected Func298 loop carriers and strips debris" {
+  let target_def = 298
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (memory 1)\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (export "target") (param i32 i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+      #|    i32.const 0
+      #|    loop (param i32)
+      #|      local.tee 11
+      #|      local.get 0
+      #|      i32.load offset=8 align=1
+      #|      i32.lt_s
+      #|      if
+      #|        local.get 0
+      #|        i32.load offset=12 align=1
+      #|        local.get 11
+      #|        i32.const 2
+      #|        i32.shl
+      #|        i32.add
+      #|        i32.load offset=8 align=1
+      #|        local.set 12
+      #|        local.get 1
+      #|        call $side
+      #|        local.get 12
+      #|        call $side
+      #|        local.get 12
+      #|        local.get 1
+      #|        call $eq
+      #|        if
+      #|          local.get 1
+      #|          call $side
+      #|          local.get 0
+      #|          call $side
+      #|          i32.const 0
+      #|          return
+      #|        end
+      #|        i32.const 0
+      #|        drop
+      #|        local.get 11
+      #|        i32.const 1
+      #|        i32.add
+      #|        br 1
+      #|      end
+      #|    end
+      #|    i32.const 0
+      #|    drop
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $cleanup
+      #|    drop)
+      #|  (func $side (param i32))
+      #|  (func $eq (param i32 i32) (result i32)
+      #|    i32.const 0)
+      #|  (func $cleanup (param i32 i32) (result i32)
+      #|    i32.const 0)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
+    optimized, target_def,
+  )
+  @debug.assert_eq(locals.length(), 2)
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(11U)),
+    msg=target,
+  )
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(12U)),
+    msg=target,
+  )
+  assert_false(
+    dae_test_instrs_reference_local(body, @lib.LocalIdx::new(13U)),
+    msg=target,
+  )
+  assert_true(target.contains("i32.gt_s"), msg=target)
+  assert_true(target.contains("(block I32"), msg=target)
+  assert_false(target.contains("local.tee"), msg=target)
+  assert_false(target.contains("(i32.const I32(0)) return"), msg=target)
+  assert_false(target.contains("i32.const I32(0), drop"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes selected Func260 helper exact literals" {
   for target_def in [267, 268] {
     let out = StringBuilder::new()
