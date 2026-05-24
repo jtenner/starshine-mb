@@ -119,6 +119,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyCallIndirectIndexType
   InvalidFunctionBodyReturnCallIndirectIndexType
   InvalidFunctionBodyReturnCallRefType
+  InvalidFunctionBodyCallRefType
   InvalidFunctionBodyTableSetValueType
   InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
@@ -775,6 +776,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyCallRefType,
+      "invalid-function-body-call-ref-type",
+      "invalid function-body call_ref ref type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyTableSetValueType,
       "invalid-function-body-table-set-value-type",
       "invalid function-body table.set value type",
@@ -1004,6 +1012,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyCallIndirectIndexType => 91
     InvalidFunctionBodyReturnCallIndirectIndexType => 92
     InvalidFunctionBodyReturnCallRefType => 93
+    InvalidFunctionBodyCallRefType => 94
     InvalidFunctionBodyTableSetValueType => 62
     InvalidFunctionBodyGlobalSetValueType => 63
     InvalidMemoryNameSectionIndex => 47
@@ -3531,6 +3540,33 @@ fn validate_invalid_ast_mutate_invalid_function_body_return_call_ref_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_call_ref_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_type = Module::new().with_type_sec(
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+  )
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::call_ref(TypeIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_type,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyCallRefType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -4424,6 +4460,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_return_call_ref_type(
           base,
         )
+      InvalidFunctionBodyCallRefType =>
+        validate_invalid_ast_mutate_invalid_function_body_call_ref_type(base)
       InvalidFunctionBodyTableSetValueType =>
         validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
           base,
@@ -4851,13 +4889,13 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-data-drop-index", "invalid-function-body-elem-drop-index",
     "invalid-function-body-table-size-index", "invalid-function-body-table-set-index-type",
     "invalid-function-body-call-indirect-index-type", "invalid-function-body-return-call-indirect-index-type",
-    "invalid-function-body-return-call-ref-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-return-call-ref-type", "invalid-function-body-call-ref-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -5877,6 +5915,52 @@ test "function-body return_call_ref ref mutation repairs by using a matching fun
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired return_call_ref ref module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid call_ref ref type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyCallRefType,
+      0x10cffUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body call_ref ref mutation repairs by using a matching function ref" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_call_ref_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched call_ref ref type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_type = Module::new().with_type_sec(
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+  )
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_type,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0))),
+      Instruction::call_ref(TypeIdx::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired call_ref ref module to validate: \{err}")
   }
 }
 
