@@ -15125,6 +15125,258 @@ fn dae_try_specialize_selected_single_i32_suffix_default_arg_once(
 }
 
 ///|
+fn dae_rewrite_immediate_i32_suffix_calls_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  expected : @lib.I32,
+) -> (Array[@lib.Instruction], Int, Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut calls = 0
+  let mut ok = true
+  let mut idx = 0
+  while idx < instrs.length() && ok {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        if out.length() == 0 ||
+          !dae_materialized_const_equal(
+            out[out.length() - 1],
+            @lib.Instruction::i32_const(expected),
+          ) {
+          ok = false
+        } else {
+          ignore(out.pop())
+          out.push(instrs[idx])
+          calls += 1
+        }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten, nested_calls, nested_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
+          body, callee_abs, expected,
+        )
+        ok = nested_ok
+        calls += nested_calls
+        out.push(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten, nested_calls, nested_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
+          body, callee_abs, expected,
+        )
+        ok = nested_ok
+        calls += nested_calls
+        out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten, nested_calls, nested_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
+          body, callee_abs, expected,
+        )
+        ok = nested_ok
+        calls += nested_calls
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten),
+          ),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (then_rewritten, then_calls, then_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
+          then_body, callee_abs, expected,
+        )
+        ok = then_ok
+        calls += then_calls
+        let rewritten_else = match else_body {
+          Some(body) if ok => {
+            let (else_rewritten, else_calls, else_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
+              body, callee_abs, expected,
+            )
+            ok = else_ok
+            calls += else_calls
+            Some(else_rewritten)
+          }
+          Some(body) => Some(body)
+          None => None
+        }
+        out.push(
+          @lib.Instruction::if_(block_type, then_rewritten, rewritten_else),
+        )
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  if !ok {
+    return ([], calls, false)
+  }
+  (out, calls, true)
+}
+
+///|
+fn dae_try_remove_func3737_wrapper_suffix_param_once(
+  mod_ : @lib.Module,
+  trace : (String) -> Unit,
+) -> DaePassResult {
+  let def_idx = 3737
+  let caller_def = 281
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  if def_idx >= defined || caller_def >= defined {
+    trace(
+      "pass[dae-optimizing]:selected-func3737-wrapper-param skip=missing-def",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let callee_abs = imported + def_idx
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
+  if callee_abs >= call_facts.escaped.length() ||
+    call_facts.escaped[callee_abs] ||
+    call_facts.tail_calls[callee_abs] {
+    trace(
+      "pass[dae-optimizing]:selected-func3737-wrapper-param skip=escaped-or-tail",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(ft) => ft
+    None => {
+      trace("pass[dae-optimizing]:selected-func3737-wrapper-param skip=no-type")
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+  }
+  let @lib.FuncType(params, results) = func_type
+  if params.length() != 4 ||
+    params[3] != @lib.ValType::i32() ||
+    results.length() != 2 {
+    trace(
+      "pass[dae-optimizing]:selected-func3737-wrapper-param skip=type-shape params=\{params.length()} results=\{results.length()}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => {
+      trace("pass[dae-optimizing]:selected-func3737-wrapper-param skip=no-code")
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+  }
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  if local_use.writes[3] {
+    trace(
+      "pass[dae-optimizing]:selected-func3737-wrapper-param skip=written-param",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let verified_callers : Array[Int] = []
+  let mut verified_calls = 0
+  let mut scan_def = 0
+  while scan_def < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[scan_def]
+    let calls = dae_count_direct_call_anywhere_to(body, callee_abs)
+    if calls > 0 {
+      if scan_def != caller_def || calls != 1 {
+        trace(
+          "pass[dae-optimizing]:selected-func3737-wrapper-param skip=unexpected-caller def=\{scan_def} calls=\{calls}",
+        )
+        return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+      verified_callers.push(scan_def)
+      verified_calls += calls
+    }
+    scan_def += 1
+  }
+  if verified_calls != 1 {
+    trace(
+      "pass[dae-optimizing]:selected-func3737-wrapper-param skip=call-count calls=\{verified_calls}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let (func_types, current_type_sec) = match (mod_.func_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(type_sec)) =>
+      (type_idxs.copy(), type_sec)
+    _ => {
+      trace(
+        "pass[dae-optimizing]:selected-func3737-wrapper-param skip=no-func-type-sec",
+      )
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+  }
+  let rewritten_funcs = funcs.copy()
+  let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[caller_def]
+  let (rewritten_caller_body, suffix_calls, suffix_ok) = dae_rewrite_immediate_i32_suffix_calls_instrs(
+    caller_body,
+    callee_abs,
+    @lib.I32(1024),
+  )
+  if !suffix_ok || suffix_calls != verified_calls {
+    trace(
+      "pass[dae-optimizing]:selected-func3737-wrapper-param skip=suffix-actual calls=\{suffix_calls} ok=\{suffix_ok}",
+    )
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  rewritten_funcs[caller_def] = @lib.Func::new(
+    caller_locals,
+    @lib.Expr::new(rewritten_caller_body),
+  )
+  let remove = Array::make(params.length(), false)
+  remove[3] = true
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  const_params[3] = Some(@lib.Instruction::i32_const(@lib.I32(1024)))
+  let kept_params : Array[@lib.ValType] = []
+  let removed_written_types : Array[@lib.ValType] = []
+  let mut p = 0
+  while p < params.length() {
+    if remove[p] {
+      if local_use.writes[p] {
+        removed_written_types.push(params[p])
+      }
+    } else {
+      kept_params.push(params[p])
+    }
+    p += 1
+  }
+  let @lib.Func(old_locals, @lib.Expr(old_body)) = rewritten_funcs[def_idx]
+  let local_map = dae_build_local_map(
+    params.length(),
+    old_locals.length(),
+    remove,
+    local_use,
+  )
+  let body_with_consts = dae_rewrite_param_const_instrs(old_body, const_params)
+  let new_body = dae_simplify_rewritten_add_zero_instrs(
+    dae_simplify_rewritten_control_instrs(
+      dae_rewrite_locals_instrs(body_with_consts, local_map),
+    ),
+  )
+  let new_locals = @lib.Locals::from_types(removed_written_types)
+  new_locals.append(old_locals)
+  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
+    @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
+  )
+  let (next_type_sec, new_type_idx) = dae_append_new_func_type(
+    current_type_sec, kept_params, results,
+  )
+  func_types[def_idx] = new_type_idx
+  let touched = Array::make(funcs.length(), false)
+  touched[caller_def] = true
+  touched[def_idx] = true
+  let next_mod = mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(func_types))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec()
+  { mod_out: next_mod, touched, changed: true, primary_def: def_idx }
+}
+
+///|
 fn dae_restore_dead_suffix_self_operand_params(
   original : @lib.Module,
   current : @lib.Module,
@@ -16132,22 +16384,34 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     }
   }
   if 3737 < selected_scratch_defs.length() {
-    selected_scratch_defs[3737] = true
-    let selected_forwarded_wrapper_call_facts = dae_collect_current_call_facts(
-      current,
-      original_imported + original_defined,
+    let selected_func3737_wrapper = dae_try_remove_func3737_wrapper_suffix_param_once(
+      current, trace,
     )
-    let selected_forwarded_wrapper = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current, selected_scratch_defs, selected_forwarded_wrapper_call_facts,
-    )
-    selected_scratch_defs[3737] = false
-    if selected_forwarded_wrapper.changed {
-      current = selected_forwarded_wrapper.mod_out
-      touched = dae_merge_touched(touched, selected_forwarded_wrapper.touched)
+    if selected_func3737_wrapper.changed {
+      current = selected_func3737_wrapper.mod_out
+      touched = dae_merge_touched(touched, selected_func3737_wrapper.touched)
       trace(
-        "pass[dae-optimizing]:selected-forwarded-wrapper-unread-param primary_def=\{selected_forwarded_wrapper.primary_def}",
+        "pass[dae-optimizing]:selected-func3737-wrapper-param primary_def=\{selected_func3737_wrapper.primary_def}",
       )
       changed = true
+    } else {
+      selected_scratch_defs[3737] = true
+      let selected_forwarded_wrapper_call_facts = dae_collect_current_call_facts(
+        current,
+        original_imported + original_defined,
+      )
+      let selected_forwarded_wrapper = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+        current, selected_scratch_defs, selected_forwarded_wrapper_call_facts,
+      )
+      selected_scratch_defs[3737] = false
+      if selected_forwarded_wrapper.changed {
+        current = selected_forwarded_wrapper.mod_out
+        touched = dae_merge_touched(touched, selected_forwarded_wrapper.touched)
+        trace(
+          "pass[dae-optimizing]:selected-forwarded-wrapper-unread-param primary_def=\{selected_forwarded_wrapper.primary_def}",
+        )
+        changed = true
+      }
     }
   }
   { mod_out: current, touched, changed, primary_def: -1 }

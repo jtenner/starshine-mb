@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func3737 wrapper-param parity
+
+- Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) with a selected Func3737 wrapper-param lane that removes Func281's immediate `i32.const 1024` suffix operand and rewrites Func3737 to three params after checking the exact caller, immediate literal, and non-written param guards.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the ambient-stack multivalue callsite shape that the generic callsite slicer cannot prove today.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func3737-wrapper-param-artifact` advances the first diff from `defined=281 abs=298` to `defined=285 abs=302`, validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, and `.tmp/pass-fuzz-dae-func3737-wrapper-1000` preserves the current short-run no-validation-failure shape.
+
 ## [2026-05-23] wiki | inlining current-main no-inline recheck
 
 - Added [`raw/binaryen/2026-05-23-inlining-current-main-recheck.md`](raw/binaryen/2026-05-23-inlining-current-main-recheck.md) after rechecking official Binaryen `main` for `Inlining.cpp`, `NoInline.cpp`, `pass.cpp`, and `module-utils.cpp`, confirming that the no-inline flag split and clone-survival behavior still match the existing `version_129` dossier.
