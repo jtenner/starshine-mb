@@ -1157,14 +1157,16 @@ pub struct ValidateInvalidTextDynamicFuzzStats {
 fn validate_invalid_text_dynamic_supported_strategy(stable_id : String) -> Bool {
   stable_id == "dynamic-gen-valid-missing-closing-paren" ||
   stable_id == "dynamic-gen-valid-duplicate-export" ||
-  stable_id == "dynamic-gen-valid-bad-opcode-token"
+  stable_id == "dynamic-gen-valid-bad-opcode-token" ||
+  stable_id == "dynamic-gen-valid-bad-lane-index" ||
+  stable_id == "dynamic-gen-valid-bad-memarg-align"
 }
 
 ///|
 fn validate_invalid_text_dynamic_strategies() -> Array[String] {
   [
     "dynamic-gen-valid-missing-closing-paren", "dynamic-gen-valid-duplicate-export",
-    "dynamic-gen-valid-bad-opcode-token",
+    "dynamic-gen-valid-bad-opcode-token", "dynamic-gen-valid-bad-lane-index", "dynamic-gen-valid-bad-memarg-align",
   ]
 }
 
@@ -1347,6 +1349,46 @@ pub fn validate_invalid_text_dynamic_case(
         variant_id: "gen-valid-wat/bad-opcode-token",
         base_source,
         assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad opcode token\")",
+        assertion_kind: MalformedTextAssertion,
+        expected_stage: ParseOrLowerRejectedStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-bad-lane-index" => {
+      let inserted = "\n  (func (param v128)\n    local.get 0\n    i8x16.extract_lane_u 16\n    drop)\n"
+      let mutated_source = match
+        validate_invalid_text_insert_before_last_closing_paren(
+          base_source, inserted,
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      let escaped = validate_invalid_text_escape_quote_source(mutated_source)
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/bad-lane-index",
+        base_source,
+        assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad SIMD lane index\")",
+        assertion_kind: MalformedTextAssertion,
+        expected_stage: ParseOrLowerRejectedStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-bad-memarg-align" => {
+      let inserted = "\n  (memory 0)\n  (func\n    i32.const 0\n    i32.load8_s align=0\n    drop)\n"
+      let mutated_source = match
+        validate_invalid_text_insert_before_last_closing_paren(
+          base_source, inserted,
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      let escaped = validate_invalid_text_escape_quote_source(mutated_source)
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/bad-memarg-align",
+        base_source,
+        assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad memarg alignment\")",
         assertion_kind: MalformedTextAssertion,
         expected_stage: ParseOrLowerRejectedStage,
         source_feature_facts,

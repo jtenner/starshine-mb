@@ -1034,6 +1034,60 @@ test "dynamic invalid text bad opcode mutates generated valid WAT into malformed
 }
 
 ///|
+test "dynamic invalid text bad lane mutates generated valid WAT into malformed assertion" {
+  let generated = match
+    validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-bad-lane-index",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(generated.stable_id, "dynamic-gen-valid-bad-lane-index")
+  @debug.assert_eq(generated.variant_id, "gen-valid-wat/bad-lane-index")
+  @debug.assert_eq(
+    validate_invalid_text_stage_name(generated.expected_stage),
+    "parse-or-lower-rejected",
+  )
+  assert_true(generated.source_feature_facts.contains("source:gen-valid-wat"))
+  assert_true(generated.assertion_source.contains("(assert_malformed"))
+  assert_true(generated.assertion_source.contains("i8x16.extract_lane_u 16"))
+  match
+    run_validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-bad-lane-index",
+    ) {
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "dynamic invalid text bad memarg mutates generated valid WAT into malformed assertion" {
+  let generated = match
+    validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-bad-memarg-align",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(generated.stable_id, "dynamic-gen-valid-bad-memarg-align")
+  @debug.assert_eq(generated.variant_id, "gen-valid-wat/bad-memarg-align")
+  @debug.assert_eq(
+    validate_invalid_text_stage_name(generated.expected_stage),
+    "parse-or-lower-rejected",
+  )
+  assert_true(generated.source_feature_facts.contains("source:gen-valid-wat"))
+  assert_true(generated.assertion_source.contains("(assert_malformed"))
+  assert_true(generated.assertion_source.contains("i32.load8_s align=0"))
+  match
+    run_validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-bad-memarg-align",
+    ) {
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "dynamic invalid text fuzz is deterministic and records generated mutation stats" {
   let first = match run_validate_invalid_text_dynamic_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -1045,13 +1099,13 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
   }
   assert_true(first == second)
   @debug.assert_eq(first.profile, "smoke")
-  @debug.assert_eq(first.attempts, 12)
-  @debug.assert_eq(first.generated, 12)
-  @debug.assert_eq(first.mutated, 12)
-  @debug.assert_eq(first.parse_or_lower_rejected, 8)
+  @debug.assert_eq(first.attempts, 20)
+  @debug.assert_eq(first.generated, 20)
+  @debug.assert_eq(first.mutated, 20)
+  @debug.assert_eq(first.parse_or_lower_rejected, 16)
   @debug.assert_eq(first.validate_rejected, 4)
-  @debug.assert_eq(first.matched_expected, 12)
-  @debug.assert_eq(first.strategy_stats.length(), 3)
+  @debug.assert_eq(first.matched_expected, 20)
+  @debug.assert_eq(first.strategy_stats.length(), 5)
   @debug.assert_eq(
     first.strategy_stats[0].stable_id,
     "dynamic-gen-valid-missing-closing-paren",
@@ -1076,8 +1130,24 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
     first.strategy_stats[2].variant_id,
     "gen-valid-wat/bad-opcode-token",
   )
+  @debug.assert_eq(
+    first.strategy_stats[3].stable_id,
+    "dynamic-gen-valid-bad-lane-index",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[3].variant_id,
+    "gen-valid-wat/bad-lane-index",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[4].stable_id,
+    "dynamic-gen-valid-bad-memarg-align",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[4].variant_id,
+    "gen-valid-wat/bad-memarg-align",
+  )
   assert_true(
-    first.strategy_stats[2].source_feature_facts.contains(
+    first.strategy_stats[4].source_feature_facts.contains(
       "source:gen-valid-wat",
     ),
   )

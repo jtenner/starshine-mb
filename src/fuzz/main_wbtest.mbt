@@ -658,12 +658,14 @@ test "run_fuzz_suite routes validate-invalid-text-dynamic through dynamic GenVal
   }
   @debug.assert_eq(result.suite, "validate-invalid-text-dynamic")
   @debug.assert_eq(result.profile, "smoke")
-  @debug.assert_eq(result.attempts, 12)
+  @debug.assert_eq(result.attempts, 20)
   match result.details_json {
     Some(details) => {
       assert_true(details.contains("dynamic-gen-valid-missing-closing-paren"))
       assert_true(details.contains("dynamic-gen-valid-duplicate-export"))
       assert_true(details.contains("dynamic-gen-valid-bad-opcode-token"))
+      assert_true(details.contains("dynamic-gen-valid-bad-lane-index"))
+      assert_true(details.contains("dynamic-gen-valid-bad-memarg-align"))
       assert_true(details.contains("source:gen-valid-wat"))
       assert_true(
         details.contains("\"variant_id\":\"gen-valid-wat/duplicate-export\""),
