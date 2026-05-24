@@ -1160,9 +1160,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
 
+- Continued `[FUZ]1028` by adding broader WAST arbitrary opcode-family counters for control, parametric, variable, table, memory, numeric, reference, and SIMD instructions, then locked smoke evidence that random generated bodies add control/numeric/memory/table/reference coverage beyond the deterministic widened prelude.
 - Continued `[FUZ]1028` by adding `WastArbitraryFeatureStats` / `wast_arbitrary_feature_stats` for exact parser/printer mirror counts over WAST arbitrary modules.
 - The WAST smoke roundtrip stats now accumulate the deterministic widened-prelude counters, proving the 16-module smoke floor covers GC type fields, exported tags, descriptor-ref ops, memory/table bulk ops, tail-call ops, exception ops, and SIMD const text shapes.
-- Updated [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md) so the plan distinguishes these exact text-surface counters from typed GenValid validity evidence.
+- Updated [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md) so the plan distinguishes these exact text-surface counters from typed GenValid validity evidence and names the broader opcode-family counters.
 
 ## [2026-05-24] fuzzing | FUZ1029 binary boundary corpus profile
 

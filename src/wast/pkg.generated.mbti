@@ -1203,6 +1203,14 @@ pub struct WastArbitraryFeatureStats {
   tail_call_ops : Int
   exception_ops : Int
   simd_const_ops : Int
+  control_ops : Int
+  parametric_ops : Int
+  variable_ops : Int
+  table_ops : Int
+  memory_ops : Int
+  numeric_ops : Int
+  reference_ops : Int
+  simd_ops : Int
 } derive(Eq, @debug.Debug)
 
 pub enum WastCommand {

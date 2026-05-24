@@ -169,6 +169,28 @@ test "run_wast_roundtrip_fuzz reports WAST arbitrary FZG mirror counters" {
       @debug.assert_eq(stats.feature_stats.tail_call_ops, 48)
       @debug.assert_eq(stats.feature_stats.exception_ops, 32)
       @debug.assert_eq(stats.feature_stats.simd_const_ops, 16)
+      assert_true(
+        stats.feature_stats.control_ops >
+        stats.feature_stats.tail_call_ops + stats.feature_stats.exception_ops,
+        msg="random WAST bodies should add control-family opcode coverage beyond the widened prelude",
+      )
+      assert_true(
+        stats.feature_stats.numeric_ops > stats.feature_stats.simd_const_ops,
+        msg="random WAST bodies should add numeric opcode coverage beyond the widened prelude",
+      )
+      assert_true(
+        stats.feature_stats.memory_ops > stats.feature_stats.bulk_memory_ops,
+        msg="random WAST bodies should add memory opcode coverage beyond the widened prelude",
+      )
+      assert_true(
+        stats.feature_stats.table_ops > stats.feature_stats.bulk_table_ops,
+        msg="random WAST bodies should add table opcode coverage beyond the widened prelude",
+      )
+      assert_true(
+        stats.feature_stats.reference_ops >
+        stats.feature_stats.descriptor_ref_ops,
+        msg="random WAST bodies should add reference opcode coverage beyond the widened prelude",
+      )
     }
     Err(msg) => fail("expected smoke WAST roundtrip success: \{msg}")
   }

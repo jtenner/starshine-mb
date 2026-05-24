@@ -30,6 +30,14 @@ pub struct WastArbitraryFeatureStats {
   tail_call_ops : Int
   exception_ops : Int
   simd_const_ops : Int
+  control_ops : Int
+  parametric_ops : Int
+  variable_ops : Int
+  table_ops : Int
+  memory_ops : Int
+  numeric_ops : Int
+  reference_ops : Int
+  simd_ops : Int
 } derive(Eq, Debug)
 
 ///|
@@ -43,6 +51,14 @@ fn wast_arbitrary_empty_feature_stats() -> WastArbitraryFeatureStats {
     tail_call_ops: 0,
     exception_ops: 0,
     simd_const_ops: 0,
+    control_ops: 0,
+    parametric_ops: 0,
+    variable_ops: 0,
+    table_ops: 0,
+    memory_ops: 0,
+    numeric_ops: 0,
+    reference_ops: 0,
+    simd_ops: 0,
   }
 }
 
@@ -60,6 +76,14 @@ fn wast_arbitrary_add_feature_stats(
     tail_call_ops: a.tail_call_ops + b.tail_call_ops,
     exception_ops: a.exception_ops + b.exception_ops,
     simd_const_ops: a.simd_const_ops + b.simd_const_ops,
+    control_ops: a.control_ops + b.control_ops,
+    parametric_ops: a.parametric_ops + b.parametric_ops,
+    variable_ops: a.variable_ops + b.variable_ops,
+    table_ops: a.table_ops + b.table_ops,
+    memory_ops: a.memory_ops + b.memory_ops,
+    numeric_ops: a.numeric_ops + b.numeric_ops,
+    reference_ops: a.reference_ops + b.reference_ops,
+    simd_ops: a.simd_ops + b.simd_ops,
   }
 }
 
@@ -70,19 +94,142 @@ fn wast_arbitrary_count_instructions(
   let mut stats = wast_arbitrary_empty_feature_stats()
   for instr in instrs {
     let current = match instr {
-      RefTestDesc(_, _) | RefCastDescEq(_, _) =>
-        { ..wast_arbitrary_empty_feature_stats(), descriptor_ref_ops: 1 }
-      MemoryFill | MemoryCopy | MemoryInit(_) | DataDrop(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), bulk_memory_ops: 1 }
-      TableFill(_) | TableCopy(_, _) | TableInit(_, _) | ElemDrop(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), bulk_table_ops: 1 }
+      Unreachable
+      | Nop
+      | Block(_, _)
+      | Loop(_, _)
+      | If(_, _, _)
+      | Br(_)
+      | BrIf(_)
+      | BrTable(_, _)
+      | Return
+      | Call(_)
+      | CallIndirect(_, _) =>
+        { ..wast_arbitrary_empty_feature_stats(), control_ops: 1 }
       ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), tail_call_ops: 1 }
-      Throw(_) | TryTable(_, _, _) =>
-        { ..wast_arbitrary_empty_feature_stats(), exception_ops: 1 }
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          control_ops: 1,
+          tail_call_ops: 1,
+        }
+      Throw(_)
+      | ThrowRef
+      | Rethrow(_)
+      | TryTable(_, _, _)
+      | TryLegacy(_, _, _, _) =>
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          control_ops: 1,
+          exception_ops: 1,
+        }
+      Drop | Select(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), parametric_ops: 1 }
+      LocalGet(_) | LocalSet(_) | LocalTee(_) | GlobalGet(_) | GlobalSet(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), variable_ops: 1 }
+      TableGet(_) | TableSet(_) | TableSize(_) | TableGrow(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), table_ops: 1 }
+      TableFill(_) | TableCopy(_, _) | TableInit(_, _) | ElemDrop(_) =>
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          table_ops: 1,
+          bulk_table_ops: 1,
+        }
+      Load(_, _) | Store(_, _) | MemorySize | MemoryGrow =>
+        { ..wast_arbitrary_empty_feature_stats(), memory_ops: 1 }
+      MemoryFill | MemoryCopy | MemoryInit(_) | DataDrop(_) =>
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          memory_ops: 1,
+          bulk_memory_ops: 1,
+        }
+      Const(_, _) | Unary(_) | Binary(_) | Test(_) | Compare(_) | Convert(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), numeric_ops: 1 }
+      RefNull(_)
+      | RefIsNull
+      | RefFunc(_)
+      | StringConst(_)
+      | StringNewUtf8Array
+      | StringNewWtf16Array
+      | StringEncodeUtf8Array
+      | StringEncodeWtf16Array
+      | StringNewLossyUtf8Array
+      | StringNewWtf8Array
+      | StringEncodeLossyUtf8Array
+      | StringEncodeWtf8Array
+      | StructNew(_)
+      | StructNewDefault(_)
+      | StructGet(_, _)
+      | StructGetS(_, _)
+      | StructGetU(_, _)
+      | StructNewDesc(_)
+      | StructNewDefaultDesc(_)
+      | RefGetDesc(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), reference_ops: 1 }
+      RefTestDesc(_, _) | RefCastDescEq(_, _) =>
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          reference_ops: 1,
+          descriptor_ref_ops: 1,
+        }
       V128Const(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), simd_const_ops: 1 }
-      _ => wast_arbitrary_empty_feature_stats()
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          simd_ops: 1,
+          simd_const_ops: 1,
+        }
+      V128Load(_)
+      | V128Load8x8S(_)
+      | V128Load8x8U(_)
+      | V128Load16x4S(_)
+      | V128Load16x4U(_)
+      | V128Load32x2S(_)
+      | V128Load32x2U(_)
+      | V128Load8Splat(_)
+      | V128Load16Splat(_)
+      | V128Load32Splat(_)
+      | V128Load64Splat(_)
+      | V128Load32Zero(_)
+      | V128Load64Zero(_)
+      | V128Store(_)
+      | V128Load8Lane(_, _)
+      | V128Load16Lane(_, _)
+      | V128Load32Lane(_, _)
+      | V128Load64Lane(_, _)
+      | V128Store8Lane(_, _)
+      | V128Store16Lane(_, _)
+      | V128Store32Lane(_, _)
+      | V128Store64Lane(_, _)
+      | I8x16Shuffle(_)
+      | I8x16Swizzle
+      | I8x16Splat
+      | I16x8Splat
+      | I32x4Splat
+      | I64x2Splat
+      | F32x4Splat
+      | F64x2Splat
+      | I8x16ExtractLaneS(_)
+      | I8x16ExtractLaneU(_)
+      | I8x16ReplaceLane(_)
+      | I16x8ExtractLaneS(_)
+      | I16x8ExtractLaneU(_)
+      | I16x8ReplaceLane(_)
+      | I32x4ExtractLane(_)
+      | I32x4ReplaceLane(_)
+      | I64x2ExtractLane(_)
+      | I64x2ReplaceLane(_)
+      | F32x4ExtractLane(_)
+      | F32x4ReplaceLane(_)
+      | F64x2ExtractLane(_)
+      | F64x2ReplaceLane(_)
+      | SimdUnary(_)
+      | SimdBinary(_)
+      | SimdTernary(_)
+      | SimdShift(_)
+      | SimdTest(_)
+      | SimdCompare(_)
+      | SimdConvert(_)
+      | SimdRelaxed(_) =>
+        { ..wast_arbitrary_empty_feature_stats(), simd_ops: 1 }
     }
     stats = wast_arbitrary_add_feature_stats(stats, current)
     let nested = match instr {
@@ -659,6 +806,14 @@ test "wast arbitrary widened prelude reports exact FZG mirror counters" {
   @debug.assert_eq(stats.tail_call_ops, 3)
   @debug.assert_eq(stats.exception_ops, 2)
   @debug.assert_eq(stats.simd_const_ops, 1)
+  @debug.assert_eq(stats.control_ops, 6)
+  @debug.assert_eq(stats.parametric_ops, 3)
+  @debug.assert_eq(stats.variable_ops, 0)
+  @debug.assert_eq(stats.table_ops, 4)
+  @debug.assert_eq(stats.memory_ops, 4)
+  @debug.assert_eq(stats.numeric_ops, 19)
+  @debug.assert_eq(stats.reference_ops, 4)
+  @debug.assert_eq(stats.simd_ops, 1)
 }
 
 ///|
