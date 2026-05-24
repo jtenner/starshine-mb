@@ -1549,6 +1549,30 @@ test "gen_invalid_ast_generate supports function-body ref.test_desc input type s
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body ref.cast_desc_eq input type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d03UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyRefCastDescEqInputType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-ref-cast-desc-eq-input-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body table.get index type strategy" {
   let generated = match
     gen_invalid_ast_generate(
