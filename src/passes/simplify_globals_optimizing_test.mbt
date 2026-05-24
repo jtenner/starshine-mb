@@ -1069,6 +1069,52 @@ test "simplify-globals-optimizing follows Binaryen multi-input single-use GC ini
 }
 
 ///|
+test "simplify-globals-optimizing follows Binaryen single-use copy-chain GC initializer lit" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    (
+      #|(module
+      #|  (type $A (struct (field anyref)))
+      #|  (global $single-use1 anyref (ref.i31
+      #|    (i32.const 42)))
+      #|  (global $other1 anyref (struct.new $A
+      #|    (global.get $single-use1)))
+      #|  (global $other2 anyref (struct.new $A
+      #|    (global.get $other1)))
+      #|  (global $other3 anyref (global.get $other2)))
+      #|,
+    ),
+  )
+
+  let expected_other1 = [
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+  ]
+  let expected_other2 = [
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+  ]
+  @debug.assert_eq(
+    try! sgo_test_defined_global_init_instrs(optimized, 1),
+    expected_other1,
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_init_instrs(optimized, 2),
+    expected_other2,
+  )
+  @debug.assert_eq(
+    try! sgo_test_defined_global_init_instrs(optimized, 3),
+    expected_other2,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-globals-optimizing keeps reference global gets in typed element item expressions" {
   let null_rt = @lib.RefType::abs(@lib.AbsHeapType::none())
   let array_rt = @lib.RefType::abs(@lib.AbsHeapType::array())
