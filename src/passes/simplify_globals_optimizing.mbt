@@ -43,6 +43,11 @@ priv struct SgoFlowValue {
 }
 
 ///|
+priv struct SgoFunctionGlobalEffects {
+  mutates : Array[Bool]
+}
+
+///|
 fn sgo_global_idx_slot(idx : @lib.GlobalIdx) -> Int {
   let @lib.GlobalIdx(raw) = idx
   raw.reinterpret_as_int()
@@ -4024,6 +4029,167 @@ fn sgo_rewrite_data_sec(
 }
 
 ///|
+fn sgo_imported_func_count(mod_ : @lib.Module) -> Int {
+  let mut count = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn sgo_func_idx_slot(idx : @lib.FuncIdx) -> Int {
+  let @lib.FuncIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn sgo_effect_mark_all(row : Array[Bool]) -> Unit {
+  for idx = 0; idx < row.length(); idx = idx + 1 {
+    row[idx] = true
+  }
+}
+
+///|
+fn sgo_effect_union_into(dst : Array[Bool], src : Array[Bool]) -> Bool {
+  let mut changed = false
+  let limit = if dst.length() < src.length() {
+    dst.length()
+  } else {
+    src.length()
+  }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    if src[idx] && !dst[idx] {
+      dst[idx] = true
+      changed = true
+    }
+  }
+  changed
+}
+
+///|
+fn sgo_collect_direct_global_effects_instr(
+  instr : @lib.Instruction,
+  row : Array[Bool],
+  direct_calls : Array[@lib.FuncIdx],
+) -> Unit {
+  match instr {
+    @lib.GlobalSet(idx) => {
+      let slot = sgo_global_idx_slot(idx)
+      if slot >= 0 && slot < row.length() {
+        row[slot] = true
+      }
+    }
+    @lib.Call(idx) | @lib.ReturnCall(idx) => direct_calls.push(idx)
+    @lib.CallIndirect(_, _)
+    | @lib.CallRef(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_) => sgo_effect_mark_all(row)
+    @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+      sgo_collect_direct_global_effects_expr(body, row, direct_calls)
+    @lib.If(_, then_body, else_body) => {
+      sgo_collect_direct_global_effects_instrs(then_body, row, direct_calls)
+      match else_body {
+        Some(body) =>
+          sgo_collect_direct_global_effects_instrs(body, row, direct_calls)
+        None => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn sgo_collect_direct_global_effects_instrs(
+  instrs : Array[@lib.Instruction],
+  row : Array[Bool],
+  direct_calls : Array[@lib.FuncIdx],
+) -> Unit {
+  for instr in instrs {
+    sgo_collect_direct_global_effects_instr(instr, row, direct_calls)
+  }
+}
+
+///|
+fn sgo_collect_direct_global_effects_expr(
+  expr : @lib.Expr,
+  row : Array[Bool],
+  direct_calls : Array[@lib.FuncIdx],
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  sgo_collect_direct_global_effects_instrs(instrs, row, direct_calls)
+}
+
+///|
+fn sgo_collect_function_global_effects(
+  mod_ : @lib.Module,
+  global_count : Int,
+) -> Array[SgoFunctionGlobalEffects] {
+  let imported_funcs = sgo_imported_func_count(mod_)
+  let defined_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+  let total_funcs = imported_funcs + defined_funcs
+  let effects : Array[SgoFunctionGlobalEffects] = []
+  let calls : Array[Array[@lib.FuncIdx]] = []
+  for idx = 0; idx < total_funcs; idx = idx + 1 {
+    let row = Array::make(global_count, false)
+    if idx < imported_funcs {
+      sgo_effect_mark_all(row)
+    }
+    effects.push(SgoFunctionGlobalEffects::{ mutates: row })
+    calls.push([])
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for defined_idx = 0
+          defined_idx < funcs.length()
+          defined_idx = defined_idx + 1 {
+        let abs_idx = imported_funcs + defined_idx
+        let @lib.Func(_, body) = funcs[defined_idx]
+        sgo_collect_direct_global_effects_expr(
+          body,
+          effects[abs_idx].mutates,
+          calls[abs_idx],
+        )
+      }
+    None => ()
+  }
+  let mut changed = true
+  while changed {
+    changed = false
+    for idx = imported_funcs; idx < total_funcs; idx = idx + 1 {
+      for callee in calls[idx] {
+        let callee_slot = sgo_func_idx_slot(callee)
+        if callee_slot >= 0 && callee_slot < effects.length() {
+          if sgo_effect_union_into(
+              effects[idx].mutates,
+              effects[callee_slot].mutates,
+            ) {
+            changed = true
+          }
+        } else {
+          let before = effects[idx].mutates.copy()
+          sgo_effect_mark_all(effects[idx].mutates)
+          if before != effects[idx].mutates {
+            changed = true
+          }
+        }
+      }
+    }
+  }
+  effects
+}
+
+///|
 fn sgo_runtime_trace_clear(facts : Array[@lib.Instruction?]) -> Unit {
   for idx = 0; idx < facts.length(); idx = idx + 1 {
     facts[idx] = None
@@ -4088,18 +4254,44 @@ fn sgo_runtime_trace_trackable(
 }
 
 ///|
+fn sgo_runtime_trace_clear_call_effects(
+  facts : Array[@lib.Instruction?],
+  effects : Array[SgoFunctionGlobalEffects],
+  callee : @lib.FuncIdx,
+) -> Unit {
+  let slot = sgo_func_idx_slot(callee)
+  if slot < 0 || slot >= effects.length() {
+    sgo_runtime_trace_clear(facts)
+    return
+  }
+  let mutates = effects[slot].mutates
+  let limit = if facts.length() < mutates.length() {
+    facts.length()
+  } else {
+    mutates.length()
+  }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    if mutates[idx] {
+      facts[idx] = None
+    }
+  }
+}
+
+///|
 fn sgo_rewrite_runtime_trace_expr(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
+  effects : Array[SgoFunctionGlobalEffects],
 ) -> (@lib.Expr, Bool) {
   let facts = sgo_empty_const_array(infos.length())
-  sgo_rewrite_runtime_trace_expr_with_facts(expr, infos, facts)
+  sgo_rewrite_runtime_trace_expr_with_facts(expr, infos, effects, facts)
 }
 
 ///|
 fn sgo_rewrite_runtime_trace_expr_with_facts(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
+  effects : Array[SgoFunctionGlobalEffects],
   facts : Array[@lib.Instruction?],
 ) -> (@lib.Expr, Bool) {
   let @lib.Expr(instrs) = expr
@@ -4137,7 +4329,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         let body_has_barrier = sgo_runtime_trace_expr_has_barrier(body)
         let body_facts = facts.copy()
         let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
-          body, infos, body_facts,
+          body, infos, effects, body_facts,
         )
         out.push(
           if body_changed {
@@ -4158,6 +4350,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
+          effects,
           then_facts,
         )
         let @lib.Expr(next_then_body) = next_then
@@ -4176,6 +4369,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
+          effects,
           then_facts,
         )
         let @lib.Expr(next_then_body) = next_then
@@ -4188,6 +4382,10 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         )
         changed = changed || then_changed
         sgo_runtime_trace_clear(facts)
+      }
+      @lib.Call(callee) => {
+        out.push(instr)
+        sgo_runtime_trace_clear_call_effects(facts, effects, callee)
       }
       _ => {
         out.push(instr)
@@ -4207,6 +4405,7 @@ fn sgo_rewrite_code_sec(
   consts : Array[@lib.Instruction?],
   aliases : Array[@lib.GlobalIdx?],
   remove_sets : Array[Bool],
+  effects : Array[SgoFunctionGlobalEffects],
 ) -> (@lib.CodeSec?, Array[Bool], Bool) {
   match code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -4223,7 +4422,7 @@ fn sgo_rewrite_code_sec(
           body, consts, aliases, remove_sets, true,
         )
         let (runtime_rewritten, runtime_changed) = sgo_rewrite_runtime_trace_expr(
-          rewritten, infos,
+          rewritten, infos, effects,
         )
         if func_changed || runtime_changed {
           touched[idx] = true
@@ -4318,12 +4517,14 @@ fn sgo_run_core(
   )
   perf_stop_timer_opt(perf, "detail:sgo:rewrite-startup", startup_start_us)
   let code_start_us = perf_start_timer_opt(perf, "detail:sgo:rewrite-code")
+  let effects = sgo_collect_function_global_effects(mod_, infos.length())
   let (next_code_sec, touched, code_changed) = sgo_rewrite_code_sec(
     mod_.code_sec,
     infos,
     code_consts,
     aliases,
     remove_sets,
+    effects,
   )
   perf_stop_timer_opt(perf, "detail:sgo:rewrite-code", code_start_us)
   changed = changed ||

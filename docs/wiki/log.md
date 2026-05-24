@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO direct function-effects runtime facts
+
+- Added research note [`0598`](./raw/research/0598-2026-05-24-sgo-direct-function-effects-runtime-facts.md) and implemented a narrow module-local function global-effects summary for SGO runtime trace propagation.
+- Direct calls now clear only facts for globals the callee may syntactically/transitively set, so the first `simplify-globals_func-effects.wast` positive can preserve post-call facts for unaffected globals while keeping the mutated global conservative.
+- Imported, indirect, `call_ref`, and dynamic return-call targets remain full barriers; calls still do not count as local syntactic read-only-to-write events. Direct SGO fuzz at `.tmp/pass-fuzz-sgo-function-effects-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures. `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO if-return negative lit guardrails
 
 - Added research note [`0597`](./raw/research/0597-2026-05-23-sgo-if-return-negative-lit-guardrails.md) and a direct SGO guardrail for three Binaryen v129 `simplify-globals-read_only_to_write.wast` `if return; set` negatives.

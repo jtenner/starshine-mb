@@ -2517,7 +2517,7 @@ test "simplify-globals-optimizing keeps read-only-to-write body side effects" {
 }
 
 ///|
-test "simplify-globals-optimizing keeps function-effects generated-effects positive conservative" {
+test "simplify-globals-optimizing uses direct function effects across safe calls" {
   let optimized = sgo_test_run(
     (
       #|(module
@@ -2564,8 +2564,9 @@ test "simplify-globals-optimizing keeps function-effects generated-effects posit
   let test_pretty = optimized.pretty_print_defined_func(1U)
   assert_true(test_pretty.contains("call (Func 0)"), msg=test_pretty)
   assert_true(test_pretty.contains("global.get (Global 0)"), msg=test_pretty)
-  assert_true(test_pretty.contains("global.get (Global 2)"), msg=test_pretty)
+  assert_false(test_pretty.contains("global.get (Global 2)"), msg=test_pretty)
   assert_true(test_pretty.contains("I32(20)"), msg=test_pretty)
+  assert_true(test_pretty.contains("I32(33)"), msg=test_pretty)
 }
 
 ///|
@@ -13517,12 +13518,12 @@ test "simplify-globals-optimizing propagates private global values along a linea
 }
 
 ///|
-test "simplify-globals-optimizing stops runtime global propagation at calls" {
+test "simplify-globals-optimizing stops runtime global propagation at imported calls" {
   let optimized = sgo_test_run(
     (
       #|(module
+      #|  (import "env" "bar" (func $bar))
       #|  (global $g (mut i32) (i32.const 0))
-      #|  (func $bar)
       #|  (func (export "run") (result i32)
       #|    i32.const 5
       #|    global.set $g
@@ -14003,9 +14004,9 @@ test "simplify-globals-optimizing clears imported and exported runtime facts acr
   let optimized = sgo_test_run(
     (
       #|(module
+      #|  (import "env" "unknown" (func $unknown))
       #|  (import "env" "imp" (global $imp (mut i32)))
       #|  (global $exp (export "exp") (mut i32) (i32.const 0))
-      #|  (func $unknown)
       #|  (func $read_import (export "read_import") (result i32)
       #|    i32.const 7
       #|    global.set $imp
@@ -14020,9 +14021,9 @@ test "simplify-globals-optimizing clears imported and exported runtime facts acr
     ),
   )
 
-  let import_pretty = optimized.pretty_print_defined_func(1U)
+  let import_pretty = optimized.pretty_print_defined_func(0U)
   assert_true(import_pretty.contains("global.get"), msg=import_pretty)
-  let export_pretty = optimized.pretty_print_defined_func(2U)
+  let export_pretty = optimized.pretty_print_defined_func(1U)
   assert_true(export_pretty.contains("global.get"), msg=export_pretty)
 }
 
