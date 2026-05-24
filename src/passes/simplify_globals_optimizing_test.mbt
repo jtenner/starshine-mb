@@ -14425,6 +14425,37 @@ test "simplify-globals-optimizing rewrites dominated then reads before recursive
 }
 
 ///|
+test "simplify-globals-optimizing follows Binaryen dominance lit post-call and else barriers" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func $test (param $p i32) (result i32)
+      #|    (global.set $g
+      #|      (i32.const 10))
+      #|    (if (result i32)
+      #|      (local.get $p)
+      #|      (then
+      #|        (i32.add
+      #|          (global.get $g)
+      #|          (block (result i32)
+      #|            (drop
+      #|              (call $test
+      #|                (i32.const 0)))
+      #|            (global.get $g))))
+      #|      (else
+      #|        (global.get $g)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing stops then-body runtime propagation at calls with else arms" {
   let optimized = sgo_test_run(
     (

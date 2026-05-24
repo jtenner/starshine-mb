@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO dominance post-call and else guardrails
+
+- Added research note [`0590`](./raw/research/0590-2026-05-23-sgo-dominance-post-call-else-guardrails.md) and a source-shaped runtime dominance guardrail tied to Binaryen v129 `simplify-globals-dominance.wast`.
+- Pinned that a dominated then-body read before a recursive call may become the current constant while value-observable reads after that call and in the else arm remain conservative.
+- Confirmed this was a tests/docs-only slice and does not broaden call-effect, else-arm, post-if, or generated function-effects behavior; `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO single-use negative lit guardrails
 
 - Added research note [`0589`](./raw/research/0589-2026-05-23-sgo-single-use-negative-lit-guardrails.md) and four parser-supported source-alignment negatives from Binaryen v129 `simplify-globals-single_use.wast`.
