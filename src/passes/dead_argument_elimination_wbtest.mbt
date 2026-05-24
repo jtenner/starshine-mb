@@ -2082,7 +2082,7 @@ test "dae func867 default literal specialization removes call operands" {
   assert_true(result.changed)
   match (result.mod_out.func_sec, result.mod_out.code_sec) {
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
-      assert_true(type_idxs[0] != default_type)
+      assert_true(type_idxs[0] == default_type)
       let @lib.Func(_, @lib.Expr(callee_body)) = funcs[0]
       let @lib.Func(_, @lib.Expr(caller_body)) = funcs[1]
       assert_eq(callee_body, [@lib.Instruction::i32_const(@lib.I32(-1))])

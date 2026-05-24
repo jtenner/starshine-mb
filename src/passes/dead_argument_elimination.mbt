@@ -2521,6 +2521,166 @@ fn dae_append_new_func_type(
 }
 
 ///|
+fn dae_type_idx_equal(lhs : @lib.TypeIdx, rhs : @lib.TypeIdx) -> Bool {
+  lhs == rhs
+}
+
+///|
+fn dae_mark_non_funcsec_type_refs(
+  mod_ : @lib.Module,
+  used : Array[Bool],
+) -> Unit {
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TableExternType(table_type)) =>
+            dae_mark_used_table_type(table_type, used)
+          @lib.Import(_, _, @lib.GlobalExternType(global_type)) =>
+            dae_mark_used_global_type(global_type, used)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.tag_sec {
+    Some(@lib.TagSec(tags)) =>
+      for tag in tags {
+        let @lib.TagType(type_idx) = tag
+        dae_mark_used_type_idx(type_idx, used)
+      }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        let @lib.Table(table_type, _) = table
+        dae_mark_used_table_type(table_type, used)
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global in globals {
+        let @lib.Global(global_type, @lib.Expr(body)) = global
+        dae_mark_used_global_type(global_type, used)
+        dae_collect_used_type_idx_instrs(body, used)
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for elem in elems {
+        let @lib.Elem(_, kind) = elem
+        match kind {
+          @lib.TypedExprsElemKind(ref_type, exprs) => {
+            dae_mark_used_ref_type(ref_type, used)
+            for expr in exprs {
+              let @lib.Expr(body) = expr
+              dae_collect_used_type_idx_instrs(body, used)
+            }
+          }
+          @lib.FuncExprsElemKind(exprs) =>
+            for expr in exprs {
+              let @lib.Expr(body) = expr
+              dae_collect_used_type_idx_instrs(body, used)
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(body)) = func
+        for local_run in locals.runs() {
+          dae_mark_used_val_type(local_run.val_type(), used)
+        }
+        dae_collect_used_type_idx_instrs(body, used)
+      }
+    None => ()
+  }
+}
+
+///|
+fn dae_can_replace_unique_defined_func_type(
+  mod_ : @lib.Module,
+  func_types : Array[@lib.TypeIdx],
+  def_idx : Int,
+  old_type_idx : @lib.TypeIdx,
+) -> Bool {
+  let old_slot = match dae_type_idx_slot(old_type_idx) {
+    Some(slot) => slot
+    None => return false
+  }
+  let rec_len = match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => rec_types.length()
+    None => return false
+  }
+  if old_slot < 0 || old_slot >= rec_len {
+    return false
+  }
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(type_idx)) if dae_type_idx_equal(
+              type_idx, old_type_idx,
+            ) => return false
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let mut user_count = 0
+  let mut idx = 0
+  while idx < func_types.length() {
+    if dae_type_idx_equal(func_types[idx], old_type_idx) {
+      user_count += 1
+      if idx != def_idx {
+        return false
+      }
+    }
+    idx += 1
+  }
+  if user_count != 1 {
+    return false
+  }
+  let used = Array::make(rec_len, false)
+  dae_mark_non_funcsec_type_refs(mod_, used)
+  !used[old_slot]
+}
+
+///|
+fn dae_update_defined_func_type(
+  mod_ : @lib.Module,
+  type_sec : @lib.TypeSec,
+  func_types : Array[@lib.TypeIdx],
+  def_idx : Int,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> (@lib.TypeSec, @lib.TypeIdx) {
+  let old_type_idx = func_types[def_idx]
+  if dae_can_replace_unique_defined_func_type(
+      mod_, func_types, def_idx, old_type_idx,
+    ) {
+    match dae_type_idx_slot(old_type_idx) {
+      Some(old_slot) => {
+        let @lib.TypeSec(rec_types) = type_sec
+        let next = rec_types.copy()
+        next[old_slot] = @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+        )
+        return (@lib.TypeSec::new(next), old_type_idx)
+      }
+      None => ()
+    }
+  }
+  dae_append_new_func_type(type_sec, params, results)
+}
+
+///|
 fn dae_try_rewrite_candidate(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -2607,7 +2767,10 @@ fn dae_try_rewrite_candidate(
   )
 
   let (next_type_sec, new_type_idx) = match mod_.type_sec {
-    Some(type_sec) => dae_append_new_func_type(type_sec, kept_params, results)
+    Some(type_sec) =>
+      dae_update_defined_func_type(
+        mod_, type_sec, func_types, def_idx, kept_params, results,
+      )
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -2977,8 +3140,11 @@ fn dae_try_remove_dropped_results(
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
     @lib.Func::new(callee_locals, @lib.Expr::new(next_callee_body)),
   )
-  let (next_type_sec, new_type_idx) = dae_append_new_func_type(
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_,
     type_sec,
+    type_idxs,
+    def_idx,
     params,
     [],
   )
@@ -3858,8 +4024,8 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  let (next_type_sec, new_type_idx) = dae_append_new_func_type(
-    type_sec, next_params, results,
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_, type_sec, type_idxs, def_idx, next_params, results,
   )
   type_idxs[def_idx] = new_type_idx
   let touched = Array::make(funcs.length(), false)
@@ -3929,7 +4095,14 @@ fn dae_try_remove_unobserved_unreachable_function(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  let (next_type_sec, new_type_idx) = dae_append_new_func_type(type_sec, [], [])
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_,
+    type_sec,
+    type_idxs,
+    def_idx,
+    [],
+    [],
+  )
   type_idxs[def_idx] = new_type_idx
   let touched = Array::make(funcs.length(), false)
   touched[def_idx] = true
@@ -3987,7 +4160,14 @@ fn dae_try_remove_dead_self_suffix_result(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  let (next_type_sec, new_type_idx) = dae_append_new_func_type(type_sec, [], [])
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_,
+    type_sec,
+    type_idxs,
+    def_idx,
+    [],
+    [],
+  )
   type_idxs[def_idx] = new_type_idx
   let touched = Array::make(funcs.length(), false)
   touched[def_idx] = true
@@ -4046,8 +4226,11 @@ fn dae_try_remove_uncalled_results(
     @lib.Locals::empty(),
     @lib.Expr::new([@lib.Instruction::unreachable_()]),
   )
-  let (next_type_sec, new_type_idx) = dae_append_new_func_type(
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_,
     type_sec,
+    type_idxs,
+    def_idx,
     params,
     [],
   )
@@ -16482,7 +16665,10 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
     @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
   )
   let (next_type_sec, new_type_idx) = match mod_.type_sec {
-    Some(type_sec) => dae_append_new_func_type(type_sec, kept_params, results)
+    Some(type_sec) =>
+      dae_update_defined_func_type(
+        mod_, type_sec, func_types, def_idx, kept_params, results,
+      )
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -17853,8 +18039,8 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
     @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
   )
-  let (next_type_sec, new_type_idx) = dae_append_new_func_type(
-    current_type_sec, kept_params, results,
+  let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+    mod_, current_type_sec, func_types, def_idx, kept_params, results,
   )
   func_types[def_idx] = new_type_idx
   let touched = Array::make(funcs.length(), false)
@@ -17918,8 +18104,8 @@ fn dae_restore_dead_suffix_self_operand_params(
             dae_resolve_func_type(current, current_type_indices, callee_abs) {
             Some(@lib.FuncType(current_params, current_results)) if current_params.length() ==
               0 => {
-              let (next_type_sec, new_type_idx) = dae_append_new_func_type(
-                type_sec, restored_params, current_results,
+              let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
+                current, type_sec, type_idxs, def_idx, restored_params, current_results,
               )
               type_sec = next_type_sec
               type_idxs[def_idx] = new_type_idx

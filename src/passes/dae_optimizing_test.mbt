@@ -38,6 +38,26 @@ fn dae_test_func_results(
 }
 
 ///|
+fn dae_test_type_sec_func_type(
+  mod_ : @lib.Module,
+  type_idx : Int,
+) -> @lib.FuncType {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      match rec_types[type_idx] {
+        @lib.SingleRecType(subtype) =>
+          match subtype.get_comptype() {
+            @lib.FuncCompType(params, results) =>
+              @lib.FuncType::new(params, results)
+            _ => abort("expected func type")
+          }
+        @lib.GroupRecType(_) => abort("unexpected group type")
+      }
+    None => abort("missing type section")
+  }
+}
+
+///|
 fn dae_test_run(
   text : String,
   pass_name? : String = "dae-optimizing",
@@ -536,6 +556,33 @@ test "dae-optimizing rewrites every direct call when a caller hits the same call
   assert_true(callee.contains("i32.lt_s"), msg=callee)
   assert_false(callee.contains("i32.eqz"), msg=callee)
   assert_false(callee.contains("i32.ge_s"), msg=callee)
+}
+
+///|
+test "dae-optimizing rewrites unique function types in place" {
+  let source =
+    #|(module
+    #|  (type $target_ty (func (param i32) (result i32)))
+    #|  (type $marker_ty (func (result i32 i32)))
+    #|  (func $target (type $target_ty) (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $marker (type $marker_ty) (result i32 i32)
+    #|    i32.const 1
+    #|    i32.const 2)
+    #|  (func $caller (export "run") (result i32)
+    #|    i32.const 0
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  let @lib.FuncType(first_params, first_results) = dae_test_type_sec_func_type(
+    optimized, 0,
+  )
+  @debug.assert_eq(first_params.length(), 0)
+  @debug.assert_eq(first_results, [@lib.ValType::i32()])
+  let @lib.FuncType(marker_params, marker_results) = dae_test_type_sec_func_type(
+    optimized, 1,
+  )
+  @debug.assert_eq(marker_params.length(), 0)
+  @debug.assert_eq(marker_results, [@lib.ValType::i32(), @lib.ValType::i32()])
 }
 
 ///|

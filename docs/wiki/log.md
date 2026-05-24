@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae unique function-type updates
+
+- Updated [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so DAE signature rewrites replace a function's existing type entry in place when that type is uniquely owned by the rewritten defined function and has no non-`func_sec` type references; otherwise the pass still appends a fresh function type.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) proving a unique removed-param callee keeps the first type-section slot while a later marker type stays in place.
+- `.tmp/dae-unique-type-update-artifact` validates with `wasm-opt --all-features` and keeps the raw direct debug-artifact first diff at `defined=336 abs=353`; the remaining leading raw drift is still broader Binaryen type-section ordering/reuse, while the first type-normalized body drift is Func215 local `set/get` versus `tee` shape. `.tmp/pass-fuzz-dae-unique-type-update-1000` preserves the current short-run no-validation-failure shape (`45/1000` compared, `26` normalized matches, `19` mismatches, `0` validation failures, `1` Binaryen/tool command failure).
+
 ## [2026-05-24] passes | dae Func327 wrapper-select parity
 
 - Added a selected Func327 default-wrapper cleanup in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), lowering pure nontrapping sentinel `if (result i32)` wrappers to Binaryen-shaped `select`s, reusing the existing safe `i32.eq x, 0` arm-swap helper, and remapping the proven one-use i64 temp `$25` onto parameter `$0` before trimming locals.
