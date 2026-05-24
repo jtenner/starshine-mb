@@ -367,6 +367,14 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-struct-set-input-type"
     InvalidFunctionBodyStructSetValueType =>
       "invalid-function-body-struct-set-value-type"
+    InvalidFunctionBodyStructGetFieldIndex =>
+      "invalid-function-body-struct-get-field-index"
+    InvalidFunctionBodyStructSetFieldIndex =>
+      "invalid-function-body-struct-set-field-index"
+    InvalidFunctionBodyStructSetImmutableField =>
+      "invalid-function-body-struct-set-immutable-field"
+    InvalidFunctionBodyStructGetSignedFieldType =>
+      "invalid-function-body-struct-get-signed-field-type"
     InvalidFunctionBodyBrOnCastInputType =>
       "invalid-function-body-br-on-cast-input-type"
     InvalidFunctionBodyBrOnCastFailInputType =>

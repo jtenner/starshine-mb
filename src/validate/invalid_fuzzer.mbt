@@ -156,6 +156,10 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyStructGetInputType
   InvalidFunctionBodyStructSetInputType
   InvalidFunctionBodyStructSetValueType
+  InvalidFunctionBodyStructGetFieldIndex
+  InvalidFunctionBodyStructSetFieldIndex
+  InvalidFunctionBodyStructSetImmutableField
+  InvalidFunctionBodyStructGetSignedFieldType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -1073,6 +1077,34 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructGetFieldIndex,
+      "invalid-function-body-struct-get-field-index",
+      "invalid function-body struct.get field index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructSetFieldIndex,
+      "invalid-function-body-struct-set-field-index",
+      "invalid function-body struct.set field index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructSetImmutableField,
+      "invalid-function-body-struct-set-immutable-field",
+      "invalid function-body struct.set immutable field",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructGetSignedFieldType,
+      "invalid-function-body-struct-get-signed-field-type",
+      "invalid function-body struct.get_s field type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1353,6 +1385,10 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyStructGetInputType => 130
     InvalidFunctionBodyStructSetInputType => 131
     InvalidFunctionBodyStructSetValueType => 132
+    InvalidFunctionBodyStructGetFieldIndex => 133
+    InvalidFunctionBodyStructSetFieldIndex => 134
+    InvalidFunctionBodyStructSetImmutableField => 135
+    InvalidFunctionBodyStructGetSignedFieldType => 136
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -4166,6 +4202,18 @@ fn validate_invalid_ast_i32_struct_module(mutability : Mut) -> Module {
 }
 
 ///|
+fn validate_invalid_ast_i8_struct_module(mutability : Mut) -> Module {
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::pack_type(PackType::i8()), mutability),
+      ]),
+    ),
+  )
+  Module::new().with_type_sec(TypeSec::new([struct_type]))
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -4937,6 +4985,106 @@ fn validate_invalid_ast_mutate_invalid_function_body_struct_set_value_type(
   )
   {
     strategy: InvalidFunctionBodyStructSetValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_get_field_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::struct_get(TypeIdx::new(0U), U32::new(1U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructGetFieldIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_set_field_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(7)),
+    Instruction::struct_set(TypeIdx::new(0U), U32::new(1U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Var),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructSetFieldIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_set_immutable_field(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(7)),
+    Instruction::struct_set(TypeIdx::new(0U), U32::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructSetImmutableField,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_get_signed_field_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::struct_get_s(TypeIdx::new(0U), U32::new(0U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructGetSignedFieldType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -6054,6 +6202,22 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_struct_set_value_type(
           base,
         )
+      InvalidFunctionBodyStructGetFieldIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_get_field_index(
+          base,
+        )
+      InvalidFunctionBodyStructSetFieldIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_set_field_index(
+          base,
+        )
+      InvalidFunctionBodyStructSetImmutableField =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_set_immutable_field(
+          base,
+        )
+      InvalidFunctionBodyStructGetSignedFieldType =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_get_signed_field_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -6508,6 +6672,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-array-new-elem-source-type", "invalid-function-body-array-new-elem-length-type",
     "invalid-function-body-struct-new-value-type", "invalid-function-body-struct-get-input-type",
     "invalid-function-body-struct-set-input-type", "invalid-function-body-struct-set-value-type",
+    "invalid-function-body-struct-get-field-index", "invalid-function-body-struct-set-field-index",
+    "invalid-function-body-struct-set-immutable-field", "invalid-function-body-struct-get-signed-field-type",
     "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
     "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
@@ -8623,6 +8789,58 @@ test "invalid struct.set value type strategy rejects with FunctionBody family" {
 }
 
 ///|
+test "invalid struct.get field index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructGetFieldIndex,
+      0x10d25UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid struct.set field index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructSetFieldIndex,
+      0x10d26UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid struct.set immutable field strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructSetImmutableField,
+      0x10d27UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid struct.get signed field type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructGetSignedFieldType,
+      0x10d28UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "function-body struct.new value mutation repairs by using field-typed values" {
   let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_new_value_type(
     Module::new(),
@@ -8743,6 +8961,138 @@ test "function-body struct.set value mutation repairs by using a field-typed val
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired struct.set value module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body struct.get field-index mutation repairs by using an in-range field" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_get_field_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected out-of-range struct.get field index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::struct_get(TypeIdx::new(0U), U32::new(0U)),
+      Instruction::drop(),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired struct.get field-index module to validate: \{err}",
+      )
+  }
+}
+
+///|
+test "function-body struct.set field-index mutation repairs by using an in-range field" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_set_field_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected out-of-range struct.set field index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Var),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(7)),
+      Instruction::struct_set(TypeIdx::new(0U), U32::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired struct.set field-index module to validate: \{err}",
+      )
+  }
+}
+
+///|
+test "function-body struct.set immutable-field mutation repairs by using a mutable field" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_set_immutable_field(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected immutable-field struct.set to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i32_struct_module(Var),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(7)),
+      Instruction::struct_set(TypeIdx::new(0U), U32::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired struct.set immutable-field module to validate: \{err}",
+      )
+  }
+}
+
+///|
+test "function-body struct.get signed-field mutation repairs by using a packed field" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_struct_get_signed_field_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected struct.get_s on unpacked field to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_i8_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::struct_get_s(TypeIdx::new(0U), U32::new(0U)),
+      Instruction::drop(),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired struct.get_s packed-field module to validate: \{err}",
+      )
   }
 }
 
