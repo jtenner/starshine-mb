@@ -136,6 +136,10 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyArrayCopyInputType
   InvalidFunctionBodyArrayCopySourceInputType
   InvalidFunctionBodyArrayCopyLengthType
+  InvalidFunctionBodyArrayInitDataInputType
+  InvalidFunctionBodyArrayInitDataDestType
+  InvalidFunctionBodyArrayInitDataSourceType
+  InvalidFunctionBodyArrayInitDataLengthType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -913,6 +917,34 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArrayInitDataInputType,
+      "invalid-function-body-array-init-data-input-type",
+      "invalid function-body array.init_data input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArrayInitDataDestType,
+      "invalid-function-body-array-init-data-dest-type",
+      "invalid function-body array.init_data destination type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArrayInitDataSourceType,
+      "invalid-function-body-array-init-data-source-type",
+      "invalid function-body array.init_data source type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArrayInitDataLengthType,
+      "invalid-function-body-array-init-data-length-type",
+      "invalid function-body array.init_data length type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1173,6 +1205,10 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyArrayCopyInputType => 110
     InvalidFunctionBodyArrayCopySourceInputType => 111
     InvalidFunctionBodyArrayCopyLengthType => 112
+    InvalidFunctionBodyArrayInitDataInputType => 113
+    InvalidFunctionBodyArrayInitDataDestType => 114
+    InvalidFunctionBodyArrayInitDataSourceType => 115
+    InvalidFunctionBodyArrayInitDataLengthType => 116
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -3944,6 +3980,14 @@ fn validate_invalid_ast_mut_i32_array_module() -> Module {
 }
 
 ///|
+fn validate_invalid_ast_mut_i32_array_with_data_module() -> (Module, DataIdx) {
+  let (with_data, data_idx) = validate_invalid_ast_append_passive_data(
+    validate_invalid_ast_mut_i32_array_module(),
+  )
+  (with_data.with_data_cnt_sec(DataCntSec::new(U32(1U))), data_idx)
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_array_get_input_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -4180,6 +4224,118 @@ fn validate_invalid_ast_mutate_invalid_function_body_array_copy_length_type(
   )
   {
     strategy: InvalidFunctionBodyArrayCopyLengthType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_init_data_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let (base, data_idx) = validate_invalid_ast_mut_i32_array_with_data_module()
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::array_init_data(TypeIdx::new(0U), data_idx),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    base,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArrayInitDataInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_init_data_dest_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let (base, data_idx) = validate_invalid_ast_mut_i32_array_with_data_module()
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::array_init_data(TypeIdx::new(0U), data_idx),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    base,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArrayInitDataDestType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_init_data_source_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let (base, data_idx) = validate_invalid_ast_mut_i32_array_with_data_module()
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::i32_const(I32(1)),
+    Instruction::array_init_data(TypeIdx::new(0U), data_idx),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    base,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArrayInitDataSourceType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_init_data_length_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let (base, data_idx) = validate_invalid_ast_mut_i32_array_with_data_module()
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::array_init_data(TypeIdx::new(0U), data_idx),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    base,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArrayInitDataLengthType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -5217,6 +5373,22 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_array_copy_length_type(
           base,
         )
+      InvalidFunctionBodyArrayInitDataInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_init_data_input_type(
+          base,
+        )
+      InvalidFunctionBodyArrayInitDataDestType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_init_data_dest_type(
+          base,
+        )
+      InvalidFunctionBodyArrayInitDataSourceType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_init_data_source_type(
+          base,
+        )
+      InvalidFunctionBodyArrayInitDataLengthType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_init_data_length_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -5661,6 +5833,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-array-fill-input-type", "invalid-function-body-array-fill-value-type",
     "invalid-function-body-array-fill-length-type", "invalid-function-body-array-copy-input-type",
     "invalid-function-body-array-copy-source-input-type", "invalid-function-body-array-copy-length-type",
+    "invalid-function-body-array-init-data-input-type", "invalid-function-body-array-init-data-dest-type",
+    "invalid-function-body-array-init-data-source-type", "invalid-function-body-array-init-data-length-type",
     "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
     "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
