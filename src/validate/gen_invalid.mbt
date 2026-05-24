@@ -475,6 +475,12 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-store-address-type"
     InvalidFunctionBodySimdStoreValueType =>
       "invalid-function-body-simd-store-value-type"
+    InvalidFunctionBodySimdLoadExtendAddressType =>
+      "invalid-function-body-simd-load-extend-address-type"
+    InvalidFunctionBodySimdLoadSplatAddressType =>
+      "invalid-function-body-simd-load-splat-address-type"
+    InvalidFunctionBodySimdLoadZeroAddressType =>
+      "invalid-function-body-simd-load-zero-address-type"
     InvalidFunctionBodyAtomicNotifyAddressType =>
       "invalid-function-body-atomic-notify-address-type"
     InvalidFunctionBodyAtomicWaitAddressType =>

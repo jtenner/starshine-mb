@@ -2482,6 +2482,75 @@ test "gen_invalid_ast_generate supports function-body SIMD store value type stra
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body SIMD load-extend address type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d61UL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodySimdLoadExtendAddressType,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD load-extend address type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body SIMD load-splat address type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d62UL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodySimdLoadSplatAddressType,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD load-splat address type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports function-body SIMD load-zero address type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d63UL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodySimdLoadZeroAddressType,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected SIMD load-zero address type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body memory.init data index strategy" {
   let generated = match
     gen_invalid_ast_generate(
