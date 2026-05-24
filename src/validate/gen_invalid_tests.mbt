@@ -1477,6 +1477,30 @@ test "gen_invalid_ast_generate supports function-body call_ref ref type strategy
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body ref.cast input type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x10d00UL),
+      GenInvalidAstParams::repro_seed(InvalidFunctionBodyRefCastInputType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-ref-cast-input-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body table.get index type strategy" {
   let generated = match
     gen_invalid_ast_generate(

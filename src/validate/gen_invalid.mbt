@@ -295,6 +295,8 @@ fn gen_invalid_ast_strategy_label(
     InvalidFunctionBodyReturnCallRefType =>
       "invalid-function-body-return-call-ref-type"
     InvalidFunctionBodyCallRefType => "invalid-function-body-call-ref-type"
+    InvalidFunctionBodyRefCastInputType =>
+      "invalid-function-body-ref-cast-input-type"
     InvalidFunctionBodyTableSetValueType =>
       "invalid-function-body-table-set-value-type"
     InvalidFunctionBodyGlobalSetValueType =>
