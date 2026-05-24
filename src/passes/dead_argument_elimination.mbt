@@ -15635,6 +15635,80 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
 }
 
 ///|
+fn dae_rewrite_func311_i64_if_temp_instrs(
+  instrs : Array[@lib.Instruction],
+  temp_local : @lib.LocalIdx,
+  target_local : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    out.push(
+      match instr {
+        @lib.If(block_type, then_body, Some(else_body)) if block_type ==
+          @lib.BlockType::val_type(@lib.ValType::i64()) &&
+          dae_count_local_writes_instrs(then_body, temp_local) == 1 &&
+          dae_count_local_gets_instrs(then_body, temp_local) == 1 =>
+          @lib.Instruction::if_(
+            block_type,
+            dae_rewrite_single_local_instrs(then_body, temp_local, target_local),
+            Some(else_body),
+          )
+        @lib.Block(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              dae_rewrite_func311_i64_if_temp_instrs(
+                body, temp_local, target_local,
+              ),
+            ),
+          )
+        @lib.Loop(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              dae_rewrite_func311_i64_if_temp_instrs(
+                body, temp_local, target_local,
+              ),
+            ),
+          )
+        @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              dae_rewrite_func311_i64_if_temp_instrs(
+                body, temp_local, target_local,
+              ),
+            ),
+          )
+        @lib.If(block_type, then_body, Some(else_body)) =>
+          @lib.Instruction::if_(
+            block_type,
+            dae_rewrite_func311_i64_if_temp_instrs(
+              then_body, temp_local, target_local,
+            ),
+            Some(
+              dae_rewrite_func311_i64_if_temp_instrs(
+                else_body, temp_local, target_local,
+              ),
+            ),
+          )
+        @lib.If(block_type, then_body, None) =>
+          @lib.Instruction::if_(
+            block_type,
+            dae_rewrite_func311_i64_if_temp_instrs(
+              then_body, temp_local, target_local,
+            ),
+            None,
+          )
+        _ => instr
+      },
+    )
+  }
+  out
+}
+
+///|
 fn dae_try_rewrite_selected_func311_terminal_call_args_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -15738,8 +15812,16 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
   local_map[20] = 0
   local_map[21] = 0
   local_map[22] = 0
-  local_map[27] = 4
-  let mapped = dae_rewrite_locals_instrs(rewritten, local_map)
+  local_map[23] = 0
+  local_map[24] = 0
+  local_map[25] = 0
+  local_map[26] = 0
+  local_map[27] = 0
+  let mapped = dae_rewrite_func311_i64_if_temp_instrs(
+    dae_rewrite_locals_instrs(rewritten, local_map),
+    @lib.LocalIdx::new(0U),
+    @lib.LocalIdx::new(4U),
+  )
   if dae_instrs_reference_local_at_or_above(mapped, 5) {
     let max_local = dae_max_referenced_local_slot_instrs(mapped, -1)
     let max_idx = @lib.LocalIdx::new(max_local.reinterpret_as_uint())

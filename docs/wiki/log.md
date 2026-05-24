@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func311 temp-reuse parity
+
+- Extended the selected Func311 lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so the remaining high allocation temps map to Binaryen's reused `$0`, while the final i64 result-if temp is rewritten to `$4` only when that i64 arm has exactly one temp write/read.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the final i64 temp remap shape.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae-func311-temp-reuse-artifact` validates with `wasm-opt --all-features`, keeps pass-local timing inside the 2x target, advances the first diff to `defined=313 abs=330`, and leaves Func313's larger call-argument staging family as the next frontier.
+
 ## [2026-05-24] passes | dae Func311 terminal-call staging parity
 
 - Added a selected Func311 terminal-call lane in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) that folds constant result-`if` wrappers, swaps nontrapping `i32.eq x, 0` default-object wrappers to Binaryen's direct condition shape, inlines staged terminal-call locals, and removes single-use payload-constant locals.
