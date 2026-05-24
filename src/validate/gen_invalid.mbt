@@ -226,6 +226,10 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-br-if-payload-mismatch"
     InvalidFunctionBodyBrTablePayloadMismatch =>
       "invalid-function-body-br-table-payload-mismatch"
+    InvalidFunctionBodyIfConditionType =>
+      "invalid-function-body-if-condition-type"
+    InvalidFunctionBodyIfBranchResultType =>
+      "invalid-function-body-if-branch-result-type"
     InvalidFunctionBodySelectConditionType =>
       "invalid-function-body-select-condition-type"
     InvalidFunctionBodySelectOperandType =>

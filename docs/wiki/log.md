@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 if invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-if-condition-type` and `invalid-function-body-if-branch-result-type` for `if` condition and branch result stack-type failures.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving the bad `if` stacks reject while matching `i32` condition and branch result forms validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name the new `if` coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 select invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-select-condition-type` and `invalid-function-body-select-operand-type` for untyped `select` condition and value-operand stack-type failures.
