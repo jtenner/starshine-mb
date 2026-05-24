@@ -1287,6 +1287,9 @@ pub struct WastRoundtripFuzzStats {
   script_iterations : Int
   module_commands : Int
   rendered_scripts : Int
+  generation_mode : String
+  valid_lowered_modules : Int
+  static_assertions : Int
   feature_stats : WastArbitraryFeatureStats
 } derive(Eq, @debug.Debug)
 
