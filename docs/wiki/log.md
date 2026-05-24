@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 array.copy invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-array-copy-input-type`, `invalid-function-body-array-copy-source-input-type`, and `invalid-function-body-array-copy-length-type` for `array.copy` destination receiver, source receiver, and length stack-type mismatches.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving the mismatched `array.copy` operands reject while the mutable `i32` array destination/source refs plus `i32` indexes and length validate.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living invalid-AST summaries name `array.copy` coverage alongside the recent array len/get/set/fill variants.
+
 ## [2026-05-24] fuzzing | FUZ1020 array.fill invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-array-fill-input-type`, `invalid-function-body-array-fill-value-type`, and `invalid-function-body-array-fill-length-type`.

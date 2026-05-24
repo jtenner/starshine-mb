@@ -133,6 +133,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyArrayFillInputType
   InvalidFunctionBodyArrayFillValueType
   InvalidFunctionBodyArrayFillLengthType
+  InvalidFunctionBodyArrayCopyInputType
+  InvalidFunctionBodyArrayCopySourceInputType
+  InvalidFunctionBodyArrayCopyLengthType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyTableSetValueType
@@ -889,6 +892,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArrayCopyInputType,
+      "invalid-function-body-array-copy-input-type",
+      "invalid function-body array.copy destination input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArrayCopySourceInputType,
+      "invalid-function-body-array-copy-source-input-type",
+      "invalid function-body array.copy source input type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyArrayCopyLengthType,
+      "invalid-function-body-array-copy-length-type",
+      "invalid function-body array.copy length type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastInputType,
       "invalid-function-body-br-on-cast-input-type",
       "invalid function-body br_on_cast input type",
@@ -1146,6 +1170,9 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyArrayFillInputType => 107
     InvalidFunctionBodyArrayFillValueType => 108
     InvalidFunctionBodyArrayFillLengthType => 109
+    InvalidFunctionBodyArrayCopyInputType => 110
+    InvalidFunctionBodyArrayCopySourceInputType => 111
+    InvalidFunctionBodyArrayCopyLengthType => 112
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyTableSetValueType => 62
@@ -4076,6 +4103,90 @@ fn validate_invalid_ast_mutate_invalid_function_body_array_fill_length_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_copy_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_const(I32(2)),
+    Instruction::array_copy(TypeIdx::new(0U), TypeIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArrayCopyInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_copy_source_input_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_const(I32(2)),
+    Instruction::array_copy(TypeIdx::new(0U), TypeIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArrayCopySourceInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_array_copy_length_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(0)),
+    Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+    Instruction::i32_const(I32(1)),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    Instruction::array_copy(TypeIdx::new(0U), TypeIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyArrayCopyLengthType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_make_br_on_cast_input_type_body(
   instr : Instruction,
 ) -> Expr {
@@ -5094,6 +5205,18 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_array_fill_length_type(
           base,
         )
+      InvalidFunctionBodyArrayCopyInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_copy_input_type(
+          base,
+        )
+      InvalidFunctionBodyArrayCopySourceInputType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_copy_source_input_type(
+          base,
+        )
+      InvalidFunctionBodyArrayCopyLengthType =>
+        validate_invalid_ast_mutate_invalid_function_body_array_copy_length_type(
+          base,
+        )
       InvalidFunctionBodyBrOnCastInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
@@ -5536,14 +5659,15 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-array-len-input-type", "invalid-function-body-array-get-input-type",
     "invalid-function-body-array-set-input-type", "invalid-function-body-array-set-value-type",
     "invalid-function-body-array-fill-input-type", "invalid-function-body-array-fill-value-type",
-    "invalid-function-body-array-fill-length-type", "invalid-function-body-br-on-cast-input-type",
-    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-array-fill-length-type", "invalid-function-body-array-copy-input-type",
+    "invalid-function-body-array-copy-source-input-type", "invalid-function-body-array-copy-length-type",
+    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -7128,6 +7252,109 @@ test "function-body array.fill length mutation repairs by using an i32 length" {
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired array.fill length module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body array.copy input mutation repairs by using destination/source array refs and i32 indexes" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_array_copy_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected mismatched array.copy destination input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(0)),
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(1)),
+      Instruction::i32_const(I32(2)),
+      Instruction::array_copy(TypeIdx::new(0U), TypeIdx::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired array.copy input module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body array.copy source input mutation repairs by using a source array ref" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_array_copy_source_input_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched array.copy source input type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(0)),
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(1)),
+      Instruction::i32_const(I32(2)),
+      Instruction::array_copy(TypeIdx::new(0U), TypeIdx::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired array.copy source module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body array.copy length mutation repairs by using an i32 length" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_array_copy_length_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched array.copy length type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_mut_i32_array_module(),
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(0)),
+      Instruction::ref_null(HeapType::new(TypeIdx::new(0U))),
+      Instruction::i32_const(I32(1)),
+      Instruction::i32_const(I32(2)),
+      Instruction::array_copy(TypeIdx::new(0U), TypeIdx::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired array.copy length module to validate: \{err}")
   }
 }
 
