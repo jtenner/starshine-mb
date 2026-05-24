@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 memory.init source invalid AST coverage
+
+- Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-memory-init-source-type`.
+- Added focused invalid-strategy and repair tests proving an `i64` source-offset operand for memory32 `memory.init` rejects with the function-body family while the repaired `i32` source offset validates with a matching passive data segment and data-count section.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living AST-invalid strategy summary names `memory.init` source-offset coverage alongside length coverage and the memory copy/fill/grow body-stack variants.
+
 ## [2026-05-23] fuzzing | FUZ1020 memory.init length invalid AST coverage
 
 - Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-memory-init-length-type`.
