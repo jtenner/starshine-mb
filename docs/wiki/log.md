@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO single-use negative lit guardrails
+
+- Added research note [`0589`](./raw/research/0589-2026-05-23-sgo-single-use-negative-lit-guardrails.md) and four parser-supported source-alignment negatives from Binaryen v129 `simplify-globals-single_use.wast`.
+- Pinned conservatism for second global use, function-code second use, imported source, and function-code-only single use.
+- Confirmed these guardrails do not trigger nested cleanup where startup-only global initializers are involved and do not claim full `SimplifyGlobals.cpp` parity; `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO single-use copy-chain lit regression
 
 - Added research note [`0588`](./raw/research/0588-2026-05-23-sgo-single-use-chain-lit-regression.md) and a parser-supported source-alignment regression for the related-optimization copy-chain module in Binaryen v129 `simplify-globals-single_use.wast`.
