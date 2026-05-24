@@ -2482,6 +2482,42 @@ test "simplify-globals-optimizing keeps function-effects set-call read-only-to-w
 }
 
 ///|
+test "simplify-globals-optimizing keeps function-effects wrong-global read-only-to-write negative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $global (mut i32) (i32.const 0))
+      #|  (global $other (mut i32) (i32.const 0))
+      #|  (func $read-only-to-write (export "read-only-to-write")
+      #|    (if
+      #|      (block (result i32)
+      #|        (drop
+      #|          (call $get))
+      #|        (global.get $other))
+      #|      (then
+      #|        (global.set $global
+      #|          (i32.const 0)))))
+      #|  (func $set (export "set")
+      #|    (global.set $global
+      #|      (i32.const 1)))
+      #|  (func $get (export "get") (result i32)
+      #|    (global.get $global)))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let read_pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(read_pretty.contains("call (Func 2)"), msg=read_pretty)
+  assert_true(read_pretty.contains("global.set"), msg=read_pretty)
+  let get_pretty = optimized.pretty_print_defined_func(2U)
+  assert_true(get_pretty.contains("global.get"), msg=get_pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps function-effects get-and-set-call read-only-to-write negative" {
   let optimized = sgo_test_run(
     (

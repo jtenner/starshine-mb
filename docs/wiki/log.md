@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO function-effects wrong-global negative
+
+- Added research note [`0592`](./raw/research/0592-2026-05-23-sgo-function-effects-wrong-global-negative.md) and the wrong-global direct SGO guardrail from Binaryen v129 `simplify-globals_func-effects.wast`.
+- Pinned that a condition block reading `$other` while calling `$get` does not count as a local read-only-to-write event for `$global`; `$global` remains mutable/conservative while `$other` may still fold independently.
+- Confirmed this was a tests/docs-only slice and does not implement `--generate-global-effects` or interprocedural call-effect propagation; `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO function-effects call negatives
 
 - Added research note [`0591`](./raw/research/0591-2026-05-23-sgo-function-effects-call-negatives.md) and three direct SGO guardrails from Binaryen v129 `simplify-globals_func-effects.wast`.

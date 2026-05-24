@@ -39,7 +39,7 @@ The guardrails passed without implementation changes. No direct 10k SGO fuzz was
 
 - Keep direct SGO call barriers conservative until Starshine has an explicit function-effects analysis with focused oracle support.
 - The first positive module in `simplify-globals_func-effects.wast`, where `--generate-global-effects` lets Binaryen preserve facts for unaffected globals across a call, remains deferred for a separate generated-effects/shared-analysis slice.
-- The wrong-global variant from the same lit file can be added later as another compact guardrail if needed.
+- The wrong-global variant from the same lit file was added separately in [`0592`](./0592-2026-05-23-sgo-function-effects-wrong-global-negative.md).
 
 ## Non-claims
 
