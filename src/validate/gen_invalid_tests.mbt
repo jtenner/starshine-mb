@@ -513,6 +513,62 @@ test "gen_invalid_ast_generate supports element-section typed expression type st
 }
 
 ///|
+test "gen_invalid_ast_generate supports memory-section invalid limit range strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef85UL),
+      GenInvalidAstParams::repro_seed(InvalidMemoryLimitRange),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-memory-limit-range base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-memory-limit-range mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == MemorySectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports table-section invalid limit range strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef86UL),
+      GenInvalidAstParams::repro_seed(InvalidTableLimitRange),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-table-limit-range base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-table-limit-range mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == TableSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports tag-section invalid type strategy" {
   let generated = match
     gen_invalid_ast_generate(
