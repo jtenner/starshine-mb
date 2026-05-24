@@ -90,6 +90,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyMemory64AddressType
   InvalidFunctionBodyMemoryStoreValueType
   InvalidFunctionBodyMemoryGrowDeltaType
+  InvalidFunctionBodyMemoryFillValueType
   InvalidFunctionBodyLocalSetValueType
   InvalidFunctionBodyLocalTeeValueType
   InvalidFunctionBodyReturnValueType
@@ -549,6 +550,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyMemoryFillValueType,
+      "invalid-function-body-memory-fill-value-type",
+      "invalid function-body memory.fill value type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyLocalSetValueType,
       "invalid-function-body-local-set-value-type",
       "invalid function-body local.set value type",
@@ -791,6 +799,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyMemory64AddressType => 45
     InvalidFunctionBodyMemoryStoreValueType => 46
     InvalidFunctionBodyMemoryGrowDeltaType => 70
+    InvalidFunctionBodyMemoryFillValueType => 71
     InvalidFunctionBodyLocalSetValueType => 64
     InvalidFunctionBodyLocalTeeValueType => 65
     InvalidFunctionBodyReturnValueType => 66
@@ -2473,6 +2482,35 @@ fn validate_invalid_ast_mutate_invalid_function_body_memory_grow_delta_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_memory_fill_value_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let with_memory = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_const(I64(7)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_fill(MemIdx::new(0U)),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyMemoryFillValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_local_set_value_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -3425,6 +3463,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_memory_grow_delta_type(
           base,
         )
+      InvalidFunctionBodyMemoryFillValueType =>
+        validate_invalid_ast_mutate_invalid_function_body_memory_fill_value_type(
+          base,
+        )
       InvalidFunctionBodyLocalSetValueType =>
         validate_invalid_ast_mutate_invalid_function_body_local_set_value_type(
           base,
@@ -3862,15 +3904,16 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-throw-payload-mismatch", "invalid-function-body-try-table-catch-payload-mismatch",
     "invalid-function-body-memory-address-type", "invalid-function-body-memory64-address-type",
     "invalid-function-body-memory-store-value-type", "invalid-function-body-memory-grow-delta-type",
-    "invalid-function-body-local-set-value-type", "invalid-function-body-local-tee-value-type",
-    "invalid-function-body-return-value-type", "invalid-function-body-table-get-index-type",
-    "invalid-function-body-table-grow-value-type", "invalid-function-body-table-fill-value-type",
-    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-function-body-memory-fill-value-type", "invalid-function-body-local-set-value-type",
+    "invalid-function-body-local-tee-value-type", "invalid-function-body-return-value-type",
+    "invalid-function-body-table-get-index-type", "invalid-function-body-table-grow-value-type",
+    "invalid-function-body-table-fill-value-type", "invalid-function-body-table-set-value-type",
+    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 19)
@@ -4836,6 +4879,55 @@ test "function-body table.fill value mutation repairs by using matching table re
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired table.fill value module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid memory.fill value type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyMemoryFillValueType,
+      0x10ce8UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body memory.fill value mutation repairs by using i32 byte values" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_memory_fill_value_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched memory.fill value type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_memory = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_fill(MemIdx::new(0U)),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_memory,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired memory.fill value module to validate: \{err}")
   }
 }
 
