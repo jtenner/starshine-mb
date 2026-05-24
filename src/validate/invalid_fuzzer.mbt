@@ -109,6 +109,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyTableInitLengthType
   InvalidFunctionBodyTableInitSourceType
   InvalidFunctionBodyTableInitDestType
+  InvalidFunctionBodyDataDropIndex
+  InvalidFunctionBodyElemDropIndex
   InvalidFunctionBodyTableSetValueType
   InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
@@ -695,6 +697,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyDataDropIndex,
+      "invalid-function-body-data-drop-index",
+      "invalid function-body data.drop index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyElemDropIndex,
+      "invalid-function-body-elem-drop-index",
+      "invalid function-body elem.drop index",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyTableSetValueType,
       "invalid-function-body-table-set-value-type",
       "invalid function-body table.set value type",
@@ -914,6 +930,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyTableInitLengthType => 81
     InvalidFunctionBodyTableInitSourceType => 82
     InvalidFunctionBodyTableInitDestType => 83
+    InvalidFunctionBodyDataDropIndex => 84
+    InvalidFunctionBodyElemDropIndex => 85
     InvalidFunctionBodyTableSetValueType => 62
     InvalidFunctionBodyGlobalSetValueType => 63
     InvalidMemoryNameSectionIndex => 47
@@ -3162,6 +3180,51 @@ fn validate_invalid_ast_mutate_invalid_function_body_table_init_dest_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_data_drop_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let base = Module::new()
+    .with_data_sec(DataSec::new([]))
+    .with_data_cnt_sec(DataCntSec::new(U32(0U)))
+  let body = Expr::new([Instruction::data_drop(DataIdx::new(0U))])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    base,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyDataDropIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_elem_drop_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([Instruction::elem_drop(ElemIdx::new(0U))])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyElemDropIndex,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -4021,6 +4084,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_table_init_dest_type(
           base,
         )
+      InvalidFunctionBodyDataDropIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_data_drop_index(base)
+      InvalidFunctionBodyElemDropIndex =>
+        validate_invalid_ast_mutate_invalid_function_body_elem_drop_index(base)
       InvalidFunctionBodyTableSetValueType =>
         validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
           base,
@@ -4443,7 +4510,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-table-fill-value-type", "invalid-function-body-table-copy-length-type",
     "invalid-function-body-table-copy-source-type", "invalid-function-body-table-copy-dest-type",
     "invalid-function-body-table-init-length-type", "invalid-function-body-table-init-source-type",
-    "invalid-function-body-table-init-dest-type", "invalid-function-body-table-set-value-type",
+    "invalid-function-body-table-init-dest-type", "invalid-function-body-data-drop-index",
+    "invalid-function-body-elem-drop-index", "invalid-function-body-table-set-value-type",
     "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
     "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
     "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
@@ -5739,6 +5807,95 @@ test "function-body table.init dest mutation repairs by using i32 destination" {
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired table.init dest module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid data.drop index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyDataDropIndex,
+      0x10cf5UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body data.drop index mutation repairs by using declared data index" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_data_drop_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected out-of-range data.drop index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let (with_data, data_idx) = validate_invalid_ast_append_passive_data(
+    Module::new(),
+  )
+  let with_count = with_data.with_data_cnt_sec(DataCntSec::new(U32(1U)))
+  let repaired_body = Expr::new([Instruction::data_drop(data_idx)])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_count,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired data.drop index module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid elem.drop index strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyElemDropIndex,
+      0x10cf6UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body elem.drop index mutation repairs by using declared elem index" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_elem_drop_index(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected out-of-range elem.drop index to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let with_elem = Module::new().with_elem_sec(
+    ElemSec::new([Elem::new(ElemMode::passive(), ElemKind::funcs([]))]),
+  )
+  let repaired_body = Expr::new([Instruction::elem_drop(ElemIdx::new(0U))])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    with_elem,
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired elem.drop index module to validate: \{err}")
   }
 }
 
