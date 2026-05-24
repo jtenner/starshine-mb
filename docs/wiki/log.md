@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO try_table-local runtime facts
+
+- Added research note [`0602`](./raw/research/0602-2026-05-24-sgo-try-table-local-runtime-facts.md) and implemented a narrow runtime trace rewrite for facts available inside `try_table` bodies.
+- `try_table` bodies now rewrite reads after incoming or body-local constant facts, while facts are still cleared after the exception-control join.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-try-table-local-runtime-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO loop-local runtime facts
 
 - Added research note [`0601`](./raw/research/0601-2026-05-24-sgo-loop-local-runtime-facts.md) and implemented a narrow runtime trace rewrite for facts created inside loop bodies.

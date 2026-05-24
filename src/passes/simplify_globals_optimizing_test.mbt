@@ -14532,6 +14532,32 @@ test "simplify-globals-optimizing propagates loop-local runtime facts" {
 }
 
 ///|
+test "simplify-globals-optimizing propagates try_table-local runtime facts" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func (export "run") (result i32)
+      #|    block $exit
+      #|      try_table (catch $e $exit)
+      #|        i32.const 5
+      #|        global.set $g
+      #|        global.get $g
+      #|        return
+      #|      end
+      #|    end
+      #|    i32.const 0))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(5)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps loop-contained block runtime facts conservative" {
   let optimized = sgo_test_run(
     (

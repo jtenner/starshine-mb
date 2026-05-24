@@ -4364,6 +4364,21 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         changed = changed || body_changed
         sgo_runtime_trace_clear(facts)
       }
+      @lib.TryTable(block_type, catches, body) => {
+        let body_facts = facts.copy()
+        let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
+          body, infos, effects, body_facts,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::try_table(block_type, catches, next_body)
+          } else {
+            instr
+          },
+        )
+        changed = changed || body_changed
+        sgo_runtime_trace_clear(facts)
+      }
       @lib.If(block_type, then_body, Some(else_body)) => {
         let then_facts = facts.copy()
         let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
