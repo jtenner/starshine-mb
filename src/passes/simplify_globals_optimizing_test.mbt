@@ -1098,6 +1098,26 @@ test "simplify-globals-optimizing keeps ref-func typed element aliases conservat
 }
 
 ///|
+test "simplify-globals-optimizing keeps less-refined GC global aliases conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $struct (struct))
+      #|  (global $a (ref $struct) (struct.new_default $struct))
+      #|  (global $b (ref $struct) (global.get $a))
+      #|  (global $c (ref null $struct) (global.get $a))
+      #|  (func $get-c (result anyref)
+      #|    (global.get $c)))
+      #|)
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("Global 2"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing rewrites typed ref-func function body reads" {
   let optimized = sgo_test_run(
     (

@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO GC ref.cast probe
+
+- Added research note [`0583`](./raw/research/0583-2026-05-23-sgo-gc-refcast-probe.md) and a parser-supported source-alignment negative from Binaryen v129 `simplify-globals-gc.wast`.
+- Pinned less-refined GC alias conservatism: a `(ref null $struct)` global remains the function-body read target instead of retargeting to more refined `(ref $struct)` aliases.
+- Recorded the `ref.cast(ref.func-global)` positive as blocked on normal `ref.cast` WAT support and/or focused validation/refinalization work; `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO nested GC lit regression
 
 - Added research note [`0582`](./raw/research/0582-2026-05-23-sgo-nested-gc-lit-regression.md) and a source-alignment regression for Binaryen v129 `simplify-globals-nested.wast`.
