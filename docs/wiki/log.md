@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-24] fuzzing | FUZ1020 memory.copy index invalid AST coverage
+
+- Continued `[FUZ]1020` by adding `invalid-function-body-memory-copy-dest-index` and `invalid-function-body-memory-copy-source-index` for validator-rejected AST modules whose `memory.copy` destination or source memory immediate is out of range.
+- Added focused invalid-strategy, `gen_invalid`, and repair tests proving out-of-range index `1` rejects in a one-memory module while declared memory index `0` validates.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries name the new `memory.copy` index coverage.
+
 ## [2026-05-24] fuzzing | FUZ1020 memarg offset invalid AST coverage
 
 - Continued `[FUZ]1020` by adding `invalid-function-body-memory-load-offset-range` and `invalid-function-body-memory-store-offset-range` for scalar memory32 load/store memargs whose static offset is outside the i32 address range.
