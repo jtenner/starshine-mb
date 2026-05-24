@@ -18874,16 +18874,17 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
-  for selected_result_def in [298, 299, 3566, 4229] {
+  let selected_dropped_result_call_facts = dae_collect_current_call_facts(
+    current,
+    original_imported + original_defined,
+  )
+  for selected_result_def in [298, 299, 427, 3566, 3814, 3834, 4229] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true
       let selected_result_call_facts = if selected_result_def == 299 {
         low_callee_call_facts
       } else {
-        dae_collect_current_call_facts(
-          current,
-          original_imported + original_defined,
-        )
+        selected_dropped_result_call_facts
       }
       let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
         current, selected_scratch_defs, selected_result_call_facts,
@@ -18929,7 +18930,10 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
-  for mid_literal_def in [267, 268, 287, 288, 311, 869, 1777, 4206, 4368] {
+  for
+    mid_literal_def in [
+      267, 268, 287, 288, 311, 408, 428, 869, 1777, 4206, 4368,
+    ] {
     if mid_literal_def >= 0 && mid_literal_def < selected_scratch_defs.length() {
       selected_scratch_defs[mid_literal_def] = true
       let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
