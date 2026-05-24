@@ -4349,6 +4349,21 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           sgo_runtime_trace_copy_facts(facts, body_facts)
         }
       }
+      @lib.Loop(block_type, body) => {
+        let body_facts = sgo_empty_const_array(infos.length())
+        let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
+          body, infos, effects, body_facts,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, next_body)
+          } else {
+            instr
+          },
+        )
+        changed = changed || body_changed
+        sgo_runtime_trace_clear(facts)
+      }
       @lib.If(block_type, then_body, Some(else_body)) => {
         let then_facts = facts.copy()
         let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(

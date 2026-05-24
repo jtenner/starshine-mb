@@ -14508,6 +14508,30 @@ test "simplify-globals-optimizing keeps reference post-if runtime joins conserva
 }
 
 ///|
+test "simplify-globals-optimizing propagates loop-local runtime facts" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (export "g") (mut i32) (i32.const 0))
+      #|  (func (export "run") (param $p i32)
+      #|    loop
+      #|      i32.const 5
+      #|      global.set $g
+      #|      global.get $g
+      #|      drop
+      #|      local.get $p
+      #|      br_if 0
+      #|    end))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps loop-contained block runtime facts conservative" {
   let optimized = sgo_test_run(
     (
