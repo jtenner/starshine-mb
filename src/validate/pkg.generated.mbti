@@ -1217,6 +1217,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidLabelNameSectionFuncIndex
   InvalidFuncTypeIndex
   FuncSecWithoutCodeSec
+  CodeSecLengthMismatchTooSmall
+  CodeSecLengthMismatchTooLarge
   MutableGlobalGetInConstInit
   InvalidGlobalInitType
   NonConstantDataOffset

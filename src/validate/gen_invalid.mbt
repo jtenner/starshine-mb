@@ -560,6 +560,8 @@ fn gen_invalid_ast_strategy_label(
     DataCountMismatchTooLarge => "datacount-mismatch-too-large"
     InvalidFuncTypeIndex => "invalid-func-type-index"
     FuncSecWithoutCodeSec => "funcsec-without-codesec"
+    CodeSecLengthMismatchTooSmall => "codesec-length-mismatch-too-small"
+    CodeSecLengthMismatchTooLarge => "codesec-length-mismatch-too-large"
     MutableGlobalGetInConstInit => "mutable-global-get-in-const-init"
     InvalidGlobalInitType => "invalid-global-init-type"
     NonConstantDataOffset => "non-constant-data-offset"

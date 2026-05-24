@@ -248,6 +248,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidLabelNameSectionFuncIndex
   InvalidFuncTypeIndex
   FuncSecWithoutCodeSec
+  CodeSecLengthMismatchTooSmall
+  CodeSecLengthMismatchTooLarge
   MutableGlobalGetInConstInit
   InvalidGlobalInitType
   NonConstantDataOffset
@@ -507,6 +509,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "funcsec-without-codesec",
       "function section without code section",
       CodeSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      CodeSecLengthMismatchTooSmall,
+      "codesec-length-mismatch-too-small",
+      "code section has fewer bodies than function declarations",
+      CodeSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      CodeSecLengthMismatchTooLarge,
+      "codesec-length-mismatch-too-large",
+      "code section has more bodies than function declarations",
+      CodeSectionFamily,
+      required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
       MutableGlobalGetInConstInit,
@@ -2039,6 +2055,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidLabelNameSectionFuncIndex => 214
     InvalidFuncTypeIndex => 14
     FuncSecWithoutCodeSec => 15
+    CodeSecLengthMismatchTooSmall => 231
+    CodeSecLengthMismatchTooLarge => 232
     MutableGlobalGetInConstInit => 16
     InvalidGlobalInitType => 219
     NonConstantDataOffset => 17
@@ -8563,6 +8581,53 @@ fn validate_invalid_ast_mutate_funcsec_without_codesec(
 }
 
 ///|
+fn validate_invalid_ast_code_length_mismatch_module(
+  func_decl_count : Int,
+  code_body_count : Int,
+) -> Module {
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let type_idx = TypeIdx::new(0U)
+  let func_types : Array[TypeIdx] = []
+  for _ in 0..<func_decl_count {
+    func_types.push(type_idx)
+  }
+  let bodies : Array[Func] = []
+  for _ in 0..<code_body_count {
+    bodies.push(Func::new(Locals::empty(), Expr::new([])))
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([func_type]))
+  .with_func_sec(FuncSec::new(func_types))
+  .with_code_sec(CodeSec::new(bodies))
+}
+
+///|
+fn validate_invalid_ast_mutate_codesec_length_mismatch_too_small(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  {
+    strategy: CodeSecLengthMismatchTooSmall,
+    applicable: true,
+    expected_family: CodeSectionFamily,
+    mutated_module: validate_invalid_ast_code_length_mismatch_module(2, 1),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_codesec_length_mismatch_too_large(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  {
+    strategy: CodeSecLengthMismatchTooLarge,
+    applicable: true,
+    expected_family: CodeSectionFamily,
+    mutated_module: validate_invalid_ast_code_length_mismatch_module(1, 2),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_mutable_global_get_in_const_init(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -9910,6 +9975,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_func_type_index(base)
       FuncSecWithoutCodeSec =>
         validate_invalid_ast_mutate_funcsec_without_codesec(base)
+      CodeSecLengthMismatchTooSmall =>
+        validate_invalid_ast_mutate_codesec_length_mismatch_too_small(base)
+      CodeSecLengthMismatchTooLarge =>
+        validate_invalid_ast_mutate_codesec_length_mismatch_too_large(base)
       MutableGlobalGetInConstInit =>
         validate_invalid_ast_mutate_mutable_global_get_in_const_init(base)
       InvalidGlobalInitType =>
@@ -10311,12 +10380,13 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "missing-datacount", "undeclared-ref-func", "invalid-name-section-func-index",
     "invalid-local-name-section-index", "invalid-label-name-section-index", "invalid-local-name-section-func-index",
     "invalid-label-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
-    "mutable-global-get-in-const-init", "invalid-global-init-type", "non-constant-data-offset",
-    "invalid-data-active-memory-index", "invalid-imported-func-type-index", "invalid-imported-tag-type-index",
-    "invalid-imported-tag-result-type", "invalid-imported-table-ref-type", "invalid-imported-global-ref-type",
-    "mutable-global-get-in-table-init", "non-constant-elem-offset", "invalid-element-active-table-index",
-    "invalid-element-func-index", "invalid-element-typed-expr-type", "invalid-memory-limit-range",
-    "invalid-table-limit-range", "invalid-imported-memory-limit-range", "invalid-imported-table-limit-range",
+    "codesec-length-mismatch-too-small", "codesec-length-mismatch-too-large", "mutable-global-get-in-const-init",
+    "invalid-global-init-type", "non-constant-data-offset", "invalid-data-active-memory-index",
+    "invalid-imported-func-type-index", "invalid-imported-tag-type-index", "invalid-imported-tag-result-type",
+    "invalid-imported-table-ref-type", "invalid-imported-global-ref-type", "mutable-global-get-in-table-init",
+    "non-constant-elem-offset", "invalid-element-active-table-index", "invalid-element-func-index",
+    "invalid-element-typed-expr-type", "invalid-memory-limit-range", "invalid-table-limit-range",
+    "invalid-imported-memory-limit-range", "invalid-imported-table-limit-range",
     "invalid-imported-shared-memory-without-max", "invalid-imported-shared-memory64-without-max",
     "shared-memory-without-max", "shared-memory64-without-max", "invalid-tag-type-index",
     "invalid-tag-result-type", "invalid-subtype-super-index", "invalid-subtype-super-shape",
@@ -18118,6 +18188,32 @@ test "codesec without funcsec strategy rejects with CodeSection family" {
     invalid_ast_expect_strategy_rejects_with_family(
       CodeSecWithoutFuncSec,
       0x5f01UL,
+      CodeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "codesec length too small strategy rejects with CodeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      CodeSecLengthMismatchTooSmall,
+      0x5f011UL,
+      CodeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "codesec length too large strategy rejects with CodeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      CodeSecLengthMismatchTooLarge,
+      0x5f012UL,
       CodeSectionFamily,
     ) {
     Ok(_) => ()
