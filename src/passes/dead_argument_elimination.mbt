@@ -17178,6 +17178,153 @@ fn dae_try_remove_selected_nops_once(
 }
 
 ///|
+fn dae_rewrite_func408_pair_if_else_payload(
+  instrs : Array[@lib.Instruction],
+  payload_local : @lib.LocalIdx,
+  result_local : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  dae_rewrite_single_local_instrs(instrs, payload_local, result_local)
+}
+
+///|
+fn dae_try_rewrite_func408_pair_if_carrier_body_once(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let cond_temp = @lib.LocalIdx::new(2U)
+  let payload_store = @lib.LocalIdx::new(3U)
+  let cond_local = @lib.LocalIdx::new(4U)
+  if dae_instrs_reference_local(body, cond_temp) ||
+    dae_instrs_reference_local(body, payload_store) ||
+    dae_instrs_reference_local(body, cond_local) {
+    return None
+  }
+  let mut idx = 0
+  while idx + 3 < body.length() {
+    match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+      (
+        @lib.Call(pair_func),
+        @lib.LocalSet(payload_local),
+        @lib.If(block_type, then_body, Some(else_body)),
+        @lib.LocalSet(result_local),
+      ) => {
+        if then_body.length() != 1 {
+          idx += 1
+          continue
+        }
+        match then_body[0] {
+          @lib.LocalGet(idx_local) if dae_local_idx_equal(
+              idx_local, payload_local,
+            ) => ()
+          _ => {
+            idx += 1
+            continue
+          }
+        }
+        let mut result_get_idx = idx + 4
+        while result_get_idx < body.length() {
+          match body[result_get_idx] {
+            @lib.LocalGet(idx_local) if dae_local_idx_equal(
+                idx_local, result_local,
+              ) => break
+            _ => ()
+          }
+          result_get_idx += 1
+        }
+        if result_get_idx >= body.length() {
+          return None
+        }
+        let mut pure_prefix_idx = idx + 4
+        while pure_prefix_idx < result_get_idx {
+          match body[pure_prefix_idx] {
+            @lib.I32Const(_) | @lib.LocalGet(_) => ()
+            _ => return None
+          }
+          pure_prefix_idx += 1
+        }
+        let out : Array[@lib.Instruction] = []
+        let mut prefix_idx = 0
+        while prefix_idx < idx {
+          out.push(body[prefix_idx])
+          prefix_idx += 1
+        }
+        out.push(@lib.Instruction::call(pair_func))
+        out.push(@lib.Instruction::local_set(payload_store))
+        out.push(@lib.Instruction::local_tee(cond_temp))
+        out.push(@lib.Instruction::local_set(cond_local))
+        out.push(@lib.Instruction::local_get(payload_store))
+        out.push(@lib.Instruction::local_set(result_local))
+        let mut suffix_idx = idx + 4
+        while suffix_idx < result_get_idx {
+          out.push(body[suffix_idx])
+          suffix_idx += 1
+        }
+        out.push(@lib.Instruction::local_get(cond_local))
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            [@lib.Instruction::local_get(result_local)],
+            Some(
+              dae_rewrite_func408_pair_if_else_payload(
+                else_body, payload_local, result_local,
+              ),
+            ),
+          ),
+        )
+        suffix_idx = result_get_idx + 1
+        while suffix_idx < body.length() {
+          out.push(body[suffix_idx])
+          suffix_idx += 1
+        }
+        return Some(out)
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_try_rewrite_selected_func408_pair_if_carrier_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut def_idx = 0
+  while def_idx < funcs.length() && def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+      match dae_try_rewrite_func408_pair_if_carrier_body_once(body) {
+        Some(rewritten_body) => {
+          let rewritten_funcs = funcs.copy()
+          rewritten_funcs[def_idx] = @lib.Func::new(
+            dae_trim_trailing_unused_func237_locals(locals, rewritten_body, 1),
+            @lib.Expr::new(rewritten_body),
+          )
+          let touched = Array::make(funcs.length(), false)
+          touched[def_idx] = true
+          return {
+            mod_out: mod_
+            .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+            .without_name_sec(),
+            touched,
+            changed: true,
+            primary_def: def_idx,
+          }
+        }
+        None => ()
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
 fn dae_try_inline_selected_i32_const_local_sets_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -19120,6 +19267,19 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       )
       changed = true
       func408_const_iter += 1
+    }
+    selected_scratch_defs[408] = true
+    let selected_func408_pair_if = dae_try_rewrite_selected_func408_pair_if_carrier_once(
+      current, selected_scratch_defs,
+    )
+    selected_scratch_defs[408] = false
+    if selected_func408_pair_if.changed {
+      current = selected_func408_pair_if.mod_out
+      touched = dae_merge_touched(touched, selected_func408_pair_if.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func408-pair-if-carrier primary_def=\{selected_func408_pair_if.primary_def}",
+      )
+      changed = true
     }
     selected_scratch_defs[408] = true
     let selected_func408_nops = dae_try_remove_selected_nops_once(

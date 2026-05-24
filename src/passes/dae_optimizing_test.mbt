@@ -3092,6 +3092,63 @@ test "dae-optimizing inlines selected Func408 single-use const local" {
 }
 
 ///|
+test "dae-optimizing reshapes selected Func408 pair-if carrier" {
+  let target_def = 408
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32 i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32)
+      #|    local.get 0
+      #|    call $pair
+      #|    local.set 7
+      #|    if (result i32)
+      #|      local.get 7
+      #|    else
+      #|      i32.const 0
+      #|      local.get 7
+      #|      return
+      #|    end
+      #|    local.set 1
+      #|    i32.const 1
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $use
+      #|    call $wrap)
+      #|  (func $pair (param i32) (result i32 i32)
+      #|    local.get 0
+      #|    i32.const 9)
+      #|  (func $use (param i32 i32) (result i32)
+      #|    local.get 1)
+      #|  (func $wrap (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run1") (result i32 i32)
+      #|    i32.const 1
+      #|    call $target)
+      #|  (func (export "run2") (result i32 i32)
+      #|    i32.const 2
+      #|    call $target)
+    ),
+  )
+  for i = target_def + 6; i < 1030; i = i + 1 {
+    out.write_string("  (func $tail\{i})\n")
+  }
+  out.write_string(")\n")
+  let optimized = dae_test_run(out.to_string())
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("local.tee (Local 2)"), msg=target)
+  assert_true(target.contains("local.set (Local 4)"), msg=target)
+  assert_false(target.contains("local.set (Local 7)"), msg=target)
+  assert_false(target.contains("local.get (Local 7)"), msg=target)
+}
+
+///|
 test "dae-optimizing removes selected Func408 nops" {
   let target_def = 408
   let out = StringBuilder::new()

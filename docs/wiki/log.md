@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func408 pair-if carrier
+
+- Added a selected Func408 pair-if carrier rewrite in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), moving the post-call two-result condition carrier down into the later `$435` call operand while preserving the payload value used by the true arm and early return.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for the selected pair-result carrier shape.
+- `.tmp/dae-func408-pair-if-final-artifact` validates with `wasm-opt --all-features`, keeps the raw direct debug-artifact first diff at `defined=336 abs=353`, and narrows the remaining Func408 frontier to local-numbering/tuple-local representation. `.tmp/pass-fuzz-dae-func408-pair-if-final-1000` preserves the current short-run no-validation-failure shape (`45/1000` compared, `26` normalized matches, `19` mismatches, `0` validation failures, `1` Binaryen/tool command failure).
+
 ## [2026-05-24] passes | dae Func408 nop cleanup
 
 - Added a selected Func408 nop cleanup in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), recursively removing `nop` instructions only from the observed selected function after the selected exact-literal and const-local lanes.
