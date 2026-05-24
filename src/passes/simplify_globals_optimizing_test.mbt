@@ -1030,6 +1030,45 @@ test "simplify-globals-optimizing follows Binaryen multiple single-use GC initia
 }
 
 ///|
+test "simplify-globals-optimizing follows Binaryen multi-input single-use GC initializer lit" {
+  let any_rt = @lib.RefType::abs(@lib.AbsHeapType::any())
+  let (optimized, trace) = sgo_test_run_with_trace(
+    (
+      #|(module
+      #|  (type $A (struct (field anyref) (field anyref)))
+      #|  (global $single-use1 anyref (struct.new $A
+      #|    (ref.i31
+      #|      (i32.const 42))
+      #|    (ref.null any)))
+      #|  (global $single-use2 anyref (struct.new $A
+      #|    (ref.null any)
+      #|    (ref.i31
+      #|      (i32.const 1337))))
+      #|  (global $other anyref (struct.new $A
+      #|    (global.get $single-use1)
+      #|    (global.get $single-use2))))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 2), [
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::ref_null_type(any_rt),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::ref_null_type(any_rt),
+    @lib.Instruction::i32_const(@lib.I32(1337)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+  ])
+  assert_false(
+    trace.any(fn(line) { line.contains("nested-cleanup") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-globals-optimizing keeps reference global gets in typed element item expressions" {
   let null_rt = @lib.RefType::abs(@lib.AbsHeapType::none())
   let array_rt = @lib.RefType::abs(@lib.AbsHeapType::array())

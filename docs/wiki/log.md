@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-23] binaryen | SGO multi-input single-use GC lit regression
+
+- Added research note [`0587`](./raw/research/0587-2026-05-23-sgo-multi-input-single-use-gc-lit-regression.md) and a parser-supported source-alignment regression for the multiple-inputs-into-one-global module in Binaryen v129 `simplify-globals-single_use.wast`.
+- Pinned startup-only folding for two independent GC `struct.new` source globals when both are nested operands of one later `struct.new` initializer.
+- Confirmed the guardrail triggers no nested cleanup and does not claim function-code single-use, multi-use, object-identity-sensitive GC duplication, or full `SimplifyGlobals.cpp` parity; `[SGO]003` remains active/partial.
+
 ## [2026-05-23] binaryen | SGO multiple single-use GC lit regression
 
 - Added research note [`0586`](./raw/research/0586-2026-05-23-sgo-multiple-single-use-gc-lit-regression.md) and a parser-supported source-alignment regression for the multiple-independent single-use module in Binaryen v129 `simplify-globals-single_use.wast`.
