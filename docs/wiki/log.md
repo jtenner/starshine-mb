@@ -1158,6 +1158,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Grounded the local code map in [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/env.mbt`](../../src/validate/env.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), and [`../../src/lib/types.mbt`](../../src/lib/types.mbt).
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
+## [2026-05-23] fuzzing | FUZ1020 table.copy length invalid AST coverage
+
+- Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-table-copy-length-type`.
+- Added focused invalid-strategy and repair tests proving an `i64` length operand for memory32/table32 `table.copy` rejects with the function-body family while the repaired `i32` length validates on a matching nullable `funcref` table.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so the living AST-invalid summaries name table.copy length coverage alongside the existing table and memory body-stack variants.
+
 ## [2026-05-23] fuzzing | FUZ1020 memory.init destination invalid AST coverage
 
 - Continued `[FUZ]1020` by adding the function-body AST invalid strategy `invalid-function-body-memory-init-dest-type`.
