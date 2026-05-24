@@ -4358,14 +4358,26 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           then_facts,
         )
         let @lib.Expr(next_then_body) = next_then
+        let else_facts = sgo_empty_const_array(infos.length())
+        let (next_else, else_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
+          @lib.Expr::new(else_body),
+          infos,
+          effects,
+          else_facts,
+        )
+        let @lib.Expr(next_else_body) = next_else
         out.push(
-          if then_changed {
-            @lib.Instruction::if_(block_type, next_then_body, Some(else_body))
+          if then_changed || else_changed {
+            @lib.Instruction::if_(
+              block_type,
+              next_then_body,
+              Some(next_else_body),
+            )
           } else {
             instr
           },
         )
-        changed = changed || then_changed
+        changed = changed || then_changed || else_changed
         sgo_runtime_trace_clear(facts)
       }
       @lib.If(block_type, then_body, None) => {

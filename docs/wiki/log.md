@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO else-local runtime facts
+
+- Added research note [`0600`](./raw/research/0600-2026-05-24-sgo-else-local-runtime-facts.md) and implemented a narrow runtime trace rewrite for facts created inside an `else` arm.
+- Else arms now rewrite same-arm reads after same-arm constant writes using a fresh fact table, while pre-`if` facts still do not enter else arms and post-`if` joins remain conservative.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-else-local-runtime-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO block-carried function effects
 
 - Added research note [`0599`](./raw/research/0599-2026-05-24-sgo-block-carried-function-effects.md) and implemented a narrow runtime trace follow-up for plain blocks containing ordinary direct calls.
