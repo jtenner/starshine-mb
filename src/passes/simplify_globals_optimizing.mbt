@@ -481,6 +481,170 @@ fn sgo_count_read_only_to_write_safe_read(
 }
 
 ///|
+fn sgo_count_block_or_no_catch_try_table_external_pure_guards(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  sgo_count_block_condition_external_pure_read(instrs, pos, safe_reads)
+  sgo_count_block_condition_external_pure_if_return_read(
+    instrs, pos, safe_reads,
+  )
+  sgo_count_block_condition_reverse_external_pure_read(instrs, pos, safe_reads)
+  sgo_count_block_condition_reverse_external_pure_if_return_read(
+    instrs, pos, safe_reads,
+  )
+}
+
+///|
+fn sgo_count_block_or_no_catch_try_table_tail_guards(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  count_wrapped_nested_if_arm_flow : Bool,
+  safe_reads : Array[Int],
+) -> Unit {
+  let instr = instrs[pos]
+  if pos + 1 < instrs.length() {
+    sgo_count_block_condition_read_only_to_write_read(
+      instr,
+      instrs[pos + 1],
+      safe_reads,
+    )
+    if count_wrapped_nested_if_arm_flow {
+      sgo_count_block_wrapped_nested_if_arm_flow_read(
+        instr,
+        instrs[pos + 1],
+        safe_reads,
+      )
+    }
+  }
+  if pos + 2 < instrs.length() {
+    if pos + 3 == instrs.length() {
+      sgo_count_block_condition_if_return_block_set_read(
+        instr,
+        instrs[pos + 1],
+        instrs[pos + 2],
+        safe_reads,
+      )
+    }
+    sgo_count_block_condition_eqz_read_only_to_write_read(
+      instr,
+      instrs[pos + 1],
+      instrs[pos + 2],
+      safe_reads,
+    )
+    sgo_count_block_condition_reverse_compare_read_only_to_write_read(
+      instrs, pos, safe_reads,
+    )
+  }
+  if pos + 3 < instrs.length() {
+    if pos + 4 == instrs.length() {
+      sgo_count_block_condition_if_return_set_read(
+        instr,
+        instrs[pos + 1],
+        instrs[pos + 2],
+        instrs[pos + 3],
+        safe_reads,
+      )
+      sgo_count_block_condition_eqz_if_return_block_set_read(
+        instr,
+        instrs[pos + 1],
+        instrs[pos + 2],
+        instrs[pos + 3],
+        safe_reads,
+      )
+      sgo_count_block_condition_reverse_compare_if_return_block_set_read(
+        instrs, pos, safe_reads,
+      )
+    }
+    sgo_count_block_condition_compare_read_only_to_write_read(
+      instr,
+      instrs[pos + 1],
+      instrs[pos + 2],
+      instrs[pos + 3],
+      safe_reads,
+    )
+  }
+  if pos + 4 < instrs.length() {
+    if pos + 5 == instrs.length() {
+      sgo_count_block_condition_eqz_if_return_set_read(
+        instr,
+        instrs[pos + 1],
+        instrs[pos + 2],
+        instrs[pos + 3],
+        instrs[pos + 4],
+        safe_reads,
+      )
+      sgo_count_block_condition_reverse_compare_if_return_set_read(
+        instrs, pos, safe_reads,
+      )
+      sgo_count_block_condition_compare_if_return_block_set_read(
+        instr,
+        instrs[pos + 1],
+        instrs[pos + 2],
+        instrs[pos + 3],
+        instrs[pos + 4],
+        safe_reads,
+      )
+    }
+  }
+  if pos + 5 < instrs.length() {
+    if pos + 6 == instrs.length() {
+      sgo_count_block_condition_compare_if_return_set_read(
+        instr,
+        instrs[pos + 1],
+        instrs[pos + 2],
+        instrs[pos + 3],
+        instrs[pos + 4],
+        instrs[pos + 5],
+        safe_reads,
+      )
+    }
+  }
+}
+
+///|
+fn sgo_count_no_catch_try_table_specific_condition_guards(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  sgo_count_try_table_select_guard_read(instrs, pos, safe_reads)
+  sgo_count_try_table_select_reverse_compare_read_only_to_write_read(
+    instrs, pos, safe_reads,
+  )
+  sgo_count_try_table_select_reverse_compare_if_return_read(
+    instrs, pos, safe_reads,
+  )
+  sgo_count_try_table_ref_is_null_compare_guard_read(instrs, pos, safe_reads)
+  sgo_count_try_table_ref_is_null_select_guard_read(instrs, pos, safe_reads)
+  sgo_count_try_table_ref_is_null_select_reverse_compare_read_only_to_write_read(
+    instrs, pos, safe_reads,
+  )
+  sgo_count_try_table_ref_is_null_select_reverse_compare_if_return_read(
+    instrs, pos, safe_reads,
+  )
+  if pos + 2 < instrs.length() {
+    sgo_count_try_table_ref_is_null_read_only_to_write_read(
+      instrs[pos],
+      instrs[pos + 1],
+      instrs[pos + 2],
+      safe_reads,
+    )
+  }
+  if pos + 4 < instrs.length() && pos + 5 == instrs.length() {
+    sgo_count_try_table_ref_is_null_if_return_set_read(
+      instrs[pos],
+      instrs[pos + 1],
+      instrs[pos + 2],
+      instrs[pos + 3],
+      instrs[pos + 4],
+      safe_reads,
+    )
+  }
+}
+
+///|
 fn sgo_count_read_only_to_write_instrs(
   instrs : Array[@lib.Instruction],
   safe_reads : Array[Int],
@@ -491,111 +655,12 @@ fn sgo_count_read_only_to_write_instrs(
       @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(instrs, pos, idx) =>
         sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       @lib.Block(_, body) => {
-        sgo_count_block_condition_external_pure_read(instrs, pos, safe_reads)
-        sgo_count_block_condition_external_pure_if_return_read(
+        sgo_count_block_or_no_catch_try_table_external_pure_guards(
           instrs, pos, safe_reads,
         )
-        sgo_count_block_condition_reverse_external_pure_read(
-          instrs, pos, safe_reads,
+        sgo_count_block_or_no_catch_try_table_tail_guards(
+          instrs, pos, true, safe_reads,
         )
-        sgo_count_block_condition_reverse_external_pure_if_return_read(
-          instrs, pos, safe_reads,
-        )
-        if pos + 1 < instrs.length() {
-          sgo_count_block_condition_read_only_to_write_read(
-            instr,
-            instrs[pos + 1],
-            safe_reads,
-          )
-          sgo_count_block_wrapped_nested_if_arm_flow_read(
-            instr,
-            instrs[pos + 1],
-            safe_reads,
-          )
-        }
-        if pos + 2 < instrs.length() {
-          if pos + 3 == instrs.length() {
-            sgo_count_block_condition_if_return_block_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              safe_reads,
-            )
-          }
-          sgo_count_block_condition_eqz_read_only_to_write_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            safe_reads,
-          )
-          sgo_count_block_condition_reverse_compare_read_only_to_write_read(
-            instrs, pos, safe_reads,
-          )
-        }
-        if pos + 3 < instrs.length() {
-          if pos + 4 == instrs.length() {
-            sgo_count_block_condition_if_return_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              safe_reads,
-            )
-            sgo_count_block_condition_eqz_if_return_block_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              safe_reads,
-            )
-            sgo_count_block_condition_reverse_compare_if_return_block_set_read(
-              instrs, pos, safe_reads,
-            )
-          }
-          sgo_count_block_condition_compare_read_only_to_write_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            instrs[pos + 3],
-            safe_reads,
-          )
-        }
-        if pos + 4 < instrs.length() {
-          if pos + 5 == instrs.length() {
-            sgo_count_block_condition_eqz_if_return_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              instrs[pos + 4],
-              safe_reads,
-            )
-            sgo_count_block_condition_reverse_compare_if_return_set_read(
-              instrs, pos, safe_reads,
-            )
-            sgo_count_block_condition_compare_if_return_block_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              instrs[pos + 4],
-              safe_reads,
-            )
-          }
-        }
-        if pos + 5 < instrs.length() {
-          if pos + 6 == instrs.length() {
-            sgo_count_block_condition_compare_if_return_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              instrs[pos + 4],
-              instrs[pos + 5],
-              safe_reads,
-            )
-          }
-        }
         sgo_count_read_only_to_write_expr(body, safe_reads)
       }
       @lib.Loop(_, body) => {
@@ -642,139 +707,15 @@ fn sgo_count_read_only_to_write_instrs(
         }
       }
       @lib.TryTable(_, _, body) => {
-        sgo_count_block_condition_external_pure_read(instrs, pos, safe_reads)
-        sgo_count_block_condition_external_pure_if_return_read(
+        sgo_count_block_or_no_catch_try_table_external_pure_guards(
           instrs, pos, safe_reads,
         )
-        sgo_count_block_condition_reverse_external_pure_read(
+        sgo_count_no_catch_try_table_specific_condition_guards(
           instrs, pos, safe_reads,
         )
-        sgo_count_block_condition_reverse_external_pure_if_return_read(
-          instrs, pos, safe_reads,
+        sgo_count_block_or_no_catch_try_table_tail_guards(
+          instrs, pos, false, safe_reads,
         )
-        sgo_count_try_table_select_guard_read(instrs, pos, safe_reads)
-        sgo_count_try_table_select_reverse_compare_read_only_to_write_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_select_reverse_compare_if_return_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_compare_guard_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_select_guard_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_select_reverse_compare_read_only_to_write_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_try_table_ref_is_null_select_reverse_compare_if_return_read(
-          instrs, pos, safe_reads,
-        )
-        if pos + 1 < instrs.length() {
-          sgo_count_block_condition_read_only_to_write_read(
-            instr,
-            instrs[pos + 1],
-            safe_reads,
-          )
-        }
-        if pos + 2 < instrs.length() {
-          if pos + 3 == instrs.length() {
-            sgo_count_block_condition_if_return_block_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              safe_reads,
-            )
-          }
-          sgo_count_block_condition_eqz_read_only_to_write_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            safe_reads,
-          )
-          sgo_count_try_table_ref_is_null_read_only_to_write_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            safe_reads,
-          )
-          sgo_count_block_condition_reverse_compare_read_only_to_write_read(
-            instrs, pos, safe_reads,
-          )
-        }
-        if pos + 3 < instrs.length() {
-          if pos + 4 == instrs.length() {
-            sgo_count_block_condition_if_return_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              safe_reads,
-            )
-            sgo_count_block_condition_eqz_if_return_block_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              safe_reads,
-            )
-            sgo_count_block_condition_reverse_compare_if_return_block_set_read(
-              instrs, pos, safe_reads,
-            )
-          }
-          sgo_count_block_condition_compare_read_only_to_write_read(
-            instr,
-            instrs[pos + 1],
-            instrs[pos + 2],
-            instrs[pos + 3],
-            safe_reads,
-          )
-        }
-        if pos + 4 < instrs.length() {
-          if pos + 5 == instrs.length() {
-            sgo_count_block_condition_eqz_if_return_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              instrs[pos + 4],
-              safe_reads,
-            )
-            sgo_count_block_condition_reverse_compare_if_return_set_read(
-              instrs, pos, safe_reads,
-            )
-            sgo_count_block_condition_compare_if_return_block_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              instrs[pos + 4],
-              safe_reads,
-            )
-            sgo_count_try_table_ref_is_null_if_return_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              instrs[pos + 4],
-              safe_reads,
-            )
-          }
-        }
-        if pos + 5 < instrs.length() {
-          if pos + 6 == instrs.length() {
-            sgo_count_block_condition_compare_if_return_set_read(
-              instr,
-              instrs[pos + 1],
-              instrs[pos + 2],
-              instrs[pos + 3],
-              instrs[pos + 4],
-              instrs[pos + 5],
-              safe_reads,
-            )
-          }
-        }
         sgo_count_read_only_to_write_expr(body, safe_reads)
       }
       _ => ()
