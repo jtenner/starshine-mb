@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036D metamorphic f64.abs drop body reshaping
+
+- Continued `[FUZ]1036D` by adding the `add-leading-f64-abs-drop-to-defined-functions` and `add-trailing-f64-abs-drop-to-defined-functions` metamorphic-valid transforms. They insert a pure `f64.const 0; f64.abs; drop` stack at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the f64 computed/drop body reshaping surface alongside the existing f32/integer computed drops, const/drop, if, no-op, control-wrapper, locals, exports, custom sections, and metadata transforms.
+
 ## [2026-05-25] fuzzing | FUZ1051B standard checked-in recipe set
 
 - Completed `[FUZ]1051B` by adding the standard fuzz recipe catalog helpers for `smoke`, `ci`, `nightly`, `pass-signoff`, `validator-stress`, `parser-stress`, and `binaryen-oracle`.
