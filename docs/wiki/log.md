@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO runtime fact closeout
+
+- Added research note [`0659`](./raw/research/0659-2026-05-25-sgo-runtime-fact-closeout.md) for `[SGO]003H`, auditing runtime fact propagation after the dominance, direct-call mutation-filter, else-local, loop-local, and `try_table`-local slices.
+- Closed `[SGO]003H` instead of keeping a generic runtime bucket: future runtime propagation work must be filed as an explicit child slice with a dominance/invalidation contract, rewritten-read positive, preserved-read negative, and direct SGO fuzz for behavior changes.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO same-init expression closeout
 
 - Added research note [`0658`](./raw/research/0658-2026-05-25-sgo-same-init-expression-closeout.md) for `[SGO]003J`, auditing same-as-init expression-equivalence broadening after the 0574/0576 probes and 0594 through 0596 official non-init guardrails.

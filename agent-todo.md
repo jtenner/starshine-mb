@@ -260,17 +260,10 @@ Execution rules for all DAE slices
 
 
 - [SGO]003H - Runtime Trace Local Fact Propagation Beyond Official Dominance Lit
-  - Status: active candidate; behavior-bearing and medium/high risk.
-  - Goal: broaden runtime replacement of later `global.get`s only where dominance and invalidation are explicit.
-  - Candidate shapes: additional straight-line dominated regions, nested plain blocks with direct-call write-set filtering, body-local facts in simple control constructs, and source-backed generated-effects positives if analysis is added.
-  - Current boundaries to preserve unless redesigned: else-arm incoming facts, post-if joins, pre-loop facts into loops, loop facts out/backedges, post-`try_table` joins, imported/indirect/call_ref/return_call barriers.
-  - Open checklist:
-    - Write the dominance/invalidation contract before changing code.
-    - Identify exactly one additional dominated region shape per slice.
-    - Add a rewritten-read positive and a value-observable preserved-read negative for each region.
-    - Preserve else-arm incoming, post-if join, loop entry/backedge/exit, post-`try_table`, and unknown-call barriers unless the slice explicitly redesigns one boundary.
-    - Keep direct-call write-set filtering tied to proven summaries only; do not use read-only-to-write call evidence as runtime fact evidence.
-  - Exit criteria: clear dataflow contract, tests for both rewritten and value-observable preserved reads, direct SGO fuzz, docs naming every join/barrier boundary.
+  - Status: closed by the 0659 runtime-fact closeout audit; no generic runtime propagation bucket remains open.
+  - Decision: keep the current runtime fact model at its source-backed boundaries instead of broadening further without a new explicit Binaryen-positive shape. Covered local regions include straight-line/top-level noise, adjacent/nested plain blocks, official dominance-lit pre-call then reads, direct-call mutation-filtered facts for syntactically/transitively unwritten globals, else-local facts, loop-local same-body facts, and `try_table` body-local facts.
+  - Preserved boundaries: no incoming facts into else arms, no post-if joins, no pre-loop facts into loops, no loop facts out/backedges, no post-`try_table` joins, and imported/indirect/`call_ref`/dynamic `return_call` barriers remain conservative unless a future slice explicitly redesigns one boundary with tests and fuzz.
+  - Follow-up rule: file any future runtime propagation work as a new explicit child slice with a written dominance/invalidation contract, one rewritten-read positive, one value-observable preserved-read negative, and direct SGO fuzz for behavior changes. Keep call read/write summary work under `[SGO]003E2` and do not use read-only-to-write call evidence as runtime fact evidence.
 
 - [SGO]003J - Same-As-Init Expression Equivalence Broadening
   - Status: closed conservative/research-only by the 0658 audit; no same-init expression broadening is authorized inside `[SGO]003` without a new explicit Binaryen-positive grammar.
