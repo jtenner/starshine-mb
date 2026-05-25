@@ -16,6 +16,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedFuncrefTable
   AddDuplicateEquivalentMemory
   AddDuplicateEquivalentImportedMemory
+  AddDuplicateEquivalentImportedFuncrefTable
   AddDuplicateEquivalentFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
@@ -452,6 +453,8 @@ pub fn metamorphic_valid_transform_id(
     AddDuplicateEquivalentMemory => "add-duplicate-equivalent-memory"
     AddDuplicateEquivalentImportedMemory =>
       "add-duplicate-equivalent-imported-memory"
+    AddDuplicateEquivalentImportedFuncrefTable =>
+      "add-duplicate-equivalent-imported-funcref-table"
     AddDuplicateEquivalentFuncrefTable =>
       "add-duplicate-equivalent-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
@@ -2251,6 +2254,44 @@ fn metamorphic_add_duplicate_equivalent_imported_memory(
                 ),
               )
               duplicated = true
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_import_sec(@lib.ImportSec::new(imports))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_funcref_table(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let imports = []
+  let mut duplicated = false
+  match mod.import_sec {
+    Some(@lib.ImportSec(existing)) => {
+      for import_ in existing {
+        imports.push(import_)
+      }
+      for import_ in existing {
+        match import_ {
+          @lib.Import(module_name, _, @lib.TableExternType(table_type)) =>
+            if !duplicated {
+              match table_type {
+                @lib.TableType(ref_type, _) =>
+                  if ref_type == @lib.RefType::abs(@lib.AbsHeapType::func()) {
+                    imports.push(
+                      @lib.Import::new(
+                        module_name,
+                        @lib.Name::new("table_metamorphic_duplicate"),
+                        @lib.table_extern_type(table_type),
+                      ),
+                    )
+                    duplicated = true
+                  }
+              }
             }
           _ => ()
         }
@@ -4682,6 +4723,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedFuncrefTable,
     AddDuplicateEquivalentMemory,
     AddDuplicateEquivalentImportedMemory,
+    AddDuplicateEquivalentImportedFuncrefTable,
     AddDuplicateEquivalentFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     ReshapePassiveElementSegments,
@@ -5141,6 +5183,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_memory(mod)
     AddDuplicateEquivalentImportedMemory =>
       metamorphic_add_duplicate_equivalent_imported_memory(mod)
+    AddDuplicateEquivalentImportedFuncrefTable =>
+      metamorphic_add_duplicate_equivalent_imported_funcref_table(mod)
     AddDuplicateEquivalentFuncrefTable =>
       metamorphic_add_duplicate_equivalent_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>

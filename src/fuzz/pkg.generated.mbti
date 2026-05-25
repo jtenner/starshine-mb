@@ -527,6 +527,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedFuncrefTable
   AddDuplicateEquivalentMemory
   AddDuplicateEquivalentImportedMemory
+  AddDuplicateEquivalentImportedFuncrefTable
   AddDuplicateEquivalentFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments

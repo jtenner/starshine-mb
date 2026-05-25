@@ -1138,6 +1138,95 @@ test "metamorphic duplicate equivalent imported memory transform avoids defined-
 }
 
 ///|
+test "metamorphic duplicate equivalent imported funcref table transform appends unused matching import" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("table"),
+    @lib.table_extern_type(
+      @lib.TableType::new(
+        @lib.RefType::abs(@lib.AbsHeapType::func()),
+        @lib.Limits::i32(1U, Some(2U)),
+      ),
+    ),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([original_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedFuncrefTable,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-funcref-table",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 2)
+      @debug.assert_eq(imports[0], original_import)
+      match imports[1] {
+        @lib.Import(module_name, item_name, @lib.TableExternType(table_type)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("table_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(
+            table_type,
+            @lib.TableType::new(
+              @lib.RefType::abs(@lib.AbsHeapType::func()),
+              @lib.Limits::i32(1U, Some(2U)),
+            ),
+          )
+        }
+        _ => fail("expected duplicate imported funcref table")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported funcref table transform avoids defined-table index shifts" {
+  let table = @lib.Table::new(
+    @lib.TableType::new(
+      @lib.RefType::abs(@lib.AbsHeapType::func()),
+      @lib.Limits::i32(1U, Some(1U)),
+    ),
+    None,
+  )
+  let base = @lib.Module::new().with_table_sec(@lib.TableSec::new([table]))
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedFuncrefTable,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 0)
+    None => ()
+  }
+  match transformed.wasm_module.table_sec {
+    Some(@lib.TableSec(tables)) => @debug.assert_eq(tables.length(), 1)
+    None => fail("expected original table")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent memory transform appends unused matching memory" {
   let original_memory = @lib.MemType::new(@lib.Limits::i32(1U, Some(2U)))
   let base = @lib.Module::new().with_mem_sec(
@@ -7771,11 +7860,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 422)
-  @debug.assert_eq(stats.validated, 422)
+  @debug.assert_eq(stats.transformed, 423)
+  @debug.assert_eq(stats.validated, 423)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-imported-memory"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-imported-funcref-table",
+    ),
   )
   assert_true(
     stats.transform_ids.contains(

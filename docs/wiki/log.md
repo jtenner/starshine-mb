@@ -1215,6 +1215,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1036L3` by adding a fixed-depth-three nested identity-block metamorphic-valid transform for defined function bodies with zero or one result. It wraps the original body in three value-preserving `block` layers using the function-result block type, preserving locals, body instruction order, result stacks, validation, and observable behavior.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 406 transforms per generated module, and kept focused `src/fuzz` validation green.
 
+## [2026-05-25] fuzzing | FUZ1036K8 duplicate equivalent imported funcref table transform
+
+- Completed `[FUZ]1036K8` by adding `add-duplicate-equivalent-imported-funcref-table`. The transform appends an unused import with the same table type as the first existing imported funcref table and a deterministic duplicate field name, while intentionally no-oping when no imported funcref table exists so defined table indices are never shifted.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 423 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036K7 duplicate equivalent imported memory transform
 
 - Completed `[FUZ]1036K7` by adding `add-duplicate-equivalent-imported-memory`. The transform appends an unused import with the same memory type as the first existing imported memory and a deterministic duplicate field name, while intentionally no-oping when no imported memory exists so defined memory indices are never shifted.
