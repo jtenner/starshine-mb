@@ -7,6 +7,7 @@ import {
   "jtenner/starshine/lib",
   "jtenner/starshine/validate",
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
 }
 
 // Values
@@ -143,6 +144,33 @@ pub struct DifferentialValidationReport {
   binaryen_valid : Bool?
 } derive(Eq, @debug.Debug)
 pub impl Show for DifferentialValidationReport
+
+pub struct FuzzCorpusDedupDecision {
+  hash : String
+  duplicate : Bool
+  canonical_seed : UInt64?
+} derive(Eq, @debug.Debug)
+
+type FuzzCorpusDedupHashEntry derive(Eq, @debug.Debug)
+
+pub struct FuzzCorpusDedupIndex {
+  entries : Array[FuzzCorpusDedupHashEntry]
+  positions : @hashmap.HashMap[String, Int]
+} derive(@debug.Debug)
+pub fn FuzzCorpusDedupIndex::new() -> Self
+pub fn FuzzCorpusDedupIndex::record(Self, Bytes, FuzzCorpusSource) -> FuzzCorpusDedupDecision
+pub fn FuzzCorpusDedupIndex::to_text(Self) -> String
+
+type FuzzCorpusDedupSourceEntry derive(Eq, @debug.Debug)
+
+pub struct FuzzCorpusSource {
+  seed : UInt64
+  attempt : Int
+  generator_profile : String
+  pass_profile : String
+  stage : String
+} derive(Eq, @debug.Debug)
+pub fn FuzzCorpusSource::new(UInt64, Int, String, String, String) -> Self
 
 pub struct FuzzFailurePersistIO {
   ensure_dir : (String) -> Result[Unit, String]

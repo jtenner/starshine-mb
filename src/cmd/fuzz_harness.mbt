@@ -95,6 +95,58 @@ pub struct FuzzFailureReport {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzCorpusSource {
+  seed : UInt64
+  attempt : Int
+  generator_profile : String
+  pass_profile : String
+  stage : String
+} derive(Eq, Debug)
+
+///|
+pub fn FuzzCorpusSource::new(
+  seed : UInt64,
+  attempt : Int,
+  generator_profile : String,
+  pass_profile : String,
+  stage : String,
+) -> FuzzCorpusSource {
+  { seed, attempt, generator_profile, pass_profile, stage }
+}
+
+///|
+pub struct FuzzCorpusDedupDecision {
+  hash : String
+  duplicate : Bool
+  canonical_seed : UInt64?
+} derive(Eq, Debug)
+
+///|
+struct FuzzCorpusDedupSourceEntry {
+  source : FuzzCorpusSource
+  duplicate : Bool
+  canonical_seed : UInt64
+} derive(Eq, Debug)
+
+///|
+struct FuzzCorpusDedupHashEntry {
+  hash : String
+  canonical_seed : UInt64
+  sources : Array[FuzzCorpusDedupSourceEntry]
+} derive(Eq, Debug)
+
+///|
+pub struct FuzzCorpusDedupIndex {
+  entries : Array[FuzzCorpusDedupHashEntry]
+  positions : @hashmap.HashMap[String, Int]
+} derive(Debug)
+
+///|
+pub fn FuzzCorpusDedupIndex::new() -> FuzzCorpusDedupIndex {
+  { entries: [], positions: @hashmap.new(capacity=64) }
+}
+
+///|
 pub impl Show for FuzzFailureReport with output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
@@ -394,6 +446,59 @@ fn fuzz_bytes_from_string(text : String) -> Bytes {
     buf.write_byte(c.to_int().to_byte())
   }
   buf.to_bytes()
+}
+
+///|
+fn fuzz_corpus_hash_bytes(bytes : Bytes) -> String {
+  let mut hash = 1469598103934665603UL
+  let prime = 1099511628211UL
+  let mut i = 0
+  while i < bytes.length() {
+    hash = (hash ^ bytes[i].to_uint64()) * prime
+    i += 1
+  }
+  "fnv1a64-\{hash}"
+}
+
+///|
+pub fn FuzzCorpusDedupIndex::record(
+  self : FuzzCorpusDedupIndex,
+  wasm : Bytes,
+  source : FuzzCorpusSource,
+) -> FuzzCorpusDedupDecision {
+  let hash = fuzz_corpus_hash_bytes(wasm)
+  match self.positions.get(hash) {
+    Some(pos) => {
+      let canonical_seed = self.entries[pos].canonical_seed
+      self.entries[pos].sources.push({ source, duplicate: true, canonical_seed })
+      { hash, duplicate: true, canonical_seed: Some(canonical_seed) }
+    }
+    None => {
+      let canonical_seed = source.seed
+      let sources = [{ source, duplicate: false, canonical_seed }]
+      self.positions.set(hash, self.entries.length())
+      self.entries.push({ hash, canonical_seed, sources })
+      { hash, duplicate: false, canonical_seed: Some(canonical_seed) }
+    }
+  }
+}
+
+///|
+pub fn FuzzCorpusDedupIndex::to_text(self : FuzzCorpusDedupIndex) -> String {
+  let out = StringBuilder::new()
+  out.write_string("version=1\n")
+  for entry in self.entries {
+    out.write_string(
+      "hash=\{entry.hash} canonical_seed=\{entry.canonical_seed}\n",
+    )
+    for source_entry in entry.sources {
+      let source = source_entry.source
+      out.write_string(
+        "source seed=\{source.seed} attempt=\{source.attempt} generator_profile=\{source.generator_profile} pass_profile=\{source.pass_profile} stage=\{source.stage} duplicate=\{source_entry.duplicate} canonical_seed=\{source_entry.canonical_seed}\n",
+      )
+    }
+  }
+  out.to_string()
 }
 
 ///|

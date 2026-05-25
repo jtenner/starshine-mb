@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1050B (p2) - Corpus Dedup Index
-  - Unit: maintain a reversible index from hashes to source seeds/profiles and duplicate decisions.
 - [FUZ]1052A (p2) - Runtime Import Stub Generator
   - Unit: generate deterministic numeric/ref/global/table/memory import stubs where feasible.
 - [FUZ]1052B (p2) - Export Invocation Result Matrix

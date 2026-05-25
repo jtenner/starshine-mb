@@ -190,6 +190,36 @@ test "minimize_fuzz_passes can remove dependent chunks before single-pass cleanu
 }
 
 ///|
+test "fuzz corpus dedup index records source and duplicate decisions by hash" {
+  let index = FuzzCorpusDedupIndex::new()
+  let first = FuzzCorpusSource::new(
+    0x5eedUL, 1, "natural-wide", "cleanup", "roundtrip",
+  )
+  let second = FuzzCorpusSource::new(
+    0xbeefUL, 2, "natural-small", "none", "differential",
+  )
+  let wasm = encode_fixture_module(33)
+  let first_decision = index.record(wasm, first)
+  let second_decision = index.record(wasm, second)
+  @debug.assert_eq(first_decision.duplicate, false)
+  @debug.assert_eq(second_decision.duplicate, true)
+  @debug.assert_eq(second_decision.canonical_seed, Some(0x5eedUL))
+  let text = index.to_text()
+  assert_true(text.contains("version=1"))
+  assert_true(text.contains("hash="))
+  assert_true(
+    text.contains(
+      "source seed=24301 attempt=1 generator_profile=natural-wide pass_profile=cleanup stage=roundtrip duplicate=false canonical_seed=24301",
+    ),
+  )
+  assert_true(
+    text.contains(
+      "source seed=48879 attempt=2 generator_profile=natural-small pass_profile=none stage=differential duplicate=true canonical_seed=24301",
+    ),
+  )
+}
+
+///|
 test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
   let ensured_dirs : Array[String] = []
   let writes : Array[(String, Bytes)] = []
