@@ -321,10 +321,10 @@ Execution rules for all DAE slices
   - Deliverables when resumed: add focused repair tests first, then either implement deterministic Binaryen-like local/label name reconstruction and broader annotation collision repair, or explicitly document the unsupported surface as rejected.
 
 - [TOOL]001 - Self-Optimize Compare Normalization Symmetry
-  - Goal: make the exact artifact helper stop reporting harmless raw/debug-only outer-block drift as a pass blocker.
-  - Why deferred: the current `[TO]005` residual is not a Starshine optimizer bug and is not needed for v0.1.0.
-  - Deliverables: either canonicalize Binaryen through the same strip-debug path before canonical-function comparison while preserving `binaryen.raw.wasm`, or teach the canonical-function fallback to ignore transparent unused-label void block wrappers.
-  - Acceptance: the exact-slot artifact command no longer reports `defined=200 abs=217` solely because Binaryen raw `--debug` kept an outer block that symmetric normalization removes.
+  - Status: closed evidence-gated by the 0670 audit; not an active tooling task without an exact-artifact workflow or release-QA blocker.
+  - Decision: keep the known raw/debug-only outer-block drift classified as not a Starshine optimizer bug and not needed for v0.1.0. Do not add broad compare canonicalization without a current workflow need.
+  - Reopen only when: an active exact artifact workflow or release QA gate is blocked solely by transparent unused-label void-block drift such as `defined=200 abs=217` from Binaryen raw `--debug` output.
+  - Deliverables when resumed: prefer symmetric Binaryen strip-debug normalization before canonical-function comparison while preserving `binaryen.raw.wasm`; if using canonical-function fallback, add tests proving transparent unused-label void-block wrapper elision does not hide meaningful branch-target, label, result-type, or side-effect differences.
 
 - [HOT]003 - Node-Package Worker Queue Port
   - Status: deferred behind [HOT]002 and future Node package rebuild work.

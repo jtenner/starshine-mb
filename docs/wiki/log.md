@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] tooling | Self-optimize compare normalization symmetry gate
+
+- Added research note [`0670`](./raw/research/0670-2026-05-25-self-optimize-compare-normalization-symmetry-gate.md) for `[TOOL]001`, auditing the harmless raw/debug-only outer-block drift normalization follow-up.
+- Closed `[TOOL]001` as evidence-gated: the known transparent unused-label void-block drift is not a Starshine optimizer bug or v0.1.0 need, and future compare canonicalization should require an active exact-artifact or release-QA blocker.
+- No compare tooling, optimizer behavior, tests, or direct fuzz changed because this was docs/backlog-only.
+
 ## [2026-05-25] binaryen | Inlining residual name and annotation repair gate
 
 - Added research note [`0669`](./raw/research/0669-2026-05-25-inl-residual-name-annotation-repair-gate.md) for `[INL]006`, auditing whether residual local/label name and annotation repair should remain an active inlining task.
