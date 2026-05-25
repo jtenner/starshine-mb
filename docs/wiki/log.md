@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] tooling | FUZ1042A fuzz corpus promotion and quarantine policy
+
+- Completed `[FUZ]1042A` by adding [`tooling/fuzz-corpus-policy.md`](tooling/fuzz-corpus-policy.md), which defines the corpus states `promoted-valid`, `promoted-invalid`, `pass-mismatch`, `tool-failure`, `accepted-divergence`, and `quarantine` plus required metadata, promotion/quarantine rules, and future replay-all behavior.
+- Updated [`index.md`](index.md) so the new policy is discoverable next to the fuzz runner and pass-fuzz compare workflow pages.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic f32/f64 copysign drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the leading/trailing f32/f64 `copysign` computed/drop metamorphic-valid transforms. They insert pure `const 0; const 0; copysign; drop` stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 113 transforms per generated module.

@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1042A (p2) - Corpus Promotion/Quarantine Policy Docs
-  - Unit: define promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine metadata.
 - [FUZ]1042B (p2) - Corpus Replay-All Workflow
   - Unit: add a deterministic replay entry point for promoted/quarantined cases without committing large noisy corpora.
 - [FUZ]1043A (p2) - Shared Reducer Interface
