@@ -3839,7 +3839,7 @@ fn assert_metamorphic_integer_shift_drop_transform(
 }
 
 ///|
-test "metamorphic i32 and i64 shift drop transforms preserve validation and binary roundtrip" {
+test "metamorphic i32 and i64 shift/rotate drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_integer_shift_drop_transform(
       AddLeadingI32ShlDropToDefinedFunctions,
@@ -3955,6 +3955,86 @@ test "metamorphic i32 and i64 shift drop transforms preserve validation and bina
       AddTrailingI64ShrUDropToDefinedFunctions,
       "add-trailing-i64-shr-u-drop-to-defined-functions",
       @lib.Instruction::i64_shr_u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI32RotlDropToDefinedFunctions,
+      "add-leading-i32-rotl-drop-to-defined-functions",
+      @lib.Instruction::i32_rotl(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI32RotlDropToDefinedFunctions,
+      "add-trailing-i32-rotl-drop-to-defined-functions",
+      @lib.Instruction::i32_rotl(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI32RotrDropToDefinedFunctions,
+      "add-leading-i32-rotr-drop-to-defined-functions",
+      @lib.Instruction::i32_rotr(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI32RotrDropToDefinedFunctions,
+      "add-trailing-i32-rotr-drop-to-defined-functions",
+      @lib.Instruction::i32_rotr(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI64RotlDropToDefinedFunctions,
+      "add-leading-i64-rotl-drop-to-defined-functions",
+      @lib.Instruction::i64_rotl(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI64RotlDropToDefinedFunctions,
+      "add-trailing-i64-rotl-drop-to-defined-functions",
+      @lib.Instruction::i64_rotl(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI64RotrDropToDefinedFunctions,
+      "add-leading-i64-rotr-drop-to-defined-functions",
+      @lib.Instruction::i64_rotr(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI64RotrDropToDefinedFunctions,
+      "add-trailing-i64-rotr-drop-to-defined-functions",
+      @lib.Instruction::i64_rotr(),
       false,
     ) {
     Ok(_) => ()
@@ -4793,8 +4873,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 201)
-  @debug.assert_eq(stats.validated, 201)
+  @debug.assert_eq(stats.transformed, 209)
+  @debug.assert_eq(stats.validated, 209)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
