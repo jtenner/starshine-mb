@@ -15,6 +15,7 @@ pub struct FuzzCliArgs {
   shard_index : Int
   shard_count : Int
   report_json_path : String?
+  out_dir : String?
 } derive(Eq, Debug)
 
 ///|
@@ -165,6 +166,24 @@ pub enum FuzzCliCommand {
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
 } derive(Eq, Debug)
+
+///|
+pub struct FuzzRunOutputIO {
+  ensure_dir : (String) -> Result[Unit, String]
+  write_file : (String, Bytes) -> Result[Unit, String]
+}
+
+///|
+pub fn FuzzRunOutputIO::new(
+  ensure_dir? : (String) -> Result[Unit, String] = fn(path) {
+    Err("ensure_dir not configured: \{path}")
+  },
+  write_file? : (String, Bytes) -> Result[Unit, String] = fn(path, _) {
+    Err("write_file not configured: \{path}")
+  },
+) -> FuzzRunOutputIO {
+  { ensure_dir, write_file }
+}
 
 ///|
 pub struct FuzzSuiteResult {
@@ -1362,6 +1381,7 @@ pub fn parse_fuzz_cli_args_with_recipe(
   let mut shard_index : Int? = None
   let mut shard_count : Int? = None
   let mut report_json_path : String? = None
+  let mut out_dir : String? = None
   let mut flag_suite : String? = None
   let mut flag_profile : String? = None
   let mut i = 0
@@ -1540,6 +1560,25 @@ pub fn parse_fuzz_cli_args_with_recipe(
       i += 1
       continue
     }
+    if arg == "--out-dir" {
+      if i + 1 >= args.length() {
+        abort("missing value for --out-dir")
+      }
+      if out_dir is Some(_) {
+        abort("duplicate --out-dir flag")
+      }
+      out_dir = Some(args[i + 1])
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--out-dir=") {
+      if out_dir is Some(_) {
+        abort("duplicate --out-dir flag")
+      }
+      out_dir = Some(fuzz_tail_string(arg, 10))
+      i += 1
+      continue
+    }
     if arg == "--report-json" {
       if i + 1 >= args.length() {
         abort("missing value for --report-json")
@@ -1663,6 +1702,15 @@ pub fn parse_fuzz_cli_args_with_recipe(
       }
     None => None
   }
+  let resolved_out_dir = match out_dir {
+    Some(v) =>
+      if v.trim().to_owned().length() == 0 {
+        abort("--out-dir must not be empty")
+      } else {
+        Some(v)
+      }
+    None => None
+  }
   FuzzCliArgs::{
     suite,
     profile,
@@ -1673,6 +1721,7 @@ pub fn parse_fuzz_cli_args_with_recipe(
     shard_index: resolved_shard_index,
     shard_count: resolved_shard_count,
     report_json_path: resolved_report_json_path,
+    out_dir: resolved_out_dir,
   }
 }
 
@@ -3129,6 +3178,54 @@ pub fn format_fuzz_run_report_json(
 }
 
 ///|
+pub fn persist_fuzz_run_output(
+  out_dir : String,
+  suite : String,
+  profile : String,
+  base_seed : Int64,
+  seed_count : Int,
+  shard_index : Int,
+  shard_count : Int,
+  results : Array[FuzzSuiteResult],
+  io : FuzzRunOutputIO,
+) -> Result[Unit, String] {
+  let dir = out_dir.trim().to_owned()
+  if dir.length() == 0 {
+    return Err("fuzz output dir must not be empty")
+  }
+  match (io.ensure_dir)(dir) {
+    Ok(_) => ()
+    Err(e) => return Err("failed to create fuzz output dir \{dir}: \{e}")
+  }
+  let result_json = format_fuzz_run_report_json(
+    suite, profile, base_seed, seed_count, shard_index, shard_count, results,
+  )
+  let cases = StringBuilder::new()
+  let mut i = 0
+  while i < results.length() {
+    cases.write_string(
+      format_fuzz_suite_result(results[i], FuzzOutputMode::Jsonl),
+    )
+    cases.write_char('\n')
+    i += 1
+  }
+  let manifest = "{\"schema\":\"starshine.fuzz-output.v1\",\"files\":[\"result.json\",\"cases.jsonl\"],\"artifact_dirs\":[\"inputs\",\"failures\"]}"
+  let writes = [
+    ("result.json", fuzz_string_to_bytes(result_json)),
+    ("cases.jsonl", fuzz_string_to_bytes(cases.to_string())),
+    ("manifest.json", fuzz_string_to_bytes(manifest)),
+  ]
+  for item in writes {
+    let path = fuzz_join_path(dir, item.0)
+    match (io.write_file)(path, item.1) {
+      Ok(_) => ()
+      Err(e) => return Err("failed to write fuzz output \{path}: \{e}")
+    }
+  }
+  Ok(())
+}
+
+///|
 fn fuzz_string_to_bytes(text : String) -> Bytes {
   let buf = @buffer.new(size_hint=text.length())
   for c in text {
@@ -3215,6 +3312,30 @@ fn main {
         Ok(results) => {
           for result in results {
             print_fuzz_suite_result(result, output_mode)
+          }
+          match parsed.out_dir {
+            Some(dir) => {
+              let io = FuzzRunOutputIO::new(
+                ensure_dir=create_dir,
+                write_file=write_file_bytes,
+              )
+              match
+                persist_fuzz_run_output(
+                  dir,
+                  parsed.suite,
+                  parsed.profile,
+                  parsed.seed_i64,
+                  parsed.seed_count,
+                  parsed.shard_index,
+                  parsed.shard_count,
+                  results,
+                  io,
+                ) {
+                Ok(_) => ()
+                Err(e) => abort(e)
+              }
+            }
+            None => ()
           }
           match parsed.report_json_path {
             Some(path) => {

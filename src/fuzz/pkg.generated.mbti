@@ -99,6 +99,8 @@ pub fn parse_gen_valid_batch_manifest_stream_derivations(String) -> Result[Array
 
 pub fn parse_invalid_fuzz_failure_report(String, (String) -> Result[Bytes, String]) -> Result[InvalidFuzzFailureReport, String]
 
+pub fn persist_fuzz_run_output(String, String, String, Int64, Int, Int, Int, Array[FuzzSuiteResult], FuzzRunOutputIO) -> Result[Unit, String]
+
 pub fn persist_invalid_fuzz_failure_report(InvalidFuzzFailureReport, InvalidFuzzPersistIO, corpus_dir? : String) -> Result[(String, Array[String]), String]
 
 pub fn replay_invalid_fuzz_failure_report(InvalidFuzzFailureReport, prefer_reduced? : Bool) -> Result[InvalidFuzzReplayResult, String]
@@ -211,6 +213,7 @@ pub struct FuzzCliArgs {
   shard_index : Int
   shard_count : Int
   report_json_path : String?
+  out_dir : String?
 } derive(Eq, @debug.Debug)
 
 pub enum FuzzCliCommand {
@@ -237,6 +240,12 @@ pub struct FuzzRecipe {
   shard_count : Int
 } derive(Eq, @debug.Debug)
 pub fn FuzzRecipe::new(String, String, String, Int64, output_mode? : FuzzOutputMode, seed_count? : Int, shard_count? : Int) -> Self
+
+pub struct FuzzRunOutputIO {
+  ensure_dir : (String) -> Result[Unit, String]
+  write_file : (String, Bytes) -> Result[Unit, String]
+}
+pub fn FuzzRunOutputIO::new(ensure_dir? : (String) -> Result[Unit, String], write_file? : (String, Bytes) -> Result[Unit, String]) -> Self
 
 pub struct FuzzSuiteResult {
   suite : String

@@ -12,6 +12,7 @@ export type FuzzOptions = {
   shardIndex: string | null;
   shardCount: string | null;
   reportJson: string | null;
+  outDir: string | null;
   target: string;
   moonBin: string;
   listSuites: boolean;
@@ -39,6 +40,7 @@ function defaultFuzzOptions(): FuzzOptions {
     shardIndex: null,
     shardCount: null,
     reportJson: null,
+    outDir: null,
     target: "wasm-gc",
     moonBin: resolveMoonBin(),
     listSuites: false,
@@ -239,6 +241,11 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
       i += 1;
       continue;
     }
+    if (token.startsWith("--out-dir=")) {
+      options.outDir = token.substring("--out-dir=".length);
+      i += 1;
+      continue;
+    }
     switch (token) {
       case "--profile":
         options.profile = argv[i + 1] ?? fail("missing value for --profile");
@@ -283,6 +290,10 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
         break;
       case "--report-json":
         options.reportJson = argv[i + 1] ?? fail("missing value for --report-json");
+        i += 2;
+        break;
+      case "--out-dir":
+        options.outDir = argv[i + 1] ?? fail("missing value for --out-dir");
         i += 2;
         break;
       case "--list-suites":
@@ -426,6 +437,9 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
   if (options.reportJson != null) {
     args.push("--report-json", options.reportJson);
   }
+  if (options.outDir != null) {
+    args.push("--out-dir", options.outDir);
+  }
   runOrThrow(options.moonBin, args, { cwd: repoRoot });
 }
 
@@ -438,7 +452,7 @@ export function main(argv: string[]): void {
   }
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]",
+      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

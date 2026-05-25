@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1031A (p2) - Fuzz Output Directory Layout
-  - Unit: add `--out-dir` plumbing for ordinary fuzz runs and write `result.json`, `cases.jsonl`, generated inputs, failures, and manifests only when requested.
 - [FUZ]1031B (p2) - Suite Ledgers And Replay Manifests
   - Unit: write feature/strategy ledgers and suite-specific replay manifests under the output directory.
 - [FUZ]1032A (p2) - Optional External Validator Adapters

@@ -1,4 +1,13 @@
 ///|
+fn bytes_to_ascii(bytes : Bytes) -> String {
+  let out = StringBuilder::new()
+  for b in bytes {
+    out.write_char(b.to_int().unsafe_to_char())
+  }
+  out.to_string()
+}
+
+///|
 test "parse_fuzz_cli_args defaults to all smoke seed" {
   let parsed = parse_fuzz_cli_args([])
   @debug.assert_eq(parsed.suite, "all")
@@ -57,10 +66,11 @@ test "parse_fuzz_cli_args accepts --jsonl alias" {
 }
 
 ///|
-test "parse_fuzz_cli_args accepts seed sweep, shard, and report flags" {
+test "parse_fuzz_cli_args accepts seed sweep, shard, report, and out-dir flags" {
   let parsed = parse_fuzz_cli_args([
     "cmd-harness", "smoke", "--seed=0x10", "--seed-count", "5", "--shard-index",
-    "1", "--shard-count", "2", "--report-json", "tmp/fuzz-report.json",
+    "1", "--shard-count", "2", "--report-json", "tmp/fuzz-report.json", "--out-dir",
+    "tmp/fuzz-out",
   ])
   @debug.assert_eq(parsed.suite, "cmd-harness")
   @debug.assert_eq(parsed.profile, "smoke")
@@ -69,6 +79,76 @@ test "parse_fuzz_cli_args accepts seed sweep, shard, and report flags" {
   @debug.assert_eq(parsed.shard_index, 1)
   @debug.assert_eq(parsed.shard_count, 2)
   @debug.assert_eq(parsed.report_json_path, Some("tmp/fuzz-report.json"))
+  @debug.assert_eq(parsed.out_dir, Some("tmp/fuzz-out"))
+}
+
+///|
+test "persist_fuzz_run_output writes result cases and manifest only when requested" {
+  let ensured_dirs : Array[String] = []
+  let writes : Array[(String, Bytes)] = []
+  let io = FuzzRunOutputIO::new(
+    ensure_dir=fn(path) {
+      ensured_dirs.push(path)
+      Ok(())
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let result = FuzzSuiteResult::{
+    suite: "cmd-harness",
+    profile: "smoke",
+    seed: 16L,
+    attempts: 3,
+    elapsed_ms: 7UL,
+    seed_index: 0,
+    seed_count: 1,
+    shard_index: 0,
+    shard_count: 1,
+    details_json: Some("{\"optimized\":3}"),
+  }
+  match
+    persist_fuzz_run_output(
+      "tmp/fuzz-out",
+      "cmd-harness",
+      "smoke",
+      16L,
+      1,
+      0,
+      1,
+      [result],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(ensured_dirs, ["tmp/fuzz-out"])
+  @debug.assert_eq(writes.length(), 3)
+  let mut saw_result = false
+  let mut saw_cases = false
+  let mut saw_manifest = false
+  for entry in writes {
+    let path = entry.0
+    let text = bytes_to_ascii(entry.1)
+    if path == "tmp/fuzz-out/result.json" {
+      saw_result = true
+      assert_true(text.contains("\"suite\":\"cmd-harness\""))
+      assert_true(text.contains("\"run_count\":1"))
+    } else if path == "tmp/fuzz-out/cases.jsonl" {
+      saw_cases = true
+      assert_true(text.contains("\"seed\":16"))
+      assert_true(text.contains("\"details\":{\"optimized\":3}"))
+    } else if path == "tmp/fuzz-out/manifest.json" {
+      saw_manifest = true
+      assert_true(text.contains("\"schema\":\"starshine.fuzz-output.v1\""))
+      assert_true(text.contains("result.json"))
+      assert_true(text.contains("cases.jsonl"))
+    }
+  }
+  assert_true(saw_result)
+  assert_true(saw_cases)
+  assert_true(saw_manifest)
 }
 
 ///|

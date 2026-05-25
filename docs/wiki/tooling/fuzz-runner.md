@@ -75,8 +75,8 @@ The plain run form accepts positional arguments or flags:
 ```text
 moon run src/fuzz -- [suite] [profile] [seed]
 moon run src/fuzz -- --seed <int64> --output text|jsonl
-moon run src/fuzz -- cmd-harness smoke --seed 0x10 --seed-count 64 --shard-index 0 --shard-count 4 --report-json .tmp/fuzz-report.json
-bun fuzz run --suite <name> --profile <name> --seed <int64> --jsonl
+moon run src/fuzz -- cmd-harness smoke --seed 0x10 --seed-count 64 --shard-index 0 --shard-count 4 --report-json .tmp/fuzz-report.json --out-dir .tmp/fuzz-run
+bun fuzz run --suite <name> --profile <name> --seed <int64> --jsonl --out-dir .tmp/fuzz-run
 ```
 
 Important invariants:
@@ -88,7 +88,8 @@ Important invariants:
 - `--shard-index <i> --shard-count <n>` runs only seed ordinals where `ordinal % shard_count == shard_index`; defaults are `0/1`, and `shard_index` must be less than `shard_count`.
 - Text output lines keep the single-seed contract `suite=<name> profile=<profile> seed=<seed> attempts=<n> pass=true elapsed_ms=<ms>`. Sweep/sharded runs append `seed_index`, `seed_count`, `shard_index`, and `shard_count` fields.
 - JSONL output emits one JSON object per suite result, including sweep/shard metadata. Suites with first-class ledgers also include a `details` object: `validate-valid` reports validated count, generator config label, feature counters, and configured feature floors; `binary-roundtrip` reports arbitrary value roundtrips, GenValid module roundtrips, decoded GenValid validation counts, byte-fuzz case/decode/validation/stable-reencode counters, boundary corpus roundtrips, and exact arbitrary instruction/section/immediate roundtrip counters; `wat-roundtrip` reports successful/stable roundtrips plus module print, parse, roundtrip-print, unstable-text, script-render, and no-module-command counts; `wast-validate-roundtrip` reports WAST AST print, parse, lower, and validation counts plus failure categories; `gen-valid-wat-validate-roundtrip` reports GenValid generated, printed, parsed, lowered, validated, and failure-category counts for the lib-module-to-WAT lane; invalid AST/binary/text/spec-seed suites report per-strategy or per-seed counters with stable ids and expected-rejection counts; `validate-invalid-text-dynamic` additionally reports per-strategy variant ids and source feature facts such as `source:gen-valid-wat`; invalid AST/binary details also include selected seed profiles and per-profile attempt counts. `validate-invalid-spec-seed` also includes a `dynamic` details object with scanned/attempted/matched counts and matched feature-family names for CI/stress dynamic spec sampling.
-- `--report-json <path>` writes a single summary object with `suite`, `profile`, `base_seed`, sweep/shard configuration, aggregate `run_count`, and the per-suite `runs` array. The same `details` objects used by JSONL are embedded per run. The path must be explicit; the runner does not create a standard output directory for ordinary fuzz runs yet.
+- `--report-json <path>` writes a single summary object with `suite`, `profile`, `base_seed`, sweep/shard configuration, aggregate `run_count`, and the per-suite `runs` array. The same `details` objects used by JSONL are embedded per run. The path must be explicit.
+- `--out-dir <dir>` is the ordinary-run artifact directory. It is opt-in; when omitted, no standard run directory is created. When present, the runner creates the directory and writes `result.json` with the same summary schema as `--report-json`, `cases.jsonl` with one JSONL suite-result record per case/run, and `manifest.json` using schema `starshine.fuzz-output.v1`. The initial ordinary-run manifest declares reserved `inputs/` and `failures/` artifact directories, but suites only populate generated-input or failure subartifacts when their specific runner path captures those bytes.
 
 Preserve this result contract when adding suites so CI logs, repro reports, and long-running compare tasks can remain machine-readable.
 
@@ -143,7 +144,7 @@ It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...
 
 - `--target <target>` / `--target=<target>` (default `wasm-gc`).
 - `--moon <path>` / `--moon=<path>`.
-- `--suite`, `--profile`, `--seed`, `--seed-count`, `--shard-index`, `--shard-count`, `--report-json`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding, including batch `--gen-valid-profile`, `--require-feature`, `--exclude-feature`, and `--max-attempts` options.
+- `--suite`, `--profile`, `--seed`, `--seed-count`, `--shard-index`, `--shard-count`, `--report-json`, ordinary-run `--out-dir`, `--output`, `--jsonl`, `--help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch` forwarding, including batch `--gen-valid-profile`, `--require-feature`, `--exclude-feature`, and `--max-attempts` options.
 
 `bun fuzz compare-pass ...` is a sibling entrypoint, not a `src/fuzz` suite. It delegates to [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), which may call `src/fuzz --emit-gen-valid-batch` internally for generated inputs before invoking Starshine, `wasm-tools`, and Binaryen.
 
