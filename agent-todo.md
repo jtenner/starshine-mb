@@ -613,8 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- [FUZ]1037B (p1, GenValid) - Initializer Context Matrix Coverage
-  - Unit: apply the shared const-expression generator to globals, element offsets, data offsets, table initializers, and valid GC initializer contexts; record feature facts.
 - [FUZ]1039A (p1, GenValid) - Start Function Profile Matrix
   - Unit: generate profiles with no start, imported/defined start candidates where valid, and start functions that call helpers while preserving `[] -> []` type rules.
 - [FUZ]1039B (p1, GenValid) - Imported-Global Offset Initialization Profiles

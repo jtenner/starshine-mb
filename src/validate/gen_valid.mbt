@@ -13551,9 +13551,47 @@ pub fn gen_valid_feature_facts(
         has_table_limit_variants = has_table_limit_variants ||
           gen_valid_table_type_has_limit_variant(table_type, init_opt)
         match init_opt {
-          Some(init) =>
+          Some(init) => {
             has_const_expr_variants = has_const_expr_variants ||
               gen_valid_const_expr_has_variant(init)
+            let init_facts = gen_valid_scan_expr(init)
+            uses_ref_types = uses_ref_types || init_facts.uses_ref_types
+            uses_v128 = uses_v128 || init_facts.uses_v128
+            has_call = has_call || init_facts.has_call
+            has_call_indirect = has_call_indirect ||
+              init_facts.has_call_indirect
+            has_numeric_full_ops = has_numeric_full_ops ||
+              init_facts.has_numeric_full_ops
+            has_br_table = has_br_table || init_facts.has_br_table
+            has_standalone_unreachable = has_standalone_unreachable ||
+              init_facts.has_standalone_unreachable
+            has_local_tee = has_local_tee || init_facts.has_local_tee
+            has_typed_select = has_typed_select || init_facts.has_typed_select
+            has_tail_calls = has_tail_calls || init_facts.has_tail_calls
+            has_scalar_memory_widths = has_scalar_memory_widths ||
+              init_facts.has_scalar_memory_widths
+            has_nonzero_memarg = has_nonzero_memarg ||
+              init_facts.has_nonzero_memarg
+            has_basic_ref_instructions = has_basic_ref_instructions ||
+              init_facts.has_basic_ref_instructions
+            has_i31_extern_conversions = has_i31_extern_conversions ||
+              init_facts.has_i31_extern_conversions
+            has_simd_phase1 = has_simd_phase1 || init_facts.has_simd_phase1
+            has_simd_phase2 = has_simd_phase2 || init_facts.has_simd_phase2
+            has_simd_phase3 = has_simd_phase3 || init_facts.has_simd_phase3
+            has_atomics = has_atomics || init_facts.has_atomics
+            has_gc_constructors = has_gc_constructors ||
+              init_facts.has_gc_constructors
+            has_gc_accessors = has_gc_accessors || init_facts.has_gc_accessors
+            has_string_ops = has_string_ops || init_facts.has_string_ops
+            has_exception_try_table_matrix = has_exception_try_table_matrix ||
+              init_facts.has_exception_try_table_matrix
+            exact_opcode_counts = exact_opcode_counts.add(
+              init_facts.exact_opcode_counts,
+            )
+            control_nodes += init_facts.control_nodes
+            branch_ops += init_facts.branch_ops
+          }
           None => ()
         }
       }

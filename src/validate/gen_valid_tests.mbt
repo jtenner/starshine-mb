@@ -84,6 +84,33 @@ test "gen-valid shared const-expression contexts select allowed op families" {
 }
 
 ///|
+test "gen-valid feature facts scan table initializer expressions" {
+  let struct_idx = TypeIdx::new(0U)
+  let mod_ = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::struct_([])))]),
+    )
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::new(true, HeapType::new(struct_idx)),
+            Limits::i32(1U, Some(1U)),
+          ),
+          Some(Expr::new([Instruction::struct_new_default(struct_idx)])),
+        ),
+      ]),
+    )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_const_expr_variants)
+  assert_true(
+    facts.has_gc_constructors,
+    msg="table initializer expressions should contribute GC constructor facts",
+  )
+  assert_true(facts.uses_ref_types)
+}
+
+///|
 test "gen-valid PRNG stream labels have stable seed derivations" {
   @debug.assert_eq(gen_valid_random_stream_labels().length(), 15)
   @debug.assert_eq(
