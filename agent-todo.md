@@ -245,23 +245,23 @@ Active v0.1.0 slices for full Binaryen parity
     - v0.1.0 self-optimization comparison is green or every remaining diff is classified and accepted by the user.
 
 - [SGO]003A - Binaryen Source Audit And Fact-Table Parity
-  - Status: active, first implementation-enabling slice.
+  - Status: accepted on 2026-05-25. Source audit, fact-row refactor, focused tests, Moon validation, and direct SGO fuzz evidence live in `docs/wiki/raw/research/0675-2026-05-25-sgo-fact-table-source-audit.md`.
   - Goal: align Starshine's module-wide global fact table with Binaryen's `SimplifyGlobals.cpp` facts before adding more matcher breadth.
   - Why: the parity matrix says Binaryen's `nonInitWritten` and `readOnlyToWrite` are modeled locally by separate flag paths rather than one faithful source-shaped fact table; later slices should not pile more ad hoc flags onto that gap.
   - Tasks:
-    - re-read Binaryen `version_129` `SimplifyGlobals.cpp`, `pass.cpp`, and the saved current-main no-drift note;
-    - map every fact Binaryen records for globals: imported, exported, mutable/immutable, initial value, non-init written, ever read, read-only-to-write candidates, uses in functions, global initializers, table/element/data offsets, element item expressions, and generated/effect summary hooks;
-    - add/adjust whitebox tests that expose the current Starshine fact rows for representative scalar, reference, imported, exported, table, data, elem, and function-body uses;
-    - refactor only as needed so later same-init/read-only/runtime slices can consume a single coherent fact structure;
-    - preserve existing behavior and direct SGO 10k parity.
+    - [x] re-read Binaryen `version_129` `SimplifyGlobals.cpp`, `pass.cpp`, and current-main SGO no-drift evidence for this run;
+    - [x] map Binaryen's per-global facts and Starshine's source-specific fact needs in research note `0675`;
+    - [x] add/adjust whitebox tests that expose current Starshine fact rows for imported/exported, data/elem offsets, typed element item expressions, and function-body reads/writes;
+    - [x] refactor SGO collection so source-specific counters and existing same-init/read-only-to-write plan flags live in one coherent `SgoGlobalInfo` row;
+    - [x] run direct SGO fuzz to confirm behavior parity after the fact-row refactor: `.tmp/pass-fuzz-sgo-fact-table-003a-10000` compared `6759/10000` before the configured 20 Binaryen/tool command-failure stop, with `0` mismatches and `0` Starshine validation failures.
   - Required guardrails:
     - imported initializer provenance must remain conservative;
     - exported mutable globals must not be made private by fact refactoring;
     - element item reference expressions must remain conservative until `[SGO]003F`.
   - Exit criteria:
-    - focused fact-table tests pass;
+    - focused fact-table tests pass (`moon test src/passes` passed `1610/1610` after the refactor);
     - no intended behavior broadening without tests;
-    - direct SGO 10k fuzz remains green.
+    - direct SGO fuzz remains green under the configured command-failure stop (`0` mismatches, `0` validation failures).
 
 - [SGO]003B - Same-As-Init Expression Equivalence Parity
   - Status: active after `[SGO]003A`.

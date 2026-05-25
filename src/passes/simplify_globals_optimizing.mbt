@@ -12,6 +12,15 @@ priv struct SgoGlobalInfo {
   mut init : @lib.Expr?
   mut read_count : Int
   mut write_count : Int
+  mut function_read_count : Int
+  mut function_write_count : Int
+  mut global_init_read_count : Int
+  mut table_init_read_count : Int
+  mut elem_offset_read_count : Int
+  mut elem_item_read_count : Int
+  mut data_offset_read_count : Int
+  mut same_init_writes : Bool
+  mut read_only_to_write : Bool
 }
 
 ///|
@@ -117,6 +126,84 @@ fn sgo_scan_global_idx(
 }
 
 ///|
+fn sgo_scan_global_idx_in_function(
+  infos : Array[SgoGlobalInfo],
+  idx : @lib.GlobalIdx,
+  read : Bool,
+) -> Unit {
+  sgo_scan_global_idx(infos, idx, read)
+  let slot = sgo_global_idx_slot(idx)
+  if slot < 0 || slot >= infos.length() {
+    return
+  }
+  if read {
+    infos[slot].function_read_count = infos[slot].function_read_count + 1
+  } else {
+    infos[slot].function_write_count = infos[slot].function_write_count + 1
+  }
+}
+
+///|
+fn sgo_note_global_section_read(
+  infos : Array[SgoGlobalInfo],
+  idx : @lib.GlobalIdx,
+) -> Unit {
+  sgo_scan_global_idx(infos, idx, true)
+  let slot = sgo_global_idx_slot(idx)
+  if slot >= 0 && slot < infos.length() {
+    infos[slot].global_init_read_count = infos[slot].global_init_read_count + 1
+  }
+}
+
+///|
+fn sgo_note_table_init_read(
+  infos : Array[SgoGlobalInfo],
+  idx : @lib.GlobalIdx,
+) -> Unit {
+  sgo_scan_global_idx(infos, idx, true)
+  let slot = sgo_global_idx_slot(idx)
+  if slot >= 0 && slot < infos.length() {
+    infos[slot].table_init_read_count = infos[slot].table_init_read_count + 1
+  }
+}
+
+///|
+fn sgo_note_elem_offset_read(
+  infos : Array[SgoGlobalInfo],
+  idx : @lib.GlobalIdx,
+) -> Unit {
+  sgo_scan_global_idx(infos, idx, true)
+  let slot = sgo_global_idx_slot(idx)
+  if slot >= 0 && slot < infos.length() {
+    infos[slot].elem_offset_read_count = infos[slot].elem_offset_read_count + 1
+  }
+}
+
+///|
+fn sgo_note_elem_item_read(
+  infos : Array[SgoGlobalInfo],
+  idx : @lib.GlobalIdx,
+) -> Unit {
+  sgo_scan_global_idx(infos, idx, true)
+  let slot = sgo_global_idx_slot(idx)
+  if slot >= 0 && slot < infos.length() {
+    infos[slot].elem_item_read_count = infos[slot].elem_item_read_count + 1
+  }
+}
+
+///|
+fn sgo_note_data_offset_read(
+  infos : Array[SgoGlobalInfo],
+  idx : @lib.GlobalIdx,
+) -> Unit {
+  sgo_scan_global_idx(infos, idx, true)
+  let slot = sgo_global_idx_slot(idx)
+  if slot >= 0 && slot < infos.length() {
+    infos[slot].data_offset_read_count = infos[slot].data_offset_read_count + 1
+  }
+}
+
+///|
 fn sgo_scan_instr(
   instr : @lib.Instruction,
   infos : Array[SgoGlobalInfo],
@@ -151,6 +238,90 @@ fn sgo_scan_instrs(
 fn sgo_scan_expr(expr : @lib.Expr, infos : Array[SgoGlobalInfo]) -> Unit {
   let @lib.Expr(instrs) = expr
   sgo_scan_instrs(instrs, infos)
+}
+
+///|
+fn sgo_scan_instr_in_function(
+  instr : @lib.Instruction,
+  infos : Array[SgoGlobalInfo],
+) -> Unit {
+  match instr {
+    @lib.GlobalGet(idx) => sgo_scan_global_idx_in_function(infos, idx, true)
+    @lib.GlobalSet(idx) => sgo_scan_global_idx_in_function(infos, idx, false)
+    @lib.Block(_, body) | @lib.Loop(_, body) =>
+      sgo_scan_expr_in_function(body, infos)
+    @lib.If(_, then_body, else_body) => {
+      sgo_scan_instrs_in_function(then_body, infos)
+      match else_body {
+        Some(body) => sgo_scan_instrs_in_function(body, infos)
+        None => ()
+      }
+    }
+    @lib.TryTable(_, _, body) => sgo_scan_expr_in_function(body, infos)
+    _ => ()
+  }
+}
+
+///|
+fn sgo_scan_instrs_in_function(
+  instrs : Array[@lib.Instruction],
+  infos : Array[SgoGlobalInfo],
+) -> Unit {
+  for instr in instrs {
+    sgo_scan_instr_in_function(instr, infos)
+  }
+}
+
+///|
+fn sgo_scan_expr_in_function(
+  expr : @lib.Expr,
+  infos : Array[SgoGlobalInfo],
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  sgo_scan_instrs_in_function(instrs, infos)
+}
+
+///|
+fn sgo_scan_expr_reads_with(
+  expr : @lib.Expr,
+  infos : Array[SgoGlobalInfo],
+  note_read : (Array[SgoGlobalInfo], @lib.GlobalIdx) -> Unit,
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  sgo_scan_instrs_reads_with(instrs, infos, note_read)
+}
+
+///|
+fn sgo_scan_instrs_reads_with(
+  instrs : Array[@lib.Instruction],
+  infos : Array[SgoGlobalInfo],
+  note_read : (Array[SgoGlobalInfo], @lib.GlobalIdx) -> Unit,
+) -> Unit {
+  for instr in instrs {
+    sgo_scan_instr_reads_with(instr, infos, note_read)
+  }
+}
+
+///|
+fn sgo_scan_instr_reads_with(
+  instr : @lib.Instruction,
+  infos : Array[SgoGlobalInfo],
+  note_read : (Array[SgoGlobalInfo], @lib.GlobalIdx) -> Unit,
+) -> Unit {
+  match instr {
+    @lib.GlobalGet(idx) => note_read(infos, idx)
+    @lib.GlobalSet(idx) => sgo_scan_global_idx(infos, idx, false)
+    @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+      sgo_scan_expr_reads_with(body, infos, note_read)
+    @lib.If(_, then_body, else_body) => {
+      sgo_scan_instrs_reads_with(then_body, infos, note_read)
+      match else_body {
+        Some(body) => sgo_scan_instrs_reads_with(body, infos, note_read)
+        None => ()
+      }
+    }
+    _ => ()
+  }
 }
 
 ///|
@@ -202,6 +373,15 @@ fn sgo_collect_global_infos(mod_ : @lib.Module) -> (Array[SgoGlobalInfo], Int) {
               init: None,
               read_count: 0,
               write_count: 0,
+              function_read_count: 0,
+              function_write_count: 0,
+              global_init_read_count: 0,
+              table_init_read_count: 0,
+              elem_offset_read_count: 0,
+              elem_item_read_count: 0,
+              data_offset_read_count: 0,
+              same_init_writes: true,
+              read_only_to_write: false,
             })
             imported_globals += 1
           }
@@ -222,6 +402,15 @@ fn sgo_collect_global_infos(mod_ : @lib.Module) -> (Array[SgoGlobalInfo], Int) {
           init: Some(init),
           read_count: 0,
           write_count: 0,
+          function_read_count: 0,
+          function_write_count: 0,
+          global_init_read_count: 0,
+          table_init_read_count: 0,
+          elem_offset_read_count: 0,
+          elem_item_read_count: 0,
+          data_offset_read_count: 0,
+          same_init_writes: true,
+          read_only_to_write: false,
         })
       }
     None => ()
@@ -259,7 +448,8 @@ fn sgo_scan_table_sec(
     Some(@lib.TableSec(tables)) =>
       for table in tables {
         match table {
-          @lib.Table(_, Some(init)) => sgo_scan_expr(init, infos)
+          @lib.Table(_, Some(init)) =>
+            sgo_scan_expr_reads_with(init, infos, sgo_note_table_init_read)
           _ => ()
         }
       }
@@ -276,7 +466,7 @@ fn sgo_scan_global_sec(
     Some(@lib.GlobalSec(globals)) =>
       for global_ in globals {
         let @lib.Global(_, init) = global_
-        sgo_scan_expr(init, infos)
+        sgo_scan_expr_reads_with(init, infos, sgo_note_global_section_read)
       }
     None => ()
   }
@@ -288,7 +478,8 @@ fn sgo_scan_elem_mode(
   infos : Array[SgoGlobalInfo],
 ) -> Unit {
   match mode {
-    @lib.Active(_, offset) => sgo_scan_expr(offset, infos)
+    @lib.Active(_, offset) =>
+      sgo_scan_expr_reads_with(offset, infos, sgo_note_elem_offset_read)
     _ => ()
   }
 }
@@ -301,7 +492,7 @@ fn sgo_scan_elem_kind(
   match kind {
     @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
       for expr in exprs {
-        sgo_scan_expr(expr, infos)
+        sgo_scan_expr_reads_with(expr, infos, sgo_note_elem_item_read)
       }
     _ => ()
   }
@@ -333,7 +524,8 @@ fn sgo_scan_data_sec(
       for data in datas {
         let @lib.Data(mode, _) = data
         match mode {
-          @lib.Active(_, offset) => sgo_scan_expr(offset, infos)
+          @lib.Active(_, offset) =>
+            sgo_scan_expr_reads_with(offset, infos, sgo_note_data_offset_read)
           _ => ()
         }
       }
@@ -350,7 +542,7 @@ fn sgo_scan_code_sec(
     Some(@lib.CodeSec(funcs)) =>
       for func_ in funcs {
         let @lib.Func(_, body) = func_
-        sgo_scan_expr(body, infos)
+        sgo_scan_expr_in_function(body, infos)
       }
     None => ()
   }
@@ -3979,18 +4171,33 @@ fn sgo_count_block_condition_reverse_compare_if_return_block_set_read(
 }
 
 ///|
+fn sgo_record_write_fact_flags(
+  infos : Array[SgoGlobalInfo],
+  same_init_writes : Array[Bool],
+  read_only_to_write : Array[Bool],
+) -> Unit {
+  for idx = 0; idx < infos.length(); idx = idx + 1 {
+    infos[idx].same_init_writes = idx < same_init_writes.length() &&
+      same_init_writes[idx]
+    infos[idx].read_only_to_write = idx < read_only_to_write.length() &&
+      read_only_to_write[idx]
+  }
+}
+
+///|
 fn sgo_plan_remove_sets(
   infos : Array[SgoGlobalInfo],
   same_init_writes : Array[Bool],
   read_only_to_write : Array[Bool],
 ) -> Array[Bool] {
+  sgo_record_write_fact_flags(infos, same_init_writes, read_only_to_write)
   let remove_sets = Array::make(infos.length(), false)
   for idx = 0; idx < infos.length(); idx = idx + 1 {
     let info = infos[idx]
     if !info.imported &&
       !info.exported &&
       info.write_count > 0 &&
-      (info.read_count == 0 || same_init_writes[idx] || read_only_to_write[idx]) {
+      (info.read_count == 0 || info.same_init_writes || info.read_only_to_write) {
       remove_sets[idx] = true
     }
   }

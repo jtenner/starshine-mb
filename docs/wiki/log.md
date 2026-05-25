@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO fact-table source audit
+
+- Added research note [`0675`](./raw/research/0675-2026-05-25-sgo-fact-table-source-audit.md) for `[SGO]003A`, mapping Binaryen `GlobalInfo` facts to Starshine's `SgoGlobalInfo` row.
+- Added whitebox fact-table tests for imported/exported globals, function traffic, global/table/data/element offset reads, and typed element item expression reads.
+- Refactored SGO fact collection so source-specific traffic counters and existing same-init/read-only-to-write plan flags live on one fact row without intending behavior broadening. `moon fmt`, `moon info`, `moon test src/passes` (`1610/1610`), and full `moon test` (`3686/3686`) passed.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-fact-table-003a-10000` compared `6759/10000` before the configured 20 command-failure stop, with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen/tool command failures (`17` rec-group-zero plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `[SGO]003A` is accepted as behavior-preserving; remaining SGO work moves to the next child slice.
+
 ## [2026-05-25] binaryen | SGO full-parity backlog reactivation
 
 - Added research note [`0674`](./raw/research/0674-2026-05-25-sgo-full-parity-backlog-reactivation.md) to document the cron recovery decision to keep the in-progress `agent-todo.md` edit that reactivates full Binaryen `SimplifyGlobals.cpp` parity as a v0.1.0 product-goal backlog.

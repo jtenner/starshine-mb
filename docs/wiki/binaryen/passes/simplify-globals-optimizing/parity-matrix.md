@@ -13,6 +13,7 @@ sources:
   - ../../../raw/research/0573-2026-05-19-sgo-v010-signoff.md
   - ../../../raw/research/0673-2026-05-25-sgo003-call-breadth-closeout.md
   - ../../../raw/research/0674-2026-05-25-sgo-full-parity-backlog-reactivation.md
+  - ../../../raw/research/0675-2026-05-25-sgo-fact-table-source-audit.md
   - ../../../../../src/passes/simplify_globals_optimizing.mbt
   - ../../../../../src/passes/simplify_globals_optimizing_test.mbt
 related:
@@ -39,7 +40,7 @@ Status labels:
 
 | Binaryen SGO family | Current Starshine status | Evidence / next action |
 | --- | --- | --- |
-| Module-wide global traffic facts | **partially implemented** | `sgo_collect_global_infos(...)` tracks imports, exports, reads, writes, table/global/elem/data/code references. Binaryen's `nonInitWritten` and `readOnlyToWrite` are modeled by separate local flag passes rather than a single faithful fact table. |
+| Module-wide global traffic facts | **partially implemented / `[SGO]003A` accepted** | As of [`0675`](../../../raw/research/0675-2026-05-25-sgo-fact-table-source-audit.md), `sgo_collect_global_infos(...)` records one source-shaped row with imports, exports, mutability, value type, init, total reads/writes, function read/write counts, global/table/data/element-offset reads, and element item-expression reads. Existing same-init and read-only-to-write plan flags are now recorded on the same row after their analyses run. Direct SGO fuzz preserved zero mismatches and zero validation failures. This is fact-table alignment, not full Binaryen `nonInitWritten` / `readOnlyToWrite` behavior parity; later behavior breadth remains split across explicit child slices. |
 | Practical immutability / private never-written globals | **implemented** | Private mutable globals with no writes, or removable writes, become immutable; covered by focused SGO tests. |
 | Single-use global initializer folding | **implemented for global-initializer uses** | Multi-instruction initializer folding into later globals is covered. The 0584 through 0588 single-use GC lit regressions pin the official startup-only `struct.new(ref.i31(i32.const 42))` fold into a later mutable global initializer, the nested `struct.new` operand variant, multiple independent folds in one module, multiple source globals folded into one later `struct.new` initializer, and the related copy-chain fold through nested global initializers without triggering nested cleanup. The 0589 negatives pin conservatism for second global use, function-code second use, imported source, and function-code-only single use. Broader object-identity/refinalization-sensitive cases stay conservative. |
 | Same-as-init write removal | **partially implemented** | Direct literal, `ref.null`, `ref.func`, and several canonicalized alias/init cases are covered, including one-run/two-run guardrails. The 0594/0595/0596 non-init lit regressions pin the official scalar direct-literal same-init positive, changed-write negative, and imported-initializer negative for repeated writes equal to initial values versus non-initial, unknown, or imported-provenance writes. Broader `Properties::getLiterals` expression-equivalence remains open. |
