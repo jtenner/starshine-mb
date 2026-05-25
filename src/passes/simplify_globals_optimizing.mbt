@@ -889,6 +889,26 @@ fn sgo_is_flowscanner_nullary_pure_instr(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn sgo_flow_push_clean_leaf_if_known(
+  stack : Array[SgoFlowValue],
+  instr : @lib.Instruction,
+) -> Bool {
+  if sgo_const_instr(instr) != None ||
+    sgo_is_flowscanner_nullary_pure_instr(instr) {
+    sgo_flow_push_clean(stack)
+    true
+  } else {
+    match instr {
+      @lib.LocalGet(_) => {
+        sgo_flow_push_clean(stack)
+        true
+      }
+      _ => false
+    }
+  }
+}
+
+///|
 fn sgo_flow_apply_select(stack : Array[SgoFlowValue]) -> Bool {
   match (sgo_flow_pop(stack), sgo_flow_pop(stack), sgo_flow_pop(stack)) {
     (Some(condition), Some(second), Some(first)) => {
@@ -1289,9 +1309,7 @@ fn sgo_flow_scan_prefix_until(
   let mut reads = 0
   for scan = 0; scan < end_; scan = scan + 1 {
     let instr = instrs[scan]
-    if sgo_const_instr(instr) != None ||
-      sgo_is_flowscanner_nullary_pure_instr(instr) {
-      sgo_flow_push_clean(stack)
+    if sgo_flow_push_clean_leaf_if_known(stack, instr) {
       continue
     }
     match instr {
@@ -1302,10 +1320,6 @@ fn sgo_flow_scan_prefix_until(
         } else {
           sgo_flow_push_clean(stack)
         }
-        continue
-      }
-      @lib.LocalGet(_) => {
-        sgo_flow_push_clean(stack)
         continue
       }
       @lib.TableSet(_)
@@ -1469,13 +1483,11 @@ fn sgo_flow_scan_clean_prefix_until(
   let stack : Array[SgoFlowValue] = []
   for scan = 0; scan < end_; scan = scan + 1 {
     let instr = instrs[scan]
-    if sgo_const_instr(instr) != None ||
-      sgo_is_flowscanner_nullary_pure_instr(instr) {
-      sgo_flow_push_clean(stack)
+    if sgo_flow_push_clean_leaf_if_known(stack, instr) {
       continue
     }
     match instr {
-      @lib.GlobalGet(_) | @lib.LocalGet(_) => {
+      @lib.GlobalGet(_) => {
         sgo_flow_push_clean(stack)
         continue
       }
@@ -1641,9 +1653,7 @@ fn sgo_flow_arm_result_taint_and_reads(
   let mut reads = 0
   for scan = 0; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
-    if sgo_const_instr(instr) != None ||
-      sgo_is_flowscanner_nullary_pure_instr(instr) {
-      sgo_flow_push_clean(stack)
+    if sgo_flow_push_clean_leaf_if_known(stack, instr) {
       continue
     }
     match instr {
@@ -1657,10 +1667,6 @@ fn sgo_flow_arm_result_taint_and_reads(
         } else {
           sgo_flow_push_clean(stack)
         }
-        continue
-      }
-      @lib.LocalGet(_) => {
-        sgo_flow_push_clean(stack)
         continue
       }
       @lib.TableSet(_)

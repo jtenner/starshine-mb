@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO FlowScanner clean-leaf helper refactor
+
+- Added research note [`0648`](./raw/research/0648-2026-05-25-sgo-clean-leaf-helper-refactor.md) for another refactor-only `[SGO]003O` slice, centralizing repeated FlowScanner clean leaf handling for constants, nullary pure size queries, and `local.get`.
+- No optimizer behavior changed: candidate-global reads remain scanner-specific for read counting and tainting, while clean leaf pushes and existing call/control/trapping boundaries are preserved.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-clean-leaf-helper-refactor-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and the established `25` Binaryen/tool command failures. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO exact if-return tail refactor
 
 - Added research note [`0647`](./raw/research/0647-2026-05-25-sgo-if-return-tail-refactor.md) for another refactor-only `[SGO]003O` slice, centralizing exact `if return; set` tail dispatch in `sgo_is_exact_if_return_set(...)`.
