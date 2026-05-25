@@ -3238,6 +3238,90 @@ test "metamorphic f32 and f64 add/sub/mul/div drop transforms preserve validatio
 }
 
 ///|
+test "metamorphic f32 and f64 equality drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32EqDropToDefinedFunctions,
+      "add-leading-f32-eq-drop-to-defined-functions",
+      @lib.Instruction::f32_eq(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32EqDropToDefinedFunctions,
+      "add-trailing-f32-eq-drop-to-defined-functions",
+      @lib.Instruction::f32_eq(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32NeDropToDefinedFunctions,
+      "add-leading-f32-ne-drop-to-defined-functions",
+      @lib.Instruction::f32_ne(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32NeDropToDefinedFunctions,
+      "add-trailing-f32-ne-drop-to-defined-functions",
+      @lib.Instruction::f32_ne(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64EqDropToDefinedFunctions,
+      "add-leading-f64-eq-drop-to-defined-functions",
+      @lib.Instruction::f64_eq(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64EqDropToDefinedFunctions,
+      "add-trailing-f64-eq-drop-to-defined-functions",
+      @lib.Instruction::f64_eq(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64NeDropToDefinedFunctions,
+      "add-leading-f64-ne-drop-to-defined-functions",
+      @lib.Instruction::f64_ne(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64NeDropToDefinedFunctions,
+      "add-trailing-f64-ne-drop-to-defined-functions",
+      @lib.Instruction::f64_ne(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic f32 and f64 ceil/floor/trunc/nearest drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_unary_drop_transform(
@@ -3824,8 +3908,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 113)
-  @debug.assert_eq(stats.validated, 113)
+  @debug.assert_eq(stats.transformed, 121)
+  @debug.assert_eq(stats.validated, 121)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -4039,6 +4123,38 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-f64-copysign-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-leading-f32-eq-drop-to-defined-functions"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f32-eq-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-leading-f32-ne-drop-to-defined-functions"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f32-ne-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-leading-f64-eq-drop-to-defined-functions"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f64-eq-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-leading-f64-ne-drop-to-defined-functions"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f64-ne-drop-to-defined-functions",
     ),
   )
   assert_true(
