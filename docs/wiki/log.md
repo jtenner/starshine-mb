@@ -1164,6 +1164,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1058A` by adding the `starshine.fuzz.golden-seed-catalog.v1` schema helper, `GoldenSeedCatalogEntry`, expected-counter kind/value modeling, and JSON format coverage for deterministic golden seed records.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and this index/log trail so the follow-up `[FUZ]1058B` smoke-suite catalog has a documented entry shape for seeds, counters, covered surfaces, artifacts, and notes.
 
+## [2026-05-25] fuzzing | FUZ1036D metamorphic i64.eqz drop body reshaping
+
+- Continued `[FUZ]1036D` by adding the `add-leading-i64-eqz-drop-to-defined-functions` and `add-trailing-i64-eqz-drop-to-defined-functions` metamorphic-valid transforms. They insert a pure `i64.const 0; i64.eqz; drop` stack at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names both `i32.eqz` and `i64.eqz` computed/drop body reshaping surfaces alongside the existing const/drop, if, no-op, control-wrapper, locals, exports, custom sections, and metadata transforms.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic i32.eqz drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the `add-leading-i32-eqz-drop-to-defined-functions` and `add-trailing-i32-eqz-drop-to-defined-functions` metamorphic-valid transforms. They insert a pure `i32.const 0; i32.eqz; drop` stack at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.
