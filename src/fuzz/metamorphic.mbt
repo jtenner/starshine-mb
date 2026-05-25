@@ -108,6 +108,18 @@ pub enum MetamorphicValidTransform {
   AddTrailingF32x4ExtractLaneDropToDefinedFunctions
   AddLeadingF64x2ExtractLaneDropToDefinedFunctions
   AddTrailingF64x2ExtractLaneDropToDefinedFunctions
+  AddLeadingI8x16ReplaceLaneDropToDefinedFunctions
+  AddTrailingI8x16ReplaceLaneDropToDefinedFunctions
+  AddLeadingI16x8ReplaceLaneDropToDefinedFunctions
+  AddTrailingI16x8ReplaceLaneDropToDefinedFunctions
+  AddLeadingI32x4ReplaceLaneDropToDefinedFunctions
+  AddTrailingI32x4ReplaceLaneDropToDefinedFunctions
+  AddLeadingI64x2ReplaceLaneDropToDefinedFunctions
+  AddTrailingI64x2ReplaceLaneDropToDefinedFunctions
+  AddLeadingF32x4ReplaceLaneDropToDefinedFunctions
+  AddTrailingF32x4ReplaceLaneDropToDefinedFunctions
+  AddLeadingF64x2ReplaceLaneDropToDefinedFunctions
+  AddTrailingF64x2ReplaceLaneDropToDefinedFunctions
   AddUnusedGcReferenceLocalsToDefinedFunctions
   AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions
@@ -566,6 +578,30 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f64x2-extract-lane-drop-to-defined-functions"
     AddTrailingF64x2ExtractLaneDropToDefinedFunctions =>
       "add-trailing-f64x2-extract-lane-drop-to-defined-functions"
+    AddLeadingI8x16ReplaceLaneDropToDefinedFunctions =>
+      "add-leading-i8x16-replace-lane-drop-to-defined-functions"
+    AddTrailingI8x16ReplaceLaneDropToDefinedFunctions =>
+      "add-trailing-i8x16-replace-lane-drop-to-defined-functions"
+    AddLeadingI16x8ReplaceLaneDropToDefinedFunctions =>
+      "add-leading-i16x8-replace-lane-drop-to-defined-functions"
+    AddTrailingI16x8ReplaceLaneDropToDefinedFunctions =>
+      "add-trailing-i16x8-replace-lane-drop-to-defined-functions"
+    AddLeadingI32x4ReplaceLaneDropToDefinedFunctions =>
+      "add-leading-i32x4-replace-lane-drop-to-defined-functions"
+    AddTrailingI32x4ReplaceLaneDropToDefinedFunctions =>
+      "add-trailing-i32x4-replace-lane-drop-to-defined-functions"
+    AddLeadingI64x2ReplaceLaneDropToDefinedFunctions =>
+      "add-leading-i64x2-replace-lane-drop-to-defined-functions"
+    AddTrailingI64x2ReplaceLaneDropToDefinedFunctions =>
+      "add-trailing-i64x2-replace-lane-drop-to-defined-functions"
+    AddLeadingF32x4ReplaceLaneDropToDefinedFunctions =>
+      "add-leading-f32x4-replace-lane-drop-to-defined-functions"
+    AddTrailingF32x4ReplaceLaneDropToDefinedFunctions =>
+      "add-trailing-f32x4-replace-lane-drop-to-defined-functions"
+    AddLeadingF64x2ReplaceLaneDropToDefinedFunctions =>
+      "add-leading-f64x2-replace-lane-drop-to-defined-functions"
+    AddTrailingF64x2ReplaceLaneDropToDefinedFunctions =>
+      "add-trailing-f64x2-replace-lane-drop-to-defined-functions"
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       "add-unused-gc-reference-locals-to-defined-functions"
     AddLeadingRefNullDropToDefinedFunctions =>
@@ -2279,6 +2315,21 @@ fn metamorphic_add_simd_extract_lane_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+  scalar_const : @lib.Instruction,
+  replace : @lib.Instruction,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    metamorphic_v128_zero_const(),
+    scalar_const,
+    replace,
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 fn metamorphic_add_leading_ref_null_drop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -3676,6 +3727,18 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingF32x4ExtractLaneDropToDefinedFunctions,
     AddLeadingF64x2ExtractLaneDropToDefinedFunctions,
     AddTrailingF64x2ExtractLaneDropToDefinedFunctions,
+    AddLeadingI8x16ReplaceLaneDropToDefinedFunctions,
+    AddTrailingI8x16ReplaceLaneDropToDefinedFunctions,
+    AddLeadingI16x8ReplaceLaneDropToDefinedFunctions,
+    AddTrailingI16x8ReplaceLaneDropToDefinedFunctions,
+    AddLeadingI32x4ReplaceLaneDropToDefinedFunctions,
+    AddTrailingI32x4ReplaceLaneDropToDefinedFunctions,
+    AddLeadingI64x2ReplaceLaneDropToDefinedFunctions,
+    AddTrailingI64x2ReplaceLaneDropToDefinedFunctions,
+    AddLeadingF32x4ReplaceLaneDropToDefinedFunctions,
+    AddTrailingF32x4ReplaceLaneDropToDefinedFunctions,
+    AddLeadingF64x2ReplaceLaneDropToDefinedFunctions,
+    AddTrailingF64x2ReplaceLaneDropToDefinedFunctions,
     AddUnusedGcReferenceLocalsToDefinedFunctions,
     AddLeadingRefNullDropToDefinedFunctions,
     AddTrailingRefNullDropToDefinedFunctions,
@@ -4463,6 +4526,90 @@ pub fn metamorphic_apply_transform(
         mod,
         false,
         @lib.Instruction::f64x2_extract_lane(@lib.LaneIdx::new(1)),
+      )
+    AddLeadingI8x16ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_const(11),
+        @lib.Instruction::i8x16_replace_lane(@lib.LaneIdx::new(15)),
+      )
+    AddTrailingI8x16ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_const(11),
+        @lib.Instruction::i8x16_replace_lane(@lib.LaneIdx::new(14)),
+      )
+    AddLeadingI16x8ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_const(22),
+        @lib.Instruction::i16x8_replace_lane(@lib.LaneIdx::new(7)),
+      )
+    AddTrailingI16x8ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_const(22),
+        @lib.Instruction::i16x8_replace_lane(@lib.LaneIdx::new(6)),
+      )
+    AddLeadingI32x4ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_const(33),
+        @lib.Instruction::i32x4_replace_lane(@lib.LaneIdx::new(3)),
+      )
+    AddTrailingI32x4ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_const(33),
+        @lib.Instruction::i32x4_replace_lane(@lib.LaneIdx::new(2)),
+      )
+    AddLeadingI64x2ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64_const(44L),
+        @lib.Instruction::i64x2_replace_lane(@lib.LaneIdx::new(1)),
+      )
+    AddTrailingI64x2ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64_const(44L),
+        @lib.Instruction::i64x2_replace_lane(@lib.LaneIdx::new(0)),
+      )
+    AddLeadingF32x4ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f32_const(1.5F),
+        @lib.Instruction::f32x4_replace_lane(@lib.LaneIdx::new(3)),
+      )
+    AddTrailingF32x4ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f32_const(1.5F),
+        @lib.Instruction::f32x4_replace_lane(@lib.LaneIdx::new(2)),
+      )
+    AddLeadingF64x2ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f64_const(2.5),
+        @lib.Instruction::f64x2_replace_lane(@lib.LaneIdx::new(1)),
+      )
+    AddTrailingF64x2ReplaceLaneDropToDefinedFunctions =>
+      metamorphic_add_simd_replace_lane_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f64_const(2.5),
+        @lib.Instruction::f64x2_replace_lane(@lib.LaneIdx::new(0)),
       )
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       metamorphic_add_unused_gc_reference_locals_to_defined_functions(mod)
