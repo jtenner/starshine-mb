@@ -32,6 +32,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingI64ConstDropToDefinedFunctions
   AddLeadingF32ConstDropToDefinedFunctions
   AddTrailingF32ConstDropToDefinedFunctions
+  AddLeadingF64ConstDropToDefinedFunctions
+  AddTrailingF64ConstDropToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
@@ -98,6 +100,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f32-const-drop-to-defined-functions"
     AddTrailingF32ConstDropToDefinedFunctions =>
       "add-trailing-f32-const-drop-to-defined-functions"
+    AddLeadingF64ConstDropToDefinedFunctions =>
+      "add-leading-f64-const-drop-to-defined-functions"
+    AddTrailingF64ConstDropToDefinedFunctions =>
+      "add-trailing-f64-const-drop-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
     AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
@@ -1317,6 +1323,57 @@ fn metamorphic_add_trailing_f32_const_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_leading_f64_const_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = [
+              @lib.Instruction::f64_const(@lib.F64(0.0)),
+              @lib.Instruction::drop(),
+            ]
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_add_trailing_f64_const_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            next_instrs.push(@lib.Instruction::f64_const(@lib.F64(0.0)))
+            next_instrs.push(@lib.Instruction::drop())
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_leading_nop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -1809,6 +1866,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingI64ConstDropToDefinedFunctions,
     AddLeadingF32ConstDropToDefinedFunctions,
     AddTrailingF32ConstDropToDefinedFunctions,
+    AddLeadingF64ConstDropToDefinedFunctions,
+    AddTrailingF64ConstDropToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
@@ -1881,6 +1940,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_f32_const_drop_to_defined_functions(mod)
     AddTrailingF32ConstDropToDefinedFunctions =>
       metamorphic_add_trailing_f32_const_drop_to_defined_functions(mod)
+    AddLeadingF64ConstDropToDefinedFunctions =>
+      metamorphic_add_leading_f64_const_drop_to_defined_functions(mod)
+    AddTrailingF64ConstDropToDefinedFunctions =>
+      metamorphic_add_trailing_f64_const_drop_to_defined_functions(mod)
     AddLeadingNopToDefinedFunctions =>
       metamorphic_add_leading_nop_to_defined_functions(mod)
     AddTrailingNopToDefinedFunctions =>
