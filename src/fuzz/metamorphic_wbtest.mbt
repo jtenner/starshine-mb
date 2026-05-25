@@ -3567,6 +3567,86 @@ test "metamorphic i32 and i64 signed relational drop transforms preserve validat
     Ok(_) => ()
     Err(msg) => fail(msg)
   }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32LeUDropToDefinedFunctions,
+      "add-leading-i32-le-u-drop-to-defined-functions",
+      @lib.Instruction::i32_le_u(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32LeUDropToDefinedFunctions,
+      "add-trailing-i32-le-u-drop-to-defined-functions",
+      @lib.Instruction::i32_le_u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32GeUDropToDefinedFunctions,
+      "add-leading-i32-ge-u-drop-to-defined-functions",
+      @lib.Instruction::i32_ge_u(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32GeUDropToDefinedFunctions,
+      "add-trailing-i32-ge-u-drop-to-defined-functions",
+      @lib.Instruction::i32_ge_u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64LeUDropToDefinedFunctions,
+      "add-leading-i64-le-u-drop-to-defined-functions",
+      @lib.Instruction::i64_le_u(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64LeUDropToDefinedFunctions,
+      "add-trailing-i64-le-u-drop-to-defined-functions",
+      @lib.Instruction::i64_le_u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64GeUDropToDefinedFunctions,
+      "add-leading-i64-ge-u-drop-to-defined-functions",
+      @lib.Instruction::i64_ge_u(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64GeUDropToDefinedFunctions,
+      "add-trailing-i64-ge-u-drop-to-defined-functions",
+      @lib.Instruction::i64_ge_u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
 }
 
 ///|
@@ -4400,8 +4480,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 169)
-  @debug.assert_eq(stats.validated, 169)
+  @debug.assert_eq(stats.transformed, 177)
+  @debug.assert_eq(stats.validated, 177)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
