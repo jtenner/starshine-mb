@@ -13,6 +13,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImmutableI64Global
   AddDuplicateEquivalentMutableI32Global
   AddDuplicateEquivalentMutableF32Global
+  AddDuplicateEquivalentMutableF64Global
   AddDuplicateEquivalentMutableI64Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
@@ -466,6 +467,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-mutable-i32-global"
     AddDuplicateEquivalentMutableF32Global =>
       "add-duplicate-equivalent-mutable-f32-global"
+    AddDuplicateEquivalentMutableF64Global =>
+      "add-duplicate-equivalent-mutable-f64-global"
     AddDuplicateEquivalentMutableI64Global =>
       "add-duplicate-equivalent-mutable-i64-global"
     AddUnusedEmptyFunction => "add-unused-empty-function"
@@ -2389,6 +2392,32 @@ fn metamorphic_add_duplicate_equivalent_mutable_f32_global(
         match global {
           @lib.Global(@lib.GlobalType(type_, mut_), _) =>
             if !duplicated && type_ == @lib.ValType::f32() && mut_ {
+              globals.push(global)
+              duplicated = true
+            }
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_global_sec(@lib.GlobalSec::new(globals))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_mutable_f64_global(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let globals = []
+  match mod.global_sec {
+    Some(@lib.GlobalSec(existing)) => {
+      for global in existing {
+        globals.push(global)
+      }
+      let mut duplicated = false
+      for global in existing {
+        match global {
+          @lib.Global(@lib.GlobalType(type_, mut_), _) =>
+            if !duplicated && type_ == @lib.ValType::f64() && mut_ {
               globals.push(global)
               duplicated = true
             }
@@ -5294,6 +5323,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImmutableI64Global,
     AddDuplicateEquivalentMutableI32Global,
     AddDuplicateEquivalentMutableF32Global,
+    AddDuplicateEquivalentMutableF64Global,
     AddDuplicateEquivalentMutableI64Global,
     AddUnusedEmptyFunction,
     AddUnusedEmptyFunctionType,
@@ -5766,6 +5796,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_mutable_i32_global(mod)
     AddDuplicateEquivalentMutableF32Global =>
       metamorphic_add_duplicate_equivalent_mutable_f32_global(mod)
+    AddDuplicateEquivalentMutableF64Global =>
+      metamorphic_add_duplicate_equivalent_mutable_f64_global(mod)
     AddDuplicateEquivalentMutableI64Global =>
       metamorphic_add_duplicate_equivalent_mutable_i64_global(mod)
     AddUnusedEmptyFunction => metamorphic_add_unused_empty_function(mod)
