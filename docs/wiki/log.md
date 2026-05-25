@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036N1 metamorphic ledger closeout
+
+- Completed `[FUZ]1036N1` by refreshing [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the latest completed metamorphic transform families and harness metadata behavior.
+- The ledger now names the GC-backed `ref.eq` transforms, records the intentionally unavailable function-reference `ref.eq` ids and reason, corrects the live metamorphic smoke registry to `414` transformed/validated variants, and documents round-robin batch transform selection plus manifest/per-case transform id fields.
+
 ## [2026-05-25] fuzzing | FUZ1038B topology-heavy export alias pressure
 
 - Completed `[FUZ]1038B` by widening the topology-heavy GenValid export surface with extra duplicate-index-safe entrypoint aliases and resource aliases for table, memory, global, and tag index `0` when those spaces exist.
