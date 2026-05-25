@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036J3 passive data-segment shape stress
+
+- Completed `[FUZ]1036J3` by adding `add-passive-data-segment-shape-stress`, a metamorphic-valid transform that appends three unused passive data segments with empty, binary, and textual payload shapes. The transform refreshes data-count metadata and only appends to the data index space, so existing data indices and bulk-memory users are not retargeted.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 392 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036J1 metamorphic memory.size drop body reshaping
 
 - Completed `[FUZ]1036J1` by adding leading/trailing `memory.size 0; drop` metamorphic-valid transforms that are applicable only when the source module has at least one valid memory index. The transforms preserve existing locals, result stacks, and observable behavior while exercising harmless memory query debris.

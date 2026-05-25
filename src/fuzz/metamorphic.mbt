@@ -5,6 +5,7 @@ pub enum MetamorphicValidTransform {
   AddCustomSectionStress
   AddModuleNameSection
   AddUnusedPassiveDataSegment
+  AddPassiveDataSegmentShapeStress
   AddUnusedImmutableI32Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
@@ -405,6 +406,7 @@ pub fn metamorphic_valid_transform_id(
     AddCustomSectionStress => "add-custom-section-stress"
     AddModuleNameSection => "add-module-name-section"
     AddUnusedPassiveDataSegment => "add-unused-passive-data-segment"
+    AddPassiveDataSegmentShapeStress => "add-passive-data-segment-shape-stress"
     AddUnusedImmutableI32Global => "add-unused-immutable-i32-global"
     AddUnusedEmptyFunction => "add-unused-empty-function"
     AddUnusedEmptyFunctionType => "add-unused-empty-function-type"
@@ -1991,6 +1993,33 @@ fn metamorphic_add_unused_passive_data_segment(
     @lib.Data::new(
       @lib.DataMode::passive(),
       b"starshine metamorphic passive data",
+    ),
+  )
+  mod
+  .with_data_cnt_sec(
+    @lib.DataCntSec::new(@lib.U32(datas.length().reinterpret_as_uint())),
+  )
+  .with_data_sec(@lib.DataSec::new(datas))
+}
+
+///|
+fn metamorphic_add_passive_data_segment_shape_stress(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let datas = []
+  match mod.data_sec {
+    Some(@lib.DataSec(existing)) =>
+      for data in existing {
+        datas.push(data)
+      }
+    None => ()
+  }
+  datas.push(@lib.Data::new(@lib.DataMode::passive(), b""))
+  datas.push(@lib.Data::new(@lib.DataMode::passive(), b"\x00\xffsplit-shape"))
+  datas.push(
+    @lib.Data::new(
+      @lib.DataMode::passive(),
+      b"starshine metamorphic passive tail",
     ),
   )
   mod
@@ -3980,6 +4009,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddCustomSectionStress,
     AddModuleNameSection,
     AddUnusedPassiveDataSegment,
+    AddPassiveDataSegmentShapeStress,
     AddUnusedImmutableI32Global,
     AddUnusedEmptyFunction,
     AddUnusedEmptyFunctionType,
@@ -4395,6 +4425,8 @@ pub fn metamorphic_apply_transform(
     AddModuleNameSection => metamorphic_add_module_name_section(mod)
     AddUnusedPassiveDataSegment =>
       metamorphic_add_unused_passive_data_segment(mod)
+    AddPassiveDataSegmentShapeStress =>
+      metamorphic_add_passive_data_segment_shape_stress(mod)
     AddUnusedImmutableI32Global =>
       metamorphic_add_unused_immutable_i32_global(mod)
     AddUnusedEmptyFunction => metamorphic_add_unused_empty_function(mod)
