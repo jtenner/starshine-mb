@@ -20,6 +20,7 @@ pub enum MetamorphicValidTransform {
   AddElemNamesSection
   AddTagNamesSection
   AddFieldNamesSection
+  AddUnusedI32LocalToDefinedFunctions
 } derive(Eq, Debug)
 
 ///|
@@ -48,6 +49,8 @@ pub fn metamorphic_valid_transform_id(
     AddElemNamesSection => "add-elem-names-section"
     AddTagNamesSection => "add-tag-names-section"
     AddFieldNamesSection => "add-field-names-section"
+    AddUnusedI32LocalToDefinedFunctions =>
+      "add-unused-i32-local-to-defined-functions"
   }
 }
 
@@ -935,6 +938,27 @@ fn metamorphic_add_unused_empty_function_type(mod : @lib.Module) -> @lib.Module 
 }
 
 ///|
+fn metamorphic_add_unused_i32_local_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, expr) => {
+            let next_locals = locals.copy()
+            next_locals.push(@lib.ValType::i32())
+            funcs.push(@lib.Func::new(next_locals, expr))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_unused_empty_function(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -997,6 +1021,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddElemNamesSection,
     AddTagNamesSection,
     AddFieldNamesSection,
+    AddUnusedI32LocalToDefinedFunctions,
   ]
 }
 
@@ -1031,6 +1056,8 @@ pub fn metamorphic_apply_transform(
     AddElemNamesSection => metamorphic_add_elem_names_section(mod)
     AddTagNamesSection => metamorphic_add_tag_names_section(mod)
     AddFieldNamesSection => metamorphic_add_field_names_section(mod)
+    AddUnusedI32LocalToDefinedFunctions =>
+      metamorphic_add_unused_i32_local_to_defined_functions(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>

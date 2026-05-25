@@ -364,6 +364,7 @@ pub enum MetamorphicValidTransform {
   AddElemNamesSection
   AddTagNamesSection
   AddFieldNamesSection
+  AddUnusedI32LocalToDefinedFunctions
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {
