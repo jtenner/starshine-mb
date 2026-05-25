@@ -1649,6 +1649,57 @@ test "metamorphic unused numeric locals transform preserves validation and binar
 }
 
 ///|
+test "metamorphic unused reference locals transform preserves validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddUnusedReferenceLocalsToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-unused-reference-locals-to-defined-functions",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(locals, @lib.Expr(instrs)) => {
+          @debug.assert_eq(
+            locals,
+            @lib.Locals::from_types([
+              @lib.ValType::i32(),
+              @lib.ValType::funcref(),
+              @lib.ValType::externref(),
+            ]),
+          )
+          @debug.assert_eq(instrs.length(), 0)
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic smoke applies deterministic transform to GenValid source" {
   let stats = match run_validate_valid_metamorphic_fuzz("smoke", 0x1036UL) {
     Ok(v) => v
@@ -1656,8 +1707,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 32)
-  @debug.assert_eq(stats.validated, 32)
+  @debug.assert_eq(stats.transformed, 33)
+  @debug.assert_eq(stats.validated, 33)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -1688,6 +1739,11 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-unused-numeric-locals-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-unused-reference-locals-to-defined-functions",
     ),
   )
   assert_true(
