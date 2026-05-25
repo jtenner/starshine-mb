@@ -7,6 +7,7 @@ sources:
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
+  - ../../../scripts/test/pass-fuzz-normalization-fixtures.ts
   - ../../../scripts/test/task-family-commands.ts
   - ../../../src/fuzz/main.mbt
   - ../../../src/validate/gen_valid.mbt
@@ -39,7 +40,7 @@ Beginner mental model:
 7. compare normalized WAT text;
 8. persist enough artifacts to replay every non-match or command failure.
 
-This is a **semantic-oracle workflow**, not a byte-for-byte wasm comparison. Raw binary or raw text drift is acceptable when the normalized comparison is green and the pass dossier explains any intentional representation differences.
+This is a **semantic-oracle workflow**, not a byte-for-byte wasm comparison. Raw binary or raw text drift is acceptable when the normalized comparison is green and the pass dossier explains any intentional representation differences. The normalization fixture matrix in [`../../../scripts/test/pass-fuzz-normalization-fixtures.ts`](../../../scripts/test/pass-fuzz-normalization-fixtures.ts) locks representative equality/inequality expectations for debug stripping, default locals, NaN payload text, transparent block wrappers, local-name stripping, custom sections, and section-order drift.
 
 ## Command Shape
 

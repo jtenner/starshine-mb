@@ -28,6 +28,7 @@ sources:
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
+  - ../../../scripts/test/pass-fuzz-normalization-fixtures.ts
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
 related:
   - ./wast-arbitrary-parity-plan.md

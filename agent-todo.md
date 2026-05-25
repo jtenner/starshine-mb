@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1047B (p2) - Normalization Fixture Matrix
-  - Unit: add equality/inequality fixtures for debug stripping, default locals, NaN formatting, block wrappers, local/name stripping, custom sections, and section order.
 - [FUZ]1048A (p2) - Fuzz Summary Report Schema
   - Unit: write summary JSON for counters, strategy outcomes, failure classes, timings, and artifact counts.
 - [FUZ]1048B (p2) - Coverage Delta Diff Tool
