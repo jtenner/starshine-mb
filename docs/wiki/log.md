@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036D metamorphic integer bitwise drop body reshaping
+
+- Continued `[FUZ]1036D` by adding the leading/trailing i32/i64 `and`, `or`, and `xor` computed/drop metamorphic-valid transforms. They insert pure integer `const 0; const 0; and/or/xor; drop` stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 189 transforms per generated module.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names integer bitwise computed/drop body reshaping alongside the existing integer comparison, floating comparison, arithmetic, rounding, sqrt, neg, abs, const/drop, if, no-op, control-wrapper, locals, exports, custom sections, and metadata transforms.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic unsigned integer le/ge drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the leading/trailing i32/i64 unsigned `le` and `ge` computed/drop metamorphic-valid transforms. They insert pure integer `const 0; const 0; le_u/ge_u; drop` stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 177 transforms per generated module.

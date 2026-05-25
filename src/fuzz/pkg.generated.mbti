@@ -11,6 +11,8 @@ import {
 // Values
 pub fn apply_validate_invalid_binary_strategy(ValidateInvalidBinaryStrategyId, @lib.Module) -> Result[ValidateInvalidBinaryMutation, String]
 
+pub fn build_fuzz_shard_queue(FuzzRecipe, String?) -> Result[Array[FuzzShardWorkItem], String]
+
 pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : @validate.GenInvalidAstParams?) -> Result[InvalidFuzzFailureReport, String]
 
 pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : GenInvalidBinaryParams?) -> Result[InvalidFuzzFailureReport, String]
@@ -304,6 +306,18 @@ pub struct FuzzRunOutputIO {
 }
 pub fn FuzzRunOutputIO::new(ensure_dir? : (String) -> Result[Unit, String], write_file? : (String, Bytes) -> Result[Unit, String]) -> Self
 
+pub struct FuzzShardWorkItem {
+  name : String
+  suite : String
+  profile : String
+  seed_i64 : Int64
+  output_mode : FuzzOutputMode
+  seed_count : Int
+  shard_index : Int
+  shard_count : Int
+  out_dir : String?
+} derive(Eq, @debug.Debug)
+
 pub struct FuzzSuiteResult {
   suite : String
   profile : String
@@ -549,6 +563,18 @@ pub enum MetamorphicValidTransform {
   AddTrailingI64LeUDropToDefinedFunctions
   AddLeadingI64GeUDropToDefinedFunctions
   AddTrailingI64GeUDropToDefinedFunctions
+  AddLeadingI32AndDropToDefinedFunctions
+  AddTrailingI32AndDropToDefinedFunctions
+  AddLeadingI32OrDropToDefinedFunctions
+  AddTrailingI32OrDropToDefinedFunctions
+  AddLeadingI32XorDropToDefinedFunctions
+  AddTrailingI32XorDropToDefinedFunctions
+  AddLeadingI64AndDropToDefinedFunctions
+  AddTrailingI64AndDropToDefinedFunctions
+  AddLeadingI64OrDropToDefinedFunctions
+  AddTrailingI64OrDropToDefinedFunctions
+  AddLeadingI64XorDropToDefinedFunctions
+  AddTrailingI64XorDropToDefinedFunctions
   AddLeadingF32AbsDropToDefinedFunctions
   AddTrailingF32AbsDropToDefinedFunctions
   AddLeadingF64AbsDropToDefinedFunctions

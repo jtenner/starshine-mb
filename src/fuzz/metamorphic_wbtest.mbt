@@ -3650,6 +3650,130 @@ test "metamorphic i32 and i64 signed relational drop transforms preserve validat
 }
 
 ///|
+test "metamorphic i32 and i64 bitwise drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32AndDropToDefinedFunctions,
+      "add-leading-i32-and-drop-to-defined-functions",
+      @lib.Instruction::i32_and(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32AndDropToDefinedFunctions,
+      "add-trailing-i32-and-drop-to-defined-functions",
+      @lib.Instruction::i32_and(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32OrDropToDefinedFunctions,
+      "add-leading-i32-or-drop-to-defined-functions",
+      @lib.Instruction::i32_or(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32OrDropToDefinedFunctions,
+      "add-trailing-i32-or-drop-to-defined-functions",
+      @lib.Instruction::i32_or(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32XorDropToDefinedFunctions,
+      "add-leading-i32-xor-drop-to-defined-functions",
+      @lib.Instruction::i32_xor(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32XorDropToDefinedFunctions,
+      "add-trailing-i32-xor-drop-to-defined-functions",
+      @lib.Instruction::i32_xor(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64AndDropToDefinedFunctions,
+      "add-leading-i64-and-drop-to-defined-functions",
+      @lib.Instruction::i64_and(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64AndDropToDefinedFunctions,
+      "add-trailing-i64-and-drop-to-defined-functions",
+      @lib.Instruction::i64_and(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64OrDropToDefinedFunctions,
+      "add-leading-i64-or-drop-to-defined-functions",
+      @lib.Instruction::i64_or(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64OrDropToDefinedFunctions,
+      "add-trailing-i64-or-drop-to-defined-functions",
+      @lib.Instruction::i64_or(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64XorDropToDefinedFunctions,
+      "add-leading-i64-xor-drop-to-defined-functions",
+      @lib.Instruction::i64_xor(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64XorDropToDefinedFunctions,
+      "add-trailing-i64-xor-drop-to-defined-functions",
+      @lib.Instruction::i64_xor(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic f32 and f64 equality drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_binary_drop_transform(
@@ -4480,8 +4604,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 177)
-  @debug.assert_eq(stats.validated, 177)
+  @debug.assert_eq(stats.transformed, 189)
+  @debug.assert_eq(stats.validated, 189)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
