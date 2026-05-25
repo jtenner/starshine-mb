@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE006 Func505 reduction attribution
+
+- Completed the first `[DAE]006` Func505 reduction/attribution step in [`raw/research/0577-2026-05-25-dae-func505-reduction-attribution.md`](raw/research/0577-2026-05-25-dae-func505-reduction-attribution.md).
+- Replayed Starshine with `--tracing pass --dae-optimizing --print-func 522`; the trace attributes Func505 rewriting to `mid-exact-literal primary_def=505` plus broad module raw cleanup, with no traced nested-pass replay.
+- Reduced the frontier to a focused parser-loop fixture shape preserving the induction carrier, underscore branch, digit/error guard, overflow guard, accumulator/count stores, high-temp locals, and dropped-zero debris. Agent classification remains unknown/risky until the high-bound guard carrier is verified and a focused Moon/WAT regression is written.
+- No pass behavior changed; validation for this docs/reduction slice: `git diff --check`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-25] docs | dae DAE014 index/source sync
 
 - Completed a DAE014 documentation recovery slice by linking the latest Func505 classification note from the `dae-optimizing` index and Starshine strategy source lists.

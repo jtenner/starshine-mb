@@ -155,9 +155,10 @@ Execution rules for all DAE slices
   - Goal: continue the diagnostic both-canonical frontier from current `defined=505 abs=522`.
   - Current classification:
     - `0576-2026-05-25-dae-func505-frontier-classification.md` inspected `.tmp/dae-func504-tail-control-artifact/func-defined505-abs522.*` and classifies the frontier as unknown/risky current DAE output-shape drift: signatures match, but the loop induction, digit/error guard, accumulator bounds check, high-temp carrier, and dropped-zero debris differences are too broad and live to normalize away from artifact evidence alone.
+    - `0577-2026-05-25-dae-func505-reduction-attribution.md` completed the first reduction/attribution step: the focused parser-loop fixture shape preserves the induction carrier, underscore branch, digit/error guard, overflow guard, accumulator/count stores, high-temp locals, and dropped-zero debris; tracing attributes the rewrite to `mid-exact-literal primary_def=505` plus broad module raw cleanup, with no traced nested-pass replay.
   - Next action:
-    - Reduce Func505 into a focused WAT/Moon fixture before changing pass logic; preserve the loop-carrier and digit/error branch shape rather than the whole artifact function.
-    - Split whether the diff comes from DAE raw/local-copy cleanup, touched nested cleanup scheduling, or HOT lowering after DAE rewrites.
+    - Verify the Starshine high-bound guard carrier in the reduced Func505 shape, especially the printed `i32.gt_s (local.get $5) (i32.const 57)` branch, before changing pass logic.
+    - Turn the reduction into a focused WAT/Moon regression once the expected behavior is clear: either a narrow parser-loop cleanup or a correctness repair if the guard carrier is wrong.
     - If reduction proves semantic-equivalent local/control cleanup, implement a pass-side cleanup with TDD; if it proves a true condition/local-carrier mismatch, add the smallest regression and repair the pass.
   - Deliverables:
     - For representation-only drift, add a narrow script fixture and diagnostic-only normalizer.
