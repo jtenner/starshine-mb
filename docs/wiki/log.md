@@ -1225,6 +1225,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1036L1` by adding leading and trailing block-wrapped `i32.const 0; drop` metamorphic-valid transforms. They place the simple constant/drop debris inside a void identity `block`, preserving existing function result stacks and observable behavior while exercising stack-preserving control-wrapper shapes around simple debris.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 403 transforms per generated module, and kept focused `src/fuzz`, full Moon tests, and the targeted `validate-valid-metamorphic` smoke green.
 
+## [2026-05-25] fuzzing | FUZ1036K5 duplicate equivalent funcref table transform
+
+- Completed `[FUZ]1036K5` by adding `add-duplicate-equivalent-funcref-table`. The transform appends an unused funcref table equal to an existing funcref table when available, or a fresh zero-length funcref table fallback otherwise, without retargeting existing table indices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 420 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036K4 duplicate equivalent immutable global transform
 
 - Completed `[FUZ]1036K4` by adding `add-duplicate-equivalent-immutable-i32-global`. The transform appends an unused immutable `i32` global equal to an existing first global when available, or a fresh zero immutable global fallback otherwise, without retargeting existing global indices.

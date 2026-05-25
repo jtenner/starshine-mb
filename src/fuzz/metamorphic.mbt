@@ -14,6 +14,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentEmptyFunctionTypes
   AddDuplicateEquivalentScalarFunctionTypes
   AddUnusedFuncrefTable
+  AddDuplicateEquivalentFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
   AddFunctionNamesSection
@@ -446,6 +447,8 @@ pub fn metamorphic_valid_transform_id(
     AddDuplicateEquivalentScalarFunctionTypes =>
       "add-duplicate-equivalent-scalar-function-types"
     AddUnusedFuncrefTable => "add-unused-funcref-table"
+    AddDuplicateEquivalentFuncrefTable =>
+      "add-duplicate-equivalent-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
       "add-unused-passive-funcref-element-segment"
     ReshapePassiveElementSegments => "reshape-passive-element-segments"
@@ -2219,6 +2222,53 @@ fn metamorphic_add_unused_funcref_table(mod : @lib.Module) -> @lib.Module {
       None,
     ),
   )
+  mod.with_table_sec(@lib.TableSec::new(tables))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_funcref_table(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let tables = []
+  match mod.table_sec {
+    Some(@lib.TableSec(existing)) => {
+      for table in existing {
+        tables.push(table)
+      }
+      let mut duplicated = false
+      for table in existing {
+        match table {
+          @lib.Table(@lib.TableType(ref_type, _), _) =>
+            if !duplicated &&
+              ref_type == @lib.RefType::abs(@lib.AbsHeapType::func()) {
+              tables.push(table)
+              duplicated = true
+            }
+        }
+      }
+      if !duplicated {
+        tables.push(
+          @lib.Table::new(
+            @lib.TableType::new(
+              @lib.RefType::abs(@lib.AbsHeapType::func()),
+              @lib.Limits::i32(0U, Some(0U)),
+            ),
+            None,
+          ),
+        )
+      }
+    }
+    None =>
+      tables.push(
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::abs(@lib.AbsHeapType::func()),
+            @lib.Limits::i32(0U, Some(0U)),
+          ),
+          None,
+        ),
+      )
+  }
   mod.with_table_sec(@lib.TableSec::new(tables))
 }
 
@@ -4572,6 +4622,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentEmptyFunctionTypes,
     AddDuplicateEquivalentScalarFunctionTypes,
     AddUnusedFuncrefTable,
+    AddDuplicateEquivalentFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     ReshapePassiveElementSegments,
     AddFunctionNamesSection,
@@ -5026,6 +5077,8 @@ pub fn metamorphic_apply_transform(
         [@lib.ValType::i64()],
       )
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
+    AddDuplicateEquivalentFuncrefTable =>
+      metamorphic_add_duplicate_equivalent_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>
       metamorphic_add_unused_passive_funcref_element_segment(mod)
     ReshapePassiveElementSegments =>
