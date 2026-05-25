@@ -3399,6 +3399,86 @@ test "metamorphic f32 and f64 equality drop transforms preserve validation and b
     Ok(_) => ()
     Err(msg) => fail(msg)
   }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32LeDropToDefinedFunctions,
+      "add-leading-f32-le-drop-to-defined-functions",
+      @lib.Instruction::f32_le(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32LeDropToDefinedFunctions,
+      "add-trailing-f32-le-drop-to-defined-functions",
+      @lib.Instruction::f32_le(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32GeDropToDefinedFunctions,
+      "add-leading-f32-ge-drop-to-defined-functions",
+      @lib.Instruction::f32_ge(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32GeDropToDefinedFunctions,
+      "add-trailing-f32-ge-drop-to-defined-functions",
+      @lib.Instruction::f32_ge(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64LeDropToDefinedFunctions,
+      "add-leading-f64-le-drop-to-defined-functions",
+      @lib.Instruction::f64_le(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64LeDropToDefinedFunctions,
+      "add-trailing-f64-le-drop-to-defined-functions",
+      @lib.Instruction::f64_le(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64GeDropToDefinedFunctions,
+      "add-leading-f64-ge-drop-to-defined-functions",
+      @lib.Instruction::f64_ge(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64GeDropToDefinedFunctions,
+      "add-trailing-f64-ge-drop-to-defined-functions",
+      @lib.Instruction::f64_ge(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
 }
 
 ///|
@@ -3988,8 +4068,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 129)
-  @debug.assert_eq(stats.validated, 129)
+  @debug.assert_eq(stats.transformed, 137)
+  @debug.assert_eq(stats.validated, 137)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),

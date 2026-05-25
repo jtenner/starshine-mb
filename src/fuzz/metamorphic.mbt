@@ -115,6 +115,14 @@ pub enum MetamorphicValidTransform {
   AddTrailingF64LtDropToDefinedFunctions
   AddLeadingF64GtDropToDefinedFunctions
   AddTrailingF64GtDropToDefinedFunctions
+  AddLeadingF32LeDropToDefinedFunctions
+  AddTrailingF32LeDropToDefinedFunctions
+  AddLeadingF32GeDropToDefinedFunctions
+  AddTrailingF32GeDropToDefinedFunctions
+  AddLeadingF64LeDropToDefinedFunctions
+  AddTrailingF64LeDropToDefinedFunctions
+  AddLeadingF64GeDropToDefinedFunctions
+  AddTrailingF64GeDropToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
@@ -346,6 +354,22 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f64-gt-drop-to-defined-functions"
     AddTrailingF64GtDropToDefinedFunctions =>
       "add-trailing-f64-gt-drop-to-defined-functions"
+    AddLeadingF32LeDropToDefinedFunctions =>
+      "add-leading-f32-le-drop-to-defined-functions"
+    AddTrailingF32LeDropToDefinedFunctions =>
+      "add-trailing-f32-le-drop-to-defined-functions"
+    AddLeadingF32GeDropToDefinedFunctions =>
+      "add-leading-f32-ge-drop-to-defined-functions"
+    AddTrailingF32GeDropToDefinedFunctions =>
+      "add-trailing-f32-ge-drop-to-defined-functions"
+    AddLeadingF64LeDropToDefinedFunctions =>
+      "add-leading-f64-le-drop-to-defined-functions"
+    AddTrailingF64LeDropToDefinedFunctions =>
+      "add-trailing-f64-le-drop-to-defined-functions"
+    AddLeadingF64GeDropToDefinedFunctions =>
+      "add-leading-f64-ge-drop-to-defined-functions"
+    AddTrailingF64GeDropToDefinedFunctions =>
+      "add-trailing-f64-ge-drop-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
     AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
@@ -2786,6 +2810,14 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingF64LtDropToDefinedFunctions,
     AddLeadingF64GtDropToDefinedFunctions,
     AddTrailingF64GtDropToDefinedFunctions,
+    AddLeadingF32LeDropToDefinedFunctions,
+    AddTrailingF32LeDropToDefinedFunctions,
+    AddLeadingF32GeDropToDefinedFunctions,
+    AddTrailingF32GeDropToDefinedFunctions,
+    AddLeadingF64LeDropToDefinedFunctions,
+    AddTrailingF64LeDropToDefinedFunctions,
+    AddLeadingF64GeDropToDefinedFunctions,
+    AddTrailingF64GeDropToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
@@ -3198,6 +3230,54 @@ pub fn metamorphic_apply_transform(
         mod,
         false,
         @lib.Instruction::f64_gt(),
+      )
+    AddLeadingF32LeDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f32_le(),
+      )
+    AddTrailingF32LeDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f32_le(),
+      )
+    AddLeadingF32GeDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f32_ge(),
+      )
+    AddTrailingF32GeDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f32_ge(),
+      )
+    AddLeadingF64LeDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f64_le(),
+      )
+    AddTrailingF64LeDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f64_le(),
+      )
+    AddLeadingF64GeDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f64_ge(),
+      )
+    AddTrailingF64GeDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f64_ge(),
       )
     AddLeadingNopToDefinedFunctions =>
       metamorphic_add_leading_nop_to_defined_functions(mod)
