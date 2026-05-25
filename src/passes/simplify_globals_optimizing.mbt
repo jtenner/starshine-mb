@@ -609,14 +609,42 @@ fn sgo_count_no_catch_try_table_specific_condition_guards(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_try_table_select_guard_read(instrs, pos, safe_reads)
-  sgo_count_try_table_select_reverse_compare_guard_read(instrs, pos, safe_reads)
-  sgo_count_try_table_ref_is_null_compare_guard_read(instrs, pos, safe_reads)
-  sgo_count_try_table_ref_is_null_select_guard_read(instrs, pos, safe_reads)
-  sgo_count_try_table_ref_is_null_select_reverse_compare_guard_read(
-    instrs, pos, safe_reads,
+  sgo_count_try_table_guard_if_index_read(
+    instrs,
+    pos,
+    sgo_try_table_select_guard_if_index(instrs, pos),
+    safe_reads,
   )
-  sgo_count_try_table_ref_is_null_guard_read(instrs, pos, safe_reads)
+  sgo_count_try_table_guard_if_index_read(
+    instrs,
+    pos,
+    sgo_try_table_select_reverse_compare_guard_if_index(instrs, pos),
+    safe_reads,
+  )
+  sgo_count_try_table_guard_if_index_read(
+    instrs,
+    pos,
+    sgo_try_table_ref_is_null_compare_guard_if_index(instrs, pos),
+    safe_reads,
+  )
+  sgo_count_try_table_guard_if_index_read(
+    instrs,
+    pos,
+    sgo_try_table_ref_is_null_select_guard_if_index(instrs, pos),
+    safe_reads,
+  )
+  sgo_count_try_table_guard_if_index_read(
+    instrs,
+    pos,
+    sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(instrs, pos),
+    safe_reads,
+  )
+  sgo_count_try_table_guard_if_index_read(
+    instrs,
+    pos,
+    sgo_try_table_ref_is_null_guard_if_index(instrs, pos),
+    safe_reads,
+  )
 }
 
 ///|
@@ -3447,20 +3475,6 @@ fn sgo_try_table_ref_is_null_guard_if_index(
 }
 
 ///|
-fn sgo_count_try_table_ref_is_null_guard_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_ref_is_null_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-}
-
-///|
 fn sgo_try_table_ref_is_null_compare_guard_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
@@ -3480,20 +3494,6 @@ fn sgo_try_table_ref_is_null_compare_guard_if_index(
     return sgo_scan_optional_external_pure_if_index(instrs, pos + 3)
   }
   None
-}
-
-///|
-fn sgo_count_try_table_ref_is_null_compare_guard_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_ref_is_null_compare_guard_if_index(instrs, pos),
-    safe_reads,
-  )
 }
 
 ///|
@@ -3597,20 +3597,6 @@ fn sgo_try_table_select_guard_if_index(
 }
 
 ///|
-fn sgo_count_try_table_select_guard_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_select_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-}
-
-///|
 fn sgo_try_table_select_reverse_compare_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
@@ -3635,20 +3621,6 @@ fn sgo_try_table_select_reverse_compare_guard_if_index(
       sgo_scan_optional_external_pure_if_index(instrs, cmp_index + 1)
     None => None
   }
-}
-
-///|
-fn sgo_count_try_table_select_reverse_compare_guard_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_select_reverse_compare_guard_if_index(instrs, pos),
-    safe_reads,
-  )
 }
 
 ///|
@@ -3679,20 +3651,6 @@ fn sgo_try_table_ref_is_null_select_guard_if_index(
 }
 
 ///|
-fn sgo_count_try_table_ref_is_null_select_guard_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_ref_is_null_select_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-}
-
-///|
 fn sgo_try_table_ref_is_null_select_reverse_compare_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
@@ -3717,20 +3675,6 @@ fn sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(
       sgo_scan_optional_external_pure_if_index(instrs, cmp_index + 1)
     None => None
   }
-}
-
-///|
-fn sgo_count_try_table_ref_is_null_select_reverse_compare_guard_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(instrs, pos),
-    safe_reads,
-  )
 }
 
 ///|
