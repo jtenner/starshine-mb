@@ -412,7 +412,7 @@ test "validate-valid-metamorphic suite is active and reports transform details" 
   @debug.assert_eq(results[0].attempts >= 1, true)
   match results[0].details_json {
     Some(details) => {
-      assert_true(details.contains("\"transformed\":406"))
+      assert_true(details.contains("\"transformed\":408"))
       assert_true(details.contains("add-non-name-custom-section"))
       assert_true(details.contains("add-leading-non-name-custom-section"))
       assert_true(details.contains("add-custom-section-stress"))
@@ -420,6 +420,9 @@ test "validate-valid-metamorphic suite is active and reports transform details" 
         details.contains(
           "add-leading-block-wrapped-i32-const-drop-to-defined-functions",
         ),
+      )
+      assert_true(
+        details.contains("add-leading-ref-eq-drop-to-defined-functions"),
       )
       assert_true(
         details.contains(

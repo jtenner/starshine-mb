@@ -133,6 +133,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingNullableRefTestDropToDefinedFunctions
   AddLeadingNullableRefCastDropToDefinedFunctions
   AddTrailingNullableRefCastDropToDefinedFunctions
+  AddLeadingRefEqDropToDefinedFunctions
+  AddTrailingRefEqDropToDefinedFunctions
   AddLeadingAnyConvertExternDropToDefinedFunctions
   AddTrailingAnyConvertExternDropToDefinedFunctions
   AddLeadingExternConvertAnyDropToDefinedFunctions
@@ -659,6 +661,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-nullable-ref-cast-drop-to-defined-functions"
     AddTrailingNullableRefCastDropToDefinedFunctions =>
       "add-trailing-nullable-ref-cast-drop-to-defined-functions"
+    AddLeadingRefEqDropToDefinedFunctions =>
+      "add-leading-ref-eq-drop-to-defined-functions"
+    AddTrailingRefEqDropToDefinedFunctions =>
+      "add-trailing-ref-eq-drop-to-defined-functions"
     AddLeadingAnyConvertExternDropToDefinedFunctions =>
       "add-leading-any-convert-extern-drop-to-defined-functions"
     AddTrailingAnyConvertExternDropToDefinedFunctions =>
@@ -2571,6 +2577,28 @@ fn metamorphic_add_nullable_ref_cast_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_ref_eq_drop_instrs() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+    @lib.Instruction::ref_eq(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_ref_eq_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(
+    mod,
+    leading,
+    metamorphic_ref_eq_drop_instrs(),
+  )
+}
+
+///|
 fn metamorphic_any_convert_extern_drop_instrs() -> Array[@lib.Instruction] {
   [
     @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
@@ -4386,6 +4414,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingNullableRefTestDropToDefinedFunctions,
     AddLeadingNullableRefCastDropToDefinedFunctions,
     AddTrailingNullableRefCastDropToDefinedFunctions,
+    AddLeadingRefEqDropToDefinedFunctions,
+    AddTrailingRefEqDropToDefinedFunctions,
     AddLeadingAnyConvertExternDropToDefinedFunctions,
     AddTrailingAnyConvertExternDropToDefinedFunctions,
     AddLeadingExternConvertAnyDropToDefinedFunctions,
@@ -5319,6 +5349,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_nullable_ref_cast_drop_to_defined_functions(mod, true)
     AddTrailingNullableRefCastDropToDefinedFunctions =>
       metamorphic_add_nullable_ref_cast_drop_to_defined_functions(mod, false)
+    AddLeadingRefEqDropToDefinedFunctions =>
+      metamorphic_add_ref_eq_drop_to_defined_functions(mod, true)
+    AddTrailingRefEqDropToDefinedFunctions =>
+      metamorphic_add_ref_eq_drop_to_defined_functions(mod, false)
     AddLeadingAnyConvertExternDropToDefinedFunctions =>
       metamorphic_add_any_convert_extern_drop_to_defined_functions(mod, true)
     AddTrailingAnyConvertExternDropToDefinedFunctions =>
