@@ -2954,7 +2954,7 @@ test "metamorphic f32 and f64 sqrt drop transforms preserve validation and binar
 }
 
 ///|
-test "metamorphic f32 and f64 add/sub drop transforms preserve validation and binary roundtrip" {
+test "metamorphic f32 and f64 add/sub/mul/div drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_binary_drop_transform(
       AddLeadingF32AddDropToDefinedFunctions,
@@ -3030,6 +3030,86 @@ test "metamorphic f32 and f64 add/sub drop transforms preserve validation and bi
       AddTrailingF64SubDropToDefinedFunctions,
       "add-trailing-f64-sub-drop-to-defined-functions",
       @lib.Instruction::f64_sub(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32MulDropToDefinedFunctions,
+      "add-leading-f32-mul-drop-to-defined-functions",
+      @lib.Instruction::f32_mul(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32MulDropToDefinedFunctions,
+      "add-trailing-f32-mul-drop-to-defined-functions",
+      @lib.Instruction::f32_mul(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32DivDropToDefinedFunctions,
+      "add-leading-f32-div-drop-to-defined-functions",
+      @lib.Instruction::f32_div(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32DivDropToDefinedFunctions,
+      "add-trailing-f32-div-drop-to-defined-functions",
+      @lib.Instruction::f32_div(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64MulDropToDefinedFunctions,
+      "add-leading-f64-mul-drop-to-defined-functions",
+      @lib.Instruction::f64_mul(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64MulDropToDefinedFunctions,
+      "add-trailing-f64-mul-drop-to-defined-functions",
+      @lib.Instruction::f64_mul(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64DivDropToDefinedFunctions,
+      "add-leading-f64-div-drop-to-defined-functions",
+      @lib.Instruction::f64_div(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64DivDropToDefinedFunctions,
+      "add-trailing-f64-div-drop-to-defined-functions",
+      @lib.Instruction::f64_div(),
       false,
     ) {
     Ok(_) => ()
@@ -3624,8 +3704,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 93)
-  @debug.assert_eq(stats.validated, 93)
+  @debug.assert_eq(stats.transformed, 101)
+  @debug.assert_eq(stats.validated, 101)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),

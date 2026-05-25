@@ -226,7 +226,7 @@ test "validate-valid-metamorphic suite is active and reports transform details" 
   @debug.assert_eq(results[0].attempts >= 1, true)
   match results[0].details_json {
     Some(details) => {
-      assert_true(details.contains("\"transformed\":93"))
+      assert_true(details.contains("\"transformed\":101"))
       assert_true(details.contains("add-non-name-custom-section"))
       assert_true(details.contains("add-leading-non-name-custom-section"))
       assert_true(details.contains("add-custom-section-stress"))
@@ -373,6 +373,30 @@ test "validate-valid-metamorphic suite is active and reports transform details" 
       )
       assert_true(
         details.contains("add-trailing-f64-sub-drop-to-defined-functions"),
+      )
+      assert_true(
+        details.contains("add-leading-f32-mul-drop-to-defined-functions"),
+      )
+      assert_true(
+        details.contains("add-trailing-f32-mul-drop-to-defined-functions"),
+      )
+      assert_true(
+        details.contains("add-leading-f32-div-drop-to-defined-functions"),
+      )
+      assert_true(
+        details.contains("add-trailing-f32-div-drop-to-defined-functions"),
+      )
+      assert_true(
+        details.contains("add-leading-f64-mul-drop-to-defined-functions"),
+      )
+      assert_true(
+        details.contains("add-trailing-f64-mul-drop-to-defined-functions"),
+      )
+      assert_true(
+        details.contains("add-leading-f64-div-drop-to-defined-functions"),
+      )
+      assert_true(
+        details.contains("add-trailing-f64-div-drop-to-defined-functions"),
       )
       assert_true(details.contains("add-leading-nop-to-defined-functions"))
       assert_true(details.contains("add-trailing-nop-to-defined-functions"))

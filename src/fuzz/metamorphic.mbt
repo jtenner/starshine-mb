@@ -79,6 +79,14 @@ pub enum MetamorphicValidTransform {
   AddTrailingF64AddDropToDefinedFunctions
   AddLeadingF64SubDropToDefinedFunctions
   AddTrailingF64SubDropToDefinedFunctions
+  AddLeadingF32MulDropToDefinedFunctions
+  AddTrailingF32MulDropToDefinedFunctions
+  AddLeadingF32DivDropToDefinedFunctions
+  AddTrailingF32DivDropToDefinedFunctions
+  AddLeadingF64MulDropToDefinedFunctions
+  AddTrailingF64MulDropToDefinedFunctions
+  AddLeadingF64DivDropToDefinedFunctions
+  AddTrailingF64DivDropToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
@@ -238,6 +246,22 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f64-sub-drop-to-defined-functions"
     AddTrailingF64SubDropToDefinedFunctions =>
       "add-trailing-f64-sub-drop-to-defined-functions"
+    AddLeadingF32MulDropToDefinedFunctions =>
+      "add-leading-f32-mul-drop-to-defined-functions"
+    AddTrailingF32MulDropToDefinedFunctions =>
+      "add-trailing-f32-mul-drop-to-defined-functions"
+    AddLeadingF32DivDropToDefinedFunctions =>
+      "add-leading-f32-div-drop-to-defined-functions"
+    AddTrailingF32DivDropToDefinedFunctions =>
+      "add-trailing-f32-div-drop-to-defined-functions"
+    AddLeadingF64MulDropToDefinedFunctions =>
+      "add-leading-f64-mul-drop-to-defined-functions"
+    AddTrailingF64MulDropToDefinedFunctions =>
+      "add-trailing-f64-mul-drop-to-defined-functions"
+    AddLeadingF64DivDropToDefinedFunctions =>
+      "add-leading-f64-div-drop-to-defined-functions"
+    AddTrailingF64DivDropToDefinedFunctions =>
+      "add-trailing-f64-div-drop-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
     AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
@@ -2642,6 +2666,14 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingF64AddDropToDefinedFunctions,
     AddLeadingF64SubDropToDefinedFunctions,
     AddTrailingF64SubDropToDefinedFunctions,
+    AddLeadingF32MulDropToDefinedFunctions,
+    AddTrailingF32MulDropToDefinedFunctions,
+    AddLeadingF32DivDropToDefinedFunctions,
+    AddTrailingF32DivDropToDefinedFunctions,
+    AddLeadingF64MulDropToDefinedFunctions,
+    AddTrailingF64MulDropToDefinedFunctions,
+    AddLeadingF64DivDropToDefinedFunctions,
+    AddTrailingF64DivDropToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
@@ -2838,6 +2870,54 @@ pub fn metamorphic_apply_transform(
         mod,
         false,
         @lib.Instruction::f64_sub(),
+      )
+    AddLeadingF32MulDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f32_mul(),
+      )
+    AddTrailingF32MulDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f32_mul(),
+      )
+    AddLeadingF32DivDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f32_div(),
+      )
+    AddTrailingF32DivDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f32_div(),
+      )
+    AddLeadingF64MulDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f64_mul(),
+      )
+    AddTrailingF64MulDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f64_mul(),
+      )
+    AddLeadingF64DivDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f64_div(),
+      )
+    AddTrailingF64DivDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f64_div(),
       )
     AddLeadingNopToDefinedFunctions =>
       metamorphic_add_leading_nop_to_defined_functions(mod)
