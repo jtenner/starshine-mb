@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO shared condition guard dispatch
+
+- Added research note [`0624`](./raw/research/0624-2026-05-24-sgo-shared-condition-guard-dispatch.md) and refactored direct, `i32.eqz`, compare, reverse-compare, and exact `if return; set` read-only-to-write guard dispatch through shared body/tail helpers.
+- This is a refactor-only slice: it preserves block/no-catch-`try_table` sharing while keeping the loop-specific pure-body-only and no-flow-scanner boundaries and caught `try_table` conservatism.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-shared-condition-guard-dispatch-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO shared block/try_table guard appliers
 
 - Added research note [`0623`](./raw/research/0623-2026-05-24-sgo-shared-block-try-table-guard-appliers.md) and refactored block/no-catch-`try_table` external pure-condition read-only-to-write handling through one wrapper-body extractor plus shared direct and exact `if return; set` tail appliers.
