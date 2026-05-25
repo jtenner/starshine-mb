@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO FlowScanner clean-pop continuation
+
+- Added research note [`0645`](./raw/research/0645-2026-05-25-sgo-flow-clean-pop-continuation-refactor.md) for another refactor-only `[SGO]003O` slice, extending the shared clean-pop helpers across arm-result and nested-if arm-flow scanners.
+- No optimizer behavior changed: stack-underflow failure, tainted-value rejection, clean replacement pushes, candidate-steered `if` detection, and existing call/control/trapping/effectful boundaries are preserved.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-flow-clean-pop-continued-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and the established `25` Binaryen/tool command failures. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO independent grow guardrails
 
 - Added research note [`0644`](./raw/research/0644-2026-05-25-sgo-grow-independence-guardrails.md) for a narrow `[SGO]003D` source-alignment slice, probing independent `memory.grow` and `table.grow` prefixes before a candidate read-only-to-write guard.

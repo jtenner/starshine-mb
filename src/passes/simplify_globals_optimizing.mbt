@@ -1715,9 +1715,8 @@ fn sgo_flow_arm_result_taint_and_reads(
         }
       }
       @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => ()
-          _ => return (false, reads, false)
+        if !sgo_flow_pop_clean(stack) {
+          return (false, reads, false)
         }
         let (then_ok, then_reads, then_stack) = sgo_flow_scan_prefix_until(
           then_body,
@@ -1743,30 +1742,28 @@ fn sgo_flow_arm_result_taint_and_reads(
       }
       @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => continue
-          _ => return (false, reads, false)
+        if sgo_flow_pop_clean(stack) {
+          continue
+        } else {
+          return (false, reads, false)
         }
       @lib.LocalTee(_) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return (false, reads, false)
+        if sgo_flow_pop_clean_then_push_clean(stack) {
+          continue
+        } else {
+          return (false, reads, false)
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return (false, reads, false)
+        if sgo_flow_pop_clean_then_push_clean(stack) {
+          continue
+        } else {
+          return (false, reads, false)
         }
       @lib.Drop =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => continue
-          _ => return (false, reads, false)
+        if sgo_flow_pop_clean(stack) {
+          continue
+        } else {
+          return (false, reads, false)
         }
       @lib.Block(_, @lib.Expr(body)) => {
         let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
@@ -1780,9 +1777,8 @@ fn sgo_flow_arm_result_taint_and_reads(
         continue
       }
       @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => ()
-          _ => return (false, reads, false)
+        if !sgo_flow_pop_clean(stack) {
+          return (false, reads, false)
         }
         let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
           then_body, idx,
@@ -1932,30 +1928,28 @@ fn sgo_nested_if_arm_flow_outer_if_index(
       }
       @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => continue
-          _ => return None
+        if sgo_flow_pop_clean(stack) {
+          continue
+        } else {
+          return None
         }
       @lib.LocalTee(_) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return None
+        if sgo_flow_pop_clean_then_push_clean(stack) {
+          continue
+        } else {
+          return None
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return None
+        if sgo_flow_pop_clean_then_push_clean(stack) {
+          continue
+        } else {
+          return None
         }
       @lib.Drop =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => continue
-          _ => return None
+        if sgo_flow_pop_clean(stack) {
+          continue
+        } else {
+          return None
         }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
         if !sgo_flow_apply_clean_call_result(stack) {
@@ -2055,30 +2049,28 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
       }
       @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => continue
-          _ => return (false, reads, false)
+        if sgo_flow_pop_clean(stack) {
+          continue
+        } else {
+          return (false, reads, false)
         }
       @lib.LocalTee(_) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return (false, reads, false)
+        if sgo_flow_pop_clean_then_push_clean(stack) {
+          continue
+        } else {
+          return (false, reads, false)
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return (false, reads, false)
+        if sgo_flow_pop_clean_then_push_clean(stack) {
+          continue
+        } else {
+          return (false, reads, false)
         }
       @lib.Drop =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => continue
-          _ => return (false, reads, false)
+        if sgo_flow_pop_clean(stack) {
+          continue
+        } else {
+          return (false, reads, false)
         }
       @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
       | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
@@ -2093,9 +2085,8 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         continue
       }
       @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => ()
-          _ => return (false, reads, false)
+        if !sgo_flow_pop_clean(stack) {
+          return (false, reads, false)
         }
         let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
           then_body, idx,
@@ -2320,30 +2311,28 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
       }
       @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
       @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => continue
-          _ => return false
+        if sgo_flow_pop_clean(stack) {
+          continue
+        } else {
+          return false
         }
       @lib.LocalTee(_) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return false
+        if sgo_flow_pop_clean_then_push_clean(stack) {
+          continue
+        } else {
+          return false
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return false
+        if sgo_flow_pop_clean_then_push_clean(stack) {
+          continue
+        } else {
+          return false
         }
       @lib.Drop =>
-        match sgo_flow_pop(stack) {
-          Some(value) if !value.tainted => continue
-          _ => return false
+        if sgo_flow_pop_clean(stack) {
+          continue
+        } else {
+          return false
         }
       @lib.Select(_) | @lib.V128Bitselect => {
         if !sgo_flow_apply_select(stack) {
