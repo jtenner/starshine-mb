@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036G3 metamorphic SIMD bitwise drop body reshaping
+
+- Completed `[FUZ]1036G3` by adding leading/trailing computed/drop transforms for SIMD bitwise binary operators (`v128.and`, `v128.andnot`, `v128.or`, `v128.xor`) plus ternary `v128.bitselect`. They insert constant zero vector operands before the opcode and `drop`, preserving stack effects and observable behavior while exercising constant-operand SIMD computed debris.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 311 transforms per generated module, and kept focused `src/fuzz` validation plus a `validate-valid-metamorphic` smoke run green.
+
 ## [2026-05-25] fuzzing | FUZ1036G1 metamorphic SIMD const/drop body reshaping
 
 - Completed `[FUZ]1036G1` by adding leading/trailing `v128.const` zero/drop metamorphic-valid transforms. They insert a 16-byte zero SIMD constant followed by `drop` at the selected edge of every defined function body without changing locals, result stacks, validation, or observable behavior.

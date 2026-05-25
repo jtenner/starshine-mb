@@ -2284,6 +2284,107 @@ test "metamorphic SIMD unary computed-drop transforms preserve validation and bi
 }
 
 ///|
+test "metamorphic SIMD bitwise binary computed-drop transforms preserve validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let cases : Array[(MetamorphicValidTransform, String, @lib.Instruction, Int)] = [
+    (
+      AddLeadingV128AndDropToDefinedFunctions,
+      "add-leading-v128-and-drop-to-defined-functions",
+      @lib.Instruction::v128_and(),
+      5,
+    ),
+    (
+      AddTrailingV128AndnotDropToDefinedFunctions,
+      "add-trailing-v128-andnot-drop-to-defined-functions",
+      @lib.Instruction::v128_andnot(),
+      5,
+    ),
+    (
+      AddLeadingV128OrDropToDefinedFunctions,
+      "add-leading-v128-or-drop-to-defined-functions",
+      @lib.Instruction::v128_or(),
+      5,
+    ),
+    (
+      AddTrailingV128XorDropToDefinedFunctions,
+      "add-trailing-v128-xor-drop-to-defined-functions",
+      @lib.Instruction::v128_xor(),
+      5,
+    ),
+    (
+      AddLeadingV128BitselectDropToDefinedFunctions,
+      "add-leading-v128-bitselect-drop-to-defined-functions",
+      @lib.Instruction::v128_bitselect(),
+      6,
+    ),
+    (
+      AddTrailingV128BitselectDropToDefinedFunctions,
+      "add-trailing-v128-bitselect-drop-to-defined-functions",
+      @lib.Instruction::v128_bitselect(),
+      6,
+    ),
+  ]
+  for case in cases {
+    let (transform, expected_id, expected_op, expected_len) = case
+    let transformed = match metamorphic_apply_transform(base, transform) {
+      Ok(v) => v
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(transformed.transform_id, expected_id)
+    match transformed.wasm_module.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        match funcs[0] {
+          @lib.Func(_, @lib.Expr(instrs)) => {
+            @debug.assert_eq(instrs.length(), expected_len)
+            if expected_id.contains("leading") {
+              @debug.assert_eq(instrs[0], metamorphic_v128_zero_const())
+              @debug.assert_eq(instrs[1], metamorphic_v128_zero_const())
+              let op_index = if expected_len == 5 { 2 } else { 3 }
+              if expected_len == 6 {
+                @debug.assert_eq(instrs[2], metamorphic_v128_zero_const())
+              }
+              @debug.assert_eq(instrs[op_index], expected_op)
+              @debug.assert_eq(instrs[op_index + 1], @lib.Instruction::drop())
+              @debug.assert_eq(
+                instrs[expected_len - 1],
+                @lib.Instruction::i32_const(7),
+              )
+            } else {
+              @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+              @debug.assert_eq(instrs[1], metamorphic_v128_zero_const())
+              @debug.assert_eq(instrs[2], metamorphic_v128_zero_const())
+              let op_index = if expected_len == 5 { 3 } else { 4 }
+              if expected_len == 6 {
+                @debug.assert_eq(instrs[3], metamorphic_v128_zero_const())
+              }
+              @debug.assert_eq(instrs[op_index], expected_op)
+              @debug.assert_eq(instrs[op_index + 1], @lib.Instruction::drop())
+            }
+          }
+        }
+      None => fail("expected transformed code section")
+    }
+    match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+      Ok(_) => ()
+      Err(msg) => fail(msg)
+    }
+  }
+}
+
+///|
 test "metamorphic leading i64 const drop transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -5566,8 +5667,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 301)
-  @debug.assert_eq(stats.validated, 301)
+  @debug.assert_eq(stats.transformed, 311)
+  @debug.assert_eq(stats.validated, 311)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),

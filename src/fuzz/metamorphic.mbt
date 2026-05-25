@@ -30,6 +30,16 @@ pub enum MetamorphicValidTransform {
   AddTrailingV128ConstDropToDefinedFunctions
   AddLeadingV128NotDropToDefinedFunctions
   AddTrailingV128NotDropToDefinedFunctions
+  AddLeadingV128AndDropToDefinedFunctions
+  AddTrailingV128AndDropToDefinedFunctions
+  AddLeadingV128AndnotDropToDefinedFunctions
+  AddTrailingV128AndnotDropToDefinedFunctions
+  AddLeadingV128OrDropToDefinedFunctions
+  AddTrailingV128OrDropToDefinedFunctions
+  AddLeadingV128XorDropToDefinedFunctions
+  AddTrailingV128XorDropToDefinedFunctions
+  AddLeadingV128BitselectDropToDefinedFunctions
+  AddTrailingV128BitselectDropToDefinedFunctions
   AddLeadingI8x16AllTrueDropToDefinedFunctions
   AddTrailingI8x16AllTrueDropToDefinedFunctions
   AddLeadingI8x16BitmaskDropToDefinedFunctions
@@ -348,6 +358,26 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-v128-not-drop-to-defined-functions"
     AddTrailingV128NotDropToDefinedFunctions =>
       "add-trailing-v128-not-drop-to-defined-functions"
+    AddLeadingV128AndDropToDefinedFunctions =>
+      "add-leading-v128-and-drop-to-defined-functions"
+    AddTrailingV128AndDropToDefinedFunctions =>
+      "add-trailing-v128-and-drop-to-defined-functions"
+    AddLeadingV128AndnotDropToDefinedFunctions =>
+      "add-leading-v128-andnot-drop-to-defined-functions"
+    AddTrailingV128AndnotDropToDefinedFunctions =>
+      "add-trailing-v128-andnot-drop-to-defined-functions"
+    AddLeadingV128OrDropToDefinedFunctions =>
+      "add-leading-v128-or-drop-to-defined-functions"
+    AddTrailingV128OrDropToDefinedFunctions =>
+      "add-trailing-v128-or-drop-to-defined-functions"
+    AddLeadingV128XorDropToDefinedFunctions =>
+      "add-leading-v128-xor-drop-to-defined-functions"
+    AddTrailingV128XorDropToDefinedFunctions =>
+      "add-trailing-v128-xor-drop-to-defined-functions"
+    AddLeadingV128BitselectDropToDefinedFunctions =>
+      "add-leading-v128-bitselect-drop-to-defined-functions"
+    AddTrailingV128BitselectDropToDefinedFunctions =>
+      "add-trailing-v128-bitselect-drop-to-defined-functions"
     AddLeadingI8x16AllTrueDropToDefinedFunctions =>
       "add-leading-i8x16-all-true-drop-to-defined-functions"
     AddTrailingI8x16AllTrueDropToDefinedFunctions =>
@@ -2024,6 +2054,34 @@ fn metamorphic_add_v128_unary_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_v128_binary_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+  binary : @lib.Instruction,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    metamorphic_v128_zero_const(),
+    metamorphic_v128_zero_const(),
+    binary,
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+fn metamorphic_add_v128_bitselect_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    metamorphic_v128_zero_const(),
+    metamorphic_v128_zero_const(),
+    metamorphic_v128_zero_const(),
+    @lib.Instruction::v128_bitselect(),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 fn metamorphic_add_leading_ref_null_drop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -3343,6 +3401,16 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingV128ConstDropToDefinedFunctions,
     AddLeadingV128NotDropToDefinedFunctions,
     AddTrailingV128NotDropToDefinedFunctions,
+    AddLeadingV128AndDropToDefinedFunctions,
+    AddTrailingV128AndDropToDefinedFunctions,
+    AddLeadingV128AndnotDropToDefinedFunctions,
+    AddTrailingV128AndnotDropToDefinedFunctions,
+    AddLeadingV128OrDropToDefinedFunctions,
+    AddTrailingV128OrDropToDefinedFunctions,
+    AddLeadingV128XorDropToDefinedFunctions,
+    AddTrailingV128XorDropToDefinedFunctions,
+    AddLeadingV128BitselectDropToDefinedFunctions,
+    AddTrailingV128BitselectDropToDefinedFunctions,
     AddLeadingI8x16AllTrueDropToDefinedFunctions,
     AddTrailingI8x16AllTrueDropToDefinedFunctions,
     AddLeadingI8x16BitmaskDropToDefinedFunctions,
@@ -3675,6 +3743,58 @@ pub fn metamorphic_apply_transform(
         false,
         @lib.Instruction::v128_not(),
       )
+    AddLeadingV128AndDropToDefinedFunctions =>
+      metamorphic_add_v128_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::v128_and(),
+      )
+    AddTrailingV128AndDropToDefinedFunctions =>
+      metamorphic_add_v128_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::v128_and(),
+      )
+    AddLeadingV128AndnotDropToDefinedFunctions =>
+      metamorphic_add_v128_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::v128_andnot(),
+      )
+    AddTrailingV128AndnotDropToDefinedFunctions =>
+      metamorphic_add_v128_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::v128_andnot(),
+      )
+    AddLeadingV128OrDropToDefinedFunctions =>
+      metamorphic_add_v128_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::v128_or(),
+      )
+    AddTrailingV128OrDropToDefinedFunctions =>
+      metamorphic_add_v128_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::v128_or(),
+      )
+    AddLeadingV128XorDropToDefinedFunctions =>
+      metamorphic_add_v128_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::v128_xor(),
+      )
+    AddTrailingV128XorDropToDefinedFunctions =>
+      metamorphic_add_v128_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::v128_xor(),
+      )
+    AddLeadingV128BitselectDropToDefinedFunctions =>
+      metamorphic_add_v128_bitselect_drop_to_defined_functions(mod, true)
+    AddTrailingV128BitselectDropToDefinedFunctions =>
+      metamorphic_add_v128_bitselect_drop_to_defined_functions(mod, false)
     AddLeadingI8x16AllTrueDropToDefinedFunctions =>
       metamorphic_add_v128_unary_drop_to_defined_functions(
         mod,
