@@ -156,10 +156,10 @@ Execution rules for all DAE slices
   - Current classification:
     - `0576-2026-05-25-dae-func505-frontier-classification.md` inspected `.tmp/dae-func504-tail-control-artifact/func-defined505-abs522.*` and classifies the frontier as unknown/risky current DAE output-shape drift: signatures match, but the loop induction, digit/error guard, accumulator bounds check, high-temp carrier, and dropped-zero debris differences are too broad and live to normalize away from artifact evidence alone.
     - `0577-2026-05-25-dae-func505-reduction-attribution.md` completed the first reduction/attribution step: the focused parser-loop fixture shape preserves the induction carrier, underscore branch, digit/error guard, overflow guard, accumulator/count stores, high-temp locals, and dropped-zero debris; tracing attributes the rewrite to `mid-exact-literal primary_def=505` plus broad module raw cleanup, with no traced nested-pass replay.
+    - `0578-2026-05-25-dae-func505-default-zero-guard-cleanup.md` verified the suspicious `i32.gt_s (local.get $5) (i32.const 57)` reads an unwritten non-param local that defaults to zero after param removal, added a focused Moon regression, and landed a guarded pass-side cleanup for that semantic-safe subshape. Direct output validated; a full both-canonical replay produced wasm outputs but timed out after 600s before reporting a successor first diff.
   - Next action:
-    - Verify the Starshine high-bound guard carrier in the reduced Func505 shape, especially the printed `i32.gt_s (local.get $5) (i32.const 57)` branch, before changing pass logic.
-    - Turn the reduction into a focused WAT/Moon regression once the expected behavior is clear: either a narrow parser-loop cleanup or a correctness repair if the guard carrier is wrong.
-    - If reduction proves semantic-equivalent local/control cleanup, implement a pass-side cleanup with TDD; if it proves a true condition/local-carrier mismatch, add the smallest regression and repair the pass.
+    - Re-run a bounded artifact comparison or a targeted Func505 extraction to determine whether the default-zero high-guard cleanup advances the first frontier beyond `defined=505 abs=522`.
+    - If the frontier remains in Func505, inspect the next local/control/debris hunk and either add another focused TDD cleanup or classify it as deferred representation drift with evidence.
   - Deliverables:
     - For representation-only drift, add a narrow script fixture and diagnostic-only normalizer.
     - For real DAE drift, add a focused Moon regression where practical and implement the smallest safe selected or generalized pass change.

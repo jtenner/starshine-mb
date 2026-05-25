@@ -991,6 +991,155 @@ fn dae_negate_compare_instr(instr : @lib.Instruction) -> @lib.Instruction? {
 }
 
 ///|
+fn dae_collect_written_locals_instr(
+  instr : @lib.Instruction,
+  written : Array[Bool],
+) -> Unit {
+  match instr {
+    @lib.LocalSet(idx) | @lib.LocalTee(idx) => {
+      let slot = dae_local_idx_slot(idx)
+      if slot >= 0 && slot < written.length() {
+        written[slot] = true
+      }
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      for child in body {
+        dae_collect_written_locals_instr(child, written)
+      }
+    @lib.If(_, then_body, Some(else_body)) => {
+      for child in then_body {
+        dae_collect_written_locals_instr(child, written)
+      }
+      for child in else_body {
+        dae_collect_written_locals_instr(child, written)
+      }
+    }
+    @lib.If(_, then_body, None) =>
+      for child in then_body {
+        dae_collect_written_locals_instr(child, written)
+      }
+    _ => ()
+  }
+}
+
+///|
+fn dae_collect_written_locals(
+  instrs : Array[@lib.Instruction],
+  total_locals : Int,
+) -> Array[Bool] {
+  let written = Array::make(total_locals, false)
+  for instr in instrs {
+    dae_collect_written_locals_instr(instr, written)
+  }
+  written
+}
+
+///|
+fn dae_default_zero_high_guard_is_false(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  written : Array[Bool],
+) -> Bool {
+  match instrs {
+    [@lib.LocalGet(local_idx), @lib.I32Const(@lib.I32(57)), @lib.I32GtS] => {
+      let slot = dae_local_idx_slot(local_idx)
+      slot >= param_count && slot < written.length() && !written[slot]
+    }
+    _ => false
+  }
+}
+
+///|
+fn dae_simplify_default_zero_high_guard_instr(
+  instr : @lib.Instruction,
+  param_count : Int,
+  written : Array[Bool],
+) -> @lib.Instruction {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::block(
+        block_type,
+        @lib.Expr::new(
+          dae_simplify_default_zero_high_guard_instrs(
+            body, param_count, written,
+          ),
+        ),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(
+          dae_simplify_default_zero_high_guard_instrs(
+            body, param_count, written,
+          ),
+        ),
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      @lib.Instruction::try_table(
+        block_type,
+        catches,
+        @lib.Expr::new(
+          dae_simplify_default_zero_high_guard_instrs(
+            body, param_count, written,
+          ),
+        ),
+      )
+    @lib.If(block_type, then_body, Some(else_body)) => {
+      let simplified_then = dae_simplify_default_zero_high_guard_instrs(
+        then_body, param_count, written,
+      )
+      let simplified_else = dae_simplify_default_zero_high_guard_instrs(
+        else_body, param_count, written,
+      )
+      if block_type != @lib.BlockType::void_() &&
+        simplified_then.length() == 1 &&
+        simplified_then[0] == @lib.Instruction::i32_const(@lib.I32(1)) &&
+        dae_default_zero_high_guard_is_false(
+          simplified_else, param_count, written,
+        ) {
+        @lib.Instruction::if_(
+          block_type,
+          simplified_then,
+          Some([@lib.Instruction::i32_const(@lib.I32(0))]),
+        )
+      } else {
+        @lib.Instruction::if_(
+          block_type,
+          simplified_then,
+          Some(simplified_else),
+        )
+      }
+    }
+    @lib.If(block_type, then_body, None) =>
+      @lib.Instruction::if_(
+        block_type,
+        dae_simplify_default_zero_high_guard_instrs(
+          then_body, param_count, written,
+        ),
+        None,
+      )
+    _ => instr
+  }
+}
+
+///|
+fn dae_simplify_default_zero_high_guard_instrs(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  written : Array[Bool],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    out.push(
+      dae_simplify_default_zero_high_guard_instr(instr, param_count, written),
+    )
+  }
+  out
+}
+
+///|
 fn dae_simplify_rewritten_control_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
@@ -2755,13 +2904,24 @@ fn dae_try_rewrite_candidate(
     local_use,
   )
   let body_with_consts = dae_rewrite_param_const_instrs(old_body, const_params)
-  let new_body = dae_simplify_rewritten_add_zero_instrs(
-    dae_simplify_rewritten_control_instrs(
-      dae_rewrite_locals_instrs(body_with_consts, local_map),
-    ),
+  let body_with_rewritten_locals = dae_rewrite_locals_instrs(
+    body_with_consts, local_map,
   )
   let new_locals = @lib.Locals::from_types(removed_written_types)
   new_locals.append(old_locals)
+  let rewritten_total_locals = kept_params.length() + new_locals.length()
+  let rewritten_written_locals = dae_collect_written_locals(
+    body_with_rewritten_locals, rewritten_total_locals,
+  )
+  let new_body = dae_simplify_rewritten_add_zero_instrs(
+    dae_simplify_rewritten_control_instrs(
+      dae_simplify_default_zero_high_guard_instrs(
+        body_with_rewritten_locals,
+        kept_params.length(),
+        rewritten_written_locals,
+      ),
+    ),
+  )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
     @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
   )
@@ -18484,13 +18644,24 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
     local_use,
   )
   let body_with_consts = dae_rewrite_param_const_instrs(old_body, const_params)
-  let new_body = dae_simplify_rewritten_add_zero_instrs(
-    dae_simplify_rewritten_control_instrs(
-      dae_rewrite_locals_instrs(body_with_consts, local_map),
-    ),
+  let body_with_rewritten_locals = dae_rewrite_locals_instrs(
+    body_with_consts, local_map,
   )
   let new_locals = @lib.Locals::from_types(removed_written_types)
   new_locals.append(old_locals)
+  let rewritten_total_locals = kept_params.length() + new_locals.length()
+  let rewritten_written_locals = dae_collect_written_locals(
+    body_with_rewritten_locals, rewritten_total_locals,
+  )
+  let new_body = dae_simplify_rewritten_add_zero_instrs(
+    dae_simplify_rewritten_control_instrs(
+      dae_simplify_default_zero_high_guard_instrs(
+        body_with_rewritten_locals,
+        kept_params.length(),
+        rewritten_written_locals,
+      ),
+    ),
+  )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
     @lib.Func::new(new_locals, @lib.Expr::new(new_body)),
   )

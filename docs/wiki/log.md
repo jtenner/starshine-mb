@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE006 Func505 default-zero guard cleanup
+
+- Verified the suspicious Func505 high-bound carrier from [`raw/research/0577-2026-05-25-dae-func505-reduction-attribution.md`](raw/research/0577-2026-05-25-dae-func505-reduction-attribution.md): the printed `local.get $5; i32.const 57; i32.gt_s` reads an unwritten non-param local that defaults to zero after DAE parameter removal, so the branch is semantic-safe cleanup rather than a correctness repair.
+- Added a focused Moon regression and implemented a guarded DAE candidate cleanup in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), replacing only the exact default-zero high-guard else arm with `i32.const 0` while preserving lower-bound conditions and all effectful operations.
+- Evidence is recorded in [`raw/research/0578-2026-05-25-dae-func505-default-zero-guard-cleanup.md`](raw/research/0578-2026-05-25-dae-func505-default-zero-guard-cleanup.md). Direct output validates; the full both-canonical replay produced wasm outputs but timed out after 600s before a successor first-diff report, so `[DAE]006` remains open for the next frontier extraction. Validation: initial failing `moon test src/passes`, passing `moon test src/passes`, `moon build --target native`, 200-case smoke fuzz with known DAE010 mismatch/tool-failure classes and `0` validation failures, `wasm-opt --all-features` on produced Starshine/Binaryen artifacts, direct Starshine trace (`pass:dae-optimizing elapsed_us=3444026`), `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-25] passes | dae DAE006 Func505 reduction attribution
 
 - Completed the first `[DAE]006` Func505 reduction/attribution step in [`raw/research/0577-2026-05-25-dae-func505-reduction-attribution.md`](raw/research/0577-2026-05-25-dae-func505-reduction-attribution.md).

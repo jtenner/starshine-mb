@@ -3229,7 +3229,25 @@ test "dae-optimizing materializes selected Func505 literal actual" {
   out.write_string(
     (
       #|  (func $target (param i32 i32) (result i32)
-      #|    local.get 0)
+      #|    (local i32 i32)
+      #|    local.get 0
+      #|    local.tee 2
+      #|    i32.const 48
+      #|    i32.lt_s
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      local.get 3
+      #|      i32.const 57
+      #|      i32.gt_s
+      #|    end
+      #|    if
+      #|      i32.const -1
+      #|      return
+      #|    end
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2)
       #|  (func (export "run") (param i32) (result i32)
       #|    local.get 0
       #|    i32.const 55168
@@ -3239,8 +3257,11 @@ test "dae-optimizing materializes selected Func505 literal actual" {
   )
   let optimized = dae_test_run(out.to_string())
   @debug.assert_eq(dae_test_func_params(optimized, 505).length(), 1)
-  let run = optimized.pretty_print_defined_func(506U)
-  assert_false(run.contains("55168"), msg=run)
+  let target = optimized.pretty_print_defined_func(505U)
+  assert_false(target.contains("55168"), msg=target)
+  assert_true(target.contains("local.tee"), msg=target)
+  assert_true(target.contains("i32.lt_s"), msg=target)
+  assert_false(target.contains("i32.gt_s"), msg=target)
 }
 
 ///|
