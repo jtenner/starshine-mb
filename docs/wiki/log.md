@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO FlowScanner call-result refactor
+
+- Added research note [`0643`](./raw/research/0643-2026-05-25-sgo-flow-call-result-refactor.md) for another refactor-only `[SGO]003O` slice, centralizing repeated FlowScanner call boundary handling in `sgo_flow_apply_clean_call_result(...)`.
+- No optimizer behavior changed: tainted call operands still fail, accepted call boundaries still clear the stack and synthesize the same clean result values, and the arm-result scanner's adjacent-`global.get` exception is preserved.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-flow-call-result-refactor-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and the established `25` Binaryen/tool command failures. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO nested-if arm placement guardrails
 
 - Added research note [`0642`](./raw/research/0642-2026-05-25-sgo-nested-if-arm-placement-guardrails.md) for `[SGO]003C`, probing and pinning nested `if (result i32)` arm-placement boundaries.

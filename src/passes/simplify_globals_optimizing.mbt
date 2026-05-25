@@ -828,6 +828,22 @@ fn sgo_flow_pop_clean_then_push_clean(stack : Array[SgoFlowValue]) -> Bool {
 }
 
 ///|
+fn sgo_flow_apply_clean_call_result(
+  stack : Array[SgoFlowValue],
+  push_result? : Bool = true,
+) -> Bool {
+  if sgo_flow_stack_has_taint(stack) {
+    false
+  } else {
+    sgo_flow_clear_stack(stack)
+    if push_result {
+      sgo_flow_push_clean(stack)
+    }
+    true
+  }
+}
+
+///|
 fn sgo_flow_pop_clean_pair(stack : Array[SgoFlowValue]) -> Bool {
   match (sgo_flow_pop(stack), sgo_flow_pop(stack)) {
     (Some(rhs), Some(lhs)) => !rhs.tainted && !lhs.tainted
@@ -1371,11 +1387,9 @@ fn sgo_flow_scan_prefix_until(
           return (false, reads, stack)
         }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if sgo_flow_stack_has_taint(stack) {
+        if !sgo_flow_apply_clean_call_result(stack) {
           return (false, reads, stack)
         }
-        sgo_flow_clear_stack(stack)
-        sgo_flow_push_clean(stack)
         continue
       }
       @lib.Select(_) | @lib.V128Bitselect => {
@@ -1543,11 +1557,9 @@ fn sgo_flow_scan_clean_prefix_until(
           return (false, stack)
         }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if sgo_flow_stack_has_taint(stack) {
+        if !sgo_flow_apply_clean_call_result(stack) {
           return (false, stack)
         }
-        sgo_flow_clear_stack(stack)
-        sgo_flow_push_clean(stack)
         continue
       }
       @lib.Select(_) | @lib.V128Bitselect => {
@@ -1786,17 +1798,16 @@ fn sgo_flow_arm_result_taint_and_reads(
         continue
       }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if sgo_flow_stack_has_taint(stack) {
-          return (false, reads, false)
-        }
-        sgo_flow_clear_stack(stack)
-        if scan + 1 == instrs.length() {
-          sgo_flow_push_clean(stack)
+        let push_result = if scan + 1 == instrs.length() {
+          true
         } else {
           match instrs[scan + 1] {
-            @lib.GlobalGet(_) => ()
-            _ => sgo_flow_push_clean(stack)
+            @lib.GlobalGet(_) => false
+            _ => true
           }
+        }
+        if !sgo_flow_apply_clean_call_result(stack, push_result~) {
+          return (false, reads, false)
         }
         continue
       }
@@ -1947,11 +1958,9 @@ fn sgo_nested_if_arm_flow_outer_if_index(
           _ => return None
         }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if sgo_flow_stack_has_taint(stack) {
+        if !sgo_flow_apply_clean_call_result(stack) {
           return None
         }
-        sgo_flow_clear_stack(stack)
-        sgo_flow_push_clean(stack)
         continue
       }
       @lib.Select(_) | @lib.V128Bitselect => {
@@ -2102,11 +2111,9 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
         continue
       }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if sgo_flow_stack_has_taint(stack) {
+        if !sgo_flow_apply_clean_call_result(stack) {
           return (false, reads, false)
         }
-        sgo_flow_clear_stack(stack)
-        sgo_flow_push_clean(stack)
         continue
       }
       @lib.Select(_) | @lib.V128Bitselect => {
