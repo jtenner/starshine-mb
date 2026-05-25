@@ -371,6 +371,7 @@ pub enum MetamorphicValidTransform {
   AddTrailingI32ConstDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidBlockToDefinedFunctions
+  AddLeadingEmptyVoidLoopToDefinedFunctions
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {
