@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036I1 metamorphic ref-null is-null drop body reshaping
+
+- Completed `[FUZ]1036I1` by adding leading/trailing `ref.null extern; ref.is_null; drop` metamorphic-valid transforms. They insert a nullable reference null, compute a nontrapping null test, and drop the `i32` result at the selected edge of every defined function body without changing locals, result stacks, validation, or observable behavior.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 377 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036H3 metamorphic SIMD lane extract drop body reshaping
 
 - Completed `[FUZ]1036H3` by adding leading/trailing computed-drop metamorphic-valid transforms for SIMD lane extract operators (`i8x16.extract_lane_s/u`, `i16x8.extract_lane_s/u`, `i32x4.extract_lane`, `i64x2.extract_lane`, `f32x4.extract_lane`, and `f64x2.extract_lane`). They insert pure zero-vector operands plus shape-legal lane immediates at the selected edge of every defined function body without changing locals, result stacks, validation, or observable behavior.

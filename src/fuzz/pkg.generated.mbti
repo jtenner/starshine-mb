@@ -630,6 +630,8 @@ pub enum MetamorphicValidTransform {
   AddUnusedGcReferenceLocalsToDefinedFunctions
   AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions
+  AddLeadingRefNullIsNullDropToDefinedFunctions
+  AddTrailingRefNullIsNullDropToDefinedFunctions
   AddLeadingI64ConstDropToDefinedFunctions
   AddTrailingI64ConstDropToDefinedFunctions
   AddLeadingF32ConstDropToDefinedFunctions

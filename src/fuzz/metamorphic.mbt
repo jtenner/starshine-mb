@@ -123,6 +123,8 @@ pub enum MetamorphicValidTransform {
   AddUnusedGcReferenceLocalsToDefinedFunctions
   AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions
+  AddLeadingRefNullIsNullDropToDefinedFunctions
+  AddTrailingRefNullIsNullDropToDefinedFunctions
   AddLeadingI64ConstDropToDefinedFunctions
   AddTrailingI64ConstDropToDefinedFunctions
   AddLeadingF32ConstDropToDefinedFunctions
@@ -608,6 +610,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-ref-null-drop-to-defined-functions"
     AddTrailingRefNullDropToDefinedFunctions =>
       "add-trailing-ref-null-drop-to-defined-functions"
+    AddLeadingRefNullIsNullDropToDefinedFunctions =>
+      "add-leading-ref-null-is-null-drop-to-defined-functions"
+    AddTrailingRefNullIsNullDropToDefinedFunctions =>
+      "add-trailing-ref-null-is-null-drop-to-defined-functions"
     AddLeadingI64ConstDropToDefinedFunctions =>
       "add-leading-i64-const-drop-to-defined-functions"
     AddTrailingI64ConstDropToDefinedFunctions =>
@@ -2330,6 +2336,27 @@ fn metamorphic_add_simd_replace_lane_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_ref_null_is_null_drop_instrs() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+    @lib.Instruction::ref_is_null(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_ref_null_is_null_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(
+    mod,
+    leading,
+    metamorphic_ref_null_is_null_drop_instrs(),
+  )
+}
+
+///|
 fn metamorphic_add_leading_ref_null_drop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -3742,6 +3769,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedGcReferenceLocalsToDefinedFunctions,
     AddLeadingRefNullDropToDefinedFunctions,
     AddTrailingRefNullDropToDefinedFunctions,
+    AddLeadingRefNullIsNullDropToDefinedFunctions,
+    AddTrailingRefNullIsNullDropToDefinedFunctions,
     AddLeadingI64ConstDropToDefinedFunctions,
     AddTrailingI64ConstDropToDefinedFunctions,
     AddLeadingF32ConstDropToDefinedFunctions,
@@ -4617,6 +4646,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_ref_null_drop_to_defined_functions(mod)
     AddTrailingRefNullDropToDefinedFunctions =>
       metamorphic_add_trailing_ref_null_drop_to_defined_functions(mod)
+    AddLeadingRefNullIsNullDropToDefinedFunctions =>
+      metamorphic_add_ref_null_is_null_drop_to_defined_functions(mod, true)
+    AddTrailingRefNullIsNullDropToDefinedFunctions =>
+      metamorphic_add_ref_null_is_null_drop_to_defined_functions(mod, false)
     AddLeadingI64ConstDropToDefinedFunctions =>
       metamorphic_add_leading_i64_const_drop_to_defined_functions(mod)
     AddTrailingI64ConstDropToDefinedFunctions =>
